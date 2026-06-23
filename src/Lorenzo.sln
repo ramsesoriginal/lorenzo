@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lorenzo.API", "Lorenzo.API\Lorenzo.API.csproj", "{7CB25341-EC6E-4FDF-901E-A03C5CF8A392}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lorenzo.Application", "Lorenzo.Application\Lorenzo.Application.csproj", "{5F535206-6BAC-4786-A9C3-28C4F4BFA3AA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lorenzo.Domain", "Lorenzo.Domain\Lorenzo.Domain.csproj", "{369F79F8-4A6B-4125-8640-786225D3508E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lorenzo.Infrastructure", "Lorenzo.Infrastructure\Lorenzo.Infrastructure.csproj", "{C50D599F-4BAC-4806-9D5F-18F9270EA1AA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lorenzo.Tests.Integration", "Lorenzo.Tests.Integration\Lorenzo.Tests.Integration.csproj", "{0AAA5983-AAF2-46FC-92C0-95CF52F4C9D5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lorenzo.Tests.Unit", "Lorenzo.Tests.Unit\Lorenzo.Tests.Unit.csproj", "{9B5919DF-5AAA-42C5-B7AA-235F8CA2735F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7CB25341-EC6E-4FDF-901E-A03C5CF8A392}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CB25341-EC6E-4FDF-901E-A03C5CF8A392}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7CB25341-EC6E-4FDF-901E-A03C5CF8A392}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CB25341-EC6E-4FDF-901E-A03C5CF8A392}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F535206-6BAC-4786-A9C3-28C4F4BFA3AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F535206-6BAC-4786-A9C3-28C4F4BFA3AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F535206-6BAC-4786-A9C3-28C4F4BFA3AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F535206-6BAC-4786-A9C3-28C4F4BFA3AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{369F79F8-4A6B-4125-8640-786225D3508E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{369F79F8-4A6B-4125-8640-786225D3508E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{369F79F8-4A6B-4125-8640-786225D3508E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{369F79F8-4A6B-4125-8640-786225D3508E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C50D599F-4BAC-4806-9D5F-18F9270EA1AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C50D599F-4BAC-4806-9D5F-18F9270EA1AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C50D599F-4BAC-4806-9D5F-18F9270EA1AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C50D599F-4BAC-4806-9D5F-18F9270EA1AA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0AAA5983-AAF2-46FC-92C0-95CF52F4C9D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0AAA5983-AAF2-46FC-92C0-95CF52F4C9D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0AAA5983-AAF2-46FC-92C0-95CF52F4C9D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0AAA5983-AAF2-46FC-92C0-95CF52F4C9D5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B5919DF-5AAA-42C5-B7AA-235F8CA2735F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B5919DF-5AAA-42C5-B7AA-235F8CA2735F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B5919DF-5AAA-42C5-B7AA-235F8CA2735F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B5919DF-5AAA-42C5-B7AA-235F8CA2735F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
