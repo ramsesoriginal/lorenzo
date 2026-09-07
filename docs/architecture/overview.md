@@ -24,6 +24,7 @@ None of this is modeled as a schema yet — no ADR/RFC for the entity design. Th
 - **Multi-tenancy**: [ADR 0002](../adr/0002-multi-tenancy-shared-schema-rls.md) — shared schema + PostgreSQL row-level security. Not implemented yet — `apps/api` has no domain tables to scope.
 - **Observability**: health/readiness/metrics and structured logs exist in `apps/api` from its first commit, as intended, plus OpenTelemetry tracing (console exporter — no collector in this project's infra yet).
 - **Auth**: [ADR 0009](../adr/0009-identity-provider-authgear.md) decided Authgear as the identity provider; not built yet.
+- **Deployment**: [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) — Google Cloud Run + Neon, continuously deployed on every push to `main` that touches `apps/api/` (`.github/workflows/deploy-api.yml`). Needs one-time setup — see [docs/operations/deployment-setup.md](../operations/deployment-setup.md).
 
 ## Roadmap
 

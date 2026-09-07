@@ -13,3 +13,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0008 - Background jobs and rate limiting: taskiq + fastapi-limiter, deferred](0008-deferred-taskiq-and-fastapi-limiter.md)
 - [0009 - Identity provider: Authgear (self-hosted OIDC)](0009-identity-provider-authgear.md)
 - [0010 - User, tenant, and membership model](0010-user-tenant-membership-model.md)
+- [0011 - Deploy target: Google Cloud Run + Neon](0011-deploy-target-cloud-run-neon.md)

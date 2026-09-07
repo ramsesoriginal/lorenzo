@@ -1,0 +1,97 @@
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: false # queue, never race two deploys/migrations
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # Self-contained rather than depending on ci.yml via workflow_run - simpler,
+  # and re-running tests costs nothing on a public repo's free Actions
+  # minutes. A broken push can never reach deploy even if this workflow
+  # somehow ran on its own.
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lorenzo
+          POSTGRES_PASSWORD: lorenzo
+          POSTGRES_DB: lorenzo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise run lint
+        working-directory: apps/api
+      - run: mise run test
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - id: meta
+        run: echo "image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/lorenzo-api/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/api
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Run migrations against Neon
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv sync --locked
+          uv run alembic upgrade head
+
+      - id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: lorenzo-api
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ steps.meta.outputs.image }}
+          env_vars: DATABASE_URL=${{ secrets.DATABASE_URL }}
+
+      - name: Verify the deployed revision is actually ready
+        run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/readyz"
