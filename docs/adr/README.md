@@ -10,3 +10,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0005 - Git branching and merge strategy](0005-git-branching-and-merge-strategy.md)
 - [0006 - License: AGPL-3.0](0006-agpl-3.0-license.md)
 - [0007 - apps/ layout: one directory per deployable app, multiplicity per type](0007-apps-layout-and-multiplicity.md)
+- [0008 - Background jobs and rate limiting: taskiq + fastapi-limiter, deferred](0008-deferred-taskiq-and-fastapi-limiter.md)
