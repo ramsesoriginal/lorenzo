@@ -2,7 +2,7 @@
 
 [Conventional Commits](https://www.conventionalcommits.org/), enforced by a commit-msg hook:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]

@@ -23,4 +23,4 @@ C4Context
   Rel(api, db, "SQL, tenant-scoped")
 ```
 
-Every client (web, bot, mobile) is a narrower view onto the same API, and there can be more than one of each — see [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md) and the [architecture overview](../overview.md).
+Every client (web, bot, mobile) is a narrower view onto the same API, and there can be more than one of each — see [ADR 0007](../../adr/0007-apps-layout-and-multiplicity.md) and the [architecture overview](../overview.md).
