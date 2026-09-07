@@ -34,6 +34,23 @@ jobs:
       fail-fast: false
       matrix:
         app: ${{ fromJson(needs.discover.outputs.apps) }}
+    # Scoped to the whole job, so every matrix entry gets it even once a
+    # future non-Postgres app joins - accepted for now, revisit if that
+    # actually happens (see docs/adr/0007 discovery pattern).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lorenzo
+          POSTGRES_PASSWORD: lorenzo
+          POSTGRES_DB: lorenzo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
@@ -41,6 +58,8 @@ jobs:
         working-directory: ${{ matrix.app }}
       - run: mise run test
         working-directory: ${{ matrix.app }}
+        env:
+          DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
 
   # discover/test report no useful status while apps/ has nothing with a
   # mise.toml yet (the matrix is empty, so test is skipped, not failed).
