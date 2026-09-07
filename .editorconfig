@@ -8,5 +8,18 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
-[*.{cs,csproj}]
+[*.py]
 indent_size = 4
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[Dockerfile]
+indent_size = 4
+
+# Trailing double-space is a Markdown hard line break — never strip it.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{bat,cmd}]
+end_of_line = crlf

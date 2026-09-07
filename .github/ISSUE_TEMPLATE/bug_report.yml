@@ -1,0 +1,38 @@
+name: Bug report
+description: Something doesn't work the way it should
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Backend API
+        - Web frontend
+        - Discord bot
+        - Mobile app
+        - Tooling / CI
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: false
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, browser, versions — whatever's relevant
+    validations:
+      required: false

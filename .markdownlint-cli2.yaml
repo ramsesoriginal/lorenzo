@@ -1,0 +1,5 @@
+config:
+  default: true
+  MD013: false # line-length - this repo writes long prose lines, not hard-wrapped
+  MD033: false # inline HTML - not used deliberately, but no reason to forbid it
+  MD041: false # first-line-must-be-h1 - not guaranteed for every file going forward

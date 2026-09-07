@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Finds every apps/*/mise.toml - that file is the "this is a real,
+  # scaffolded app" marker (see docs/adr/0007-apps-layout-and-multiplicity.md).
+  # With zero apps scaffolded this produces `[]`, which is valid: the test
+  # job's matrix below just runs zero times.
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.find.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        run: |
+          apps=$(find apps -mindepth 2 -maxdepth 2 -name mise.toml | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          echo "Discovered apps: $apps"
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: discover
+    if: needs.discover.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.discover.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise run lint
+        working-directory: ${{ matrix.app }}
+      - run: mise run test
+        working-directory: ${{ matrix.app }}
+
+  # discover/test report no useful status while apps/ has nothing with a
+  # mise.toml yet (the matrix is empty, so test is skipped, not failed).
+  # This job always runs so it can be the one required status check - see
+  # docs/operations/github-setup.md.
+  ci-summary:
+    needs: [discover, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "A required job failed."
+            exit 1
+          fi
+          echo "OK"

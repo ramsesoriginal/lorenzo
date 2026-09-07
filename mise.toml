@@ -1,0 +1,15 @@
+[tools]
+python = "3.13"
+node = "22"
+uv = "0.12.3"
+
+# Future toolchains, added here once those apps actually start:
+# ruby = "3.4"
+# kotlin = "2.1"
+# dotnet = "9"
+
+# Once the first app under apps/ exists with its own mise.toml, this file
+# also gains a [monorepo] section (config_roots + task fan-out so
+# `mise run lint`/`test`/`dev` at the root reach every app) - see
+# docs/adr/0007-apps-layout-and-multiplicity.md and
+# docs/guides/adding-an-app.md.
