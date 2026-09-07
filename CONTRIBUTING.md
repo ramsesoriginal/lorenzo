@@ -9,10 +9,11 @@ Structure, tooling, and documentation come first; application code only gets wri
 ## Dev environment
 
 ```bash
-mise install   # pins every language toolchain this repo will use
+mise install                                        # pins every language toolchain this repo uses
+docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
 ```
 
-That's genuinely all there is right now — see [docs/guides/getting-started.md](docs/guides/getting-started.md).
+See [docs/guides/getting-started.md](docs/guides/getting-started.md) for the full from-clone walkthrough.
 
 ## Git strategy ([ADR 0005](docs/adr/0005-git-branching-and-merge-strategy.md))
 
@@ -28,7 +29,7 @@ mise run lint
 mise run test
 ```
 
-(Once at least one app exists to lint/test — [ci.yml](.github/workflows/ci.yml) discovers apps automatically, nothing to configure per app.)
+[ci.yml](.github/workflows/ci.yml) discovers apps automatically — nothing to configure per app, including the next one.
 
 ## Architectural changes
 

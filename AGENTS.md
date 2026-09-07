@@ -4,25 +4,30 @@ Orientation for AI coding agents (and humans in a hurry) working in this repo.
 
 ## What this is
 
-Lorenzo: a planned multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain/README.md) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
+Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain/README.md) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
 
-**Nothing under `apps/` has been built yet.** This repo is currently just structure, tooling, and documentation — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). Do not add application code speculatively; an app gets built only once it's explicitly scoped in conversation with the user.
+**`apps/api` exists as infrastructure only** (health/readiness/metrics, DB connectivity, no domain models, no auth) — everything else under `apps/` is still unbuilt, per [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). Do not add application code speculatively; an app (or a domain feature inside `apps/api`) gets built only once it's explicitly scoped in conversation with the user.
 
 ## Map
 
 | Path | Purpose |
 |---|---|
-| `apps/*` | One directory per deployable app, named by purpose (not type) — none exist yet |
+| `apps/api` | Backend REST API — infrastructure only so far, no domain models |
+| `apps/*` (other) | One directory per deployable app, named by purpose (not type) — none exist yet |
 | `packages/*` | Extracted generic libraries, each its own small, independently versioned package — none exist yet |
 | `docs/adr` | Why things are the way they are — read before proposing an architectural change |
 
 ## Commands
 
 ```bash
-mise install   # toolchains — the only thing that currently does anything
+mise install                                        # toolchains
+docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
+mise run //apps/api:dev                              # apps/api, with autoreload
+mise run lint                                          # fans out to every app (currently just apps/api)
+mise run test                                           # ditto
 ```
 
-Once an app exists, it owns `dev`/`lint`/`test`/`build` tasks in its own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically.
+`apps/api` already owns `dev`/`lint`/`test`/`build` tasks in its own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
 
 ## Conventions
 

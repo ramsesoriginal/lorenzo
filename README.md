@@ -10,7 +10,7 @@
 
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. It is currently at the **structure and tooling stage** — no application code exists yet. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists as infrastructure (health/readiness/metrics, DB connectivity — no domain models or auth yet); everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 |---|---|---|
@@ -23,11 +23,13 @@ Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007]
 
 ## Quick start
 
-There's nothing to run yet. What does work:
-
 ```bash
-mise install   # fetches the pinned toolchains (python, node, uv)
+mise install                                      # fetches the pinned toolchains
+docker compose -f infra/docker-compose.yml up -d  # Postgres
+mise run //apps/api:dev                            # apps/api, with autoreload
 ```
+
+Then <http://localhost:8000/healthz> and <http://localhost:8000/docs>.
 
 ## Installation
 
@@ -67,7 +69,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Immediate next step: scope and scaffold the first real app.
+Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Immediate next step: the Authgear identity provider and the User/Tenant/Membership model ([ADR 0009](docs/adr/0009-identity-provider-authgear.md), [ADR 0010](docs/adr/0010-user-tenant-membership-model.md)) — decided, not yet built.
 
 ## License
 

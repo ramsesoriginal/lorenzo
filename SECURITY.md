@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Lorenzo is pre-1.0 and currently has no application code — just the repository foundation. Only the latest commit on `main` is supported. Once apps exist and reach 1.0, this section will track supported versions per app.
+Lorenzo is pre-1.0. `apps/api` exists as infrastructure only (no domain models, no auth yet); nothing else under `apps/` exists. Only the latest commit on `main` is supported. Once apps reach 1.0, this section will track supported versions per app.
 
 ## Reporting a vulnerability
 

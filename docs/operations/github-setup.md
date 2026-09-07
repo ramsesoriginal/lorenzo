@@ -12,7 +12,7 @@ Settings → Rules → Rulesets → New ruleset → Import a ruleset → select 
 
 This gives you: no force-push/deletion of `main`, PRs required, merge commits only (squash/rebase disabled — see [ADR 0005](../adr/0005-git-branching-and-merge-strategy.md)), and `ci-summary` as a required status check.
 
-Once at least one app exists and you've watched a few CodeQL runs, confirm the exact check names GitHub reports for the matrix jobs and add them to the ruleset's `required_status_checks` too.
+`apps/api` exists now, so this is actionable: once it's merged to `main` and you've watched a few real CodeQL runs against actual Python source, confirm the exact check names GitHub reports for the matrix jobs and add them to the ruleset's `required_status_checks` too.
 
 ## Security
 

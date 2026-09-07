@@ -1,8 +1,8 @@
 # Releasing
 
-Fully automated by release-please ([ADR 0003](../adr/0003-polyglot-monorepo-tooling.md)) — this doc explains what the automation will do, in case it needs debugging. It does nothing yet: `release-please-config.json` has zero packages registered.
+Fully automated by release-please ([ADR 0003](../adr/0003-polyglot-monorepo-tooling.md)) — this doc explains what the automation will do, in case it needs debugging. `apps/api` is registered in `release-please-config.json`, but the automation hasn't actually run yet — it only triggers on pushes to `main`, and this work is still on a feature branch. It'll start producing a release PR the first time `apps/api`'s commits land on `main`.
 
-## The flow, once at least one app/package is registered
+## The flow, once triggered
 
 1. Commits land on `main` via merge commits (see [ADR 0005](../adr/0005-git-branching-and-merge-strategy.md)), each following Conventional Commits.
 2. `release.yml` runs release-please on every push to `main`. It opens/updates a standing "release PR" per package that changed, with the version bump and changelog entry computed from commit messages since the last release.
