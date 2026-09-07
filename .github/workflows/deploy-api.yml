@@ -77,7 +77,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.image }}
 
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
 
       - name: Run migrations against Neon
         working-directory: apps/api
