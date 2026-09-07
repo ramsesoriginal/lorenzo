@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(title="Lorenzo API", version="0.1.0", lifespan=lifespan)
 
+    register_error_handlers(app)
     app.include_router(health_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")

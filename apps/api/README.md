@@ -31,3 +31,7 @@ mise run //apps/api:test
 | GET | `/metrics` | Prometheus |
 
 Full interactive docs at `/docs` once running.
+
+## Errors
+
+Every error response — unhandled exceptions, request validation failures, `HTTPException`s including plain 404s — is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) "Problem Details" (`application/problem+json`), via [fastapi-problem](https://github.com/NRWLDev/fastapi-problem/). No custom problem types yet; wired and proven (`tests/test_errors.py`), waiting for the first domain-specific error worth distinguishing.
