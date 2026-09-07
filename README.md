@@ -47,7 +47,8 @@ Start with [docs/architecture/overview.md](docs/architecture/overview.md) and th
 
 ## Documentation
 
-- [Architecture](docs/architecture)
+- [Domain](docs/domain) — what Lorenzo actually is, in plain language: the world model, repositories, entities/knowledge/visibility
+- [Architecture](docs/architecture) — the technical design
 - [ADRs](docs/adr) — why things are the way they are
 - [Guides](docs/guides) — task-oriented how-tos
 - [Operations](docs/operations) — releasing, GitHub setup

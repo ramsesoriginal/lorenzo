@@ -15,11 +15,9 @@ Everything other than the backend API is a *view* onto it — narrower, audience
 
 ## Domain shape (why the data model will look the way it does)
 
-Lorenzo's job is tracking, for game masters/authors: **where** something is (physical location, position in space, sphere, plane, parallel timeline, or multiverse — several independent, not-always-linear coordinate systems at once), **who knows what** (knowledge is per-character/per-point-in-time, not global), and **who can see what** (every piece of text/stats is split by audience: GM-only, everyone, a subset of players, player-authored).
+The full picture — the layered world model, repositories, entities/knowledge/visibility, and how different client apps narrow all of it down — lives in [docs/domain](../domain), not here. This section is just the one-line technical summary: **where** something is (several independent, not-always-linear coordinate systems at once, not one hierarchy), **who knows what** (per-character, per-point-in-time, not global), and **who can see what** (every piece of text/stats split by audience).
 
-A **repository** is a reusable setting (a published campaign setting, a homebrew world, an entire multiverse) that a game can draw on; a game/campaign can use zero, one, or several repositories at once, and several campaigns can share one repository's live state or run independent instances of it.
-
-None of this is modeled yet — no schema, no ADR/RFC for the entity design. That's real design work for when the backend API is actually scoped, not something to improvise into this foundation pass.
+None of this is modeled as a schema yet — no ADR/RFC for the entity design. That's real design work for when the backend API is actually scoped, not something to improvise into this foundation pass.
 
 ## Cross-cutting concerns (intentions, not yet built)
 

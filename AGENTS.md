@@ -4,7 +4,7 @@ Orientation for AI coding agents (and humans in a hurry) working in this repo.
 
 ## What this is
 
-Lorenzo: a planned multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
+Lorenzo: a planned multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
 
 **Nothing under `apps/` has been built yet.** This repo is currently just structure, tooling, and documentation — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). Do not add application code speculatively; an app gets built only once it's explicitly scoped in conversation with the user.
 
