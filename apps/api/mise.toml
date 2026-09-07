@@ -3,8 +3,8 @@ description = "Run the API with autoreload"
 run = "uv run fastapi dev src/lorenzo_api/main.py"
 
 [tasks.lint]
-description = "Ruff check + format check"
-run = ["uv run ruff check .", "uv run ruff format --check ."]
+description = "Ruff check + format check + mypy"
+run = ["uv run ruff check .", "uv run ruff format --check .", "uv run mypy src"]
 
 [tasks.format]
 description = "Ruff autoformat"

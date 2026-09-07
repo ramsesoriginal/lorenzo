@@ -21,6 +21,7 @@ dev = [
   "pytest-cov>=6.0",
   "httpx>=0.28",
   "ruff>=0.8",
+  "mypy>=2.3.1",
 ]
 
 [tool.ruff]
@@ -36,6 +37,12 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # generic "no function calls in defaults" check (B008) doesn't know
 # that FastAPI special-cases these, so it's a false positive here.
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Header"]
+
+[tool.mypy]
+python_version = "3.14"
+plugins = ["pydantic.mypy"]
+strict = true
+files = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
