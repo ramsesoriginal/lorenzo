@@ -22,7 +22,7 @@ jobs:
     outputs:
       languages: ${{ steps.find.outputs.languages }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: find
         run: |
           langs="[]"
@@ -47,7 +47,7 @@ jobs:
       matrix:
         language: ${{ fromJson(needs.discover.outputs.languages) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
@@ -57,5 +57,5 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/dependency-review-action@v5
