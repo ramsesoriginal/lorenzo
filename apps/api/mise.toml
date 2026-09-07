@@ -1,0 +1,19 @@
+[tasks.dev]
+description = "Run the API with autoreload"
+run = "uv run fastapi dev src/lorenzo_api/main.py"
+
+[tasks.lint]
+description = "Ruff check + format check + mypy"
+run = ["uv run ruff check .", "uv run ruff format --check .", "uv run mypy src"]
+
+[tasks.format]
+description = "Ruff autoformat"
+run = "uv run ruff format ."
+
+[tasks.test]
+description = "Run the test suite with coverage"
+run = "uv run pytest --cov"
+
+[tasks.build]
+description = "Build the container image"
+run = "docker build -t lorenzo-api ."

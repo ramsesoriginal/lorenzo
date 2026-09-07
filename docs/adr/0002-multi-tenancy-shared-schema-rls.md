@@ -1,6 +1,6 @@
 # 0002 - Multi-tenancy: shared schema + PostgreSQL row-level security
 
-Status: accepted
+Status: accepted, refined by [ADR 0010](0010-user-tenant-membership-model.md)
 
 ## Context
 
@@ -10,7 +10,7 @@ Database- and schema-per-tenant don't fit here: tenants are numerous and small (
 
 ## Decision
 
-Shared schema. Every tenant-scoped table will get a `tenant_id` column and a PostgreSQL row-level security policy that filters on `current_setting('app.tenant_id')`. The backend API's middleware will resolve the tenant from the request's auth token and run the equivalent of `SET LOCAL app.tenant_id` at the start of every request's transaction.
+Shared schema. Every tenant-scoped table will get a `tenant_id` column and a PostgreSQL row-level security policy that filters on `current_setting('app.tenant_id')`. The backend API's middleware will resolve the tenant from the request's currently-active tenant selection (validated against the user's memberships — see [ADR 0010](0010-user-tenant-membership-model.md), since a user can belong to more than one tenant) and run the equivalent of `SET LOCAL app.tenant_id` at the start of every request's transaction.
 
 Application-level filtering (a scoped query helper) will still be required — RLS is meant as the safety net that makes a missed filter merely redundant instead of catastrophic, not a replacement for filtering deliberately.
 

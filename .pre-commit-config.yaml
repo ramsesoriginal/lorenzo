@@ -18,5 +18,27 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
 
-# Language-specific hooks (ruff, biome, etc.) get added here alongside the
-# first app that needs them - see docs/guides/adding-an-app.md.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^apps/api/
+      - id: ruff-format
+        files: ^apps/api/
+
+  # mypy needs the project's own dependencies (Pydantic plugin, stubs) on its
+  # path, which the official pre-commit mirror doesn't give it without
+  # duplicating them here - running it through the project's own toolchain
+  # is the same reasoning as the ruff hooks above.
+  - repo: local
+    hooks:
+      - id: mypy-api
+        name: mypy (apps/api)
+        entry: uv run --directory apps/api mypy src
+        language: system
+        files: ^apps/api/src/.*\.py$
+        pass_filenames: false
+
+# Further language-specific hooks (biome, etc.) get added here alongside
+# the next app that needs them - see docs/guides/adding-an-app.md.

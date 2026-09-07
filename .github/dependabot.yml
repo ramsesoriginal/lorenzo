@@ -2,10 +2,24 @@ version: 2
 
 updates:
   # Add a package-ecosystem entry per app/package once it exists — see
-  # docs/guides/adding-an-app.md. Only github-actions applies right now.
+  # docs/guides/adding-an-app.md.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore(ci)"
+
+  - package-ecosystem: "uv"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"

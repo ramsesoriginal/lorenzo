@@ -1,0 +1,100 @@
+# Deployment setup (manual, one-time)
+
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. These steps need an actual Google Cloud and Neon account — I have neither, so none of this has been run or verified end to end. The `gcloud` commands below follow Google's own documented Workload Identity Federation pattern; double-check flag names against [Google's current WIF docs](https://cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds) if any of them error out.
+
+## Neon (Postgres)
+
+1. Sign up at [neon.tech](https://neon.tech), create a project. Pick a region close to whatever Cloud Run region you use below.
+2. Use the default database Neon creates (or make a new one).
+3. Copy the **pooled** connection string (Neon distinguishes pooled vs. direct — pooled fits a scale-to-zero app better). It looks like `postgresql://user:pass@host/dbname`.
+4. **Rewrite the scheme for asyncpg**: apps/api needs `postgresql+asyncpg://...`, not plain `postgresql://...` — SQLAlchemy picks its driver from that prefix, and without `+asyncpg` it'll try to load a sync driver that isn't even installed. Just insert `+asyncpg` after `postgresql`.
+
+This becomes the `DATABASE_URL` secret below.
+
+## Google Cloud
+
+Variables used throughout — adjust `PROJECT_ID` (must be globally unique) and `REGION`:
+
+```bash
+export PROJECT_ID="lorenzo-api"
+export REGION="europe-west1"
+export REPO_NAME="lorenzo-api"
+export SA_NAME="github-deployer"
+export GITHUB_REPO="ramsesoriginal/lorenzo"
+```
+
+**1. Project and APIs:**
+
+```bash
+gcloud projects create "$PROJECT_ID"
+gcloud config set project "$PROJECT_ID"
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com iamcredentials.googleapis.com
+```
+
+(This is also where you'll be prompted to attach a billing account — required to stay in Cloud Run's free quota since February 2026, no charge if you stay under it.)
+
+**2. Artifact Registry** (where the built image lives):
+
+```bash
+gcloud artifacts repositories create "$REPO_NAME" --repository-format=docker --location="$REGION"
+```
+
+**3. Service account GitHub Actions will act as**, scoped to exactly three roles — not broader:
+
+```bash
+gcloud iam service-accounts create "$SA_NAME" --display-name="GitHub Actions deployer"
+
+SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+
+for role in roles/run.admin roles/artifactregistry.writer roles/iam.serviceAccountUser; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="$role"
+done
+```
+
+**4. Workload Identity Federation** — trust GitHub's OIDC tokens instead of a stored key:
+
+```bash
+gcloud iam workload-identity-pools create "github-pool" \
+  --location="global" \
+  --display-name="GitHub Actions"
+
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --location="global" \
+  --workload-identity-pool="github-pool" \
+  --display-name="GitHub" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository=='${GITHUB_REPO}'" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
+```
+
+The `--attribute-condition` is what restricts this to *this exact repo* — without it, any repo with a matching provider config could impersonate the service account.
+
+**5. Let only this repo's workflows impersonate the service account:**
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+
+gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/${GITHUB_REPO}"
+```
+
+**6. Values for GitHub** — print them once everything above succeeds:
+
+```bash
+echo "GCP_PROJECT_ID=$PROJECT_ID"
+echo "GCP_REGION=$REGION"
+echo "GCP_SERVICE_ACCOUNT=$SA_EMAIL"
+echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+```
+
+## GitHub setup
+
+Create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments), and add:
+
+- **Secret**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`.
+- **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. These aren't secrets (they're identifiers, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
+
+Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`.

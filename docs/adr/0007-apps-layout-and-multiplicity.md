@@ -16,6 +16,6 @@ The one thing every real app provides, regardless of language, is a small task c
 
 ## Consequences
 
-- Nothing under `apps/` exists yet — this ADR records the convention, not an implementation. See [docs/guides/adding-an-app.md](../guides/adding-an-app.md) for the concrete steps when the first one is scaffolded.
+- `apps/api` is the first real example of this convention (named by purpose - it's the one singular backend, not one of many - with the `mise.toml` task contract in place). Everything else under `apps/` is still unbuilt. See [docs/guides/adding-an-app.md](../guides/adding-an-app.md) for the concrete steps for the next one.
 - Naming discipline matters more than usual: a purpose-driven name (`gm-console`) has to be chosen deliberately, unlike a type-based name (`web`) that would have been obvious but wrong.
 - Anything that assumed "the" web app or "the" mobile app (issue templates, docs, future code) needs to think in terms of categories with multiplicity, not singletons.

@@ -24,4 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: lycheeverse/lychee-action@v2
         with:
-          args: --no-progress '**/*.md'
+          # localhost URLs are illustrative ("once running, visit this") not
+          # real links to validate - there's obviously nothing listening on
+          # localhost in a CI runner.
+          args: --no-progress --exclude 'localhost' '**/*.md'
