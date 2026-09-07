@@ -36,7 +36,7 @@ jobs:
         app: ${{ fromJson(needs.discover.outputs.apps) }}
     steps:
       - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
       - run: mise run lint
         working-directory: ${{ matrix.app }}
       - run: mise run test
