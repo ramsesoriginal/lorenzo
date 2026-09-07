@@ -14,6 +14,12 @@ This gives you: no force-push/deletion of `main`, PRs required, merge commits on
 
 `apps/api` exists now, so this is actionable: once it's merged to `main` and you've watched a few real CodeQL runs against actual Python source, confirm the exact check names GitHub reports for the matrix jobs and add them to the ruleset's `required_status_checks` too.
 
+## Actions: allow workflows to open pull requests
+
+Settings → Actions → General → Workflow permissions → check **"Allow GitHub Actions to create and approve pull requests"**.
+
+GitHub disables this by default on every repo, regardless of visibility. `release-please-action` (`.github/workflows/release.yml`) needs it to open its release PRs — it authenticates as the workflow's own `GITHUB_TOKEN`, unlike Dependabot, which has a separate exemption built into GitHub and opens PRs fine either way. Confirmed via a real failed run: release-please got as far as creating its release branch and commit, then failed on the PR-creation API call with `GitHub Actions is not permitted to create or approve pull requests.` Nothing to fix in the workflow itself — this is purely the one-time repo setting.
+
 ## Security
 
 Settings → Code security:
