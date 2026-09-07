@@ -8,6 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
+from lorenzo_api.observability.tracing import configure_tracing
 
 
 @asynccontextmanager
@@ -23,6 +24,9 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+    # Stashed on app.state so tests can attach their own span processor
+    # (an InMemorySpanExporter) to inspect real spans - see test_tracing.py.
+    app.state.tracer_provider = configure_tracing(app)
 
     # No endpoint returns Page[...] yet - there's no list endpoint at all.
     # Wired now so the first one that needs it doesn't need this step too.

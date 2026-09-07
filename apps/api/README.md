@@ -39,3 +39,7 @@ Every error response — unhandled exceptions, request validation failures, `HTT
 ## Pagination
 
 [fastapi-pagination](https://github.com/uriyyo/fastapi-pagination) is wired (`add_pagination(app)` in `main.py`) but unused so far — there's no list endpoint yet. The first one that needs paging returns `Page[...]` and gets it for free.
+
+## Tracing
+
+OpenTelemetry instruments FastAPI (HTTP spans) and SQLAlchemy (query spans) — see `src/lorenzo_api/observability/tracing.py`. Exports to the console only, on purpose: there's no trace collector anywhere in this project's infrastructure yet, and adding the OTLP exporter for a collector that doesn't exist isn't something that could actually be verified. `tests/test_tracing.py` proves real spans are produced, not just that setup code runs without erroring. When there's a real collector to point at: add `opentelemetry-exporter-otlp`, export via OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
