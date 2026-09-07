@@ -1,3 +1,8 @@
+monorepo_root = true
+
+[monorepo]
+config_roots = ["apps/api"]
+
 [tools]
 python = "3.13"
 node = "22"
@@ -8,8 +13,18 @@ uv = "0.12.3"
 # kotlin = "2.1"
 # dotnet = "9"
 
-# Once the first app under apps/ exists with its own mise.toml, this file
-# also gains a [monorepo] section (config_roots + task fan-out so
-# `mise run lint`/`test`/`dev` at the root reach every app) - see
-# docs/adr/0007-apps-layout-and-multiplicity.md and
-# docs/guides/adding-an-app.md.
+[tasks.dev]
+description = "Run every app's dev task"
+run = "mise run '//...:dev'"
+
+[tasks.lint]
+description = "Lint everything (fans out to every app)"
+run = "mise run '//...:lint'"
+
+[tasks.format]
+description = "Format everything (fans out to every app)"
+run = "mise run '//...:format'"
+
+[tasks.test]
+description = "Test everything (fans out to every app)"
+run = "mise run '//...:test'"

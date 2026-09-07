@@ -18,5 +18,14 @@ repos:
       - id: conventional-pre-commit
         stages: [commit-msg]
 
-# Language-specific hooks (ruff, biome, etc.) get added here alongside the
-# first app that needs them - see docs/guides/adding-an-app.md.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^apps/api/
+      - id: ruff-format
+        files: ^apps/api/
+
+# Further language-specific hooks (biome, etc.) get added here alongside
+# the next app that needs them - see docs/guides/adding-an-app.md.
