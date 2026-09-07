@@ -4,9 +4,11 @@ monorepo_root = true
 config_roots = ["apps/api"]
 
 [tools]
-python = "3.13"
 node = "22"
 uv = "0.12.3"
+
+# Python itself is deliberately not listed here - it's controlled by uv
+# (see apps/api/.python-version), not mise. mise still provides uv itself.
 
 # Future toolchains, added here once those apps actually start:
 # ruby = "3.4"

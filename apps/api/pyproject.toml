@@ -3,7 +3,7 @@ name = "lorenzo-api"
 version = "0.1.0"
 description = "Lorenzo backend REST API"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14,<3.15"
 dependencies = [
   "fastapi[standard]>=0.115",
   "sqlalchemy[asyncio]>=2.0",
@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 100
 src = ["src"]
 
