@@ -1,0 +1,4 @@
+packages:
+  - apps/*
+  # Add "packages/*" here once the first JS/TS package under packages/
+  # exists — see docs/guides/adding-a-package.md.
