@@ -12,15 +12,40 @@ permissions:
   security-events: write
 
 jobs:
+  # CodeQL fails outright (not a harmless no-op) if a language has zero
+  # matching source files - confirmed the hard way on this repo's first
+  # real PR. So: discover which languages actually have source, same
+  # pattern as ci.yml's discover job, rather than hardcoding a language
+  # list that assumes something exists.
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      languages: ${{ steps.find.outputs.languages }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        run: |
+          langs="[]"
+          if find . -name '*.py' -not -path './.git/*' | grep -q .; then
+            langs=$(echo "$langs" | jq -c '. + ["python"]')
+          fi
+          if find . \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) -not -path './.git/*' -not -path '*/node_modules/*' | grep -q .; then
+            langs=$(echo "$langs" | jq -c '. + ["javascript-typescript"]')
+          fi
+          echo "Discovered languages: $langs"
+          echo "languages=$langs" >> "$GITHUB_OUTPUT"
+          # Add csharp/kotlin/ruby detection here once an app in that
+          # language actually exists - compiled-language CodeQL needs
+          # something real to build, not just a matching file extension.
+
   codeql:
+    needs: discover
+    if: needs.discover.outputs.languages != '[]'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        # python and javascript-typescript both tolerate zero source files
-        # cleanly. Add csharp/kotlin/ruby here once an app in that
-        # language actually exists - compiled-language CodeQL needs
-        # something real to build.
-        language: ['python', 'javascript-typescript']
+        language: ${{ fromJson(needs.discover.outputs.languages) }}
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3

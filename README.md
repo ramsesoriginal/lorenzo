@@ -19,7 +19,7 @@ This repository is the monorepo for the whole project. It is currently at the **
 | Discord bot(s) | Talks to the API | none yet — at least one is planned |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
 
-Each app lives under [`apps/`](apps) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md).
+Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md).
 
 ## Quick start
 
@@ -43,15 +43,15 @@ Copy [.env.example](.env.example) to `.env`. It's currently empty; each app adds
 
 ## Architecture
 
-Start with [docs/architecture/overview.md](docs/architecture/overview.md) and the [system context diagram](docs/architecture/diagrams/system-context.md). Every non-obvious decision is recorded as an [ADR](docs/adr).
+Start with [docs/architecture/overview.md](docs/architecture/overview.md) and the [system context diagram](docs/architecture/diagrams/system-context.md). Every non-obvious decision is recorded as an [ADR](docs/adr/README.md).
 
 ## Documentation
 
-- [Domain](docs/domain) — what Lorenzo actually is, in plain language: the world model, repositories, entities/knowledge/visibility
-- [Architecture](docs/architecture) — the technical design
-- [ADRs](docs/adr) — why things are the way they are
-- [Guides](docs/guides) — task-oriented how-tos
-- [Operations](docs/operations) — releasing, GitHub setup
+- [Domain](docs/domain/README.md) — what Lorenzo actually is, in plain language: the world model, repositories, entities/knowledge/visibility
+- [Architecture](docs/architecture/overview.md) — the technical design
+- [ADRs](docs/adr/README.md) — why things are the way they are
+- [Guides](docs/guides/README.md) — task-oriented how-tos
+- [Operations](docs/operations/README.md) — releasing, GitHub setup
 
 ## Development
 

@@ -4,7 +4,7 @@ Orientation for AI coding agents (and humans in a hurry) working in this repo.
 
 ## What this is
 
-Lorenzo: a planned multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
+Lorenzo: a planned multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain/README.md) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
 
 **Nothing under `apps/` has been built yet.** This repo is currently just structure, tooling, and documentation — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). Do not add application code speculatively; an app gets built only once it's explicitly scoped in conversation with the user.
 
@@ -34,6 +34,6 @@ Once an app exists, it owns `dev`/`lint`/`test`/`build` tasks in its own `mise.t
 
 ## Before making a change
 
-1. Check [docs/adr](docs/adr) — is this decision already made, and why?
+1. Check [docs/adr](docs/adr/README.md) — is this decision already made, and why?
 2. If this is about adding a new app: read [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md) and confirm scope with the user before writing code.
 3. Prefer the smallest vertical slice that's actually tested end to end over a broad partial implementation — but only once asked to build, not while still preparing structure.

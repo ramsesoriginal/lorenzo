@@ -32,7 +32,7 @@ mise run test
 
 ## Architectural changes
 
-Non-obvious or hard-to-reverse decisions get an [ADR](docs/adr) — copy [docs/adr/0000-template.md](docs/adr/0000-template.md). Bigger, not-yet-decided proposals go in [docs/rfcs](docs/rfcs) first.
+Non-obvious or hard-to-reverse decisions get an [ADR](docs/adr/README.md) — copy [docs/adr/0000-template.md](docs/adr/0000-template.md). Bigger, not-yet-decided proposals go in [docs/rfcs](docs/rfcs/README.md) first.
 
 ## Adding a new app or package
 
