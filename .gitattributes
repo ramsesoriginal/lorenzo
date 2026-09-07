@@ -1,0 +1,16 @@
+# Normalize everything to LF in the repo; let git handle CRLF on Windows checkouts
+# only where a tool genuinely requires it (see the .bat/.cmd override below).
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+*.astro linguist-language=Astro
