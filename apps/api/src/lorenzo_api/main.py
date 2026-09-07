@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi_pagination import add_pagination
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from lorenzo_api.errors import register_error_handlers
@@ -22,6 +23,10 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+    # No endpoint returns Page[...] yet - there's no list endpoint at all.
+    # Wired now so the first one that needs it doesn't need this step too.
+    add_pagination(app)
 
     return app
 

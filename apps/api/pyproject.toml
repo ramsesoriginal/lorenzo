@@ -13,6 +13,7 @@ dependencies = [
   "structlog>=24.4",
   "prometheus-fastapi-instrumentator>=7.0",
   "fastapi-problem>=0.12.1",
+  "fastapi-pagination>=0.15.16",
 ]
 
 [dependency-groups]
