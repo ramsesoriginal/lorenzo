@@ -88,7 +88,7 @@ jobs:
           uv run alembic upgrade head
 
       - id: deploy
-        uses: google-github-actions/deploy-cloudrun@v2
+        uses: google-github-actions/deploy-cloudrun@v3
         with:
           service: lorenzo-api
           region: ${{ vars.GCP_REGION }}
