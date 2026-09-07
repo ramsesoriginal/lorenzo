@@ -25,7 +25,7 @@ mise run //apps/api:test
 ## Endpoints
 
 | Method | Path | Notes |
-|---|---|---|
+| --- | --- | --- |
 | GET | `/healthz` | liveness — no dependencies checked |
 | GET | `/readyz` | readiness — checks the database |
 | GET | `/metrics` | Prometheus |

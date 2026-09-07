@@ -13,7 +13,7 @@ Lorenzo tracks the things a game master or worldbuilder actually juggles: where 
 This repository is the monorepo for the whole project. `apps/api` exists as infrastructure (health/readiness/metrics, DB connectivity — no domain models or auth yet); everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
-|---|---|---|
+| --- | --- | --- |
 | Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — infra only so far, no domain models yet |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
 | Discord bot(s) | Talks to the API | none yet — at least one is planned |

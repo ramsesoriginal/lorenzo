@@ -53,7 +53,13 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
+        with:
+          # v2026.9.2 doesn't exist as a real mise release (confirmed via the
+          # GitHub API) but the action's default "latest" detection grabbed
+          # it anyway and 404'd - this is exactly what minimum_release_age
+          # exists to prevent, per the action's own README.
+          minimum_release_age: 7d
       - run: mise run lint
         working-directory: ${{ matrix.app }}
       - run: mise run test

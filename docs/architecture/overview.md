@@ -5,7 +5,7 @@
 Every deployable app lives under `apps/`, one directory per app, named by purpose rather than type — see [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md). Only `apps/api` exists so far, as infrastructure (no domain models yet).
 
 | Component type | Role | Multiplicity |
-|---|---|---|
+| --- | --- | --- |
 | Backend API | Source of truth. Multi-tenant REST API over PostgreSQL. | One — [`apps/api`](../../apps/api) exists (infra only) |
 | Web frontend(s) | Static UI for GMs/players (zero-JS by default). | One or many |
 | Discord bot(s) | Talks to the API — e.g. loot/inventory. | At least one, possibly more |

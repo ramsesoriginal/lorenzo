@@ -11,7 +11,7 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 ## Map
 
 | Path | Purpose |
-|---|---|
+| --- | --- |
 | `apps/api` | Backend REST API — infrastructure only so far, no domain models |
 | `apps/*` (other) | One directory per deployable app, named by purpose (not type) — none exist yet |
 | `packages/*` | Extracted generic libraries, each its own small, independently versioned package — none exist yet |
