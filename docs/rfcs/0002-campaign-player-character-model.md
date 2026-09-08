@@ -16,6 +16,8 @@ ADR 0010 defined Tenant as "a GM's world/campaign." Splitting that: **Tenant is 
 
 `campaign(id, tenant_id, name, game_system, ...)`. `game_system` is the natural home for [RFC 0001](0001-core-domain-data-model.md)'s open question about multi-game-system stats — which prototype variant (e.g. "Sword (D&D 5e)" vs. "Sword (Blades in the Dark)") a campaign's entities resolve through is a property of the campaign, not of the entity itself.
 
+Every table introduced in this RFC (`campaign`, `player`, `character_player`, `ownership`, `campaign_gm`, `orga_campaign_opt_out`) gets its own `tenant_id` and RLS policy, no exceptions — confirmed, resolving that part of RFC 0001's open tenancy question for good.
+
 ### Player
 
 `player(id, user_id, campaign_id)` — the per-user, per-campaign instance, sitting between User and Character. Player-level game-mechanical resources (D&D inspiration, a Vampire player's out-of-character options) live here, not on any one character, since a single player can control more than one character at once (Vampire) and the resource is tracked once per player, not once per character.
@@ -26,7 +28,7 @@ A character is a `being` (see [RFC 0001](0001-core-domain-data-model.md)) owned 
 
 ### Ownership vs. containment
 
-`ownership(item_entity_id, owner_character_id)` — a new relation, orthogonal to `containment`, exactly the kind RFC 0001 anticipated adding later without touching the core. It decouples *whose* something is from *where it physically is*: a shovel owned by character X can sit in a bag of holding carried by character Y; a carriage owned by character Y can contain Y itself while having no container of its own. Ownership isn't restricted to characters at the schema level (a faction or place could plausibly own something later), but `owner_character_id` is all that's needed for the first slice.
+`ownership(owned_entity_id, owner_character_id)` — a new relation, orthogonal to `containment`, exactly the kind RFC 0001 anticipated adding later without touching the core. It decouples _whose_ something is from _where it physically is_: a shovel owned by character X can sit in a bag of holding carried by character Y; a carriage owned by character Y can contain Y itself while having no container of its own. `owned_entity_id` references the entity generically, not specifically an `item` row — RFC 0001's core-entity section covers why: a being can be owned too (a summoned creature tracked like inventory), not just items. Ownership isn't restricted to characters as an owner at the schema level (a faction or place could plausibly own something later), but `owner_character_id` is all that's needed for the first slice.
 
 ### GM
 
@@ -38,9 +40,9 @@ Tenant-level `Membership.role` (from ADR 0010) now specifically means tenant-wid
 
 **Access rule**: a user can access a campaign if they hold a `player` row in it, a `campaign_gm` row in it, or are tenant-orga without an opt-out for it.
 
-### Repositories are unaffected, and probably answer RFC 0001's open tenancy question
+### Repositories are unaffected
 
-Repositories (ADR 0002, [docs/domain/repositories.md](../domain/repositories.md)) are cross-*tenant* shared content — an official setting, a homebrew world, a universal item list — usable by many campaigns across many unrelated tenants. This is a different axis from tenant/campaign nesting, not replaced by it. Worth naming here: repository content is almost certainly the mechanism that resolves RFC 0001's still-open question about prototypes wanting to live outside a single tenant — a prototype defined in a repository, referenced by whichever campaigns draw on it, rather than owned by one tenant. Not designed further in this RFC.
+Repositories (ADR 0002, [docs/domain/repositories.md](../domain/repositories.md)) are cross-_tenant_ shared content — an official setting, a homebrew world, a universal item list — usable by many campaigns across many unrelated tenants. This is a different axis from tenant/campaign nesting, not replaced by it: repositories are read-only from a campaign's perspective — no campaign or tenant writes back into one — with their own, separate authorship process (not designed, a future problem). A tenant/campaign reads or copies from a repository; it never becomes part of that repository's own data. Not designed further in this RFC; see RFC 0001's tenancy-split open question for where this likely lands structurally.
 
 ### Being, PC, and NPC — deferred, not decided here
 
