@@ -19,7 +19,7 @@ repos:
         stages: [commit-msg]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+    rev: v0.16.6
     hooks:
       - id: ruff
         args: [--fix]
@@ -39,6 +39,51 @@ repos:
         language: system
         files: ^apps/api/src/.*\.py$
         pass_filenames: false
+
+  # Same tools, same exclusions, same versions as docs.yml - if these fail
+  # here, they'd fail in CI too. Pre-push rather than pre-commit: slower than
+  # the hooks above, and only worth running once, right before it'd
+  # otherwise fail remotely. The .venv/node_modules exclusions don't exist in
+  # docs.yml because a fresh CI checkout never has them - a real local
+  # working copy usually does, and both tools would otherwise flag every
+  # installed dependency's own vendored markdown.
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.2
+    hooks:
+      - id: markdownlint-cli2
+        name: markdownlint-cli2 (matches docs.yml)
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
+        args:
+          [
+            "**/*.md",
+            "!**/CHANGELOG.md",
+            "!**/.venv/**",
+            "!**/node_modules/**",
+          ]
+
+  - repo: https://github.com/lycheeverse/lychee
+    rev: lychee-v0.24.2
+    hooks:
+      - id: lychee
+        name: lychee (matches docs.yml)
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
+        args:
+          [
+            "--no-progress",
+            "--exclude",
+            "localhost",
+            "--exclude-path",
+            "CHANGELOG\\.md$",
+            "--exclude-path",
+            "\\.venv",
+            "--exclude-path",
+            "node_modules",
+            "**/*.md",
+          ]
 
 # Further language-specific hooks (biome, etc.) get added here alongside
 # the next app that needs them - see docs/guides/adding-an-app.md.
