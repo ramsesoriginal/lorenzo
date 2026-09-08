@@ -18,5 +18,5 @@ Ruled out but not disqualified: **Oracle Cloud Free Tier** is still the most raw
 ## Consequences
 
 - Two accounts to create and maintain (Google Cloud, Neon) instead of one — accepted, since no single provider offers a genuinely permanent free bundle of both.
-- `apps/api` needs a `DATABASE_URL` pointed at Neon in production, distinct from the local Docker Compose Postgres — see [docs/operations/deployment-setup.md](../operations/deployment-setup.md) for the one-time setup this requires (not verified end-to-end by the agent that wrote it — no GCP/Neon account access from that environment).
+- `apps/api` needs a `DATABASE_URL` pointed at Neon in production, distinct from the local Docker Compose Postgres — see [docs/operations/deployment-setup.md](../operations/deployment-setup.md) for the one-time setup this requires. Confirmed working end to end (2026-09-08), after a handful of real bugs only a live run could surface — see that doc for specifics.
 - If either free tier gets cut the way Fly.io's or Koyeb's did, the OIDC-client boundary (apps/api only needs a `DATABASE_URL` and to be deployable from a container image) keeps switching providers a config change, not a redesign.

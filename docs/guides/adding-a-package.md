@@ -9,7 +9,7 @@ Generic code (anything not specific to one app's domain logic) doesn't go in an 
    - Python: create a root `pyproject.toml` with `[tool.uv.workspace]` (`members = ["packages/*"]`, plus any Python app that needs to depend on it) if one doesn't exist yet. Each Python app stays a standalone uv project with its own lockfile until it actually needs a workspace package — introducing the workspace before there's anything to share caused real rework once already (see [ADR 0003](../adr/0003-polyglot-monorepo-tooling.md)).
    - JS/TS: add `"packages/*"` to `pnpm-workspace.yaml`, if it isn't there yet.
 3. Add a `release-please-config.json` entry so it gets its own version/changelog.
-4. Add a `mise.toml` if it needs its own dev/test tasks, and list it in the root `mise.toml`'s `[monorepo].config_roots` once that section exists.
+4. Add a `mise.toml` if it needs its own dev/test tasks, and list it in the root `mise.toml`'s `[monorepo].config_roots` (already there, alongside `apps/api`).
 
 ## When *not* to do this
 
