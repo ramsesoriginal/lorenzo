@@ -43,16 +43,9 @@ async def test_multiple_inheritance_and_chain() -> None:
         ).all()
         assert len(rows) == 4
 
-        # Explicit flushes between deletes - see test_stats.py for why:
-        # no relationship() is declared between mapped classes, so
-        # cross-table delete ordering isn't guaranteed from bare FK columns.
-        await session.execute(
-            text("DELETE FROM entity_prototype WHERE tenant_id = :t"), {"t": tenant_id}
-        )
-        await session.flush()
-        for entity in (a, b, c, d):
-            await session.delete(entity)
-        await session.flush()
+        # Deleting the tenant cascades through entity/entity_prototype
+        # automatically - relationship()+ondelete=CASCADE (ADR 0018) gives
+        # the unit of work real dependency ordering.
         await session.delete(tenant)
         await session.commit()
 
@@ -107,11 +100,10 @@ async def test_direct_transitive_cycle_rejected() -> None:
             await session.commit()
         await session.rollback()
 
-        await session.execute(
-            text("DELETE FROM entity_prototype WHERE tenant_id = :t"), {"t": tenant_id}
-        )
-        await session.execute(text("DELETE FROM entity WHERE tenant_id = :t"), {"t": tenant_id})
-        await session.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": tenant_id})
+        # Re-fetched rather than reusing `tenant` directly: rollback expires
+        # every ORM object regardless of expire_on_commit, so the object
+        # itself needs a fresh load before its cascade-delete can run.
+        await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
@@ -146,11 +138,9 @@ async def test_transitive_three_way_cycle_rejected() -> None:
             await session.commit()
         await session.rollback()
 
-        await session.execute(
-            text("DELETE FROM entity_prototype WHERE tenant_id = :t"), {"t": tenant_id}
-        )
-        await session.execute(text("DELETE FROM entity WHERE tenant_id = :t"), {"t": tenant_id})
-        await session.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": tenant_id})
+        # See test_direct_transitive_cycle_rejected for why this is
+        # re-fetched rather than reusing `tenant` directly.
+        await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 

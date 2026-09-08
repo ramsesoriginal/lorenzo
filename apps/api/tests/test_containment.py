@@ -39,11 +39,9 @@ async def test_move_entity_between_containers() -> None:
         assert moved is not None
         assert moved.parent_entity_id == chest_id
 
-        await session.execute(
-            text("DELETE FROM containment WHERE tenant_id = :t"), {"t": tenant_id}
-        )
-        await session.execute(text("DELETE FROM entity WHERE tenant_id = :t"), {"t": tenant_id})
-        await session.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": tenant_id})
+        # Deleting the tenant cascades through entity/containment
+        # automatically - relationship()+ondelete=CASCADE (ADR 0018).
+        await session.delete(tenant)
         await session.commit()
 
 
@@ -91,11 +89,7 @@ async def test_self_loop_and_cycles_are_allowed() -> None:
         )
         assert set(rows) == {a_id, b_id}
 
-        await session.execute(
-            text("DELETE FROM containment WHERE tenant_id = :t"), {"t": tenant_id}
-        )
-        await session.execute(text("DELETE FROM entity WHERE tenant_id = :t"), {"t": tenant_id})
-        await session.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": tenant_id})
+        await session.delete(tenant)
         await session.commit()
 
 
@@ -123,11 +117,10 @@ async def test_child_can_have_at_most_one_parent() -> None:
             await session.commit()
         await session.rollback()
 
-        await session.execute(
-            text("DELETE FROM containment WHERE tenant_id = :t"), {"t": tenant_id}
-        )
-        await session.execute(text("DELETE FROM entity WHERE tenant_id = :t"), {"t": tenant_id})
-        await session.execute(text("DELETE FROM tenant WHERE id = :t"), {"t": tenant_id})
+        # Re-fetched rather than reusing `tenant` directly: rollback expires
+        # every ORM object regardless of expire_on_commit, so the object
+        # itself needs a fresh load before its cascade-delete can run.
+        await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 

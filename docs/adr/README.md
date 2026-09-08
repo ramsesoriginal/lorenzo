@@ -20,3 +20,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0015 - entity_prototype: the inheritance graph](0015-entity-prototype.md)
 - [0016 - Containment: the generic entity-to-entity physical relation](0016-containment.md)
 - [0017 - Information and payloads](0017-information-and-payloads.md)
+- [0018 - SQLAlchemy modeling conventions: type map, relationships, cascades](0018-sqlalchemy-modeling-conventions.md)

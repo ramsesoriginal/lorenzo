@@ -1,17 +1,22 @@
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, TenantFk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.entity import Entity
 
 
 class EntityPrototype(Base):
     """An entity's prototypes (the inheritance graph) - see ADR 0015 and RFC
     0001. Cycle prevention: direct self-loops are rejected by the CHECK
-    below; transitive cycles are rejected by a BEFORE INSERT trigger (see the
-    migration) that this model can't express.
+    below; transitive cycles are rejected by a BEFORE INSERT trigger (see
+    the migration) that this model can't express.
     """
 
     __tablename__ = "entity_prototype"
@@ -20,11 +25,16 @@ class EntityPrototype(Base):
     )
 
     entity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entity.id"), primary_key=True
+        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
     prototype_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entity.id"), primary_key=True
+        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
+    tenant_id: Mapped[TenantFk]
+
+    entity: Mapped[Entity] = relationship(
+        foreign_keys=[entity_id], back_populates="prototype_links"
+    )
+    prototype: Mapped[Entity] = relationship(
+        foreign_keys=[prototype_id], back_populates="dependent_links"
     )

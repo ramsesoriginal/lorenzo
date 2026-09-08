@@ -1,11 +1,16 @@
-import uuid
-from datetime import datetime
+from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import TYPE_CHECKING
 
-from lorenzo_api.db import Base
+from sqlalchemy import Integer, UniqueConstraint, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.entity_stat_group import EntityStatGroup
+    from lorenzo_api.models.stat_definition import StatDefinition
+    from lorenzo_api.models.tenant import Tenant
 
 
 class StatGroup(Base):
@@ -14,22 +19,19 @@ class StatGroup(Base):
     __tablename__ = "stat_group"
     __table_args__ = (UniqueConstraint("tenant_id", "name"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(Text, nullable=False)
+    id: Mapped[UuidPk]
+    tenant_id: Mapped[TenantFk]
+    name: Mapped[str]
     # Inheritance tie-break (RFC 0001) - unused until entity_prototype exists
     # and something actually resolves effective stats through it.
-    priority: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    priority: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    created_at: Mapped[CreatedAt]
+    updated_at: Mapped[UpdatedAt]
+
+    tenant: Mapped[Tenant] = relationship(back_populates="stat_groups")
+    stat_definitions: Mapped[list[StatDefinition]] = relationship(
+        back_populates="stat_group", cascade="all, delete-orphan", passive_deletes=True
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        server_default=text("now()"),
-        onupdate=text("now()"),
-        nullable=False,
+    entity_links: Mapped[list[EntityStatGroup]] = relationship(
+        back_populates="stat_group", cascade="all, delete-orphan", passive_deletes=True
     )

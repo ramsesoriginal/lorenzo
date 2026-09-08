@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Numeric
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, TenantFk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.payload import Payload
 
 
 class PayloadNumber(Base):
@@ -17,9 +22,9 @@ class PayloadNumber(Base):
     __tablename__ = "payload_number"
 
     payload_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("payload.id"), primary_key=True
+        ForeignKey("payload.id", ondelete="CASCADE"), primary_key=True
     )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
-    )
-    value: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
+    tenant_id: Mapped[TenantFk]
+    value: Mapped[Decimal]
+
+    payload: Mapped[Payload] = relationship(back_populates="number")

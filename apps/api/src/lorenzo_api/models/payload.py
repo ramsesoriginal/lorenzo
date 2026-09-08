@@ -1,11 +1,19 @@
+from __future__ import annotations
+
 import uuid
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.information import Information
+    from lorenzo_api.models.payload_description import PayloadDescription
+    from lorenzo_api.models.payload_document import PayloadDocument
+    from lorenzo_api.models.payload_number import PayloadNumber
+    from lorenzo_api.models.payload_picture import PayloadPicture
 
 
 class Payload(Base):
@@ -18,21 +26,25 @@ class Payload(Base):
 
     __tablename__ = "payload"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
-    )
+    id: Mapped[UuidPk]
+    tenant_id: Mapped[TenantFk]
     information_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("information.id"), nullable=False, index=True
+        ForeignKey("information.id", ondelete="CASCADE"), index=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    created_at: Mapped[CreatedAt]
+    updated_at: Mapped[UpdatedAt]
+
+    information: Mapped[Information] = relationship(back_populates="payloads")
+
+    description: Mapped[PayloadDescription | None] = relationship(
+        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        server_default=text("now()"),
-        onupdate=text("now()"),
-        nullable=False,
+    number: Mapped[PayloadNumber | None] = relationship(
+        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
+    )
+    picture: Mapped[PayloadPicture | None] = relationship(
+        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
+    )
+    document: Mapped[PayloadDocument | None] = relationship(
+        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
     )

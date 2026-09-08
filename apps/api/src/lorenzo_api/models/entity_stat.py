@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import uuid
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, Float, ForeignKey, Integer, Text, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.entity import Entity
+    from lorenzo_api.models.stat_definition import StatDefinition
 
 
 class EntityStat(Base):
@@ -23,24 +28,18 @@ class EntityStat(Base):
     )
 
     entity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entity.id"), primary_key=True
+        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
     stat_definition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("stat_definition.id"), primary_key=True
+        ForeignKey("stat_definition.id", ondelete="CASCADE"), primary_key=True
     )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
-    )
-    value_int: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    value_float: Mapped[float | None] = mapped_column(Float, nullable=True)
-    value_bool: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        server_default=text("now()"),
-        onupdate=text("now()"),
-        nullable=False,
-    )
+    tenant_id: Mapped[TenantFk]
+    value_int: Mapped[int | None]
+    value_text: Mapped[str | None]
+    value_float: Mapped[float | None]
+    value_bool: Mapped[bool | None]
+    created_at: Mapped[CreatedAt]
+    updated_at: Mapped[UpdatedAt]
+
+    entity: Mapped[Entity] = relationship(back_populates="stats")
+    stat_definition: Mapped[StatDefinition] = relationship(back_populates="entity_stats")

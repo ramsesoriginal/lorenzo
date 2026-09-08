@@ -97,19 +97,9 @@ async def test_information_and_payload_bundle_end_to_end() -> None:
         assert document.data == b"%PDF-1.4"
         assert document.filename == "shovel-appraisal.pdf"
 
-        # Explicit flushes between layers - see test_stats.py for why: no
-        # relationship() is declared between mapped classes, so cross-table
-        # delete ordering isn't guaranteed from bare FK columns.
-        for payload_row in (description, number, picture, document):
-            await session.delete(payload_row)
-        await session.flush()
-        for payload in (description_payload, number_payload, picture_payload, document_payload):
-            await session.delete(payload)
-        await session.flush()
-        await session.delete(fetched_info)
-        await session.flush()
-        await session.delete(entity)
-        await session.flush()
+        # Deleting the tenant cascades through entity/information/payload/
+        # payload_* automatically - relationship()+ondelete=CASCADE
+        # (ADR 0018) gives the unit of work real dependency ordering.
         await session.delete(tenant)
         await session.commit()
 

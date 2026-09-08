@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import uuid
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.entity import Entity
+    from lorenzo_api.models.payload import Payload
 
 
 class Information(Base):
@@ -17,23 +22,17 @@ class Information(Base):
     __tablename__ = "information"
     __table_args__ = (UniqueConstraint("entity_id", "type"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
-    )
+    id: Mapped[UuidPk]
+    tenant_id: Mapped[TenantFk]
     entity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entity.id"), nullable=False, index=True
+        ForeignKey("entity.id", ondelete="CASCADE"), index=True
     )
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    type: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        server_default=text("now()"),
-        onupdate=text("now()"),
-        nullable=False,
+    title: Mapped[str]
+    type: Mapped[str]
+    created_at: Mapped[CreatedAt]
+    updated_at: Mapped[UpdatedAt]
+
+    entity: Mapped[Entity] = relationship(back_populates="information")
+    payloads: Mapped[list[Payload]] = relationship(
+        back_populates="information", cascade="all, delete-orphan", passive_deletes=True
     )

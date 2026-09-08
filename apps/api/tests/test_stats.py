@@ -60,19 +60,10 @@ async def test_stat_group_definition_and_value_end_to_end() -> None:
         assert value.value_float is None
         assert value.value_bool is None
 
-        # Explicit flushes between deletes: with no relationship() declared
-        # between these mapped classes (just plain FK columns), SQLAlchemy's
-        # unit of work doesn't guarantee cross-table delete ordering by
-        # dependency - confirmed the hard way (a batched commit tried to
-        # delete entity while entity_stat_group still referenced it).
-        await session.delete(value)
-        await session.delete(acquired)
-        await session.flush()
-        await session.delete(stat_definition)
-        await session.flush()
-        await session.delete(stat_group)
-        await session.delete(entity)
-        await session.flush()
+        # Deleting the tenant cascades through entity/stat_group/
+        # stat_definition/entity_stat/entity_stat_group automatically -
+        # relationship()+ondelete=CASCADE (ADR 0018) gives the unit of work
+        # real dependency ordering, no manual per-row deletes needed.
         await session.delete(tenant)
         await session.commit()
 

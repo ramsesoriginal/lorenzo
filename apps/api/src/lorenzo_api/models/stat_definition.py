@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 import enum
 import uuid
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, Text, UniqueConstraint, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Enum, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.entity_stat import EntityStat
+    from lorenzo_api.models.stat_group import StatGroup
+    from lorenzo_api.models.tenant import Tenant
 
 
 class StatValueType(enum.Enum):
@@ -24,30 +30,24 @@ class StatDefinition(Base):
     __tablename__ = "stat_definition"
     __table_args__ = (UniqueConstraint("tenant_id", "name"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
-    )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
-    )
+    id: Mapped[UuidPk]
+    tenant_id: Mapped[TenantFk]
     stat_group_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("stat_group.id"), nullable=False, index=True
+        ForeignKey("stat_group.id", ondelete="CASCADE"), index=True
     )
-    name: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str]
     value_type: Mapped[StatValueType] = mapped_column(
         Enum(
             StatValueType,
             name="stat_value_type",
             values_callable=lambda enum_cls: [member.value for member in enum_cls],
         ),
-        nullable=False,
     )
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        server_default=text("now()"),
-        onupdate=text("now()"),
-        nullable=False,
+    created_at: Mapped[CreatedAt]
+    updated_at: Mapped[UpdatedAt]
+
+    tenant: Mapped[Tenant] = relationship(back_populates="stat_definitions")
+    stat_group: Mapped[StatGroup] = relationship(back_populates="stat_definitions")
+    entity_stats: Mapped[list[EntityStat]] = relationship(
+        back_populates="stat_definition", cascade="all, delete-orphan", passive_deletes=True
     )

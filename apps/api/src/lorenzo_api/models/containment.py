@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, TenantFk
+
+if TYPE_CHECKING:
+    from lorenzo_api.models.entity import Entity
 
 
 class Containment(Base):
@@ -19,11 +24,16 @@ class Containment(Base):
     __tablename__ = "containment"
 
     child_entity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entity.id"), primary_key=True
+        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
     parent_entity_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("entity.id"), nullable=False, index=True
+        ForeignKey("entity.id", ondelete="CASCADE"), index=True
     )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tenant.id"), nullable=False, index=True
+    tenant_id: Mapped[TenantFk]
+
+    child: Mapped[Entity] = relationship(
+        foreign_keys=[child_entity_id], back_populates="containment"
+    )
+    parent: Mapped[Entity] = relationship(
+        foreign_keys=[parent_entity_id], back_populates="contained_links"
     )
