@@ -10,8 +10,8 @@ from lorenzo_api.main import app
 
 @pytest.fixture(scope="session", autouse=True)
 def _migrate_database() -> None:
-    """Applies all migrations (currently just ADR 0013's tenant bootstrap)
-    against the test database before any test runs.
+    """Applies every migration to date (see migrations/versions/ and the
+    corresponding ADRs) against the test database before any test runs.
     """
     subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
 

@@ -2,7 +2,7 @@
 
 Lorenzo's backend REST API. Python, FastAPI, PostgreSQL (async SQLAlchemy + Alembic).
 
-This is infrastructure only right now — health/readiness/metrics and DB connectivity, no domain models, no auth. See [ADR 0002](../../docs/adr/0002-multi-tenancy-shared-schema-rls.md) for the multi-tenancy approach this will grow into once there's an actual domain table.
+Infrastructure (health/readiness/metrics, DB connectivity), plus the first domain table — a bare `entity` (see [ADR 0012](../../docs/adr/0012-entity-table.md)), not yet meaningful on its own. No auth yet.
 
 ## Run
 
@@ -31,6 +31,10 @@ mise run //apps/api:test
 | GET | `/metrics` | Prometheus |
 
 Full interactive docs at `/docs` once running.
+
+## Domain model
+
+Being built as a series of small, tested sub-slices, per [RFC 0001](../../docs/rfcs/0001-core-domain-data-model.md) (entity/component core) and [RFC 0002](../../docs/rfcs/0002-campaign-player-character-model.md) (campaign/player/character) — [ADR 0012](../../docs/adr/0012-entity-table.md) is the first, just the bare `entity` table with real (if not yet fully enforced — see that ADR) row-level security. Concrete types (`item`, `being`, `place`) are next.
 
 ## Errors
 
