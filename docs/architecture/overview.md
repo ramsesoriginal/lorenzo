@@ -17,7 +17,7 @@ Everything other than the backend API is a *view* onto it — narrower, audience
 
 The full picture — the layered world model, repositories, entities/knowledge/visibility, and how different client apps narrow all of it down — lives in [docs/domain](../domain), not here. This section is just the one-line technical summary: **where** something is (several independent, not-always-linear coordinate systems at once, not one hierarchy), **who knows what** (per-character, per-point-in-time, not global), and **who can see what** (every piece of text/stats split by audience).
 
-The entity design itself is recorded in [RFC 0001](../rfcs/0001-core-domain-data-model.md) (the entity/component core) and [RFC 0002](../rfcs/0002-campaign-player-character-model.md) (campaign/player/character) — being built incrementally, smallest sub-slice first, starting with the bare `entity` table ([ADR 0012](../adr/0012-entity-table.md)).
+The entity design itself is recorded in [RFC 0001](../rfcs/0001-core-domain-data-model.md) (the entity/component core) and [RFC 0002](../rfcs/0002-campaign-player-character-model.md) (campaign/player/character) — being built incrementally, smallest sub-slice first, starting with the bare `entity` table ([ADR 0012](../adr/0012-entity-table.md)). See the [domain model ER diagram](diagrams/domain-model-er.md) for how every table built so far actually connects.
 
 ## Cross-cutting concerns (intentions, not yet built)
 

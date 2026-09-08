@@ -65,12 +65,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("entity_id", "type"),
     )
-    op.create_index(
-        op.f("ix_information_entity_id"), "information", ["entity_id"], unique=False
-    )
-    op.create_index(
-        op.f("ix_information_tenant_id"), "information", ["tenant_id"], unique=False
-    )
+    op.create_index(op.f("ix_information_entity_id"), "information", ["entity_id"], unique=False)
+    op.create_index(op.f("ix_information_tenant_id"), "information", ["tenant_id"], unique=False)
 
     op.create_table(
         "payload",

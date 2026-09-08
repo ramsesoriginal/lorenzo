@@ -53,9 +53,7 @@ async def test_information_and_payload_bundle_end_to_end() -> None:
             )
         )
         session.add(
-            PayloadNumber(
-                payload_id=number_payload.id, tenant_id=tenant.id, value=Decimal("2.5")
-            )
+            PayloadNumber(payload_id=number_payload.id, tenant_id=tenant.id, value=Decimal("2.5"))
         )
         session.add(
             PayloadPicture(
