@@ -1,6 +1,6 @@
 # Deployment setup (manual, one-time)
 
-See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF setup below is confirmed correct — OIDC auth succeeds against a real project. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. The pipeline itself has needed a few real fixes on its first live runs (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params) - each fixed as found, see `deploy-api.yml`'s history for specifics. Not yet marking this "confirmed end to end" until a full run completes cleanly.
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF setup below is confirmed correct — OIDC auth succeeds against a real project. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. The pipeline itself has needed a few real fixes on its first live runs (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params, the container ignoring Cloud Run's `$PORT`) - each fixed as found, see `deploy-api.yml`'s history for specifics. Not yet marking this "confirmed end to end" until a full run completes cleanly.
 
 ## Neon (Postgres)
 
@@ -90,6 +90,14 @@ echo "GCP_REGION=$REGION"
 echo "GCP_SERVICE_ACCOUNT=$SA_EMAIL"
 echo "GCP_WORKLOAD_IDENTITY_PROVIDER=projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
 ```
+
+**7. Make the service public**, once it exists (i.e. after the *first* deploy from `deploy-api.yml`, even if that run's final `/readyz` check failed — the service itself gets created either way):
+
+```bash
+gcloud run services update lorenzo-api --region="$REGION" --no-invoker-iam-check
+```
+
+New Cloud Run services are private by default — every request needs a Google-signed identity token, which is why the workflow's own unauthenticated `curl .../readyz` smoke test gets a `403`. This is deliberately a manual, one-time step rather than a `deploy-cloudrun` flag: [the action's own README](https://github.com/google-github-actions/deploy-cloudrun) recommends CI/CD not manage this setting, since re-deploys preserve whatever IAM state the service already has. `--no-invoker-iam-check` is Google's currently-recommended way to do this (over granting `roles/run.invoker` to `allUsers`) — see [Controlling access on an individual service](https://cloud.google.com/run/docs/securing/managing-access).
 
 ## GitHub setup
 
