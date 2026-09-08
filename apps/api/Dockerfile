@@ -14,6 +14,7 @@ RUN uv sync --locked --no-install-project --no-dev
 COPY src ./src
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY README.md ./
 RUN uv sync --locked --no-dev
 
 RUN useradd --create-home --uid 1000 appuser
