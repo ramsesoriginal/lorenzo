@@ -12,7 +12,9 @@ Settings → Rules → Rulesets → New ruleset → Import a ruleset → select 
 
 This gives you: no force-push/deletion of `main`, PRs required, merge commits only (squash/rebase disabled — see [ADR 0005](../adr/0005-git-branching-and-merge-strategy.md)), and `ci-summary` as a required status check.
 
-`apps/api` exists now, so this is actionable: once it's merged to `main` and you've watched a few real CodeQL runs against actual Python source, confirm the exact check names GitHub reports for the matrix jobs and add them to the ruleset's `required_status_checks` too.
+Confirmed via the real check-runs on `main` (`curl https://api.github.com/repos/ramsesoriginal/lorenzo/commits/main/check-runs`): the matrix jobs report as `test (apps/api)` and `codeql (python)`. Both are now in [.github/rulesets/main.json](../../.github/rulesets/main.json) alongside `ci-summary`.
+
+Re-importing the file doesn't happen automatically, though — the live ruleset (Settings → Rules → Rulesets → **main**) needs the same two contexts added by hand under "Require status checks to pass," or it'll keep enforcing only the old `ci-summary`-only list.
 
 ## Actions: allow workflows to open pull requests
 
