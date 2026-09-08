@@ -1,6 +1,6 @@
 # Deployment setup (manual, one-time)
 
-See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. Confirmed working end to end: `.github/workflows/deploy-api.yml` has deployed successfully against a real Neon project and the GCP setup below. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own.
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF setup below is confirmed correct — OIDC auth succeeds against a real project. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. The pipeline itself has needed a few real fixes on its first live runs (a missing `README.md` in the Docker build context, asyncpg rejecting Neon's default `sslmode` query param) - each fixed as found, see `deploy-api.yml`'s history for specifics. Not yet marking this "confirmed end to end" until a full run completes cleanly.
 
 ## Neon (Postgres)
 
@@ -8,6 +8,7 @@ See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. Confirmed w
 2. Use the default database Neon creates (or make a new one).
 3. Copy the **pooled** connection string (Neon distinguishes pooled vs. direct — pooled fits a scale-to-zero app better). It looks like `postgresql://user:pass@host/dbname`.
 4. **Rewrite the scheme for asyncpg**: apps/api needs `postgresql+asyncpg://...`, not plain `postgresql://...` — SQLAlchemy picks its driver from that prefix, and without `+asyncpg` it'll try to load a sync driver that isn't even installed. Just insert `+asyncpg` after `postgresql`.
+5. **Leave the rest of the query string alone** — including `sslmode=require`, which Neon's copy-paste connection string includes by default. asyncpg doesn't understand a `sslmode` keyword (it uses `ssl` instead), but `apps/api` rewrites it automatically at startup (see `Settings._rewrite_sslmode_for_asyncpg` in `config.py`) — no manual edit needed here.
 
 This becomes the `DATABASE_URL` secret below.
 
