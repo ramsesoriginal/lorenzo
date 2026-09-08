@@ -16,11 +16,12 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# Views (currently just v_item - ADR 0019) are hand-written CREATE VIEW
-# statements, not op.create_table() - Alembic has no native "this is a
-# view" concept, so without this, autogenerate sees a declarative Table
-# with no matching real table in the database and tries to create one.
-_VIEW_TABLE_NAMES = frozenset({"v_item"})
+# Views (currently v_item/v_item_instance - ADR 0019) are hand-written
+# CREATE VIEW statements, not op.create_table() - Alembic has no native
+# "this is a view" concept, so without this, autogenerate sees a
+# declarative Table with no matching real table in the database and tries
+# to create one.
+_VIEW_TABLE_NAMES = frozenset({"v_item", "v_item_instance"})
 
 
 def include_object(

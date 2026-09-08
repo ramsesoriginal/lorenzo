@@ -35,7 +35,5 @@ class ItemInstance(Base):
     )
     tenant_id: Mapped[TenantFk]
 
-    entity: Mapped[Entity] = relationship(
-        foreign_keys=[entity_id], back_populates="item_instance"
-    )
+    entity: Mapped[Entity] = relationship(foreign_keys=[entity_id], back_populates="item_instance")
     owner: Mapped[Entity | None] = relationship(foreign_keys=[owner_entity_id])

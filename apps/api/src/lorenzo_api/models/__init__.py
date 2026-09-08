@@ -15,6 +15,7 @@ from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_group import StatGroup
 from lorenzo_api.models.tenant import Tenant
 from lorenzo_api.models.v_item import VItem
+from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
     "Containment",
@@ -35,4 +36,5 @@ __all__ = [
     "StatValueType",
     "Tenant",
     "VItem",
+    "VItemInstance",
 ]

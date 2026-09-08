@@ -1,11 +1,11 @@
 from sqlalchemy import text
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import InstrumentedAttribute, selectinload
+from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from lorenzo_api.db import async_session_factory, engine
 from lorenzo_api.models import (
     Containment,
     Entity,
-    EntityPrototype,
     EntityStat,
     Information,
     Item,
@@ -18,28 +18,34 @@ from lorenzo_api.models import (
     StatValueType,
     Tenant,
     VItem,
-)
-
-_EAGER_LOAD_OPTIONS = (
-    selectinload(VItem.entity)
-    .selectinload(Entity.information)
-    .selectinload(Information.payloads)
-    .selectinload(Payload.description),
-    selectinload(VItem.entity)
-    .selectinload(Entity.information)
-    .selectinload(Information.payloads)
-    .selectinload(Payload.picture),
-    selectinload(VItem.entity)
-    .selectinload(Entity.stats)
-    .selectinload(EntityStat.stat_definition)
-    .selectinload(StatDefinition.stat_group),
+    VItemInstance,
 )
 
 
-async def test_v_item_scalar_columns_and_computed_properties() -> None:
-    """No resolution/inheritance-walk here (ADR 0019) - v_item surfaces
-    direct stats/information/containment only, for both a bare item
-    prototype and an item_instance that inherits from it.
+def _eager_load_options(
+    view_entity_attr: InstrumentedAttribute[Entity],
+) -> tuple[_AbstractLoad, _AbstractLoad, _AbstractLoad]:
+    return (
+        selectinload(view_entity_attr)
+        .selectinload(Entity.information)
+        .selectinload(Information.payloads)
+        .selectinload(Payload.description),
+        selectinload(view_entity_attr)
+        .selectinload(Entity.information)
+        .selectinload(Information.payloads)
+        .selectinload(Payload.picture),
+        selectinload(view_entity_attr)
+        .selectinload(Entity.stats)
+        .selectinload(EntityStat.stat_definition)
+        .selectinload(StatDefinition.stat_group),
+    )
+
+
+async def test_v_item_covers_only_the_item_table() -> None:
+    """ADR 0019 (revised): v_item and v_item_instance are separate views -
+    a single merged view gave no way to tell "find all base items" from
+    "find all item instances" without joining item/item_instance back in
+    anyway, defeating the point.
     """
     async with async_session_factory() as session:
         tenant = Tenant()
@@ -55,12 +61,7 @@ async def test_v_item_scalar_columns_and_computed_properties() -> None:
         session.add(Item(entity_id=sword.id, tenant_id=tenant.id))
         session.add(ItemInstance(entity_id=my_sword.id, tenant_id=tenant.id))
         session.add(
-            EntityPrototype(entity_id=my_sword.id, prototype_id=sword.id, tenant_id=tenant.id)
-        )
-        session.add(
-            Containment(
-                child_entity_id=my_sword.id, parent_entity_id=chest.id, tenant_id=tenant.id
-            )
+            Containment(child_entity_id=sword.id, parent_entity_id=chest.id, tenant_id=tenant.id)
         )
 
         physical = StatGroup(tenant_id=tenant.id, name="physical")
@@ -85,7 +86,7 @@ async def test_v_item_scalar_columns_and_computed_properties() -> None:
 
         session.add(
             EntityStat(
-                entity_id=my_sword.id,
+                entity_id=sword.id,
                 stat_definition_id=weight_def.id,
                 tenant_id=tenant.id,
                 value_int=3,
@@ -93,7 +94,7 @@ async def test_v_item_scalar_columns_and_computed_properties() -> None:
         )
         session.add(
             EntityStat(
-                entity_id=my_sword.id,
+                entity_id=sword.id,
                 stat_definition_id=magical_def.id,
                 tenant_id=tenant.id,
                 value_bool=True,
@@ -101,7 +102,7 @@ async def test_v_item_scalar_columns_and_computed_properties() -> None:
         )
 
         info = Information(
-            tenant_id=tenant.id, entity_id=my_sword.id, title="A fine sword", type="description"
+            tenant_id=tenant.id, entity_id=sword.id, title="A fine sword", type="description"
         )
         session.add(info)
         await session.flush()
@@ -126,36 +127,80 @@ async def test_v_item_scalar_columns_and_computed_properties() -> None:
             )
         )
         await session.commit()
-        sword_id, my_sword_id, chest_id, tenant_id = sword.id, my_sword.id, chest.id, tenant.id
+        sword_id, my_sword_id, chest_id = sword.id, my_sword.id, chest.id
 
-        my_sword_view = await session.get(VItem, my_sword_id, options=list(_EAGER_LOAD_OPTIONS))
-        assert my_sword_view is not None
-        assert my_sword_view.title == "A fine sword"
-        assert my_sword_view.weight == 3
-        assert my_sword_view.height is None
-        assert my_sword_view.is_magical is True
-        assert my_sword_view.is_cursed is None
-        assert my_sword_view.container_entity_id == chest_id
-        assert my_sword_view.descriptions == [("A gleaming blade.", "en-US")]
-        assert my_sword_view.pictures == [(b"\x89PNG", "image/png")]
-        assert my_sword_view.physical_stats == [("weight", 3)]
-        assert my_sword_view.tags == [("is_magical", True)]
-        assert my_sword_view.economic_stats == []
-        assert my_sword_view.destroyable_stats == []
-        assert my_sword_view.damaging_stats == []
-
-        # The prototype itself is item-typed, so it appears in v_item too -
-        # just with every derived field NULL/empty, since it has no direct
-        # stats/information/containment of its own.
-        sword_view = await session.get(VItem, sword_id, options=list(_EAGER_LOAD_OPTIONS))
+        sword_view = await session.get(
+            VItem, sword_id, options=list(_eager_load_options(VItem.entity))
+        )
         assert sword_view is not None
-        assert sword_view.title is None
-        assert sword_view.weight is None
-        assert sword_view.descriptions == []
-        assert sword_view.physical_stats == []
+        assert sword_view.title == "A fine sword"
+        assert sword_view.weight == 3
+        assert sword_view.is_magical is True
+        assert sword_view.container_entity_id == chest_id
+        assert sword_view.descriptions == [("A gleaming blade.", "en-US")]
+        assert sword_view.pictures == [(b"\x89PNG", "image/png")]
+        assert sword_view.physical_stats == [("weight", 3)]
+        assert sword_view.tags == [("is_magical", True)]
+        assert sword_view.economic_stats == []
+        assert sword_view.destroyable_stats == []
+        assert sword_view.damaging_stats == []
 
-        # Chest is neither item nor item_instance - not in v_item at all.
-        assert await session.get(VItem, chest_id) is None
+        # The item_instance entity must not leak into v_item.
+        assert await session.get(VItem, my_sword_id) is None
+
+        await session.delete(tenant)
+        await session.commit()
+
+
+async def test_v_item_instance_covers_only_the_item_instance_table_and_has_owner() -> None:
+    async with async_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+
+        sword = Entity(tenant_id=tenant.id, name="Sword")
+        my_sword = Entity(tenant_id=tenant.id, name="My Sword")
+        owner = Entity(tenant_id=tenant.id, name="Owner")
+        session.add_all([sword, my_sword, owner])
+        await session.flush()
+
+        session.add(Item(entity_id=sword.id, tenant_id=tenant.id))
+        session.add(
+            ItemInstance(entity_id=my_sword.id, owner_entity_id=owner.id, tenant_id=tenant.id)
+        )
+
+        stat_group = StatGroup(tenant_id=tenant.id, name="physical")
+        session.add(stat_group)
+        await session.flush()
+        weight_def = StatDefinition(
+            tenant_id=tenant.id,
+            stat_group_id=stat_group.id,
+            name="weight",
+            value_type=StatValueType.INT,
+        )
+        session.add(weight_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=my_sword.id,
+                stat_definition_id=weight_def.id,
+                tenant_id=tenant.id,
+                value_int=4,
+            )
+        )
+        await session.commit()
+        sword_id, my_sword_id, owner_id = sword.id, my_sword.id, owner.id
+
+        my_sword_view = await session.get(
+            VItemInstance, my_sword_id, options=list(_eager_load_options(VItemInstance.entity))
+        )
+        assert my_sword_view is not None
+        assert my_sword_view.owner_entity_id == owner_id
+        assert my_sword_view.weight == 4
+        assert my_sword_view.physical_stats == [("weight", 4)]
+
+        # The base item entity must not leak into v_item_instance.
+        assert await session.get(VItemInstance, sword_id) is None
 
         await session.delete(tenant)
         await session.commit()
@@ -171,14 +216,25 @@ BEGIN
 END $$;
 """
 
+_RLS_UNDERLYING_TABLES = (
+    "entity",
+    "item",
+    "item_instance",
+    "information",
+    "containment",
+    "entity_stat",
+    "stat_definition",
+)
 
-async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:
-    """v_item is the first view in this schema - security_invoker=true
-    (ADR 0019) is what makes RLS apply as the querying role rather than the
-    view owner's, but a view's own SELECT grant isn't enough on its own:
-    with security_invoker, the querying role also needs its own privileges
-    on every underlying table the view reads, exactly like querying them
-    directly - confirmed empirically, not assumed from the Postgres docs.
+
+async def _rls_probe(view_name: str, source_table: str) -> None:
+    """Shared by both views below - security_invoker=true (ADR 0019) means
+    RLS applies as the querying role rather than the view owner's, but a
+    view's own SELECT grant isn't enough on its own: the querying role
+    also needs its own privileges on every underlying table the view
+    reads, exactly like querying them directly - confirmed empirically
+    ("permission denied for table information" until every table below
+    was granted), not assumed from the Postgres docs.
     """
     async with engine.begin() as conn:
         tenant_a = (
@@ -201,31 +257,18 @@ async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:
             )
         ).scalar_one()
         await conn.execute(
-            text("INSERT INTO item_instance (entity_id, tenant_id) VALUES (:e, :t)"),
+            text(f"INSERT INTO {source_table} (entity_id, tenant_id) VALUES (:e, :t)"),
             {"e": entity_a, "t": tenant_a},
         )
         await conn.execute(
-            text("INSERT INTO item_instance (entity_id, tenant_id) VALUES (:e, :t)"),
+            text(f"INSERT INTO {source_table} (entity_id, tenant_id) VALUES (:e, :t)"),
             {"e": entity_b, "t": tenant_b},
         )
 
         await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
         await conn.execute(text("CREATE ROLE rls_test_role NOSUPERUSER NOBYPASSRLS NOLOGIN"))
-        await conn.execute(text("GRANT SELECT ON v_item TO rls_test_role"))
-        # security_invoker means RLS/permissions apply as this role querying
-        # each underlying table directly - granting only v_item itself
-        # fails with "permission denied for table information" (confirmed
-        # the hard way), since the view's joins still touch every table
-        # below even though none of this test's rows populate them.
-        for table in (
-            "entity",
-            "item",
-            "item_instance",
-            "information",
-            "containment",
-            "entity_stat",
-            "stat_definition",
-        ):
+        await conn.execute(text(f"GRANT SELECT ON {view_name} TO rls_test_role"))
+        for table in _RLS_UNDERLYING_TABLES:
             await conn.execute(text(f"GRANT SELECT ON {table} TO rls_test_role"))
 
     try:
@@ -234,9 +277,7 @@ async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_a)}
             )
-            rows = (
-                (await conn.execute(text("SELECT entity_id FROM v_item"))).scalars().all()
-            )
+            rows = (await conn.execute(text(f"SELECT entity_id FROM {view_name}"))).scalars().all()
             assert list(rows) == [entity_a]
             await conn.execute(text("RESET ROLE"))
 
@@ -245,15 +286,13 @@ async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_b)}
             )
-            rows = (
-                (await conn.execute(text("SELECT entity_id FROM v_item"))).scalars().all()
-            )
+            rows = (await conn.execute(text(f"SELECT entity_id FROM {view_name}"))).scalars().all()
             assert list(rows) == [entity_b]
             await conn.execute(text("RESET ROLE"))
     finally:
         async with engine.begin() as conn:
             await conn.execute(
-                text("DELETE FROM item_instance WHERE tenant_id IN (:a, :b)"),
+                text(f"DELETE FROM {source_table} WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
             await conn.execute(
@@ -265,3 +304,11 @@ async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:
                 {"a": tenant_a, "b": tenant_b},
             )
             await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
+
+
+async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:
+    await _rls_probe("v_item", "item")
+
+
+async def test_v_item_instance_rls_isolates_tenants_for_a_non_superuser_role() -> None:
+    await _rls_probe("v_item_instance", "item_instance")
