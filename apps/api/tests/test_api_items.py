@@ -170,9 +170,7 @@ async def test_get_item_returns_full_wrapped_shape(client: AsyncClient) -> None:
 async def test_get_item_404_for_unknown_id(client: AsyncClient) -> None:
     tenant_id = await _make_tenant()
 
-    response = await client.get(
-        f"/tenants/{tenant_id}/items/00000000-0000-0000-0000-000000000000"
-    )
+    response = await client.get(f"/tenants/{tenant_id}/items/00000000-0000-0000-0000-000000000000")
 
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
@@ -196,8 +194,7 @@ async def test_get_item_404_for_wrong_tenant(client: AsyncClient) -> None:
 
 async def test_get_item_404_for_unknown_tenant(client: AsyncClient) -> None:
     response = await client.get(
-        "/tenants/00000000-0000-0000-0000-000000000000/items/"
-        "00000000-0000-0000-0000-000000000000"
+        "/tenants/00000000-0000-0000-0000-000000000000/items/00000000-0000-0000-0000-000000000000"
     )
     assert response.status_code == 404
 

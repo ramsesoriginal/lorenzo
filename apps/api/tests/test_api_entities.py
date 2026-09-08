@@ -85,9 +85,7 @@ async def test_list_entities_only_returns_the_requesting_tenants_entities(
 
 
 async def test_list_entities_404_for_unknown_tenant(client: AsyncClient) -> None:
-    response = await client.get(
-        "/tenants/00000000-0000-0000-0000-000000000000/entities"
-    )
+    response = await client.get("/tenants/00000000-0000-0000-0000-000000000000/entities")
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
@@ -117,9 +115,7 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
         session.add_all(
             [
                 EntityPrototype(entity_id=main.id, prototype_id=proto.id, tenant_id=tenant_id),
-                EntityPrototype(
-                    entity_id=instance.id, prototype_id=main.id, tenant_id=tenant_id
-                ),
+                EntityPrototype(entity_id=instance.id, prototype_id=main.id, tenant_id=tenant_id),
                 Containment(
                     child_entity_id=main.id, parent_entity_id=parent.id, tenant_id=tenant_id
                 ),
