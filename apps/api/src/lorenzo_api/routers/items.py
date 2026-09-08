@@ -4,16 +4,15 @@ import uuid
 from collections.abc import Sequence
 from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi_pagination import Page, Params
+from fastapi import APIRouter, Request
+from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
-from lorenzo_api.db import get_db_session
-from lorenzo_api.dependencies import get_tenant_context
+from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId
+from lorenzo_api.exceptions import ItemNotFoundError
 from lorenzo_api.models import Entity, EntityStat, Information, Payload, StatDefinition, VItem
 from lorenzo_api.schemas.items import ItemOut
 
@@ -51,9 +50,9 @@ def eager_load_options(
 async def list_items(
     tenant_id: uuid.UUID,
     request: Request,
-    params: Params = Depends(),
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    params: ParamsDep,
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> Page[ItemOut]:
     """Every base item type for this tenant - see ADR 0019/0020. Explicit
     tenant_id filter (RLS isn't enforcing anything today - ADR 0002/0012).
@@ -79,8 +78,8 @@ async def get_item(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> ItemOut:
     stmt = (
         select(VItem)
@@ -89,5 +88,5 @@ async def get_item(
     )
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Item not found")
+        raise ItemNotFoundError(detail=f"No item with id {entity_id} in tenant {tenant_id}")
     return ItemOut.from_v_item(view, request)

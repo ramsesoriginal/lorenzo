@@ -23,7 +23,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Lorenzo API", version=version("lorenzo-api"), lifespan=lifespan)
+    app = FastAPI(
+        title="Lorenzo API",
+        version=version("lorenzo-api"),
+        lifespan=lifespan,
+        # Every route handler in this app has a unique function name, so it
+        # alone is a clean operationId - FastAPI's own default instead bakes
+        # the full templated path in too (e.g.
+        # "list_entities_tenants__tenant_id__entities_get"), which is ugly
+        # and needlessly unstable for any client codegen against this API.
+        generate_unique_id_function=lambda route: route.name,
+    )
 
     register_error_handlers(app)
     app.include_router(health_router)

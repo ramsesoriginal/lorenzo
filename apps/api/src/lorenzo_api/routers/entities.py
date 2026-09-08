@@ -1,14 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi_pagination import Page, Params
+from fastapi import APIRouter, Request
+from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.db import get_db_session
-from lorenzo_api.dependencies import get_tenant_context
+from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId
+from lorenzo_api.exceptions import EntityNotFoundError
 from lorenzo_api.models import Entity, EntityStat, Information, Payload
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import EntityDetailOut
@@ -19,9 +18,9 @@ router = APIRouter(prefix="/tenants/{tenant_id}/entities", tags=["entities"])
 @router.get("")
 async def list_entities(
     tenant_id: uuid.UUID,
-    params: Params = Depends(),
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    params: ParamsDep,
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> Page[EntitySummary]:
     """A lightweight listing - EntitySummary rather than EntityDetailOut, to
     avoid an N+1-heavy response when listing many entities.
@@ -36,8 +35,8 @@ async def get_entity(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front.
 
@@ -74,5 +73,5 @@ async def get_entity(
     )
     entity = await session.scalar(stmt)
     if entity is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Entity not found")
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     return EntityDetailOut.from_entity(entity, request)

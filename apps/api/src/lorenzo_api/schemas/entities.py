@@ -23,7 +23,7 @@ class StatValueOut(BaseModel):
     value: int | str | float | bool
 
     @classmethod
-    def from_entity_stat(cls, stat: EntityStat) -> "StatValueOut":
+    def from_entity_stat(cls, stat: EntityStat) -> StatValueOut:
         definition = stat.stat_definition
         value: int | str | float | bool | None
         if definition.value_type is StatValueType.INT:
@@ -58,7 +58,7 @@ class InformationOut(BaseModel):
     payloads: list[PayloadOut]
 
     @classmethod
-    def from_information(cls, information: Information, request: Request) -> "InformationOut":
+    def from_information(cls, information: Information, request: Request) -> InformationOut:
         return cls(
             id=information.id,
             title=information.title,
@@ -87,7 +87,7 @@ class EntityDetailOut(BaseModel):
     children: list[EntitySummary]
 
     @classmethod
-    def from_entity(cls, entity: Entity, request: Request) -> "EntityDetailOut":
+    def from_entity(cls, entity: Entity, request: Request) -> EntityDetailOut:
         return cls(
             id=entity.id,
             name=entity.name,

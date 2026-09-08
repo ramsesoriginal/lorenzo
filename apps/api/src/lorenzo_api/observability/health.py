@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.db import get_db_session
+from lorenzo_api.dependencies import SessionDep
 
 router = APIRouter(tags=["observability"])
 
@@ -14,7 +13,7 @@ async def healthz() -> dict[str, str]:
 
 
 @router.get("/readyz", status_code=status.HTTP_200_OK)
-async def readyz(session: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
+async def readyz(session: SessionDep) -> dict[str, str]:
     """Readiness: can we actually reach the database?"""
     await session.execute(text("SELECT 1"))
     return {"status": "ok"}

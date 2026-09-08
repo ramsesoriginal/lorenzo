@@ -1,13 +1,12 @@
 import uuid
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter
 from fastapi.responses import Response
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.db import get_db_session
-from lorenzo_api.dependencies import get_tenant_context
+from lorenzo_api.dependencies import SessionDep, TenantId
+from lorenzo_api.exceptions import PayloadContentNotFoundError, PayloadNotFoundError
 from lorenzo_api.models import Payload
 
 router = APIRouter(prefix="/tenants/{tenant_id}/payloads", tags=["payloads"])
@@ -29,8 +28,8 @@ def _content_disposition(disposition_type: str, filename: str) -> str:
 async def get_payload_content(
     tenant_id: uuid.UUID,
     payload_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> Response:
     """Raw bytes for a picture/document payload, with the correct
     Content-Type - and Content-Disposition for documents - rather than
@@ -42,7 +41,7 @@ async def get_payload_content(
         options=[selectinload(Payload.picture), selectinload(Payload.document)],
     )
     if payload is None or payload.tenant_id != tenant_id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Payload not found")
+        raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
 
     if payload.picture is not None:
         return Response(content=payload.picture.data, media_type=payload.picture.file_type)
@@ -54,4 +53,6 @@ async def get_payload_content(
                 "content-disposition": _content_disposition("attachment", payload.document.filename)
             },
         )
-    raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Payload has no binary content")
+    raise PayloadContentNotFoundError(
+        detail=f"Payload {payload_id} has no picture or document content"
+    )

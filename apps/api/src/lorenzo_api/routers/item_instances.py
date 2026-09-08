@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi_pagination import Page, Params
+from fastapi import APIRouter, Query, Request
+from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import CTE, Select, any_, func, select
 from sqlalchemy.dialects.postgresql import array as pg_array
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.db import get_db_session
-from lorenzo_api.dependencies import get_entity_or_404, get_tenant_context
+from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId, get_entity_or_404
+from lorenzo_api.exceptions import ItemInstanceNotFoundError
 from lorenzo_api.models import Containment, Entity, VItemInstance
 from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.schemas.common import EntitySummary
@@ -95,11 +94,22 @@ def _item_instances_by_container_stmt(
 async def list_item_instances(
     tenant_id: uuid.UUID,
     request: Request,
-    container_id: uuid.UUID | None = None,
-    recursive: bool = False,
-    params: Params = Depends(),
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    params: ParamsDep,
+    session: SessionDep,
+    _tenant: TenantId,
+    container_id: Annotated[
+        uuid.UUID | None,
+        Query(description="Only return item instances contained in this entity."),
+    ] = None,
+    recursive: Annotated[
+        bool,
+        Query(
+            description=(
+                "With container_id, also include instances nested arbitrarily deep "
+                "inside it, not just its direct contents."
+            )
+        ),
+    ] = False,
 ) -> Page[ItemInstanceOut]:
     """Every item instance for this tenant, optionally filtered to one
     container's contents (?container_id=&recursive=). `recursive` defaults
@@ -141,8 +151,8 @@ async def list_item_instances_owned_by(
     tenant_id: uuid.UUID,
     owner_entity_id: uuid.UUID,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> OwnedByResponse:
     """Every item instance owned by owner_entity_id, grouped by *direct*
     container only (a None group for uncontained instances) - a one-level
@@ -197,8 +207,8 @@ async def get_item_instance(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
-    _tenant: uuid.UUID = Depends(get_tenant_context),
+    session: SessionDep,
+    _tenant: TenantId,
 ) -> ItemInstanceOut:
     """Not in the original task brief, added for REST symmetry with
     GET /items/{entity_id} - a resource with a list and filtered views but
@@ -218,5 +228,7 @@ async def get_item_instance(
     )
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Item instance not found")
+        raise ItemInstanceNotFoundError(
+            detail=f"No item instance with id {entity_id} in tenant {tenant_id}"
+        )
     return ItemInstanceOut.from_v_item_instance(view, request)
