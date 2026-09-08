@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib.metadata import version
 
 from fastapi import FastAPI
 from fastapi_pagination import add_pagination
@@ -18,7 +19,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Lorenzo API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Lorenzo API", version=version("lorenzo-api"), lifespan=lifespan)
 
     register_error_handlers(app)
     app.include_router(health_router)

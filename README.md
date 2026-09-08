@@ -41,7 +41,7 @@ Not yet — see [Roadmap](#roadmap) and [docs/guides/adding-an-app.md](docs/guid
 
 ## Configuration
 
-Copy [.env.example](.env.example) to `.env`. It's currently empty; each app adds its own keys as it's scaffolded.
+Copy [.env.example](.env.example) to `.env` — it already has the Postgres/`DATABASE_URL` values `apps/api` needs for local dev; each further app adds its own keys as it's scaffolded.
 
 ## Architecture
 
