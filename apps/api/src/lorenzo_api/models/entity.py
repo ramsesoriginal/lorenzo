@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity_stat import EntityStat
     from lorenzo_api.models.entity_stat_group import EntityStatGroup
     from lorenzo_api.models.information import Information
+    from lorenzo_api.models.item import Item
+    from lorenzo_api.models.item_instance import ItemInstance
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
 
@@ -36,6 +38,20 @@ class Entity(Base):
     )
     information: Mapped[list[Information]] = relationship(
         back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+    )
+    item: Mapped[Item | None] = relationship(
+        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+    )
+    # item_instance: ItemInstance has two FKs to entity (entity_id and
+    # owner_entity_id) - foreign_keys= disambiguates which one this side
+    # back-populates, same as entity_prototype/containment below. No
+    # back_populates for the owner side (ADR 0019 keeps that one-directional
+    # on purpose, not the "cascade everything" case those two are).
+    item_instance: Mapped[ItemInstance | None] = relationship(
+        foreign_keys="ItemInstance.entity_id",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # entity_prototype: ADR 0015's self-referential inheritance graph has two

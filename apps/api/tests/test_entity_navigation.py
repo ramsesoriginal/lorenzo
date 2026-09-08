@@ -107,7 +107,9 @@ async def test_parent_and_children_are_inverse() -> None:
 
         session.add_all(
             [
-                Containment(child_entity_id=sword.id, parent_entity_id=room.id, tenant_id=tenant.id),
+                Containment(
+                    child_entity_id=sword.id, parent_entity_id=room.id, tenant_id=tenant.id
+                ),
                 Containment(
                     child_entity_id=shield.id, parent_entity_id=room.id, tenant_id=tenant.id
                 ),

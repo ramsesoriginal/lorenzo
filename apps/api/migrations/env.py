@@ -4,6 +4,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.sql.schema import SchemaItem
 
 import lorenzo_api.models  # noqa: F401  # registers all models on Base.metadata for autogenerate
 from lorenzo_api.config import get_settings
@@ -14,6 +15,22 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+# Views (currently just v_item - ADR 0019) are hand-written CREATE VIEW
+# statements, not op.create_table() - Alembic has no native "this is a
+# view" concept, so without this, autogenerate sees a declarative Table
+# with no matching real table in the database and tries to create one.
+_VIEW_TABLE_NAMES = frozenset({"v_item"})
+
+
+def include_object(
+    object_: SchemaItem,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: SchemaItem | None,
+) -> bool:
+    return not (type_ == "table" and name in _VIEW_TABLE_NAMES)
 
 
 def get_url() -> str:
@@ -26,13 +43,16 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
 
 
 def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection, target_metadata=target_metadata, include_object=include_object
+    )
     with context.begin_transaction():
         context.run_migrations()
 
