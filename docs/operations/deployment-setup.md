@@ -1,6 +1,6 @@
 # Deployment setup (manual, one-time)
 
-See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF setup below is confirmed correct — OIDC auth succeeds against a real project. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. The pipeline itself has needed a few real fixes on its first live runs (a missing `README.md` in the Docker build context, asyncpg rejecting Neon's default `sslmode` query param) - each fixed as found, see `deploy-api.yml`'s history for specifics. Not yet marking this "confirmed end to end" until a full run completes cleanly.
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF setup below is confirmed correct — OIDC auth succeeds against a real project. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. The pipeline itself has needed a few real fixes on its first live runs (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params) - each fixed as found, see `deploy-api.yml`'s history for specifics. Not yet marking this "confirmed end to end" until a full run completes cleanly.
 
 ## Neon (Postgres)
 
@@ -8,7 +8,7 @@ See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF
 2. Use the default database Neon creates (or make a new one).
 3. Copy the **pooled** connection string (Neon distinguishes pooled vs. direct — pooled fits a scale-to-zero app better). It looks like `postgresql://user:pass@host/dbname`.
 4. **Rewrite the scheme for asyncpg**: apps/api needs `postgresql+asyncpg://...`, not plain `postgresql://...` — SQLAlchemy picks its driver from that prefix, and without `+asyncpg` it'll try to load a sync driver that isn't even installed. Just insert `+asyncpg` after `postgresql`.
-5. **Leave the rest of the query string alone** — including `sslmode=require`, which Neon's copy-paste connection string includes by default. asyncpg doesn't understand a `sslmode` keyword (it uses `ssl` instead), but `apps/api` rewrites it automatically at startup (see `Settings._rewrite_sslmode_for_asyncpg` in `config.py`) — no manual edit needed here.
+5. **Leave the rest of the query string alone** — including `sslmode=require` and `channel_binding=require`, which Neon's copy-paste connection string includes by default. Both are libpq-only: asyncpg has no `channel_binding` equivalent at all, and takes `ssl` rather than `sslmode` (same values, different name). `apps/api` normalizes both automatically at startup (see `Settings._normalize_for_asyncpg` in `config.py`) — no manual edit needed here.
 
 This becomes the `DATABASE_URL` secret below.
 
