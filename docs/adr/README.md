@@ -15,3 +15,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0010 - User, tenant, and membership model](0010-user-tenant-membership-model.md)
 - [0011 - Deploy target: Google Cloud Run + Neon](0011-deploy-target-cloud-run-neon.md)
 - [0012 - The entity table](0012-entity-table.md)
+- [0013 - Tenant table bootstrap](0013-tenant-table-bootstrap.md)
