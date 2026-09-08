@@ -11,7 +11,7 @@ Status: accepted
 `entity`:
 
 - `id` — UUID primary key, server-generated (`gen_random_uuid()`, native in PostgreSQL 17 — confirmed no extension needed).
-- `tenant_id` — UUID, not null, indexed. **No foreign key yet**: `tenant` doesn't exist as a real table — it's being built in parallel on the `feat/auth-users` branch. The column and its RLS policy (below) are both real now; the `REFERENCES tenant(id)` constraint is a follow-up migration once both branches integrate.
+- `tenant_id` — UUID, not null, indexed, `REFERENCES tenant(id)`. `tenant` itself is [ADR 0013](0013-tenant-table-bootstrap.md)'s minimal bootstrap, built in parallel on `feat/auth-users` and merged in specifically so this FK didn't have to wait.
 - `name` — text, not null. This is an internal/reference name, not the in-fiction, audience-gated display text RFC 0001's `information` will provide later — needed now because prototypes are referenced by name throughout RFC 0001 ("Shovel," "Physical Object"), and every entity can potentially be a prototype.
 - `created_at`, `updated_at` — timestamptz, server-defaulted.
 

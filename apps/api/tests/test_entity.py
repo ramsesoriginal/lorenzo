@@ -1,15 +1,16 @@
-import uuid
-
 from sqlalchemy import text
 
 from lorenzo_api.db import async_session_factory, engine
-from lorenzo_api.models import Entity
+from lorenzo_api.models import Entity, Tenant
 
 
 async def test_create_and_read_entity() -> None:
-    tenant_id = uuid.uuid4()
     async with async_session_factory() as session:
-        entity = Entity(tenant_id=tenant_id, name="Test Entity")
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+
+        entity = Entity(tenant_id=tenant.id, name="Test Entity")
         session.add(entity)
         await session.commit()
 
@@ -19,10 +20,11 @@ async def test_create_and_read_entity() -> None:
 
         fetched = await session.get(Entity, entity.id)
         assert fetched is not None
-        assert fetched.tenant_id == tenant_id
+        assert fetched.tenant_id == tenant.id
         assert fetched.name == "Test Entity"
 
         await session.delete(fetched)
+        await session.delete(tenant)
         await session.commit()
 
 
@@ -43,10 +45,16 @@ async def test_rls_isolates_tenants_for_a_non_superuser_role() -> None:
     is correct needs a genuinely restricted role, not the app's normal
     connection, so this test creates one rather than reusing app state.
     """
-    tenant_a = uuid.uuid4()
-    tenant_b = uuid.uuid4()
-
     async with engine.begin() as conn:
+        # Real tenant rows - entity.tenant_id has a real FK to tenant.id now
+        # (ADR 0012/0013), so a made-up tenant_id would just fail to insert.
+        tenant_a = (
+            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+        ).scalar_one()
+        tenant_b = (
+            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+        ).scalar_one()
+
         # Plain "DROP ROLE IF EXISTS" only suppresses "role does not exist" -
         # it still errors if the role exists but still has grants (e.g. left
         # over from an interrupted previous run), so this handles that too.
@@ -90,6 +98,10 @@ async def test_rls_isolates_tenants_for_a_non_superuser_role() -> None:
         async with engine.begin() as conn:
             await conn.execute(
                 text("DELETE FROM entity WHERE tenant_id IN (:a, :b)"),
+                {"a": tenant_a, "b": tenant_b},
+            )
+            await conn.execute(
+                text("DELETE FROM tenant WHERE id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
             await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
