@@ -9,6 +9,10 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "uv"
     directory: "/apps/api"
@@ -16,6 +20,10 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      uv:
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/apps/api"
@@ -23,3 +31,7 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      docker:
+        patterns:
+          - "*"
