@@ -10,11 +10,11 @@
 
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. `apps/api` exists as infrastructure (health/readiness/metrics, DB connectivity — no domain models or auth yet); everything else is still structure and tooling. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists as infrastructure (health/readiness/metrics, DB connectivity), plus its first domain table (a bare `entity` — see [ADR 0012](docs/adr/0012-entity-table.md) — not yet meaningful on its own); no auth yet. Everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 | --- | --- | --- |
-| Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — infra only so far, no domain models yet |
+| Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — infra + a first domain table, no auth yet |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
 | Discord bot(s) | Talks to the API | none yet — at least one is planned |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
@@ -69,7 +69,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Immediate next step: the Authgear identity provider and the User/Tenant/Membership model ([ADR 0009](docs/adr/0009-identity-provider-authgear.md), [ADR 0010](docs/adr/0010-user-tenant-membership-model.md)) — decided, not yet built.
+Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Two vertical slices in progress in parallel: simple inventory management (`entity` landed, [ADR 0012](docs/adr/0012-entity-table.md); concrete types next) and auth/users (Authgear + the User/Tenant/Membership model, [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [ADR 0010](docs/adr/0010-user-tenant-membership-model.md) — decided, not yet built).
 
 ## License
 
