@@ -17,5 +17,5 @@ class EntitySummary(BaseModel):
     name: str
 
     @classmethod
-    def from_entity(cls, entity: Entity) -> "EntitySummary":
+    def from_entity(cls, entity: Entity) -> EntitySummary:
         return cls(id=entity.id, name=entity.name)

@@ -53,16 +53,12 @@ def payload_to_schema(payload: Payload, request: Request) -> PayloadOut:
         return PayloadNumberOut.model_validate(payload.number)
     if payload.picture is not None:
         url = str(
-            request.url_for(
-                "payload_content", tenant_id=payload.tenant_id, payload_id=payload.id
-            )
+            request.url_for("payload_content", tenant_id=payload.tenant_id, payload_id=payload.id)
         )
         return PayloadPictureOut(url=url, file_type=payload.picture.file_type)
     if payload.document is not None:
         url = str(
-            request.url_for(
-                "payload_content", tenant_id=payload.tenant_id, payload_id=payload.id
-            )
+            request.url_for("payload_content", tenant_id=payload.tenant_id, payload_id=payload.id)
         )
         return PayloadDocumentOut(
             url=url, filename=payload.document.filename, file_type=payload.document.file_type

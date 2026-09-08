@@ -2,11 +2,11 @@
 
 ## Components
 
-Every deployable app lives under `apps/`, one directory per app, named by purpose rather than type — see [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md). Only `apps/api` exists so far. Its first domain table (a bare `entity`, [ADR 0012](../adr/0012-entity-table.md)) exists but isn't meaningful on its own yet — everything else is still infrastructure.
+Every deployable app lives under `apps/`, one directory per app, named by purpose rather than type — see [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md). Only `apps/api` exists so far. Its domain model (entity/stats/information/payloads/prototypes/containment/item/item_instance, [ADR 0012](../adr/0012-entity-table.md)-[0019](../adr/0019-item-and-v-item.md)) and a first read-only REST API over it ([ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md)) both exist now - see the [domain model ER diagram](diagrams/domain-model-er.md).
 
 | Component type | Role | Multiplicity |
 | --- | --- | --- |
-| Backend API | Source of truth. Multi-tenant REST API over PostgreSQL. | One — [`apps/api`](../../apps/api) exists (infra only) |
+| Backend API | Source of truth. Multi-tenant REST API over PostgreSQL. | One — [`apps/api`](../../apps/api), read-only endpoints for entities/items/item instances live |
 | Web frontend(s) | Static UI for GMs/players (zero-JS by default). | One or many |
 | Discord bot(s) | Talks to the API — e.g. loot/inventory. | At least one, possibly more |
 | Mobile app(s) | Talks to the API — narrower, audience-specific views. | Possibly more than one |
@@ -28,4 +28,4 @@ The entity design itself is recorded in [RFC 0001](../rfcs/0001-core-domain-data
 
 ## Roadmap
 
-Tracked as [GitHub issues/milestones](https://github.com/ramsesoriginal/lorenzo/issues) once there's something to track. Two vertical slices in progress in parallel: simple inventory management (`entity` landed, [ADR 0012](../adr/0012-entity-table.md); concrete types next) and auth/users (Authgear + the User/Tenant/Membership model, [ADR 0009](../adr/0009-identity-provider-authgear.md), [ADR 0010](../adr/0010-user-tenant-membership-model.md) — decided, not yet built).
+Tracked as [GitHub issues/milestones](https://github.com/ramsesoriginal/lorenzo/issues) once there's something to track. Two vertical slices in progress in parallel: simple inventory management (entity/stats/information/payloads/prototypes/containment/item/item_instance built, ADRs 0012-0019, plus a first read-only REST API over all of it, [ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md); `knowledge` and RFC 0002's ownership remain) and auth/users (Authgear + the User/Tenant/Membership model, [ADR 0009](../adr/0009-identity-provider-authgear.md), [ADR 0010](../adr/0010-user-tenant-membership-model.md) — decided, not yet built).

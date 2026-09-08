@@ -51,9 +51,7 @@ async def get_payload_content(
             content=payload.document.data,
             media_type=payload.document.file_type,
             headers={
-                "content-disposition": _content_disposition(
-                    "attachment", payload.document.filename
-                )
+                "content-disposition": _content_disposition("attachment", payload.document.filename)
             },
         )
     raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Payload has no binary content")
