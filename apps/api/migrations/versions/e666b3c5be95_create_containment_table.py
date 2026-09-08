@@ -31,9 +31,7 @@ def upgrade() -> None:
     op.create_index(
         op.f("ix_containment_parent_entity_id"), "containment", ["parent_entity_id"], unique=False
     )
-    op.create_index(
-        op.f("ix_containment_tenant_id"), "containment", ["tenant_id"], unique=False
-    )
+    op.create_index(op.f("ix_containment_tenant_id"), "containment", ["tenant_id"], unique=False)
 
     # See ADR 0012 for why both ENABLE and FORCE are needed, and ADR 0002 for
     # the currently-unenforced-in-practice caveat (the app's own DB role is a

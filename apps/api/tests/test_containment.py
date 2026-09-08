@@ -80,11 +80,15 @@ async def test_self_loop_and_cycles_are_allowed() -> None:
         await session.commit()
 
         rows = (
-            await session.execute(
-                text("SELECT child_entity_id FROM containment WHERE tenant_id = :t"),
-                {"t": tenant_id},
+            (
+                await session.execute(
+                    text("SELECT child_entity_id FROM containment WHERE tenant_id = :t"),
+                    {"t": tenant_id},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert set(rows) == {a_id, b_id}
 
         await session.execute(
