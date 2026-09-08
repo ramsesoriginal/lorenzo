@@ -1,8 +1,8 @@
 from decimal import Decimal
 
+from _admin_db import admin_session_factory
 from httpx import AsyncClient
 
-from lorenzo_api.db import async_session_factory
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -25,7 +25,7 @@ from lorenzo_api.models import (
 async def test_list_entities_returns_paginated_summaries_ordered_by_name(
     client: AsyncClient,
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -52,7 +52,7 @@ async def test_list_entities_returns_paginated_summaries_ordered_by_name(
     assert response.status_code == 200
     assert [item["name"] for item in response.json()["items"]] == ["Charlie"]
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
@@ -60,7 +60,7 @@ async def test_list_entities_returns_paginated_summaries_ordered_by_name(
 async def test_list_entities_only_returns_the_requesting_tenants_entities(
     client: AsyncClient,
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant_a = Tenant()
         tenant_b = Tenant()
         session.add_all([tenant_a, tenant_b])
@@ -78,7 +78,7 @@ async def test_list_entities_only_returns_the_requesting_tenants_entities(
     assert response.status_code == 200
     assert [item["name"] for item in response.json()["items"]] == ["Tenant B Entity"]
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_a_id))
         await session.delete(await session.get_one(Tenant, tenant_b_id))
         await session.commit()
@@ -98,7 +98,7 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
     kinds - a real fixture fact, confirmed in test_v_item.py, not assumed),
     a prototype/instance pair, and a parent/child pair.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -297,13 +297,13 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
     assert content_response.status_code == 200
     assert content_response.content == b"%PDF-1.4"
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
 async def test_get_entity_404_for_unknown_entity_id(client: AsyncClient) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.commit()
@@ -315,7 +315,7 @@ async def test_get_entity_404_for_unknown_entity_id(client: AsyncClient) -> None
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
@@ -323,7 +323,7 @@ async def test_get_entity_404_for_unknown_entity_id(client: AsyncClient) -> None
 async def test_get_entity_404_for_entity_belonging_to_a_different_tenant(
     client: AsyncClient,
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant_a = Tenant()
         tenant_b = Tenant()
         session.add_all([tenant_a, tenant_b])
@@ -338,7 +338,7 @@ async def test_get_entity_404_for_entity_belonging_to_a_different_tenant(
     response = await client.get(f"/tenants/{tenant_b_id}/entities/{entity_id}")
     assert response.status_code == 404
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_a_id))
         await session.delete(await session.get_one(Tenant, tenant_b_id))
         await session.commit()

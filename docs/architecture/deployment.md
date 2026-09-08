@@ -26,8 +26,8 @@ Triggered by `.github/workflows/deploy-api.yml`, on any push to `main` touching 
 1. **verify** — the same lint + test job as `ci.yml`, against its own ephemeral Postgres service container. A broken push can't reach deploy.
 2. **auth** — `google-github-actions/auth@v3` exchanges the workflow's OIDC token for short-lived GCP credentials, scoped to exactly this repo (enforced by the Workload Identity Provider's `attribute-condition`).
 3. **build & push** — `docker/build-push-action` builds `apps/api/Dockerfile` and pushes it to Artifact Registry, tagged with the commit SHA (immutable, traceable back to an exact commit — never `latest`).
-4. **migrate** — `alembic upgrade head` runs directly from the GitHub Actions runner against Neon, *before* anything is deployed. A bad migration stops the pipeline here; it never reaches a live revision.
-5. **deploy** — `google-github-actions/deploy-cloudrun` points the `lorenzo-api` Cloud Run service at the freshly-pushed image, passing `DATABASE_URL` as a runtime environment variable.
+4. **migrate** — `alembic upgrade head` runs directly from the GitHub Actions runner against Neon, connected as a privileged role (`MIGRATIONS_DATABASE_URL`), *before* anything is deployed. A bad migration stops the pipeline here; it never reaches a live revision.
+5. **deploy** — `google-github-actions/deploy-cloudrun` points the `lorenzo-api` Cloud Run service at the freshly-pushed image, passing `DATABASE_URL` as a runtime environment variable — a separate, restricted role RLS actually applies to ([ADR 0021](../adr/0021-restricted-app-role-for-rls-enforcement.md)), not the privileged one migrations just ran as.
 6. **verify deployment** — the workflow itself curls the deployed revision's `/readyz` before declaring success, so a broken revision is caught in the same run, not silently.
 
 See this as diagrams: [deployment topology](diagrams/deployment.md), [CI/CD pipeline flowchart](diagrams/ci-cd-pipeline.md).

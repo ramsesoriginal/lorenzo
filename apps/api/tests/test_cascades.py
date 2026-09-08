@@ -1,6 +1,6 @@
+from _admin_db import admin_session_factory
 from sqlalchemy import text
 
-from lorenzo_api.db import async_session_factory
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -35,7 +35,7 @@ async def test_deleting_tenant_cascades_through_every_table() -> None:
     because every table here represents genuine composition - nothing
     should be able to outlive the tenant it belongs to.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -108,7 +108,7 @@ async def test_deleting_entity_cascades_its_own_rows_but_not_siblings() -> None:
     specifically - without touching a sibling Entity in the same tenant,
     or the tenant itself.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()

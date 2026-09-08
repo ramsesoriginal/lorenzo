@@ -107,3 +107,13 @@ Create a `production` [Environment](https://docs.github.com/en/actions/deploymen
 - **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. These aren't secrets (they're identifiers, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
 
 Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`.
+
+## Rotating to the restricted app role (ADR 0021)
+
+[ADR 0021](../adr/0021-restricted-app-role-for-rls-enforcement.md) splits one Neon role into two: a privileged one Alembic runs migrations as, and a new, restricted `lorenzo_app` (`NOSUPERUSER NOBYPASSRLS`) the deployed service actually connects as — RLS is confirmed unenforced otherwise, in production exactly as much as locally (Neon's own default/owner role is a member of `neon_superuser`, which Neon grants `BYPASSRLS`). This is a one-time manual rotation, not something CI does for you - **do this deliberately, not as a side effect of an unrelated deploy**:
+
+1. **Add a new secret `MIGRATIONS_DATABASE_URL`**, set to today's existing `DATABASE_URL` value (the privileged connection string from the "Neon (Postgres)" section above, unchanged). This becomes what Alembic runs migrations as going forward.
+2. **Pick credentials for the new restricted role** - a username (e.g. `lorenzo_app`) and a freshly generated password. You don't need to create this role in Neon's console yourself: the migration in [`8aced4b80842_create_restricted_lorenzo_app_role.py`](../../apps/api/migrations/versions/8aced4b80842_create_restricted_lorenzo_app_role.py) reads whatever username/password `database_url` carries and creates exactly that role, idempotently, the next time migrations run.
+3. **Update the `DATABASE_URL` secret's value** to a connection string using those new credentials (same host/port/dbname as before - just the user and password change).
+4. **Trigger a deploy** (push to `main` touching `apps/api/`, or re-run `deploy-api.yml` manually). Its migration step runs as the *privileged* role (`MIGRATIONS_DATABASE_URL`, from step 1) and creates the restricted role using the credentials named in `DATABASE_URL` (from step 3) - by the time the Cloud Run deploy step runs moments later in the same job, that role already exists and is grantable.
+5. **Verify**: the deploy's own `/readyz` smoke test passing confirms the new role can connect and query at all; it doesn't by itself prove RLS is enforced under it. Confirm that separately (e.g. the same live check `test_rls_isolates_tenants_for_a_non_superuser_role` does locally, run once by hand against Neon) before considering this actually closed.

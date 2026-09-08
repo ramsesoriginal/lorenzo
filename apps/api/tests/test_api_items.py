@@ -1,8 +1,8 @@
 import uuid
 
+from _admin_db import admin_session_factory
 from httpx import AsyncClient
 
-from lorenzo_api.db import async_session_factory
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -20,7 +20,7 @@ from lorenzo_api.models import (
 
 
 async def _make_tenant() -> uuid.UUID:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.commit()
@@ -28,13 +28,13 @@ async def _make_tenant() -> uuid.UUID:
 
 
 async def _delete_tenant(tenant_id: uuid.UUID) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
 async def _make_bare_item(tenant_id: uuid.UUID, name: str) -> uuid.UUID:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name=name)
         session.add(entity)
         await session.flush()
@@ -51,7 +51,7 @@ async def _make_full_item(
     shape so the API's wrapped schema can be checked end to end against a
     known-good source of truth. Returns (entity_id, picture_payload_id).
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name=name)
         session.add(entity)
         await session.flush()

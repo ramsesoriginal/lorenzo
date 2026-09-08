@@ -1,8 +1,9 @@
+from _admin_db import admin_session_factory
 from sqlalchemy import text
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
-from lorenzo_api.db import async_session_factory, engine
+from lorenzo_api.db import engine
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -47,7 +48,7 @@ async def test_v_item_covers_only_the_item_table() -> None:
     "find all item instances" without joining item/item_instance back in
     anyway, defeating the point.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -153,7 +154,7 @@ async def test_v_item_covers_only_the_item_table() -> None:
 
 
 async def test_v_item_instance_covers_only_the_item_instance_table_and_has_owner() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -206,104 +207,76 @@ async def test_v_item_instance_covers_only_the_item_instance_table_and_has_owner
         await session.commit()
 
 
-_DROP_TEST_ROLE_IF_EXISTS = """
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rls_test_role') THEN
-        EXECUTE 'DROP OWNED BY rls_test_role';
-        EXECUTE 'DROP ROLE rls_test_role';
-    END IF;
-END $$;
-"""
-
-_RLS_UNDERLYING_TABLES = (
-    "entity",
-    "item",
-    "item_instance",
-    "information",
-    "containment",
-    "entity_stat",
-    "stat_definition",
-)
-
-
 async def _rls_probe(view_name: str, source_table: str) -> None:
     """Shared by both views below - security_invoker=true (ADR 0019) means
     RLS applies as the querying role rather than the view owner's, but a
     view's own SELECT grant isn't enough on its own: the querying role
     also needs its own privileges on every underlying table the view
     reads, exactly like querying them directly - confirmed empirically
-    ("permission denied for table information" until every table below
-    was granted), not assumed from the Postgres docs.
+    ("permission denied for table information" until every table was
+    granted), not assumed from the Postgres docs. `engine` is the app's own
+    real, restricted connection since ADR 0021 - already granted on every
+    table/view via ALTER DEFAULT PRIVILEGES, no per-test role needed.
     """
-    async with engine.begin() as conn:
+    async with admin_session_factory() as session:
         tenant_a = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
         tenant_b = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
 
         entity_a = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'a') RETURNING id"),
                 {"t": tenant_a},
             )
         ).scalar_one()
         entity_b = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'b') RETURNING id"),
                 {"t": tenant_b},
             )
         ).scalar_one()
-        await conn.execute(
+        await session.execute(
             text(f"INSERT INTO {source_table} (entity_id, tenant_id) VALUES (:e, :t)"),
             {"e": entity_a, "t": tenant_a},
         )
-        await conn.execute(
+        await session.execute(
             text(f"INSERT INTO {source_table} (entity_id, tenant_id) VALUES (:e, :t)"),
             {"e": entity_b, "t": tenant_b},
         )
-
-        await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
-        await conn.execute(text("CREATE ROLE rls_test_role NOSUPERUSER NOBYPASSRLS NOLOGIN"))
-        await conn.execute(text(f"GRANT SELECT ON {view_name} TO rls_test_role"))
-        for table in _RLS_UNDERLYING_TABLES:
-            await conn.execute(text(f"GRANT SELECT ON {table} TO rls_test_role"))
+        await session.commit()
 
     try:
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_a)}
             )
             rows = (await conn.execute(text(f"SELECT entity_id FROM {view_name}"))).scalars().all()
             assert list(rows) == [entity_a]
-            await conn.execute(text("RESET ROLE"))
 
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_b)}
             )
             rows = (await conn.execute(text(f"SELECT entity_id FROM {view_name}"))).scalars().all()
             assert list(rows) == [entity_b]
-            await conn.execute(text("RESET ROLE"))
     finally:
-        async with engine.begin() as conn:
-            await conn.execute(
+        async with admin_session_factory() as session:
+            await session.execute(
                 text(f"DELETE FROM {source_table} WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM entity WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM tenant WHERE id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
+            await session.commit()
 
 
 async def test_v_item_rls_isolates_tenants_for_a_non_superuser_role() -> None:

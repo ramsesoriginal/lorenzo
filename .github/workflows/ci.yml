@@ -66,7 +66,12 @@ jobs:
       - run: mise run test
         working-directory: ${{ matrix.app }}
         env:
-          DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
+          # DATABASE_URL: what the app/tests connect as - a restricted role
+          # RLS actually applies to (ADR 0021). MIGRATIONS_DATABASE_URL:
+          # what Alembic connects as - stays privileged, since it's what
+          # creates lorenzo_app in the first place.
+          DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
+          MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
 
   # discover/test report no useful status if the matrix ever ends up empty
   # (test is skipped then, not failed) - this job always runs regardless, so

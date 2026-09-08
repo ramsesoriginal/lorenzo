@@ -1,4 +1,5 @@
-from lorenzo_api.db import async_session_factory
+from _admin_db import admin_session_factory
+
 from lorenzo_api.models import Entity, EntityPrototype, Item, ItemInstance, Tenant
 
 
@@ -7,7 +8,7 @@ async def test_create_and_read_item_instance_with_owner() -> None:
     item-typed. owner_entity_id references an entity generically (ADR
     0019) since character doesn't exist yet.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -37,7 +38,7 @@ async def test_create_and_read_item_instance_with_owner() -> None:
 
 
 async def test_owner_entity_id_is_optional() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -70,7 +71,7 @@ async def test_deleting_owner_sets_null_but_deleting_own_entity_cascades() -> No
     (silently passing for the wrong reason) or fail to notice a row is
     really gone - confirmed the hard way, not assumed.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -86,7 +87,7 @@ async def test_deleting_owner_sets_null_but_deleting_own_entity_cascades() -> No
         await session.delete(owner)
         await session.commit()
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         still_there = await session.get(ItemInstance, sword_id)
         assert still_there is not None
         assert still_there.owner_entity_id is None
@@ -94,7 +95,7 @@ async def test_deleting_owner_sets_null_but_deleting_own_entity_cascades() -> No
         await session.delete(await session.get_one(Entity, sword_id))
         await session.commit()
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         assert await session.get(ItemInstance, sword_id) is None
 
         await session.delete(await session.get_one(Tenant, tenant_id))

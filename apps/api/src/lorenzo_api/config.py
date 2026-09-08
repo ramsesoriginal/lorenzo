@@ -8,9 +8,17 @@ from sqlalchemy.engine import make_url
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+asyncpg://lorenzo:lorenzo@localhost:55432/lorenzo"
+    # What the running app itself connects as - a restricted, non-superuser
+    # role (see ADR 0021) that RLS actually applies to. NOT what Alembic
+    # connects as; see migrations_database_url below.
+    database_url: str = "postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:55432/lorenzo"
 
-    @field_validator("database_url")
+    # What Alembic connects as - stays privileged, since creating tables/
+    # roles/policies needs it. This is the same connection the app itself
+    # used before ADR 0021 restricted it.
+    migrations_database_url: str = "postgresql+asyncpg://lorenzo:lorenzo@localhost:55432/lorenzo"
+
+    @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:
         # Neon's default pooled connection string is written for libpq-style
