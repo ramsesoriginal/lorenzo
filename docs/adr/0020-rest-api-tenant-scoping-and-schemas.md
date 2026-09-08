@@ -1,0 +1,54 @@
+# 0020 - REST API: tenant path-scoping, schema, and pagination conventions
+
+Status: accepted
+
+## Context
+
+Sub-slices 1-7 built the entire domain model (`entity` through `item`/`item_instance`/`v_item`/`v_item_instance`) but nothing is reachable over HTTP - the only router in the app is `observability/health.py`. This ADR covers the conventions for the first real API surface: read-only (GET) endpoints for entities, items, item instances, and binary payload content. No create/update/delete is in scope - every capability asked for is a retrieval shape ("find", "by container", "grouped by owner"); full CRUD across entities/stats/information/payloads is a differently-scoped future effort.
+
+**No auth exists yet.** Authgear/User/Tenant/Membership is mid-build on the parallel `feat/auth-users` branch, not merged here. Every endpoint needs to know which tenant it's acting for, with no authenticated session to derive it from.
+
+## Decision
+
+### Tenant scoping: path-prefixed, not a header
+
+Every endpoint is nested under `/tenants/{tenant_id}/...`. Considered and rejected:
+
+- **A header (`X-Tenant-Id`)**: [ADR 0002](0002-multi-tenancy-shared-schema-rls.md) already describes the eventual design - "the backend API's middleware will resolve the tenant from the request's currently-active tenant selection (validated against the user's memberships...)". A user can belong to multiple tenants even after real auth lands, so *some* per-request tenant selector persists regardless - the real replacement isn't "swap header for JWT claim," it's "validate the selector against real membership instead of trusting it blindly." A path segment is more likely to survive that change unchanged than a header is: keeping a client-asserted header around *next to* a session-derived tenant invites a confused-deputy question (which one wins if they disagree?) that a header used purely as a placeholder doesn't have to answer today but would the moment auth exists. A path segment also matches this API's actual data shape - every table has `tenant_id`; tenant is a genuine hierarchical parent of every resource here, not a side-channel identity concern (the same shape as GitHub's `/orgs/{org}/...`).
+- **A query parameter (`?tenant_id=`)**: strictly worse than a path segment for identifying a resource-hierarchy position rather than filtering a collection.
+- **Subdomain-based tenancy**: a legitimate real pattern, wrong here - needs wildcard DNS/TLS infrastructure this project doesn't have, and doesn't compose with the existing `ASGITransport(app=app)` test convention hitting a fixed `http://test` base URL.
+
+Two more concrete reasons path-prefix wins for *this specific stack*, not just in the abstract: `fastapi-pagination`'s `Page[...]` builds `self`/`next`/`prev` links from the request URL - with path-prefix, tenant is already part of that URL for free; a header would need every generated link to separately carry it. And HTTP/CDN caches key on URL by default - path-based tenancy partitions correctly by construction if caching is ever added in front of this read-heavy API; a header-based selector would need `Vary: X-Tenant-Id` everywhere or risk cross-tenant cache poisoning.
+
+**Mechanics**: a single `get_tenant_context` FastAPI dependency (`dependencies.py`) validates the path `tenant_id` is a real tenant (404 otherwise) and issues `SELECT set_config('app.tenant_id', :t, true)` - bound parameter, `is_local=true` - on the connection. It must obtain its session via `Depends(get_db_session)`, the same dependency every route already uses, not a fresh session of its own - `get_db_session` hands out one session per request; if the tenant dependency opened a second one, `set_config` would land on a different pooled connection than the one the route's actual queries run on, silently turning this into a no-op. Every route declares `Depends(get_tenant_context)` itself rather than hiding it behind `APIRouter(dependencies=[...])` - FastAPI's per-request dependency cache means it only runs once regardless of how many times it's declared; keeping it explicit at each call site matters given how safety-critical getting tenant scoping right is.
+
+### Every query filters by tenant_id explicitly - RLS is not enforcing anything today
+
+The app's DB role is a confirmed superuser that bypasses RLS unconditionally ([ADR 0002](0002-multi-tenancy-shared-schema-rls.md)/[0012](0012-entity-table.md), still unfixed). This isn't hypothetical for this API specifically: `v_item`/`v_item_instance`'s own `CREATE VIEW` SQL ([ADR 0019](0019-item-and-v-item.md)) has no tenant filter anywhere in it - by design, tenant scoping was delegated entirely to RLS, since a view can't otherwise know "the current app tenant." Given the superuser bypass, `SELECT * FROM v_item` today returns every tenant's items, unfiltered. **Every query this API makes must explicitly filter `WHERE tenant_id = :tenant_id` in application code.** `set_config` above is real, tested groundwork for once the superuser gap is fixed (a route that forgets its own filter starts failing loudly then - `current_setting('app.tenant_id')` raises rather than returning null if never set - instead of silently leaking), but it enforces nothing by itself right now.
+
+### Schemas: a new `schemas/` package, one module per resource
+
+No Pydantic `BaseModel` exists anywhere in the codebase yet (only `Settings(BaseSettings)`) - this is genuinely greenfield, mirroring `models/`'s one-file-per-concept layout (`schemas/entities.py`, `schemas/items.py`, `schemas/payloads.py`, `schemas/common.py`). Plain `model_config = ConfigDict(from_attributes=True)` mapping handles simple direct-attribute cases; anything needing polymorphic resolution or reshaping gets an explicit `@classmethod def from_orm_x(cls, obj) -> Self` constructor rather than a `@model_validator` doing the same work - keeps resolution logic as plain, debuggable Python instead of validator-soup.
+
+Two real polymorphic-value problems recur across this schema layer, solved the same way both times:
+
+- **`Payload`** has no discriminator column by design (class-table-inheritance, matching `entity`'s own lack of one) - exactly one of `.description`/`.number`/`.picture`/`.document` is populated per row, resolved in Python by checking which is non-`None` and constructing the matching concrete schema. Still *declared* as `Annotated[DescriptionOut | NumberOut | PictureOut | DocumentOut, Field(discriminator="kind")]`, each concrete schema carrying a literal `kind` field - Pydantic's discriminator machinery is normally an input-validation optimization (skip trying every union member when JSON already carries the discriminator), not applicable going ORM→JSON, but declaring it this way costs nothing at construction time and gives FastAPI's generated OpenAPI a proper `oneOf` with a discriminator mapping instead of an ambiguous union - meaningfully better for any client codegen against this API.
+- **`EntityStat`** has the identical shape of problem - `value_int`/`value_text`/`value_float`/`value_bool`, exactly one set, DB-enforced via `CHECK(num_nonnulls(...) = 1)` but no discriminator of its own. Unlike `Payload`, there already *is* a discriminant one level up (`StatDefinition.value_type`, an enum of `int`/`text`/`float`/`bool`) - resolve through that instead of checking four columns for non-null.
+
+Picture/document payloads never inline their bytes in a JSON response - they carry a `url` pointing at the binary-content endpoint below. That endpoint gets an explicit FastAPI route `name="payload_content"` so every schema links to it via `request.url_for("payload_content", payload_id=...)` - never a hand-built path string another part of the codebase has to keep in sync by convention alone.
+
+`ItemViewMixin`'s seven properties ([ADR 0019](0019-item-and-v-item.md)) return raw tuples (`list[tuple[str, int | None]]`) - a fine internal shape, a weak external JSON contract (`["weight", 3]`, no field names). The schema layer wraps each into a small named model (`StatValueOut(name, value)`, `DescriptionOut(content, locale)`, `PictureRefOut(url, file_type)`) rather than passing tuples straight through.
+
+### Pagination: fastapi-pagination, with a bounded page size
+
+`fastapi-pagination` has been installed and wired (`add_pagination(app)` in `main.py`) since before any list endpoint existed - this is its first real use. A custom `Params` (bounding `size` with e.g. `Query(default=20, le=100)`) replaces the library's unbounded default, so a client can't turn a list endpoint into an unbounded query - nothing in the codebase has hit this gap until now since nothing has paginated anything before.
+
+### "By container" is a query-param filter; "by owner, grouped" is its own endpoint
+
+Both read from the item-instances collection, but their response shapes genuinely differ: filtering by container (`?container_id=&recursive=`) still returns a flat page of the same `ItemInstanceOut` shape, so it's ordinary REST filtering on the list endpoint. Grouping by owner returns a structurally different, nested shape (`{groups: [{container, item_instances}]}`) - bolting that onto the list endpoint behind a query flag would be the actual anti-pattern (a route's response shape shouldn't depend on which query params were passed). The grouped response's `container` field is the same lightweight `EntitySummary` (id, name) used for entity prototype/parent/children references elsewhere - `containment.parent_entity_id` isn't restricted to item-tagged entities, so it must not be item-shaped.
+
+## Consequences
+
+- This tenant-path scheme is a deliberate placeholder that real auth will need to *validate against* (does this user actually belong to this tenant?), not replace outright - expected to survive largely unchanged once `feat/auth-users` merges, per the analysis above.
+- Every list/detail endpoint needs the exact eager-load chain already proven in `apps/api/tests/test_v_item.py` (`selectinload` through information→payloads→description/picture and stats→stat_definition→stat_group) - skipping it doesn't silently lazy-load, it raises (`MissingGreenlet`), matching every other async lazy-load pitfall found this session ([ADR 0018](0018-sqlalchemy-modeling-conventions.md)).
+- `docs/architecture/diagrams/domain-model-er.md` and `overview.md` will need a follow-up pass once this lands, since `apps/api` stops being "infra only."

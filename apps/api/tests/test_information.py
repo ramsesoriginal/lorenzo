@@ -69,6 +69,7 @@ async def test_information_and_payload_bundle_end_to_end() -> None:
                 tenant_id=tenant.id,
                 data=b"%PDF-1.4",
                 filename="shovel-appraisal.pdf",
+                file_type="application/pdf",
             )
         )
         await session.commit()
@@ -96,6 +97,7 @@ async def test_information_and_payload_bundle_end_to_end() -> None:
         assert document is not None
         assert document.data == b"%PDF-1.4"
         assert document.filename == "shovel-appraisal.pdf"
+        assert document.file_type == "application/pdf"
 
         # Deleting the tenant cascades through entity/information/payload/
         # payload_* automatically - relationship()+ondelete=CASCADE

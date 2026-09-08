@@ -22,3 +22,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0017 - Information and payloads](0017-information-and-payloads.md)
 - [0018 - SQLAlchemy modeling conventions: type map, relationships, cascades](0018-sqlalchemy-modeling-conventions.md)
 - [0019 - Item, item instances, and the v_item/v_item_instance views](0019-item-and-v-item.md)
+- [0020 - REST API: tenant path-scoping, schema, and pagination conventions](0020-rest-api-tenant-scoping-and-schemas.md)
