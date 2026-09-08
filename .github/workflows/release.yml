@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false # queue, never race two runs mutating the same release PR/branch
 
 permissions:
   contents: write
