@@ -30,6 +30,8 @@ Triggered by `.github/workflows/deploy-api.yml`, on any push to `main` touching 
 5. **deploy** — `google-github-actions/deploy-cloudrun` points the `lorenzo-api` Cloud Run service at the freshly-pushed image, passing `DATABASE_URL` as a runtime environment variable.
 6. **verify deployment** — the workflow itself curls the deployed revision's `/readyz` before declaring success, so a broken revision is caught in the same run, not silently.
 
+See this as diagrams: [deployment topology](diagrams/deployment.md), [CI/CD pipeline flowchart](diagrams/ci-cd-pipeline.md).
+
 ## Local vs. deployed, at a glance
 
 | | Local | Deployed |
