@@ -228,9 +228,7 @@ async def test_entity_prototype_rls_isolates_tenants_for_a_non_superuser_role() 
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_a)}
             )
             rows = (
-                (await conn.execute(text("SELECT entity_id FROM entity_prototype")))
-                .scalars()
-                .all()
+                (await conn.execute(text("SELECT entity_id FROM entity_prototype"))).scalars().all()
             )
             assert list(rows) == [entity_a1]
             await conn.execute(text("RESET ROLE"))
@@ -241,9 +239,7 @@ async def test_entity_prototype_rls_isolates_tenants_for_a_non_superuser_role() 
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_b)}
             )
             rows = (
-                (await conn.execute(text("SELECT entity_id FROM entity_prototype")))
-                .scalars()
-                .all()
+                (await conn.execute(text("SELECT entity_id FROM entity_prototype"))).scalars().all()
             )
             assert list(rows) == [entity_b1]
             await conn.execute(text("RESET ROLE"))

@@ -18,3 +18,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0013 - Tenant table bootstrap](0013-tenant-table-bootstrap.md)
 - [0014 - Stats: definitions, groups, and per-entity values](0014-stats.md)
 - [0015 - entity_prototype: the inheritance graph](0015-entity-prototype.md)
+- [0016 - Containment: the generic entity-to-entity physical relation](0016-containment.md)

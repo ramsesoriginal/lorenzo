@@ -13,8 +13,8 @@ erDiagram
         uuid tenant_id FK
     }
     ENTITY_PROTOTYPE {
-        uuid entity_id PK_FK
-        uuid prototype_id PK_FK
+        uuid entity_id PK,FK
+        uuid prototype_id PK,FK
         uuid tenant_id FK
     }
 ```
