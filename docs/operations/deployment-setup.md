@@ -1,6 +1,6 @@
 # Deployment setup (manual, one-time)
 
-See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. The GCP/WIF setup below is confirmed correct — OIDC auth succeeds against a real project. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. The pipeline itself has needed a few real fixes on its first live runs (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params, the container ignoring Cloud Run's `$PORT`) - each fixed as found, see `deploy-api.yml`'s history for specifics. Not yet marking this "confirmed end to end" until a full run completes cleanly.
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. **Confirmed working end to end** (2026-09-08): a full `deploy-api.yml` run has completed successfully against a real Neon project and the GCP setup below, and the deployed revision serves real traffic. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. Getting here took a few real fixes, each only surfaced by an actual run (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params, the container ignoring Cloud Run's `$PORT`, new Cloud Run services being private by default) - see `deploy-api.yml`'s history for specifics.
 
 ## Neon (Postgres)
 
