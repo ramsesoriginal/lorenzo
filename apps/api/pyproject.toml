@@ -52,6 +52,14 @@ files = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# One event loop for the whole session, not one per test function: the app's
+# async engine/pool is module-level and created lazily on first use, so a
+# second test under a fresh per-function loop would try to reuse a connection
+# still bound to the first test's loop and fail with "attached to a
+# different loop" - confirmed the hard way once a second DB-touching test
+# existed.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 [build-system]
 requires = ["hatchling"]

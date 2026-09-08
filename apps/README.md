@@ -4,4 +4,4 @@ One directory per deployable application, named by purpose, not type. There is n
 
 See [ADR 0007](../docs/adr/0007-apps-layout-and-multiplicity.md) for the reasoning and [docs/guides/adding-an-app.md](../docs/guides/adding-an-app.md) for how to add one.
 
-- [`api`](api) — backend REST API. Infrastructure only so far (no domain models, no auth).
+- [`api`](api) — backend REST API. Infrastructure, plus a first domain table (`entity`, not yet meaningful on its own) — no auth yet.

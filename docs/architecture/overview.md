@@ -2,7 +2,7 @@
 
 ## Components
 
-Every deployable app lives under `apps/`, one directory per app, named by purpose rather than type — see [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md). Only `apps/api` exists so far, as infrastructure (no domain models yet).
+Every deployable app lives under `apps/`, one directory per app, named by purpose rather than type — see [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md). Only `apps/api` exists so far. Its first domain table (a bare `entity`, [ADR 0012](../adr/0012-entity-table.md)) exists but isn't meaningful on its own yet — everything else is still infrastructure.
 
 | Component type | Role | Multiplicity |
 | --- | --- | --- |
@@ -17,15 +17,15 @@ Everything other than the backend API is a *view* onto it — narrower, audience
 
 The full picture — the layered world model, repositories, entities/knowledge/visibility, and how different client apps narrow all of it down — lives in [docs/domain](../domain), not here. This section is just the one-line technical summary: **where** something is (several independent, not-always-linear coordinate systems at once, not one hierarchy), **who knows what** (per-character, per-point-in-time, not global), and **who can see what** (every piece of text/stats split by audience).
 
-None of this is modeled as a schema yet — no ADR/RFC for the entity design. That's real design work for when the backend API is actually scoped, not something to improvise into this foundation pass.
+The entity design itself is recorded in [RFC 0001](../rfcs/0001-core-domain-data-model.md) (the entity/component core) and [RFC 0002](../rfcs/0002-campaign-player-character-model.md) (campaign/player/character) — being built incrementally, smallest sub-slice first, starting with the bare `entity` table ([ADR 0012](../adr/0012-entity-table.md)).
 
 ## Cross-cutting concerns (intentions, not yet built)
 
-- **Multi-tenancy**: [ADR 0002](../adr/0002-multi-tenancy-shared-schema-rls.md) — shared schema + PostgreSQL row-level security. Not implemented yet — `apps/api` has no domain tables to scope.
+- **Multi-tenancy**: [ADR 0002](../adr/0002-multi-tenancy-shared-schema-rls.md) — shared schema + PostgreSQL row-level security. Implemented for the first table (`entity`, [ADR 0012](../adr/0012-entity-table.md)) — but currently unenforced in practice: the app's DB role is a superuser, which bypasses RLS unconditionally, independent of the policy being correct. See ADR 0002's consequences.
 - **Observability**: health/readiness/metrics and structured logs exist in `apps/api` from its first commit, as intended, plus OpenTelemetry tracing (console exporter — no collector in this project's infra yet). See [docs/architecture/observability.md](observability.md) for what each signal actually covers and what isn't wired up yet.
 - **Auth**: [ADR 0009](../adr/0009-identity-provider-authgear.md) decided Authgear as the identity provider; not built yet.
 - **Deployment**: [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) — Google Cloud Run + Neon, continuously deployed on every push to `main` that touches `apps/api/` (`.github/workflows/deploy-api.yml`), confirmed working end to end. See [docs/architecture/deployment.md](deployment.md) for the components and how they connect, and [docs/operations/deployment-setup.md](../operations/deployment-setup.md) for the one-time account setup.
 
 ## Roadmap
 
-Tracked as [GitHub issues/milestones](https://github.com/ramsesoriginal/lorenzo/issues) once there's something to track. Immediate next step: Authgear + the User/Tenant/Membership model ([ADR 0009](../adr/0009-identity-provider-authgear.md), [ADR 0010](../adr/0010-user-tenant-membership-model.md)) — decided, not yet built.
+Tracked as [GitHub issues/milestones](https://github.com/ramsesoriginal/lorenzo/issues) once there's something to track. Two vertical slices in progress in parallel: simple inventory management (`entity` landed, [ADR 0012](../adr/0012-entity-table.md); concrete types next) and auth/users (Authgear + the User/Tenant/Membership model, [ADR 0009](../adr/0009-identity-provider-authgear.md), [ADR 0010](../adr/0010-user-tenant-membership-model.md) — decided, not yet built).

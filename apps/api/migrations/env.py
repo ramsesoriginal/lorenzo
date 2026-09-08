@@ -5,6 +5,7 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import lorenzo_api.models  # noqa: F401  # registers all models on Base.metadata for autogenerate
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import Base
 
