@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity_stat import EntityStat
     from lorenzo_api.models.entity_stat_group import EntityStatGroup
     from lorenzo_api.models.information import Information
+    from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
 
 
@@ -67,4 +68,44 @@ class Entity(Base):
         back_populates="parent",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+
+    # Read-only convenience accessors onto the *other side* of each join
+    # above, skipping the association object (e.g. entity.stat_groups
+    # instead of [l.stat_group for l in entity.stat_group_links]). viewonly
+    # is load-bearing, not decorative: mixing an association-object mapping
+    # with a secondary= relationship on the same tables is documented to
+    # risk inconsistent reads/writes unless the secondary= side is
+    # read-only - confirmed empirically that appending through one of these
+    # does not persist anything, rather than silently writing a row missing
+    # the columns (like tenant_id) the real association classes require.
+    # Writes always go through stat_group_links/prototype_links/
+    # dependent_links/containment/contained_links, or the association
+    # classes directly - never through these.
+    stat_groups: Mapped[list[StatGroup]] = relationship(
+        secondary="entity_stat_group", viewonly=True
+    )
+    prototypes: Mapped[list[Entity]] = relationship(
+        secondary="entity_prototype",
+        primaryjoin="Entity.id == EntityPrototype.entity_id",
+        secondaryjoin="Entity.id == EntityPrototype.prototype_id",
+        viewonly=True,
+    )
+    instances: Mapped[list[Entity]] = relationship(
+        secondary="entity_prototype",
+        primaryjoin="Entity.id == EntityPrototype.prototype_id",
+        secondaryjoin="Entity.id == EntityPrototype.entity_id",
+        viewonly=True,
+    )
+    parent: Mapped[Entity | None] = relationship(
+        secondary="containment",
+        primaryjoin="Entity.id == Containment.child_entity_id",
+        secondaryjoin="Entity.id == Containment.parent_entity_id",
+        viewonly=True,
+    )
+    children: Mapped[list[Entity]] = relationship(
+        secondary="containment",
+        primaryjoin="Entity.id == Containment.parent_entity_id",
+        secondaryjoin="Entity.id == Containment.child_entity_id",
+        viewonly=True,
     )

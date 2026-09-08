@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from sqlalchemy import text
 
 from lorenzo_api.db import async_session_factory
@@ -187,9 +185,13 @@ async def test_deleting_entity_cascades_its_own_rows_but_not_siblings() -> None:
             assert count == 0, f"expected {table} rows referencing the deleted entity to be gone"
 
         payload_count = (
-            await session.execute(text("SELECT count(*) FROM payload WHERE tenant_id = :t"), {"t": tenant_id})
+            await session.execute(
+                text("SELECT count(*) FROM payload WHERE tenant_id = :t"), {"t": tenant_id}
+            )
         ).scalar_one()
-        assert payload_count == 0, "expected payload (and its payload_description) to cascade via information"
+        assert payload_count == 0, (
+            "expected payload (and its payload_description) to cascade via information"
+        )
 
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
