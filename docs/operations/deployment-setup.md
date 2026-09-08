@@ -1,6 +1,6 @@
 # Deployment setup (manual, one-time)
 
-See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. These steps need an actual Google Cloud and Neon account — I have neither, so none of this has been run or verified end to end. The `gcloud` commands below follow Google's own documented Workload Identity Federation pattern; double-check flag names against [Google's current WIF docs](https://cloud.google.com/iam/docs/workload-identity-federation-with-other-clouds) if any of them error out.
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why. Confirmed working end to end: `.github/workflows/deploy-api.yml` has deployed successfully against a real Neon project and the GCP setup below. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own.
 
 ## Neon (Postgres)
 
