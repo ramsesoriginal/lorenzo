@@ -6,8 +6,9 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, TenantId
 from lorenzo_api.exceptions import EntityNotFoundError
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Entity, EntityStat, Information, Payload
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import EntityDetailOut
@@ -36,6 +37,7 @@ async def get_entity(
     entity_id: uuid.UUID,
     request: Request,
     session: SessionDep,
+    user: CurrentUser,
     _tenant: TenantId,
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front.
@@ -65,6 +67,7 @@ async def get_entity(
             selectinload(Entity.information)
             .selectinload(Information.payloads)
             .selectinload(Payload.document),
+            selectinload(Entity.information).selectinload(Information.knowledge_links),
             selectinload(Entity.prototypes),
             selectinload(Entity.instances),
             selectinload(Entity.parent),
@@ -74,4 +77,13 @@ async def get_entity(
     entity = await session.scalar(stmt)
     if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
-    return EntityDetailOut.from_entity(entity, request)
+
+    # Not a mutation of entity.information itself (that relationship
+    # cascades delete-orphan - reassigning/filtering it in place would
+    # queue real DELETEs on the next flush). Just a plain id set, used
+    # only by the schema layer below to decide what to include.
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    visible_information_ids = {info.id for info in entity.information if visibility.can_see(info)}
+    return EntityDetailOut.from_entity(
+        entity, request, visible_information_ids=visible_information_ids
+    )

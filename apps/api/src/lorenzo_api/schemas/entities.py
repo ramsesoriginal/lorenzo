@@ -87,7 +87,9 @@ class EntityDetailOut(BaseModel):
     children: list[EntitySummary]
 
     @classmethod
-    def from_entity(cls, entity: Entity, request: Request) -> EntityDetailOut:
+    def from_entity(
+        cls, entity: Entity, request: Request, *, visible_information_ids: set[uuid.UUID]
+    ) -> EntityDetailOut:
         return cls(
             id=entity.id,
             name=entity.name,
@@ -101,8 +103,14 @@ class EntityDetailOut(BaseModel):
             stat_groups=[
                 EntitySummary(id=group.id, name=group.name) for group in entity.stat_groups
             ],
+            # Filtered by the caller's resolved information_visibility
+            # (ADR 0028's addendum) - required, no default, so a caller
+            # that forgets to pass it fails loudly rather than silently
+            # defaulting toward showing everything.
             information=[
-                InformationOut.from_information(info, request) for info in entity.information
+                InformationOut.from_information(info, request)
+                for info in entity.information
+                if info.id in visible_information_ids
             ],
             prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
             instances=[EntitySummary.from_entity(e) for e in entity.instances],
