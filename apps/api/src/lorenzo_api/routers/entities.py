@@ -1,19 +1,26 @@
 import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, TenantId
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, get_tenant_context
 from lorenzo_api.exceptions import EntityNotFoundError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Entity, EntityStat, Information, Payload
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import EntityDetailOut
 
-router = APIRouter(prefix="/tenants/{tenant_id}/entities", tags=["entities"])
+# get_tenant_context here, not per-route (ADR 0020's revised guidance) -
+# every route on this router needs it and none read its return value, the
+# textbook case FastAPI's own docs give for a router-level dependency.
+router = APIRouter(
+    prefix="/tenants/{tenant_id}/entities",
+    tags=["entities"],
+    dependencies=[Depends(get_tenant_context)],
+)
 
 
 @router.get("")
@@ -21,7 +28,6 @@ async def list_entities(
     tenant_id: uuid.UUID,
     params: ParamsDep,
     session: SessionDep,
-    _tenant: TenantId,
 ) -> Page[EntitySummary]:
     """A lightweight listing - EntitySummary rather than EntityDetailOut, to
     avoid an N+1-heavy response when listing many entities.
@@ -38,7 +44,6 @@ async def get_entity(
     request: Request,
     session: SessionDep,
     user: CurrentUser,
-    _tenant: TenantId,
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front.
 

@@ -4,13 +4,19 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import CTE, Select, any_, func, select
 from sqlalchemy.dialects.postgresql import array as pg_array
 
-from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, TenantId, get_entity_or_404
+from lorenzo_api.dependencies import (
+    CurrentUser,
+    ParamsDep,
+    SessionDep,
+    get_entity_or_404,
+    get_tenant_context,
+)
 from lorenzo_api.exceptions import ItemInstanceNotFoundError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Containment, Entity, VItemInstance
@@ -18,7 +24,14 @@ from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.items import ItemInstanceOut, OwnedByResponse, OwnedGroupOut
 
-router = APIRouter(prefix="/tenants/{tenant_id}/item-instances", tags=["item-instances"])
+# get_tenant_context here, not per-route (ADR 0020's revised guidance) -
+# every route on this router needs it and none read its return value, the
+# textbook case FastAPI's own docs give for a router-level dependency.
+router = APIRouter(
+    prefix="/tenants/{tenant_id}/item-instances",
+    tags=["item-instances"],
+    dependencies=[Depends(get_tenant_context)],
+)
 
 # Bounds the cost of a recursive container traversal on a legitimately deep
 # (but acyclic) containment tree. Orthogonal to the path-array cycle guard
@@ -98,7 +111,6 @@ async def list_item_instances(
     params: ParamsDep,
     session: SessionDep,
     user: CurrentUser,
-    _tenant: TenantId,
     container_id: Annotated[
         uuid.UUID | None,
         Query(description="Only return item instances contained in this entity."),
@@ -162,7 +174,6 @@ async def list_item_instances_owned_by(
     request: Request,
     session: SessionDep,
     user: CurrentUser,
-    _tenant: TenantId,
 ) -> OwnedByResponse:
     """Every item instance owned by owner_entity_id, grouped by *direct*
     container only (a None group for uncontained instances) - a one-level
@@ -220,7 +231,6 @@ async def get_item_instance(
     request: Request,
     session: SessionDep,
     user: CurrentUser,
-    _tenant: TenantId,
 ) -> ItemInstanceOut:
     """Not in the original task brief, added for REST symmetry with
     GET /items/{entity_id} - a resource with a list and filtered views but

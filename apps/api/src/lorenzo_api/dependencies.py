@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi_pagination import Params
 from jwt import PyJWKClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +22,6 @@ __all__ = [
     "CurrentUser",
     "ParamsDep",
     "SessionDep",
-    "TenantId",
     "get_current_user",
     "get_entity_or_404",
     "get_jwks_client",
@@ -145,13 +144,14 @@ async def get_tenant_context(
     return tenant_id
 
 
-TenantId = Annotated[uuid.UUID, Depends(get_tenant_context)]
-
-
 async def get_entity_or_404(
     session: AsyncSession, entity_id: uuid.UUID, tenant_id: uuid.UUID
 ) -> Entity:
-    entity = await session.get(Entity, entity_id)
-    if entity is None or entity.tenant_id != tenant_id:
+    # WHERE tenant_id = ... in the query itself, not a Python-level check
+    # after a plain session.get() - ADR 0020's own explicit rule, matching
+    # every route's own eager-loaded lookup.
+    stmt = select(Entity).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    entity = (await session.execute(stmt)).scalar_one_or_none()
+    if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     return entity
