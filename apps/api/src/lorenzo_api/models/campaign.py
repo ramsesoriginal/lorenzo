@@ -7,6 +7,8 @@ from sqlalchemy.orm import Mapped, relationship
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
 
 if TYPE_CHECKING:
+    from lorenzo_api.models.campaign_gm import CampaignGm
+    from lorenzo_api.models.orga_campaign_opt_out import OrgaCampaignOptOut
     from lorenzo_api.models.player import Player
     from lorenzo_api.models.tenant import Tenant
 
@@ -27,5 +29,11 @@ class Campaign(Base):
 
     tenant: Mapped[Tenant] = relationship(back_populates="campaigns")
     players: Mapped[list[Player]] = relationship(
+        back_populates="campaign", cascade="all, delete-orphan", passive_deletes=True
+    )
+    gms: Mapped[list[CampaignGm]] = relationship(
+        back_populates="campaign", cascade="all, delete-orphan", passive_deletes=True
+    )
+    orga_opt_outs: Mapped[list[OrgaCampaignOptOut]] = relationship(
         back_populates="campaign", cascade="all, delete-orphan", passive_deletes=True
     )
