@@ -2,7 +2,7 @@
 
 ```mermaid
 C4Context
-  title Lorenzo — system context (target shape - apps/api exists as infrastructure so far, the rest is unbuilt)
+  title Lorenzo — system context (target shape - apps/api is built, the rest is unbuilt)
 
   Person(gm, "Game Master", "Runs campaigns, owns the secrets")
   Person(player, "Player", "Sees only what they're allowed to")

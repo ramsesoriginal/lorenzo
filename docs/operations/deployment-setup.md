@@ -1,6 +1,6 @@
 # Deployment setup (manual, one-time)
 
-See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why and [docs/architecture/deployment.md](../architecture/deployment.md) for how the pieces connect once this is done. **Confirmed working end to end** (2026-09-08): a full `deploy-api.yml` run has completed successfully against a real Neon project and the GCP setup below, and the deployed revision serves real traffic. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. Getting here took a few real fixes, each only surfaced by an actual run (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params, the container ignoring Cloud Run's `$PORT`, new Cloud Run services being private by default) - see `deploy-api.yml`'s history for specifics.
+See [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) for why and [docs/architecture/deployment.md](../architecture/deployment.md) for how the pieces connect once this is done. **Confirmed working end to end for the pre-domain-model, pre-auth baseline** (2026-09-08): a full `deploy-api.yml` run completed successfully against a real Neon project and the GCP setup below, and the deployed revision served real traffic. The domain model, RLS restricted role, and Authgear integration built since then haven't been re-verified against a live deploy — see the Authgear gap called out in "GitHub setup" below before assuming a fresh deploy today works end to end. `PROJECT_ID` must be globally unique across *all* of GCP, not just this repo — `lorenzo-api` was taken, `lorenzo-medici-api` wasn't; pick your own. Getting here took a few real fixes, each only surfaced by an actual run (a missing `README.md` in the Docker build context, asyncpg rejecting two of Neon's default libpq-only query params, the container ignoring Cloud Run's `$PORT`, new Cloud Run services being private by default) - see `deploy-api.yml`'s history for specifics.
 
 ## Neon (Postgres)
 
@@ -107,6 +107,8 @@ Create a `production` [Environment](https://docs.github.com/en/actions/deploymen
 - **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. These aren't secrets (they're identifiers, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
 
 Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`.
+
+**Known gap, not yet done**: `Settings` also has `authgear_issuer`/`authgear_jwks_url`/`authgear_audience` ([ADR 0023](../adr/0023-authgear-token-verification.md)), defaulting to `http://localhost:4000` placeholders. Neither a `production` environment secret/variable for these, nor a corresponding `env_vars` entry in `deploy-api.yml`'s `deploy` step, exists yet — only `DATABASE_URL` is passed to the running Cloud Run service today. Until both are added, a production deploy would verify every real bearer token against the wrong issuer/audience and reject it. Adding the values here alone isn't sufficient; `deploy-api.yml` itself needs the matching `env_vars` line too.
 
 ## Rotating to the restricted app role (ADR 0021)
 
