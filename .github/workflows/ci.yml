@@ -73,17 +73,54 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
           MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
 
+  # Not matrixed over discover's output like `test` is: an OpenAPI schema
+  # dump isn't part of ADR 0007's universal per-app contract (only
+  # dev/lint/test/build are), so a future non-FastAPI app would hard-fail on
+  # a task it doesn't have. Scoped to apps/api directly instead. Diffs two
+  # same-job checkouts rather than a published artifact from main - simpler,
+  # no retention/staleness concerns, and it diffs against the PR's actual
+  # base commit rather than main's last green build.
+  openapi-diff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: revision
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+      - run: mise run openapi-schema
+        working-directory: revision/apps/api
+      - run: mise run openapi-schema
+        working-directory: base/apps/api
+        # Base commit may predate this task existing at all (e.g. this very
+        # PR, or an old branch) - the next step's hashFiles check skips
+        # gracefully rather than failing when that happens.
+        continue-on-error: true
+      - name: Check for breaking changes
+        if: hashFiles('base/apps/api/openapi.json') != ''
+        uses: oasdiff/oasdiff-action/breaking@v0
+        with:
+          base: base/apps/api/openapi.json
+          revision: revision/apps/api/openapi.json
+          fail-on: ERR
+
   # discover/test report no useful status if the matrix ever ends up empty
   # (test is skipped then, not failed) - this job always runs regardless, so
   # it can be the one required status check that's always meaningful. See
   # docs/operations/github-setup.md.
   ci-summary:
-    needs: [discover, test]
+    needs: [discover, test, openapi-diff]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - run: |
-          if [ "${{ needs.test.result }}" = "failure" ]; then
+          if [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.openapi-diff.result }}" = "failure" ]; then
             echo "A required job failed."
             exit 1
           fi
