@@ -6,6 +6,7 @@ from collections.abc import AsyncGenerator, Generator
 import pytest
 from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
+from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 from jwt import PyJWKClient
 from sqlalchemy import text
@@ -21,6 +22,18 @@ def _migrate_database() -> None:
     corresponding ADRs) against the test database before any test runs.
     """
     subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def _app_lifespan() -> AsyncGenerator[None]:
+    """Actually runs main.py's lifespan (startup/shutdown) once for the whole
+    session - a bare ASGITransport(app=app) (used by client/raw_client below)
+    never triggers it on its own (confirmed via FastAPI's own docs), so this
+    is what stands between shutdown-only logic (engine.dispose()) and
+    silently never being exercised by the test suite.
+    """
+    async with LifespanManager(app):
+        yield
 
 
 @pytest.fixture(scope="session")

@@ -9,7 +9,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
-from sqlalchemy.orm.strategy_options import _AbstractLoad
+from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId
 from lorenzo_api.exceptions import ItemNotFoundError
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/tenants/{tenant_id}/items", tags=["items"])
 
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[_AbstractLoad, _AbstractLoad, _AbstractLoad]:
+) -> tuple[ORMOption, ORMOption, ORMOption]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
     `ItemViewMixin`'s seven properties (ADR 0019/0020), or they raise

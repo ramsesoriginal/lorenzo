@@ -3,6 +3,7 @@ from functools import lru_cache
 from typing import Annotated, Any
 
 import jwt
+import structlog
 from fastapi import Depends
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -31,6 +32,8 @@ __all__ = [
 
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 ParamsDep = Annotated[Params, Depends()]
+
+logger = structlog.get_logger(__name__)
 
 _bearer_scheme = HTTPBearer()
 BearerCredentialsDep = Annotated[HTTPAuthorizationCredentials, Depends(_bearer_scheme)]
@@ -72,7 +75,8 @@ async def verify_token(
             issuer=settings.authgear_issuer,
         )
     except jwt.PyJWTError as exc:
-        raise InvalidTokenError(detail=str(exc)) from exc
+        logger.info("token_verification_failed", error=str(exc))
+        raise InvalidTokenError(detail="Invalid or expired authentication token") from exc
     return claims
 
 
