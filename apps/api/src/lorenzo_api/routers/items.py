@@ -55,7 +55,8 @@ async def list_items(
     _tenant: TenantId,
 ) -> Page[ItemOut]:
     """Every base item type for this tenant - see ADR 0019/0020. Explicit
-    tenant_id filter (RLS isn't enforcing anything today - ADR 0002/0012).
+    tenant_id filter as defense in depth alongside RLS, not a replacement
+    for it (ADR 0002/0021).
     """
     stmt = (
         select(VItem)

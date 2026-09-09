@@ -125,10 +125,11 @@ async def get_tenant_context(
 ) -> uuid.UUID:
     """Validates tenant_id is real *and* the caller actually has a
     Membership in it, then sets app.tenant_id on this same request-scoped
-    session for RLS forward-compatibility - see ADR 0020/0022/0023. Every
-    route must still filter its own queries by tenant_id explicitly; this
-    does not enforce isolation by itself while the app's DB role remains a
-    superuser (ADR 0002/0012).
+    session, which RLS policies now actually filter on, since the app
+    connects as a restricted, non-superuser role (ADR 0002/0021) - see
+    ADR 0020/0022/0023. Every route must still filter its own queries by
+    tenant_id explicitly regardless; RLS is defense in depth for a missed
+    filter, not a replacement for filtering deliberately (ADR 0002).
 
     "Tenant doesn't exist" and "tenant exists but you're not a member"
     raise the exact same TenantNotFoundError - same class, same body - so
