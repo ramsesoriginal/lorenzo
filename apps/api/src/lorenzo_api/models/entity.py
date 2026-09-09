@@ -12,9 +12,11 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_stat import EntityStat
     from lorenzo_api.models.entity_stat_group import EntityStatGroup
+    from lorenzo_api.models.group_member import GroupMember
     from lorenzo_api.models.information import Information
     from lorenzo_api.models.item import Item
     from lorenzo_api.models.item_instance import ItemInstance
+    from lorenzo_api.models.knowledge import Knowledge
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
@@ -122,6 +124,24 @@ class Entity(Base):
         lazy="raise_on_sql",
         foreign_keys="Containment.parent_entity_id",
         back_populates="parent",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # group_member: this entity, used as a group knower (RFC 0001/ADR 0028)
+    # - membership rows naming it as the group side.
+    group_member_links: Mapped[list[GroupMember]] = relationship(
+        lazy="raise_on_sql",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    # knowledge: this entity acting as a knower (a character or a group -
+    # see ADR 0028), not information *about* this entity (that's the
+    # `information` relationship above).
+    knowledge_links: Mapped[list[Knowledge]] = relationship(
+        lazy="raise_on_sql",
+        back_populates="knower_entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

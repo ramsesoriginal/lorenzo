@@ -30,3 +30,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0025 - Character (being), roster reuse, and ownership](0025-character-being-and-ownership.md)
 - [0026 - Campaign GM, orga, and the campaign access rule](0026-campaign-gm-orga-and-access-rule.md)
 - [0027 - Authgear Cloud, not self-hosted](0027-authgear-cloud-not-self-hosted.md)
+- [0028 - Knowledge, group membership, and public information](0028-knowledge-and-group-membership.md)

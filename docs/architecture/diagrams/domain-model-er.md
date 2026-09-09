@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-The merged, up-to-date picture of every table built so far across `feat/inventory-management` (sub-slices 1-7) and `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character_player`, `ownership`, `campaign_gm`, `orga_campaign_opt_out`) and are omitted below - they're uniform across the schema and would only add repetition, not information. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
+The merged, up-to-date picture of every table built so far across `feat/inventory-management` (sub-slices 1-7) and `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character_player`, `ownership`, `campaign_gm`, `orga_campaign_opt_out`, `group_member`) and are omitted below - they're uniform across the schema and would only add repetition, not information. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
 
 ```mermaid
 erDiagram
@@ -32,6 +32,10 @@ erDiagram
     PLAYER o|--o{ BEING : owns
     BEING }o--o{ PLAYER : "piloted by"
     ENTITY ||--o{ ENTITY : owns
+    ENTITY }o--o{ BEING : groups
+    ENTITY ||--o{ KNOWLEDGE : has
+    PLAYER ||--o{ KNOWLEDGE : has
+    INFORMATION ||--o{ KNOWLEDGE : has
 
     APP_USER {
         uuid id PK
@@ -101,6 +105,7 @@ erDiagram
         uuid entity_id FK
         text title
         text type "free-form category, unique per entity"
+        boolean is_public "default false; false + no knowledge row = GM-only"
     }
     PAYLOAD {
         uuid id PK
@@ -148,6 +153,13 @@ erDiagram
         uuid owner_character_id FK "FK -> entity.id generically, not being.entity_id"
         uuid tenant_id FK
     }
+    KNOWLEDGE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid knower_entity_id FK "nullable - character or group; exactly one of knower_entity_id/knower_player_id set"
+        uuid knower_player_id FK "nullable - campaign-scoped player; exactly one of knower_entity_id/knower_player_id set"
+        uuid information_id FK
+    }
 ```
 
 A few things this single view makes clearer than any one sub-slice's diagram could:
@@ -160,5 +172,7 @@ A few things this single view makes clearer than any one sub-slice's diagram cou
 - `being.owner_player_id` ("who primarily owns this character," nullable, `ON DELETE SET NULL`) and `character_player` ("which player rows can currently pilot it," genuinely n:m) are deliberately two separate mechanisms, not one - RFC 0002 allows one player to control several characters at once and one character to be linked into several campaigns' player rows (roster reuse), so there's no single derivable "primary" owner to collapse them into.
 - `item_instance.owner_entity_id` used to be a column on `item_instance` itself (ADR 0019's placeholder, "until character exists"); it's now `v_item_instance`'s own derived column, sourced from a join against `ownership` - same name, position, and type in the view's output, so nothing downstream of the view noticed the change ([ADR 0025](../../adr/0025-character-being-and-ownership.md)).
 - **`campaign_gm` and `orga_campaign_opt_out` are two separate n:m joins between the same two entities**, `APP_USER` and `CAMPAIGN` - like `entity_stat_group`, both are pure existence joins with no attribute beyond their own FKs/`tenant_id`, so neither gets its own box; unlike `entity_stat_group`, there are two of them here rather than one, since GMing a campaign and opting out of a campaign are independent facts about the same pair ([ADR 0026](../../adr/0026-campaign-gm-orga-and-access-rule.md)). Not drawn: `campaign_gm`/`player` aren't mutually exclusive for the same user+campaign - a user can hold both at once.
+- **`information.is_public` plus `knowledge` complete RFC 0001's four knower cases** ([ADR 0028](../../adr/0028-knowledge-and-group-membership.md)): character or group (`knowledge.knower_entity_id`), player (`knowledge.knower_player_id`), everyone (`is_public = true`, no `knowledge` row needed), or GM-only (the absence of both, the default). `group_member` reuses `character_player`'s bipartite shape (`group_entity_id -> entity.id`, `character_entity_id -> being.entity_id`) - drawn as a plain `ENTITY }o--o{ BEING` line, not a self-loop, and needs no box of its own for the same reason `entity_stat_group` doesn't.
+- **`knowledge` is the one join table that needed a surrogate `id` and two explicit `UNIQUE` constraints** rather than relying on a composite PK - its two knower columns are mutually exclusive and always one-null (`CHECK(num_nonnulls(...) = 1)`, same shape as `entity_stat`'s four value columns), and Postgres can't put a nullable column in a composite PK at all.
 
-Not shown: `UNIQUE(entity_id, type)` on `information`, `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)` on `app_user`, and `UNIQUE(campaign_id, user_id)` on `player` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0024](../../adr/0024-campaign-and-player.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md) being/character_player/ownership, [0026](../../adr/0026-campaign-gm-orga-and-access-rule.md) campaign_gm/orga_campaign_opt_out).
+Not shown: `UNIQUE(entity_id, type)` on `information`, `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)` on `app_user`, `UNIQUE(campaign_id, user_id)` on `player`, and on `knowledge`, `UNIQUE(knower_entity_id, information_id)`/`UNIQUE(knower_player_id, information_id)` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0024](../../adr/0024-campaign-and-player.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md) being/character_player/ownership, [0026](../../adr/0026-campaign-gm-orga-and-access-rule.md) campaign_gm/orga_campaign_opt_out, [0028](../../adr/0028-knowledge-and-group-membership.md) knowledge/group_member/information.is_public).

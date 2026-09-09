@@ -1,0 +1,46 @@
+# 0028 - Knowledge, group membership, and public information
+
+Status: accepted
+
+## Context
+
+[RFC 0001](../rfcs/0001-core-domain-data-model.md)'s first-slice scope list is `entity, item + v_item, stat_definition, stat_group, entity_stat, entity_prototype, information, knowledge, containment` - every one of those has an ADR except `knowledge`, which [ADR 0017](0017-information-and-payloads.md) explicitly carved out: "the entire `knowledge`/knower system (who can see this - RFC 0001's own open question #1, still unresolved)... and an `is_public` flag" were out of scope there because `knower_player_id` needs `player` ([RFC 0002](../rfcs/0002-campaign-player-character-model.md)), which didn't exist yet. RFC 0002 is now fully landed (ADR 0021-0026), so this is the one remaining piece of RFC 0001's original scope, not new ambition.
+
+RFC 0001's own words on the design: "`knowledge` connects a **knower** to a specific `information` row, so different observers can know different - and differently _true_ - things about the same entity. A knower is one of: a single character (`knower_entity_id`, referencing a `being`), a group of characters (`knower_entity_id` again - a group is a bare `entity` with no dedicated concrete table yet, membership via `group_member(group_entity_id, character_entity_id)`), or a player (`knower_player_id` - deliberately the campaign-scoped `player`, not the global `User`). Exactly one of `knower_entity_id`/`knower_player_id` is set per row. The fourth case, 'known to everyone,' doesn't use `knowledge` at all: `information.is_public` bypasses the knower lookup entirely - GM-only is just the default, not a separate flag."
+
+RFC 0001 also left an open question (#1) unresolved: whether multiple knowers of "the same fact" should be modeled as separate authored `information` rows per knower ("authored truths") or one truth redacted per audience - "probably right for a tool aimed at GMs who want to hand-craft rumors and misinformation, not just hide stats... but it's not decided yet whether _some_ facts should instead be 'one truth, redacted per audience'... Both might be needed." This ADR resolves that question **for what gets built now**: authored truths, exactly as specified above. The redaction alternative stays explicitly open for later; nothing here forecloses it.
+
+[docs/domain/entities-knowledge-and-visibility.md](../domain/entities-knowledge-and-visibility.md) wants richer tracking still - "who knows what, and as of when... including who has met whom, and what they learned about each other at that meeting" - but says itself this "is genuinely unbuilt design space... isn't decided yet." RFC 0001's own scope section already defers "time... observation... as a full subsystem" for the first slice, so this ADR builds a **static** knower-to-information link only, the same scope-narrowing move ADR 0017 made relative to RFC 0001's fuller ambition.
+
+## Decision
+
+### `group_member(group_entity_id, character_entity_id, tenant_id)`
+
+Composite PK, no timestamps - a pure n:m join, matching `entity_prototype`/`character_player`'s precedent. `group_entity_id` FKs to `entity.id` (a group is a bare entity, per RFC 0001 - no concrete table of its own). `character_entity_id` FKs to `being.entity_id` specifically, reusing `character_player`'s exact precedent that a "character_entity_id"-named column always targets `Being`, never a bare `Entity`. Both `ON DELETE CASCADE`.
+
+`CHECK(group_entity_id <> character_entity_id)`, named `group_member_no_self_loop`, mirroring `entity_prototype`'s own self-loop check. This isn't defensive redundancy: RFC 0001 is explicit elsewhere that "nothing stops the same `entity_id` from having rows in both `item` and `being` at once" - the same is true here, nothing stops an entity used as a group from also acquiring a `being` row for an unrelated reason, which would let it list itself as its own member without the CHECK. Unlike `entity_prototype`, no recursive-cycle trigger is needed for _transitive_ cycles: this table's bipartite shape (`group_entity_id` ranges over all entities, `character_entity_id` only over beings) structurally forecloses any multi-hop cycle - the direct CHECK is sufficient by itself.
+
+### `knowledge(id, tenant_id, knower_entity_id, knower_player_id, information_id, created_at, updated_at)`
+
+Needs a surrogate `id` (`UuidPk`) - unlike every other join table so far - because a composite PK can't contain the always-one-null knower columns; Postgres disallows NULL in primary key columns. `knower_entity_id` (nullable) FKs to bare `entity.id`, deliberately not `being.entity_id`: it must cover both the single-character case (a being) and the group case (a bare entity with `group_member` rows) - one column, two referents, exactly as RFC 0001 specifies. `knower_player_id` (nullable) FKs to `player.id`. `information_id` (required) FKs to `information.id`. All three `ON DELETE CASCADE`.
+
+`CHECK(num_nonnulls(knower_entity_id, knower_player_id) = 1)`, named `knowledge_exactly_one_knower` - reuses `entity_stat`'s exact precedent ([ADR 0014](0014-stats.md)), the stronger of this codebase's two "exactly one of N nullable columns" patterns (`Payload`'s equivalent case has zero enforcement, an accepted gap ADR 0017 named explicitly). This CHECK is also _why_ both knower FKs must be `CASCADE`, not `SET NULL`: nulling either one out while the CHECK requires exactly one non-null would leave the row failing that CHECK at delete time, turning an ordinary delete elsewhere into a runtime `IntegrityError` here.
+
+Two `UniqueConstraint`s - `(knower_entity_id, information_id)` and `(knower_player_id, information_id)` - restore the duplicate-knower prevention every other join table in this schema gets for free from its composite PK. `knowledge` is the only one that loses that property, purely as a side effect of needing a surrogate PK, not by deliberate design - so matching precedent means restoring an equivalent, not accepting a new gap. Postgres treats `NULL` as distinct from `NULL` in a plain `UNIQUE` constraint, so neither constraint interferes with the other, and neither blocks the legitimate case of several _different_ knowers sharing the same `information_id` (the "visible to a subset" case) - only the same knower pointing at the same information row twice.
+
+`knowledge` gets `created_at`/`updated_at`, unlike `group_member`: it's closer in spirit to a record with its own provenance (`information`/`payload`) than a pure structural join.
+
+### `information.is_public`
+
+New `boolean NOT NULL DEFAULT false` column. Completes RFC 0001's fourth knower case ("known to everyone... is just the default, not a separate flag") - deferred by ADR 0017 specifically because the knowledge system it depends on wasn't built yet; it is now.
+
+## Not in scope
+
+REST endpoints - matching [ADR 0025](0025-character-being-and-ownership.md)'s precedent (`character_player`/`ownership` still have none, by design: data model first). The redaction alternative to open question #1 - stays open, not decided by this ADR. All temporal/event richness the domain doc wants ("who learned what, and as of when") - `knowledge` here is a static link only. Resolving "what does character X effectively know, including through group membership" - a read-time UNION over direct and group-derived `knowledge` rows, deferred the same way `entity_prototype`'s inheritance walk was deferred in [ADR 0015](0015-entity-prototype.md).
+
+## Consequences
+
+- `GET /tenants/{tenant_id}/entities/{entity_id}` ([routers/entities.py](../../apps/api/src/lorenzo_api/routers/entities.py)) already eager-loads and returns every `Information`/`Payload` row for an entity unconditionally today, with no visibility filtering of any kind - confirmed by reading the route directly, its `.options()` chain has no knower/`is_public` check. Adding `is_public`/`knowledge` is a pure no-op for this endpoint (default `false`, nothing reads either yet) - not a regression, but not a fix either. Naming it now so nobody later assumes building `knowledge` retroactively gated this response.
+- Same known, unsolved limitation as every join/extension table so far: nothing enforces that `knowledge`/`group_member`'s `tenant_id` actually agrees with the tenant of whatever they reference.
+- `apps/api/tests/test_cascades.py`'s hand-maintained cascade sweep gets `group_member`/`knowledge` added to its table list and per-table assertions, since both are new tenant-scoped, entity-referencing tables.
+- Same RLS caveat that no longer actually applies, but is worth restating precisely: RLS on these two new tables is both real and enforced, since the app's DB role has been a genuinely restricted, non-superuser role since ADR 0021 (rotated into production too) - unlike the caveat every earlier ADR up to 0017 had to carry.

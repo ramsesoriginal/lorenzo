@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.being import Being
     from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.character_player import CharacterPlayer
+    from lorenzo_api.models.knowledge import Knowledge
     from lorenzo_api.models.user import User
 
 
@@ -50,6 +51,12 @@ class Player(Base):
     character_links: Mapped[list[CharacterPlayer]] = relationship(
         lazy="raise_on_sql",
         back_populates="player",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    knowledge_links: Mapped[list[Knowledge]] = relationship(
+        lazy="raise_on_sql",
+        back_populates="knower_player",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

@@ -7,9 +7,11 @@ from lorenzo_api.models.entity import Entity
 from lorenzo_api.models.entity_prototype import EntityPrototype
 from lorenzo_api.models.entity_stat import EntityStat
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
+from lorenzo_api.models.group_member import GroupMember
 from lorenzo_api.models.information import Information
 from lorenzo_api.models.item import Item
 from lorenzo_api.models.item_instance import ItemInstance
+from lorenzo_api.models.knowledge import Knowledge
 from lorenzo_api.models.membership import Membership, MembershipRole
 from lorenzo_api.models.orga_campaign_opt_out import OrgaCampaignOptOut
 from lorenzo_api.models.ownership import Ownership
@@ -36,9 +38,11 @@ __all__ = [
     "EntityPrototype",
     "EntityStat",
     "EntityStatGroup",
+    "GroupMember",
     "Information",
     "Item",
     "ItemInstance",
+    "Knowledge",
     "Membership",
     "MembershipRole",
     "OrgaCampaignOptOut",
