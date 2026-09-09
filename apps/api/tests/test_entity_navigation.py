@@ -1,4 +1,5 @@
-from lorenzo_api.db import async_session_factory
+from _admin_db import admin_session_factory
+
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -13,7 +14,7 @@ async def test_stat_groups_convenience_accessor_reads_through_the_join() -> None
     """entity.stat_groups should return StatGroup objects directly, not the
     EntityStatGroup join rows entity.stat_group_links already exposes.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -47,7 +48,7 @@ async def test_prototypes_and_instances_are_inverse() -> None:
     inherits from me) should read through entity_prototype directly, each
     the mirror image of the other.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -94,7 +95,7 @@ async def test_parent_and_children_are_inverse() -> None:
     mirror image of the other. An uncontained entity has parent=None and
     children=[].
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()

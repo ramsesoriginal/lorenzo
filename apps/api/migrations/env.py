@@ -35,7 +35,8 @@ def include_object(
 
 
 def get_url() -> str:
-    return get_settings().database_url
+    # Privileged, not the app's own restricted connection - see ADR 0021.
+    return get_settings().migrations_database_url
 
 
 def run_migrations_offline() -> None:

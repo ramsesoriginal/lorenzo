@@ -4,13 +4,18 @@ from datetime import datetime
 from typing import Annotated
 
 from sqlalchemy import DateTime, ForeignKey, Text, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncAttrs,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase, mapped_column
 
 from lorenzo_api.config import get_settings
 
 
-class Base(DeclarativeBase):
+class Base(AsyncAttrs, DeclarativeBase):
     # Postgres treats unbounded VARCHAR and TEXT identically - TEXT is the
     # more idiomatic default here. Plain `datetime` otherwise maps to a
     # timezone-naive TIMESTAMP; every timestamp in this schema is TIMESTAMPTZ.
@@ -18,6 +23,10 @@ class Base(DeclarativeBase):
         str: Text,
         datetime: DateTime(timezone=True),
     }
+    # AsyncAttrs: every relationship() is lazy="raise_on_sql" (ADR 0018) -
+    # `await obj.awaitable_attrs.some_relationship` is the sanctioned escape
+    # hatch for the rare case that genuinely needs an on-demand lazy load
+    # instead of an upfront eager-load chain.
 
 
 # Reusable Annotated column shapes for the three patterns repeated across
@@ -36,7 +45,12 @@ CreatedAt = Annotated[datetime, mapped_column(server_default=text("now()"))]
 UpdatedAt = Annotated[datetime, mapped_column(server_default=text("now()"), onupdate=text("now()"))]
 
 
-engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+# pool_recycle: the deploy target (Neon, ADR 0011) fronts Postgres with its
+# own pooler, which can drop an idle backend connection without telling
+# this side's pool - recycling proactively avoids handing out one that's
+# already gone. pool_pre_ping catches the rest (a connection that died for
+# any other reason) with one cheap round-trip before real use.
+engine = create_async_engine(get_settings().database_url, pool_pre_ping=True, pool_recycle=1800)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 

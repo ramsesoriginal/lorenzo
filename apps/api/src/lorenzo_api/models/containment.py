@@ -32,8 +32,8 @@ class Containment(Base):
     tenant_id: Mapped[TenantFk]
 
     child: Mapped[Entity] = relationship(
-        foreign_keys=[child_entity_id], back_populates="containment"
+        lazy="raise_on_sql", foreign_keys=[child_entity_id], back_populates="containment"
     )
     parent: Mapped[Entity] = relationship(
-        foreign_keys=[parent_entity_id], back_populates="contained_links"
+        lazy="raise_on_sql", foreign_keys=[parent_entity_id], back_populates="contained_links"
     )

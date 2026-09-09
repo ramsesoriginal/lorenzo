@@ -27,4 +27,4 @@ class PayloadDescription(Base):
     locale: Mapped[str]
     content: Mapped[str]
 
-    payload: Mapped[Payload] = relationship(back_populates="description")
+    payload: Mapped[Payload] = relationship(lazy="raise_on_sql", back_populates="description")

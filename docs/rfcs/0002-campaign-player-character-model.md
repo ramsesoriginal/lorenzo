@@ -1,6 +1,6 @@
 # RFC: Campaign, player, and character model
 
-Status: proposed — revises [ADR 0010](../adr/0010-user-tenant-membership-model.md)'s tenant definition (patched alongside this RFC); builds on [RFC 0001](0001-core-domain-data-model.md) for the entity/being mechanics
+Status: accepted — landed in full across ADR [0021](../adr/0021-restricted-app-role-for-rls-enforcement.md)-[0026](../adr/0026-campaign-gm-orga-and-access-rule.md); revises [ADR 0010](../adr/0010-user-tenant-membership-model.md)'s tenant definition (patched alongside this RFC); builds on [RFC 0001](0001-core-domain-data-model.md) for the entity/being mechanics
 
 ## Context
 
@@ -51,6 +51,8 @@ Discussed alongside this but belongs to RFC 0001's territory: `being` stays the 
 ## Scope for the first slice: items
 
 Adds to RFC 0001's item slice: `campaign`, `player`, `character` (as a `being`), `character_player`, `ownership`. Deferred for now: `campaign_gm`, tenant-level orga/opt-out, and the repository link — a first slice can assume a single implicit GM and no cross-tenant content, without redesigning anything above to add them.
+
+**Update**: `campaign_gm` and tenant-level orga/opt-out were pulled back in and built as their own sub-slice rather than staying deferred — see [ADR 0026](../adr/0026-campaign-gm-orga-and-access-rule.md). The repository link remains genuinely deferred, not yet designed further.
 
 ## Consequences
 

@@ -1,16 +1,18 @@
 import pytest
+from _admin_db import admin_session_factory
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from lorenzo_api.db import async_session_factory, engine
+from lorenzo_api.db import engine
 from lorenzo_api.models import Containment, Entity, Tenant
 
 
 async def test_move_entity_between_containers() -> None:
     """The PK is child_entity_id alone (ADR 0016), so moving an entity to a
-    new container is a single UPDATE, not a delete-then-insert.
+    new container is a single UPDATE, not a delete-then-insert. Not
+    RLS-focused - uses the privileged connection throughout (ADR 0021).
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -49,7 +51,7 @@ async def test_self_loop_and_cycles_are_allowed() -> None:
     """RFC 0001/ADR 0016: deliberately cycle-tolerant, unlike entity_prototype
     - a direct self-loop and a 2-cycle must both be accepted, not rejected.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -94,7 +96,7 @@ async def test_self_loop_and_cycles_are_allowed() -> None:
 
 
 async def test_child_can_have_at_most_one_parent() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -124,76 +126,65 @@ async def test_child_can_have_at_most_one_parent() -> None:
         await session.commit()
 
 
-_DROP_TEST_ROLE_IF_EXISTS = """
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rls_test_role') THEN
-        EXECUTE 'DROP OWNED BY rls_test_role';
-        EXECUTE 'DROP ROLE rls_test_role';
-    END IF;
-END $$;
-"""
-
-
 async def test_containment_rls_isolates_tenants_for_a_non_superuser_role() -> None:
     """Same ENABLE+FORCE+policy pattern as every tenant-scoped table so far -
     proves it works for containment too rather than purely extrapolating
-    from the other tables' equivalent proofs.
+    from the other tables' equivalent proofs. `engine` is the app's own
+    real, restricted connection since ADR 0021 - no synthetic role needed
+    anymore; cross-tenant fixture setup/teardown still needs the privileged
+    admin_session_factory.
     """
-    async with engine.begin() as conn:
+    async with admin_session_factory() as session:
         tenant_a = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
         tenant_b = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
 
         entity_a1 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'a1') RETURNING id"),
                 {"t": tenant_a},
             )
         ).scalar_one()
         entity_a2 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'a2') RETURNING id"),
                 {"t": tenant_a},
             )
         ).scalar_one()
         entity_b1 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'b1') RETURNING id"),
                 {"t": tenant_b},
             )
         ).scalar_one()
         entity_b2 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'b2') RETURNING id"),
                 {"t": tenant_b},
             )
         ).scalar_one()
 
-        await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
-        await conn.execute(text("CREATE ROLE rls_test_role NOSUPERUSER NOBYPASSRLS NOLOGIN"))
-        await conn.execute(text("GRANT SELECT, INSERT ON containment TO rls_test_role"))
-        await conn.execute(
+        await session.execute(
             text(
                 "INSERT INTO containment (child_entity_id, parent_entity_id, tenant_id) "
                 "VALUES (:c, :p, :t)"
             ),
             {"c": entity_a1, "p": entity_a2, "t": tenant_a},
         )
-        await conn.execute(
+        await session.execute(
             text(
                 "INSERT INTO containment (child_entity_id, parent_entity_id, tenant_id) "
                 "VALUES (:c, :p, :t)"
             ),
             {"c": entity_b1, "p": entity_b2, "t": tenant_b},
         )
+        await session.commit()
 
     try:
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_a)}
             )
@@ -203,10 +194,8 @@ async def test_containment_rls_isolates_tenants_for_a_non_superuser_role() -> No
                 .all()
             )
             assert list(rows) == [entity_a1]
-            await conn.execute(text("RESET ROLE"))
 
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_b)}
             )
@@ -216,19 +205,18 @@ async def test_containment_rls_isolates_tenants_for_a_non_superuser_role() -> No
                 .all()
             )
             assert list(rows) == [entity_b1]
-            await conn.execute(text("RESET ROLE"))
     finally:
-        async with engine.begin() as conn:
-            await conn.execute(
+        async with admin_session_factory() as session:
+            await session.execute(
                 text("DELETE FROM containment WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM entity WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM tenant WHERE id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
+            await session.commit()

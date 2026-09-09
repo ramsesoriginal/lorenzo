@@ -10,11 +10,11 @@
 
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. `apps/api` exists as infrastructure (health/readiness/metrics, DB connectivity), plus its first domain table (a bare `entity` — see [ADR 0012](docs/adr/0012-entity-table.md) — not yet meaningful on its own); no auth yet. Everything else is still structure and tooling. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth. Everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 | --- | --- | --- |
-| Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — infra + a first domain table, no auth yet |
+| Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — domain model, read-only REST API, Authgear auth |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
 | Discord bot(s) | Talks to the API | none yet — at least one is planned |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
@@ -41,7 +41,7 @@ Not yet — see [Roadmap](#roadmap) and [docs/guides/adding-an-app.md](docs/guid
 
 ## Configuration
 
-Copy [.env.example](.env.example) to `.env` — it already has the Postgres/`DATABASE_URL` values `apps/api` needs for local dev; each further app adds its own keys as it's scaffolded.
+Copy [.env.example](.env.example) to `.env` — it already has the Postgres (`DATABASE_URL`/`MIGRATIONS_DATABASE_URL`) and Authgear values `apps/api` needs for local dev; each further app adds its own keys as it's scaffolded.
 
 ## Architecture
 
@@ -69,7 +69,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Two vertical slices in progress in parallel: simple inventory management (`entity` landed, [ADR 0012](docs/adr/0012-entity-table.md); concrete types next) and auth/users (Authgear + the User/Tenant/Membership model, [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [ADR 0010](docs/adr/0010-user-tenant-membership-model.md) — decided, not yet built).
+Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Both vertical slices that were in progress in parallel are now built and merged to `main`: simple inventory management (the full entity/component core, [ADR 0012](docs/adr/0012-entity-table.md)-[0019](docs/adr/0019-item-and-v-item.md), plus a read-only REST API, [ADR 0020](docs/adr/0020-rest-api-tenant-scoping-and-schemas.md)) and auth/users/campaigns/GM (Authgear, User/Tenant/Membership, Campaign/Player, Character/ownership, Campaign GM/orga — [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)-[0026](docs/adr/0026-campaign-gm-orga-and-access-rule.md)), plus production Authgear Cloud wiring ([ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)) on top. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for what's left.
 
 ## License
 

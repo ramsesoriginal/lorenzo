@@ -41,5 +41,7 @@ class EntityStat(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    entity: Mapped[Entity] = relationship(back_populates="stats")
-    stat_definition: Mapped[StatDefinition] = relationship(back_populates="entity_stats")
+    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="stats")
+    stat_definition: Mapped[StatDefinition] = relationship(
+        lazy="raise_on_sql", back_populates="entity_stats"
+    )
