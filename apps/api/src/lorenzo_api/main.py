@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi_pagination import add_pagination
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from lorenzo_api.db import engine
 from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
@@ -21,6 +22,7 @@ from lorenzo_api.routers.users import router as users_router
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     yield
+    await engine.dispose()
 
 
 def create_app() -> FastAPI:

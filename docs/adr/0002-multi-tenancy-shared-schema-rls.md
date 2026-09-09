@@ -1,6 +1,6 @@
 # 0002 - Multi-tenancy: shared schema + PostgreSQL row-level security
 
-Status: accepted, refined by [ADR 0010](0010-user-tenant-membership-model.md)
+Status: accepted, refined by [ADR 0010](0010-user-tenant-membership-model.md) and [ADR 0021](0021-restricted-app-role-for-rls-enforcement.md)
 
 ## Context
 
@@ -16,9 +16,9 @@ Application-level filtering (a scoped query helper) will still be required — R
 
 ## Consequences
 
-- Every migration that adds a tenant-scoped table must add its RLS policy in the same migration — this needs to be enforced by review, and ideally by a test that proves cross-tenant reads fail even when application-level filtering is deliberately bypassed, once there's a backend to test.
+- Every migration that adds a tenant-scoped table must add its RLS policy in the same migration — enforced by review. Per-table RLS-isolation tests exist too now (e.g. `test_rls_isolates_tenants_for_a_non_superuser_role` in `test_entity.py`, and the same pattern in `test_containment.py`/`test_entity_prototype.py`/`test_information.py`/`test_stats.py`/`test_v_item.py` — see [ADR 0021](0021-restricted-app-role-for-rls-enforcement.md)), proving cross-tenant reads fail even when application-level filtering is bypassed, through the app's real restricted connection.
 - Cross-tenant "repository" sharing will need an explicit, audited exception path (e.g. a security-definer function, or a policy that also allows rows flagged as shared) — not designed yet.
 - Background jobs and any raw/admin DB access will also need to set the tenant context, or scope explicitly — RLS doesn't help code that queries as a superuser/bypass-RLS role without setting the session variable.
-- **Confirmed real, not hypothetical** (found building [ADR 0012](0012-entity-table.md)'s `entity` table): the `lorenzo` Postgres role used everywhere so far — migrations and the app's own runtime connection alike, locally and in CI — is an actual database superuser, created that way by the official Postgres image's `POSTGRES_USER` bootstrap. Superuser status bypasses RLS unconditionally; empirically confirmed that neither `ENABLE` nor `FORCE ROW LEVEL SECURITY` restricts it. Every RLS policy written so far is correct but currently unenforced in practice. The app needs to connect as a genuinely restricted, non-superuser, non-`BYPASSRLS` role before any of this protects real data — not designed yet, tracked as a required follow-up.
+- **Confirmed real, not hypothetical** (found building [ADR 0012](0012-entity-table.md)'s `entity` table): the `lorenzo` Postgres role used everywhere so far — migrations and the app's own runtime connection alike, locally and in CI — was an actual database superuser, created that way by the official Postgres image's `POSTGRES_USER` bootstrap. Superuser status bypasses RLS unconditionally; empirically confirmed that neither `ENABLE` nor `FORCE ROW LEVEL SECURITY` restricts it. **Fixed by [ADR 0021](0021-restricted-app-role-for-rls-enforcement.md)**: the app now connects as a genuinely restricted, non-superuser, non-`BYPASSRLS` role (`lorenzo_app`) instead, rotated into production too, not just CI/local dev — every RLS policy written so far now actually enforces.
 
-Nothing here is implemented yet — it's recorded so the decision doesn't need re-litigating once the backend API is actually scoped.
+This decision itself long predates any of it existing, recorded so the shared-schema-plus-RLS choice wouldn't need re-litigating once the backend API was actually scoped. That's since happened: every tenant-scoped table added has its `tenant_id` column and RLS policy, and the restricted-role gap above is closed.

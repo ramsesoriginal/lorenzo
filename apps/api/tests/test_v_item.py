@@ -1,7 +1,7 @@
 from _admin_db import admin_session_factory
 from sqlalchemy import text
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
-from sqlalchemy.orm.strategy_options import _AbstractLoad
+from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.db import engine
 from lorenzo_api.models import (
@@ -26,7 +26,7 @@ from lorenzo_api.models import (
 
 def _eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[_AbstractLoad, _AbstractLoad, _AbstractLoad]:
+) -> tuple[ORMOption, ORMOption, ORMOption]:
     return (
         selectinload(view_entity_attr)
         .selectinload(Entity.information)
