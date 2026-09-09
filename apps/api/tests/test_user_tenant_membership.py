@@ -3,7 +3,7 @@ import uuid
 import pytest
 from _admin_db import admin_session_factory
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError, IntegrityError
+from sqlalchemy.exc import IntegrityError
 
 from lorenzo_api.db import engine
 from lorenzo_api.models import Membership, MembershipRole, Tenant, User
@@ -113,7 +113,8 @@ async def test_deleting_user_or_tenant_cascades_membership() -> None:
 
 
 async def test_membership_rls_isolates_tenants_for_a_non_superuser_role() -> None:
-    """Same ENABLE+FORCE+policy pattern as every tenant-scoped table so far.
+    """Same ENABLE+FORCE+policy pattern as every tenant-scoped table so far,
+    plus the self-access carve-out ADR 0023 adds on top for GET /me.
     `engine` is the app's own real, restricted connection since ADR 0021.
     """
     async with admin_session_factory() as session:
@@ -155,9 +156,32 @@ async def test_membership_rls_isolates_tenants_for_a_non_superuser_role() -> Non
             roles = (await conn.execute(text("SELECT role FROM membership"))).scalars().all()
             assert list(roles) == ["orga"]
 
+        # Neither app.tenant_id nor app.user_id set at all - unlike every
+        # other RLS-protected table's stricter single-argument
+        # current_setting(name) (which hard-fails on this), membership's
+        # NULLIF(current_setting(name, true), '')::uuid returns empty
+        # rather than erroring - a deliberate, narrow exception for
+        # membership alone (ADR 0023). NULLIF specifically, not just the
+        # two-argument form alone: a GUC set with is_local=true resets to
+        # '' (empty string) once its transaction ends, not to genuinely
+        # NULL, so a bare cast would intermittently fail on a pooled
+        # connection previously used for a real tenant-scoped request -
+        # confirmed empirically, not just reasoned through.
         async with engine.begin() as conn:
-            with pytest.raises(DBAPIError):
-                await conn.execute(text("SELECT role FROM membership"))
+            roles = (await conn.execute(text("SELECT role FROM membership"))).scalars().all()
+            assert list(roles) == []
+
+        # Only app.user_id set (no app.tenant_id) - the self-access path
+        # GET /me relies on: every membership for that user, across both
+        # tenants, in one query with no tenant scoping at all.
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user)})
+            # Not ORDER BY role - Postgres's native enum type sorts by
+            # declaration order ("owner" before "orga", see the migration),
+            # not alphabetically; sorting the Python list instead is what's
+            # actually deterministic here.
+            roles = (await conn.execute(text("SELECT role FROM membership"))).scalars().all()
+            assert sorted(roles) == ["orga", "owner"]
     finally:
         async with admin_session_factory() as session:
             await session.execute(

@@ -9,16 +9,21 @@ stable, programmatically-distinguishable value beyond the human-readable
 `detail` string.
 """
 
-from fastapi_problem.error import NotFoundProblem
+from fastapi_problem.error import NotFoundProblem, UnauthorisedProblem
 
 __all__ = [
     "EntityNotFoundError",
+    "InvalidTokenError",
     "ItemInstanceNotFoundError",
     "ItemNotFoundError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
     "TenantNotFoundError",
 ]
+
+
+class InvalidTokenError(UnauthorisedProblem):
+    title = "Invalid or missing authentication token"
 
 
 class TenantNotFoundError(NotFoundProblem):

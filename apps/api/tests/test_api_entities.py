@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from _admin_db import admin_session_factory
@@ -10,6 +11,8 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     Information,
+    Membership,
+    MembershipRole,
     Payload,
     PayloadDescription,
     PayloadDocument,
@@ -23,12 +26,15 @@ from lorenzo_api.models import (
 
 
 async def test_list_entities_returns_paginated_summaries_ordered_by_name(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         session.add_all(
             [
                 Entity(tenant_id=tenant.id, name="Charlie"),
@@ -58,13 +64,19 @@ async def test_list_entities_returns_paginated_summaries_ordered_by_name(
 
 
 async def test_list_entities_only_returns_the_requesting_tenants_entities(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     async with admin_session_factory() as session:
         tenant_a = Tenant()
         tenant_b = Tenant()
         session.add_all([tenant_a, tenant_b])
         await session.flush()
+        session.add_all(
+            [
+                Membership(tenant_id=tenant_a.id, user_id=test_user_id, role=MembershipRole.OWNER),
+                Membership(tenant_id=tenant_b.id, user_id=test_user_id, role=MembershipRole.OWNER),
+            ]
+        )
         session.add(Entity(tenant_id=tenant_a.id, name="Tenant A Entity"))
         session.add(Entity(tenant_id=tenant_b.id, name="Tenant B Entity"))
         await session.commit()
@@ -91,7 +103,7 @@ async def test_list_entities_404_for_unknown_tenant(client: AsyncClient) -> None
 
 
 async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     """One entity wired up with all four StatDefinition.value_types, all
     four Payload kinds (with one Information row bundling two heterogeneous
@@ -103,6 +115,9 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
 
         main = Entity(tenant_id=tenant_id, name="Main Entity")
         proto = Entity(tenant_id=tenant_id, name="Proto Entity")
@@ -302,10 +317,16 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
         await session.commit()
 
 
-async def test_get_entity_404_for_unknown_entity_id(client: AsyncClient) -> None:
+async def test_get_entity_404_for_unknown_entity_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
+        await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         await session.commit()
         tenant_id = tenant.id
 
@@ -321,13 +342,23 @@ async def test_get_entity_404_for_unknown_entity_id(client: AsyncClient) -> None
 
 
 async def test_get_entity_404_for_entity_belonging_to_a_different_tenant(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
+    """Membership on *both* tenants, deliberately - the 404 here must be
+    about the entity belonging to a different tenant, not merely about
+    missing membership in tenant_b (a different, already-covered case).
+    """
     async with admin_session_factory() as session:
         tenant_a = Tenant()
         tenant_b = Tenant()
         session.add_all([tenant_a, tenant_b])
         await session.flush()
+        session.add_all(
+            [
+                Membership(tenant_id=tenant_a.id, user_id=test_user_id, role=MembershipRole.OWNER),
+                Membership(tenant_id=tenant_b.id, user_id=test_user_id, role=MembershipRole.OWNER),
+            ]
+        )
         entity = Entity(tenant_id=tenant_a.id, name="Tenant A's Entity")
         session.add(entity)
         await session.commit()

@@ -25,3 +25,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0020 - REST API: tenant path-scoping, schema, and pagination conventions](0020-rest-api-tenant-scoping-and-schemas.md)
 - [0021 - A restricted app role, so RLS actually enforces something](0021-restricted-app-role-for-rls-enforcement.md)
 - [0022 - User, full Tenant, and Membership](0022-user-tenant-membership.md)
+- [0023 - Authgear token verification](0023-authgear-token-verification.md)

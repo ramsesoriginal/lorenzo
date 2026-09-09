@@ -6,6 +6,8 @@ from httpx import AsyncClient
 from lorenzo_api.models import (
     Entity,
     Information,
+    Membership,
+    MembershipRole,
     Payload,
     PayloadDocument,
     PayloadPicture,
@@ -13,21 +15,26 @@ from lorenzo_api.models import (
 )
 
 
-async def _make_tenant() -> uuid.UUID:
+async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
         await session.commit()
         return tenant.id
 
 
 async def test_get_picture_content_returns_bytes_with_correct_content_type(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -60,12 +67,15 @@ async def test_get_picture_content_returns_bytes_with_correct_content_type(
 
 
 async def test_get_document_content_returns_bytes_with_content_disposition(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -99,11 +109,16 @@ async def test_get_document_content_returns_bytes_with_content_disposition(
         await session.commit()
 
 
-async def test_get_document_content_encodes_non_ascii_filename(client: AsyncClient) -> None:
+async def test_get_document_content_encodes_non_ascii_filename(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -138,7 +153,9 @@ async def test_get_document_content_encodes_non_ascii_filename(client: AsyncClie
         await session.commit()
 
 
-async def test_get_content_404_when_payload_has_no_binary_content(client: AsyncClient) -> None:
+async def test_get_content_404_when_payload_has_no_binary_content(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     """Nothing enforces "exactly one concrete kind" on Payload (ADR 0019) -
     a bare row with neither .picture nor .document must 404, not 500.
     """
@@ -146,6 +163,9 @@ async def test_get_content_404_when_payload_has_no_binary_content(client: AsyncC
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -166,8 +186,10 @@ async def test_get_content_404_when_payload_has_no_binary_content(client: AsyncC
         await session.commit()
 
 
-async def test_get_content_404_for_unknown_payload(client: AsyncClient) -> None:
-    tenant_id = await _make_tenant()
+async def test_get_content_404_for_unknown_payload(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/payloads/00000000-0000-0000-0000-000000000000/content"
@@ -181,12 +203,20 @@ async def test_get_content_404_for_unknown_payload(client: AsyncClient) -> None:
         await session.commit()
 
 
-async def test_get_content_404_for_wrong_tenant(client: AsyncClient) -> None:
+async def test_get_content_404_for_wrong_tenant(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     async with admin_session_factory() as session:
         tenant_a = Tenant()
         tenant_b = Tenant()
         session.add_all([tenant_a, tenant_b])
         await session.flush()
+        session.add_all(
+            [
+                Membership(tenant_id=tenant_a.id, user_id=test_user_id, role=MembershipRole.OWNER),
+                Membership(tenant_id=tenant_b.id, user_id=test_user_id, role=MembershipRole.OWNER),
+            ]
+        )
         entity = Entity(tenant_id=tenant_a.id, name="Sword")
         session.add(entity)
         await session.flush()
