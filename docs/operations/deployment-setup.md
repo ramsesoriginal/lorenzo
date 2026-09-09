@@ -99,16 +99,25 @@ gcloud run services update lorenzo-api --region="$REGION" --no-invoker-iam-check
 
 New Cloud Run services are private by default — every request needs a Google-signed identity token, which is why the workflow's own unauthenticated `curl .../readyz` smoke test gets a `403`. This is deliberately a manual, one-time step rather than a `deploy-cloudrun` flag: [the action's own README](https://github.com/google-github-actions/deploy-cloudrun) recommends CI/CD not manage this setting, since re-deploys preserve whatever IAM state the service already has. `--no-invoker-iam-check` is Google's currently-recommended way to do this (over granting `roles/run.invoker` to `allUsers`) — see [Controlling access on an individual service](https://cloud.google.com/run/docs/securing/managing-access).
 
+## Authgear Cloud (ADR 0027)
+
+`Settings` needs `authgear_issuer`/`authgear_jwks_url`/`authgear_audience` ([ADR 0023](../adr/0023-authgear-token-verification.md)) pointed at a real project, not the `http://localhost:4000` placeholders. Authgear Cloud, not self-hosted (ADR 0027 — self-hosting would need its own Postgres + Redis + more, no free tier fits that the way Cloud Run/Neon do):
+
+1. Sign up at [authgear.com](https://www.authgear.com) (free tier, no card needed) and create a **production** project.
+2. In the project, **Applications → New Application → OIDC Client Application** — `apps/api` never runs a login flow itself (it only verifies tokens), but registering at least one client is what lets you mint a real access token to test with later.
+3. From that application's **Endpoints** section, copy the issuer URL. Fetch `<issuer>/.well-known/openid-configuration` to find `jwks_uri`.
+4. This becomes `AUTHGEAR_ISSUER` and `AUTHGEAR_JWKS_URL` below. `AUTHGEAR_AUDIENCE` is the *same* issuer URL, not the client id — access tokens carry the project endpoint as `aud`, not an OIDC client id; that distinction only applies to ID tokens (see ADR 0023).
+
+Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live on Authgear's own subdomain), 1-day log retention, and a "2 Applications" cap whose exact scope (client apps within a project, vs. a project-count ceiling) is worth confirming directly in their console rather than assuming.
+
 ## GitHub setup
 
 Create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments), and add:
 
 - **Secret**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`.
-- **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. These aren't secrets (they're identifiers, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
+- **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE` — the values from the Authgear Cloud section above. None of these seven are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
 
-Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`.
-
-**Known gap, not yet done**: `Settings` also has `authgear_issuer`/`authgear_jwks_url`/`authgear_audience` ([ADR 0023](../adr/0023-authgear-token-verification.md)), defaulting to `http://localhost:4000` placeholders. Neither a `production` environment secret/variable for these, nor a corresponding `env_vars` entry in `deploy-api.yml`'s `deploy` step, exists yet — only `DATABASE_URL` is passed to the running Cloud Run service today. Until both are added, a production deploy would verify every real bearer token against the wrong issuer/audience and reject it. Adding the values here alone isn't sufficient; `deploy-api.yml` itself needs the matching `env_vars` line too.
+Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger it — the workflow's own `paths: apps/api/**` filter won't fire, so trigger it manually once (Actions → "Deploy API" → "Run workflow") to actually apply new environment variables to the live service.
 
 ## Rotating to the restricted app role (ADR 0021)
 
