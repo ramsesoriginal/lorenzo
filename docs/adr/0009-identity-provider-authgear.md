@@ -1,6 +1,6 @@
 # 0009 - Identity provider: Authgear (self-hosted OIDC)
 
-Status: accepted
+Status: superseded by [ADR 0027](0027-authgear-cloud-not-self-hosted.md) (the self-hosted decision below; Authgear itself, and the OIDC relying-party design, stand)
 
 ## Context
 

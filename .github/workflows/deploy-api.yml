@@ -98,10 +98,16 @@ jobs:
           service: lorenzo-api
           region: ${{ vars.GCP_REGION }}
           image: ${{ steps.meta.outputs.image }}
-          # Restricted role (ADR 0021) - the DATABASE_URL secret's *value*
-          # needs rotating to it before this is a real fix in production;
-          # see docs/operations/deployment-setup.md.
-          env_vars: DATABASE_URL=${{ secrets.DATABASE_URL }}
+          # DATABASE_URL: restricted role (ADR 0021), rotated and verified
+          # against production - see docs/operations/deployment-setup.md.
+          # AUTHGEAR_*: Authgear Cloud, not self-hosted (ADR 0027) - public
+          # OIDC metadata URLs, not credentials, so these come from
+          # `vars` like GCP_REGION/GCP_PROJECT_ID above, not `secrets`.
+          env_vars: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
+            AUTHGEAR_JWKS_URL=${{ vars.AUTHGEAR_JWKS_URL }}
+            AUTHGEAR_AUDIENCE=${{ vars.AUTHGEAR_AUDIENCE }}
 
       - name: Verify the deployed revision is actually ready
         run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/readyz"
