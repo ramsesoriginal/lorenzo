@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Lorenzo — Brand Showcase</title>
+<link rel="icon" href="../favicon/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="../favicon/favicon.ico">
+<link rel="apple-touch-icon" href="../favicon/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* identity.md §6.6 — copied verbatim from the design-token starter */
+    --lorenzo-ink: #08131f;
+    --lorenzo-archive-blue: #1769c2;
+    --lorenzo-astral-blue: #3b91e8;
+    --lorenzo-gold: #b88a3b;
+    --lorenzo-parchment: #f4efe5;
+    --lorenzo-paper: #fbfaf7;
+    --lorenzo-burgundy: #7b2638;
+
+    --lorenzo-bg: var(--lorenzo-paper);
+    --lorenzo-fg: var(--lorenzo-ink);
+    --lorenzo-action: var(--lorenzo-archive-blue);
+    --lorenzo-brand-accent: var(--lorenzo-gold);
+
+    --font-body: Geist, Inter, ui-sans-serif, system-ui, sans-serif;
+    --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 16px;
+    --space-4: 24px;
+    --space-5: 32px;
+    --space-6: 56px;
+
+    --radius-control: 8px;
+    --radius-card: 10px;
+    --radius-large: 16px;
+
+    --border: color-mix(in srgb, var(--lorenzo-fg) 14%, transparent);
+  }
+
+  [data-theme="dark"] {
+    --lorenzo-bg: var(--lorenzo-ink);
+    --lorenzo-fg: var(--lorenzo-paper);
+    --lorenzo-action: var(--lorenzo-astral-blue);
+    --lorenzo-brand-accent: var(--lorenzo-gold);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--lorenzo-bg);
+    color: var(--lorenzo-fg);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    transition: background .2s ease, color .2s ease;
+  }
+
+  main { display: block; }
+
+  a { color: var(--lorenzo-action); }
+
+  .wrap {
+    max-width: 1040px;
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+  }
+
+  /* Header */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--lorenzo-bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .site-header .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-block: var(--space-2);
+  }
+  .lockup { height: 28px; width: auto; display: block; }
+  .lockup-dark { display: none; }
+  [data-theme="dark"] .lockup-light { display: none; }
+  [data-theme="dark"] .lockup-dark { display: block; }
+
+  nav.site-nav { display: flex; gap: var(--space-4); }
+  nav.site-nav a {
+    text-decoration: none;
+    color: var(--lorenzo-fg);
+    font-size: 14px;
+    font-weight: 500;
+    opacity: .75;
+  }
+  nav.site-nav a:hover { opacity: 1; }
+
+  .header-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+  button.theme-toggle {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: transparent;
+    color: var(--lorenzo-fg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  button.theme-toggle:hover { border-color: var(--lorenzo-action); color: var(--lorenzo-action); }
+
+  /* Sections */
+  section { padding-block: var(--space-6); border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+
+  .eyebrow {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: .02em;
+    color: var(--lorenzo-brand-accent);
+    border: 1px solid color-mix(in srgb, var(--lorenzo-brand-accent) 40%, transparent);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-bottom: var(--space-4);
+  }
+
+  h2 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0 0 var(--space-2);
+  }
+  .section-intro {
+    max-width: 60ch;
+    opacity: .8;
+    margin: 0 0 var(--space-5);
+  }
+
+  /* Hero */
+  .hero { text-align: center; padding-block: var(--space-6) var(--space-6); }
+  .hero .wordmark { width: min(420px, 80vw); height: auto; margin-inline: auto; display: block; }
+  .hero h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(32px, 6vw, 56px);
+    margin: var(--space-4) 0 var(--space-3);
+  }
+  .hero p.pitch {
+    max-width: 56ch;
+    margin: 0 auto var(--space-4);
+    font-size: 17px;
+    opacity: .85;
+  }
+  blockquote.pull {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-style: italic;
+    max-width: 44ch;
+    margin: var(--space-4) auto 0;
+    opacity: .9;
+  }
+
+  /* Palette */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: var(--space-3);
+  }
+  .swatch { border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--border); }
+  .swatch-color { height: 88px; }
+  .swatch-label { padding: var(--space-2) var(--space-3); background: var(--lorenzo-bg); }
+  .swatch-label .name { font-size: 13px; font-weight: 500; }
+  .swatch-label .hex { font-family: var(--font-mono); font-size: 12px; opacity: .7; }
+  .swatch-label .role { font-size: 12px; opacity: .6; margin-top: 2px; }
+
+  /* Typography */
+  .type-samples { display: grid; gap: var(--space-4); margin-bottom: var(--space-5); }
+  .type-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: var(--space-4);
+  }
+  .type-card .big { font-size: 56px; line-height: 1; margin: 0 0 var(--space-2); }
+  .type-card.body-sample .big { font-family: var(--font-body); font-weight: 600; }
+  .type-card.display-sample .big { font-family: var(--font-display); }
+  .type-card .sample-text { margin: 0 0 var(--space-2); }
+  .type-card.body-sample .sample-text { font-family: var(--font-body); }
+  .type-card.display-sample .sample-text { font-family: var(--font-display); font-size: 24px; }
+  .type-card .stack { font-family: var(--font-mono); font-size: 12px; opacity: .6; }
+
+  .code-card {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: color-mix(in srgb, var(--lorenzo-fg) 5%, transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: var(--space-4);
+    overflow-x: auto;
+  }
+  .code-card pre { margin: 0; }
+
+  table.scale { width: 100%; border-collapse: collapse; margin-top: var(--space-4); }
+  table.scale caption { text-align: left; font-size: 13px; opacity: .6; margin-bottom: var(--space-2); }
+  table.scale td { padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+  table.scale td.role { width: 160px; font-family: var(--font-mono); font-size: 12px; opacity: .6; vertical-align: middle; }
+
+  /* Logos on light/dark */
+  .logo-panels { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+  .logo-panel {
+    border-radius: var(--radius-large);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    min-height: 220px;
+  }
+  .logo-panel.light { background: var(--lorenzo-paper); color: var(--lorenzo-ink); border: 1px solid color-mix(in srgb, var(--lorenzo-ink) 12%, transparent); }
+  .logo-panel.dark { background: var(--lorenzo-ink); color: var(--lorenzo-paper); }
+  .logo-panel img.mark { height: 56px; width: auto; }
+  .logo-panel img.panel-lockup { height: 32px; width: auto; }
+  .logo-panel .caption { font-family: var(--font-mono); font-size: 12px; opacity: .65; text-align: center; }
+
+  /* Motif */
+  .divider {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+  .divider img { width: 18px; height: 18px; }
+  .divider img:nth-child(1) { opacity: .25; }
+  .divider img:nth-child(2) { opacity: .5; }
+  .divider img:nth-child(3) { opacity: 1; }
+  .divider img:nth-child(4) { opacity: .5; }
+  .divider img:nth-child(5) { opacity: .25; }
+
+  .motif-graphic { display: block; margin: 0 auto var(--space-3); max-width: 360px; width: 100%; height: auto; }
+  .motif-caption { text-align: center; font-family: var(--font-display); font-size: 20px; font-style: italic; opacity: .85; }
+
+  /* Mascot */
+  .mascot-grid { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-3); align-items: stretch; }
+  .mascot-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: var(--space-4);
+    display: flex;
+    gap: var(--space-4);
+    align-items: center;
+  }
+  .mascot-card img {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: var(--radius-card);
+    background: var(--lorenzo-parchment);
+    flex-shrink: 0;
+  }
+  .mascot-card img.missing { visibility: hidden; }
+  .mascot-card h3 { margin: 0 0 4px; font-size: 16px; }
+  .mascot-card p { margin: 0; font-size: 14px; opacity: .8; }
+
+  .catileo-aside {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-card);
+    padding: var(--space-4);
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Voice */
+  .voice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
+  .voice-card {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-card);
+    padding: var(--space-4);
+    font-size: 14px;
+    opacity: .85;
+  }
+
+  footer {
+    padding-block: var(--space-5);
+    text-align: center;
+  }
+  footer .mark { font-family: var(--font-mono); font-size: 14px; }
+  footer .fine-print { font-size: 12px; opacity: .55; max-width: 48ch; margin: var(--space-2) auto 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; }
+  }
+
+  @media (max-width: 640px) {
+    .logo-panels, .mascot-grid { grid-template-columns: 1fr; }
+    nav.site-nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a href="#top" aria-label="Lorenzo">
+      <img class="lockup lockup-light" src="../lorenzo_horizontal_lockup_light_bg.svg" alt="Lorenzo">
+      <img class="lockup lockup-dark" src="../lorenzo_horizontal_lockup_dark_bg.svg" alt="Lorenzo">
+    </a>
+    <nav class="site-nav" aria-label="Sections">
+      <a href="#palette">Palette</a>
+      <a href="#type">Type</a>
+      <a href="#logos">Logos</a>
+      <a href="#motif">Motif</a>
+      <a href="#mascot">Mascot</a>
+      <a href="#voice">Voice</a>
+    </nav>
+    <div class="header-actions">
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false">☾ dark</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow">Brand showcase — from docs/brand/identity.md</span>
+      <img class="wordmark" src="../wordmark_full.svg" alt="Lorenzo">
+      <h1>Keep track of worlds.</h1>
+      <p class="pitch">
+        Lorenzo is world, campaign, and character bookkeeping for game masters, players, authors,
+        and worldbuilders — from a single D&amp;D one-shot to a five-author shared multiverse.
+      </p>
+      <blockquote class="pull">
+        “Scholar, not wizard. Archivist, not administrator. Worlds, not fantasy worlds.”
+      </blockquote>
+    </div>
+  </section>
+
+  <section id="palette">
+    <div class="wrap">
+      <h2>Color system</h2>
+      <p class="section-intro">
+        Ink and Paper carry the interface. Archive Blue drives interaction. Medici Gold is
+        punctuation, not a surface — identity.md §6.3 puts it at roughly 2–5% of a screen.
+      </p>
+      <div class="palette-grid" id="palette-grid"></div>
+    </div>
+  </section>
+
+  <section id="type">
+    <div class="wrap">
+      <h2>Typography</h2>
+      <p class="section-intro">
+        Geist for interface and body. Instrument Serif, used sparingly, for editorial and display
+        moments. Geist Mono for code, IDs, and anything that benefits from monospacing.
+      </p>
+      <div class="type-samples">
+        <div class="type-card body-sample">
+          <div class="big">Aa</div>
+          <p class="sample-text">Only the GM knows this. Add a person, place, event, or object.</p>
+          <div class="stack">Geist, Inter, ui-sans-serif, system-ui, sans-serif</div>
+        </div>
+        <div class="type-card display-sample">
+          <div class="big">Aa</div>
+          <p class="sample-text">Old-world scholarship × modern information system.</p>
+          <div class="stack">"Instrument Serif", Georgia, "Times New Roman", serif</div>
+        </div>
+        <div class="code-card" aria-label="Geist Mono code sample">
+<pre>{
+  "kind": "entity",
+  "tenant_id": "acme-guild",
+  "name": "Catileo",
+  "prototype": "cat",
+  "canonical": true
+}</pre>
+        </div>
+      </div>
+
+      <table class="scale">
+        <caption>Typographic hierarchy — identity.md §5.3</caption>
+        <tbody>
+          <tr><td class="role">Hero display</td><td style="font-family:var(--font-display); font-size:48px;">Lorenzo</td></tr>
+          <tr><td class="role">H1</td><td style="font-family:var(--font-display); font-size:36px;">A campaign is a world in motion</td></tr>
+          <tr><td class="role">H2</td><td style="font-family:var(--font-body); font-weight:600; font-size:28px;">Repositories</td></tr>
+          <tr><td class="role">Entity title</td><td style="font-family:var(--font-display); font-size:24px;">Catileo</td></tr>
+          <tr><td class="role">Body</td><td style="font-family:var(--font-body); font-size:16px;">The text you're reading right now.</td></tr>
+          <tr><td class="role">Metadata</td><td style="font-family:var(--font-body); font-size:12px; opacity:.7;">updated 3 minutes ago</td></tr>
+          <tr><td class="role">Code</td><td style="font-family:var(--font-mono); font-size:13px;">entity.tenant_id</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="logos">
+    <div class="wrap">
+      <h2>Logo on light &amp; dark</h2>
+      <p class="section-intro">
+        identity.md §4.8: Ink wordmark + Gold mark on light surfaces; Paper wordmark + Gold mark
+        on dark surfaces. These two panels always render at their documented background, regardless
+        of the page theme toggle above.
+      </p>
+      <div class="logo-panels">
+        <div class="logo-panel light">
+          <img class="panel-lockup" src="../lorenzo_horizontal_lockup_light_bg.svg" alt="Lorenzo">
+          <img class="mark" src="../brand_mark.svg" alt="Lorenzo brand mark">
+          <span class="caption">unshaded mark · light surface</span>
+        </div>
+        <div class="logo-panel dark">
+          <img class="panel-lockup" src="../lorenzo_horizontal_lockup_dark_bg.svg" alt="Lorenzo">
+          <img class="mark" src="../brand_mark_shaded.svg" alt="Lorenzo brand mark">
+          <span class="caption">shaded mark · dark surface</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="motif">
+    <div class="wrap">
+      <h2>Supporting graphic language</h2>
+      <p class="section-intro">
+        The spark reappears as a restrained system element — dividers, canonical markers, loading
+        states — per identity.md §7.1. Elsewhere, Lorenzo's visual vocabulary is nodes, paths, and
+        relationships: information architecture, not treasure maps (§7.2).
+      </p>
+      <div class="divider" aria-hidden="true">
+        <img src="../favicon/favicon.svg" alt="">
+        <img src="../favicon/favicon.svg" alt="">
+        <img src="../favicon/favicon.svg" alt="">
+        <img src="../favicon/favicon.svg" alt="">
+        <img src="../favicon/favicon.svg" alt="">
+      </div>
+      <svg class="motif-graphic" viewBox="0 0 360 120" role="img" aria-label="Abstract nodes and relationship lines">
+        <g fill="none" stroke="var(--lorenzo-action)" stroke-width="1.5" opacity="0.6">
+          <line x1="40" y1="90" x2="140" y2="30"></line>
+          <line x1="140" y1="30" x2="230" y2="60"></line>
+          <line x1="230" y1="60" x2="320" y2="20"></line>
+          <line x1="140" y1="30" x2="200" y2="95"></line>
+        </g>
+        <g fill="var(--lorenzo-brand-accent)">
+          <circle cx="40" cy="90" r="5"></circle>
+          <circle cx="140" cy="30" r="6"></circle>
+          <circle cx="230" cy="60" r="5"></circle>
+          <circle cx="320" cy="20" r="5"></circle>
+          <circle cx="200" cy="95" r="4"></circle>
+        </g>
+      </svg>
+      <p class="motif-caption">Information architecture, not treasure maps.</p>
+    </div>
+  </section>
+
+  <section id="mascot">
+    <div class="wrap">
+      <h2>Mascot</h2>
+      <p class="section-intro">
+        Personality lives in illustration; the core mark stays disciplined. The mascot appears in
+        onboarding, empty states, and community moments — never as a stand-in for the logo.
+      </p>
+      <div class="mascot-grid">
+        <div class="mascot-card">
+          <img src="../mascot.png" alt="Lorenzo, the mascot" onerror="this.classList.add('missing')">
+          <div>
+            <h3>Lorenzo</h3>
+            <p>An androgynous worldkeeper and archivist — sidecut, blue-tipped hair, blue eyes,
+              contemporary scholarly styling. Reads as a person who maintains worlds, not a fantasy wizard.</p>
+          </div>
+        </div>
+        <div class="catileo-aside">
+          “Catileo appears to have misplaced this page.”
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="voice">
+    <div class="wrap">
+      <h2>Voice</h2>
+      <p class="section-intro">
+        Clear, concise, curious, quietly playful — an archivist, not a dungeon master. No “embark
+        on your adventure.” identity.md §14.2:
+      </p>
+      <div class="voice-grid">
+        <div class="voice-card">Your world is empty. Add a person, place, event, object, or whatever else exists here.</div>
+        <div class="voice-card">Only the GM knows this.</div>
+        <div class="voice-card">No repository is connected yet.</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="mark">✧ Lorenzo</div>
+    <p class="fine-print">
+      Brand showcase generated from docs/brand/identity.md to preview the system in one place —
+      not a real product page, and none of its links go anywhere.
+    </p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById('theme-toggle');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    function apply(theme) {
+      if (theme === 'dark') {
+        root.setAttribute('data-theme', 'dark');
+        toggle.textContent = '☀ light';
+        toggle.setAttribute('aria-pressed', 'true');
+      } else {
+        root.removeAttribute('data-theme');
+        toggle.textContent = '☾ dark';
+        toggle.setAttribute('aria-pressed', 'false');
+      }
+    }
+
+    apply(prefersDark ? 'dark' : 'light');
+
+    toggle.addEventListener('click', function () {
+      var isDark = root.getAttribute('data-theme') === 'dark';
+      apply(isDark ? 'light' : 'dark');
+    });
+
+    var palette = [
+      ['Lorenzo Ink', '#08131F', 'primary text, logo, dark UI'],
+      ['Archive Blue', '#1769C2', 'primary interaction, links'],
+      ['Astral Blue', '#3B91E8', 'highlights, illustrative accents'],
+      ['Medici Gold', '#B88A3B', 'brand mark, meaningful punctuation'],
+      ['Parchment', '#F4EFE5', 'warm editorial surfaces'],
+      ['Paper', '#FBFAF7', 'primary light background'],
+      ['Burgundy', '#7B2638', 'rare accent, secrets, drama']
+    ];
+    var grid = document.getElementById('palette-grid');
+    palette.forEach(function (c) {
+      var el = document.createElement('div');
+      el.className = 'swatch';
+      el.innerHTML =
+        '<div class="swatch-color" style="background:' + c[1] + '"></div>' +
+        '<div class="swatch-label">' +
+          '<div class="name">' + c[0] + '</div>' +
+          '<div class="hex">' + c[1] + '</div>' +
+          '<div class="role">' + c[2] + '</div>' +
+        '</div>';
+      grid.appendChild(el);
+    });
+  })();
+</script>
+
+</body>
+</html>
