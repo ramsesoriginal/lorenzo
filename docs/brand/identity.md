@@ -37,7 +37,7 @@ Lorenzo must feel equally at home beside a one-shot fantasy adventure, a decades
 
 The core visual and verbal tension is:
 
-**old-world scholarship × modern information system**
+**old-world scholarship × modern information system.**
 
 Lorenzo should suggest archives, atlases, notes, relationships, navigation, knowledge, maps, and discovery without becoming medieval, heraldic, or genre-specific.
 
@@ -1001,11 +1001,19 @@ Preferred:
 
 > Your world is empty. Add a person, place, event, object, or whatever else exists here.
 
+<!-- -->
+
 > Only the GM knows this.
+
+<!-- -->
 
 > This character exists in three timelines.
 
+<!-- -->
+
 > No repository is connected yet.
+
+<!-- -->
 
 > Catileo appears to have misplaced this page.
 
@@ -1125,33 +1133,33 @@ A change to the spark silhouette, wordmark letterforms, spacing, or lockup compo
 
 Use this decision flow:
 
-#### Need a full logo in a horizontal space?
+### Need a full logo in a horizontal space?
 
 - light background → `lorenzo_horizontal_lockup_light_bg.svg`
 - dark background → `lorenzo_horizontal_lockup_dark_bg.svg`
 - one-color production → `lorenzo_horizontal_lockup_monochrome.svg`
 
-#### Need a formal centered signature?
+### Need a formal centered signature?
 
 - use the appropriate `wordmark_*` asset
 - use `wordmark_full.svg` when the full signature composition is specifically desired
 
-#### Need a small icon?
+### Need a small icon?
 
 - use `brand_mark.svg` or `brand_mark_monochrome.svg`
 - prefer unshaded at very small sizes
 
-#### Need a richer standalone mark?
+### Need a richer standalone mark?
 
 - use `brand_mark_shaded.svg`
 - use `brand_mark_shaded_monochrome.svg` in single-color contexts
 
-#### Need personality rather than identity?
+### Need personality rather than identity?
 
 - use `mascot.png`
 - use `mascot_emblem.png` for a badge-like community or merch expression
 
-#### Need plain text only?
+### Need plain text only?
 
 - use `✧ Lorenzo`
 
