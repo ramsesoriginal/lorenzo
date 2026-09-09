@@ -103,7 +103,11 @@ async def _make_full_item(
         )
 
         info = Information(
-            tenant_id=tenant_id, entity_id=entity.id, title="A fine sword", type="description"
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            title="A fine sword",
+            type="description",
+            is_public=True,
         )
         session.add(info)
         await session.flush()
