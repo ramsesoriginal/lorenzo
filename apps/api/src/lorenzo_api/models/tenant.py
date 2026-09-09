@@ -36,17 +36,32 @@ class Tenant(Base):
     name: Mapped[str] = mapped_column(server_default=text("'Unnamed Tenant'"))
 
     entities: Mapped[list[Entity]] = relationship(
-        back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     stat_groups: Mapped[list[StatGroup]] = relationship(
-        back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
-        back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     memberships: Mapped[list[Membership]] = relationship(
-        back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     campaigns: Mapped[list[Campaign]] = relationship(
-        back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="tenant",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

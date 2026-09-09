@@ -38,5 +38,5 @@ class CampaignGm(Base):
         ForeignKey("campaign.id", ondelete="CASCADE"), primary_key=True
     )
 
-    user: Mapped[User] = relationship(back_populates="campaign_gms")
-    campaign: Mapped[Campaign] = relationship(back_populates="gms")
+    user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="campaign_gms")
+    campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="gms")

@@ -31,24 +31,42 @@ class Entity(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(back_populates="entities")
+    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="entities")
     stats: Mapped[list[EntityStat]] = relationship(
-        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     stat_group_links: Mapped[list[EntityStatGroup]] = relationship(
-        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     information: Mapped[list[Information]] = relationship(
-        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     item: Mapped[Item | None] = relationship(
-        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     item_instance: Mapped[ItemInstance | None] = relationship(
-        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     being: Mapped[Being | None] = relationship(
-        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # ownership: ADR 0025's generic ownership table has two independent FKs
@@ -58,12 +76,14 @@ class Entity(Base):
     # this side is scalar; owner_character_id is not unique, so the reverse
     # is a list.
     ownership: Mapped[Ownership | None] = relationship(
+        lazy="raise_on_sql",
         foreign_keys="Ownership.owned_entity_id",
         back_populates="owned_entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     owned_entity_links: Mapped[list[Ownership]] = relationship(
+        lazy="raise_on_sql",
         foreign_keys="Ownership.owner_character_id",
         back_populates="owner_character",
         cascade="all, delete-orphan",
@@ -74,12 +94,14 @@ class Entity(Base):
     # independent FKs to this table, so each direction needs its own
     # disambiguated relationship() (foreign_keys=) - see ADR 0018.
     prototype_links: Mapped[list[EntityPrototype]] = relationship(
+        lazy="raise_on_sql",
         foreign_keys="EntityPrototype.entity_id",
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     dependent_links: Mapped[list[EntityPrototype]] = relationship(
+        lazy="raise_on_sql",
         foreign_keys="EntityPrototype.prototype_id",
         back_populates="prototype",
         cascade="all, delete-orphan",
@@ -90,12 +112,14 @@ class Entity(Base):
     # two-FK disambiguation as above. child_entity_id is that table's PK
     # (at most one container per entity), so this side is scalar.
     containment: Mapped[Containment | None] = relationship(
+        lazy="raise_on_sql",
         foreign_keys="Containment.child_entity_id",
         back_populates="child",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     contained_links: Mapped[list[Containment]] = relationship(
+        lazy="raise_on_sql",
         foreign_keys="Containment.parent_entity_id",
         back_populates="parent",
         cascade="all, delete-orphan",
@@ -115,27 +139,31 @@ class Entity(Base):
     # dependent_links/containment/contained_links, or the association
     # classes directly - never through these.
     stat_groups: Mapped[list[StatGroup]] = relationship(
-        secondary="entity_stat_group", viewonly=True
+        lazy="raise_on_sql", secondary="entity_stat_group", viewonly=True
     )
     prototypes: Mapped[list[Entity]] = relationship(
+        lazy="raise_on_sql",
         secondary="entity_prototype",
         primaryjoin="Entity.id == EntityPrototype.entity_id",
         secondaryjoin="Entity.id == EntityPrototype.prototype_id",
         viewonly=True,
     )
     instances: Mapped[list[Entity]] = relationship(
+        lazy="raise_on_sql",
         secondary="entity_prototype",
         primaryjoin="Entity.id == EntityPrototype.prototype_id",
         secondaryjoin="Entity.id == EntityPrototype.entity_id",
         viewonly=True,
     )
     parent: Mapped[Entity | None] = relationship(
+        lazy="raise_on_sql",
         secondary="containment",
         primaryjoin="Entity.id == Containment.child_entity_id",
         secondaryjoin="Entity.id == Containment.parent_entity_id",
         viewonly=True,
     )
     children: Mapped[list[Entity]] = relationship(
+        lazy="raise_on_sql",
         secondary="containment",
         primaryjoin="Entity.id == Containment.parent_entity_id",
         secondaryjoin="Entity.id == Containment.child_entity_id",

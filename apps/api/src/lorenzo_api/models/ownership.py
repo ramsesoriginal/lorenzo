@@ -37,8 +37,8 @@ class Ownership(Base):
     tenant_id: Mapped[TenantFk]
 
     owned_entity: Mapped[Entity] = relationship(
-        foreign_keys=[owned_entity_id], back_populates="ownership"
+        lazy="raise_on_sql", foreign_keys=[owned_entity_id], back_populates="ownership"
     )
     owner_character: Mapped[Entity] = relationship(
-        foreign_keys=[owner_character_id], back_populates="owned_entity_links"
+        lazy="raise_on_sql", foreign_keys=[owner_character_id], back_populates="owned_entity_links"
     )

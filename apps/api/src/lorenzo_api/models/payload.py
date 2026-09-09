@@ -34,17 +34,29 @@ class Payload(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    information: Mapped[Information] = relationship(back_populates="payloads")
+    information: Mapped[Information] = relationship(lazy="raise_on_sql", back_populates="payloads")
 
     description: Mapped[PayloadDescription | None] = relationship(
-        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="payload",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     number: Mapped[PayloadNumber | None] = relationship(
-        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="payload",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     picture: Mapped[PayloadPicture | None] = relationship(
-        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="payload",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     document: Mapped[PayloadDocument | None] = relationship(
-        back_populates="payload", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="payload",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

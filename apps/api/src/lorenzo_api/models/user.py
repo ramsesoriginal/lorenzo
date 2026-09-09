@@ -31,14 +31,26 @@ class User(Base):
     updated_at: Mapped[UpdatedAt]
 
     memberships: Mapped[list[Membership]] = relationship(
-        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     players: Mapped[list[Player]] = relationship(
-        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     campaign_gms: Mapped[list[CampaignGm]] = relationship(
-        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     orga_campaign_opt_outs: Mapped[list[OrgaCampaignOptOut]] = relationship(
-        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

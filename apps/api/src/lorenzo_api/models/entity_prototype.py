@@ -33,8 +33,8 @@ class EntityPrototype(Base):
     tenant_id: Mapped[TenantFk]
 
     entity: Mapped[Entity] = relationship(
-        foreign_keys=[entity_id], back_populates="prototype_links"
+        lazy="raise_on_sql", foreign_keys=[entity_id], back_populates="prototype_links"
     )
     prototype: Mapped[Entity] = relationship(
-        foreign_keys=[prototype_id], back_populates="dependent_links"
+        lazy="raise_on_sql", foreign_keys=[prototype_id], back_populates="dependent_links"
     )

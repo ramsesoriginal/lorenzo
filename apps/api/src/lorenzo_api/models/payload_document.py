@@ -31,4 +31,4 @@ class PayloadDocument(Base):
     filename: Mapped[str]
     file_type: Mapped[str]
 
-    payload: Mapped[Payload] = relationship(back_populates="document")
+    payload: Mapped[Payload] = relationship(lazy="raise_on_sql", back_populates="document")

@@ -35,8 +35,13 @@ class Being(Base):
     )
     tenant_id: Mapped[TenantFk]
 
-    entity: Mapped[Entity] = relationship(back_populates="being")
-    owner_player: Mapped[Player | None] = relationship(back_populates="owned_beings")
+    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="being")
+    owner_player: Mapped[Player | None] = relationship(
+        lazy="raise_on_sql", back_populates="owned_beings"
+    )
     player_links: Mapped[list[CharacterPlayer]] = relationship(
-        back_populates="character", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="character",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

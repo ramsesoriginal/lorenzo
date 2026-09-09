@@ -50,6 +50,11 @@ plugins = ["pydantic.mypy"]
 strict = true
 files = ["src"]
 
+[tool.coverage.run]
+# sys.monitoring (Python 3.12+) instead of the default trace-function
+# instrumentation - materially faster with no coverage-accuracy tradeoff.
+core = "sysmon"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

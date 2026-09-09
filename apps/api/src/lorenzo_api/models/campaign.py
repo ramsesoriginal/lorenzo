@@ -27,13 +27,22 @@ class Campaign(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(back_populates="campaigns")
+    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="campaigns")
     players: Mapped[list[Player]] = relationship(
-        back_populates="campaign", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     gms: Mapped[list[CampaignGm]] = relationship(
-        back_populates="campaign", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     orga_opt_outs: Mapped[list[OrgaCampaignOptOut]] = relationship(
-        back_populates="campaign", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

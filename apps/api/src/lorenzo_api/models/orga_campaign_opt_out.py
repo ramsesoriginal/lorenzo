@@ -37,5 +37,5 @@ class OrgaCampaignOptOut(Base):
         ForeignKey("campaign.id", ondelete="CASCADE"), primary_key=True
     )
 
-    user: Mapped[User] = relationship(back_populates="orga_campaign_opt_outs")
-    campaign: Mapped[Campaign] = relationship(back_populates="orga_opt_outs")
+    user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="orga_campaign_opt_outs")
+    campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="orga_opt_outs")

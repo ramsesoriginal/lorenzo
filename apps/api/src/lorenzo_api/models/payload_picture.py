@@ -27,4 +27,4 @@ class PayloadPicture(Base):
     data: Mapped[bytes]
     file_type: Mapped[str]
 
-    payload: Mapped[Payload] = relationship(back_populates="picture")
+    payload: Mapped[Payload] = relationship(lazy="raise_on_sql", back_populates="picture")

@@ -38,15 +38,18 @@ class Player(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    user: Mapped[User] = relationship(back_populates="players")
-    campaign: Mapped[Campaign] = relationship(back_populates="players")
+    user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="players")
+    campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="players")
     # owned_beings: SET NULL, not CASCADE (ADR 0025) - passive_deletes=True
     # so a deleted player leaves its beings player-less via the DB's own
     # ON DELETE SET NULL, rather than the ORM loading and updating them.
     # No delete-orphan: losing this player must not delete the being.
     owned_beings: Mapped[list[Being]] = relationship(
-        back_populates="owner_player", passive_deletes=True
+        lazy="raise_on_sql", back_populates="owner_player", passive_deletes=True
     )
     character_links: Mapped[list[CharacterPlayer]] = relationship(
-        back_populates="player", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="player",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

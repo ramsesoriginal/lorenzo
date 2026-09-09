@@ -48,5 +48,5 @@ class Membership(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(back_populates="memberships")
-    user: Mapped[User] = relationship(back_populates="memberships")
+    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="memberships")
+    user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="memberships")

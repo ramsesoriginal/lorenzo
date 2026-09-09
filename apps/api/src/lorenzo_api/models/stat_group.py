@@ -28,10 +28,16 @@ class StatGroup(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(back_populates="stat_groups")
+    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_groups")
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
-        back_populates="stat_group", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="stat_group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     entity_links: Mapped[list[EntityStatGroup]] = relationship(
-        back_populates="stat_group", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="stat_group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

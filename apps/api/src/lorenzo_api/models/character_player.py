@@ -33,5 +33,5 @@ class CharacterPlayer(Base):
     )
     tenant_id: Mapped[TenantFk]
 
-    character: Mapped[Being] = relationship(back_populates="player_links")
-    player: Mapped[Player] = relationship(back_populates="character_links")
+    character: Mapped[Being] = relationship(lazy="raise_on_sql", back_populates="player_links")
+    player: Mapped[Player] = relationship(lazy="raise_on_sql", back_populates="character_links")
