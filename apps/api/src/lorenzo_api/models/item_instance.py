@@ -19,10 +19,12 @@ class ItemInstance(Base):
     of accepted limitation as entity_stat_group's tenant agreement
     (ADR 0014).
 
-    owner_entity_id references a character, which doesn't exist yet (RFC
-    0002) - referencing entity.id generically for now, ON DELETE SET NULL
-    rather than CASCADE like every other FK in this schema (ADR 0018): the
-    owner disappearing shouldn't delete the item, just leave it ownerless.
+    Ownership itself lives in the generic `ownership` table (ADR 0025),
+    not here - `owner_entity_id` was this table's own column until a
+    character existed to actually own things (RFC 0002); the migration
+    that added `being` backfilled `ownership` from it and dropped the
+    column. `v_item_instance` still exposes `owner_entity_id` for REST
+    consumers, now derived via a join against `ownership` instead.
     """
 
     __tablename__ = "item_instance"
@@ -30,10 +32,6 @@ class ItemInstance(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
-    owner_entity_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("entity.id", ondelete="SET NULL"), index=True
-    )
     tenant_id: Mapped[TenantFk]
 
-    entity: Mapped[Entity] = relationship(foreign_keys=[entity_id], back_populates="item_instance")
-    owner: Mapped[Entity | None] = relationship(foreign_keys=[owner_entity_id])
+    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="item_instance")

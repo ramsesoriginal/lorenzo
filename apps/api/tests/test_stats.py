@@ -1,8 +1,9 @@
 import pytest
+from _admin_db import admin_session_factory
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from lorenzo_api.db import async_session_factory, engine
+from lorenzo_api.db import engine
 from lorenzo_api.models import (
     Entity,
     EntityStat,
@@ -18,7 +19,7 @@ async def test_stat_group_definition_and_value_end_to_end() -> None:
     """No resolution/inheritance here (ADR 0014) - just proving an entity can
     acquire a stat group (n:m) and hold a direct value for one of its stats.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -69,7 +70,7 @@ async def test_stat_group_definition_and_value_end_to_end() -> None:
 
 
 async def test_entity_stat_requires_exactly_one_value() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -102,7 +103,7 @@ async def test_entity_stat_requires_exactly_one_value() -> None:
 
 
 async def test_stat_group_name_is_unique_per_tenant() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -119,70 +120,54 @@ async def test_stat_group_name_is_unique_per_tenant() -> None:
         await session.rollback()
 
 
-_DROP_TEST_ROLE_IF_EXISTS = """
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rls_test_role') THEN
-        EXECUTE 'DROP OWNED BY rls_test_role';
-        EXECUTE 'DROP ROLE rls_test_role';
-    END IF;
-END $$;
-"""
-
-
 async def test_stat_group_rls_isolates_tenants_for_a_non_superuser_role() -> None:
     """stat_definition/entity_stat_group/entity_stat use the byte-for-byte
     same ENABLE+FORCE+policy pattern (confirmed via psql inspection when this
     migration was written) - this proves the pattern actually works for the
     new tables at least once more, rather than purely extrapolating from
-    test_entity.py's equivalent proof for the entity table.
+    test_entity.py's equivalent proof for the entity table. `engine` is the
+    app's own real, restricted connection since ADR 0021.
     """
-    async with engine.begin() as conn:
+    async with admin_session_factory() as session:
         tenant_a = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
         tenant_b = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
 
-        await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
-        await conn.execute(text("CREATE ROLE rls_test_role NOSUPERUSER NOBYPASSRLS NOLOGIN"))
-        await conn.execute(text("GRANT SELECT, INSERT ON stat_group TO rls_test_role"))
-        await conn.execute(
+        await session.execute(
             text("INSERT INTO stat_group (tenant_id, name) VALUES (:t, 'tenant-A-group')"),
             {"t": tenant_a},
         )
-        await conn.execute(
+        await session.execute(
             text("INSERT INTO stat_group (tenant_id, name) VALUES (:t, 'tenant-B-group')"),
             {"t": tenant_b},
         )
+        await session.commit()
 
     try:
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_a)}
             )
             names = (await conn.execute(text("SELECT name FROM stat_group"))).scalars().all()
             assert list(names) == ["tenant-A-group"]
-            await conn.execute(text("RESET ROLE"))
 
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_b)}
             )
             names = (await conn.execute(text("SELECT name FROM stat_group"))).scalars().all()
             assert list(names) == ["tenant-B-group"]
-            await conn.execute(text("RESET ROLE"))
     finally:
-        async with engine.begin() as conn:
-            await conn.execute(
+        async with admin_session_factory() as session:
+            await session.execute(
                 text("DELETE FROM stat_group WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM tenant WHERE id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
+            await session.commit()

@@ -46,7 +46,9 @@ jobs:
       - run: mise run test
         working-directory: apps/api
         env:
-          DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
+          # Same split as ci.yml - see ADR 0021.
+          DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
+          MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
 
   deploy:
     needs: verify
@@ -82,7 +84,10 @@ jobs:
       - name: Run migrations against Neon
         working-directory: apps/api
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Privileged - creates/grants lorenzo_app, among other things
+          # (ADR 0021). Not what the deployed service itself connects as;
+          # see the deploy step below.
+          MIGRATIONS_DATABASE_URL: ${{ secrets.MIGRATIONS_DATABASE_URL }}
         run: |
           uv sync --locked
           uv run alembic upgrade head
@@ -93,6 +98,9 @@ jobs:
           service: lorenzo-api
           region: ${{ vars.GCP_REGION }}
           image: ${{ steps.meta.outputs.image }}
+          # Restricted role (ADR 0021) - the DATABASE_URL secret's *value*
+          # needs rotating to it before this is a real fix in production;
+          # see docs/operations/deployment-setup.md.
           env_vars: DATABASE_URL=${{ secrets.DATABASE_URL }}
 
       - name: Verify the deployed revision is actually ready

@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Lorenzo is pre-1.0. `apps/api` has infrastructure plus a first, minimal domain table (no auth yet); nothing else under `apps/` exists. Only the latest commit on `main` is supported. Once apps reach 1.0, this section will track supported versions per app.
+Lorenzo is pre-1.0. `apps/api` has infrastructure plus the full domain model, a read-only REST API, and Authgear-backed auth (currently on the `feat/auth-users` branch, not yet merged to `main`); nothing else under `apps/` exists. Only the latest commit on `main` is supported. Once apps reach 1.0, this section will track supported versions per app.
 
 ## Reporting a vulnerability
 
@@ -20,4 +20,4 @@ Please include:
 
 This is a personal, self-hosted-first project. Vulnerabilities in third-party dependencies belong upstream, unless the issue is how Lorenzo uses that dependency.
 
-**Known, already-tracked issue**: the app's own database role is currently a superuser, which bypasses PostgreSQL row-level security unconditionally — multi-tenant isolation (see [ADR 0002](docs/adr/0002-multi-tenancy-shared-schema-rls.md)) is not actually enforced yet, independent of any RLS policy being correctly written. No real multi-tenant data exists yet. Tracked as a required fix before this holds anything real — no need to report this specific one.
+**Known, already-tracked issue**: the app's own database role used to be a superuser, which bypasses PostgreSQL row-level security unconditionally regardless of any RLS policy being correctly written (multi-tenant isolation, [ADR 0002](docs/adr/0002-multi-tenancy-shared-schema-rls.md)). Fixed locally and in CI by a restricted, non-superuser role ([ADR 0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)), currently on the `feat/auth-users` branch and not yet merged to `main`. Production's live Neon role/secret still needs rotating to match — a deliberate, human-confirmed step, not yet done (see [docs/operations/deployment-setup.md](docs/operations/deployment-setup.md)). No real multi-tenant data exists yet. No need to report this specific one; it's already tracked.

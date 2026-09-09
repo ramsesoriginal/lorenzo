@@ -14,6 +14,7 @@ from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.payloads import router as payloads_router
+from lorenzo_api.routers.users import router as users_router
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
 
     register_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(users_router)
     app.include_router(payloads_router)
     app.include_router(entities_router)
     app.include_router(items_router)

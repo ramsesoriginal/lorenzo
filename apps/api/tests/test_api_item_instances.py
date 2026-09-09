@@ -1,30 +1,42 @@
 import uuid
 
+from _admin_db import admin_session_factory
 from httpx import AsyncClient
 
-from lorenzo_api.db import async_session_factory
-from lorenzo_api.models import Containment, Entity, ItemInstance, Tenant
+from lorenzo_api.models import (
+    Containment,
+    Entity,
+    ItemInstance,
+    Membership,
+    MembershipRole,
+    Ownership,
+    Tenant,
+)
 
 
-async def _make_tenant() -> uuid.UUID:
-    async with async_session_factory() as session:
+async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
         await session.commit()
         return tenant.id
 
 
 async def _delete_tenant(tenant_id: uuid.UUID) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
-async def test_list_item_instances_paginates_and_is_tenant_isolated(client: AsyncClient) -> None:
-    tenant_a = await _make_tenant()
-    tenant_b = await _make_tenant()
+async def test_list_item_instances_paginates_and_is_tenant_isolated(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_a = await _make_tenant(test_user_id)
+    tenant_b = await _make_tenant(test_user_id)
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         e1 = Entity(tenant_id=tenant_a, name="A1")
         e2 = Entity(tenant_id=tenant_a, name="A2")
         e3 = Entity(tenant_id=tenant_b, name="B1")
@@ -57,9 +69,11 @@ async def test_list_item_instances_404_for_unknown_tenant(client: AsyncClient) -
     assert response.headers["content-type"] == "application/problem+json"
 
 
-async def test_get_item_instance_returns_detail(client: AsyncClient) -> None:
-    tenant_id = await _make_tenant()
-    async with async_session_factory() as session:
+async def test_get_item_instance_returns_detail(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _make_tenant(test_user_id)
+    async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name="My Sword")
         session.add(entity)
         await session.flush()
@@ -75,8 +89,10 @@ async def test_get_item_instance_returns_detail(client: AsyncClient) -> None:
     await _delete_tenant(tenant_id)
 
 
-async def test_get_item_instance_404_for_unknown_id(client: AsyncClient) -> None:
-    tenant_id = await _make_tenant()
+async def test_get_item_instance_404_for_unknown_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/item-instances/00000000-0000-0000-0000-000000000000"
@@ -87,10 +103,12 @@ async def test_get_item_instance_404_for_unknown_id(client: AsyncClient) -> None
     await _delete_tenant(tenant_id)
 
 
-async def test_get_item_instance_404_for_wrong_tenant(client: AsyncClient) -> None:
-    tenant_a = await _make_tenant()
-    tenant_b = await _make_tenant()
-    async with async_session_factory() as session:
+async def test_get_item_instance_404_for_wrong_tenant(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_a = await _make_tenant(test_user_id)
+    tenant_b = await _make_tenant(test_user_id)
+    async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_a, name="My Sword")
         session.add(entity)
         await session.flush()
@@ -106,15 +124,17 @@ async def test_get_item_instance_404_for_wrong_tenant(client: AsyncClient) -> No
     await _delete_tenant(tenant_b)
 
 
-async def test_owned_by_route_is_not_shadowed_by_the_detail_route(client: AsyncClient) -> None:
+async def test_owned_by_route_is_not_shadowed_by_the_detail_route(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     """/owned-by/{owner_entity_id} is registered before the generic
     /{entity_id} precisely so this doesn't happen - confirmed here, not
     just reasoned through, since getting the registration order backwards
     would make this 422 (owned-by treated as an entity_id) instead of the
     real owned-by response.
     """
-    tenant_id = await _make_tenant()
-    async with async_session_factory() as session:
+    tenant_id = await _make_tenant(test_user_id)
+    async with admin_session_factory() as session:
         owner = Entity(tenant_id=tenant_id, name="Owner")
         session.add(owner)
         await session.commit()
@@ -129,13 +149,16 @@ async def test_owned_by_route_is_not_shadowed_by_the_detail_route(client: AsyncC
 
 
 async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontained(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
 
         owner1 = Entity(tenant_id=tenant_id, name="Owner One")
         owner2 = Entity(tenant_id=tenant_id, name="Owner Two")
@@ -153,17 +176,25 @@ async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontain
 
         session.add_all(
             [
-                ItemInstance(
-                    entity_id=instance_a.id, owner_entity_id=owner1.id, tenant_id=tenant_id
+                ItemInstance(entity_id=instance_a.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=instance_b.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=instance_c.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=instance_d.id, tenant_id=tenant_id),
+            ]
+        )
+        session.add_all(
+            [
+                Ownership(
+                    owned_entity_id=instance_a.id, owner_character_id=owner1.id, tenant_id=tenant_id
                 ),
-                ItemInstance(
-                    entity_id=instance_b.id, owner_entity_id=owner1.id, tenant_id=tenant_id
+                Ownership(
+                    owned_entity_id=instance_b.id, owner_character_id=owner1.id, tenant_id=tenant_id
                 ),
-                ItemInstance(
-                    entity_id=instance_c.id, owner_entity_id=owner1.id, tenant_id=tenant_id
+                Ownership(
+                    owned_entity_id=instance_c.id, owner_character_id=owner1.id, tenant_id=tenant_id
                 ),
-                ItemInstance(
-                    entity_id=instance_d.id, owner_entity_id=owner2.id, tenant_id=tenant_id
+                Ownership(
+                    owned_entity_id=instance_d.id, owner_character_id=owner2.id, tenant_id=tenant_id
                 ),
             ]
         )
@@ -216,9 +247,11 @@ async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontain
     await _delete_tenant(tenant_id)
 
 
-async def test_owned_by_returns_empty_groups_when_owner_has_nothing(client: AsyncClient) -> None:
-    tenant_id = await _make_tenant()
-    async with async_session_factory() as session:
+async def test_owned_by_returns_empty_groups_when_owner_has_nothing(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _make_tenant(test_user_id)
+    async with admin_session_factory() as session:
         owner = Entity(tenant_id=tenant_id, name="Empty-handed Owner")
         session.add(owner)
         await session.commit()
@@ -240,15 +273,20 @@ async def test_owned_by_404_for_unknown_tenant(client: AsyncClient) -> None:
     assert response.status_code == 404
 
 
-async def test_container_filter_direct_children_non_recursive(client: AsyncClient) -> None:
+async def test_container_filter_direct_children_non_recursive(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     """Default recursive=false - deliberately not exercised via an explicit
     query param here, so this also proves the default itself is false.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
 
         root = Entity(tenant_id=tenant_id, name="Root Container")
         child1 = Entity(tenant_id=tenant_id, name="Direct Child 1")
@@ -295,7 +333,7 @@ async def test_container_filter_direct_children_non_recursive(client: AsyncClien
 
 
 async def test_container_filter_recursive_includes_deep_chain_and_handles_cycle(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     """Covers both risky cases from ADR 0016 / the task brief in one fixture
     set: a legitimately deep acyclic chain, and an actual containment
@@ -306,11 +344,14 @@ async def test_container_filter_recursive_includes_deep_chain_and_handles_cycle(
     own id instead, matching tests/test_containment.py's own precedent for
     constructing a cycle.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
 
         root = Entity(tenant_id=tenant_id, name="Root")
         session.add(root)
@@ -366,12 +407,12 @@ async def test_container_filter_recursive_includes_deep_chain_and_handles_cycle(
 
 
 async def test_container_filter_404_when_container_belongs_to_another_tenant(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_a = await _make_tenant()
-    tenant_b = await _make_tenant()
+    tenant_a = await _make_tenant(test_user_id)
+    tenant_b = await _make_tenant(test_user_id)
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         container = Entity(tenant_id=tenant_a, name="Tenant A's Container")
         session.add(container)
         await session.commit()
@@ -394,8 +435,10 @@ async def test_container_filter_404_when_container_belongs_to_another_tenant(
     await _delete_tenant(tenant_b)
 
 
-async def test_container_filter_404_for_unknown_container_id(client: AsyncClient) -> None:
-    tenant_id = await _make_tenant()
+async def test_container_filter_404_for_unknown_container_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/item-instances",
@@ -407,13 +450,16 @@ async def test_container_filter_404_for_unknown_container_id(client: AsyncClient
 
 
 async def test_container_filter_recursive_pagination_spans_multiple_pages(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
 
         root = Entity(tenant_id=tenant_id, name="Big Container")
         session.add(root)

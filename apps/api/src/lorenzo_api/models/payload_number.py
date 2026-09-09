@@ -27,4 +27,4 @@ class PayloadNumber(Base):
     tenant_id: Mapped[TenantFk]
     value: Mapped[Decimal]
 
-    payload: Mapped[Payload] = relationship(back_populates="number")
+    payload: Mapped[Payload] = relationship(lazy="raise_on_sql", back_populates="number")

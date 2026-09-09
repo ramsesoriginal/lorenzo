@@ -1,8 +1,9 @@
 import pytest
+from _admin_db import admin_session_factory
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
-from lorenzo_api.db import async_session_factory, engine
+from lorenzo_api.db import engine
 from lorenzo_api.models import Entity, EntityPrototype, Tenant
 
 
@@ -10,8 +11,9 @@ async def test_multiple_inheritance_and_chain() -> None:
     """No resolution/inheritance-walk here (ADR 0015) - just proving the
     graph itself can hold a chain (a->b->c) and multiple inheritance
     (d from both b and c, a diamond via shared ancestor b/c->... no cycle).
+    Not RLS-focused - uses the privileged connection throughout (ADR 0021).
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -51,7 +53,7 @@ async def test_multiple_inheritance_and_chain() -> None:
 
 
 async def test_direct_self_loop_rejected() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -77,7 +79,7 @@ async def test_direct_transitive_cycle_rejected() -> None:
     closes a 2-cycle and must be rejected by the BEFORE INSERT trigger
     (the CHECK constraint alone only catches entity_id = prototype_id).
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -112,7 +114,7 @@ async def test_transitive_three_way_cycle_rejected() -> None:
     3-cycle (A->B->C->A) - the trigger's recursive CTE must walk through
     B to find A, not just check C's immediate prototype.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -144,76 +146,63 @@ async def test_transitive_three_way_cycle_rejected() -> None:
         await session.commit()
 
 
-_DROP_TEST_ROLE_IF_EXISTS = """
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rls_test_role') THEN
-        EXECUTE 'DROP OWNED BY rls_test_role';
-        EXECUTE 'DROP ROLE rls_test_role';
-    END IF;
-END $$;
-"""
-
-
 async def test_entity_prototype_rls_isolates_tenants_for_a_non_superuser_role() -> None:
     """Same ENABLE+FORCE+policy pattern as every tenant-scoped table so far -
     proves it works for entity_prototype too rather than purely
     extrapolating from test_entity.py/test_stats.py's equivalent proofs.
+    `engine` is the app's own real, restricted connection since ADR 0021.
     """
-    async with engine.begin() as conn:
+    async with admin_session_factory() as session:
         tenant_a = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
         tenant_b = (
-            await conn.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
+            await session.execute(text("INSERT INTO tenant DEFAULT VALUES RETURNING id"))
         ).scalar_one()
 
         entity_a1 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'a1') RETURNING id"),
                 {"t": tenant_a},
             )
         ).scalar_one()
         entity_a2 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'a2') RETURNING id"),
                 {"t": tenant_a},
             )
         ).scalar_one()
         entity_b1 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'b1') RETURNING id"),
                 {"t": tenant_b},
             )
         ).scalar_one()
         entity_b2 = (
-            await conn.execute(
+            await session.execute(
                 text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'b2') RETURNING id"),
                 {"t": tenant_b},
             )
         ).scalar_one()
 
-        await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
-        await conn.execute(text("CREATE ROLE rls_test_role NOSUPERUSER NOBYPASSRLS NOLOGIN"))
-        await conn.execute(text("GRANT SELECT, INSERT ON entity_prototype TO rls_test_role"))
-        await conn.execute(
+        await session.execute(
             text(
                 "INSERT INTO entity_prototype (entity_id, prototype_id, tenant_id) "
                 "VALUES (:e, :p, :t)"
             ),
             {"e": entity_a1, "p": entity_a2, "t": tenant_a},
         )
-        await conn.execute(
+        await session.execute(
             text(
                 "INSERT INTO entity_prototype (entity_id, prototype_id, tenant_id) "
                 "VALUES (:e, :p, :t)"
             ),
             {"e": entity_b1, "p": entity_b2, "t": tenant_b},
         )
+        await session.commit()
 
     try:
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_a)}
             )
@@ -221,10 +210,8 @@ async def test_entity_prototype_rls_isolates_tenants_for_a_non_superuser_role() 
                 (await conn.execute(text("SELECT entity_id FROM entity_prototype"))).scalars().all()
             )
             assert list(rows) == [entity_a1]
-            await conn.execute(text("RESET ROLE"))
 
         async with engine.begin() as conn:
-            await conn.execute(text("SET ROLE rls_test_role"))
             await conn.execute(
                 text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_b)}
             )
@@ -232,19 +219,18 @@ async def test_entity_prototype_rls_isolates_tenants_for_a_non_superuser_role() 
                 (await conn.execute(text("SELECT entity_id FROM entity_prototype"))).scalars().all()
             )
             assert list(rows) == [entity_b1]
-            await conn.execute(text("RESET ROLE"))
     finally:
-        async with engine.begin() as conn:
-            await conn.execute(
+        async with admin_session_factory() as session:
+            await session.execute(
                 text("DELETE FROM entity_prototype WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM entity WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(
+            await session.execute(
                 text("DELETE FROM tenant WHERE id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
-            await conn.execute(text(_DROP_TEST_ROLE_IF_EXISTS))
+            await session.commit()
