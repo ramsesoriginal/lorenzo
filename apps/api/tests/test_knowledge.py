@@ -1,10 +1,8 @@
-import uuid
-
 import pytest
 from _admin_db import admin_session_factory
+from conftest import make_player
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.db import engine
 from lorenzo_api.models import (
@@ -14,22 +12,9 @@ from lorenzo_api.models import (
     GroupMember,
     Information,
     Knowledge,
-    Player,
     Tenant,
     User,
 )
-
-
-async def _make_player(
-    session: AsyncSession, *, tenant_id: uuid.UUID, campaign_id: uuid.UUID
-) -> Player:
-    user = User(authgear_subject_id=f"authgear|knowledge-{uuid.uuid4()}")
-    session.add(user)
-    await session.flush()
-    player = Player(user_id=user.id, campaign_id=campaign_id, tenant_id=tenant_id)
-    session.add(player)
-    await session.flush()
-    return player
 
 
 async def test_group_member_basic_membership() -> None:
@@ -197,7 +182,7 @@ async def test_knowledge_requires_exactly_one_knower_rejects_both_set() -> None:
         campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player = await _make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        player = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
 
         entity = Entity(tenant_id=tenant_id, name="Entity")
         session.add(entity)
@@ -311,7 +296,7 @@ async def test_knowledge_player_knower_end_to_end() -> None:
         campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player = await _make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        player = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
 
         subject = Entity(tenant_id=tenant_id, name="Subject")
         session.add(subject)
@@ -378,7 +363,7 @@ async def test_knowledge_duplicate_player_knower_information_pair_rejected() -> 
         campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player = await _make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        player = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
 
         subject = Entity(tenant_id=tenant_id, name="Subject")
         session.add(subject)
@@ -417,7 +402,7 @@ async def test_knowledge_allows_same_information_for_different_knowers() -> None
         campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player = await _make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        player = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
 
         character_a = Entity(tenant_id=tenant_id, name="Character A")
         character_b = Entity(tenant_id=tenant_id, name="Character B")

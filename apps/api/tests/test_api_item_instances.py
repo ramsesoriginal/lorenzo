@@ -1,6 +1,7 @@
 import uuid
 
 from _admin_db import admin_session_factory
+from conftest import delete_tenant, make_tenant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
@@ -17,27 +18,11 @@ from lorenzo_api.models import (
 )
 
 
-async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
-    async with admin_session_factory() as session:
-        tenant = Tenant()
-        session.add(tenant)
-        await session.flush()
-        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
-        await session.commit()
-        return tenant.id
-
-
-async def _delete_tenant(tenant_id: uuid.UUID) -> None:
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
-
-
 async def test_list_item_instances_paginates_and_is_tenant_isolated(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_a = await _make_tenant(test_user_id)
-    tenant_b = await _make_tenant(test_user_id)
+    tenant_a = await make_tenant(test_user_id)
+    tenant_b = await make_tenant(test_user_id)
 
     async with admin_session_factory() as session:
         e1 = Entity(tenant_id=tenant_a, name="A1")
@@ -62,8 +47,8 @@ async def test_list_item_instances_paginates_and_is_tenant_isolated(
     assert body["total"] == 2
     assert {i["entity_id"] for i in body["items"]} == {str(e1_id), str(e2_id)}
 
-    await _delete_tenant(tenant_a)
-    await _delete_tenant(tenant_b)
+    await delete_tenant(tenant_a)
+    await delete_tenant(tenant_b)
 
 
 async def test_list_item_instances_404_for_unknown_tenant(client: AsyncClient) -> None:
@@ -75,7 +60,7 @@ async def test_list_item_instances_404_for_unknown_tenant(client: AsyncClient) -
 async def test_get_item_instance_returns_detail(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name="My Sword")
         session.add(entity)
@@ -89,13 +74,13 @@ async def test_get_item_instance_returns_detail(
     assert response.status_code == 200
     assert response.json()["entity_id"] == str(entity_id)
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_get_item_instance_404_for_unknown_id(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/item-instances/00000000-0000-0000-0000-000000000000"
@@ -103,14 +88,14 @@ async def test_get_item_instance_404_for_unknown_id(
 
     assert response.status_code == 404
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_get_item_instance_404_for_wrong_tenant(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_a = await _make_tenant(test_user_id)
-    tenant_b = await _make_tenant(test_user_id)
+    tenant_a = await make_tenant(test_user_id)
+    tenant_b = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_a, name="My Sword")
         session.add(entity)
@@ -123,8 +108,8 @@ async def test_get_item_instance_404_for_wrong_tenant(
 
     assert response.status_code == 404
 
-    await _delete_tenant(tenant_a)
-    await _delete_tenant(tenant_b)
+    await delete_tenant(tenant_a)
+    await delete_tenant(tenant_b)
 
 
 async def test_owned_by_route_is_not_shadowed_by_the_detail_route(
@@ -136,7 +121,7 @@ async def test_owned_by_route_is_not_shadowed_by_the_detail_route(
     would make this 422 (owned-by treated as an entity_id) instead of the
     real owned-by response.
     """
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         owner = Entity(tenant_id=tenant_id, name="Owner")
         session.add(owner)
@@ -148,7 +133,7 @@ async def test_owned_by_route_is_not_shadowed_by_the_detail_route(
     assert response.status_code == 200
     assert response.json() == {"groups": []}
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontained(
@@ -247,13 +232,13 @@ async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontain
     assert body2["groups"][0]["container"]["id"] == str(container2_id)
     assert {i["entity_id"] for i in body2["groups"][0]["item_instances"]} == {str(d_id)}
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_owned_by_returns_empty_groups_when_owner_has_nothing(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         owner = Entity(tenant_id=tenant_id, name="Empty-handed Owner")
         session.add(owner)
@@ -265,7 +250,7 @@ async def test_owned_by_returns_empty_groups_when_owner_has_nothing(
     assert response.status_code == 200
     assert response.json() == {"groups": []}
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_owned_by_404_for_unknown_tenant(client: AsyncClient) -> None:
@@ -332,7 +317,7 @@ async def test_container_filter_direct_children_non_recursive(
     assert returned_ids == {str(child1_id), str(child2_id)}
     assert str(grandchild_id) not in returned_ids
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_container_filter_recursive_includes_deep_chain_and_handles_cycle(
@@ -406,14 +391,14 @@ async def test_container_filter_recursive_includes_deep_chain_and_handles_cycle(
     assert {i["entity_id"] for i in cycle_body["items"]} == {str(y_id)}
     assert cycle_body["total"] == 1
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_container_filter_404_when_container_belongs_to_another_tenant(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_a = await _make_tenant(test_user_id)
-    tenant_b = await _make_tenant(test_user_id)
+    tenant_a = await make_tenant(test_user_id)
+    tenant_b = await make_tenant(test_user_id)
 
     async with admin_session_factory() as session:
         container = Entity(tenant_id=tenant_a, name="Tenant A's Container")
@@ -434,14 +419,14 @@ async def test_container_filter_404_when_container_belongs_to_another_tenant(
     )
     assert recursive_response.status_code == 404
 
-    await _delete_tenant(tenant_a)
-    await _delete_tenant(tenant_b)
+    await delete_tenant(tenant_a)
+    await delete_tenant(tenant_b)
 
 
 async def test_container_filter_404_for_unknown_container_id(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/item-instances",
@@ -449,7 +434,7 @@ async def test_container_filter_404_for_unknown_container_id(
     )
     assert response.status_code == 404
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_container_filter_recursive_pagination_spans_multiple_pages(
@@ -515,7 +500,7 @@ async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
     and is exhaustively tested there; this just proves the wiring in this
     router specifically.
     """
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name="My Sword")
         session.add(entity)
@@ -548,4 +533,4 @@ async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
     assert response.status_code == 200
     assert response.json()["descriptions"] == []
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)

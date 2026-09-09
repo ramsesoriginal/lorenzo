@@ -1,6 +1,7 @@
 import uuid
 
 from _admin_db import admin_session_factory
+from conftest import delete_tenant, make_tenant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
@@ -18,16 +19,6 @@ from lorenzo_api.models import (
     Player,
     Tenant,
 )
-
-
-async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
-    async with admin_session_factory() as session:
-        tenant = Tenant()
-        session.add(tenant)
-        await session.flush()
-        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
-        await session.commit()
-        return tenant.id
 
 
 async def test_get_picture_content_returns_bytes_with_correct_content_type(
@@ -68,9 +59,7 @@ async def test_get_picture_content_returns_bytes_with_correct_content_type(
     assert response.headers["content-type"] == "image/png"
     assert response.content == b"\x89PNG\r\n\x1a\n"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_document_content_returns_bytes_with_content_disposition(
@@ -113,9 +102,7 @@ async def test_get_document_content_returns_bytes_with_content_disposition(
     assert response.headers["content-disposition"] == 'attachment; filename="appraisal.pdf"'
     assert response.content == b"%PDF-1.4"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_document_content_encodes_non_ascii_filename(
@@ -159,9 +146,7 @@ async def test_get_document_content_encodes_non_ascii_filename(
         == "attachment; filename*=utf-8''rapport-%C3%A9t%C3%A9.pdf"
     )
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_content_404_when_payload_has_no_binary_content(
@@ -194,15 +179,13 @@ async def test_get_content_404_when_payload_has_no_binary_content(
 
     assert response.status_code == 404
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_content_404_for_unknown_payload(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/payloads/00000000-0000-0000-0000-000000000000/content"
@@ -211,9 +194,7 @@ async def test_get_content_404_for_unknown_payload(
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_content_404_for_wrong_tenant(
@@ -254,10 +235,8 @@ async def test_get_content_404_for_wrong_tenant(
     response = await client.get(f"/tenants/{tenant_b_id}/payloads/{payload_id}/content")
     assert response.status_code == 404
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_a_id))
-        await session.delete(await session.get_one(Tenant, tenant_b_id))
-        await session.commit()
+    await delete_tenant(tenant_a_id)
+    await delete_tenant(tenant_b_id)
 
 
 async def test_get_content_404_for_unknown_tenant(client: AsyncClient) -> None:
@@ -306,9 +285,7 @@ async def test_get_content_404_for_gm_only_information_not_visible_to_a_plain_me
     response = await client.get(f"/tenants/{tenant_id}/payloads/{payload_id}/content")
     assert response.status_code == 404
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_content_visible_via_knowledge_for_the_callers_own_character(
@@ -365,9 +342,7 @@ async def test_get_content_visible_via_knowledge_for_the_callers_own_character(
     assert response.status_code == 200
     assert response.content == b"x"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_content_orga_sees_everything_regardless_of_knowledge(
@@ -400,6 +375,4 @@ async def test_get_content_orga_sees_everything_regardless_of_knowledge(
     assert response.status_code == 200
     assert response.content == b"x"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)

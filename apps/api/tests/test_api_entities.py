@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 
 from _admin_db import admin_session_factory
+from conftest import delete_tenant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
@@ -66,9 +67,7 @@ async def test_list_entities_returns_paginated_summaries_ordered_by_name(
     assert response.status_code == 200
     assert [item["name"] for item in response.json()["items"]] == ["Charlie"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_list_entities_only_returns_the_requesting_tenants_entities(
@@ -98,10 +97,8 @@ async def test_list_entities_only_returns_the_requesting_tenants_entities(
     assert response.status_code == 200
     assert [item["name"] for item in response.json()["items"]] == ["Tenant B Entity"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_a_id))
-        await session.delete(await session.get_one(Tenant, tenant_b_id))
-        await session.commit()
+    await delete_tenant(tenant_a_id)
+    await delete_tenant(tenant_b_id)
 
 
 async def test_list_entities_404_for_unknown_tenant(client: AsyncClient) -> None:
@@ -332,9 +329,7 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
     assert content_response.status_code == 200
     assert content_response.content == b"%PDF-1.4"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_404_for_unknown_entity_id(
@@ -356,9 +351,7 @@ async def test_get_entity_404_for_unknown_entity_id(
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_404_for_entity_belonging_to_a_different_tenant(
@@ -389,10 +382,8 @@ async def test_get_entity_404_for_entity_belonging_to_a_different_tenant(
     response = await client.get(f"/tenants/{tenant_b_id}/entities/{entity_id}")
     assert response.status_code == 404
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_a_id))
-        await session.delete(await session.get_one(Tenant, tenant_b_id))
-        await session.commit()
+    await delete_tenant(tenant_a_id)
+    await delete_tenant(tenant_b_id)
 
 
 async def test_get_entity_404_for_unknown_tenant_id(client: AsyncClient) -> None:
@@ -432,9 +423,7 @@ async def test_get_entity_hides_gm_only_information_from_a_plain_member(
     assert response.status_code == 200
     assert response.json()["information"] == []
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_shows_public_information_to_any_tenant_member(
@@ -467,9 +456,7 @@ async def test_get_entity_shows_public_information_to_any_tenant_member(
     assert response.status_code == 200
     assert [info["title"] for info in response.json()["information"]] == ["Town square"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_shows_information_known_via_direct_character_knowledge(
@@ -520,9 +507,7 @@ async def test_get_entity_shows_information_known_via_direct_character_knowledge
     assert response.status_code == 200
     assert [info["title"] for info in response.json()["information"]] == ["A secret"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_shows_information_known_via_group_membership(
@@ -577,9 +562,7 @@ async def test_get_entity_shows_information_known_via_group_membership(
     assert response.status_code == 200
     assert [info["title"] for info in response.json()["information"]] == ["Guild secret"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_shows_information_known_via_direct_player_knowledge(
@@ -621,9 +604,7 @@ async def test_get_entity_shows_information_known_via_direct_player_knowledge(
     assert response.status_code == 200
     assert [info["title"] for info in response.json()["information"]] == ["OOC hint"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_hides_information_known_only_to_a_different_users_character(
@@ -697,8 +678,8 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
     assert response.status_code == 200
     assert response.json()["information"] == []
 
+    await delete_tenant(tenant_id)
     async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
         await session.delete(await session.get_one(User, other_user_id))
         await session.commit()
 
@@ -725,9 +706,7 @@ async def test_get_entity_orga_sees_everything_regardless_of_knowledge(
     assert response.status_code == 200
     assert [info["title"] for info in response.json()["information"]] == ["Secret"]
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_orga_bypass_suppressed_by_opt_out(
@@ -763,9 +742,7 @@ async def test_get_entity_orga_bypass_suppressed_by_opt_out(
     assert response.status_code == 200
     assert response.json()["information"] == []
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+    await delete_tenant(tenant_id)
 
 
 async def test_get_entity_information_visibility_is_tenant_scoped(
@@ -835,7 +812,5 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
     assert response.status_code == 200
     assert response.json()["information"] == []
 
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_a_id))
-        await session.delete(await session.get_one(Tenant, tenant_b_id))
-        await session.commit()
+    await delete_tenant(tenant_a_id)
+    await delete_tenant(tenant_b_id)

@@ -2,9 +2,9 @@ import uuid
 
 import pytest
 from _admin_db import admin_session_factory
+from conftest import make_player
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.db import engine
 from lorenzo_api.models import (
@@ -21,18 +21,6 @@ from lorenzo_api.models import (
 )
 
 
-async def _make_player(
-    session: AsyncSession, *, tenant_id: uuid.UUID, campaign_id: uuid.UUID
-) -> Player:
-    user = User(authgear_subject_id=f"authgear|being-{uuid.uuid4()}")
-    session.add(user)
-    await session.flush()
-    player = Player(user_id=user.id, campaign_id=campaign_id, tenant_id=tenant_id)
-    session.add(player)
-    await session.flush()
-    return player
-
-
 async def test_create_and_read_being_with_owner_player() -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
@@ -41,7 +29,7 @@ async def test_create_and_read_being_with_owner_player() -> None:
         campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player = await _make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
+        player = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
 
         character = Entity(tenant_id=tenant.id, name="Elara")
         session.add(character)
@@ -102,7 +90,7 @@ async def test_deleting_player_sets_being_owner_null_but_deleting_own_entity_cas
         campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player = await _make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
+        player = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
         user_id, player_id = player.user_id, player.id
 
         character = Entity(tenant_id=tenant.id, name="Elara")
@@ -146,8 +134,8 @@ async def test_character_player_is_genuinely_many_to_many() -> None:
         session.add_all([campaign_1, campaign_2])
         await session.flush()
 
-        player_1 = await _make_player(session, tenant_id=tenant.id, campaign_id=campaign_1.id)
-        player_2 = await _make_player(session, tenant_id=tenant.id, campaign_id=campaign_2.id)
+        player_1 = await make_player(session, tenant_id=tenant.id, campaign_id=campaign_1.id)
+        player_2 = await make_player(session, tenant_id=tenant.id, campaign_id=campaign_2.id)
 
         character_a = Entity(tenant_id=tenant.id, name="Character A")
         character_b = Entity(tenant_id=tenant.id, name="Character B")
@@ -229,8 +217,8 @@ async def test_deleting_character_or_player_cascades_character_player() -> None:
         campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
         session.add(campaign)
         await session.flush()
-        player_a = await _make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
-        player_b = await _make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
+        player_a = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
+        player_b = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
 
         character = Entity(tenant_id=tenant.id, name="Character")
         session.add(character)
