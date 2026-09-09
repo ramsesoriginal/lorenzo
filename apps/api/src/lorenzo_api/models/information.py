@@ -32,7 +32,10 @@ class Information(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    entity: Mapped[Entity] = relationship(back_populates="information")
+    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="information")
     payloads: Mapped[list[Payload]] = relationship(
-        back_populates="information", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="information",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

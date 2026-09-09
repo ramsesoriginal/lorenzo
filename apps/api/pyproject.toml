@@ -14,6 +14,7 @@ dependencies = [
   "prometheus-fastapi-instrumentator>=7.0",
   "fastapi-problem>=0.12.1",
   "fastapi-pagination>=0.15.16",
+  "pyjwt[crypto]>=2.9",
   "opentelemetry-sdk>=1.44.0",
   "opentelemetry-instrumentation-fastapi>=0.65b0",
   "opentelemetry-instrumentation-sqlalchemy>=0.65b0",
@@ -25,6 +26,7 @@ dev = [
   "pytest-asyncio>=0.24",
   "pytest-cov>=6.0",
   "httpx>=0.28",
+  "asgi-lifespan>=2.1",
   "ruff>=0.8",
   "mypy>=2.3.1",
 ]
@@ -48,6 +50,11 @@ python_version = "3.14"
 plugins = ["pydantic.mypy"]
 strict = true
 files = ["src"]
+
+[tool.coverage.run]
+# sys.monitoring (Python 3.12+) instead of the default trace-function
+# instrumentation - materially faster with no coverage-accuracy tradeoff.
+core = "sysmon"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -46,8 +46,13 @@ class StatDefinition(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(back_populates="stat_definitions")
-    stat_group: Mapped[StatGroup] = relationship(back_populates="stat_definitions")
+    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_definitions")
+    stat_group: Mapped[StatGroup] = relationship(
+        lazy="raise_on_sql", back_populates="stat_definitions"
+    )
     entity_stats: Mapped[list[EntityStat]] = relationship(
-        back_populates="stat_definition", cascade="all, delete-orphan", passive_deletes=True
+        lazy="raise_on_sql",
+        back_populates="stat_definition",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

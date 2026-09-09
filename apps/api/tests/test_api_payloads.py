@@ -1,11 +1,13 @@
 import uuid
 
+from _admin_db import admin_session_factory
 from httpx import AsyncClient
 
-from lorenzo_api.db import async_session_factory
 from lorenzo_api.models import (
     Entity,
     Information,
+    Membership,
+    MembershipRole,
     Payload,
     PayloadDocument,
     PayloadPicture,
@@ -13,21 +15,26 @@ from lorenzo_api.models import (
 )
 
 
-async def _make_tenant() -> uuid.UUID:
-    async with async_session_factory() as session:
+async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
         await session.commit()
         return tenant.id
 
 
 async def test_get_picture_content_returns_bytes_with_correct_content_type(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -54,18 +61,21 @@ async def test_get_picture_content_returns_bytes_with_correct_content_type(
     assert response.headers["content-type"] == "image/png"
     assert response.content == b"\x89PNG\r\n\x1a\n"
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
 async def test_get_document_content_returns_bytes_with_content_disposition(
-    client: AsyncClient,
+    client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -94,16 +104,21 @@ async def test_get_document_content_returns_bytes_with_content_disposition(
     assert response.headers["content-disposition"] == 'attachment; filename="appraisal.pdf"'
     assert response.content == b"%PDF-1.4"
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
-async def test_get_document_content_encodes_non_ascii_filename(client: AsyncClient) -> None:
-    async with async_session_factory() as session:
+async def test_get_document_content_encodes_non_ascii_filename(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -133,19 +148,24 @@ async def test_get_document_content_encodes_non_ascii_filename(client: AsyncClie
         == "attachment; filename*=utf-8''rapport-%C3%A9t%C3%A9.pdf"
     )
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
-async def test_get_content_404_when_payload_has_no_binary_content(client: AsyncClient) -> None:
+async def test_get_content_404_when_payload_has_no_binary_content(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
     """Nothing enforces "exactly one concrete kind" on Payload (ADR 0019) -
     a bare row with neither .picture nor .document must 404, not 500.
     """
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
         entity = Entity(tenant_id=tenant.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -161,13 +181,15 @@ async def test_get_content_404_when_payload_has_no_binary_content(client: AsyncC
 
     assert response.status_code == 404
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
-async def test_get_content_404_for_unknown_payload(client: AsyncClient) -> None:
-    tenant_id = await _make_tenant()
+async def test_get_content_404_for_unknown_payload(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _make_tenant(test_user_id)
 
     response = await client.get(
         f"/tenants/{tenant_id}/payloads/00000000-0000-0000-0000-000000000000/content"
@@ -176,17 +198,25 @@ async def test_get_content_404_for_unknown_payload(client: AsyncClient) -> None:
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 
-async def test_get_content_404_for_wrong_tenant(client: AsyncClient) -> None:
-    async with async_session_factory() as session:
+async def test_get_content_404_for_wrong_tenant(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
         tenant_a = Tenant()
         tenant_b = Tenant()
         session.add_all([tenant_a, tenant_b])
         await session.flush()
+        session.add_all(
+            [
+                Membership(tenant_id=tenant_a.id, user_id=test_user_id, role=MembershipRole.OWNER),
+                Membership(tenant_id=tenant_b.id, user_id=test_user_id, role=MembershipRole.OWNER),
+            ]
+        )
         entity = Entity(tenant_id=tenant_a.id, name="Sword")
         session.add(entity)
         await session.flush()
@@ -211,7 +241,7 @@ async def test_get_content_404_for_wrong_tenant(client: AsyncClient) -> None:
     response = await client.get(f"/tenants/{tenant_b_id}/payloads/{payload_id}/content")
     assert response.status_code == 404
 
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_a_id))
         await session.delete(await session.get_one(Tenant, tenant_b_id))
         await session.commit()

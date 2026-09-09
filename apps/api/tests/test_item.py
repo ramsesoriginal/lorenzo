@@ -1,10 +1,11 @@
-from lorenzo_api.db import async_session_factory
+from _admin_db import admin_session_factory
+
 from lorenzo_api.models import Entity, Item, Tenant
 
 
 async def test_create_and_read_item() -> None:
     """A bare marker (ADR 0019) - no columns beyond identity."""
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
@@ -25,7 +26,7 @@ async def test_create_and_read_item() -> None:
 
 
 async def test_deleting_entity_cascades_to_item() -> None:
-    async with async_session_factory() as session:
+    async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()

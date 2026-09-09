@@ -46,7 +46,9 @@ jobs:
       - run: mise run test
         working-directory: apps/api
         env:
-          DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
+          # Same split as ci.yml - see ADR 0021.
+          DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
+          MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
 
   deploy:
     needs: verify
@@ -82,7 +84,10 @@ jobs:
       - name: Run migrations against Neon
         working-directory: apps/api
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Privileged - creates/grants lorenzo_app, among other things
+          # (ADR 0021). Not what the deployed service itself connects as;
+          # see the deploy step below.
+          MIGRATIONS_DATABASE_URL: ${{ secrets.MIGRATIONS_DATABASE_URL }}
         run: |
           uv sync --locked
           uv run alembic upgrade head
@@ -93,7 +98,16 @@ jobs:
           service: lorenzo-api
           region: ${{ vars.GCP_REGION }}
           image: ${{ steps.meta.outputs.image }}
-          env_vars: DATABASE_URL=${{ secrets.DATABASE_URL }}
+          # DATABASE_URL: restricted role (ADR 0021), rotated and verified
+          # against production - see docs/operations/deployment-setup.md.
+          # AUTHGEAR_*: Authgear Cloud, not self-hosted (ADR 0027) - public
+          # OIDC metadata URLs, not credentials, so these come from
+          # `vars` like GCP_REGION/GCP_PROJECT_ID above, not `secrets`.
+          env_vars: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
+            AUTHGEAR_JWKS_URL=${{ vars.AUTHGEAR_JWKS_URL }}
+            AUTHGEAR_AUDIENCE=${{ vars.AUTHGEAR_AUDIENCE }}
 
       - name: Verify the deployed revision is actually ready
         run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/readyz"

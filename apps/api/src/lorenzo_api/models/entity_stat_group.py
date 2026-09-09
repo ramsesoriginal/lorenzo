@@ -28,5 +28,5 @@ class EntityStatGroup(Base):
     )
     tenant_id: Mapped[TenantFk]
 
-    entity: Mapped[Entity] = relationship(back_populates="stat_group_links")
-    stat_group: Mapped[StatGroup] = relationship(back_populates="entity_links")
+    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="stat_group_links")
+    stat_group: Mapped[StatGroup] = relationship(lazy="raise_on_sql", back_populates="entity_links")

@@ -1,6 +1,6 @@
 # 0010 - User, tenant, and membership model
 
-Status: accepted, refined by [RFC 0002](../rfcs/0002-campaign-player-character-model.md) (proposed)
+Status: accepted, refined by [RFC 0002](../rfcs/0002-campaign-player-character-model.md) (accepted and landed - see ADR 0022/0024/0025/0026)
 
 ## Context
 

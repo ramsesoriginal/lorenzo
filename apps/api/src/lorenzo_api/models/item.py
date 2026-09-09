@@ -25,4 +25,4 @@ class Item(Base):
     )
     tenant_id: Mapped[TenantFk]
 
-    entity: Mapped[Entity] = relationship(back_populates="item")
+    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="item")
