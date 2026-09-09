@@ -10,7 +10,7 @@
 
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth (currently on the `feat/auth-users` branch, not yet merged to `main`). Everything else is still structure and tooling. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth. Everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 | --- | --- | --- |
@@ -69,7 +69,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Both vertical slices that were in progress in parallel are now built: simple inventory management (the full entity/component core, [ADR 0012](docs/adr/0012-entity-table.md)-[0019](docs/adr/0019-item-and-v-item.md), plus a read-only REST API, [ADR 0020](docs/adr/0020-rest-api-tenant-scoping-and-schemas.md)) and auth/users/campaigns/GM (Authgear, User/Tenant/Membership, Campaign/Player, Character/ownership, Campaign GM/orga — [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)-[0026](docs/adr/0026-campaign-gm-orga-and-access-rule.md)). Both currently live on feature branches, not yet merged to `main`. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for what's left.
+Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Both vertical slices that were in progress in parallel are now built and merged to `main`: simple inventory management (the full entity/component core, [ADR 0012](docs/adr/0012-entity-table.md)-[0019](docs/adr/0019-item-and-v-item.md), plus a read-only REST API, [ADR 0020](docs/adr/0020-rest-api-tenant-scoping-and-schemas.md)) and auth/users/campaigns/GM (Authgear, User/Tenant/Membership, Campaign/Player, Character/ownership, Campaign GM/orga — [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)-[0026](docs/adr/0026-campaign-gm-orga-and-access-rule.md)), plus production Authgear Cloud wiring ([ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)) on top. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for what's left.
 
 ## License
 
