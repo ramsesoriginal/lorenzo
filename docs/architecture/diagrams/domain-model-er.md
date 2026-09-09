@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-The merged, up-to-date picture of every table built so far across `feat/inventory-management` (sub-slices 1-7) and `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`) and are omitted below - they're uniform across the schema and would only add repetition, not information. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
+The merged, up-to-date picture of every table built so far across `feat/inventory-management` (sub-slices 1-7) and `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character_player`, `ownership`) and are omitted below - they're uniform across the schema and would only add repetition, not information. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
 
 ```mermaid
 erDiagram
@@ -26,7 +26,10 @@ erDiagram
     PAYLOAD ||--o| PAYLOAD_DOCUMENT : "is a"
     ENTITY ||--o| ITEM : "is a"
     ENTITY ||--o| ITEM_INSTANCE : "is a"
-    ENTITY o|--o{ ITEM_INSTANCE : owns
+    ENTITY ||--o| BEING : "is a"
+    PLAYER o|--o{ BEING : owns
+    BEING }o--o{ PLAYER : "piloted by"
+    ENTITY ||--o{ ENTITY : owns
 
     APP_USER {
         uuid id PK
@@ -131,7 +134,16 @@ erDiagram
     }
     ITEM_INSTANCE {
         uuid entity_id PK,FK
-        uuid owner_entity_id FK "nullable, ON DELETE SET NULL"
+        uuid tenant_id FK
+    }
+    BEING {
+        uuid entity_id PK,FK
+        uuid owner_player_id FK "nullable, ON DELETE SET NULL"
+        uuid tenant_id FK
+    }
+    OWNERSHIP {
+        uuid owned_entity_id PK,FK
+        uuid owner_character_id FK "FK -> entity.id generically, not being.entity_id"
         uuid tenant_id FK
     }
 ```
@@ -141,7 +153,9 @@ A few things this single view makes clearer than any one sub-slice's diagram cou
 - **`ENTITY` carries two independent self-relations with opposite cycle policies**: `entity_prototype` (`}o--o{`, many-to-many, cycles rejected by a trigger - [ADR 0015](../../adr/0015-entity-prototype.md)) and `containment` (`||--o{`, one-to-many, cycles deliberately allowed - [ADR 0016](../../adr/0016-containment.md)). They look similar as plain FK pairs but mean opposite things.
 - **`ENTITY }o--o{ STAT_GROUP : acquires`** is the one n:m relation realized as a pure join table (`entity_stat_group`) with no attributes of its own, so it isn't drawn as its own box here, unlike the two self-relations above (which need a box because mermaid can't label a self-loop's own columns inline).
 - **Every table added after `entity` FKs back to it, directly or transitively** - `stat_group`/`stat_definition` are the only tenant-scoped tables that don't (they're independent top-level vocabulary, only linked to entities through `entity_stat_group`/`entity_stat`), which is why they get their own explicit `TENANT` relation above while everything else's tenant-scoping is implied through the chain back to `ENTITY`.
-- `payload`'s four extensions (`is a`) are drawn identically to how `item`/`item_instance` extend `entity` here, and how `being`/`place` will too - the same class-table-inheritance shape, applied a third time.
-- `item_instance` has two independent relations to `ENTITY`: `is a` (its own identity, PK+FK, `ON DELETE CASCADE`) and `owns` (`owner_entity_id`, nullable, `ON DELETE SET NULL`) - deleting the instance's own entity removes it; deleting its owner's entity just leaves it ownerless. Different FK, different delete behavior, same target table.
+- `payload`'s four extensions (`is a`) are drawn identically to how `item`/`item_instance`/`being` extend `entity` here - the same class-table-inheritance shape, applied a third time (a `place` extension may still follow later).
+- **`ownership` reuses `containment`'s exact self-loop shape**: `owned_entity_id` alone is the PK (at most one owner at a time, globally, just like at most one container), so it's drawn as a direct `ENTITY ||--o{ ENTITY : owns` self-loop rather than routing through its own box - `owner_character_id` is deliberately a plain `FK -> entity.id`, not `being.entity_id`, so the schema doesn't rule out a non-character owner later ([ADR 0025](../../adr/0025-character-being-and-ownership.md)).
+- `being.owner_player_id` ("who primarily owns this character," nullable, `ON DELETE SET NULL`) and `character_player` ("which player rows can currently pilot it," genuinely n:m) are deliberately two separate mechanisms, not one - RFC 0002 allows one player to control several characters at once and one character to be linked into several campaigns' player rows (roster reuse), so there's no single derivable "primary" owner to collapse them into.
+- `item_instance.owner_entity_id` used to be a column on `item_instance` itself (ADR 0019's placeholder, "until character exists"); it's now `v_item_instance`'s own derived column, sourced from a join against `ownership` - same name, position, and type in the view's output, so nothing downstream of the view noticed the change ([ADR 0025](../../adr/0025-character-being-and-ownership.md)).
 
-Not shown: `UNIQUE(entity_id, type)` on `information`, `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)` on `app_user`, and `UNIQUE(campaign_id, user_id)` on `player` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0024](../../adr/0024-campaign-and-player.md) campaign/player).
+Not shown: `UNIQUE(entity_id, type)` on `information`, `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)` on `app_user`, and `UNIQUE(campaign_id, user_id)` on `player` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0024](../../adr/0024-campaign-and-player.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md) being/character_player/ownership).

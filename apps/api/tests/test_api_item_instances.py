@@ -3,7 +3,15 @@ import uuid
 from _admin_db import admin_session_factory
 from httpx import AsyncClient
 
-from lorenzo_api.models import Containment, Entity, ItemInstance, Membership, MembershipRole, Tenant
+from lorenzo_api.models import (
+    Containment,
+    Entity,
+    ItemInstance,
+    Membership,
+    MembershipRole,
+    Ownership,
+    Tenant,
+)
 
 
 async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
@@ -168,17 +176,25 @@ async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontain
 
         session.add_all(
             [
-                ItemInstance(
-                    entity_id=instance_a.id, owner_entity_id=owner1.id, tenant_id=tenant_id
+                ItemInstance(entity_id=instance_a.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=instance_b.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=instance_c.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=instance_d.id, tenant_id=tenant_id),
+            ]
+        )
+        session.add_all(
+            [
+                Ownership(
+                    owned_entity_id=instance_a.id, owner_character_id=owner1.id, tenant_id=tenant_id
                 ),
-                ItemInstance(
-                    entity_id=instance_b.id, owner_entity_id=owner1.id, tenant_id=tenant_id
+                Ownership(
+                    owned_entity_id=instance_b.id, owner_character_id=owner1.id, tenant_id=tenant_id
                 ),
-                ItemInstance(
-                    entity_id=instance_c.id, owner_entity_id=owner1.id, tenant_id=tenant_id
+                Ownership(
+                    owned_entity_id=instance_c.id, owner_character_id=owner1.id, tenant_id=tenant_id
                 ),
-                ItemInstance(
-                    entity_id=instance_d.id, owner_entity_id=owner2.id, tenant_id=tenant_id
+                Ownership(
+                    owned_entity_id=instance_d.id, owner_character_id=owner2.id, tenant_id=tenant_id
                 ),
             ]
         )

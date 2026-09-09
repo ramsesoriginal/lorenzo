@@ -9,7 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
 
 if TYPE_CHECKING:
+    from lorenzo_api.models.being import Being
     from lorenzo_api.models.campaign import Campaign
+    from lorenzo_api.models.character_player import CharacterPlayer
     from lorenzo_api.models.user import User
 
 
@@ -38,3 +40,13 @@ class Player(Base):
 
     user: Mapped[User] = relationship(back_populates="players")
     campaign: Mapped[Campaign] = relationship(back_populates="players")
+    # owned_beings: SET NULL, not CASCADE (ADR 0025) - passive_deletes=True
+    # so a deleted player leaves its beings player-less via the DB's own
+    # ON DELETE SET NULL, rather than the ORM loading and updating them.
+    # No delete-orphan: losing this player must not delete the being.
+    owned_beings: Mapped[list[Being]] = relationship(
+        back_populates="owner_player", passive_deletes=True
+    )
+    character_links: Mapped[list[CharacterPlayer]] = relationship(
+        back_populates="player", cascade="all, delete-orphan", passive_deletes=True
+    )

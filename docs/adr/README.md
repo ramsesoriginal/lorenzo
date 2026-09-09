@@ -27,3 +27,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0022 - User, full Tenant, and Membership](0022-user-tenant-membership.md)
 - [0023 - Authgear token verification](0023-authgear-token-verification.md)
 - [0024 - Campaign and Player](0024-campaign-and-player.md)
+- [0025 - Character (being), roster reuse, and ownership](0025-character-being-and-ownership.md)

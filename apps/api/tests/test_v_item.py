@@ -11,6 +11,7 @@ from lorenzo_api.models import (
     Information,
     Item,
     ItemInstance,
+    Ownership,
     Payload,
     PayloadDescription,
     PayloadPicture,
@@ -154,6 +155,11 @@ async def test_v_item_covers_only_the_item_table() -> None:
 
 
 async def test_v_item_instance_covers_only_the_item_instance_table_and_has_owner() -> None:
+    """owner_entity_id is now derived via a LEFT JOIN against `ownership`
+    (ADR 0025), not a column on item_instance itself - this is the
+    reconciliation's own proof that the view's external shape didn't
+    change.
+    """
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
@@ -166,8 +172,9 @@ async def test_v_item_instance_covers_only_the_item_instance_table_and_has_owner
         await session.flush()
 
         session.add(Item(entity_id=sword.id, tenant_id=tenant.id))
+        session.add(ItemInstance(entity_id=my_sword.id, tenant_id=tenant.id))
         session.add(
-            ItemInstance(entity_id=my_sword.id, owner_entity_id=owner.id, tenant_id=tenant.id)
+            Ownership(owned_entity_id=my_sword.id, owner_character_id=owner.id, tenant_id=tenant.id)
         )
 
         stat_group = StatGroup(tenant_id=tenant.id, name="physical")

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, relationship
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
 
 if TYPE_CHECKING:
+    from lorenzo_api.models.being import Being
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_stat import EntityStat
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.information import Information
     from lorenzo_api.models.item import Item
     from lorenzo_api.models.item_instance import ItemInstance
+    from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
 
@@ -42,14 +44,28 @@ class Entity(Base):
     item: Mapped[Item | None] = relationship(
         back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
     )
-    # item_instance: ItemInstance has two FKs to entity (entity_id and
-    # owner_entity_id) - foreign_keys= disambiguates which one this side
-    # back-populates, same as entity_prototype/containment below. No
-    # back_populates for the owner side (ADR 0019 keeps that one-directional
-    # on purpose, not the "cascade everything" case those two are).
     item_instance: Mapped[ItemInstance | None] = relationship(
-        foreign_keys="ItemInstance.entity_id",
-        back_populates="entity",
+        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+    )
+    being: Mapped[Being | None] = relationship(
+        back_populates="entity", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    # ownership: ADR 0025's generic ownership table has two independent FKs
+    # to this table (owned_entity_id and owner_character_id), same
+    # disambiguation shape as entity_prototype/containment below.
+    # owned_entity_id is that table's PK (at most one owner per entity), so
+    # this side is scalar; owner_character_id is not unique, so the reverse
+    # is a list.
+    ownership: Mapped[Ownership | None] = relationship(
+        foreign_keys="Ownership.owned_entity_id",
+        back_populates="owned_entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    owned_entity_links: Mapped[list[Ownership]] = relationship(
+        foreign_keys="Ownership.owner_character_id",
+        back_populates="owner_character",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
