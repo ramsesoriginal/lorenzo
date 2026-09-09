@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from lorenzo_api.db import Base, UuidPk
 
 if TYPE_CHECKING:
+    from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.entity import Entity
     from lorenzo_api.models.membership import Membership
     from lorenzo_api.models.stat_definition import StatDefinition
@@ -44,5 +45,8 @@ class Tenant(Base):
         back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
     )
     memberships: Mapped[list[Membership]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+    )
+    campaigns: Mapped[list[Campaign]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
     )

@@ -26,3 +26,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0021 - A restricted app role, so RLS actually enforces something](0021-restricted-app-role-for-rls-enforcement.md)
 - [0022 - User, full Tenant, and Membership](0022-user-tenant-membership.md)
 - [0023 - Authgear token verification](0023-authgear-token-verification.md)
+- [0024 - Campaign and Player](0024-campaign-and-player.md)

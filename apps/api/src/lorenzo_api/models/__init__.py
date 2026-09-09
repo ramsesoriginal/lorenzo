@@ -1,3 +1,4 @@
+from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.containment import Containment
 from lorenzo_api.models.entity import Entity
 from lorenzo_api.models.entity_prototype import EntityPrototype
@@ -12,6 +13,7 @@ from lorenzo_api.models.payload_description import PayloadDescription
 from lorenzo_api.models.payload_document import PayloadDocument
 from lorenzo_api.models.payload_number import PayloadNumber
 from lorenzo_api.models.payload_picture import PayloadPicture
+from lorenzo_api.models.player import Player
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_group import StatGroup
 from lorenzo_api.models.tenant import Tenant
@@ -20,6 +22,7 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "Campaign",
     "Containment",
     "Entity",
     "EntityPrototype",
@@ -35,6 +38,7 @@ __all__ = [
     "PayloadDocument",
     "PayloadNumber",
     "PayloadPicture",
+    "Player",
     "StatDefinition",
     "StatGroup",
     "StatValueType",

@@ -8,6 +8,7 @@ from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.membership import Membership
+    from lorenzo_api.models.player import Player
 
 
 class User(Base):
@@ -28,5 +29,8 @@ class User(Base):
     updated_at: Mapped[UpdatedAt]
 
     memberships: Mapped[list[Membership]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+    players: Mapped[list[Player]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
     )
