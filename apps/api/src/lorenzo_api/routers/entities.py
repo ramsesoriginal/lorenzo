@@ -78,12 +78,5 @@ async def get_entity(
     if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
 
-    # Not a mutation of entity.information itself (that relationship
-    # cascades delete-orphan - reassigning/filtering it in place would
-    # queue real DELETEs on the next flush). Just a plain id set, used
-    # only by the schema layer below to decide what to include.
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    visible_information_ids = {info.id for info in entity.information if visibility.can_see(info)}
-    return EntityDetailOut.from_entity(
-        entity, request, visible_information_ids=visible_information_ids
-    )
+    return EntityDetailOut.from_entity(entity, request, visibility=visibility)

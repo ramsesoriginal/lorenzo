@@ -10,8 +10,9 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import CTE, Select, any_, func, select
 from sqlalchemy.dialects.postgresql import array as pg_array
 
-from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId, get_entity_or_404
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, TenantId, get_entity_or_404
 from lorenzo_api.exceptions import ItemInstanceNotFoundError
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Containment, Entity, VItemInstance
 from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.schemas.common import EntitySummary
@@ -96,6 +97,7 @@ async def list_item_instances(
     request: Request,
     params: ParamsDep,
     session: SessionDep,
+    user: CurrentUser,
     _tenant: TenantId,
     container_id: Annotated[
         uuid.UUID | None,
@@ -134,8 +136,15 @@ async def list_item_instances(
             .order_by(VItemInstance.entity_id)
         )
 
+    # Resolved once per request, not once per row - reused by every item
+    # instance on the page (ADR 0028's addendum).
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+
     def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
-        return [ItemInstanceOut.from_v_item_instance(item, request) for item in items]
+        return [
+            ItemInstanceOut.from_v_item_instance(item, request, visibility=visibility)
+            for item in items
+        ]
 
     # apaginate is typed to return Any (fastapi_pagination's own signature) -
     # cast rather than suppress, the declared return type is otherwise
@@ -152,6 +161,7 @@ async def list_item_instances_owned_by(
     owner_entity_id: uuid.UUID,
     request: Request,
     session: SessionDep,
+    user: CurrentUser,
     _tenant: TenantId,
 ) -> OwnedByResponse:
     """Every item instance owned by owner_entity_id, grouped by *direct*
@@ -181,10 +191,11 @@ async def list_item_instances_owned_by(
         ).scalars()
         containers = {entity.id: entity for entity in container_entities}
 
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     groups: dict[uuid.UUID | None, list[ItemInstanceOut]] = {}
     for view, container_id in rows:
         groups.setdefault(container_id, []).append(
-            ItemInstanceOut.from_v_item_instance(view, request)
+            ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
         )
 
     return OwnedByResponse(
@@ -208,6 +219,7 @@ async def get_item_instance(
     entity_id: uuid.UUID,
     request: Request,
     session: SessionDep,
+    user: CurrentUser,
     _tenant: TenantId,
 ) -> ItemInstanceOut:
     """Not in the original task brief, added for REST symmetry with
@@ -231,4 +243,5 @@ async def get_item_instance(
         raise ItemInstanceNotFoundError(
             detail=f"No item instance with id {entity_id} in tenant {tenant_id}"
         )
-    return ItemInstanceOut.from_v_item_instance(view, request)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)

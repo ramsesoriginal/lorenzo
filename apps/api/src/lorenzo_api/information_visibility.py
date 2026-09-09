@@ -2,8 +2,9 @@
 ADR 0028's own named-but-deferred follow-up. Mirrors campaign_access.py's
 precedent: a plain, directly-testable domain-rule module with no
 HTTP-specific concerns, not folded into dependencies.py - kept a plain
-function rather than a FastAPI dependency for the same reason
-can_access_campaign still is: exactly one consuming route exists today.
+function rather than a FastAPI dependency since, like can_access_campaign,
+nothing here needs request-scoped caching beyond what each router already
+does by resolving it once per request itself.
 
 Deliberately campaign-independent for the knower_entity_id half only: a
 Being has no single fixed campaign (roster reuse, ADR 0025/RFC 0002), and
@@ -36,15 +37,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.models import (
-    CharacterPlayer,
-    GroupMember,
-    Information,
-    Membership,
-    MembershipRole,
-    OrgaCampaignOptOut,
-    Player,
-)
+from lorenzo_api.campaign_access import is_tenant_orga
+from lorenzo_api.models import CharacterPlayer, GroupMember, Information, OrgaCampaignOptOut, Player
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,8 +129,7 @@ async def resolve_information_visibility(
             .all()
         )
 
-    membership = await session.get(Membership, (tenant_id, user_id))
-    is_orga = membership is not None and membership.role is MembershipRole.ORGA
+    is_orga = await is_tenant_orga(session, tenant_id=tenant_id, user_id=user_id)
     if is_orga:
         has_opt_out = (
             await session.execute(

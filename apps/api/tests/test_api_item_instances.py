@@ -6,10 +6,13 @@ from httpx import AsyncClient
 from lorenzo_api.models import (
     Containment,
     Entity,
+    Information,
     ItemInstance,
     Membership,
     MembershipRole,
     Ownership,
+    Payload,
+    PayloadDescription,
     Tenant,
 )
 
@@ -501,5 +504,48 @@ async def test_container_filter_recursive_pagination_spans_multiple_pages(
     assert totals == {5}
     assert pages_reported == {3}
     assert seen == {str(i) for i in instance_ids}
+
+
+async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Same information-visibility fix as items.py/entities.py/payloads.py
+    (ADR 0028's addendum), confirmed wired up here too - the underlying
+    mechanism (ItemViewMixin/eager_load_options) is shared with items.py
+    and is exhaustively tested there; this just proves the wiring in this
+    router specifically.
+    """
+    tenant_id = await _make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        entity = Entity(tenant_id=tenant_id, name="My Sword")
+        session.add(entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+        info = Information(
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            title="A fine sword",
+            type="description",
+            is_public=False,
+        )
+        session.add(info)
+        await session.flush()
+        payload = Payload(tenant_id=tenant_id, information_id=info.id)
+        session.add(payload)
+        await session.flush()
+        session.add(
+            PayloadDescription(
+                payload_id=payload.id,
+                tenant_id=tenant_id,
+                locale="en-US",
+                content="A gleaming blade.",
+            )
+        )
+        await session.commit()
+        entity_id = entity.id
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert response.status_code == 200
+    assert response.json()["descriptions"] == []
 
     await _delete_tenant(tenant_id)

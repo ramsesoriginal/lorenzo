@@ -11,8 +11,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
-from lorenzo_api.dependencies import ParamsDep, SessionDep, TenantId
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, TenantId
 from lorenzo_api.exceptions import ItemNotFoundError
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Entity, EntityStat, Information, Payload, StatDefinition, VItem
 from lorenzo_api.schemas.items import ItemOut
 
@@ -21,11 +22,11 @@ router = APIRouter(prefix="/tenants/{tenant_id}/items", tags=["items"])
 
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[ORMOption, ORMOption, ORMOption]:
+) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
-    `ItemViewMixin`'s seven properties (ADR 0019/0020), or they raise
-    `MissingGreenlet` rather than lazily loading. Parameterized on the
+    `ItemViewMixin`'s seven properties/methods (ADR 0019/0020), or they
+    raise `MissingGreenlet` rather than lazily loading. Parameterized on the
     view's own `entity` relationship attribute (`VItem.entity` here,
     `VItemInstance.entity` in `routers/item_instances.py`, which imports
     this same helper) since each view's join condition differs.
@@ -40,6 +41,9 @@ def eager_load_options(
         .selectinload(Information.payloads)
         .selectinload(Payload.picture),
         selectinload(view_entity_attr)
+        .selectinload(Entity.information)
+        .selectinload(Information.knowledge_links),
+        selectinload(view_entity_attr)
         .selectinload(Entity.stats)
         .selectinload(EntityStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
@@ -52,6 +56,7 @@ async def list_items(
     request: Request,
     params: ParamsDep,
     session: SessionDep,
+    user: CurrentUser,
     _tenant: TenantId,
 ) -> Page[ItemOut]:
     """Every base item type for this tenant - see ADR 0019/0020. Explicit
@@ -64,9 +69,12 @@ async def list_items(
         .options(*eager_load_options(VItem.entity))
         .order_by(VItem.entity_id)
     )
+    # Resolved once per request, not once per row - reused by every item on
+    # the page (ADR 0028's addendum).
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
     def _items_out(items: Sequence[VItem]) -> list[ItemOut]:
-        return [ItemOut.from_v_item(item, request) for item in items]
+        return [ItemOut.from_v_item(item, request, visibility=visibility) for item in items]
 
     # apaginate is typed to return Any (fastapi_pagination's own signature) -
     # cast rather than suppress, the declared return type is otherwise
@@ -80,6 +88,7 @@ async def get_item(
     entity_id: uuid.UUID,
     request: Request,
     session: SessionDep,
+    user: CurrentUser,
     _tenant: TenantId,
 ) -> ItemOut:
     stmt = (
@@ -90,4 +99,5 @@ async def get_item(
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
         raise ItemNotFoundError(detail=f"No item with id {entity_id} in tenant {tenant_id}")
-    return ItemOut.from_v_item(view, request)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return ItemOut.from_v_item(view, request, visibility=visibility)

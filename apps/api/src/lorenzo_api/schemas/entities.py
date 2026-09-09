@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import Request
 from pydantic import BaseModel
 
+from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, EntityStat, Information, StatValueType
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
@@ -88,7 +89,7 @@ class EntityDetailOut(BaseModel):
 
     @classmethod
     def from_entity(
-        cls, entity: Entity, request: Request, *, visible_information_ids: set[uuid.UUID]
+        cls, entity: Entity, request: Request, *, visibility: InformationVisibility
     ) -> EntityDetailOut:
         return cls(
             id=entity.id,
@@ -110,7 +111,7 @@ class EntityDetailOut(BaseModel):
             information=[
                 InformationOut.from_information(info, request)
                 for info in entity.information
-                if info.id in visible_information_ids
+                if visibility.can_see(info)
             ],
             prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
             instances=[EntitySummary.from_entity(e) for e in entity.instances],
