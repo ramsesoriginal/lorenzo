@@ -153,7 +153,6 @@ async def test_v_item_covers_only_the_item_table() -> None:
         assert sword_view.is_magical is True
         assert sword_view.container_entity_id == chest_id
         assert sword_view.descriptions(_SEES_EVERYTHING) == [("A gleaming blade.", "en-US")]
-        assert sword_view.pictures(_SEES_EVERYTHING) == [(b"\x89PNG", "image/png")]
         assert sword_view.physical_stats == [("weight", 3)]
         assert sword_view.tags == [("is_magical", True)]
         assert sword_view.economic_stats == []

@@ -19,23 +19,28 @@ class ItemViewMixin:
     relationship (not shared here, since each view's join condition differs
     - VItem via `item`, VItemInstance via `item_instance`). Fully populating
     these properties requires eager-loading entity -> information ->
-    payloads -> description/picture, entity -> information -> knowledge_links
-    (needed by `descriptions`/`pictures` below - ADR 0028), and entity ->
-    stats -> stat_definition -> stat_group; accessing them without doing so
-    returns an empty list or raises, it does not silently lazy-load in this
+    payloads -> description, entity -> information -> knowledge_links
+    (needed by `descriptions` below - ADR 0028), and entity -> stats ->
+    stat_definition -> stat_group; accessing them without doing so returns
+    an empty list or raises, it does not silently lazy-load in this
     project's async setup (see ADR 0018's own async lazy-load pitfalls).
+
+    No `pictures` here (unlike `descriptions`) - checked and confirmed
+    unused: `schemas/items.py`'s `_picture_refs` needs the owning `Payload`
+    row itself (for its id, to build a content URL), not just its bytes,
+    so it always re-walked entity.information independently rather than
+    calling a `pictures` property/method here. Removed rather than kept
+    correct-but-orphaned once that was confirmed, not left as unreachable
+    code nobody would notice going stale.
     """
 
     entity: Entity
 
     def descriptions(self, visibility: InformationVisibility) -> list[tuple[str, str]]:
-        """Not a bare property (unlike the four stat-derived properties
-        below) - descriptions/pictures are Information-derived, so which
-        ones are included depends on the caller (ADR 0028's addendum).
-        Same visibility-gating GET /entities/{id} and
-        GET /payloads/{id}/content already apply, applied here too - this
-        was a real, confirmed gap (items/item-instances leaked GM-only
-        descriptions/pictures unconditionally) until this fix.
+        """Not a bare property - which descriptions are included depends on
+        the caller (ADR 0028's addendum: the same visibility-gating
+        GET /entities/{id} and GET /payloads/{id}/content already apply,
+        applied here too - this was a real, confirmed gap until that fix).
         """
         return [
             (payload.description.content, payload.description.locale)
@@ -43,15 +48,6 @@ class ItemViewMixin:
             if info.type == "description" and visibility.can_see(info)
             for payload in info.payloads
             if payload.description is not None
-        ]
-
-    def pictures(self, visibility: InformationVisibility) -> list[tuple[bytes, str]]:
-        return [
-            (payload.picture.data, payload.picture.file_type)
-            for info in self.entity.information
-            if info.type == "description" and visibility.can_see(info)
-            for payload in info.payloads
-            if payload.picture is not None
         ]
 
     def _stats_for_group(self, group_name: str) -> list[tuple[str, int | None]]:

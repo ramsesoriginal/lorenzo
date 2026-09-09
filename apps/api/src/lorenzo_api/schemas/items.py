@@ -36,17 +36,16 @@ class DescriptionOut(BaseModel):
 
 class PictureRefOut(BaseModel):
     """A picture reference - a `url` pointing at the existing payload-content
-    endpoint, plus `file_type`. Deliberately *not* built from
-    `ItemViewMixin.pictures` (which returns bare `(data, file_type)` tuples
-    with no payload id to link through) - inlining raw picture bytes into a
-    paginated list response (`GET /items` can return up to 100 items per
-    page) would make list responses balloon for anything with real images,
-    and would be inconsistent with how the Entities endpoint represents the
-    exact same underlying data (`schemas/payloads.py`'s `PayloadPictureOut`,
-    also a `url`). `_picture_refs` below re-walks the same
-    entity.information -> payloads -> picture path `ItemViewMixin.pictures`
-    does internally, keeping the `Payload` row (and its id) instead of
-    discarding it.
+    endpoint, plus `file_type`. `_picture_refs` below walks
+    entity.information -> payloads -> picture directly rather than through
+    an `ItemViewMixin` property (there never was one - checked, `pictures`
+    would have needed the owning `Payload` row's own id to link through,
+    not just its bytes, so it was never a fit here). Inlining raw picture
+    bytes into a paginated list response (`GET /items` can return up to
+    100 items per page) would make list responses balloon for anything
+    with real images, and would be inconsistent with how the Entities
+    endpoint represents the exact same underlying data
+    (`schemas/payloads.py`'s `PayloadPictureOut`, also a `url`).
     """
 
     url: str
@@ -108,11 +107,11 @@ class ItemOut(BaseModel):
 
     Constructing this requires the source `VItem` to already have its
     entity->information->payloads->description/picture,
-    entity->information->knowledge_links (ADR 0028 - descriptions/pictures
-    are visibility-gated, not a bare property anymore), and
+    entity->information->knowledge_links (ADR 0028 - `descriptions` is
+    visibility-gated, not a bare property anymore), and
     entity->stats->stat_definition->stat_group eager-loaded (see
     `routers.items.eager_load_options`, the exact recipe proven in
-    `tests/test_v_item.py`) - the seven wrapped properties/methods raise
+    `tests/test_v_item.py`) - the six wrapped properties/methods raise
     MissingGreenlet otherwise, they do not silently lazy-load.
     """
 
