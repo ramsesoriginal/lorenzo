@@ -18,11 +18,11 @@ Free-tier constraints worth recording, since they're real and durable, not just 
 
 - No custom domain - issuer/JWKS URLs live on Authgear's own subdomain, and the hosted login UI carries Authgear branding. Acceptable for this project's own low-traffic, cost-conscious posture (the same posture that chose Cloud Run/Neon over anything requiring a paid tier).
 - Log retention is 1 day - a real limit if a production auth failure needs debugging after the fact, not addressed further here.
-- The pricing page describes a "2 Applications" cap. Confirmed at signup: [PENDING - fill in after Step 1 of the setup, whether this means two OIDC client apps within one project or effectively caps the account to fewer usable projects than local dev + production would want].
+- The pricing page describes a "2 Applications" cap. Confirmed at signup: this doesn't cap the account to one project - two fully separate free projects (one per environment, below) both work under the same account.
 
 ## Consequences
 
-- Local dev's self-hosted setup (`docs/operations/local-authgear-setup.md`, the `authgear-example-docker-compose` clone-and-run flow) is retired in favor of a Cloud dev project, provided the free-tier project limit allows a second project separate from production - per that same doc's own admission, the self-hosted flow was never personally stood up and clicked through, so nothing working is being broken.
+- Local dev's self-hosted setup (`docs/operations/local-authgear-setup.md`, the `authgear-example-docker-compose` clone-and-run flow) is retired in favor of a second, separate Cloud project - per that same doc's own admission, the self-hosted flow was never personally stood up and clicked through, so nothing working is being broken.
 - `infra/docker-compose.yml` needed no change either way - Authgear was deliberately never folded into it (ADR 0023), so this decision doesn't touch it.
 - No new infrastructure to run, monitor, or pay for - the tradeoff is depending on a third-party-hosted identity service rather than one this project fully controls, accepted on the same basis ADR 0009 already accepted depending on Authgear's software at all.
 - If Authgear Cloud's free tier ever stops fitting (traffic, feature, or policy changes), the OIDC relying-party boundary means falling back to self-hosted (ADR 0009's original design) is a config change - new issuer/JWKS/audience values - not a code change.
