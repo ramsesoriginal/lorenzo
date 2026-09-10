@@ -1,0 +1,83 @@
+# RFC: User, player, and character CRUD API
+
+Status: proposed — builds on [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s read schemas and [RFC 0005](0005-item-and-item-instance-crud-api.md)'s write-API conventions; no schema changes
+
+## Context
+
+`app_user` is auto-provisioned by `get_current_user`'s upsert on first verified token ([ADR 0023](../adr/0023-authgear-token-verification.md)) — there is deliberately no "create a user" endpoint, since identity originates from Authgear, not this API ([ADR 0009](../adr/0009-identity-provider-authgear.md)). `membership`, `player`, and `being` (character) all exist with no mutation path at all. [ADR 0010](../adr/0010-user-tenant-membership-model.md) named the sharpest open gap directly: "Invitation flow (how a GM adds a player to their tenant) is a real open question, not decided here" — still true. This RFC covers the three remaining pieces of the user's own ask: users (integrated with auth), players, and characters. Membership CRUD is included here rather than split out, since "who administers this tenant" is inseparable from "user" in exactly the way [RFC 0006](0006-campaign-crud-api.md) treats GM grants as inseparable from "campaign."
+
+## Decision
+
+### User: read and delete only — there is nothing else to write
+
+`app_user` has exactly two data columns beyond its id and timestamps: `authgear_subject_id` (set once, at auto-provisioning, never again) and nothing else — no name, email, or avatar, which stay in Authgear by [ADR 0009](../adr/0009-identity-provider-authgear.md)'s explicit boundary. There is no `PATCH /me` in this RFC because there is no editable field to target; adding one would mean duplicating profile data this API has deliberately never stored.
+
+| Method | Path | Auth | Response |
+| --- | --- | --- | --- |
+| DELETE | `/me` | any authenticated user, self only | `204` |
+
+`DELETE /me` removes the caller's own `app_user` row. Cascades ([ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)'s default, unchanged by anything here): every `Membership`, `Player`, `CampaignGm`, `OrgaCampaignOptOut` row this user held is deleted. Every `Being` they were the primary owner of (`owner_player_id`) loses that link (`SET NULL`) and survives as an NPC — the same "losing a player leaves the character, not deletes it" shape [ADR 0025](../adr/0025-character-being-and-ownership.md) already established, not a new rule. Guarded: `409 LastOwnerError` if the user is the sole `OWNER` `Membership` of any tenant — deleting themselves would leave that tenant with no one able to administer it at all, the same lockout `PATCH`/`DELETE /memberships` below also guards against. This endpoint only ever removes this API's own record; it does not and cannot revoke the underlying Authgear identity — a full account closure needs a separate, Authgear-side action, out of scope for an OIDC relying party ([ADR 0009](../adr/0009-identity-provider-authgear.md)'s own stated boundary).
+
+### Membership: invite, change role, revoke
+
+| Method | Path | Auth | Body | Response |
+| --- | --- | --- | --- | --- |
+| POST | `/tenants/{tenant_id}/memberships` | `get_tenant_context` + `OWNER` only | `{user_id, role}` | `201 TenantMembershipOut` |
+| PATCH | `/tenants/{tenant_id}/memberships/{user_id}` | `get_tenant_context` + `OWNER` only | `{role}` | `200 TenantMembershipOut` |
+| DELETE | `/tenants/{tenant_id}/memberships/{user_id}` | `get_tenant_context` + (`OWNER` or self) | — | `204` |
+
+Restricted to `OWNER`, not `ORGA` — granting/revoking administrative access is more sensitive than day-to-day tenant administration, a deliberate narrowing this RFC introduces (`403 MembershipManagementForbiddenError` for an `ORGA` caller who passes `get_tenant_context` but isn't `OWNER`). `PATCH`/`DELETE` both guard against removing the last `OWNER` (`409 LastOwnerError`) — the same structural concern `DELETE /me` above guards, expressed here for the "an owner demotes/removes someone else" path.
+
+**Invitation, honestly**: `POST /memberships` takes a `user_id`, not an email — this API has no email to look up (Authgear owns it, [ADR 0009](../adr/0009-identity-provider-authgear.md)). That means, as designed here, an owner can only invite someone who has already signed in at least once (so an `app_user` row already exists for them to reference). This is a real, worth-naming UX gap, not hidden — see Open questions.
+
+### Player: join and leave a campaign
+
+| Method | Path | Auth | Body | Response |
+| --- | --- | --- | --- | --- |
+| POST | `/tenants/{tenant_id}/campaigns/{campaign_id}/players` | `get_campaign_context` + `can_manage_campaign` | `{user_id}` | `201 PlayerOut` |
+| DELETE | `/tenants/{tenant_id}/campaigns/{campaign_id}/players/{player_id}` | `get_campaign_context` + (`can_manage_campaign` or self) | — | `204` |
+
+`can_manage_campaign` (defined in [RFC 0006](0006-campaign-crud-api.md)) gates adding a player — a GM building their own roster, or a tenant admin, not a self-service join, since there's no invite-link/visibility mechanism today that would make "anyone can add themselves to any campaign they can merely see" safe (see Open questions). Removal additionally allows the player leaving their own campaign voluntarily, without needing manage rights over it. No `PATCH`: a `Player` row has nothing mutable beyond the FKs that define its identity (`user_id`, `campaign_id`) — changing either is better modeled as delete-and-recreate than an in-place update of what the row *is*.
+
+### Character: create, update, retire, and roster links
+
+| Method | Path | Auth | Body | Response |
+| --- | --- | --- | --- | --- |
+| POST | `/tenants/{tenant_id}/characters` | self-or-managed (below) | `CharacterCreate` | `201 CharacterOut` |
+| PATCH | `/tenants/{tenant_id}/characters/{id}` | self-or-managed | `CharacterUpdate` | `200 CharacterOut` |
+| DELETE | `/tenants/{tenant_id}/characters/{id}` | self-or-managed | — | `204` |
+| PUT | `/tenants/{tenant_id}/characters/{id}/players/{player_id}` | self-or-managed | — | `200 CharacterOut` |
+| DELETE | `/tenants/{tenant_id}/characters/{id}/players/{player_id}` | self-or-managed | — | `200 CharacterOut` |
+
+`CharacterCreate{name, owner_player_id: uuid.UUID | None = None, player_ids: list[uuid.UUID] = []}`. **Self-or-managed authorization**, applied uniformly across all five rows above: allowed without further checks if `owner_player_id` (when given) and every id in `player_ids` are all `Player` rows the caller themselves holds — a player rolling their own PC needs no GM involvement, matching how a tabletop game actually works. Anything broader (assigning a character to *someone else's* player, or creating an NPC with `owner_player_id=None` from the start) requires `can_manage_campaign` on every campaign the referenced player rows belong to (`403` otherwise, since the caller can already see enough to know what they're asking for — a plain `get_tenant_context`/`get_campaign_context` read-access check has already necessarily passed to get this far).
+
+One transaction creates `Entity` + `Being` (`owner_player_id` as given) + one `CharacterPlayer` row per id in `player_ids` (adding `owner_player_id` to that list automatically if it isn't already present — a primary owner who isn't also in the piloting roster would be a strange, easy-to-hit-by-accident state). `CharacterUpdate{name: str | None = None, owner_player_id: uuid.UUID | None = None}` — same self-or-managed rule, re-checked against the *new* `owner_player_id` if one is given, not just the character's current state.
+
+`DELETE /characters/{id}` needs **no guard**, deliberately contrasted with [RFC 0006](0006-campaign-crud-api.md)'s campaign-delete guard: every dependent row cascades cleanly and safely. `CharacterPlayer` links vanish (cascade). Any `Ownership` row where this character was `owner_character_id` cascades away too — but that only deletes the *ownership fact*, not the owned item: `owned_entity_id` (the item) is a separate `Entity` row, unaffected, and simply becomes ownerless ([ADR 0025](../adr/0025-character-being-and-ownership.md)'s own existing cascade shape, not a new decision here). `GroupMember`/`Knowledge` rows referencing this character cascade too. Nothing here leaves orphaned or silently-corrupted state the way base-item deletion could in [RFC 0005](0005-item-and-item-instance-crud-api.md) — hence no guard, and the contrast is deliberate, not an oversight.
+
+**Roster links as their own sub-resource**: `PUT/DELETE .../characters/{id}/players/{player_id}` add/remove one `CharacterPlayer` row at a time — the multi-valued counterpart to [RFC 0005](0005-item-and-item-instance-crud-api.md)'s singular owner/container sub-resources, adapted for a genuinely n:m relation (roster reuse, [ADR 0025](../adr/0025-character-being-and-ownership.md)) rather than a wholesale array replace on `CharacterUpdate`, for the same race-avoidance reason prototype editing was kept out of item `PATCH` in [RFC 0005](0005-item-and-item-instance-crud-api.md).
+
+### Schemas
+
+`ItemCreate`-style new modules: `schemas/players.py` (already created by [RFC 0004](0004-user-membership-player-character-gm-read-api.md)) gains nothing beyond what that RFC defined — `PlayerOut` is already the right create-response shape. `schemas/characters.py` (ditto) gains `CharacterCreate`, `CharacterUpdate`. `schemas/tenants.py` gains nothing new beyond [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s `TenantMembershipOut`, reused as both read and write response.
+
+## Not in scope
+
+**Campaign and GM-grant mutation** — [RFC 0006](0006-campaign-crud-api.md).
+
+**Character "retirement" as a soft-delete alternative.** [docs/domain/client-views.md](../domain/client-views.md)'s own "future direction" section names a ledger-of-ownership/ownership-provenance idea explicitly as *not* being built yet; a status flag distinguishing "retired" from "deleted" would be a natural extension of that same not-yet-scoped direction, not something this RFC adds speculatively.
+
+**Per-player character caps or other game-balance rules** — nothing asked for this, and it would vary per table/game system in ways this API has no mechanism to express yet.
+
+## Open questions
+
+**Invitation UX.** `POST /memberships`/`POST .../players` both require the invitee's `user_id` already existing, which in practice means "has signed in at least once." A friendlier email-based invite would need either apps/api to start caching email (a real, deliberate widening of [ADR 0009](../adr/0009-identity-provider-authgear.md)'s "email stays in Authgear" boundary) or a call into Authgear's own admin API to resolve one — neither designed here, both real future work. Shipped as-is, this RFC's invitation flow is functional but clunky: an inviter needs the invitee's internal id, not just something they already know like an email or Discord handle.
+
+**Self-service campaign joining.** Today, only a manager can add a player — there's no "request to join" or invite-link flow a plain user can act on themselves. A `Campaign.is_joinable` flag or a separate invite-token mechanism could enable that later without redesigning anything decided here; not built now because nothing about visibility/discovery of joinable campaigns has been designed either (see [RFC 0003](0003-tenant-campaign-read-api.md)'s own open question about campaign-list visibility).
+
+## Consequences
+
+- No migration: `app_user`, `membership`, `player`, `being`, `character_player` all already exist.
+- `LastOwnerError`/`MembershipManagementForbiddenError` join `exceptions.py`'s roster, following [RFC 0005](0005-item-and-item-instance-crud-api.md)'s subclassing convention.
+- `DELETE /me` is the first endpoint in this codebase where a user can remove their own top-level identity row — worth a deliberate, explicit test proving the last-owner guard actually fires, not just the happy-path cascade.
+- The self-or-managed authorization shape introduced here for characters (self-service within your own resources, manager override beyond them) is a pattern worth reusing if a future RFC ever needs the same "you can always act on your own stuff" carve-out elsewhere.

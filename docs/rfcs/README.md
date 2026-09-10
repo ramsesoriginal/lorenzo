@@ -10,3 +10,4 @@ To start one: copy an [ADR](../adr/0000-template.md)'s structure but title it "R
 - [0004 - User, membership, player, character, and GM read REST API](0004-user-membership-player-character-gm-read-api.md) — proposed, builds on RFC 0003
 - [0005 - Item and item-instance CRUD API](0005-item-and-item-instance-crud-api.md) — proposed, the first write surface in this codebase; defines cross-cutting write-API conventions
 - [0006 - Campaign CRUD API](0006-campaign-crud-api.md) — proposed, builds on RFC 0003/0005
+- [0007 - User, player, and character CRUD API](0007-user-player-character-crud-api.md) — proposed, builds on RFC 0004/0005; resolves ADR 0010's invitation-flow question with a known limitation
