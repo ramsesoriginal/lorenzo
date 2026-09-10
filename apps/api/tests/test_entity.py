@@ -1,10 +1,12 @@
+import uuid
+
 import pytest
 from _admin_db import admin_session_factory
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from lorenzo_api.db import engine
-from lorenzo_api.models import Entity, Tenant
+from lorenzo_api.models import Entity, Tenant, User
 
 
 async def test_create_and_read_entity() -> None:
@@ -30,6 +32,49 @@ async def test_create_and_read_entity() -> None:
 
         await session.delete(fetched)
         await session.delete(tenant)
+        await session.commit()
+
+
+async def test_entity_created_by_updated_by_default_null_and_survive_user_deletion() -> None:
+    """ADR 0029: created_by/updated_by are nullable (unlike created_at/
+    updated_at, which can never be unknown) and ON DELETE SET NULL - losing
+    the attributed user's account clears attribution, it doesn't touch the
+    entity it was left on.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+
+        untouched = Entity(tenant_id=tenant.id, name="No attribution yet")
+        session.add(untouched)
+        await session.commit()
+        assert untouched.created_by is None
+        assert untouched.updated_by is None
+
+        user = User(authgear_subject_id=f"subject-{uuid.uuid4()}")
+        session.add(user)
+        await session.flush()
+        attributed = Entity(
+            tenant_id=tenant.id, name="Attributed", created_by=user.id, updated_by=user.id
+        )
+        session.add(attributed)
+        await session.commit()
+        entity_id, user_id, tenant_id = attributed.id, user.id, tenant.id
+
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
+
+    # Fresh session - passive_deletes=True means the session that issued the
+    # delete never learns about the DB-side SET NULL (same gotcha as
+    # Being/Character.owner_player_id, ADR 0025).
+    async with admin_session_factory() as session:
+        still_there = await session.get(Entity, entity_id)
+        assert still_there is not None
+        assert still_there.created_by is None
+        assert still_there.updated_by is None
+
+        await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
 
 

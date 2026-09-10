@@ -44,6 +44,22 @@ TenantFk = Annotated[
 CreatedAt = Annotated[datetime, mapped_column(server_default=text("now()"))]
 UpdatedAt = Annotated[datetime, mapped_column(server_default=text("now()"), onupdate=text("now()"))]
 
+# Nullable, unlike CreatedAt/UpdatedAt - a timestamp can never become
+# unknown, but an attribution can, the moment the attributed user deletes
+# their own account (ADR 0029). ON DELETE SET NULL matches every other "the
+# referenced actor is gone, the row survives" case already in this schema
+# (Being/Character.owner_player_id) - losing your account clears attribution
+# on everything you ever touched, it doesn't delete any of it. Declared as
+# two separate aliases (rather than one reused twice) to match
+# CreatedAt/UpdatedAt's own naming precedent, even though their shapes
+# happen to be identical here.
+CreatedBy = Annotated[
+    uuid.UUID | None, mapped_column(ForeignKey("app_user.id", ondelete="SET NULL"), index=True)
+]
+UpdatedBy = Annotated[
+    uuid.UUID | None, mapped_column(ForeignKey("app_user.id", ondelete="SET NULL"), index=True)
+]
+
 
 # pool_recycle: the deploy target (Neon, ADR 0011) fronts Postgres with its
 # own pooler, which can drop an idle backend connection without telling

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, relationship
 
-from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UpdatedBy, UuidPk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.being import Being
@@ -32,6 +32,14 @@ class Entity(Base):
     name: Mapped[str]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
+    # Bare user ids only (ADR 0029) - covers item/item_instance/being for
+    # free, since none of the three ever exists independently of the entity
+    # row created alongside it. No relationship() to User: nothing needs to
+    # navigate this as an object today (every consumer this RFC names wants
+    # a bare id back over REST), and adding one would just be another
+    # lazy="raise_on_sql" trap for every existing eager-load chain to forget.
+    created_by: Mapped[CreatedBy]
+    updated_by: Mapped[UpdatedBy]
 
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="entities")
     stats: Mapped[list[EntityStat]] = relationship(
