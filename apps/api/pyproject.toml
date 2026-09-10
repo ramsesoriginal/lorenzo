@@ -1,6 +1,6 @@
 [project]
 name = "lorenzo-api"
-version = "0.3.0"
+version = "0.3.1"
 description = "Lorenzo backend REST API"
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
