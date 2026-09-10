@@ -63,22 +63,29 @@ class MembershipRosterEntryOut(BaseModel):
     kind: Literal["membership"] = "membership"
     user_id: uuid.UUID
     role: str  # "owner" | "orga"
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
 class PlayerRosterEntryOut(BaseModel):
     kind: Literal["player"] = "player"
     user_id: uuid.UUID
     campaign_id: uuid.UUID
     characters: list[CharacterSummaryOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
 class GmRosterEntryOut(BaseModel):
     kind: Literal["gm"] = "gm"
     user_id: uuid.UUID
     campaign_id: uuid.UUID
+    created_by: uuid.UUID | None
 
 TenantRosterEntryOut = Annotated[
     MembershipRosterEntryOut | PlayerRosterEntryOut | GmRosterEntryOut, Field(discriminator="kind")
 ]
 ```
+
+`created_by`/`updated_by` ([RFC 0010](0010-created-by-updated-by-attribution.md)) — `MembershipRosterEntryOut`/`PlayerRosterEntryOut` get both (`membership`/`player` each have the full pair); `GmRosterEntryOut` gets `created_by` only, matching `campaign_gm`'s own lighter, create-only shape (a grant is never "updated," only made or revoked).
 
 One row per relationship, not per user — a user who is `ORGA`, GMs one campaign, and plays in another appears three times, once per capacity, the same flat shape `Membership`/`Player`/`CampaignGm` already have as separate tables rather than one aggregated per-user summary. `PlayerRosterEntryOut` rows are sourced the same way [RFC 0003](0003-tenant-campaign-read-api.md)'s `is_tenant_participant` already queries — every `Player` row where `Player.tenant_id` matches (already denormalized, no join through `Campaign` needed), each with `characters` resolved through `character_player` exactly like `PlayerOut` below. `GmRosterEntryOut` rows are sourced the same way, one per `CampaignGm` row in the tenant (`CampaignGm.tenant_id`, denormalized the same way) — no `characters` field, since GM-ing isn't itself tied to any character; a GM who also plays a PC in some campaign already gets their own separate `player`-kind row for that.
 
@@ -94,7 +101,7 @@ Still gated by `get_tenant_context`, unchanged: only tenant-wide members see the
 | GET | `/tenants/{tenant_id}/campaigns/{campaign_id}/players/{player_id}` | `get_campaign_context` | `PlayerDetailOut` |
 | GET | `/tenants/{tenant_id}/campaigns/{campaign_id}/gms` | `get_campaign_context` | `list[GmOut]` (unpaginated) |
 
-`PlayerOut(id, user_id, characters: list[CharacterSummaryOut])` — `characters` resolved through `character_player` (join `Player.character_links` → `Character`, retargeted from `Being` — see the schema addition above), giving "which of my characters, in which campaign" in one call, the exact join [RFC 0002](0002-campaign-player-character-model.md) itself flagged as the roster-view's one extra hop ("an extra join, not a redesign"). `PlayerDetailOut` is the same shape; there's nothing a detail view adds beyond the list row here (`Player` has no columns the summary omits), unlike `Entity`'s list/detail split — no `EntitySummary`-style thinning is needed because `PlayerOut` is already minimal.
+`PlayerOut(id, user_id, characters: list[CharacterSummaryOut], created_by: uuid.UUID | None, updated_by: uuid.UUID | None)` — the last two per [RFC 0010](0010-created-by-updated-by-attribution.md). `characters` resolved through `character_player` (join `Player.character_links` → `Character`, retargeted from `Being` — see the schema addition above), giving "which of my characters, in which campaign" in one call, the exact join [RFC 0002](0002-campaign-player-character-model.md) itself flagged as the roster-view's one extra hop ("an extra join, not a redesign"). `PlayerDetailOut` is the same shape; there's nothing a detail view adds beyond the list row here (`Player` has no columns the summary omits), unlike `Entity`'s list/detail split — no `EntitySummary`-style thinning is needed because `PlayerOut` is already minimal.
 
 `GmOut(user_id)` (campaign_id/tenant_id are already in the path, no need to repeat them in every row). The GM list is **unpaginated**, matching `OwnedByResponse`'s existing precedent of skipping pagination for a collection that's inherently small and bounded by construction (a campaign realistically has a handful of GMs, not thousands) — a `Page[...]` envelope here would be pure ceremony.
 
@@ -107,7 +114,7 @@ Still gated by `get_tenant_context`, unchanged: only tenant-wide members see the
 
 **Now specifically a roster of `Character` rows, not every `Being`.** A bare `being` with no `character` row (an unnamed monster stub, a background NPC never worth individual tracking) doesn't appear here at all — this endpoint lists tracked individuals, matching what "a character" means in the domain sense the rest of this RFC already uses that word for. Deliberately bare-tenant-scoped, not campaign-nested: a character has no single fixed campaign (roster reuse, [ADR 0025](../adr/0025-character-being-and-ownership.md)), so "list every character in this tenant" is the only shape that makes sense without picking one campaign arbitrarily — this mirrors [docs/domain/client-views.md](../domain/client-views.md)'s "GM gets a web view across every player and their possessions," which is exactly a tenant-wide, not campaign-scoped, view. Gating it to `get_tenant_context` is what makes that safe: only tenant-wide members (who already see everything) reach it, so there's no separate visibility filtering needed the way [ADR 0028](../adr/0028-knowledge-and-group-membership.md)'s `information_visibility` module has to do for entity descriptions — an ordinary player never reaches this endpoint at all, campaign-nested rosters above are their path.
 
-`CharacterSummaryOut(entity_id, name, is_pc)`; `CharacterOut` adds `owner_player_id: uuid.UUID | None` and `players: list[PlayerSummaryOut]` (via `character_player` again, this time from the character's side — `Character.player_links`, retargeted above). `name` is still plain `Entity.name` (the internal/reference name, [ADR 0012](../adr/0012-entity-table.md)), not `v_character.title` — this endpoint is identity/roster, not the fuller narrative view `v_character` exists for; reaching for the view here would just be a second, unnecessary join for data these two schemas don't need. `is_pc` is the derived fact RFC 0001/RFC 0002 already establish (`owner_player_id IS NOT NULL` — now read off `Character`, not `Being`), computed in the schema's `from_character` classmethod, not stored.
+`CharacterSummaryOut(entity_id, name, is_pc)`; `CharacterOut` adds `owner_player_id: uuid.UUID | None`, `players: list[PlayerSummaryOut]` (via `character_player` again, this time from the character's side — `Character.player_links`, retargeted above), and `created_by`/`updated_by: uuid.UUID | None` ([RFC 0010](0010-created-by-updated-by-attribution.md) — `character`'s own columns, recording who *promoted* this character, not who created the underlying `being`; see that RFC's own open question for why the two are kept distinct). `name` is still plain `Entity.name` (the internal/reference name, [ADR 0012](../adr/0012-entity-table.md)), not `v_character.title` — this endpoint is identity/roster, not the fuller narrative view `v_character` exists for; reaching for the view here would just be a second, unnecessary join for data these two schemas don't need. `is_pc` is the derived fact RFC 0001/RFC 0002 already establish (`owner_player_id IS NOT NULL` — now read off `Character`, not `Being`), computed in the schema's `from_character` classmethod, not stored.
 
 **Accepted minor redundancy**: reusing `PlayerSummaryOut` (now carrying its own `characters` list, above) for `CharacterOut.players` means each returned player entry redundantly re-includes the very character being viewed, among any others that player controls — a small, self-referential wart, not a bug, and not worth a fourth schema variant just to trim it.
 
@@ -141,6 +148,7 @@ New schema modules: `schemas/players.py` (`PlayerSummaryOut`, `PlayerOut`, `Play
 
 - **This RFC now needs a migration**, unlike its first draft: a new `character` table (`entity_id` PK/FK → `being.entity_id` `ON DELETE CASCADE`, `tenant_id`, `owner_player_id`) plus its `tenant_isolation` RLS policy; `being.owner_player_id` dropped (moved to `character` — trivial pre-release, no real character data exists yet); `character_player.character_entity_id`/`group_member.character_entity_id` retargeted from `being.entity_id` to `character.entity_id`; a new `v_character` view (`security_invoker=true`, excluded from Alembic autogenerate the same way `v_item`/`v_item_instance` already are, [ADR 0019](../adr/0019-item-and-v-item.md)); `ItemViewMixin` renamed `EntityViewMixin` and shared by all three views. [ADR 0025](../adr/0025-character-being-and-ownership.md) (`being`'s original shape, `character_player`'s original target) and [ADR 0028](../adr/0028-knowledge-and-group-membership.md) (`group_member`'s original target) both need superseding notes once this becomes an ADR.
 - **`docs/architecture/diagrams/domain-model-er.md` needs a real update**: a new `CHARACTER` box layered under `BEING` (not a sibling extension of `ENTITY` the way every other concrete type is drawn), `owner_player_id` moving boxes, and `character_player`/`group_member`'s edges retargeting. Not done as part of this RFC — the ER-diagram step of the usual slice process, once this is actually picked up.
+- [RFC 0010](0010-created-by-updated-by-attribution.md) adds `created_by`/`updated_by` to this same new `character` table, plus to `membership`/`player` — one combined migration in practice once both RFCs are actually built, not two separate ones.
 - [RFC 0007](0007-user-player-character-crud-api.md) needs a follow-up pass — flagged above, not fixed here, to keep this revision scoped to RFC 0004 itself.
 - [RFC 0009](0009-campaign-scoped-gm-visibility.md)'s reachability walk ("every `Being` linked via `CharacterPlayer` to a `Player`") needs a terminology pass — the join target is now `Character`, though the actual entity-id set it produces is unaffected (a `Character`'s `entity_id` still just *is* an `entity.id`, same as before).
 - `membership`/`player`/`campaign_gm` are unaffected by any of the above — no migration need beyond `character`/`being`/`character_player`/`group_member`.
