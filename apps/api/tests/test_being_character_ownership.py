@@ -2,14 +2,13 @@ import uuid
 
 import pytest
 from _admin_db import admin_session_factory
-from conftest import make_player
+from conftest import make_campaign, make_player
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from lorenzo_api.db import engine
 from lorenzo_api.models import (
     Being,
-    Campaign,
     CharacterPlayer,
     Entity,
     ItemInstance,
@@ -26,8 +25,9 @@ async def test_create_and_read_being_with_owner_player() -> None:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
-        campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant.id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
 
@@ -87,8 +87,9 @@ async def test_deleting_player_sets_being_owner_null_but_deleting_own_entity_cas
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
-        campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant.id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
         user_id, player_id = player.user_id, player.id
@@ -129,10 +130,12 @@ async def test_character_player_is_genuinely_many_to_many() -> None:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
-        campaign_1 = Campaign(tenant_id=tenant.id, name="Coterie One", game_system="Vampire")
-        campaign_2 = Campaign(tenant_id=tenant.id, name="Coterie Two", game_system="Vampire")
-        session.add_all([campaign_1, campaign_2])
-        await session.flush()
+        campaign_1 = await make_campaign(
+            session, tenant_id=tenant.id, name="Coterie One", game_system="Vampire"
+        )
+        campaign_2 = await make_campaign(
+            session, tenant_id=tenant.id, name="Coterie Two", game_system="Vampire"
+        )
 
         player_1 = await make_player(session, tenant_id=tenant.id, campaign_id=campaign_1.id)
         player_2 = await make_player(session, tenant_id=tenant.id, campaign_id=campaign_2.id)
@@ -214,8 +217,9 @@ async def test_deleting_character_or_player_cascades_character_player() -> None:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
-        campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant.id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player_a = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
         player_b = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
@@ -424,22 +428,37 @@ async def test_being_character_player_ownership_rls_isolates_tenants() -> None:
             )
         ).scalar_one()
 
+        # campaign.entity_id (ADR 0030) needs a real Entity row to point at.
+        entity_a = (
+            await session.execute(
+                text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'A') RETURNING id"),
+                {"t": tenant_a},
+            )
+        ).scalar_one()
+        entity_b = (
+            await session.execute(
+                text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'B') RETURNING id"),
+                {"t": tenant_b},
+            )
+        ).scalar_one()
         campaign_a = (
             await session.execute(
                 text(
-                    "INSERT INTO campaign (tenant_id, name, game_system) "
-                    "VALUES (:t, 'A', 'D&D 5e') RETURNING id"
+                    "INSERT INTO campaign "
+                    "(tenant_id, name, game_system, slug, description, entity_id) "
+                    "VALUES (:t, 'A', 'D&D 5e', 'campaign-a', '', :e) RETURNING id"
                 ),
-                {"t": tenant_a},
+                {"t": tenant_a, "e": entity_a},
             )
         ).scalar_one()
         campaign_b = (
             await session.execute(
                 text(
-                    "INSERT INTO campaign (tenant_id, name, game_system) "
-                    "VALUES (:t, 'B', 'D&D 5e') RETURNING id"
+                    "INSERT INTO campaign "
+                    "(tenant_id, name, game_system, slug, description, entity_id) "
+                    "VALUES (:t, 'B', 'D&D 5e', 'campaign-b', '', :e) RETURNING id"
                 ),
-                {"t": tenant_b},
+                {"t": tenant_b, "e": entity_b},
             )
         ).scalar_one()
         player_a = (

@@ -2,6 +2,7 @@ import uuid
 
 import pytest
 from _admin_db import admin_session_factory
+from conftest import make_campaign
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
@@ -15,8 +16,9 @@ async def test_create_and_read_campaign() -> None:
         session.add(tenant)
         await session.flush()
 
-        campaign = Campaign(tenant_id=tenant.id, name="The Sunken Keep", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant.id, name="The Sunken Keep", game_system="D&D 5e"
+        )
         await session.commit()
 
         assert campaign.id is not None
@@ -38,8 +40,9 @@ async def test_create_and_read_player() -> None:
         user = User(authgear_subject_id=f"authgear|player-{uuid.uuid4()}")
         session.add_all([tenant, user])
         await session.flush()
-        campaign = Campaign(tenant_id=tenant.id, name="One-Shot", game_system="Blades in the Dark")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant.id, name="One-Shot", game_system="Blades in the Dark"
+        )
         await session.flush()
 
         player = Player(user_id=user.id, campaign_id=campaign.id, tenant_id=tenant.id)
@@ -63,8 +66,9 @@ async def test_player_is_unique_per_campaign_and_user() -> None:
         user = User(authgear_subject_id=f"authgear|dupe-player-{uuid.uuid4()}")
         session.add_all([tenant, user])
         await session.flush()
-        campaign = Campaign(tenant_id=tenant.id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant.id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
 
         session.add_all(
@@ -89,8 +93,9 @@ async def test_deleting_tenant_cascades_campaign_and_player() -> None:
         session.add_all([tenant, user])
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         campaign_id = campaign.id
         session.add(Player(user_id=user_id, campaign_id=campaign_id, tenant_id=tenant_id))
@@ -119,8 +124,9 @@ async def test_deleting_campaign_cascades_player_but_not_user_or_tenant() -> Non
         session.add_all([tenant, user])
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         campaign_id = campaign.id
         player = Player(user_id=user_id, campaign_id=campaign_id, tenant_id=tenant_id)
@@ -151,8 +157,9 @@ async def test_deleting_user_cascades_player_but_not_campaign() -> None:
         session.add_all([tenant, user])
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         campaign_id = campaign.id
         player = Player(user_id=user_id, campaign_id=campaign_id, tenant_id=tenant_id)
@@ -190,22 +197,37 @@ async def test_campaign_and_player_rls_isolates_tenants_for_a_non_superuser_role
             )
         ).scalar_one()
 
+        # campaign.entity_id (ADR 0030) needs a real Entity row to point at.
+        entity_a = (
+            await session.execute(
+                text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'A') RETURNING id"),
+                {"t": tenant_a},
+            )
+        ).scalar_one()
+        entity_b = (
+            await session.execute(
+                text("INSERT INTO entity (tenant_id, name) VALUES (:t, 'B') RETURNING id"),
+                {"t": tenant_b},
+            )
+        ).scalar_one()
         campaign_a = (
             await session.execute(
                 text(
-                    "INSERT INTO campaign (tenant_id, name, game_system) "
-                    "VALUES (:t, 'A', 'D&D 5e') RETURNING id"
+                    "INSERT INTO campaign "
+                    "(tenant_id, name, game_system, slug, description, entity_id) "
+                    "VALUES (:t, 'A', 'D&D 5e', 'campaign-a', '', :e) RETURNING id"
                 ),
-                {"t": tenant_a},
+                {"t": tenant_a, "e": entity_a},
             )
         ).scalar_one()
         campaign_b = (
             await session.execute(
                 text(
-                    "INSERT INTO campaign (tenant_id, name, game_system) "
-                    "VALUES (:t, 'B', 'D&D 5e') RETURNING id"
+                    "INSERT INTO campaign "
+                    "(tenant_id, name, game_system, slug, description, entity_id) "
+                    "VALUES (:t, 'B', 'D&D 5e', 'campaign-b', '', :e) RETURNING id"
                 ),
-                {"t": tenant_b},
+                {"t": tenant_b, "e": entity_b},
             )
         ).scalar_one()
         await session.execute(
@@ -244,6 +266,23 @@ async def test_campaign_and_player_rls_isolates_tenants_for_a_non_superuser_role
         async with engine.begin() as conn:
             with pytest.raises(DBAPIError):
                 await conn.execute(text("SELECT name FROM campaign"))
+
+        # player's own policy gained the same self-access relaxation
+        # membership already had (ADR 0023) and campaign_gm now shares
+        # (ADR 0030/RFC 0003), for GET /tenants - campaign's policy is
+        # untouched and still hard-fails above, this is player-specific.
+        async with engine.begin() as conn:
+            player_campaigns = (
+                (await conn.execute(text("SELECT campaign_id FROM player"))).scalars().all()
+            )
+            assert player_campaigns == []
+
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user)})
+            player_campaigns = (
+                (await conn.execute(text("SELECT campaign_id FROM player"))).scalars().all()
+            )
+            assert sorted(player_campaigns) == sorted([campaign_a, campaign_b])
     finally:
         async with admin_session_factory() as session:
             await session.execute(

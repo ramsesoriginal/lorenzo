@@ -1,19 +1,19 @@
 import uuid
 
 from _admin_db import admin_session_factory
+from conftest import make_campaign
 
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Being,
-    Campaign,
     CharacterPlayer,
     Entity,
     GroupMember,
     Membership,
     MembershipRole,
-    OrgaCampaignOptOut,
     Player,
     Tenant,
+    TenantAdminCampaignOptOut,
     User,
 )
 
@@ -116,10 +116,8 @@ async def test_resolve_information_visibility_collects_player_ids_across_campaig
         session.add_all([tenant, user])
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
-        campaign_1 = Campaign(tenant_id=tenant_id, name="Campaign 1", game_system="D&D 5e")
-        campaign_2 = Campaign(tenant_id=tenant_id, name="Campaign 2", game_system="D&D 5e")
-        session.add_all([campaign_1, campaign_2])
-        await session.flush()
+        campaign_1 = await make_campaign(session, tenant_id=tenant_id, name="Campaign 1")
+        campaign_2 = await make_campaign(session, tenant_id=tenant_id, name="Campaign 2")
         player_1 = Player(user_id=user_id, campaign_id=campaign_1.id, tenant_id=tenant_id)
         player_2 = Player(user_id=user_id, campaign_id=campaign_2.id, tenant_id=tenant_id)
         session.add_all([player_1, player_2])
@@ -144,8 +142,9 @@ async def test_resolve_information_visibility_excludes_player_ids_from_a_differe
         session.add_all([tenant_a, tenant_b, user])
         await session.flush()
         tenant_a_id, tenant_b_id, user_id = tenant_a.id, tenant_b.id, user.id
-        campaign_b = Campaign(tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e")
-        session.add(campaign_b)
+        campaign_b = await make_campaign(
+            session, tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e"
+        )
         await session.flush()
         session.add(Player(user_id=user_id, campaign_id=campaign_b.id, tenant_id=tenant_b_id))
         await session.commit()
@@ -172,10 +171,8 @@ async def test_resolve_information_visibility_collects_character_ids_via_roster_
         session.add_all([tenant, user])
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
-        campaign_1 = Campaign(tenant_id=tenant_id, name="Campaign 1", game_system="D&D 5e")
-        campaign_2 = Campaign(tenant_id=tenant_id, name="Campaign 2", game_system="D&D 5e")
-        session.add_all([campaign_1, campaign_2])
-        await session.flush()
+        campaign_1 = await make_campaign(session, tenant_id=tenant_id, name="Campaign 1")
+        campaign_2 = await make_campaign(session, tenant_id=tenant_id, name="Campaign 2")
         player_1 = Player(user_id=user_id, campaign_id=campaign_1.id, tenant_id=tenant_id)
         player_2 = Player(user_id=user_id, campaign_id=campaign_2.id, tenant_id=tenant_id)
         session.add_all([player_1, player_2])
@@ -218,8 +215,9 @@ async def test_resolve_information_visibility_collects_group_ids_one_level_via_g
         session.add_all([tenant, user])
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
@@ -262,11 +260,12 @@ async def test_resolve_information_visibility_orga_suppressed_by_active_opt_out(
         await session.flush()
         tenant_id, user_id = tenant.id, user.id
         session.add(Membership(tenant_id=tenant_id, user_id=user_id, role=MembershipRole.ORGA))
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         session.add(
-            OrgaCampaignOptOut(tenant_id=tenant_id, user_id=user_id, campaign_id=campaign.id)
+            TenantAdminCampaignOptOut(tenant_id=tenant_id, user_id=user_id, campaign_id=campaign.id)
         )
         await session.commit()
 
@@ -289,11 +288,14 @@ async def test_resolve_information_visibility_orga_opt_out_is_tenant_scoped() ->
         await session.flush()
         tenant_a_id, tenant_b_id, user_id = tenant_a.id, tenant_b.id, user.id
         session.add(Membership(tenant_id=tenant_a_id, user_id=user_id, role=MembershipRole.ORGA))
-        campaign_b = Campaign(tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e")
-        session.add(campaign_b)
+        campaign_b = await make_campaign(
+            session, tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e"
+        )
         await session.flush()
         session.add(
-            OrgaCampaignOptOut(tenant_id=tenant_b_id, user_id=user_id, campaign_id=campaign_b.id)
+            TenantAdminCampaignOptOut(
+                tenant_id=tenant_b_id, user_id=user_id, campaign_id=campaign_b.id
+            )
         )
         await session.commit()
 

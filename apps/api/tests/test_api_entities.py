@@ -2,12 +2,11 @@ import uuid
 from decimal import Decimal
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant
+from conftest import delete_tenant, make_campaign
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
     Being,
-    Campaign,
     CharacterPlayer,
     Containment,
     Entity,
@@ -19,7 +18,6 @@ from lorenzo_api.models import (
     Knowledge,
     Membership,
     MembershipRole,
-    OrgaCampaignOptOut,
     Payload,
     PayloadDescription,
     PayloadDocument,
@@ -30,6 +28,7 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
     Tenant,
+    TenantAdminCampaignOptOut,
     User,
 )
 
@@ -474,8 +473,9 @@ async def test_get_entity_shows_information_known_via_direct_character_knowledge
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
@@ -521,8 +521,9 @@ async def test_get_entity_shows_information_known_via_group_membership(
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
@@ -579,8 +580,9 @@ async def test_get_entity_shows_information_known_via_direct_player_knowledge(
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
@@ -623,8 +625,9 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
 
         other_user = User(authgear_subject_id=f"authgear|other-{uuid.uuid4()}")
@@ -713,7 +716,7 @@ async def test_get_entity_orga_bypass_suppressed_by_opt_out(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     """ADR 0028's addendum: an ORGA's blanket bypass is suppressed on this
-    route by any active OrgaCampaignOptOut anywhere in the tenant - the
+    route by any active TenantAdminCampaignOptOut anywhere in the tenant - the
     fail-closed choice, since this route has no campaign context to check
     the opt-out's own per-campaign scope against.
     """
@@ -723,11 +726,14 @@ async def test_get_entity_orga_bypass_suppressed_by_opt_out(
         await session.flush()
         tenant_id = tenant.id
         session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         session.add(
-            OrgaCampaignOptOut(tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id)
+            TenantAdminCampaignOptOut(
+                tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id
+            )
         )
         entity = Entity(tenant_id=tenant_id, name="Entity")
         session.add(entity)
@@ -776,8 +782,9 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
 
         # Tenant B: a full player/character/Knowledge chain that would
         # grant visibility - but only within tenant B.
-        campaign_b = Campaign(tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e")
-        session.add(campaign_b)
+        campaign_b = await make_campaign(
+            session, tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e"
+        )
         await session.flush()
         player_b = Player(user_id=test_user_id, campaign_id=campaign_b.id, tenant_id=tenant_b_id)
         session.add(player_b)

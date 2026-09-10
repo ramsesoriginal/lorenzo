@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.dependencies import SessionDep, get_current_user, get_jwks_client
 from lorenzo_api.main import app
-from lorenzo_api.models import Membership, MembershipRole, Player, Tenant, User
+from lorenzo_api.models import Campaign, Entity, Membership, MembershipRole, Player, Tenant, User
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -87,6 +87,36 @@ async def delete_tenant(tenant_id: uuid.UUID) -> None:
     async with admin_session_factory() as session:
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.commit()
+
+
+async def make_campaign(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    name: str = "Campaign",
+    game_system: str = "D&D 5e",
+) -> Campaign:
+    """A campaign with its required dedicated Entity already attached (ADR
+    0030) and a valid random slug/description - promoted here since every
+    existing Campaign(...) fixture call needed both the moment slug/
+    description stopped being optional, the same trigger make_player was
+    promoted for. Not a pytest fixture, matching make_player - some tests
+    need more than one campaign per tenant.
+    """
+    entity = Entity(tenant_id=tenant_id, name=name)
+    session.add(entity)
+    await session.flush()
+    campaign = Campaign(
+        tenant_id=tenant_id,
+        name=name,
+        game_system=game_system,
+        slug=f"campaign-{uuid.uuid4()}",
+        description="",
+        entity_id=entity.id,
+    )
+    session.add(campaign)
+    await session.flush()
+    return campaign
 
 
 async def make_player(

@@ -1,12 +1,11 @@
 import uuid
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_tenant
+from conftest import delete_tenant, make_campaign, make_tenant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
     Being,
-    Campaign,
     CharacterPlayer,
     Entity,
     Information,
@@ -303,8 +302,9 @@ async def test_get_content_visible_via_knowledge_for_the_callers_own_character(
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
