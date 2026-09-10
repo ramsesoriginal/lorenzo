@@ -1,6 +1,6 @@
 # RFC: Item and item-instance CRUD API
 
-Status: proposed — the first write surface in this codebase; defines cross-cutting write-API conventions reused by [RFC 0006](0006-campaign-crud-api.md)/[RFC 0007](0007-user-player-character-crud-api.md); no schema changes
+Status: proposed — the first write surface in this codebase; defines cross-cutting write-API conventions reused by [RFC 0006](0006-campaign-crud-api.md)/[RFC 0007](0007-user-player-character-crud-api.md); no schema changes of its own, but depends on [RFC 0010](0010-created-by-updated-by-attribution.md)'s migration (`entity.created_by`/`updated_by`) having landed first
 
 ## Context
 
@@ -19,7 +19,7 @@ Because nothing here has prior art in this codebase to follow, the first "Decisi
 - **403 vs. 404, precisely**: a caller with *no* relationship to a tenant/campaign/resource gets `404` (existence hidden, matching `get_tenant_context`'s established non-enumerable pattern) — a caller who can already **read** the resource but lacks a specific **write** permission gets `403` (the resource's existence isn't new information to them, so hiding it would just be friction, not safety). Every authorization check below picks one of these deliberately, not by default.
 - **Authorization helpers stay their own plain, directly-testable modules** — not folded into `dependencies.py`, matching `campaign_access.py`/`information_visibility.py`'s existing precedent. This RFC needed exactly one new predicate for instance authorization (below) — reused from [RFC 0003](0003-tenant-campaign-read-api.md)'s `campaign_access.is_tenant_participant` rather than redefined here, since that RFC already added it for the campaign list's own access gate and it's the identical check.
 - **One transaction per write operation**, even multi-row ones (instantiate below touches `Entity`+`ItemInstance`+`EntityPrototype`+optionally `Ownership`/`Containment`) — one `commit()`, matching `get_current_user`'s existing atomic-upsert precedent rather than several independent commits a partial failure could leave half-applied.
-- **No audit columns.** `created_by`/`updated_by` don't exist on any table today and nothing here adds them — out of scope, matching this codebase's own discipline of not adding columns beyond what's asked.
+- **Audit columns**: `created_by`/`updated_by` — see [RFC 0010](0010-created-by-updated-by-attribution.md), which adds them to `entity` (covering `item`/`item_instance` for free) once this RFC's own review turned up that no table had them at all. (This bullet originally said the opposite — nothing here adds them — before that gap was noticed; corrected, not silently dropped.)
 - **No idempotency-key support.** Real, and the classic mitigation for a retried `POST` (relevant to `instantiate` below), but it needs new infrastructure (a dedup table or Redis-backed store) not justified by anything built so far — deferred the same way [ADR 0008](../adr/0008-deferred-taskiq-and-fastapi-limiter.md) deferred taskiq/rate-limiting until a concrete need exists, not designed speculatively here.
 
 ### Authorization: catalog vs. instance
@@ -60,6 +60,8 @@ Two tiers, split by how much the mutation matters:
 
 **Owner and container as singular sub-resources, not RPC verbs**: "move item from one owner to another" and "...one container to another" are naturally *replacing a relationship*, not creating a new one — `ownership`/`containment` both already enforce at most one owner/container per entity at the schema level ([ADR 0016](../adr/0016-containment.md)/[ADR 0025](../adr/0025-character-being-and-ownership.md)). Modeling that as `PUT .../owner` (replace) and `DELETE .../owner` (clear, i.e. "no row" — `containment`'s and `ownership`'s own existing "no row means no relation" convention) is more RESTful than an `/actions/move`-style RPC endpoint, and was chosen over it for exactly that reason — it also gives "transfer to a new owner" and "set an owner for the first time" the same call shape, since `ownership`'s presence/absence is the only state that exists. `PUT .../container` performs no cycle check: [ADR 0016](../adr/0016-containment.md) deliberately allows containment cycles ("game worlds can be legitimately non-Euclidean"), and this API layer doesn't second-guess that decision by rejecting what the schema was explicitly built to allow.
 
+**Attribution ([RFC 0010](0010-created-by-updated-by-attribution.md)):** `ItemOut`/`ItemInstanceOut` gain `created_by`/`updated_by` (`Entity`'s columns, per that RFC's piggyback reasoning). `POST /items`/`POST /item-instances` set both to `CurrentUser.id`; `PATCH /items/{id}`/`PATCH /item-instances/{id}` (a rename) update `updated_by`. The owner/container `PUT`/`DELETE` actions above do **not** touch `entity.updated_by` — they only ever write `ownership`/`containment`, which RFC 0010 deliberately excludes from attribution (the ownership-provenance "ledger" idea, [docs/domain/client-views.md](../domain/client-views.md), not built piecemeal here) — moving an item isn't "updating" it in the sense this column tracks.
+
 ## Not in scope
 
 **Stat and information mutation.** Creating/editing `entity_stat`, `stat_definition`, `stat_group`, or `information`/`payload` rows is a generic entity-attribute concern, not item-specific — items just happen to be the first concrete type these would apply to. A future "generic entity attribute CRUD" RFC is the right home for it; folding it into item CRUD here would blur a boundary this codebase has kept clean since [RFC 0001](0001-core-domain-data-model.md) (stats/information apply to *any* entity, not just items).
@@ -76,7 +78,7 @@ Two tiers, split by how much the mutation matters:
 
 ## Consequences
 
-- No migration: `item`, `item_instance`, `entity_prototype`, `ownership`, `containment` all already exist. This RFC is pure application code.
+- No migration of this RFC's own for `item`/`item_instance`/`entity_prototype`/`ownership`/`containment`, which all already exist — but it now depends on [RFC 0010](0010-created-by-updated-by-attribution.md)'s migration (`entity.created_by`/`updated_by`) having landed first, unlike this RFC's first draft.
 - This is the first place `fastapi_problem`'s `ConflictProblem`/`ForbiddenProblem`/`UnprocessableProblem` bases get used — `exceptions.py` currently only subclasses `NotFoundProblem`/`UnauthorisedProblem`.
 - `tests/conftest.py` gains its first write-oriented test helpers; the existing `client` fixture (fixed fake current user, no real token) already supports issuing `POST`/`PATCH`/`DELETE` calls with no changes needed to the fixture itself.
 - The `If-Match`/ETag convention introduced here is meant to be reused verbatim by [RFC 0006](0006-campaign-crud-api.md) and [RFC 0007](0007-user-player-character-crud-api.md), not re-litigated per RFC.
