@@ -26,8 +26,8 @@ Status: proposed — builds on [RFC 0004](0004-user-membership-player-character-
 
 | Method | Path | Auth | Body | Response |
 | --- | --- | --- | --- | --- |
-| POST | `/tenants/{tenant_id}/memberships` | `get_tenant_context` + `OWNER` only | `{user_id, role}` | `201 TenantMembershipOut` |
-| PATCH | `/tenants/{tenant_id}/memberships/{user_id}` | `get_tenant_context` + `OWNER` only | `{role}` | `200 TenantMembershipOut` |
+| POST | `/tenants/{tenant_id}/memberships` | `get_tenant_context` + `OWNER` only | `{user_id, role}` | `201 MembershipRosterEntryOut` |
+| PATCH | `/tenants/{tenant_id}/memberships/{user_id}` | `get_tenant_context` + `OWNER` only | `{role}` | `200 MembershipRosterEntryOut` |
 | DELETE | `/tenants/{tenant_id}/memberships/{user_id}` | `get_tenant_context` + (`OWNER` or self) | — | `204` |
 
 Restricted to `OWNER`, not `ORGA` — granting/revoking administrative access is more sensitive than day-to-day tenant administration, a deliberate narrowing this RFC introduces (`403 MembershipManagementForbiddenError` for an `ORGA` caller who passes `get_tenant_context` but isn't `OWNER`). `PATCH`/`DELETE` both guard against removing the last `OWNER` (`409 LastOwnerError`) — the same structural concern `DELETE /me` above guards, expressed here for the "an owner demotes/removes someone else" path. `POST` sets `membership.created_by`/`updated_by` to the inviting owner ([RFC 0010](0010-created-by-updated-by-attribution.md)) — not the invitee, the same "who made this happen, not who it happened to" distinction [RFC 0006](0006-campaign-crud-api.md) draws for GM grants; `PATCH` updates `updated_by` to whichever owner changed the role.
@@ -72,7 +72,7 @@ One transaction creates `Entity` + `Being` + **`Character`** ([RFC 0004](0004-us
 
 ### Schemas
 
-`ItemCreate`-style new modules: `schemas/players.py` (already created by [RFC 0004](0004-user-membership-player-character-gm-read-api.md)) gains nothing beyond what that RFC defined — `PlayerOut` is already the right create-response shape. `schemas/characters.py` (ditto) gains `CharacterCreate`, `CharacterPromote`, `CharacterUpdate`. `schemas/tenants.py` gains nothing new beyond [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s `TenantMembershipOut`, reused as both read and write response.
+`ItemCreate`-style new modules: `schemas/players.py` (already created by [RFC 0004](0004-user-membership-player-character-gm-read-api.md)) gains nothing beyond what that RFC defined — `PlayerOut` is already the right create-response shape. `schemas/characters.py` (ditto) gains `CharacterCreate`, `CharacterPromote`, `CharacterUpdate`. `schemas/tenants.py` gains nothing new beyond [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s `MembershipRosterEntryOut`, reused as both read and write response — not `TenantMembershipOut`, which that RFC's own roster revision replaced outright with `TenantRosterEntryOut`'s discriminated union before this RFC was drafted; a stale name never actually defined anywhere, fixed here.
 
 ## Not in scope
 
