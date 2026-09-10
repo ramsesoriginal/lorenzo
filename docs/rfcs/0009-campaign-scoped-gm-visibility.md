@@ -16,7 +16,7 @@ Clarified in discussion (not what was first assumed): GM sight is **per-campaign
 
 For each `CampaignGm` row the caller holds in this tenant:
 
-1. Start from every `Being` linked (via `CharacterPlayer`) to a `Player` of that campaign — the campaign's own roster of characters. These entities are GM-visible directly, not just their belongings.
+1. Start from every `Character` linked (via `CharacterPlayer`) to a `Player` of that campaign — the campaign's own roster of characters. These entities are GM-visible directly, not just their belongings. (`CharacterPlayer.character_entity_id` targets `Character.entity_id`, not `Being.entity_id`, since [RFC 0004](0004-user-membership-player-character-gm-read-api.md) layered a dedicated `character` table under `being` — terminology only, the actual entity-id set this walk produces is unaffected, since a `Character`'s `entity_id` still just *is* the same `entity.id` a bare `Being` would have had.)
 2. Extend through `Ownership` — anything owned by one of those characters.
 3. Extend through `Containment`, recursively — anything inside/on any entity reached so far (an item in a bag on a character; a bag in a chest that character owns) — using the same bounded, cycle-safe recursive-walk shape `routers/item_instances.py`'s `_recursive_descendants_cte`/`_MAX_CONTAINMENT_DEPTH` already establishes for exactly this kind of walk, since `Containment` is deliberately cycle-*tolerant* ([ADR 0016](../adr/0016-containment.md)).
 
@@ -57,7 +57,7 @@ Deliberately does not add a `campaign_id` parameter to `GET /tenants/{tenant_id}
 
 **Performance of the recursive reachability walk at request time.** Fine at this domain's scale (a campaign's character roster and their inventories are not large graphs) — revisit with caching/materialization if that stops being true, not designed preemptively.
 
-**Should the GM-reachable set include a character's own `Information` rows (not just what they own/contain)?** Step 1 above already includes the `Being` entities themselves directly, so yes — flagging only because it's easy to misread the walk as inventory-only and forget the characters are the starting nodes, not an afterthought.
+**Should the GM-reachable set include a character's own `Information` rows (not just what they own/contain)?** Step 1 above already includes the `Character` entities themselves directly, so yes — flagging only because it's easy to misread the walk as inventory-only and forget the characters are the starting nodes, not an afterthought.
 
 ## Consequences
 
