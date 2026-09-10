@@ -16,8 +16,61 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.release.outputs.pr }}
     steps:
       - uses: googleapis/release-please-action@v5
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # release-please's release commit only bumps pyproject.toml (+
+  # CHANGELOG.md + the manifest) - never uv.lock, which separately records
+  # the local project's own version too, so every bump leaves it stale
+  # (confirmed twice now: the 0.2.0 release and the 0.3.0 one). uv lock
+  # --check (apps/api/mise.toml's lint task) correctly catches this in CI
+  # but can't fix it. Hardcoded to apps/api directly, not matrixed/
+  # generalized over the manifest's packages - same reasoning as ci.yml's
+  # openapi-diff job: there's only the one package today, and a future
+  # second package might not even use uv.
+  sync-lockfile:
+    needs: release-please
+    if: needs.release-please.outputs.pr != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+          # Deliberately not GITHUB_TOKEN: a GITHUB_TOKEN-authored push to
+          # release-please's own PR branch only creates an
+          # "approval-required" pull_request run (GitHub's recursion
+          # guard for GITHUB_TOKEN-driven PR updates) - this PAT is an
+          # ordinary push as far as Actions is concerned, so the CI run
+          # it triggers on this fix-up commit starts immediately, same as
+          # any human push would.
+          token: ${{ secrets.RELEASE_PLEASE_PUSH_TOKEN }}
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+      - name: Regenerate uv.lock if the version bump left it stale
+        working-directory: apps/api
+        # actions/checkout leaves a ref-by-branch-name checkout in
+        # detached HEAD (confirmed against its own docs) - a bare `git
+        # push` has no branch to push to from there, so the target
+        # branch is passed through an env var and pushed by explicit
+        # refspec instead of interpolating the expression into the shell
+        # script directly.
+        env:
+          PR_BRANCH: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+        run: |
+          mise run lock
+          if git diff --quiet -- uv.lock; then
+            echo "uv.lock already in sync"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add uv.lock
+          git commit -m "chore(api): sync uv.lock with release-please's version bump"
+          git push origin "HEAD:refs/heads/$PR_BRANCH"
