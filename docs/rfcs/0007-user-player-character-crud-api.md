@@ -90,6 +90,8 @@ One transaction creates `Entity` + `Being` + **`Character`** ([RFC 0004](0004-us
 
 **Self-service campaign joining.** Today, only a manager can add a player — there's no "request to join" or invite-link flow a plain user can act on themselves. A `Campaign.is_joinable` flag or a separate invite-token mechanism could enable that later without redesigning anything decided here; not built now because nothing about visibility/discovery of joinable campaigns has been designed either (see [RFC 0003](0003-tenant-campaign-read-api.md)'s own open question about campaign-list visibility).
 
+**Reassigning a character to someone else's player needs `can_manage_campaign` on *every* campaign that character's `Player` rows belong to — [RFC 0005](0005-item-and-item-instance-crud-api.md) requires only *one* for its own analogous "give someone else's character an item" case.** Caught on cross-RFC review, not resolved here — see RFC 0005's own Open questions entry for the full framing. A defensible distinction exists (reassigning the character itself is a tenant-wide claim across every campaign it's rostered into, unlike an item just joining its already-shared inventory), but neither RFC states it as deliberate today.
+
 ## Consequences
 
 - No migration of this RFC's own — but it now depends on [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s migration (`character`, `owner_player_id`'s move off `being`, `character_player`/`group_member`'s retargeted FKs) and [RFC 0010](0010-created-by-updated-by-attribution.md)'s (`created_by`/`updated_by` on `entity`/`membership`/`player`/`character`) both having landed first, unlike this RFC's first draft, which depended on `app_user`/`membership`/`player`/`being`/`character_player` needing nothing further.
