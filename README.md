@@ -46,11 +46,11 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md).
 
 ## Usage
 
-Not yet — see [Roadmap](#roadmap) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md) for how the first app gets added.
+Not yet — `apps/api` has no UI of its own. See [Roadmap](#roadmap) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md) for how the next app (a frontend, bot, or mobile client) gets added.
 
 ## Configuration
 
-Copy [.env.example](.env.example) to `.env` — it already has the Postgres (`DATABASE_URL`/`MIGRATIONS_DATABASE_URL`) and Authgear values `apps/api` needs for local dev; each further app adds its own keys as it's scaffolded.
+[Quick start](#quick-start) above needs no `.env` — `apps/api`'s defaults already match `docker-compose`. Copy [.env.example](.env.example) to `.env` only to customize something, e.g. real Authgear tokens instead of the test suite's fake JWKS server — see [docs/guides/getting-started.md](docs/guides/getting-started.md) for where it needs to go (two places, not one). Each further app adds its own keys as it's scaffolded.
 
 ## Architecture
 
@@ -81,7 +81,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Both vertical slices that were in progress in parallel are now built and merged to `main`: simple inventory management (the full entity/component core, [ADR 0012](docs/adr/0012-entity-table.md)-[0019](docs/adr/0019-item-and-v-item.md), plus a read-only REST API, [ADR 0020](docs/adr/0020-rest-api-tenant-scoping-and-schemas.md)) and auth/users/campaigns/GM (Authgear, User/Tenant/Membership, Campaign/Player, Character/ownership, Campaign GM/orga — [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)-[0026](docs/adr/0026-campaign-gm-orga-and-access-rule.md)), plus production Authgear Cloud wiring ([ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)) on top. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for what's left.
+Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. Both vertical slices that were in progress in parallel are now built and merged to `main`: simple inventory management (the full entity/component core, [ADR 0012](docs/adr/0012-entity-table.md)-[0019](docs/adr/0019-item-and-v-item.md), plus a read-only REST API, [ADR 0020](docs/adr/0020-rest-api-tenant-scoping-and-schemas.md)) and auth/users/campaigns/GM (Authgear, User/Tenant/Membership, Campaign/Player, Character/ownership, Campaign GM/orga — [ADR 0009](docs/adr/0009-identity-provider-authgear.md), [0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)-[0026](docs/adr/0026-campaign-gm-orga-and-access-rule.md)), plus production Authgear Cloud wiring ([ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)) and per-character/per-group/public information visibility ([ADR 0028](docs/adr/0028-knowledge-and-group-membership.md)) on top. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for what's left.
 
 ## License
 
