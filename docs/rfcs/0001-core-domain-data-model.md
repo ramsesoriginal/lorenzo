@@ -46,6 +46,8 @@ Concrete types get a maintained view (`v_item` alongside `item`) exposing the co
 
 ### 1. Knowledge/information model: authored truths vs. redaction
 
+**Resolved for what gets built**: [ADR 0028](../adr/0028-knowledge-and-group-membership.md) builds `knowledge`/`group_member`/`information.is_public` exactly as specified below — the "authored truths" mechanism, not a redaction mechanism. What's still open is unchanged by that ADR: whether _some_ facts should instead be "one truth, redacted per audience," whether that's the default or authored-truths is, and how the two would coexist — none of that is decided, it's just not what ADR 0028 builds. Also still deferred: the temporal/event richness [docs/domain/entities-knowledge-and-visibility.md](../domain/entities-knowledge-and-visibility.md) asks for ("who learned what, and as of when") — ADR 0028's `knowledge` is a static knower-to-information link only.
+
 _Who_ can be a knower is settled (character, group, player, or everyone via `is_public` — see above). What's still open is _how_ multiple knowers relate to the same fact: as specified, different knowers link to different `information` rows — meaning a GM who wants character A to believe a lie has to author a second, separate `information` row for it, not just restrict visibility of the true one. That's probably right for a tool aimed at GMs who want to hand-craft rumors and misinformation, not just hide stats — but it's a real authoring-burden tradeoff, and it's not decided yet whether _some_ facts should instead be "one truth, redacted per audience" while others are "genuinely different truths per observer." Both might be needed; which is the default and how they coexist isn't resolved.
 
 ### 2. Tenancy split

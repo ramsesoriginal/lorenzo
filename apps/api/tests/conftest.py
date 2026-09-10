@@ -10,10 +10,11 @@ from asgi_lifespan import LifespanManager
 from httpx import ASGITransport, AsyncClient
 from jwt import PyJWKClient
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.dependencies import SessionDep, get_current_user, get_jwks_client
 from lorenzo_api.main import app
-from lorenzo_api.models import User
+from lorenzo_api.models import Membership, MembershipRole, Player, Tenant, User
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -63,6 +64,48 @@ async def test_user_id() -> AsyncGenerator[uuid.UUID]:
     async with admin_session_factory() as session:
         await session.delete(await session.get_one(User, user_id))
         await session.commit()
+
+
+async def make_tenant(user_id: uuid.UUID) -> uuid.UUID:
+    """A tenant with a single OWNER Membership for user_id - the shape
+    almost every REST-layer test needs. Promoted here after the identical
+    ~10 lines were independently duplicated in test_api_items.py,
+    test_api_item_instances.py, and test_api_payloads.py - a plain helper
+    function, not a fixture, since tests routinely need two (tenant_a/
+    tenant_b) and tear one down mid-test rather than only at test end.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
+        await session.commit()
+        return tenant.id
+
+
+async def delete_tenant(tenant_id: uuid.UUID) -> None:
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(Tenant, tenant_id))
+        await session.commit()
+
+
+async def make_player(
+    session: AsyncSession, *, tenant_id: uuid.UUID, campaign_id: uuid.UUID
+) -> Player:
+    """A fresh User + Player for one campaign. Promoted here after the same
+    helper was independently duplicated (save for an irrelevant debug-prefix
+    string) in test_knowledge.py and test_being_character_ownership.py.
+    Creates its own User rather than reusing test_user_id, so the caller
+    is responsible for deleting it too once done - matching both original
+    call sites' own existing cleanup.
+    """
+    user = User(authgear_subject_id=f"authgear|test-player-{uuid.uuid4()}")
+    session.add(user)
+    await session.flush()
+    player = Player(user_id=user.id, campaign_id=campaign_id, tenant_id=tenant_id)
+    session.add(player)
+    await session.flush()
+    return player
 
 
 @pytest.fixture

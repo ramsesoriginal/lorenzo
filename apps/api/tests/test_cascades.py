@@ -2,12 +2,15 @@ from _admin_db import admin_session_factory
 from sqlalchemy import text
 
 from lorenzo_api.models import (
+    Being,
     Containment,
     Entity,
     EntityPrototype,
     EntityStat,
     EntityStatGroup,
+    GroupMember,
     Information,
+    Knowledge,
     Payload,
     PayloadDescription,
     StatDefinition,
@@ -27,6 +30,8 @@ _CASCADE_TABLES = (
     "information",
     "payload",
     "payload_description",
+    "group_member",
+    "knowledge",
 )
 
 
@@ -64,6 +69,11 @@ async def test_deleting_tenant_cascades_through_every_table() -> None:
         payload = Payload(tenant_id=tenant_id, information_id=info.id)
         session.add(payload)
         await session.flush()
+        # b also doubles as group_member's character side - needs a Being
+        # row first (character_entity_id FKs to being.entity_id, not a bare
+        # entity.id).
+        session.add(Being(entity_id=b.id, tenant_id=tenant_id))
+        await session.flush()
 
         session.add_all(
             [
@@ -79,6 +89,8 @@ async def test_deleting_tenant_cascades_through_every_table() -> None:
                 PayloadDescription(
                     payload_id=payload.id, tenant_id=tenant_id, locale="en-US", content="x"
                 ),
+                GroupMember(group_entity_id=a.id, character_entity_id=b.id, tenant_id=tenant_id),
+                Knowledge(tenant_id=tenant_id, knower_entity_id=a.id, information_id=info.id),
             ]
         )
         await session.commit()
@@ -138,6 +150,10 @@ async def test_deleting_entity_cascades_its_own_rows_but_not_siblings() -> None:
         payload = Payload(tenant_id=tenant_id, information_id=info.id)
         session.add(payload)
         await session.flush()
+        # b doubles as group_member's character side - needs a Being row
+        # first (character_entity_id FKs to being.entity_id).
+        session.add(Being(entity_id=b_id, tenant_id=tenant_id))
+        await session.flush()
 
         session.add_all(
             [
@@ -157,6 +173,11 @@ async def test_deleting_entity_cascades_its_own_rows_but_not_siblings() -> None:
                 PayloadDescription(
                     payload_id=payload.id, tenant_id=tenant_id, locale="en-US", content="x"
                 ),
+                # A is group_member's group side (referencing B as the
+                # character) and knowledge's knower - both must disappear
+                # with A, without touching B.
+                GroupMember(group_entity_id=a_id, character_entity_id=b_id, tenant_id=tenant_id),
+                Knowledge(tenant_id=tenant_id, knower_entity_id=a_id, information_id=info.id),
             ]
         )
         await session.commit()
@@ -176,6 +197,8 @@ async def test_deleting_entity_cascades_its_own_rows_but_not_siblings() -> None:
             ("entity_prototype", "entity_id"),
             ("containment", "child_entity_id"),
             ("information", "entity_id"),
+            ("group_member", "group_entity_id"),
+            ("knowledge", "knower_entity_id"),
         ):
             count = (
                 await session.execute(

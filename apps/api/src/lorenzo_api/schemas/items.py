@@ -6,6 +6,7 @@ from typing import Self
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
 
+from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
 from lorenzo_api.schemas.common import EntitySummary
 
@@ -35,24 +36,25 @@ class DescriptionOut(BaseModel):
 
 class PictureRefOut(BaseModel):
     """A picture reference - a `url` pointing at the existing payload-content
-    endpoint, plus `file_type`. Deliberately *not* built from
-    `ItemViewMixin.pictures` (which returns bare `(data, file_type)` tuples
-    with no payload id to link through) - inlining raw picture bytes into a
-    paginated list response (`GET /items` can return up to 100 items per
-    page) would make list responses balloon for anything with real images,
-    and would be inconsistent with how the Entities endpoint represents the
-    exact same underlying data (`schemas/payloads.py`'s `PayloadPictureOut`,
-    also a `url`). `_picture_refs` below re-walks the same
-    entity.information -> payloads -> picture path `ItemViewMixin.pictures`
-    does internally, keeping the `Payload` row (and its id) instead of
-    discarding it.
+    endpoint, plus `file_type`. `_picture_refs` below walks
+    entity.information -> payloads -> picture directly rather than through
+    an `ItemViewMixin` property (there never was one - checked, `pictures`
+    would have needed the owning `Payload` row's own id to link through,
+    not just its bytes, so it was never a fit here). Inlining raw picture
+    bytes into a paginated list response (`GET /items` can return up to
+    100 items per page) would make list responses balloon for anything
+    with real images, and would be inconsistent with how the Entities
+    endpoint represents the exact same underlying data
+    (`schemas/payloads.py`'s `PayloadPictureOut`, also a `url`).
     """
 
     url: str
     file_type: str
 
 
-def _picture_refs(entity: Entity, request: Request) -> list[PictureRefOut]:
+def _picture_refs(
+    entity: Entity, request: Request, visibility: InformationVisibility
+) -> list[PictureRefOut]:
     return [
         PictureRefOut(
             url=str(
@@ -63,7 +65,7 @@ def _picture_refs(entity: Entity, request: Request) -> list[PictureRefOut]:
             file_type=payload.picture.file_type,
         )
         for info in entity.information
-        if info.type == "description"
+        if info.type == "description" and visibility.can_see(info)
         for payload in info.payloads
         if payload.picture is not None
     ]
@@ -104,10 +106,12 @@ class ItemOut(BaseModel):
     """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
 
     Constructing this requires the source `VItem` to already have its
-    entity->information->payloads->description/picture and
+    entity->information->payloads->description/picture,
+    entity->information->knowledge_links (ADR 0028 - `descriptions` is
+    visibility-gated, not a bare property anymore), and
     entity->stats->stat_definition->stat_group eager-loaded (see
     `routers.items.eager_load_options`, the exact recipe proven in
-    `tests/test_v_item.py`) - the seven wrapped properties raise
+    `tests/test_v_item.py`) - the six wrapped properties/methods raise
     MissingGreenlet otherwise, they do not silently lazy-load.
     """
 
@@ -133,7 +137,9 @@ class ItemOut(BaseModel):
     tags: list[TagValueOut]
 
     @classmethod
-    def from_v_item(cls, view: VItem, request: Request) -> Self:
+    def from_v_item(
+        cls, view: VItem, request: Request, *, visibility: InformationVisibility
+    ) -> Self:
         return cls(
             entity_id=view.entity_id,
             title=view.title,
@@ -146,8 +152,8 @@ class ItemOut(BaseModel):
             container_entity_id=view.container_entity_id,
             is_magical=view.is_magical,
             is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions),
-            pictures=_picture_refs(view.entity, request),
+            descriptions=_descriptions_out(view.descriptions(visibility)),
+            pictures=_picture_refs(view.entity, request, visibility),
             physical_stats=_stats_out(view.physical_stats),
             economic_stats=_stats_out(view.economic_stats),
             destroyable_stats=_stats_out(view.destroyable_stats),
@@ -185,7 +191,9 @@ class ItemInstanceOut(BaseModel):
     tags: list[TagValueOut]
 
     @classmethod
-    def from_v_item_instance(cls, view: VItemInstance, request: Request) -> Self:
+    def from_v_item_instance(
+        cls, view: VItemInstance, request: Request, *, visibility: InformationVisibility
+    ) -> Self:
         return cls(
             entity_id=view.entity_id,
             owner_entity_id=view.owner_entity_id,
@@ -199,8 +207,8 @@ class ItemInstanceOut(BaseModel):
             container_entity_id=view.container_entity_id,
             is_magical=view.is_magical,
             is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions),
-            pictures=_picture_refs(view.entity, request),
+            descriptions=_descriptions_out(view.descriptions(visibility)),
+            pictures=_picture_refs(view.entity, request, visibility),
             physical_stats=_stats_out(view.physical_stats),
             economic_stats=_stats_out(view.economic_stats),
             destroyable_stats=_stats_out(view.destroyable_stats),

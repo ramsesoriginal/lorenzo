@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import Request
 from pydantic import BaseModel
 
+from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, EntityStat, Information, StatValueType
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
@@ -87,7 +88,9 @@ class EntityDetailOut(BaseModel):
     children: list[EntitySummary]
 
     @classmethod
-    def from_entity(cls, entity: Entity, request: Request) -> EntityDetailOut:
+    def from_entity(
+        cls, entity: Entity, request: Request, *, visibility: InformationVisibility
+    ) -> EntityDetailOut:
         return cls(
             id=entity.id,
             name=entity.name,
@@ -101,8 +104,14 @@ class EntityDetailOut(BaseModel):
             stat_groups=[
                 EntitySummary(id=group.id, name=group.name) for group in entity.stat_groups
             ],
+            # Filtered by the caller's resolved information_visibility
+            # (ADR 0028's addendum) - required, no default, so a caller
+            # that forgets to pass it fails loudly rather than silently
+            # defaulting toward showing everything.
             information=[
-                InformationOut.from_information(info, request) for info in entity.information
+                InformationOut.from_information(info, request)
+                for info in entity.information
+                if visibility.can_see(info)
             ],
             prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
             instances=[EntitySummary.from_entity(e) for e in entity.instances],

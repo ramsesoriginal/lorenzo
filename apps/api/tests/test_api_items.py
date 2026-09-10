@@ -1,6 +1,7 @@
 import uuid
 
 from _admin_db import admin_session_factory
+from conftest import delete_tenant, make_tenant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
@@ -21,20 +22,40 @@ from lorenzo_api.models import (
 )
 
 
-async def _make_tenant(user_id: uuid.UUID) -> uuid.UUID:
+async def _make_item_with_description(
+    tenant_id: uuid.UUID, *, is_public: bool
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """Minimal fixture for information-visibility tests below - just an
+    item with one description, no stats/picture/container. Returns
+    (entity_id, information_id).
+    """
     async with admin_session_factory() as session:
-        tenant = Tenant()
-        session.add(tenant)
+        entity = Entity(tenant_id=tenant_id, name="Sword")
+        session.add(entity)
         await session.flush()
-        session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
+        session.add(Item(entity_id=entity.id, tenant_id=tenant_id))
+        info = Information(
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            title="A fine sword",
+            type="description",
+            is_public=is_public,
+        )
+        session.add(info)
+        await session.flush()
+        payload = Payload(tenant_id=tenant_id, information_id=info.id)
+        session.add(payload)
+        await session.flush()
+        session.add(
+            PayloadDescription(
+                payload_id=payload.id,
+                tenant_id=tenant_id,
+                locale="en-US",
+                content="A gleaming blade.",
+            )
+        )
         await session.commit()
-        return tenant.id
-
-
-async def _delete_tenant(tenant_id: uuid.UUID) -> None:
-    async with admin_session_factory() as session:
-        await session.delete(await session.get_one(Tenant, tenant_id))
-        await session.commit()
+        return entity.id, info.id
 
 
 async def _make_bare_item(tenant_id: uuid.UUID, name: str) -> uuid.UUID:
@@ -103,7 +124,11 @@ async def _make_full_item(
         )
 
         info = Information(
-            tenant_id=tenant_id, entity_id=entity.id, title="A fine sword", type="description"
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            title="A fine sword",
+            type="description",
+            is_public=True,
         )
         session.add(info)
         await session.flush()
@@ -134,7 +159,7 @@ async def _make_full_item(
 async def test_get_item_returns_full_wrapped_shape(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
     # Any entity works as a container - it need not itself be item-tagged.
     chest_id = await _make_bare_item(tenant_id, "irrelevant-marker")
     entity_id, picture_payload_id = await _make_full_item(tenant_id, container_id=chest_id)
@@ -170,26 +195,83 @@ async def test_get_item_returns_full_wrapped_shape(
     assert body["destroyable_stats"] == []
     assert body["damaging_stats"] == []
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_hides_gm_only_description_from_a_plain_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The same information-visibility gap fixed for GET /entities/{id} and
+    GET /payloads/{id}/content (ADR 0028's addendum) - confirmed to exist
+    here too and fixed the same way: a description with no is_public and
+    no Knowledge row is GM-only by default and must not appear here.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _ = await _make_item_with_description(tenant_id, is_public=False)
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["descriptions"] == []
+    assert body["pictures"] == []
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_orga_sees_gm_only_description(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
+        await session.commit()
+    entity_id, _ = await _make_item_with_description(tenant_id, is_public=False)
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
+    assert response.status_code == 200
+    assert response.json()["descriptions"] == [{"content": "A gleaming blade.", "locale": "en-US"}]
+
+    await delete_tenant(tenant_id)
+
+
+async def test_list_items_hides_gm_only_description_from_a_plain_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Proves the visibility check is applied per-item in the paginated
+    list too, not only on the single-item GET.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    await _make_item_with_description(tenant_id, is_public=False)
+
+    response = await client.get(f"/tenants/{tenant_id}/items")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["descriptions"] == []
+
+    await delete_tenant(tenant_id)
 
 
 async def test_get_item_404_for_unknown_id(client: AsyncClient, test_user_id: uuid.UUID) -> None:
-    tenant_id = await _make_tenant(test_user_id)
+    tenant_id = await make_tenant(test_user_id)
 
     response = await client.get(f"/tenants/{tenant_id}/items/00000000-0000-0000-0000-000000000000")
 
     assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
-    await _delete_tenant(tenant_id)
+    await delete_tenant(tenant_id)
 
 
 async def test_get_item_404_for_wrong_tenant(client: AsyncClient, test_user_id: uuid.UUID) -> None:
     # Membership on *both* tenants, deliberately - the 404 here must be
     # about the item belonging to a different tenant, not merely about
     # missing membership in tenant_b (a different, already-covered case).
-    tenant_a = await _make_tenant(test_user_id)
-    tenant_b = await _make_tenant(test_user_id)
+    tenant_a = await make_tenant(test_user_id)
+    tenant_b = await make_tenant(test_user_id)
     entity_id = await _make_bare_item(tenant_a, "Sword")
 
     # Item exists, but under tenant_a - requesting it via tenant_b's path
@@ -197,8 +279,8 @@ async def test_get_item_404_for_wrong_tenant(client: AsyncClient, test_user_id: 
     response = await client.get(f"/tenants/{tenant_b}/items/{entity_id}")
     assert response.status_code == 404
 
-    await _delete_tenant(tenant_a)
-    await _delete_tenant(tenant_b)
+    await delete_tenant(tenant_a)
+    await delete_tenant(tenant_b)
 
 
 async def test_get_item_404_for_unknown_tenant(client: AsyncClient) -> None:
@@ -211,8 +293,8 @@ async def test_get_item_404_for_unknown_tenant(client: AsyncClient) -> None:
 async def test_list_items_paginates_and_is_tenant_isolated(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    tenant_a = await _make_tenant(test_user_id)
-    tenant_b = await _make_tenant(test_user_id)
+    tenant_a = await make_tenant(test_user_id)
+    tenant_b = await make_tenant(test_user_id)
     sword_id = await _make_bare_item(tenant_a, "Sword")
     shield_id = await _make_bare_item(tenant_a, "Shield")
     await _make_bare_item(tenant_b, "Other tenant's item")
@@ -225,8 +307,8 @@ async def test_list_items_paginates_and_is_tenant_isolated(
     returned_ids = {item["entity_id"] for item in body["items"]}
     assert returned_ids == {str(sword_id), str(shield_id)}
 
-    await _delete_tenant(tenant_a)
-    await _delete_tenant(tenant_b)
+    await delete_tenant(tenant_a)
+    await delete_tenant(tenant_b)
 
 
 async def test_list_items_404_for_unknown_tenant(client: AsyncClient) -> None:

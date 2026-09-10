@@ -4,6 +4,7 @@ from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.db import engine
+from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -23,10 +24,19 @@ from lorenzo_api.models import (
     VItemInstance,
 )
 
+# A trivial all-seeing visibility context (is_orga=True short-circuits
+# can_see unconditionally) - this file proves the eager-load recipe and
+# property/method walk work correctly, not information_visibility.py's own
+# rules (see test_information_visibility.py and test_api_entities.py for
+# that), so there's no real user/tenant/membership to resolve one from.
+_SEES_EVERYTHING = InformationVisibility(
+    is_orga=True, player_ids=frozenset(), knower_entity_ids=frozenset()
+)
+
 
 def _eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[ORMOption, ORMOption, ORMOption]:
+) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption]:
     return (
         selectinload(view_entity_attr)
         .selectinload(Entity.information)
@@ -36,6 +46,9 @@ def _eager_load_options(
         .selectinload(Entity.information)
         .selectinload(Information.payloads)
         .selectinload(Payload.picture),
+        selectinload(view_entity_attr)
+        .selectinload(Entity.information)
+        .selectinload(Information.knowledge_links),
         selectinload(view_entity_attr)
         .selectinload(Entity.stats)
         .selectinload(EntityStat.stat_definition)
@@ -139,8 +152,7 @@ async def test_v_item_covers_only_the_item_table() -> None:
         assert sword_view.weight == 3
         assert sword_view.is_magical is True
         assert sword_view.container_entity_id == chest_id
-        assert sword_view.descriptions == [("A gleaming blade.", "en-US")]
-        assert sword_view.pictures == [(b"\x89PNG", "image/png")]
+        assert sword_view.descriptions(_SEES_EVERYTHING) == [("A gleaming blade.", "en-US")]
         assert sword_view.physical_stats == [("weight", 3)]
         assert sword_view.tags == [("is_magical", True)]
         assert sword_view.economic_stats == []

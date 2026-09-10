@@ -11,6 +11,7 @@ from lorenzo_api.db import Base, TenantFk
 if TYPE_CHECKING:
     from lorenzo_api.models.character_player import CharacterPlayer
     from lorenzo_api.models.entity import Entity
+    from lorenzo_api.models.group_member import GroupMember
     from lorenzo_api.models.player import Player
 
 
@@ -40,6 +41,12 @@ class Being(Base):
         lazy="raise_on_sql", back_populates="owned_beings"
     )
     player_links: Mapped[list[CharacterPlayer]] = relationship(
+        lazy="raise_on_sql",
+        back_populates="character",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    group_links: Mapped[list[GroupMember]] = relationship(
         lazy="raise_on_sql",
         back_populates="character",
         cascade="all, delete-orphan",
