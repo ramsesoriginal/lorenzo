@@ -61,8 +61,11 @@ Start with [docs/architecture/overview.md](docs/architecture/overview.md) and th
 - [Domain](docs/domain/README.md) — what Lorenzo actually is, in plain language: the world model, repositories, entities/knowledge/visibility
 - [Architecture](docs/architecture/overview.md) — the technical design
 - [ADRs](docs/adr/README.md) — why things are the way they are
+- [RFCs](docs/rfcs/README.md) — bigger proposals and open questions, not decided yet
 - [Guides](docs/guides/README.md) — task-oriented how-tos
 - [Operations](docs/operations/README.md) — releasing, GitHub setup
+- [Reference](docs/reference/README.md) — API docs, configuration
+- [Brand](docs/brand/README.md) — visual identity: logo, mascot, color, type, and voice
 
 ## Development
 
