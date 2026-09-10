@@ -19,15 +19,40 @@ Every campaign-nested endpoint below is gated by [RFC 0003](0003-tenant-campaign
 - `players: list[PlayerSummaryOut]` — every `Player` row this user holds, across every tenant/campaign (`User.players`, already a `back_populates` relationship, just not eager-loaded/exposed yet).
 - `campaign_gm_grants: list[CampaignSummaryOut]` — every campaign this user GMs (`User.campaign_gms`, joined through to `Campaign`, reusing [RFC 0003](0003-tenant-campaign-read-api.md)'s `CampaignSummaryOut`).
 
+`PlayerSummaryOut(id, tenant_id, campaign_id, characters: list[CharacterSummaryOut])` — a bare `Player` row alone (just ids) wouldn't answer anything useful here; a caller reading their own `/me` needs to know not just *which* campaigns they're in but *which characters they play there*, resolved through `character_player` the same way `PlayerOut` (below) resolves it for the campaign-scoped roster view. Unlike `PlayerOut`, this one carries its own `tenant_id`/`campaign_id` explicitly — `/me` spans every tenant, so there's no URL scoping to infer them from the way a campaign-nested route already has both in its path.
+
 This one response is the concrete answer to "user → owner\|orga\|member of tenant → \[player(campaign) \| GM(campaign)\]" for the caller's own identity — the single place a client reads "everything I am, everywhere," matching this endpoint's existing "prove identity end-to-end" spirit rather than adding a second, competing "who am I" shape elsewhere.
 
-### Tenant-wide membership roster
+### Tenant-wide roster
 
 | Method | Path | Access gate | Response |
 | --- | --- | --- | --- |
-| GET | `/tenants/{tenant_id}/memberships` | `get_tenant_context` | `Page[TenantMembershipOut]` |
+| GET | `/tenants/{tenant_id}/memberships` | `get_tenant_context` | `Page[TenantRosterEntryOut]` |
 
-`TenantMembershipOut(user_id, role)` — deliberately a **new** schema, not a reuse of the existing `MembershipOut(tenant_id, role)`. The existing one is shaped for `/me`'s "which tenants, from my perspective" (one user, many tenants); this endpoint is the inverse ("which users, from one tenant's perspective") and needs `user_id` instead of `tenant_id` in the body — same underlying table, genuinely different projection, so conflating them would mean overloading one schema class to mean two different things depending on which endpoint built it. This is the tenant-wide admin roster: only owner/orga see who else administers their world, consistent with `get_tenant_context`'s existing scope.
+**Broadened from a pure membership list to the tenant's full roster** — every user with *any* standing in this tenant, not just its tenant-wide admins. Two variants, a discriminated union matching the `PayloadOut` precedent ([ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md)) rather than one schema with fields that are only sometimes meaningful:
+
+```python
+class MembershipRosterEntryOut(BaseModel):
+    kind: Literal["membership"] = "membership"
+    user_id: uuid.UUID
+    role: str  # "owner" | "orga"
+
+class PlayerRosterEntryOut(BaseModel):
+    kind: Literal["player"] = "player"
+    user_id: uuid.UUID
+    campaign_id: uuid.UUID
+    characters: list[CharacterSummaryOut]
+
+TenantRosterEntryOut = Annotated[
+    MembershipRosterEntryOut | PlayerRosterEntryOut, Field(discriminator="kind")
+]
+```
+
+One row per relationship, not per user — a user who is both `ORGA` and a player in two campaigns appears three times, once per capacity, the same flat shape `Membership`/`Player` already have as separate tables rather than one aggregated per-user summary. `PlayerRosterEntryOut` rows are sourced the same way [RFC 0003](0003-tenant-campaign-read-api.md)'s `is_tenant_participant` already queries — every `Player` row where `Player.tenant_id` matches (already denormalized, no join through `Campaign` needed), each with `characters` resolved through `character_player` exactly like `PlayerOut` below.
+
+**Naming tension, flagged rather than silently resolved**: the path (`.../memberships`) and the old schema name both said "membership" specifically, and this response is no longer just that. Kept the path as-is here to stay a minimal, additive change rather than a rename — but `TenantMembershipOut` doesn't survive this revision, replaced outright by `TenantRosterEntryOut`. Revisit the path itself if this reads as confusing in practice.
+
+Still gated by `get_tenant_context`, unchanged: only tenant-wide members see the *whole* roster this way, consistent with that dependency's existing scope. An ordinary player doesn't need this endpoint to find their own standing — `/me` already covers that.
 
 ### Campaign roster: players, their characters, and GMs
 
@@ -52,9 +77,11 @@ Deliberately bare-tenant-scoped, not campaign-nested: a character (`Being`) has 
 
 `CharacterSummaryOut(entity_id, name, is_pc)`; `CharacterOut` adds `owner_player_id: uuid.UUID | None` and `players: list[PlayerSummaryOut]` (via `character_player` again, this time from the character's side — `Being.player_links`). `is_pc` is the derived fact RFC 0001/RFC 0002 already establish (`owner_player_id IS NOT NULL`), computed in the schema's `from_being` classmethod, not stored.
 
+**Accepted minor redundancy**: reusing `PlayerSummaryOut` (now carrying its own `characters` list, above) for `CharacterOut.players` means each returned player entry redundantly re-includes the very character being viewed, among any others that player controls — a small, self-referential wart, not a bug, and not worth a fourth schema variant just to trim it.
+
 New exceptions (`exceptions.py`): `PlayerNotFoundError`, `CharacterNotFoundError` — same one-per-condition convention as every existing `NotFoundProblem` subclass.
 
-New schema modules: `schemas/players.py` (`PlayerSummaryOut`, `PlayerOut`, `PlayerDetailOut`), `schemas/characters.py` (`CharacterSummaryOut`, `CharacterOut`), plus `TenantMembershipOut`/`GmOut` added to `schemas/tenants.py`/a new `schemas/campaigns.py`-adjacent home (`GmOut` fits naturally alongside campaign-roster concerns, so it lives in `schemas/campaigns.py` rather than a one-class module of its own).
+New schema modules: `schemas/players.py` (`PlayerSummaryOut`, `PlayerOut`, `PlayerDetailOut`), `schemas/characters.py` (`CharacterSummaryOut`, `CharacterOut`), plus `MembershipRosterEntryOut`/`PlayerRosterEntryOut`/`TenantRosterEntryOut`/`GmOut` added to `schemas/tenants.py`/a new `schemas/campaigns.py`-adjacent home (`GmOut` fits naturally alongside campaign-roster concerns, so it lives in `schemas/campaigns.py` rather than a one-class module of its own).
 
 ## Not in scope
 
@@ -66,7 +93,9 @@ New schema modules: `schemas/players.py` (`PlayerSummaryOut`, `PlayerOut`, `Play
 
 ## Open questions
 
-**Orga opt-out visibility.** There's no dedicated `GET .../orga-opt-outs` endpoint here — a caller's own opt-out state is implicit in whether they show up as a player/GM elsewhere, and a dedicated listing wasn't asked for. [RFC 0006](0006-campaign-crud-api.md) covers the mutation side (opting in/out); a read endpoint for "which campaigns has this orga opted out of" can be added later without redesigning anything here if it turns out to be needed.
+**Tenant-admin opt-out visibility.** There's no dedicated `GET .../admin-opt-outs` endpoint here — a caller's own opt-out state is implicit in whether they show up as a player/GM elsewhere, and a dedicated listing wasn't asked for. [RFC 0006](0006-campaign-crud-api.md) covers the mutation side (opting in/out, `TenantAdminCampaignOptOut` — renamed from `OrgaCampaignOptOut` once [RFC 0003](0003-tenant-campaign-read-api.md) let `OWNER` share the same bypass); a read endpoint for "which campaigns has this admin opted out of" can be added later without redesigning anything here if it turns out to be needed.
+
+**Should `CampaignGm` grants be a third roster variant** (`kind="gm"`, alongside `membership`/`player` above)? Not added here — only players were asked for, and today's tenant-wide roster genuinely doesn't show GMs at all, same gap it had before this revision. The discriminated-union shape makes adding one a small, additive change later, not a redesign.
 
 **`PlayerOut.characters` versus roster-reuse across campaigns.** A character linked to a player in *this* campaign might also appear in a sibling campaign's roster (same tenant, [ADR 0025](../adr/0025-character-being-and-ownership.md)'s reuse mechanism) — this endpoint doesn't flag that fact anywhere in the response. Not addressed here; the tenant-wide `GET /tenants/{tenant_id}/characters/{character_id}` is where a client would discover every campaign a character is linked to, by design (that's exactly what its own `players` field, unioned across campaigns, is for).
 
@@ -74,5 +103,5 @@ New schema modules: `schemas/players.py` (`PlayerSummaryOut`, `PlayerOut`, `Play
 
 - No migration: every table this RFC reads (`membership`, `player`, `being`, `character_player`, `campaign_gm`) already exists.
 - Closes the gap [ADR 0022](../adr/0022-user-tenant-membership.md) and [ADR 0026](../adr/0026-campaign-gm-orga-and-access-rule.md) both explicitly flagged and deferred: an ordinary player or GM can now reach data about their own campaign membership without needing (and wrongly failing) a tenant-wide `Membership` check.
-- `PlayerOut`/`CharacterOut`'s eager-load chains (`character_links`/`player_links`/`owned_beings`) need the same `selectinload`-up-front discipline as every other relationship in this codebase (`lazy="raise_on_sql"`, [ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)) — skipping it raises, it doesn't silently N+1.
+- `PlayerOut`/`CharacterOut`/`PlayerSummaryOut`/`PlayerRosterEntryOut`'s eager-load chains (`character_links`/`player_links`/`owned_beings`) need the same `selectinload`-up-front discipline as every other relationship in this codebase (`lazy="raise_on_sql"`, [ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)) — skipping it raises, it doesn't silently N+1. `GET /me` and the tenant roster both gain a real eager-load chain they didn't need before this revision (`User.players`/tenant-wide `Player` query → `character_links` → `Being` → `Entity`, for each row's `characters` list).
 - `tests/conftest.py` has no `make_campaign`/`make_being`/`make_campaign_gm` helper today — every existing test constructs these inline, repeatedly, across 8+ files. Implementing this RFC's tests is a natural point to promote shared helpers, mirroring how `make_tenant`/`make_player` were themselves promoted after duplication was noticed ([ADR](../adr/0023-authgear-token-verification.md) history) — not this RFC's decision to make, but worth flagging so it isn't rediscovered as a surprise mid-implementation.
