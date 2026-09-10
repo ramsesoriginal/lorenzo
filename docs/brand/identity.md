@@ -178,7 +178,10 @@ The current official asset set is:
 | `lorenzo_horizontal_lockup_dark_bg.svg`    | gold shaded mark + Paper wordmark      | default horizontal logo on dark surfaces            |
 | `lorenzo_horizontal_lockup_monochrome.svg` | monochrome horizontal lockup           | single-color or production-constrained use          |
 | `mascot_emblem.png`                        | illustrated mascot badge               | community, stickers, merch, editorial brand moments |
+| `mascot_emblem_web.png`                    | web-optimized mascot emblem derivative | README hero art and other size-constrained embeds   |
 | `mascot.png`                               | Lorenzo mascot illustration            | onboarding, product illustration, social, editorial |
+| `social_banner.png`                        | full illustrated social banner master  | source art for social/OG preview images             |
+| `social_banner_github.png`                 | GitHub social preview derivative       | Settings → Social preview (1280×640, under 1MB)     |
 
 Treat SVG files as the preferred production masters for marks and lockups. Keep the mascot artwork as high-resolution raster artwork unless a deliberate simplified vector redraw is commissioned. Do not auto-trace the mascot illustration into a large, noisy SVG.
 
@@ -1096,6 +1099,10 @@ Generate PNG/WebP/AVIF derivatives from the SVG masters as needed.
 Do not treat raster exports as the source of truth for logos.
 
 Mascot imagery is the exception: the current mascot and mascot emblem are intentionally raster illustration masters.
+
+`mascot_emblem_web.png` is one such derivative: `mascot_emblem.png` resized to 640px wide and palette-quantized for contexts (README hero art, chat/embed previews) where the 5016px master's file size would be wasteful. Regenerate it the same way if the master is ever redrawn.
+
+`social_banner_github.png` is another: `social_banner.png` resized to exactly 1280×640 (GitHub's recommended social-preview size) and kept truecolor rather than palette-quantized, since quantizing introduced visible banding in the illustration's blurred-foliage depth-of-field — 256 colors is fine for the flat-shaded mascot emblem but not for soft gradients. Regenerate at 1280×640 truecolor if the master changes.
 
 ### 16.4 File naming
 
