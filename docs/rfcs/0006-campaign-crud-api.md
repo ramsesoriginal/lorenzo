@@ -1,0 +1,75 @@
+# RFC: Campaign CRUD API
+
+Status: proposed — builds on [RFC 0003](0003-tenant-campaign-read-api.md)'s `get_campaign_context` and [RFC 0005](0005-item-and-item-instance-crud-api.md)'s write-API conventions; no schema changes
+
+## Context
+
+`campaign` has no REST surface at all yet ([RFC 0003](0003-tenant-campaign-read-api.md) adds read-only); `campaign_gm`/`orga_campaign_opt_out` have never had one either — [ADR 0026](../adr/0026-campaign-gm-orga-and-access-rule.md) built both tables and the access rule itself but says outright "no FastAPI dependency or campaign-scoped route exists yet... matching this vertical slice's own stated scope (data model + auth mechanism first, a fuller REST surface later)." This RFC is that fuller surface, for campaigns specifically.
+
+Scope boundary, stated up front: this RFC owns the `campaign` resource itself (name, game system) and *who's authorized to run it* (`campaign_gm` grants, `orga_campaign_opt_out`). It does **not** own the player roster or characters — that's [RFC 0007](0007-user-player-character-crud-api.md). The split mirrors a GitHub repo's own administration model: who can push (collaborators/roles) is a repo-administration concern even though the commits themselves are a separate axis.
+
+## Decision
+
+### `can_manage_campaign` (new, `campaign_access.py`)
+
+```python
+async def can_manage_campaign(
+    session: AsyncSession, *, user_id: uuid.UUID, campaign_id: uuid.UUID, tenant_id: uuid.UUID
+) -> bool:
+    """A CampaignGm row, OR tenant-wide OWNER/ORGA - regardless of any
+    OrgaCampaignOptOut for this campaign. Deliberately does not reuse
+    can_access_campaign wholesale: that predicate is about *play* visibility
+    (an orga's opt-out exists so they can play an ordinary character without
+    their admin access bleeding in, RFC 0002) - administrative capability
+    over the campaign as an object is a different axis, tied to who can
+    administer the tenant at all (ADR 0010: "ownership transfer is just
+    changing which membership row has role=owner"), and an opt-out
+    shouldn't strip that. A plain player is never a manager."""
+```
+
+Every mutation below checks `get_campaign_context` first (404 if the caller has no read access at all, matching the existing non-enumerable pattern), then `can_manage_campaign` for the specific write (`403 CampaignManagementForbiddenError` if read-but-not-manage) — the two-tier 404-then-403 shape [RFC 0005](0005-item-and-item-instance-crud-api.md) established.
+
+### Endpoints
+
+| Method | Path | Auth | Body | Response |
+| --- | --- | --- | --- | --- |
+| POST | `/tenants/{tenant_id}/campaigns` | `get_tenant_context` (tenant-wide) | `CampaignCreate` | `201 CampaignOut` |
+| PATCH | `/tenants/{tenant_id}/campaigns/{campaign_id}` | `get_campaign_context` + `can_manage_campaign` | `CampaignUpdate` | `200 CampaignOut` |
+| DELETE | `/tenants/{tenant_id}/campaigns/{campaign_id}` | `get_campaign_context` + `get_tenant_context` | — (`?force=` query flag) | `204` |
+| PUT | `/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}` | `get_campaign_context` + `can_manage_campaign` | — | `200 CampaignOut` |
+| DELETE | `/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}` | `get_campaign_context` + (`can_manage_campaign` or self) | — | `200 CampaignOut` |
+| PUT | `/tenants/{tenant_id}/campaigns/{campaign_id}/orga-opt-out` | `get_campaign_context`, self only | — | `200 CampaignOut` |
+| DELETE | `/tenants/{tenant_id}/campaigns/{campaign_id}/orga-opt-out` | `get_campaign_context`, self only | — | `200 CampaignOut` |
+
+**`POST /campaigns`** — `CampaignCreate{name, game_system}`, both required, matching [ADR 0024](../adr/0024-campaign-and-player.md)'s own no-default choice for `game_system`. Gated by plain `get_tenant_context`, not `can_manage_campaign` — there's no campaign to manage yet, so creating one is squarely the bare-tenant-collection tier from [RFC 0003](0003-tenant-campaign-read-api.md)'s access-gating rule.
+
+**`PATCH /campaigns/{id}`** — `CampaignUpdate{name: str | None = None, game_system: str | None = None}`. Changing `game_system` mid-campaign is a real consequence worth naming, not blocking: [ADR 0024](../adr/0024-campaign-and-player.md) makes `game_system` "the natural home for RFC 0001's... which prototype variant a campaign's entities resolve through" — changing it retroactively changes which prototype variants every entity in the campaign resolves through on next read. This RFC doesn't add a confirmation step for that; flagged here so it isn't a silent surprise.
+
+**`DELETE /campaigns/{id}`** requires *more* than `can_manage_campaign` — it's gated by `get_tenant_context` specifically (tenant-wide membership), not `can_manage_campaign`'s broader GM-or-admin set. A GM can rename their own campaign but can't unilaterally destroy it; deletion is a tenant-admin decision. Guarded: `409 CampaignNotEmptyError` if any `Player` or `CampaignGm` row still references this campaign, unless the caller passes `?force=true`, in which case the existing `ON DELETE CASCADE` chain runs as designed. What actually cascades, stated plainly (this is exactly the moment [ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)'s own consequences section flagged as needing a revisit — "no tenant-deletion API exists yet... revisit before any real deletion endpoint ships"): every `Player` row for this campaign (cascade), every `CharacterPlayer` link through those players (cascade), every `CampaignGm`/`OrgaCampaignOptOut` grant for it (cascade). Any `Being` whose *primary* owner (`owner_player_id`) was one of the deleted players loses that link (`SET NULL`, becomes an NPC per [ADR 0025](../adr/0025-character-being-and-ownership.md)'s existing design) but is **not itself deleted** — roster reuse means it may still be linked into other campaigns via other `character_player` rows, and even if not, a character outliving the campaign it was created in is the correct, existing cascade shape, not a new decision this RFC makes.
+
+**GM grants** — `PUT .../gms/{user_id}` is idempotent (creating a `CampaignGm` row that already exists is a no-op, not a `409`). `DELETE .../gms/{user_id}` allows self-removal in addition to `can_manage_campaign`, mirroring how a collaborator can always leave something they were granted access to. **No last-GM guard**, deliberately contrasted with [RFC 0007](0007-user-player-character-crud-api.md)'s last-owner guard on tenant `Membership`: a campaign with zero GMs is still fully administrable by any tenant-wide member (`Membership` is the only *structurally* single point of tenant administration; campaign GM-ing isn't), so there's no lockout risk to guard against.
+
+**Orga opt-out** is self-service only — no `user_id` in the path, always the caller. `PUT` requires the caller to currently hold tenant-wide `ORGA` (`422` if not — opting out of something that isn't bypassing your visibility in the first place is meaningless, not merely redundant, hence `422` over a silent no-op). `DELETE` (opting back in) has no such precondition; deleting a row that doesn't exist is already a no-op.
+
+### Schemas
+
+`schemas/campaigns.py` (already created by [RFC 0003](0003-tenant-campaign-read-api.md)) gains `CampaignCreate`, `CampaignUpdate`. `GmOut` (from [RFC 0004](0004-user-membership-player-character-gm-read-api.md)) is reused as-is for the GM-grant responses' implicit roster — the grant/revoke endpoints themselves return `CampaignOut`, not a GM list, since [ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md)'s own precedent is that a mutation returns the resource it acted on, and here that's unambiguously the campaign, not its GM roster.
+
+## Not in scope
+
+**Player and character mutation** — [RFC 0007](0007-user-player-character-crud-api.md).
+
+**Campaign archiving as a softer alternative to hard delete.** A worthwhile idea (keep history without the destructive cascade above) but a genuinely new mechanism (a status column, filtering it out of default list views) beyond what's asked here — named as a direction, not designed.
+
+## Open questions
+
+**Should `game_system` changes be blocked, not just flagged, once a campaign has entities relying on system-specific prototypes?** Left as a documented consequence rather than a guard for now — detecting "does this actually matter yet" would need querying every entity's resolved prototype chain, real work not clearly justified until it's caused a real problem.
+
+**Notifying an invited GM.** No notification mechanism exists anywhere in this codebase; granting GM access is silent from the invitee's perspective until they next call `GET /me` ([RFC 0004](0004-user-membership-player-character-gm-read-api.md)) and see it. Out of scope.
+
+## Consequences
+
+- No migration: `campaign`, `campaign_gm`, `orga_campaign_opt_out` all already exist.
+- `can_manage_campaign` sits alongside `can_access_campaign`/`is_tenant_orga` in `campaign_access.py` — three related but distinct predicates in one module, matching [ADR 0028](../adr/0028-knowledge-and-group-membership.md)'s own precedent of extracting a shared `is_tenant_orga` helper rather than duplicating that check.
+- `CampaignNotEmptyError`/`CampaignManagementForbiddenError` join `exceptions.py`'s roster, following [RFC 0005](0005-item-and-item-instance-crud-api.md)'s `ConflictProblem`/`ForbiddenProblem` subclassing convention.
+- The `?force=true` cascade-confirmation pattern introduced here for campaign deletion is available for reuse anywhere else a guarded, non-trivial cascade delete shows up later (e.g. a future tenant-deletion endpoint, still explicitly out of scope everywhere in this codebase).
