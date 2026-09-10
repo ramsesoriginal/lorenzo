@@ -1,0 +1,83 @@
+# RFC: Item and item-instance CRUD API
+
+Status: proposed — the first write surface in this codebase; defines cross-cutting write-API conventions reused by [RFC 0006](0006-campaign-crud-api.md)/[RFC 0007](0007-user-player-character-crud-api.md); no schema changes
+
+## Context
+
+Every route in `apps/api` today is `GET`. [ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md) scoped itself explicitly to read-only ("full CRUD across entities/stats/information/payloads is a differently-scoped future effort") and nothing has picked that effort up since — confirmed against the current codebase: zero `@router.post`/`put`/`patch`/`delete` handlers exist anywhere, and no `*Create`/`*Update` request-schema convention has ever been established. This RFC is that future effort's first slice, scoped to `item`/`item_instance` ([ADR 0019](../adr/0019-item-and-v-item.md)) plus the two relationship-mutating operations the domain actually needs day to day: transferring an item's owner and moving it between containers.
+
+Because nothing here has prior art in this codebase to follow, the first "Decision" section below is deliberately about *how this API writes at all* — status codes, request-schema shape, concurrency, authorization-check placement — not just this RFC's two resources. [RFC 0006](0006-campaign-crud-api.md) and [RFC 0007](0007-user-player-character-crud-api.md) both point back here rather than re-deciding the same things.
+
+## Decision
+
+### Cross-cutting write-API conventions
+
+- **Status codes**: `POST` → `201 Created` with a `Location` header pointing at the resource's own `GET` endpoint (via `request.url_for(...)`, the same mechanism `schemas/payloads.py` already uses to build content URLs) and a body that *is* that resource's canonical read shape — a client never has to guess what changed, it gets back exactly what a follow-up `GET` would return. `PATCH` and the relationship-mutating actions below → `200` plus the updated canonical resource. `DELETE` → `204 No Content`, **except** deleting a *singular sub-resource* (the owner/container relations below), which returns `200` plus the parent resource's current representation, since the parent survives and returning nothing would just force an immediate follow-up `GET`.
+- **Request schemas**: `<Resource>Create` (required fields only) and `<Resource>Update` (every field `| None = None`), named consistently with the existing `<Resource>Out` read schemas. Partial update is the standard FastAPI/Pydantic v2 idiom: `update.model_dump(exclude_unset=True)` applied to the loaded row, so an omitted field is left untouched rather than nulled — not a bespoke PATCH-diff format.
+- **Optimistic concurrency via `If-Match`**: every table already carries `updated_at` ([ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)) — a weak ETag derived from it (`W/"<updated_at.isoformat()>"`) costs no new column. `PATCH`/`DELETE`/the relationship actions accept an optional `If-Match` header; if present and it doesn't match the row's current ETag, the write is rejected with `412 Precondition Failed` before anything is touched. Deliberately **optional**, not required — a client that doesn't send it gets last-write-wins, same as today; one that does gets a real guard against clobbering a concurrent edit. This is a genuinely new proposal, not a citation of existing practice — flagged for exactly the kind of pushback the RFC process exists for.
+- **New typed problems**, extending `exceptions.py`'s existing one-class-per-condition convention beyond `NotFoundProblem`: `fastapi_problem` ships `ConflictProblem` (409), `ForbiddenProblem` (403), and `UnprocessableProblem` (422) alongside the `NotFoundProblem`/`UnauthorisedProblem` already in use — this RFC's guard conditions subclass those instead of inventing new status-code plumbing. A precondition-mismatch problem (412) follows the same subclassing convention even though `fastapi_problem` has no named 412 convenience base, the same way its own 7 named bases are themselves built on its generic `Problem`/`StatusProblem` machinery.
+- **403 vs. 404, precisely**: a caller with *no* relationship to a tenant/campaign/resource gets `404` (existence hidden, matching `get_tenant_context`'s established non-enumerable pattern) — a caller who can already **read** the resource but lacks a specific **write** permission gets `403` (the resource's existence isn't new information to them, so hiding it would just be friction, not safety). Every authorization check below picks one of these deliberately, not by default.
+- **Authorization helpers stay their own plain, directly-testable modules** — not folded into `dependencies.py`, matching `campaign_access.py`/`information_visibility.py`'s existing precedent. This RFC adds `entity_access.py` for the one new predicate it needs (`is_tenant_participant`, below).
+- **One transaction per write operation**, even multi-row ones (instantiate below touches `Entity`+`ItemInstance`+`EntityPrototype`+optionally `Ownership`/`Containment`) — one `commit()`, matching `get_current_user`'s existing atomic-upsert precedent rather than several independent commits a partial failure could leave half-applied.
+- **No audit columns.** `created_by`/`updated_by` don't exist on any table today and nothing here adds them — out of scope, matching this codebase's own discipline of not adding columns beyond what's asked.
+- **No idempotency-key support.** Real, and the classic mitigation for a retried `POST` (relevant to `instantiate` below), but it needs new infrastructure (a dedup table or Redis-backed store) not justified by anything built so far — deferred the same way [ADR 0008](../adr/0008-deferred-taskiq-and-fastapi-limiter.md) deferred taskiq/rate-limiting until a concrete need exists, not designed speculatively here.
+
+### Authorization: catalog vs. instance
+
+Items and item instances aren't campaign-scoped at all — `item`/`item_instance` extend `entity`, which is tenant-scoped only ([ADR 0012](../adr/0012-entity-table.md)). That leaves a real, worth-naming gap: today's only wired access concept is `get_tenant_context`'s tenant-wide `Membership`, which would lock out every ordinary player and GM from touching their own inventory, since neither role implies a `Membership` row ([ADR 0022](../adr/0022-user-tenant-membership.md)).
+
+Two tiers, split by how much the mutation matters:
+
+- **Catalog** (`item` — base types like "Shovel"): `get_tenant_context` unchanged. Authoring the shared vocabulary of what things *can* exist is a tenant-admin concern, matching [RFC 0001](0001-core-domain-data-model.md)'s own framing ("who can edit `stat_definition`/prototypes... has no tooling story yet, and doesn't need one until it's actually a problem").
+- **Instances** (`item_instance`, plus the owner/container actions): tenant-wide members, **or** any user holding a `Player`/`CampaignGm` row anywhere in the tenant — a new `entity_access.is_tenant_participant(session, *, tenant_id, user_id) -> bool` predicate (three short-circuiting existence checks, the same shape as `campaign_access.can_access_campaign`). This is deliberately coarse — it doesn't scope "only items belonging to characters in *your* campaign" — because items have no campaign linkage to scope by by, at all. Flagged below as an open question, not silently narrowed by inventing campaign-scoping for items that don't have it.
+
+### Endpoints
+
+| Method | Path | Auth | Body | Response |
+| --- | --- | --- | --- | --- |
+| POST | `/tenants/{tenant_id}/items` | tenant-wide | `ItemCreate` | `201 ItemOut` |
+| PATCH | `/tenants/{tenant_id}/items/{id}` | tenant-wide | `ItemUpdate` | `200 ItemOut` |
+| DELETE | `/tenants/{tenant_id}/items/{id}` | tenant-wide | — | `204` |
+| POST | `/tenants/{tenant_id}/item-instances` | participant | `ItemInstanceCreate` | `201 ItemInstanceOut` |
+| PATCH | `/tenants/{tenant_id}/item-instances/{id}` | participant | `ItemInstanceUpdate` | `200 ItemInstanceOut` |
+| DELETE | `/tenants/{tenant_id}/item-instances/{id}` | participant | — | `204` |
+| PUT | `/tenants/{tenant_id}/item-instances/{id}/owner` | participant | `{owner_character_id}` | `200 ItemInstanceOut` |
+| DELETE | `/tenants/{tenant_id}/item-instances/{id}/owner` | participant | — | `200 ItemInstanceOut` |
+| PUT | `/tenants/{tenant_id}/item-instances/{id}/container` | participant | `{container_entity_id}` | `200 ItemInstanceOut` |
+| DELETE | `/tenants/{tenant_id}/item-instances/{id}/container` | participant | — | `200 ItemInstanceOut` |
+
+**`POST /items`** — `ItemCreate{name, prototype_ids: list[uuid.UUID] = []}`. Creates `Entity` + `Item` + one `EntityPrototype` row per id in `prototype_ids`, one transaction. Prototype-graph editing *after* creation (adding/removing inheritance edges later) is a generic entity-graph concern, not item-specific, and is explicitly deferred — see Not in scope.
+
+**`PATCH /items/{id}`** — `ItemUpdate{name: str | None = None}`. Only `Entity.name` is mutable through this endpoint; nothing else on a bare `Item` row exists to update.
+
+**`DELETE /items/{id}`** — guarded: `409 ItemPrototypeInUseError` if any `item_instance`'s entity has this item as a direct `EntityPrototype.prototype_id`. [ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)'s blanket cascade would otherwise silently delete the `entity_prototype` edge (not the instance itself) the moment the base item's `Entity` is deleted, leaving every instance that inherited from it quietly missing stats it used to resolve through — a real, easy-to-miss data-loss mode worth blocking outright rather than accepting, unlike this codebase's usual "cascade uniformly, document the tradeoff" default ([ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)'s own consequences section). No `?force=` escape hatch: unlike campaign deletion ([RFC 0006](0006-campaign-crud-api.md)), there's no reasonable "yes, I meant to silently corrupt every instance's inheritance" case to support — the caller's real fix is to delete or re-parent the instances first.
+
+**`POST /item-instances`** is this RFC's "instantiate" — `ItemInstanceCreate{name: str | None = None, prototype_id: uuid.UUID, owner_character_id: uuid.UUID | None = None, container_entity_id: uuid.UUID | None = None}`. `prototype_id` must resolve to an entity with a matching `Item` row (a base item type) — `422 InvalidItemPrototypeError` otherwise, the creation-time enforcement of the invariant [ADR 0019](../adr/0019-item-and-v-item.md) already named as real-but-unenforced ("nothing enforces that the instance's own entity actually has an item-typed direct prototype"). One transaction creates `Entity` (name defaults to the prototype's own `Entity.name` if omitted) + `ItemInstance` + `EntityPrototype(entity_id=new, prototype_id=prototype_id)`, plus an `Ownership` row if `owner_character_id` is given and/or a `Containment` row if `container_entity_id` is given — literally the RFC's own "optionally for character" example, expressed as create-time fields rather than a separate call.
+
+**`PATCH /item-instances/{id}`** — `ItemInstanceUpdate{name: str | None = None}`. Same reasoning as `ItemUpdate`: owner/container are handled by the dedicated actions below, not folded into a general-purpose PATCH body, so a client can't accidentally no-op an owner change by omitting the field from a partial update.
+
+**`DELETE /item-instances/{id}`** — plain cascade delete, no guard: an instance has nothing else depending on it the way a base item does, so [ADR 0018](../adr/0018-sqlalchemy-modeling-conventions.md)'s default cascade is exactly right here, unmodified.
+
+**Owner and container as singular sub-resources, not RPC verbs**: "move item from one owner to another" and "...one container to another" are naturally *replacing a relationship*, not creating a new one — `ownership`/`containment` both already enforce at most one owner/container per entity at the schema level ([ADR 0016](../adr/0016-containment.md)/[ADR 0025](../adr/0025-character-being-and-ownership.md)). Modeling that as `PUT .../owner` (replace) and `DELETE .../owner` (clear, i.e. "no row" — `containment`'s and `ownership`'s own existing "no row means no relation" convention) is more RESTful than an `/actions/move`-style RPC endpoint, and was chosen over it for exactly that reason — it also gives "transfer to a new owner" and "set an owner for the first time" the same call shape, since `ownership`'s presence/absence is the only state that exists. `PUT .../container` performs no cycle check: [ADR 0016](../adr/0016-containment.md) deliberately allows containment cycles ("game worlds can be legitimately non-Euclidean"), and this API layer doesn't second-guess that decision by rejecting what the schema was explicitly built to allow.
+
+## Not in scope
+
+**Stat and information mutation.** Creating/editing `entity_stat`, `stat_definition`, `stat_group`, or `information`/`payload` rows is a generic entity-attribute concern, not item-specific — items just happen to be the first concrete type these would apply to. A future "generic entity attribute CRUD" RFC is the right home for it; folding it into item CRUD here would blur a boundary this codebase has kept clean since [RFC 0001](0001-core-domain-data-model.md) (stats/information apply to *any* entity, not just items).
+
+**Prototype-graph editing on an existing item** (add/remove inheritance edges post-creation) — same reasoning: `entity_prototype` is generic, not item-specific.
+
+**Bulk operations** (e.g. "move every item in container X to container Y" for the Discord-bot loot-splitting use case, [docs/domain/client-views.md](../domain/client-views.md)) — a client-side loop over the single-item endpoints above, not a new REST primitive; nothing here forecloses adding one later if per-call overhead becomes a real problem.
+
+## Open questions
+
+**Finer-grained instance authorization.** `is_tenant_participant` is "any player or GM anywhere in this tenant," not "a player/GM of *this item's* campaign" — because items have no campaign linkage at all to check against. Scoping this tighter would mean either giving items a campaign association they don't have today (a real schema change, out of scope here) or inferring one transitively through an owning character's `character_player` rows (ambiguous the moment roster reuse links a character into more than one campaign, [ADR 0025](../adr/0025-character-being-and-ownership.md)). Left coarse deliberately; revisit if cross-campaign item tampering inside a shared tenant turns out to matter in practice.
+
+**Should `instantiate` accept multiple containers/owners atomically for "give this loot to five characters at once"?** Not proposed — `POST /item-instances` creates exactly one instance per call, matching REST's usual one-resource-per-`POST` shape; a bulk-instantiate endpoint is a plausible future addition but isn't asked for here.
+
+## Consequences
+
+- No migration: `item`, `item_instance`, `entity_prototype`, `ownership`, `containment` all already exist. This RFC is pure application code.
+- This is the first place `fastapi_problem`'s `ConflictProblem`/`ForbiddenProblem`/`UnprocessableProblem` bases get used — `exceptions.py` currently only subclasses `NotFoundProblem`/`UnauthorisedProblem`.
+- `tests/conftest.py` gains its first write-oriented test helpers; the existing `client` fixture (fixed fake current user, no real token) already supports issuing `POST`/`PATCH`/`DELETE` calls with no changes needed to the fixture itself.
+- The `If-Match`/ETag convention introduced here is meant to be reused verbatim by [RFC 0006](0006-campaign-crud-api.md) and [RFC 0007](0007-user-player-character-crud-api.md), not re-litigated per RFC.
+- `docs/architecture/diagrams/domain-model-er.md` needs no changes (no schema change) — but `overview.md`'s roadmap line "a fuller CRUD REST surface beyond read-only" starts becoming true once this lands.
