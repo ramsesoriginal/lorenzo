@@ -38,7 +38,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_orga
-from lorenzo_api.models import CharacterPlayer, GroupMember, Information, OrgaCampaignOptOut, Player
+from lorenzo_api.models import (
+    CharacterPlayer,
+    GroupMember,
+    Information,
+    Player,
+    TenantAdminCampaignOptOut,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,10 +90,15 @@ async def resolve_information_visibility(
     once its input set is empty, mirroring can_access_campaign's own
     short-circuiting order.
 
-    is_orga is suppressed if the user has any active OrgaCampaignOptOut
-    row anywhere in this tenant - coarser than that row's own per-campaign
-    shape, forced by this route having no campaign parameter to check
-    against; see the module docstring and ADR 0028's addendum.
+    is_orga is suppressed if the user has any active
+    TenantAdminCampaignOptOut row anywhere in this tenant - coarser than
+    that row's own per-campaign shape, forced by this route having no
+    campaign parameter to check against; see the module docstring and ADR
+    0028's addendum. Still ORGA-only, unchanged by ADR 0030's
+    is_tenant_admin widening elsewhere - see
+    campaign_access.can_access_campaign's own docstring for why campaign
+    reachability and information visibility are deliberately different
+    questions.
     """
     player_ids: set[uuid.UUID] = set(
         (
@@ -133,10 +144,10 @@ async def resolve_information_visibility(
     if is_orga:
         has_opt_out = (
             await session.execute(
-                select(OrgaCampaignOptOut.campaign_id)
+                select(TenantAdminCampaignOptOut.campaign_id)
                 .where(
-                    OrgaCampaignOptOut.tenant_id == tenant_id,
-                    OrgaCampaignOptOut.user_id == user_id,
+                    TenantAdminCampaignOptOut.tenant_id == tenant_id,
+                    TenantAdminCampaignOptOut.user_id == user_id,
                 )
                 .limit(1)
             )

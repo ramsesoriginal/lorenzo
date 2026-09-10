@@ -9,8 +9,8 @@ from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign_gm import CampaignGm
     from lorenzo_api.models.membership import Membership
-    from lorenzo_api.models.orga_campaign_opt_out import OrgaCampaignOptOut
     from lorenzo_api.models.player import Player
+    from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 
 
 class User(Base):
@@ -48,7 +48,7 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    orga_campaign_opt_outs: Mapped[list[OrgaCampaignOptOut]] = relationship(
+    tenant_admin_campaign_opt_outs: Mapped[list[TenantAdminCampaignOptOut]] = relationship(
         lazy="raise_on_sql",
         back_populates="user",
         cascade="all, delete-orphan",

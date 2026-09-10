@@ -8,6 +8,7 @@ from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, Upda
 
 if TYPE_CHECKING:
     from lorenzo_api.models.being import Being
+    from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_stat import EntityStat
@@ -78,6 +79,14 @@ class Entity(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    # campaign: ADR 0030's dedicated-entity attachment point - the reverse
+    # is the "one" side despite entity being the referenced table, since
+    # campaign.entity_id (not entity.id) carries the FK; no cascade= here,
+    # matching campaign.entity_id's own ON DELETE RESTRICT - nothing about
+    # deleting this Entity should implicitly delete the Campaign owning it,
+    # or vice versa (that's an explicit two-step application concern, RFC
+    # 0006, not an ORM cascade).
+    campaign: Mapped[Campaign | None] = relationship(lazy="raise_on_sql", back_populates="entity")
 
     # ownership: ADR 0025's generic ownership table has two independent FKs
     # to this table (owned_entity_id and owner_character_id), same

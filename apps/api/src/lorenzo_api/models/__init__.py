@@ -13,7 +13,6 @@ from lorenzo_api.models.item import Item
 from lorenzo_api.models.item_instance import ItemInstance
 from lorenzo_api.models.knowledge import Knowledge
 from lorenzo_api.models.membership import Membership, MembershipRole
-from lorenzo_api.models.orga_campaign_opt_out import OrgaCampaignOptOut
 from lorenzo_api.models.ownership import Ownership
 from lorenzo_api.models.payload import Payload
 from lorenzo_api.models.payload_description import PayloadDescription
@@ -24,6 +23,7 @@ from lorenzo_api.models.player import Player
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_group import StatGroup
 from lorenzo_api.models.tenant import Tenant
+from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 from lorenzo_api.models.user import User
 from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
@@ -45,7 +45,6 @@ __all__ = [
     "Knowledge",
     "Membership",
     "MembershipRole",
-    "OrgaCampaignOptOut",
     "Ownership",
     "Payload",
     "PayloadDescription",
@@ -57,6 +56,7 @@ __all__ = [
     "StatGroup",
     "StatValueType",
     "Tenant",
+    "TenantAdminCampaignOptOut",
     "User",
     "VItem",
     "VItemInstance",

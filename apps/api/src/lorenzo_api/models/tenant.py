@@ -34,6 +34,18 @@ class Tenant(Base):
     # callers that care about the name (none yet - no create-tenant REST
     # flow exists) pass it explicitly. See ADR 0022.
     name: Mapped[str] = mapped_column(server_default=text("'Unnamed Tenant'"))
+    # Same reasoning as name, extended to slug (ADR 0030/RFC 0003 doesn't
+    # spell this out for slug specifically, only description, but ~50
+    # existing bare Tenant() fixture calls make the retrofit cost identical
+    # to name's own). A random default is a placeholder, not a real slug -
+    # real tenant-creation code (RFC 0012, not built yet) always supplies a
+    # derived one explicitly, the same relationship name's default has to a
+    # real create-tenant flow. Globally unique (tenants aren't nested under
+    # anything to scope uniqueness by), so a random default can never
+    # collide in practice, matching every gen_random_uuid() PK already
+    # trusted throughout this schema.
+    slug: Mapped[str] = mapped_column(unique=True, server_default=text("gen_random_uuid()::text"))
+    description: Mapped[str] = mapped_column(server_default=text("''"))
 
     entities: Mapped[list[Entity]] = relationship(
         lazy="raise_on_sql",

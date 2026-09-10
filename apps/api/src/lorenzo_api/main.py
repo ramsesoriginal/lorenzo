@@ -11,10 +11,12 @@ from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
+from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.payloads import router as payloads_router
+from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
 
 
@@ -41,6 +43,8 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(users_router)
+    app.include_router(tenants_router)
+    app.include_router(campaigns_router)
     app.include_router(payloads_router)
     app.include_router(entities_router)
     app.include_router(items_router)

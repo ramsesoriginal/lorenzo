@@ -13,19 +13,27 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.campaign_access import can_access_campaign
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import get_db_session
-from lorenzo_api.exceptions import EntityNotFoundError, InvalidTokenError, TenantNotFoundError
-from lorenzo_api.models import Entity, Membership, Tenant, User
+from lorenzo_api.exceptions import (
+    CampaignNotFoundError,
+    EntityNotFoundError,
+    InvalidTokenError,
+    TenantNotFoundError,
+)
+from lorenzo_api.models import Campaign, Entity, Membership, Tenant, User
 
 __all__ = [
     "CurrentUser",
     "ParamsDep",
     "SessionDep",
+    "get_campaign_context",
     "get_current_user",
     "get_entity_or_404",
     "get_jwks_client",
     "get_tenant_context",
+    "get_tenant_or_404",
     "verify_token",
 ]
 
@@ -142,6 +150,54 @@ async def get_tenant_context(
         text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
     )
     return tenant_id
+
+
+async def get_tenant_or_404(tenant_id: uuid.UUID, session: SessionDep) -> uuid.UUID:
+    """Existence-only - no Membership check, unlike get_tenant_context. See
+    ADR 0030/RFC 0003: which RLS partition a query runs against is a
+    scoping decision, not an authorization one - get_campaign_context (or a
+    route's own explicit predicate, e.g. is_tenant_participant) layers
+    authorization on top of this rather than folding it in here, the same
+    division get_tenant_context/can_access_campaign already keep separate.
+    """
+    if await session.get(Tenant, tenant_id) is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
+    )
+    return tenant_id
+
+
+TenantOrNotFound = Annotated[uuid.UUID, Depends(get_tenant_or_404)]
+
+
+async def get_campaign_context(
+    tenant_id: TenantOrNotFound, campaign_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> uuid.UUID:
+    """Tenant must exist (get_tenant_or_404 - depended on directly, not just
+    called, so FastAPI's per-request dependency caching means a router that
+    also depends on get_tenant_or_404 itself doesn't pay for a second
+    query), campaign must exist and belong to that tenant, and
+    can_access_campaign(...) must be true - all three failures raise the
+    *same* CampaignNotFoundError, extending get_tenant_context's existing
+    "can't distinguish doesn't-exist from not-a-member" rule (ADR 0023)
+    from two cases to three. Returns just campaign_id, mirroring
+    get_tenant_context's own return shape - routes needing the full
+    Campaign row re-query with their own eager-load chain, the same
+    division of labor entities.py's get_entity already uses relative to
+    get_entity_or_404. See ADR 0030/RFC 0003.
+    """
+    not_found = CampaignNotFoundError(
+        detail=f"No campaign with id {campaign_id} in tenant {tenant_id}"
+    )
+    stmt = select(Campaign.id).where(Campaign.id == campaign_id, Campaign.tenant_id == tenant_id)
+    if (await session.execute(stmt)).first() is None:
+        raise not_found
+    if not await can_access_campaign(
+        session, user_id=user.id, campaign_id=campaign_id, tenant_id=tenant_id
+    ):
+        raise not_found
+    return campaign_id
 
 
 async def get_entity_or_404(

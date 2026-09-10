@@ -12,6 +12,7 @@ stable, programmatically-distinguishable value beyond the human-readable
 from fastapi_problem.error import NotFoundProblem, UnauthorisedProblem
 
 __all__ = [
+    "CampaignNotFoundError",
     "EntityNotFoundError",
     "InvalidTokenError",
     "ItemInstanceNotFoundError",
@@ -32,6 +33,10 @@ class TenantNotFoundError(NotFoundProblem):
 
 class EntityNotFoundError(NotFoundProblem):
     title = "Entity not found"
+
+
+class CampaignNotFoundError(NotFoundProblem):
+    title = "Campaign not found"
 
 
 class ItemNotFoundError(NotFoundProblem):
