@@ -29,7 +29,7 @@ This one response is the concrete answer to "user → owner\|orga\|member of ten
 | --- | --- | --- | --- |
 | GET | `/tenants/{tenant_id}/memberships` | `get_tenant_context` | `Page[TenantRosterEntryOut]` |
 
-**Broadened from a pure membership list to the tenant's full roster** — every user with *any* standing in this tenant, not just its tenant-wide admins. Two variants, a discriminated union matching the `PayloadOut` precedent ([ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md)) rather than one schema with fields that are only sometimes meaningful:
+**Broadened from a pure membership list to the tenant's full roster** — every user with *any* standing in this tenant, not just its tenant-wide admins. Three variants, a discriminated union matching the `PayloadOut` precedent ([ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md)) rather than one schema with fields that are only sometimes meaningful:
 
 ```python
 class MembershipRosterEntryOut(BaseModel):
@@ -43,14 +43,19 @@ class PlayerRosterEntryOut(BaseModel):
     campaign_id: uuid.UUID
     characters: list[CharacterSummaryOut]
 
+class GmRosterEntryOut(BaseModel):
+    kind: Literal["gm"] = "gm"
+    user_id: uuid.UUID
+    campaign_id: uuid.UUID
+
 TenantRosterEntryOut = Annotated[
-    MembershipRosterEntryOut | PlayerRosterEntryOut, Field(discriminator="kind")
+    MembershipRosterEntryOut | PlayerRosterEntryOut | GmRosterEntryOut, Field(discriminator="kind")
 ]
 ```
 
-One row per relationship, not per user — a user who is both `ORGA` and a player in two campaigns appears three times, once per capacity, the same flat shape `Membership`/`Player` already have as separate tables rather than one aggregated per-user summary. `PlayerRosterEntryOut` rows are sourced the same way [RFC 0003](0003-tenant-campaign-read-api.md)'s `is_tenant_participant` already queries — every `Player` row where `Player.tenant_id` matches (already denormalized, no join through `Campaign` needed), each with `characters` resolved through `character_player` exactly like `PlayerOut` below.
+One row per relationship, not per user — a user who is `ORGA`, GMs one campaign, and plays in another appears three times, once per capacity, the same flat shape `Membership`/`Player`/`CampaignGm` already have as separate tables rather than one aggregated per-user summary. `PlayerRosterEntryOut` rows are sourced the same way [RFC 0003](0003-tenant-campaign-read-api.md)'s `is_tenant_participant` already queries — every `Player` row where `Player.tenant_id` matches (already denormalized, no join through `Campaign` needed), each with `characters` resolved through `character_player` exactly like `PlayerOut` below. `GmRosterEntryOut` rows are sourced the same way, one per `CampaignGm` row in the tenant (`CampaignGm.tenant_id`, denormalized the same way) — no `characters` field, since GM-ing isn't itself tied to any character; a GM who also plays a PC in some campaign already gets their own separate `player`-kind row for that.
 
-**Naming tension, flagged rather than silently resolved**: the path (`.../memberships`) and the old schema name both said "membership" specifically, and this response is no longer just that. Kept the path as-is here to stay a minimal, additive change rather than a rename — but `TenantMembershipOut` doesn't survive this revision, replaced outright by `TenantRosterEntryOut`. Revisit the path itself if this reads as confusing in practice.
+**Naming tension, confirmed rather than resolved by renaming**: the path (`.../memberships`) still says "membership" specifically, and this response is broader than that now — flagged, and deliberately kept as-is anyway, a minimal, additive change rather than a rename plus whatever churn that implies for anything already calling it. `TenantMembershipOut` itself doesn't survive this revision either way, replaced outright by `TenantRosterEntryOut`.
 
 Still gated by `get_tenant_context`, unchanged: only tenant-wide members see the *whole* roster this way, consistent with that dependency's existing scope. An ordinary player doesn't need this endpoint to find their own standing — `/me` already covers that.
 
@@ -94,8 +99,6 @@ New schema modules: `schemas/players.py` (`PlayerSummaryOut`, `PlayerOut`, `Play
 ## Open questions
 
 **Tenant-admin opt-out visibility.** There's no dedicated `GET .../admin-opt-outs` endpoint here — a caller's own opt-out state is implicit in whether they show up as a player/GM elsewhere, and a dedicated listing wasn't asked for. [RFC 0006](0006-campaign-crud-api.md) covers the mutation side (opting in/out, `TenantAdminCampaignOptOut` — renamed from `OrgaCampaignOptOut` once [RFC 0003](0003-tenant-campaign-read-api.md) let `OWNER` share the same bypass); a read endpoint for "which campaigns has this admin opted out of" can be added later without redesigning anything here if it turns out to be needed.
-
-**Should `CampaignGm` grants be a third roster variant** (`kind="gm"`, alongside `membership`/`player` above)? Not added here — only players were asked for, and today's tenant-wide roster genuinely doesn't show GMs at all, same gap it had before this revision. The discriminated-union shape makes adding one a small, additive change later, not a redesign.
 
 **`PlayerOut.characters` versus roster-reuse across campaigns.** A character linked to a player in *this* campaign might also appear in a sibling campaign's roster (same tenant, [ADR 0025](../adr/0025-character-being-and-ownership.md)'s reuse mechanism) — this endpoint doesn't flag that fact anywhere in the response. Not addressed here; the tenant-wide `GET /tenants/{tenant_id}/characters/{character_id}` is where a client would discover every campaign a character is linked to, by design (that's exactly what its own `players` field, unioned across campaigns, is for).
 
