@@ -12,3 +12,4 @@ To start one: copy an [ADR](../adr/0000-template.md)'s structure but title it "R
 - [0006 - Campaign CRUD API](0006-campaign-crud-api.md) — proposed, builds on RFC 0003/0005
 - [0007 - User, player, and character CRUD API](0007-user-player-character-crud-api.md) — proposed, builds on RFC 0004/0005; resolves ADR 0010's invitation-flow question with a known limitation
 - [0008 - Effective stat resolution over the prototype graph](0008-effective-stat-resolution.md) — proposed, deliberately short; schedules building RFC 0001's already-decided resolution rule, never implemented since ADR 0015 deferred it
+- [0009 - Campaign-scoped GM visibility](0009-campaign-scoped-gm-visibility.md) — proposed, revises `information_visibility.py`'s ORGA-only bypass so a campaign's own GM sees GM-only secrets without needing tenant-wide Membership
