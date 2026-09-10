@@ -4,7 +4,7 @@ Things configured by hand because this machine had no `gh` CLI / API token when 
 
 ## Repository visibility
 
-Settings → General → Danger Zone → Change visibility → **Public**. This repo is currently private — confirmed via `curl https://api.github.com/repos/ramsesoriginal/lorenzo`, which returns `404` unauthenticated (that's GitHub's response for both "doesn't exist" and "private, no access," by design). That mismatches the stated intent of this being a public showcase, and it's also a real functional problem: `actions/dependency-review-action` (in `security.yml`) requires either a public repo or a paid GitHub Advanced Security add-on on a private one — it will keep failing on every PR until this is flipped.
+**Done.** This repo is public — confirmed via `curl https://api.github.com/repos/ramsesoriginal/lorenzo`, which now returns `200` (a private repo returns `404` unauthenticated, indistinguishable from "doesn't exist," by design). This is also what unblocked `actions/dependency-review-action` (in `security.yml`), which requires either a public repo or a paid GitHub Advanced Security add-on on a private one.
 
 ## Branch ruleset
 
