@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  width="512"
+  height="512"
+  role="img"
+  aria-labelledby="lorenzo-mark-shaded-title lorenzo-mark-shaded-desc"
+  style="color:#B88A3B"
+>
+  <title
+    id="lorenzo-mark-shaded-title"
+  >Lorenzo brand mark with faux shading</title>
+  <desc id="lorenzo-mark-shaded-desc">
+    The Lorenzo four-point spark and compass brand mark with two subtle overlay layers:
+    a directional shade pass and a directional highlight pass.
+  </desc>
+
+  <!--
+    LORENZO / BRAND MARK / SHADED VARIANT
+    =====================================
+    This file preserves the original master mark as the base artwork and adds two
+    semi-transparent overlay systems above it:
+
+    1) Shade layer
+       - four directional sectors clipped to the mark silhouette
+       - north: none
+       - east and west: subtle shade
+       - south: stronger shade
+
+    2) Highlight layer
+       - per-arm half highlights for an upper-left light source
+       - highlighted regions:
+         * west-facing half of north arm
+         * north-facing half of east arm
+         * north-facing half of west arm
+         * west-facing half of south arm
+
+    Technical notes:
+    - base mark remains intact below
+    - overlays are pure vector fills with opacity only
+    - no masks, filters, gradients, or raster assets
+    - all overlays are clipped to the base mark shape
+    - base mark inherits currentColor; overlays use black/white with opacity
+  -->
+
+  <g id="lorenzo-brand-mark" fill="currentColor">
+    <path
+      id="spark-compass"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="
+        M 256 20
+        C 268 126, 282 193, 309 217
+        C 333 239, 394 250, 492 256
+        C 394 262, 333 273, 309 295
+        C 282 319, 268 386, 256 492
+        C 244 386, 230 319, 203 295
+        C 179 273, 118 262, 20 256
+        C 118 250, 179 239, 203 217
+        C 230 193, 244 126, 256 20
+        Z
+
+        M 256 218
+        C 261 232, 280 251, 294 256
+        C 280 261, 261 280, 256 294
+        C 251 280, 232 261, 218 256
+        C 232 251, 251 232, 256 218
+        Z
+      "
+    />
+  </g>
+
+  <defs>
+    <!--
+      Overlay clip: duplicates the exact master silhouette so the center knockout
+      remains true negative space for both shade and highlight layers.
+      The base mark above is intentionally left unchanged.
+    -->
+    <clipPath id="lorenzo-mark-shape-clip" clipPathUnits="userSpaceOnUse">
+      <path
+        fill-rule="nonzero"
+        clip-rule="nonzero"
+        d="
+          M 256 20
+          C 268 126, 282 193, 309 217
+          C 333 239, 394 250, 492 256
+          C 394 262, 333 273, 309 295
+          C 282 319, 268 386, 256 492
+          C 244 386, 230 319, 203 295
+          C 179 273, 118 262, 20 256
+          C 118 250, 179 239, 203 217
+          C 230 193, 244 126, 256 20
+          Z
+
+          M 256 218
+          C 251 232, 232 251, 218 256
+          C 232 261, 251 280, 256 294
+          C 261 280, 280 261, 294 256
+          C 280 251, 261 232, 256 218
+          Z
+        "
+      />
+    </clipPath>
+  </defs>
+
+  <!-- Directional faux-shading -->
+  <g
+    id="lorenzo-faux-shade-layer"
+    clip-path="url(#lorenzo-mark-shape-clip)"
+    aria-hidden="true"
+  >
+    <!-- east sector -->
+    <path
+      id="shade-east"
+      fill="#000000"
+      fill-opacity="0.07"
+      d="M256 256 L512 0 L512 512 Z"
+    />
+    <!-- south sector -->
+    <path
+      id="shade-south"
+      fill="#000000"
+      fill-opacity="0.14"
+      d="M256 256 L512 512 L0 512 Z"
+    />
+    <!-- west sector -->
+    <path
+      id="shade-west"
+      fill="#000000"
+      fill-opacity="0.07"
+      d="M256 256 L0 512 L0 0 Z"
+    />
+  </g>
+
+  <!-- Directional faux-highlights for an upper-left light source -->
+  <g
+    id="lorenzo-faux-highlight-layer"
+    clip-path="url(#lorenzo-mark-shape-clip)"
+    aria-hidden="true"
+  >
+    <!-- north arm / west-facing half -->
+    <path
+      id="highlight-north-west-half"
+      fill="#FFFFFF"
+      fill-opacity="0.12"
+      d="M256 0 L256 256 L0 0 Z"
+    />
+    <!-- east arm / north-facing half -->
+    <path
+      id="highlight-east-north-half"
+      fill="#FFFFFF"
+      fill-opacity="0.12"
+      d="M256 256 L512 0 L512 256 Z"
+    />
+    <!-- west arm / north-facing half -->
+    <path
+      id="highlight-west-north-half"
+      fill="#FFFFFF"
+      fill-opacity="0.12"
+      d="M0 0 L256 256 L0 256 Z"
+    />
+    <!-- south arm / west-facing half -->
+    <path
+      id="highlight-south-west-half"
+      fill="#FFFFFF"
+      fill-opacity="0.10"
+      d="M256 256 L256 512 L0 512 Z"
+    />
+  </g>
+</svg>

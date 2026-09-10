@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  width="512"
+  height="512"
+  role="img"
+  aria-labelledby="lorenzo-mark-mono-title lorenzo-mark-mono-desc"
+  style="color:#08131F"
+>
+  <title id="lorenzo-mark-mono-title">Lorenzo brand mark, monochrome version</title>
+  <desc id="lorenzo-mark-mono-desc">
+    The monochrome, unshaded Lorenzo four-point spark and compass brand mark.
+    This version is a single-color rendering intended for maximum versatility.
+  </desc>
+
+  <!--
+    LORENZO / BRAND MARK / MONOCHROME
+    =================================
+    Official single-color, unshaded variant.
+
+    Intent:
+    - preserve the exact approved master brand-mark geometry
+    - provide a dedicated monochrome asset for print, UI, stamps, engraving,
+      embroidery, and flexible production use
+    - remain robust on light backgrounds while still inheriting from currentColor
+      for easy recoloring where needed
+
+    Construction:
+    - original master geometry preserved exactly
+    - single compound path with a true negative-space center
+    - no gradients, filters, masks, strokes, or raster assets
+    - uses currentColor; default root color is Lorenzo Ink #08131F
+  -->
+
+  <g id="lorenzo-brand-mark" fill="currentColor">
+    <path
+      id="spark-compass"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="
+        M 256 20
+        C 268 126, 282 193, 309 217
+        C 333 239, 394 250, 492 256
+        C 394 262, 333 273, 309 295
+        C 282 319, 268 386, 256 492
+        C 244 386, 230 319, 203 295
+        C 179 273, 118 262, 20 256
+        C 118 250, 179 239, 203 217
+        C 230 193, 244 126, 256 20
+        Z
+
+        M 256 218
+        C 261 232, 280 251, 294 256
+        C 280 261, 261 280, 256 294
+        C 251 280, 232 261, 218 256
+        C 232 251, 251 232, 256 218
+        Z
+      "
+    />
+  </g>
+</svg>

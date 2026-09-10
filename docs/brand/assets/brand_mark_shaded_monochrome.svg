@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  width="512"
+  height="512"
+  role="img"
+  aria-labelledby="lorenzo-mark-shaded-mono-title lorenzo-mark-shaded-mono-desc"
+  style="color:#08131F"
+>
+  <title id="lorenzo-mark-shaded-mono-title">Lorenzo brand mark, monochrome faux-shaded version</title>
+  <desc id="lorenzo-mark-shaded-mono-desc">
+    The monochrome Lorenzo four-point spark and compass brand mark with subtle faux shading
+    and highlight overlays, preserving the original unshaded base geometry.
+  </desc>
+
+  <!--
+    LORENZO / BRAND MARK / MONOCHROME SHADED VARIANT
+    ================================================
+
+    Intent:
+    - preserve the exact approved unshaded master brand-mark geometry
+    - provide a monochrome faux-shaded asset for richer single-color usage
+    - keep the center knockout as true negative space across base, shade, and highlight layers
+
+    Construction:
+    - base mark uses currentColor; default root color is Lorenzo Ink #08131F
+    - shade and highlight layers are independent semi-transparent overlays
+    - no gradients, filters, masks, strokes, or raster assets
+    - suitable for UI, editorial use, and flexible recoloring
+
+    Shading logic:
+    1) Shade layer
+       - north remains unchanged
+       - east and west receive subtle shade
+       - south receives stronger shade
+
+    2) Highlight layer
+       - north arm: west-facing half
+       - east arm: north-facing half
+       - west arm: north-facing half
+       - south arm: west-facing half
+  -->
+
+  <g id="lorenzo-brand-mark" fill="currentColor">
+    <path
+      id="spark-compass"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="
+        M 256 20
+        C 268 126, 282 193, 309 217
+        C 333 239, 394 250, 492 256
+        C 394 262, 333 273, 309 295
+        C 282 319, 268 386, 256 492
+        C 244 386, 230 319, 203 295
+        C 179 273, 118 262, 20 256
+        C 118 250, 179 239, 203 217
+        C 230 193, 244 126, 256 20
+        Z
+
+        M 256 218
+        C 261 232, 280 251, 294 256
+        C 280 261, 261 280, 256 294
+        C 251 280, 232 261, 218 256
+        C 232 251, 251 232, 256 218
+        Z
+      "
+    />
+  </g>
+
+  <defs>
+    <clipPath id="lorenzo-mark-shape-clip" clipPathUnits="userSpaceOnUse">
+      <path
+        fill-rule="nonzero"
+        clip-rule="nonzero"
+        d="
+          M 256 20
+          C 268 126, 282 193, 309 217
+          C 333 239, 394 250, 492 256
+          C 394 262, 333 273, 309 295
+          C 282 319, 268 386, 256 492
+          C 244 386, 230 319, 203 295
+          C 179 273, 118 262, 20 256
+          C 118 250, 179 239, 203 217
+          C 230 193, 244 126, 256 20
+          Z
+
+          M 256 218
+          C 251 232, 232 251, 218 256
+          C 232 261, 251 280, 256 294
+          C 261 280, 280 261, 294 256
+          C 280 251, 261 232, 256 218
+          Z
+        "
+      />
+    </clipPath>
+  </defs>
+
+  <g id="lorenzo-faux-shade-layer" clip-path="url(#lorenzo-mark-shape-clip)" aria-hidden="true">
+    <path id="shade-east"  fill="#000000" fill-opacity="0.07" d="M256 256 L512 0 L512 512 Z"/>
+    <path id="shade-south" fill="#000000" fill-opacity="0.14" d="M256 256 L512 512 L0 512 Z"/>
+    <path id="shade-west"  fill="#000000" fill-opacity="0.07" d="M256 256 L0 512 L0 0 Z"/>
+  </g>
+
+  <g id="lorenzo-faux-highlight-layer" clip-path="url(#lorenzo-mark-shape-clip)" aria-hidden="true">
+    <path id="highlight-north-west-half" fill="#FFFFFF" fill-opacity="0.12" d="M256 0 L256 256 L0 0 Z"/>
+    <path id="highlight-east-north-half" fill="#FFFFFF" fill-opacity="0.12" d="M256 256 L512 0 L512 256 Z"/>
+    <path id="highlight-west-north-half" fill="#FFFFFF" fill-opacity="0.12" d="M0 0 L256 256 L0 256 Z"/>
+    <path id="highlight-south-west-half" fill="#FFFFFF" fill-opacity="0.10" d="M256 256 L256 512 L0 512 Z"/>
+  </g>
+</svg>
