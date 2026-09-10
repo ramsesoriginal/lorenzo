@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.3.0...api-v0.3.1) (2026-09-10)
+
+
+### Documentation
+
+* refresh README branding, badges, and stale docs ([ef3ee5e](https://github.com/ramsesoriginal/lorenzo/commit/ef3ee5e26da852426f4f8ff3c92797797ba0b891))
+* stop claiming knowledge/visibility is unbuilt (ADR 0028 shipped) ([b1e32ec](https://github.com/ramsesoriginal/lorenzo/commit/b1e32ec7ad09142d926fd92c187e26f2538ef858))
+
 ## [0.3.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.2.0...api-v0.3.0) (2026-09-10)
 
 
