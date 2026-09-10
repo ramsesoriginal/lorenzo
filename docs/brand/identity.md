@@ -178,6 +178,7 @@ The current official asset set is:
 | `lorenzo_horizontal_lockup_dark_bg.svg`    | gold shaded mark + Paper wordmark      | default horizontal logo on dark surfaces            |
 | `lorenzo_horizontal_lockup_monochrome.svg` | monochrome horizontal lockup           | single-color or production-constrained use          |
 | `mascot_emblem.png`                        | illustrated mascot badge               | community, stickers, merch, editorial brand moments |
+| `mascot_emblem_web.png`                    | web-optimized mascot emblem derivative | README hero art and other size-constrained embeds   |
 | `mascot.png`                               | Lorenzo mascot illustration            | onboarding, product illustration, social, editorial |
 
 Treat SVG files as the preferred production masters for marks and lockups. Keep the mascot artwork as high-resolution raster artwork unless a deliberate simplified vector redraw is commissioned. Do not auto-trace the mascot illustration into a large, noisy SVG.
@@ -1096,6 +1097,8 @@ Generate PNG/WebP/AVIF derivatives from the SVG masters as needed.
 Do not treat raster exports as the source of truth for logos.
 
 Mascot imagery is the exception: the current mascot and mascot emblem are intentionally raster illustration masters.
+
+`mascot_emblem_web.png` is one such derivative: `mascot_emblem.png` resized to 640px wide and palette-quantized for contexts (README hero art, chat/embed previews) where the 5016px master's file size would be wasteful. Regenerate it the same way if the master is ever redrawn.
 
 ### 16.4 File naming
 
