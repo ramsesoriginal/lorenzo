@@ -31,3 +31,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0026 - Campaign GM, orga, and the campaign access rule](0026-campaign-gm-orga-and-access-rule.md)
 - [0027 - Authgear Cloud, not self-hosted](0027-authgear-cloud-not-self-hosted.md)
 - [0028 - Knowledge, group membership, and public information](0028-knowledge-and-group-membership.md)
+- [0029 - Attribution: created_by/updated_by](0029-attribution-created-by-updated-by.md)
