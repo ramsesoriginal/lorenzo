@@ -1,6 +1,6 @@
 # 0028 - Knowledge, group membership, and public information
 
-Status: accepted
+Status: accepted — unaffected by [ADR 0030](0030-tenant-campaign-read-api.md)'s widening of `campaign_access.can_access_campaign`'s bypass to OWNER: `information_visibility.py`'s own `is_orga` bypass below deliberately keeps checking ORGA only, per RFC 0009's "administrative access != automatic character/GM knowledge" principle
 
 ## Context
 
