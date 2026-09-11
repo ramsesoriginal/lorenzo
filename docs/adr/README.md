@@ -33,3 +33,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0028 - Knowledge, group membership, and public information](0028-knowledge-and-group-membership.md)
 - [0029 - Attribution: created_by/updated_by](0029-attribution-created-by-updated-by.md)
 - [0030 - Tenant and campaign read REST API](0030-tenant-campaign-read-api.md)
+- [0031 - Character table, and the user/membership/player/GM read REST API](0031-character-table-and-read-api.md)
