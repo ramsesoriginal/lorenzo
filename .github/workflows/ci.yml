@@ -61,6 +61,10 @@ jobs:
           # it anyway and 404'd - this is exactly what minimum_release_age
           # exists to prevent, per the action's own README.
           minimum_release_age: 7d
+      # pnpm itself ships via corepack, not as a mise [tools] entry (ADR
+      # 0003) - needed job-wide once any app is a pnpm workspace member
+      # (apps/loot-bot, ADR 0029); a no-op for apps/api's own matrix entry.
+      - run: corepack enable
       - run: mise run lint
         working-directory: ${{ matrix.app }}
       - run: mise run test
@@ -72,6 +76,29 @@ jobs:
           # creates lorenzo_app in the first place.
           DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
           MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
+          # apps/loot-bot's own restricted role/schema (ADR 0029) - same
+          # Postgres service container/database as above, a separate role
+          # loot-bot's own migrations bootstrap on first run (src/migrate.ts).
+          LOOT_BOT_DATABASE_URL: postgres://loot_bot:loot_bot@localhost:5432/lorenzo
+          LOOT_BOT_MIGRATIONS_DATABASE_URL: postgres://lorenzo:lorenzo@localhost:5432/lorenzo
+          # The rest of apps/loot-bot's required config (config.ts) - none of
+          # these need to be real: its tests never call a real Discord or
+          # Authgear, only a fake local Authgear-shaped server
+          # (tests/fake-authgear-server.ts, mirroring apps/api's own
+          # tests/_fake_jwks.py) and mocked HTTP - but loadConfig() still
+          # validates the shape of every var eagerly (some at module-import
+          # time, via db.ts), so a placeholder value is still required for
+          # each. LOOT_BOT_TOKEN_ENCRYPTION_KEY must still decode (as
+          # base64) to exactly 32 bytes even as a placeholder (src/crypto.ts).
+          DISCORD_BOT_TOKEN: ci-placeholder-token
+          DISCORD_CLIENT_ID: "000000000000000000"
+          DISCORD_GUILD_ID: "000000000000000001"
+          LORENZO_API_BASE_URL: http://localhost:8000
+          LORENZO_TENANT_ID: 00000000-0000-0000-0000-000000000000
+          AUTHGEAR_ISSUER: http://localhost:4000
+          AUTHGEAR_CLIENT_ID: ci-placeholder-client
+          AUTHGEAR_CLIENT_SECRET: ci-placeholder-secret
+          LOOT_BOT_TOKEN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
 
   # Not matrixed over discover's output like `test` is: an OpenAPI schema
   # dump isn't part of ADR 0007's universal per-app contract (only
