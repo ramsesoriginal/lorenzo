@@ -1,4 +1,5 @@
 import { Client, Events, GatewayIntentBits } from "discord.js";
+import { createAuthCallbackRoute } from "./auth-callback-route.js";
 import { attachCommandHandlers } from "./commands/index.js";
 import { loadConfig } from "./config.js";
 import { createHttpServer, healthzRoute } from "./http-server.js";
@@ -19,10 +20,13 @@ async function main(): Promise<void> {
     logger.info({ tag: readyClient.user.tag }, "discord client ready");
   });
 
-  const httpServer = createHttpServer(new Map([["/healthz", healthzRoute]]), {
-    port: config.httpPort,
-    logger,
-  });
+  const httpServer = createHttpServer(
+    new Map([
+      ["/healthz", healthzRoute],
+      ["/auth/callback", createAuthCallbackRoute(config, logger)],
+    ]),
+    { port: config.httpPort, logger },
+  );
   await httpServer.listen();
   logger.info({ port: config.httpPort }, "http server listening");
 

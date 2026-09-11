@@ -1,4 +1,5 @@
 import { type Client, Events, type Interaction } from "discord.js";
+import { linkCommand } from "./link.js";
 import { pingCommand } from "./ping.js";
 import type { Command, CommandContext } from "./types.js";
 
@@ -7,7 +8,7 @@ export type { Command, CommandContext } from "./types.js";
 // New commands (e.g. `link`, `inventory`) are added to this list only -
 // registration (scripts/register-commands.ts) and dispatch (below) both
 // derive from it, so there's exactly one place a new command gets wired in.
-const commands: readonly Command[] = [pingCommand];
+const commands: readonly Command[] = [pingCommand, linkCommand];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
 
