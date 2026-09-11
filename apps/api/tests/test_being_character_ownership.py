@@ -2,13 +2,14 @@ import uuid
 
 import pytest
 from _admin_db import admin_session_factory
-from conftest import make_campaign, make_player
+from conftest import make_campaign, make_character, make_player
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from lorenzo_api.db import engine
 from lorenzo_api.models import (
     Being,
+    Character,
     CharacterPlayer,
     Entity,
     ItemInstance,
@@ -31,14 +32,13 @@ async def test_create_and_read_being_with_owner_player() -> None:
         await session.flush()
         player = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
 
-        character = Entity(tenant_id=tenant.id, name="Elara")
-        session.add(character)
-        await session.flush()
-        session.add(Being(entity_id=character.id, owner_player_id=player.id, tenant_id=tenant.id))
+        character = await make_character(
+            session, tenant_id=tenant.id, name="Elara", owner_player_id=player.id
+        )
         await session.commit()
-        character_id, player_id, user_id = character.id, player.id, player.user_id
+        character_id, player_id, user_id = character.entity_id, player.id, player.user_id
 
-        fetched = await session.get(Being, character_id)
+        fetched = await session.get(Character, character_id)
         assert fetched is not None
         assert fetched.owner_player_id == player_id
 
@@ -49,21 +49,22 @@ async def test_create_and_read_being_with_owner_player() -> None:
 
 async def test_being_owner_player_is_optional() -> None:
     """No owning player - an NPC, per RFC 0001's framing of "is this a PC"
-    as a derived fact (owner_player_id IS NOT NULL).
+    as a derived fact (owner_player_id IS NOT NULL). owner_player_id now
+    lives on Character, not Being (ADR 0031) - this is about the column's
+    own optionality, not the separate "bare Being, no Character row at
+    all" case, so the NPC here still gets a Character row, just an
+    unowned one.
     """
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
 
-        npc = Entity(tenant_id=tenant.id, name="Innkeeper")
-        session.add(npc)
-        await session.flush()
-        session.add(Being(entity_id=npc.id, tenant_id=tenant.id))
+        npc = await make_character(session, tenant_id=tenant.id, name="Innkeeper")
         await session.commit()
-        npc_id = npc.id
+        npc_id = npc.entity_id
 
-        fetched = await session.get(Being, npc_id)
+        fetched = await session.get(Character, npc_id)
         assert fetched is not None
         assert fetched.owner_player_id is None
 
@@ -73,9 +74,10 @@ async def test_being_owner_player_is_optional() -> None:
 
 async def test_deleting_player_sets_being_owner_null_but_deleting_own_entity_cascades() -> None:
     """The same deliberate exception ADR 0019 established for
-    item_instance.owner_entity_id, now on Being.owner_player_id (ADR
-    0025): losing the owning player just leaves the character player-less,
-    but the character can't outlive its own entity.
+    item_instance.owner_entity_id, now on Character.owner_player_id (ADR
+    0031, moved from Being.owner_player_id per ADR 0025): losing the
+    owning player just leaves the character player-less, but the
+    character can't outlive its own entity.
 
     Both checks use a fresh session rather than the one that issued the
     delete - passive_deletes=True means SQLAlchemy never learns about
@@ -94,18 +96,17 @@ async def test_deleting_player_sets_being_owner_null_but_deleting_own_entity_cas
         player = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
         user_id, player_id = player.user_id, player.id
 
-        character = Entity(tenant_id=tenant.id, name="Elara")
-        session.add(character)
-        await session.flush()
-        tenant_id, character_id = tenant.id, character.id
-        session.add(Being(entity_id=character_id, owner_player_id=player_id, tenant_id=tenant_id))
+        character = await make_character(
+            session, tenant_id=tenant.id, name="Elara", owner_player_id=player_id
+        )
         await session.commit()
+        tenant_id, character_id = tenant.id, character.entity_id
 
         await session.delete(await session.get_one(Player, player_id))
         await session.commit()
 
     async with admin_session_factory() as session:
-        still_there = await session.get(Being, character_id)
+        still_there = await session.get(Character, character_id)
         assert still_there is not None
         assert still_there.owner_player_id is None
 
@@ -113,7 +114,7 @@ async def test_deleting_player_sets_being_owner_null_but_deleting_own_entity_cas
         await session.commit()
 
     async with admin_session_factory() as session:
-        assert await session.get(Being, character_id) is None
+        assert await session.get(Character, character_id) is None
 
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.delete(await session.get_one(User, user_id))
@@ -124,7 +125,7 @@ async def test_character_player_is_genuinely_many_to_many() -> None:
     """RFC 0002: one player can control more than one character at once (a
     Vampire coterie), and one character can be linked into more than one
     campaign's player row (roster reuse) - both directions, deliberately
-    kept separate from Being.owner_player_id's singular "primary owner".
+    kept separate from Character.owner_player_id's singular "primary owner".
     """
     async with admin_session_factory() as session:
         tenant = Tenant()
@@ -140,36 +141,33 @@ async def test_character_player_is_genuinely_many_to_many() -> None:
         player_1 = await make_player(session, tenant_id=tenant.id, campaign_id=campaign_1.id)
         player_2 = await make_player(session, tenant_id=tenant.id, campaign_id=campaign_2.id)
 
-        character_a = Entity(tenant_id=tenant.id, name="Character A")
-        character_b = Entity(tenant_id=tenant.id, name="Character B")
-        session.add_all([character_a, character_b])
-        await session.flush()
-        session.add_all(
-            [
-                Being(entity_id=character_a.id, tenant_id=tenant.id),
-                Being(entity_id=character_b.id, tenant_id=tenant.id),
-            ]
-        )
-        await session.flush()
+        character_a = await make_character(session, tenant_id=tenant.id, name="Character A")
+        character_b = await make_character(session, tenant_id=tenant.id, name="Character B")
 
         # player_1 controls both characters; character_a is also reused by
         # player_2 in the second campaign.
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=character_a.id, player_id=player_1.id, tenant_id=tenant.id
+                    character_entity_id=character_a.entity_id,
+                    player_id=player_1.id,
+                    tenant_id=tenant.id,
                 ),
                 CharacterPlayer(
-                    character_entity_id=character_b.id, player_id=player_1.id, tenant_id=tenant.id
+                    character_entity_id=character_b.entity_id,
+                    player_id=player_1.id,
+                    tenant_id=tenant.id,
                 ),
                 CharacterPlayer(
-                    character_entity_id=character_a.id, player_id=player_2.id, tenant_id=tenant.id
+                    character_entity_id=character_a.entity_id,
+                    player_id=player_2.id,
+                    tenant_id=tenant.id,
                 ),
             ]
         )
         await session.commit()
         user_1_id, user_2_id = player_1.user_id, player_2.user_id
-        character_a_id, character_b_id = character_a.id, character_b.id
+        character_a_id, character_b_id = character_a.entity_id, character_b.entity_id
         player_1_id, player_2_id = player_1.id, player_2.id
 
         # Queried directly rather than via the character_links/player_links
@@ -224,14 +222,10 @@ async def test_deleting_character_or_player_cascades_character_player() -> None:
         player_a = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
         player_b = await make_player(session, tenant_id=tenant.id, campaign_id=campaign.id)
 
-        character = Entity(tenant_id=tenant.id, name="Character")
-        session.add(character)
-        await session.flush()
-        tenant_id, character_id = tenant.id, character.id
+        character = await make_character(session, tenant_id=tenant.id, name="Character")
+        tenant_id, character_id = tenant.id, character.entity_id
         player_a_id, player_b_id = player_a.id, player_b.id
         user_a_id, user_b_id = player_a.user_id, player_b.user_id
-        session.add(Being(entity_id=character_id, tenant_id=tenant_id))
-        await session.flush()
         session.add_all(
             [
                 CharacterPlayer(
@@ -506,11 +500,24 @@ async def test_being_character_player_ownership_rls_isolates_tenants() -> None:
         ).scalar_one()
 
         await session.execute(
-            text("INSERT INTO being (entity_id, owner_player_id, tenant_id) VALUES (:e, :p, :t)"),
+            text("INSERT INTO being (entity_id, tenant_id) VALUES (:e, :t)"),
+            {"e": character_a, "t": tenant_a},
+        )
+        await session.execute(
+            text("INSERT INTO being (entity_id, tenant_id) VALUES (:e, :t)"),
+            {"e": character_b, "t": tenant_b},
+        )
+        # owner_player_id lives on character now, not being (ADR 0031).
+        await session.execute(
+            text(
+                "INSERT INTO character (entity_id, owner_player_id, tenant_id) VALUES (:e, :p, :t)"
+            ),
             {"e": character_a, "p": player_a, "t": tenant_a},
         )
         await session.execute(
-            text("INSERT INTO being (entity_id, owner_player_id, tenant_id) VALUES (:e, :p, :t)"),
+            text(
+                "INSERT INTO character (entity_id, owner_player_id, tenant_id) VALUES (:e, :p, :t)"
+            ),
             {"e": character_b, "p": player_b, "t": tenant_b},
         )
         await session.execute(
@@ -579,6 +586,10 @@ async def test_being_character_player_ownership_rls_isolates_tenants() -> None:
             )
             await session.execute(
                 text("DELETE FROM character_player WHERE tenant_id IN (:a, :b)"),
+                {"a": tenant_a, "b": tenant_b},
+            )
+            await session.execute(
+                text("DELETE FROM character WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
             await session.execute(

@@ -2,11 +2,10 @@ import uuid
 from decimal import Decimal
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_campaign
+from conftest import delete_tenant, make_campaign, make_character
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
-    Being,
     CharacterPlayer,
     Containment,
     Entity,
@@ -461,8 +460,8 @@ async def test_get_entity_shows_public_information_to_any_tenant_member(
 async def test_get_entity_shows_information_known_via_direct_character_knowledge(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """Full Campaign/Player/Being/CharacterPlayer/Knowledge chain, not a
-    shortcut - proves the real roster-reuse traversal, not just that a
+    """Full Campaign/Player/Being/Character/CharacterPlayer/Knowledge chain,
+    not a shortcut - proves the real roster-reuse traversal, not just that a
     Knowledge row with a matching id exists somewhere.
     """
     async with admin_session_factory() as session:
@@ -481,15 +480,13 @@ async def test_get_entity_shows_information_known_via_direct_character_knowledge
         session.add(player)
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([character, subject])
+        session.add(subject)
         await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add(
             CharacterPlayer(
-                character_entity_id=character.id, player_id=player.id, tenant_id=tenant_id
+                character_entity_id=character.entity_id, player_id=player.id, tenant_id=tenant_id
             )
         )
         info = Information(
@@ -498,7 +495,9 @@ async def test_get_entity_shows_information_known_via_direct_character_knowledge
         session.add(info)
         await session.flush()
         session.add(
-            Knowledge(tenant_id=tenant_id, knower_entity_id=character.id, information_id=info.id)
+            Knowledge(
+                tenant_id=tenant_id, knower_entity_id=character.entity_id, information_id=info.id
+            )
         )
         await session.commit()
         subject_id = subject.id
@@ -529,20 +528,22 @@ async def test_get_entity_shows_information_known_via_group_membership(
         session.add(player)
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
         group = Entity(tenant_id=tenant_id, name="Group")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([character, group, subject])
+        session.add_all([group, subject])
         await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=character.id, player_id=player.id, tenant_id=tenant_id
+                    character_entity_id=character.entity_id,
+                    player_id=player.id,
+                    tenant_id=tenant_id,
                 ),
                 GroupMember(
-                    group_entity_id=group.id, character_entity_id=character.id, tenant_id=tenant_id
+                    group_entity_id=group.id,
+                    character_entity_id=character.entity_id,
+                    tenant_id=tenant_id,
                 ),
             ]
         )
@@ -638,27 +639,20 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         session.add_all([my_player, other_player])
         await session.flush()
 
-        my_character = Entity(tenant_id=tenant_id, name="My Character")
-        other_character = Entity(tenant_id=tenant_id, name="Other Character")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([my_character, other_character, subject])
+        session.add(subject)
         await session.flush()
-        session.add_all(
-            [
-                Being(entity_id=my_character.id, tenant_id=tenant_id),
-                Being(entity_id=other_character.id, tenant_id=tenant_id),
-            ]
-        )
-        await session.flush()
+        my_character = await make_character(session, tenant_id=tenant_id, name="My Character")
+        other_character = await make_character(session, tenant_id=tenant_id, name="Other Character")
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=my_character.id,
+                    character_entity_id=my_character.entity_id,
                     player_id=my_player.id,
                     tenant_id=tenant_id,
                 ),
                 CharacterPlayer(
-                    character_entity_id=other_character.id,
+                    character_entity_id=other_character.entity_id,
                     player_id=other_player.id,
                     tenant_id=tenant_id,
                 ),
@@ -671,7 +665,9 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         await session.flush()
         session.add(
             Knowledge(
-                tenant_id=tenant_id, knower_entity_id=other_character.id, information_id=info.id
+                tenant_id=tenant_id,
+                knower_entity_id=other_character.entity_id,
+                information_id=info.id,
             )
         )
         await session.commit()
@@ -789,14 +785,12 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
         player_b = Player(user_id=test_user_id, campaign_id=campaign_b.id, tenant_id=tenant_b_id)
         session.add(player_b)
         await session.flush()
-        character_b = Entity(tenant_id=tenant_b_id, name="Character B")
-        session.add(character_b)
-        await session.flush()
-        session.add(Being(entity_id=character_b.id, tenant_id=tenant_b_id))
-        await session.flush()
+        character_b = await make_character(session, tenant_id=tenant_b_id, name="Character B")
         session.add(
             CharacterPlayer(
-                character_entity_id=character_b.id, player_id=player_b.id, tenant_id=tenant_b_id
+                character_entity_id=character_b.entity_id,
+                player_id=player_b.id,
+                tenant_id=tenant_b_id,
             )
         )
         entity_b = Entity(tenant_id=tenant_b_id, name="Entity B")
@@ -809,7 +803,9 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
         await session.flush()
         session.add(
             Knowledge(
-                tenant_id=tenant_b_id, knower_entity_id=character_b.id, information_id=info_b.id
+                tenant_id=tenant_b_id,
+                knower_entity_id=character_b.entity_id,
+                information_id=info_b.id,
             )
         )
         await session.commit()

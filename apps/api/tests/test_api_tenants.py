@@ -108,3 +108,68 @@ async def test_get_tenant_404_for_non_member(client: AsyncClient) -> None:
 async def test_get_tenant_404_for_unknown_tenant(client: AsyncClient) -> None:
     response = await client.get("/tenants/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
+
+
+async def test_list_tenant_roster_includes_membership_player_and_gm_kinds(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0031/RFC 0004: broadened from a pure membership list to the
+    tenant's full roster - one row per relationship, not per user.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        player_user = User(authgear_subject_id=f"authgear|roster-player-{uuid.uuid4()}")
+        session.add(player_user)
+        await session.flush()
+        session.add(Player(user_id=player_user.id, campaign_id=campaign.id, tenant_id=tenant_id))
+
+        gm_user = User(authgear_subject_id=f"authgear|roster-gm-{uuid.uuid4()}")
+        session.add(gm_user)
+        await session.flush()
+        session.add(CampaignGm(tenant_id=tenant_id, user_id=gm_user.id, campaign_id=campaign.id))
+        await session.commit()
+        player_user_id, gm_user_id = player_user.id, gm_user.id
+
+    response = await client.get(f"/tenants/{tenant_id}/memberships")
+    assert response.status_code == 200
+    entries_by_user = {item["user_id"]: item for item in response.json()["items"]}
+
+    owner_entry = entries_by_user[str(test_user_id)]
+    assert owner_entry["kind"] == "membership"
+    assert owner_entry["role"] == "owner"
+
+    player_entry = entries_by_user[str(player_user_id)]
+    assert player_entry["kind"] == "player"
+    assert player_entry["campaign_id"] == str(campaign.id)
+    assert player_entry["characters"] == []
+
+    gm_entry = entries_by_user[str(gm_user_id)]
+    assert gm_entry["kind"] == "gm"
+    assert gm_entry["campaign_id"] == str(campaign.id)
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, player_user_id))
+        await session.delete(await session.get_one(User, gm_user_id))
+        await session.commit()
+
+
+async def test_list_tenant_roster_404_for_non_member(client: AsyncClient) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.commit()
+        tenant_id = tenant.id
+
+    response = await client.get(f"/tenants/{tenant_id}/memberships")
+    assert response.status_code == 404
+
+    await delete_tenant(tenant_id)

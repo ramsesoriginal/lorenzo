@@ -1,11 +1,10 @@
 import uuid
 
 from _admin_db import admin_session_factory
-from conftest import make_campaign
+from conftest import make_campaign, make_character
 
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
-    Being,
     CharacterPlayer,
     Entity,
     GroupMember,
@@ -178,23 +177,23 @@ async def test_resolve_information_visibility_collects_character_ids_via_roster_
         session.add_all([player_1, player_2])
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
-        session.add(character)
-        await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=character.id, player_id=player_1.id, tenant_id=tenant_id
+                    character_entity_id=character.entity_id,
+                    player_id=player_1.id,
+                    tenant_id=tenant_id,
                 ),
                 CharacterPlayer(
-                    character_entity_id=character.id, player_id=player_2.id, tenant_id=tenant_id
+                    character_entity_id=character.entity_id,
+                    player_id=player_2.id,
+                    tenant_id=tenant_id,
                 ),
             ]
         )
         await session.commit()
-        character_id = character.id
+        character_id = character.entity_id
 
         visibility = await resolve_information_visibility(
             session, user_id=user_id, tenant_id=tenant_id
@@ -223,24 +222,26 @@ async def test_resolve_information_visibility_collects_group_ids_one_level_via_g
         session.add(player)
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
         group = Entity(tenant_id=tenant_id, name="Group")
-        session.add_all([character, group])
+        session.add(group)
         await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=character.id, player_id=player.id, tenant_id=tenant_id
+                    character_entity_id=character.entity_id,
+                    player_id=player.id,
+                    tenant_id=tenant_id,
                 ),
                 GroupMember(
-                    group_entity_id=group.id, character_entity_id=character.id, tenant_id=tenant_id
+                    group_entity_id=group.id,
+                    character_entity_id=character.entity_id,
+                    tenant_id=tenant_id,
                 ),
             ]
         )
         await session.commit()
-        character_id, group_id = character.id, group.id
+        character_id, group_id = character.entity_id, group.id
 
         visibility = await resolve_information_visibility(
             session, user_id=user_id, tenant_id=tenant_id

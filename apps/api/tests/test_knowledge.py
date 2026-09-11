@@ -1,6 +1,6 @@
 import pytest
 from _admin_db import admin_session_factory
-from conftest import make_campaign, make_player
+from conftest import make_campaign, make_character, make_player
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
@@ -24,18 +24,12 @@ async def test_group_member_basic_membership() -> None:
         tenant_id = tenant.id
 
         group = Entity(tenant_id=tenant_id, name="The Thieves' Guild")
-        char_a = Entity(tenant_id=tenant_id, name="Char A")
-        char_b = Entity(tenant_id=tenant_id, name="Char B")
-        session.add_all([group, char_a, char_b])
+        session.add(group)
         await session.flush()
-        session.add_all(
-            [
-                Being(entity_id=char_a.id, tenant_id=tenant_id),
-                Being(entity_id=char_b.id, tenant_id=tenant_id),
-            ]
-        )
-        await session.flush()
-        group_id, char_a_id, char_b_id = group.id, char_a.id, char_b.id
+        group_id = group.id
+        char_a = await make_character(session, tenant_id=tenant_id, name="Char A")
+        char_b = await make_character(session, tenant_id=tenant_id, name="Char B")
+        char_a_id, char_b_id = char_a.entity_id, char_b.entity_id
         session.add_all(
             [
                 GroupMember(
@@ -102,20 +96,13 @@ async def test_group_member_cascades_on_group_or_character_deletion() -> None:
         tenant_id = tenant.id
 
         group_1 = Entity(tenant_id=tenant_id, name="Group 1")
-        char_1 = Entity(tenant_id=tenant_id, name="Char 1")
         group_2 = Entity(tenant_id=tenant_id, name="Group 2")
-        char_2 = Entity(tenant_id=tenant_id, name="Char 2")
-        session.add_all([group_1, char_1, group_2, char_2])
+        session.add_all([group_1, group_2])
         await session.flush()
-        group_1_id, char_1_id = group_1.id, char_1.id
-        group_2_id, char_2_id = group_2.id, char_2.id
-        session.add_all(
-            [
-                Being(entity_id=char_1_id, tenant_id=tenant_id),
-                Being(entity_id=char_2_id, tenant_id=tenant_id),
-            ]
-        )
-        await session.flush()
+        group_1_id, group_2_id = group_1.id, group_2.id
+        char_1 = await make_character(session, tenant_id=tenant_id, name="Char 1")
+        char_2 = await make_character(session, tenant_id=tenant_id, name="Char 2")
+        char_1_id, char_2_id = char_1.entity_id, char_2.entity_id
         session.add_all(
             [
                 GroupMember(
@@ -254,13 +241,12 @@ async def test_knowledge_group_knower_end_to_end() -> None:
         tenant_id = tenant.id
 
         group = Entity(tenant_id=tenant_id, name="Group")
-        member = Entity(tenant_id=tenant_id, name="Member")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([group, member, subject])
+        session.add_all([group, subject])
         await session.flush()
-        group_id, member_id = group.id, member.id
-        session.add(Being(entity_id=member_id, tenant_id=tenant_id))
-        await session.flush()
+        group_id = group.id
+        member = await make_character(session, tenant_id=tenant_id, name="Member")
+        member_id = member.entity_id
         session.add(
             GroupMember(
                 group_entity_id=group_id, character_entity_id=member_id, tenant_id=tenant_id
@@ -510,6 +496,17 @@ async def test_group_member_rls_isolates_tenants_for_a_non_superuser_role() -> N
             text("INSERT INTO being (entity_id, tenant_id) VALUES (:e, :t)"),
             {"e": char_b, "t": tenant_b},
         )
+        # group_member.character_entity_id now FKs to character.entity_id,
+        # not being.entity_id directly (ADR 0031) - the being row alone is
+        # no longer enough to be a valid group member.
+        await session.execute(
+            text("INSERT INTO character (entity_id, tenant_id) VALUES (:e, :t)"),
+            {"e": char_a, "t": tenant_a},
+        )
+        await session.execute(
+            text("INSERT INTO character (entity_id, tenant_id) VALUES (:e, :t)"),
+            {"e": char_b, "t": tenant_b},
+        )
         await session.execute(
             text(
                 "INSERT INTO group_member (group_entity_id, character_entity_id, tenant_id) "
@@ -556,6 +553,10 @@ async def test_group_member_rls_isolates_tenants_for_a_non_superuser_role() -> N
         async with admin_session_factory() as session:
             await session.execute(
                 text("DELETE FROM group_member WHERE tenant_id IN (:a, :b)"),
+                {"a": tenant_a, "b": tenant_b},
+            )
+            await session.execute(
+                text("DELETE FROM character WHERE tenant_id IN (:a, :b)"),
                 {"a": tenant_a, "b": tenant_b},
             )
             await session.execute(

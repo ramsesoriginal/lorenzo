@@ -14,7 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.dependencies import SessionDep, get_current_user, get_jwks_client
 from lorenzo_api.main import app
-from lorenzo_api.models import Campaign, Entity, Membership, MembershipRole, Player, Tenant, User
+from lorenzo_api.models import (
+    Being,
+    Campaign,
+    Character,
+    Entity,
+    Membership,
+    MembershipRole,
+    Player,
+    Tenant,
+    User,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -136,6 +146,36 @@ async def make_player(
     session.add(player)
     await session.flush()
     return player
+
+
+async def make_being(session: AsyncSession, *, tenant_id: uuid.UUID, name: str = "Being") -> Being:
+    """A bare sentient entity, no Character row - an NPC/monster stub not worth
+    individual tracking (ADR 0031).
+    """
+    entity = Entity(tenant_id=tenant_id, name=name)
+    session.add(entity)
+    await session.flush()
+    being = Being(entity_id=entity.id, tenant_id=tenant_id)
+    session.add(being)
+    await session.flush()
+    return being
+
+
+async def make_character(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    name: str = "Character",
+    owner_player_id: uuid.UUID | None = None,
+) -> Character:
+    """A tracked character - a being, promoted (ADR 0031/RFC 0004)."""
+    being = await make_being(session, tenant_id=tenant_id, name=name)
+    character = Character(
+        entity_id=being.entity_id, tenant_id=tenant_id, owner_player_id=owner_player_id
+    )
+    session.add(character)
+    await session.flush()
+    return character
 
 
 @pytest.fixture

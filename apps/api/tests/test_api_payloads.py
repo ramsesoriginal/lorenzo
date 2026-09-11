@@ -1,11 +1,10 @@
 import uuid
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_campaign, make_tenant
+from conftest import delete_tenant, make_campaign, make_character, make_tenant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
-    Being,
     CharacterPlayer,
     Entity,
     Information,
@@ -290,8 +289,8 @@ async def test_get_content_404_for_gm_only_information_not_visible_to_a_plain_me
 async def test_get_content_visible_via_knowledge_for_the_callers_own_character(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """Proves the real Campaign/Player/Being/CharacterPlayer/Knowledge
-    chain grants access to the payload bytes too, not just to
+    """Proves the real Campaign/Player/Being/Character/CharacterPlayer/
+    Knowledge chain grants access to the payload bytes too, not just to
     GET /entities/{id}'s JSON body.
     """
     async with admin_session_factory() as session:
@@ -310,22 +309,22 @@ async def test_get_content_visible_via_knowledge_for_the_callers_own_character(
         session.add(player)
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
         subject = Entity(tenant_id=tenant_id, name="Sword")
-        session.add_all([character, subject])
+        session.add(subject)
         await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add(
             CharacterPlayer(
-                character_entity_id=character.id, player_id=player.id, tenant_id=tenant_id
+                character_entity_id=character.entity_id, player_id=player.id, tenant_id=tenant_id
             )
         )
         info = Information(tenant_id=tenant_id, entity_id=subject.id, title="x", type="gm-note")
         session.add(info)
         await session.flush()
         session.add(
-            Knowledge(tenant_id=tenant_id, knower_entity_id=character.id, information_id=info.id)
+            Knowledge(
+                tenant_id=tenant_id, knower_entity_id=character.entity_id, information_id=info.id
+            )
         )
         payload = Payload(tenant_id=tenant_id, information_id=info.id)
         session.add(payload)

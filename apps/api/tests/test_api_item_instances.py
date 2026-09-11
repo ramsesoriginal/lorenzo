@@ -496,7 +496,7 @@ async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
 ) -> None:
     """Same information-visibility fix as items.py/entities.py/payloads.py
     (ADR 0028's addendum), confirmed wired up here too - the underlying
-    mechanism (ItemViewMixin/eager_load_options) is shared with items.py
+    mechanism (EntityViewMixin/eager_load_options) is shared with items.py
     and is exhaustively tested there; this just proves the wiring in this
     router specifically.
     """
