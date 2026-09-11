@@ -13,12 +13,14 @@ from fastapi_problem.error import NotFoundProblem, UnauthorisedProblem
 
 __all__ = [
     "CampaignNotFoundError",
+    "CharacterNotFoundError",
     "EntityNotFoundError",
     "InvalidTokenError",
     "ItemInstanceNotFoundError",
     "ItemNotFoundError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
+    "PlayerNotFoundError",
     "TenantNotFoundError",
 ]
 
@@ -53,3 +55,16 @@ class PayloadNotFoundError(NotFoundProblem):
 
 class PayloadContentNotFoundError(NotFoundProblem):
     title = "Payload has no binary content"
+
+
+class PlayerNotFoundError(NotFoundProblem):
+    title = "Player not found"
+
+
+class CharacterNotFoundError(NotFoundProblem):
+    """Also covers "this is a being with no character row" - the same
+    non-enumerable collapsing every other not-found condition in this
+    codebase already does (ADR 0031/RFC 0004).
+    """
+
+    title = "Character not found"

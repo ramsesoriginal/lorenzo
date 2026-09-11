@@ -21,7 +21,7 @@ target_metadata = Base.metadata
 # "this is a view" concept, so without this, autogenerate sees a
 # declarative Table with no matching real table in the database and tries
 # to create one.
-_VIEW_TABLE_NAMES = frozenset({"v_item", "v_item_instance"})
+_VIEW_TABLE_NAMES = frozenset({"v_item", "v_item_instance", "v_character"})
 
 
 def include_object(

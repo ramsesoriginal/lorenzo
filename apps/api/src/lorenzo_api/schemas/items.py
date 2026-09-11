@@ -23,7 +23,7 @@ __all__ = [
 
 
 class DescriptionOut(BaseModel):
-    """Wraps one entry of `ItemViewMixin.descriptions` - see ADR 0020: the
+    """Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
     contract (no field names), so it's wrapped into a small named schema.
     """
@@ -38,7 +38,7 @@ class PictureRefOut(BaseModel):
     """A picture reference - a `url` pointing at the existing payload-content
     endpoint, plus `file_type`. `_picture_refs` below walks
     entity.information -> payloads -> picture directly rather than through
-    an `ItemViewMixin` property (there never was one - checked, `pictures`
+    an `EntityViewMixin` property (there never was one - checked, `pictures`
     would have needed the owning `Payload` row's own id to link through,
     not just its bytes, so it was never a fit here). Inlining raw picture
     bytes into a paginated list response (`GET /items` can return up to
@@ -82,7 +82,7 @@ class StatValueOut(BaseModel):
 
 
 class TagValueOut(BaseModel):
-    """Wraps one entry of `ItemViewMixin.tags` (`list[tuple[str, bool | None]]`)."""
+    """Wraps one entry of `EntityViewMixin.tags` (`list[tuple[str, bool | None]]`)."""
 
     model_config = ConfigDict(from_attributes=True)
 

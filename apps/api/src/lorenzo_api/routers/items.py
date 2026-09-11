@@ -32,7 +32,7 @@ def eager_load_options(
 ) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
-    `ItemViewMixin`'s six properties/methods (ADR 0019/0020), or they
+    `EntityViewMixin`'s six properties/methods (ADR 0019/0020), or they
     raise `MissingGreenlet` rather than lazily loading. Parameterized on the
     view's own `entity` relationship attribute (`VItem.entity` here,
     `VItemInstance.entity` in `routers/item_instances.py`, which imports

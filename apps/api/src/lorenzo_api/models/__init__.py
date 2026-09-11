@@ -1,6 +1,7 @@
 from lorenzo_api.models.being import Being
 from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.campaign_gm import CampaignGm
+from lorenzo_api.models.character import Character
 from lorenzo_api.models.character_player import CharacterPlayer
 from lorenzo_api.models.containment import Containment
 from lorenzo_api.models.entity import Entity
@@ -25,6 +26,7 @@ from lorenzo_api.models.stat_group import StatGroup
 from lorenzo_api.models.tenant import Tenant
 from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 from lorenzo_api.models.user import User
+from lorenzo_api.models.v_character import VCharacter
 from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
@@ -32,6 +34,7 @@ __all__ = [
     "Being",
     "Campaign",
     "CampaignGm",
+    "Character",
     "CharacterPlayer",
     "Containment",
     "Entity",
@@ -58,6 +61,7 @@ __all__ = [
     "Tenant",
     "TenantAdminCampaignOptOut",
     "User",
+    "VCharacter",
     "VItem",
     "VItemInstance",
 ]

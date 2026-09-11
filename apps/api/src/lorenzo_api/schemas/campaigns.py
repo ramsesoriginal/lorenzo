@@ -1,9 +1,12 @@
 import uuid
 from datetime import datetime
+from typing import Self
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["CampaignOut", "CampaignSummaryOut"]
+from lorenzo_api.models import CampaignGm
+
+__all__ = ["CampaignOut", "CampaignSummaryOut", "GmOut"]
 
 
 class CampaignSummaryOut(BaseModel):
@@ -42,3 +45,17 @@ class CampaignOut(BaseModel):
     updated_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
+
+
+class GmOut(BaseModel):
+    """One row of GET .../campaigns/{id}/gms - campaign_id/tenant_id are
+    already in the path, no need to repeat them per row. See ADR 0031/RFC
+    0004; fits here rather than a one-class module of its own, alongside
+    campaign-roster concerns generally.
+    """
+
+    user_id: uuid.UUID
+
+    @classmethod
+    def from_campaign_gm(cls, campaign_gm: CampaignGm) -> Self:
+        return cls(user_id=campaign_gm.user_id)

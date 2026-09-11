@@ -9,8 +9,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
 
 if TYPE_CHECKING:
-    from lorenzo_api.models.being import Being
     from lorenzo_api.models.campaign import Campaign
+    from lorenzo_api.models.character import Character
     from lorenzo_api.models.character_player import CharacterPlayer
     from lorenzo_api.models.knowledge import Knowledge
     from lorenzo_api.models.user import User
@@ -41,11 +41,14 @@ class Player(Base):
 
     user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="players")
     campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="players")
-    # owned_beings: SET NULL, not CASCADE (ADR 0025) - passive_deletes=True
-    # so a deleted player leaves its beings player-less via the DB's own
+    # owned_characters: SET NULL, not CASCADE (ADR 0025) - passive_deletes=True
+    # so a deleted player leaves its characters player-less via the DB's own
     # ON DELETE SET NULL, rather than the ORM loading and updating them.
-    # No delete-orphan: losing this player must not delete the being.
-    owned_beings: Mapped[list[Being]] = relationship(
+    # No delete-orphan: losing this player must not delete the character.
+    # Renamed from owned_beings, following owner_player_id's move to
+    # Character (ADR 0031/RFC 0004) - a plain being was never a valid
+    # target, so nothing meaningful is lost, just made accurate.
+    owned_characters: Mapped[list[Character]] = relationship(
         lazy="raise_on_sql", back_populates="owner_player", passive_deletes=True
     )
     character_links: Mapped[list[CharacterPlayer]] = relationship(

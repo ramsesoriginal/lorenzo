@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base
-from lorenzo_api.models.item_view_mixin import ItemViewMixin
+from lorenzo_api.models.entity_view_mixin import EntityViewMixin
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
 
 
-class VItem(ItemViewMixin, Base):
+class VItem(EntityViewMixin, Base):
     """Read-only view over every base item-typed entity (the `item` table
     only, not `item_instance`) - see ADR 0019. No real constraints (views
     can't have any); `entity_id` is declared primary_key=True purely so the
@@ -39,7 +39,7 @@ class VItem(ItemViewMixin, Base):
     # No real ForeignKey (views have none) - primaryjoin/foreign_keys= spell
     # out the join explicitly instead of relying on a constraint to infer
     # it from. lazy="selectin" so entity loads automatically with VItem,
-    # since that's the one hop every ItemViewMixin property needs; loading
+    # since that's the one hop every EntityViewMixin property needs; loading
     # further (entity.information/.stats and their own nested relationships)
     # is left to the caller rather than guessed at by a default here.
     entity: Mapped[Entity] = relationship(

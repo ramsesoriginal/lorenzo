@@ -3,14 +3,31 @@ from collections.abc import Sequence
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends
-from fastapi_pagination import Page
+from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import exists, select
+from sqlalchemy.orm import selectinload
 
 from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, get_tenant_context
 from lorenzo_api.exceptions import TenantNotFoundError
-from lorenzo_api.models import CampaignGm, Membership, Player, Tenant
-from lorenzo_api.schemas.tenants import TenantOut, TenantRole, TenantSummaryOut
+from lorenzo_api.models import (
+    Being,
+    CampaignGm,
+    Character,
+    CharacterPlayer,
+    Membership,
+    Player,
+    Tenant,
+)
+from lorenzo_api.schemas.tenants import (
+    GmRosterEntryOut,
+    MembershipRosterEntryOut,
+    PlayerRosterEntryOut,
+    TenantOut,
+    TenantRole,
+    TenantRosterEntryOut,
+    TenantSummaryOut,
+)
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -77,3 +94,61 @@ async def get_tenant(
     if tenant is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     return TenantOut.model_validate(tenant)
+
+
+@router.get("/{tenant_id}/memberships")
+async def list_tenant_roster(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    params: ParamsDep,
+) -> Page[TenantRosterEntryOut]:
+    """Broadened from a pure membership list to the tenant's full roster -
+    every user with *any* standing in this tenant, not just its tenant-wide
+    admins (ADR 0031/RFC 0004). One row per relationship, not per user - a
+    user who is ORGA, GMs one campaign, and plays in another appears three
+    times. Still gated by get_tenant_context, unchanged: an ordinary player
+    doesn't need this to find their own standing, `/me` already covers that.
+
+    Combined in Python from three separate queries (mirroring
+    resolve_information_visibility's own precedent), not one SQL UNION -
+    the three row shapes are genuinely heterogeneous, and this is
+    tenant-admin-only, so the data is bounded by how many people administer
+    one world, not by total tenant traffic - paginating the already-fetched
+    list, not the query, is a reasonable trade at that scale.
+    """
+    memberships = (
+        (await session.execute(select(Membership).where(Membership.tenant_id == tenant_id)))
+        .scalars()
+        .all()
+    )
+    players = (
+        (
+            await session.execute(
+                select(Player)
+                .where(Player.tenant_id == tenant_id)
+                .options(
+                    selectinload(Player.character_links)
+                    .selectinload(CharacterPlayer.character)
+                    .selectinload(Character.being)
+                    .selectinload(Being.entity)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    campaign_gms = (
+        (await session.execute(select(CampaignGm).where(CampaignGm.tenant_id == tenant_id)))
+        .scalars()
+        .all()
+    )
+
+    entries: list[TenantRosterEntryOut] = [
+        *(MembershipRosterEntryOut.from_membership(m) for m in memberships),
+        *(PlayerRosterEntryOut.from_player(p) for p in players),
+        *(GmRosterEntryOut.from_campaign_gm(g) for g in campaign_gms),
+    ]
+    entries.sort(key=lambda entry: entry.user_id)
+    # paginate is typed to return Any (fastapi_pagination's own signature) -
+    # cast rather than suppress, the declared return type is otherwise exact.
+    return cast(Page[TenantRosterEntryOut], paginate(entries, params))

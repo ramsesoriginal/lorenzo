@@ -7,23 +7,30 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
 
 
-class ItemViewMixin:
-    """Shared by VItem and VItemInstance - see ADR 0019. Plain Python
-    properties/methods navigating Entity's own already-existing
+class EntityViewMixin:
+    """Shared by VItem, VItemInstance, and VCharacter - see ADR 0019/0031.
+    Plain Python properties/methods navigating Entity's own already-existing
     relationships, not SQLAlchemy relationship()s of their own - a SQL view
     can't return a list-of-tuples in one cell, and duplicating a multi-hop
     join condition per property would be riskier than reusing relationships
     already built and tested elsewhere.
 
+    Renamed from ItemViewMixin (ADR 0031/RFC 0004): every property here was
+    already generic - built on Entity's own relationships, nothing
+    item-specific about the implementation, just the names of the
+    stat_groups a tenant happens to use - so sharing it with VCharacter
+    avoids a second, drifting copy of the identical logic.
+
     Requires the concrete class to provide its own `entity: Mapped[Entity]`
     relationship (not shared here, since each view's join condition differs
-    - VItem via `item`, VItemInstance via `item_instance`). Fully populating
-    these properties requires eager-loading entity -> information ->
-    payloads -> description, entity -> information -> knowledge_links
-    (needed by `descriptions` below - ADR 0028), and entity -> stats ->
-    stat_definition -> stat_group; accessing them without doing so returns
-    an empty list or raises, it does not silently lazy-load in this
-    project's async setup (see ADR 0018's own async lazy-load pitfalls).
+    - VItem via `item`, VItemInstance via `item_instance`, VCharacter via
+    `character`/`being`). Fully populating these properties requires
+    eager-loading entity -> information -> payloads -> description, entity
+    -> information -> knowledge_links (needed by `descriptions` below - ADR
+    0028), and entity -> stats -> stat_definition -> stat_group; accessing
+    them without doing so returns an empty list or raises, it does not
+    silently lazy-load in this project's async setup (see ADR 0018's own
+    async lazy-load pitfalls).
 
     No `pictures` here (unlike `descriptions`) - checked and confirmed
     unused: `schemas/items.py`'s `_picture_refs` needs the owning `Payload`
