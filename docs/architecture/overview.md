@@ -8,7 +8,7 @@ Every deployable app lives under `apps/`, one directory per app, named by purpos
 | --- | --- | --- |
 | Backend API | Source of truth. Multi-tenant REST API over PostgreSQL. | One — [`apps/api`](../../apps/api), read-only endpoints for entities/items/item instances/payloads, plus auth (`/me`) |
 | Web frontend(s) | Static UI for GMs/players (zero-JS by default). | One or many |
-| Discord bot(s) | Talks to the API — e.g. loot/inventory. | At least one, possibly more |
+| Discord bot(s) | Talks to the API — e.g. loot/inventory. | [`apps/loot-bot`](../../apps/loot-bot) under construction — Discord account linking + "my inventory" ([ADR 0029](../adr/0029-loot-bot-stack-linking-and-isolation.md)); possibly more later |
 | Mobile app(s) | Talks to the API — narrower, audience-specific views. | Possibly more than one |
 
 Everything other than the backend API is a *view* onto it — narrower, audience-specific slices of the same data, not a separate source of truth. See the [system context diagram](diagrams/system-context.md).
@@ -29,3 +29,5 @@ The entity design itself is recorded in [RFC 0001](../rfcs/0001-core-domain-data
 ## Roadmap
 
 Tracked as [GitHub issues/milestones](https://github.com/ramsesoriginal/lorenzo/issues) once there's something to track. Both vertical slices that were in progress are now built and merged to `main`: simple inventory management (entity/stats/information/payloads/prototypes/containment/item/item_instance, ADRs 0012-0019, plus a read-only REST API over all of it, [ADR 0020](../adr/0020-rest-api-tenant-scoping-and-schemas.md)) and auth/users/campaigns/GM (Authgear, User/Tenant/Membership, Campaign/Player, Character/ownership, Campaign GM/orga — ADRs 0009/0021-0026, RFC 0002 accepted), plus production Authgear Cloud wiring (ADR 0027) and per-character/per-group/public information visibility ([ADR 0028](../adr/0028-knowledge-and-group-membership.md)) on top. Remaining, not yet built: RFC 0001's redaction-alternative open question (ADR 0028 built the authored-truths knowledge model; the "one truth, redacted per audience" alternative stays open), a fuller CRUD REST surface beyond read-only, campaign-scoped REST routes (the access rule itself is built - `campaign_access.can_access_campaign()` - just not wired to a route), and cross-tenant repositories ([docs/domain/repositories.md](../domain/repositories.md)).
+
+The first client app on top of all this, [`apps/loot-bot`](../../apps/loot-bot) ([ADR 0029](../adr/0029-loot-bot-stack-linking-and-isolation.md)), is under construction in parallel with the CRUD API work above — it depends on a small `apps/api` addition (resolving "which characters does this user control," and letting a player read their own inventory without a tenant-wide `Membership` row) that isn't built yet either.

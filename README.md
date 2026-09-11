@@ -24,13 +24,13 @@
 
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth. Everything else is still structure and tooling. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth. `apps/loot-bot`, a Discord bot, is under construction on top of it. Everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 | --- | --- | --- |
 | Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — domain model, read-only REST API, Authgear auth |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
-| Discord bot(s) | Talks to the API | none yet — at least one is planned |
+| Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — in progress: Discord account linking + "my inventory" (see [ADR 0029](docs/adr/0029-loot-bot-stack-linking-and-isolation.md)) |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
 
 Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md).
