@@ -4,6 +4,10 @@
     "apps/api": {
       "release-type": "python",
       "component": "api"
+    },
+    "apps/loot-bot": {
+      "release-type": "node",
+      "component": "loot-bot"
     }
   }
 }

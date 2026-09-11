@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.env
+
+# src/lorenzo-schema.d.ts is deliberately NOT ignored - it's checked in like
+# a lockfile (regenerate with `mise run generate-client`), since nothing in
+# CI or a fresh clone would otherwise generate it before `tsc`/tests need it.

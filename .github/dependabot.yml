@@ -35,3 +35,25 @@ updates:
       docker:
         patterns:
           - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/apps/loot-bot"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/loot-bot"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      docker:
+        patterns:
+          - "*"
