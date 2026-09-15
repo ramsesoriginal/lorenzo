@@ -1,0 +1,20 @@
+[
+  {
+    "label": "Lorenzo · Check",
+    "command": "mise run check",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "Lorenzo · Test",
+    "command": "mise run test",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "Lorenzo · Lint",
+    "command": "mise run lint",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  }
+]
