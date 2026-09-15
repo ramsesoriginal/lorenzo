@@ -19,6 +19,9 @@ from fastapi_problem.error import (
 )
 
 __all__ = [
+    "CampaignAdminOptOutRequiresAdminError",
+    "CampaignManagementForbiddenError",
+    "CampaignNotEmptyError",
     "CampaignNotFoundError",
     "CharacterNotFoundError",
     "EntityNotFoundError",
@@ -109,6 +112,37 @@ class ItemInstanceManagementForbiddenError(ForbiddenProblem):
     """
 
     title = "Not authorized to manage this item instance"
+
+
+class CampaignNotEmptyError(ConflictProblem):
+    """DELETE /campaigns/{id} guard - see ADR 0034/RFC 0006: deleting a
+    campaign that still has a Player or CampaignGm row needs an explicit
+    ?force=true, or the existing ON DELETE CASCADE chain would silently
+    take the whole roster down with it.
+    """
+
+    title = "Campaign still has players or GMs"
+
+
+class CampaignManagementForbiddenError(ForbiddenProblem):
+    """can_manage_campaign (ADR 0032) failed - see ADR 0034/RFC 0006. The
+    caller already passed get_campaign_context (a real, non-enumerable 404
+    boundary via can_access_campaign), so this is deliberately 403, not
+    404: they can already read the campaign, they just lack a specific
+    management permission over it.
+    """
+
+    title = "Not authorized to manage this campaign"
+
+
+class CampaignAdminOptOutRequiresAdminError(UnprocessableProblem):
+    """PUT .../admin-opt-out - see ADR 0034/RFC 0006: opting out of a
+    tenant-admin bypass the caller doesn't currently hold (no tenant-wide
+    OWNER/ORGA Membership) is meaningless, not merely redundant - 422, not
+    a silent no-op.
+    """
+
+    title = "Opting out requires holding tenant-wide OWNER or ORGA"
 
 
 class PreconditionFailedError(StatusProblem):

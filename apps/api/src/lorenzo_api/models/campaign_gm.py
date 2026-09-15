@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, CreatedAt, CreatedBy
 
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign import Campaign
@@ -24,6 +24,10 @@ class CampaignGm(Base):
     to reference a specific grant by id. tenant_id is a denormalized copy
     of campaign.tenant_id (RLS only) - no tenant relationship here,
     matching Player's own precedent for the same kind of column.
+
+    created_by/created_at only, no updated_by/updated_at (ADR 0029/0034) -
+    a grant is only ever made or revoked, never edited in place, so there's
+    nothing for an "updated" pair to ever mean.
     """
 
     __tablename__ = "campaign_gm"
@@ -37,6 +41,13 @@ class CampaignGm(Base):
     campaign_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("campaign.id", ondelete="CASCADE"), primary_key=True
     )
+    created_at: Mapped[CreatedAt]
+    created_by: Mapped[CreatedBy]
 
-    user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="campaign_gms")
+    # foreign_keys explicit: created_by is now a second FK to app_user
+    # (ADR 0034), which would otherwise leave SQLAlchemy unable to tell
+    # which column this relationship should join through.
+    user: Mapped[User] = relationship(
+        lazy="raise_on_sql", foreign_keys=[user_id], back_populates="campaign_gms"
+    )
     campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="gms")

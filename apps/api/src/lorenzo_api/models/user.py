@@ -42,14 +42,21 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    # foreign_keys explicit on both of these: campaign_gm/
+    # tenant_admin_campaign_opt_out each gained a second FK to app_user
+    # (created_by, ADR 0034) alongside user_id, which this relationship
+    # must be pointed at explicitly rather than left for SQLAlchemy to
+    # guess between.
     campaign_gms: Mapped[list[CampaignGm]] = relationship(
         lazy="raise_on_sql",
+        foreign_keys="CampaignGm.user_id",
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     tenant_admin_campaign_opt_outs: Mapped[list[TenantAdminCampaignOptOut]] = relationship(
         lazy="raise_on_sql",
+        foreign_keys="TenantAdminCampaignOptOut.user_id",
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
