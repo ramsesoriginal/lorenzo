@@ -50,23 +50,26 @@ class User(Base):
     # other direction).
     authgear_roles: frozenset[str]
 
+    # foreign_keys explicit on every one of these: membership/player each
+    # gained a second and third FK to app_user (created_by/updated_by, ADR
+    # 0036) alongside user_id, and campaign_gm/tenant_admin_campaign_opt_out
+    # each gained a second FK (created_by, ADR 0034) alongside user_id -
+    # every one must be pointed at user_id explicitly rather than left for
+    # SQLAlchemy to guess between.
     memberships: Mapped[list[Membership]] = relationship(
         lazy="raise_on_sql",
+        foreign_keys="Membership.user_id",
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     players: Mapped[list[Player]] = relationship(
         lazy="raise_on_sql",
+        foreign_keys="Player.user_id",
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    # foreign_keys explicit on both of these: campaign_gm/
-    # tenant_admin_campaign_opt_out each gained a second FK to app_user
-    # (created_by, ADR 0034) alongside user_id, which this relationship
-    # must be pointed at explicitly rather than left for SQLAlchemy to
-    # guess between.
     campaign_gms: Mapped[list[CampaignGm]] = relationship(
         lazy="raise_on_sql",
         foreign_keys="CampaignGm.user_id",

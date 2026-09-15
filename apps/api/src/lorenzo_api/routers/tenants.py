@@ -18,7 +18,15 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match
-from lorenzo_api.exceptions import SlugConflictError, TenantNotFoundError
+from lorenzo_api.exceptions import (
+    InvalidUserError,
+    LastOwnerError,
+    MembershipAlreadyExistsError,
+    MembershipManagementForbiddenError,
+    MembershipNotFoundError,
+    SlugConflictError,
+    TenantNotFoundError,
+)
 from lorenzo_api.models import (
     Being,
     CampaignGm,
@@ -28,10 +36,13 @@ from lorenzo_api.models import (
     MembershipRole,
     Player,
     Tenant,
+    User,
 )
 from lorenzo_api.schemas.tenants import (
     GmRosterEntryOut,
+    MembershipCreate,
     MembershipRosterEntryOut,
+    MembershipUpdate,
     PlayerRosterEntryOut,
     TenantCreate,
     TenantOut,
@@ -299,3 +310,147 @@ async def list_tenant_roster(
     # paginate is typed to return Any (fastapi_pagination's own signature) -
     # cast rather than suppress, the declared return type is otherwise exact.
     return cast(Page[TenantRosterEntryOut], paginate(entries, params))
+
+
+# --- Membership invite/role-change/revoke (ADR 0036/RFC 0007) ------------
+#
+# OWNER-only, not ORGA - a deliberate narrowing this RFC introduces:
+# granting/revoking tenant-wide administrative access is more sensitive
+# than day-to-day tenant administration (which ORGA already covers
+# everywhere else, e.g. update_tenant above). PATCH/DELETE both guard
+# against removing the tenant's last OWNER (409 LastOwnerError) - the same
+# structural concern DELETE /me (routers/users.py) guards for the
+# "removing yourself" path, expressed here for "someone else removes/
+# demotes you."
+
+
+async def _require_owner(session: SessionDep, *, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """membership is None should be unreachable here in practice - every
+    caller already cleared get_tenant_context, which itself already
+    requires a Membership row. Kept as the real check anyway, the same
+    dead-but-documented-intent shape get_tenant's own re-fetch and
+    routers/campaigns.py's is_tenant_admin check already use.
+    """
+    membership = await session.get(Membership, (tenant_id, user_id))
+    if membership is None or membership.role is not MembershipRole.OWNER:
+        raise MembershipManagementForbiddenError(
+            detail=f"Not authorized to manage memberships in tenant {tenant_id}"
+        )
+
+
+async def _is_sole_owner(session: SessionDep, *, tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    stmt = select(Membership.user_id).where(
+        Membership.tenant_id == tenant_id, Membership.role == MembershipRole.OWNER
+    )
+    owner_ids = (await session.execute(stmt)).scalars().all()
+    return owner_ids == [user_id]
+
+
+async def _membership_out(
+    tenant_id: uuid.UUID, user_id: uuid.UUID, session: SessionDep
+) -> MembershipRosterEntryOut:
+    membership = await session.get(Membership, (tenant_id, user_id))
+    if membership is None:
+        raise MembershipNotFoundError(
+            detail=f"No membership for user {user_id} in tenant {tenant_id}"
+        )
+    return MembershipRosterEntryOut.from_membership(membership)
+
+
+@router.post("/{tenant_id}/memberships", status_code=201)
+async def create_membership(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    body: MembershipCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> MembershipRosterEntryOut:
+    """No Location header - unlike every other POST in this codebase,
+    there is no single-resource GET .../memberships/{user_id} route to
+    point one at (only the broadened roster list above); RFC 0007's own
+    endpoint table doesn't add one either. Deliberately not making one up.
+    """
+    await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
+    if await session.get(User, body.user_id) is None:
+        raise InvalidUserError(detail=f"{body.user_id} is not an existing user")
+    if await session.get(Membership, (tenant_id, body.user_id)) is not None:
+        raise MembershipAlreadyExistsError(
+            detail=f"User {body.user_id} already has a membership in tenant {tenant_id}"
+        )
+
+    session.add(
+        Membership(
+            tenant_id=tenant_id,
+            user_id=body.user_id,
+            role=MembershipRole(body.role),
+            created_by=user.id,
+            updated_by=user.id,
+        )
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await _membership_out(tenant_id, body.user_id, session)
+
+
+@router.patch("/{tenant_id}/memberships/{user_id}")
+async def update_membership(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    user_id: uuid.UUID,
+    body: MembershipUpdate,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> MembershipRosterEntryOut:
+    await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
+    membership = await session.get(Membership, (tenant_id, user_id))
+    if membership is None:
+        raise MembershipNotFoundError(
+            detail=f"No membership for user {user_id} in tenant {tenant_id}"
+        )
+    check_if_match(if_match, updated_at=membership.updated_at)
+
+    new_role = MembershipRole(body.role)
+    if (
+        membership.role is MembershipRole.OWNER
+        and new_role is not MembershipRole.OWNER
+        and await _is_sole_owner(session, tenant_id=tenant_id, user_id=user_id)
+    ):
+        raise LastOwnerError(detail=f"User {user_id} is the sole OWNER of tenant {tenant_id}")
+
+    if membership.role != new_role:
+        membership.role = new_role
+        membership.updated_by = user.id
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await _membership_out(tenant_id, user_id, session)
+
+
+@router.delete("/{tenant_id}/memberships/{user_id}", status_code=204)
+async def delete_membership(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    user_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> None:
+    """OWNER, or removing your own membership (leaving the tenant) - no
+    manage permission needed for that self-service half, mirroring
+    revoke_campaign_gm's identical self-removal carve-out.
+    """
+    if user_id != user.id:
+        await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
+
+    membership = await session.get(Membership, (tenant_id, user_id))
+    if membership is None:
+        raise MembershipNotFoundError(
+            detail=f"No membership for user {user_id} in tenant {tenant_id}"
+        )
+    check_if_match(if_match, updated_at=membership.updated_at)
+
+    if membership.role is MembershipRole.OWNER and await _is_sole_owner(
+        session, tenant_id=tenant_id, user_id=user_id
+    ):
+        raise LastOwnerError(detail=f"User {user_id} is the sole OWNER of tenant {tenant_id}")
+
+    await session.delete(membership)
+    await session.commit()

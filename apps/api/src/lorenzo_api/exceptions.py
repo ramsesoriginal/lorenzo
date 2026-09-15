@@ -23,6 +23,7 @@ __all__ = [
     "CampaignManagementForbiddenError",
     "CampaignNotEmptyError",
     "CampaignNotFoundError",
+    "CharacterManagementForbiddenError",
     "CharacterNotFoundError",
     "EntityNotFoundError",
     "EntityStatManagementForbiddenError",
@@ -30,12 +31,18 @@ __all__ = [
     "InvalidStatGroupError",
     "InvalidStatValueTypeError",
     "InvalidTokenError",
+    "InvalidUserError",
     "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
     "ItemNotFoundError",
     "ItemPrototypeInUseError",
+    "LastOwnerError",
+    "MembershipAlreadyExistsError",
+    "MembershipManagementForbiddenError",
+    "MembershipNotFoundError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
+    "PlayerAlreadyExistsError",
     "PlayerNotFoundError",
     "PreconditionFailedError",
     "SlugConflictError",
@@ -227,3 +234,88 @@ class SlugConflictError(ConflictProblem):
     """
 
     title = "Slug already in use"
+
+
+class LastOwnerError(ConflictProblem):
+    """DELETE /me, PATCH/DELETE /tenants/{id}/memberships/{user_id} - see
+    ADR 0036/RFC 0007. Every tenant needs at least one OWNER able to
+    administer it; this is the one guard shared by all three routes that
+    could otherwise leave a tenant with none - removing yourself, having
+    someone else remove you, or having someone else demote you away from
+    OWNER, when you're the sole one.
+    """
+
+    title = "Cannot remove the tenant's only OWNER"
+
+
+class MembershipManagementForbiddenError(ForbiddenProblem):
+    """POST/PATCH/DELETE /tenants/{id}/memberships[/{user_id}] - see ADR
+    0036/RFC 0007. Deliberately narrower than CampaignManagementForbiddenError:
+    membership management is OWNER-only, not ORGA - granting/revoking
+    tenant-wide administrative access is more sensitive than day-to-day
+    tenant administration. The caller already passed get_tenant_context (a
+    real Membership row, so a real non-enumerable 404 boundary already
+    cleared), so this is deliberately 403, not 404.
+    """
+
+    title = "Not authorized to manage memberships in this tenant"
+
+
+class MembershipNotFoundError(NotFoundProblem):
+    """PATCH/DELETE /tenants/{id}/memberships/{user_id} - the target user_id
+    has no Membership row in this tenant. See ADR 0036/RFC 0007.
+    """
+
+    title = "Membership not found"
+
+
+class MembershipAlreadyExistsError(ConflictProblem):
+    """POST /tenants/{id}/memberships - user_id already has a Membership row
+    in this tenant. Not named anywhere in RFC 0007's own text (which
+    doesn't address a duplicate invite), but a real, easily-reachable case:
+    without this, a second POST for the same user_id would otherwise hit
+    the table's own composite-PK violation as a bare, unhandled 500. Points
+    the caller at PATCH instead, which is the route that actually exists to
+    change an existing member's role.
+    """
+
+    title = "This user already has a membership in this tenant"
+
+
+class PlayerAlreadyExistsError(ConflictProblem):
+    """POST /tenants/{id}/campaigns/{id}/players - user_id already has a
+    Player row in this campaign (player's own UniqueConstraint(campaign_id,
+    user_id), ADR 0024). Same reasoning as MembershipAlreadyExistsError
+    above - not named in RFC 0007's own text, added so a second join
+    attempt gets a clean 409 instead of an unhandled 500.
+    """
+
+    title = "This user already has a player in this campaign"
+
+
+class InvalidUserError(UnprocessableProblem):
+    """POST /tenants/{id}/memberships and POST .../players - user_id doesn't
+    resolve to an existing app_user row. Real, not hypothetical: RFC 0007's
+    "invite by user_id, not email" design ("Invitation, honestly") means an
+    owner/manager can only reference someone who has already signed in at
+    least once - this API has no email to look anyone up by (ADR 0009).
+    Mirrors InvalidItemPrototypeError/InvalidStatGroupError's own "body
+    references something that isn't there" shape.
+    """
+
+    title = "User id does not reference an existing user"
+
+
+class CharacterManagementForbiddenError(ForbiddenProblem):
+    """Self-or-managed authorization failed for a character write - see ADR
+    0036/RFC 0007. Covers all three "managed" tiers (roster-link,
+    any-one-current-campaign, every-campaign) with one error class, same as
+    ItemInstanceManagementForbiddenError covers every item-instance write
+    tier - which tier failed is a `detail`-string distinction, not a
+    separate type. 403, not 404: the caller already passed
+    get_tenant_or_404 (plus, for the two pre-existing read routes,
+    get_tenant_context) - they already know this character exists, they
+    just lack the specific write permission over it.
+    """
+
+    title = "Not authorized to manage this character"

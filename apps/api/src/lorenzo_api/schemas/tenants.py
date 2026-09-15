@@ -8,7 +8,10 @@ from lorenzo_api.schemas.characters import CharacterSummaryOut
 
 __all__ = [
     "GmRosterEntryOut",
+    "MembershipCreate",
+    "MembershipRoleName",
     "MembershipRosterEntryOut",
+    "MembershipUpdate",
     "PlayerRosterEntryOut",
     "TenantCreate",
     "TenantOut",
@@ -19,6 +22,11 @@ __all__ = [
 ]
 
 TenantRole = Literal["owner", "orga", "participant"]
+
+# Membership.role only ever holds one of these two (MembershipRole, ADR
+# 0022) - narrower than TenantRole above, which also admits "participant"
+# for a caller with no Membership row at all, never a valid *input* value.
+MembershipRoleName = Literal["owner", "orga"]
 
 # Basic format only (lowercase alphanumeric segments joined by single
 # hyphens, no leading/trailing/doubled hyphen) - RFC 0012's own "Open
@@ -99,26 +107,50 @@ class TenantOut(BaseModel):
     updated_by: uuid.UUID | None
 
 
+class MembershipCreate(BaseModel):
+    """POST /tenants/{id}/memberships - ADR 0036/RFC 0007. user_id must
+    already be a real app_user row - as with PlayerCreate, this API has no
+    email to invite by (ADR 0009's own boundary)."""
+
+    user_id: uuid.UUID
+    role: MembershipRoleName
+
+
+class MembershipUpdate(BaseModel):
+    """PATCH /tenants/{id}/memberships/{user_id} - ADR 0036/RFC 0007. Just
+    the one field the RFC's own endpoint table names - no `exclude_unset`
+    dance needed, unlike CampaignUpdate/TenantUpdate's multi-field bodies.
+    """
+
+    role: MembershipRoleName
+
+
 class MembershipRosterEntryOut(BaseModel):
     """One row of GET /tenants/{id}/memberships' broadened roster (ADR
-    0031/RFC 0004) - see TenantRosterEntryOut below for why this is a
-    discriminated union rather than one schema with sometimes-meaningful
-    fields, matching the PayloadOut precedent (ADR 0020).
+    0031/RFC 0004), also POST/PATCH's own create/update-response shape - see
+    TenantRosterEntryOut below for why this is a discriminated union rather
+    than one schema with sometimes-meaningful fields, matching the
+    PayloadOut precedent (ADR 0020).
 
-    RFC 0004's own shape also carries `created_by`/`updated_by`.
-    Deliberately not included yet: per ADR 0029's phased table,
-    `membership`'s attribution pair doesn't land until user/player/
-    character CRUD (ADR 0036/RFC 0007) actually writes to this table -
-    add it here as a small follow-up once that lands.
+    Now carries `created_by`/`updated_by` (ADR 0029) - `membership`'s
+    attribution pair lands with user/player/character CRUD (ADR 0036/RFC
+    0007), which is what actually writes to this table.
     """
 
     kind: Literal["membership"] = "membership"
     user_id: uuid.UUID
     role: str
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_membership(cls, membership: Membership) -> Self:
-        return cls(user_id=membership.user_id, role=membership.role.value)
+        return cls(
+            user_id=membership.user_id,
+            role=membership.role.value,
+            created_by=membership.created_by,
+            updated_by=membership.updated_by,
+        )
 
 
 class PlayerRosterEntryOut(BaseModel):
@@ -126,14 +158,16 @@ class PlayerRosterEntryOut(BaseModel):
     queries every Player row where Player.tenant_id matches - already
     denormalized, no join through Campaign needed.
 
-    Same attribution deferral as MembershipRosterEntryOut above -
-    `player.created_by`/`updated_by` don't exist until ADR 0036/RFC 0007.
+    Now carries `created_by`/`updated_by` too, same as
+    MembershipRosterEntryOut above (ADR 0036/RFC 0007).
     """
 
     kind: Literal["player"] = "player"
     user_id: uuid.UUID
     campaign_id: uuid.UUID
     characters: list[CharacterSummaryOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_player(cls, player: Player) -> Self:
@@ -144,6 +178,8 @@ class PlayerRosterEntryOut(BaseModel):
                 CharacterSummaryOut.from_character(link.character)
                 for link in player.character_links
             ],
+            created_by=player.created_by,
+            updated_by=player.updated_by,
         )
 
 
