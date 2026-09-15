@@ -35,3 +35,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0030 - Tenant and campaign read REST API](0030-tenant-campaign-read-api.md)
 - [0031 - Character table, and the user/membership/player/GM read REST API](0031-character-table-and-read-api.md)
 - [0032 - Item and item-instance CRUD API](0032-item-and-item-instance-crud-api.md)
+- [0037 - Effective stat resolution over the prototype graph](0037-effective-stat-resolution.md)
