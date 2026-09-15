@@ -1,7 +1,7 @@
 import subprocess
 import sys
 import uuid
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
 import pytest
 from _admin_db import admin_session_factory
@@ -178,11 +178,13 @@ async def make_character(
     return character
 
 
-@pytest.fixture
-async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
-    """get_current_user is overridden to a fixed test user - real token
-    verification is its own concern, tested directly in test_auth.py via
-    `raw_client` instead. Every other test uses this fixture.
+def _make_fake_current_user(
+    test_user_id: uuid.UUID, *, authgear_roles: frozenset[str]
+) -> Callable[[SessionDep], Awaitable[User]]:
+    """Builds the get_current_user override both `client` fixtures below
+    install - parameterized on authgear_roles (ADR 0033/RFC 0012) so the
+    tenant-creation negative-case test can get one with an empty set
+    without duplicating the rest of this function.
     """
 
     async def _fake_current_user(session: SessionDep) -> User:
@@ -193,9 +195,44 @@ async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
         await session.execute(
             text("SELECT set_config('app.user_id', :u, true)"), {"u": str(test_user_id)}
         )
-        return User(id=test_user_id, authgear_subject_id="conftest-fixture-user")
+        user = User(id=test_user_id, authgear_subject_id="conftest-fixture-user")
+        # Not a mapped column - see models.User's own docstring on it.
+        user.authgear_roles = authgear_roles
+        return user
 
-    app.dependency_overrides[get_current_user] = _fake_current_user
+    return _fake_current_user
+
+
+@pytest.fixture
+async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
+    """get_current_user is overridden to a fixed test user - real token
+    verification is its own concern, tested directly in test_auth.py via
+    `raw_client` instead. Every other test uses this fixture.
+
+    authgear_roles defaults to including "tenant-creator" (ADR 0033/RFC
+    0012) so tests unrelated to that role aren't newly blocked from
+    POST /tenants - the specific negative-case test for its 403 uses
+    `client_without_tenant_creator_role` below instead.
+    """
+    app.dependency_overrides[get_current_user] = _make_fake_current_user(
+        test_user_id, authgear_roles=frozenset({"tenant-creator"})
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    del app.dependency_overrides[get_current_user]
+
+
+@pytest.fixture
+async def client_without_tenant_creator_role(
+    test_user_id: uuid.UUID,
+) -> AsyncGenerator[AsyncClient]:
+    """Same as `client`, but with an empty authgear_roles - ADR 0033/RFC
+    0012's own negative case for POST /tenants' 403.
+    """
+    app.dependency_overrides[get_current_user] = _make_fake_current_user(
+        test_user_id, authgear_roles=frozenset()
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
