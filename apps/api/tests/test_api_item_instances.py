@@ -574,6 +574,90 @@ async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
     await delete_tenant(tenant_id)
 
 
+async def test_get_item_instance_gm_with_no_tenant_membership_sees_gm_only_secret(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The milestone's own scenario, end to end (RFC 0009/ADR 0035): Zorro,
+    GM of "The Ashen Crown" with zero tenant-wide Membership, must see that
+    Ashfang - owned by Alice's character, on his campaign's own roster - is
+    cursed. Demotes test_user_id from make_tenant's default OWNER
+    Membership first (same technique as
+    test_create_item_instance_ownerless_forbidden_for_plain_player above),
+    so this genuinely proves the CampaignGm-only path reaches
+    is_tenant_participant's gate on this router (ADR 0032), not an
+    accidental OWNER/ORGA bypass.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        await session.delete(membership)
+
+        campaign = await make_campaign(session, tenant_id=tenant_id, name="The Ashen Crown")
+        await session.flush()
+        session.add(CampaignGm(tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id))
+
+        alice = User(authgear_subject_id=f"authgear|alice-{uuid.uuid4()}")
+        session.add(alice)
+        await session.flush()
+        alice_player = Player(user_id=alice.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        session.add(alice_player)
+        await session.flush()
+        alice_character = await make_character(
+            session, tenant_id=tenant_id, name="Alice", owner_player_id=alice_player.id
+        )
+        session.add(
+            CharacterPlayer(
+                character_entity_id=alice_character.entity_id,
+                player_id=alice_player.id,
+                tenant_id=tenant_id,
+            )
+        )
+        await session.flush()
+
+        entity = Entity(tenant_id=tenant_id, name="Ashfang")
+        session.add(entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+        session.add(
+            Ownership(
+                owned_entity_id=entity.id,
+                owner_character_id=alice_character.entity_id,
+                tenant_id=tenant_id,
+            )
+        )
+        info = Information(
+            tenant_id=tenant_id,
+            entity_id=entity.id,
+            title="A fiery blade",
+            type="description",
+            is_public=False,
+        )
+        session.add(info)
+        await session.flush()
+        payload = Payload(tenant_id=tenant_id, information_id=info.id)
+        session.add(payload)
+        await session.flush()
+        session.add(
+            PayloadDescription(
+                payload_id=payload.id,
+                tenant_id=tenant_id,
+                locale="en-US",
+                content="The blade is cursed.",
+            )
+        )
+        await session.commit()
+        entity_id, alice_id = entity.id, alice.id
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert response.status_code == 200
+    assert [d["content"] for d in response.json()["descriptions"]] == ["The blade is cursed."]
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, alice_id))
+        await session.commit()
+
+
 async def test_create_item_instance_self_service_with_owner_and_container(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
