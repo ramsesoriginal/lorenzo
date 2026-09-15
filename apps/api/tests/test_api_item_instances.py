@@ -528,6 +528,8 @@ async def test_container_filter_recursive_pagination_spans_multiple_pages(
     assert pages_reported == {3}
     assert seen == {str(i) for i in instance_ids}
 
+    await delete_tenant(tenant_id)
+
 
 async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
     client: AsyncClient, test_user_id: uuid.UUID
