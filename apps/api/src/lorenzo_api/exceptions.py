@@ -32,6 +32,8 @@ __all__ = [
     "PayloadNotFoundError",
     "PlayerNotFoundError",
     "PreconditionFailedError",
+    "SlugConflictError",
+    "TenantCreationForbiddenError",
     "TenantNotFoundError",
 ]
 
@@ -121,3 +123,26 @@ class PreconditionFailedError(StatusProblem):
 
     status = 412
     title = "Precondition failed"
+
+
+class TenantCreationForbiddenError(ForbiddenProblem):
+    """POST /tenants - the caller lacks the platform-level tenant-creator
+    Authgear role (ADR 0033/RFC 0012). 403, not 404: there's no
+    tenant-scoped existence to hide behind - POST /tenants is the one
+    endpoint with nothing tenant-scoped to leak - the caller just lacks a
+    specific, nameable platform privilege, the same 403-not-404 reasoning
+    RFC 0005 already established for "can read, can't write."
+    """
+
+    title = "Missing the tenant-creator role"
+
+
+class SlugConflictError(ConflictProblem):
+    """An explicitly-given slug (POST /tenants or PATCH /tenants/{id}) is
+    already taken by another tenant. No auto-suffix here, unlike an
+    omitted slug on create - silently rewriting something the caller
+    explicitly asked for would be the wrong failure mode for an explicit
+    choice. See ADR 0033/RFC 0012.
+    """
+
+    title = "Slug already in use"
