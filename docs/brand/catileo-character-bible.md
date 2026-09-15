@@ -10,7 +10,7 @@
 
 ---
 
-# 1. Purpose
+## 1. Purpose
 
 This document defines **Catileo** as a recurring character within the Lorenzo brand.
 
@@ -26,7 +26,7 @@ Where the characters interact, both bibles apply.
 
 ---
 
-# 2. Character at a glance
+## 2. Character at a glance
 
 **Core concept:** a large, long-haired black-and-white cat whose calm self-possession, domestic gravity, and occasional inconvenient certainty provide a perfect counterpoint to Lorenzo's careful worldkeeping.
 
@@ -54,31 +54,31 @@ His emotional center is:
 
 ---
 
-# 3. Core character principles
+## 3. Core character principles
 
-## 3.1 Cat first
+### 3.1 Cat first
 
 Catileo behaves like a cat.
 
 His personality comes from believable feline behavior, not from making him a tiny human.
 
-## 3.2 Specific, not generic
+### 3.2 Specific, not generic
 
 He must retain his recognizable long-haired tuxedo markings, large ruff, eye color, whiskers, silhouette, and facial balance.
 
 Do not substitute any convenient black-and-white cat design.
 
-## 3.3 Calm creates comedy
+### 3.3 Calm creates comedy
 
 Catileo is funniest when he behaves as though nothing unusual has happened.
 
 Lorenzo may be inconvenienced, Catileo usually is not.
 
-## 3.4 Warmth without sentimentality
+### 3.4 Warmth without sentimentality
 
 He can be affectionate, sleepy, trusting, needy, demanding, or playful without becoming saccharine.
 
-## 3.5 He belongs in the work
+### 3.5 He belongs in the work
 
 Catileo should look at home among:
 
@@ -97,7 +97,7 @@ He is not a ceremonial mascot placed beside those objects.
 
 He occupies them.
 
-## 3.6 The world changes; the cat remains a cat
+### 3.6 The world changes; the cat remains a cat
 
 Fantasy, science fiction, noir, horror, historical, or cozy settings may change his environment and any necessary equipment.
 
@@ -105,9 +105,9 @@ They should not turn Catileo into an anthropomorphic adventurer by default.
 
 ---
 
-# 4. Canonicality model
+## 4. Canonicality model
 
-## Tier A — immutable identity anchors
+### Tier A — immutable identity anchors
 
 Preserve almost always:
 
@@ -129,7 +129,7 @@ Preserve almost always:
 - natural feline behavior
 - he / him pronouns in brand canon
 
-## Tier B — strong recurring anchors
+### Tier B — strong recurring anchors
 
 Usually preserve:
 
@@ -143,7 +143,7 @@ Usually preserve:
 - slow-blink / level-stare acting
 - tendency to occupy work surfaces
 
-## Tier C — contextual
+### Tier C — contextual
 
 May change:
 
@@ -159,7 +159,7 @@ May change:
 
 ---
 
-# 5. Visual model
+## 5. Visual model
 
 Catileo is modeled after Baggy.
 
@@ -173,7 +173,7 @@ The target is:
 
 ---
 
-# 6. Species and build
+## 6. Species and build
 
 Catileo is a **large-looking long-haired domestic cat**.
 
@@ -203,9 +203,9 @@ The coat creates much of his apparent mass.
 
 ---
 
-# 7. Head and face
+## 7. Head and face
 
-## 7.1 Head shape
+### 7.1 Head shape
 
 The head reads as a soft modified triangle under a heavy coat.
 
@@ -218,7 +218,7 @@ Key features:
 - fur creating width around jaw / cheeks
 - face not excessively round
 
-## 7.2 Ears
+### 7.2 Ears
 
 Canonical ears:
 
@@ -231,7 +231,7 @@ Canonical ears:
 
 At simplified levels, the two ear points are critical silhouette anchors.
 
-## 7.3 Eyes
+### 7.3 Eyes
 
 Canonical eye color:
 
@@ -250,14 +250,14 @@ Eye behavior is one of his main acting tools:
 - narrow sleepy slits
 - tracking food / toy / hand movement
 
-## 7.4 Nose
+### 7.4 Nose
 
 - black to very dark charcoal
 - small relative to the ruff
 - no pink nose
 - no decorative recoloring
 
-## 7.5 Muzzle and chin
+### 7.5 Muzzle and chin
 
 The face is predominantly black.
 
@@ -272,7 +272,7 @@ Important:
 
 A small irregular white chin / lower-mouth accent is appropriate.
 
-## 7.6 Whiskers
+### 7.6 Whiskers
 
 Whiskers are a major identifier.
 
@@ -289,13 +289,13 @@ Do not shorten them into generic cartoon whisker marks at L1–L3.
 
 ---
 
-# 8. Coat and markings
+## 8. Coat and markings
 
-## 8.1 Overall pattern
+### 8.1 Overall pattern
 
 Catileo is a long-haired **black-and-white tuxedo-pattern cat**, but his markings should be treated specifically rather than generically.
 
-### Dark areas
+#### Dark areas
 
 Predominantly dark:
 
@@ -308,7 +308,7 @@ Predominantly dark:
 - most of hind legs
 - tail
 
-### White areas
+#### White areas
 
 Canonical white:
 
@@ -320,7 +320,7 @@ Canonical white:
 - hind paws / toes / socks
 - portions of underside visible depending pose
 
-## 8.2 Chest bib
+### 8.2 Chest bib
 
 The chest is the most important marking after the black face.
 
@@ -335,7 +335,7 @@ It should read as:
 
 When seated front-on, this white bib is a major vertical graphic shape.
 
-## 8.3 Paws
+### 8.3 Paws
 
 The white paws are conspicuous and charming.
 
@@ -353,7 +353,7 @@ Hind paws:
 
 Do not make the white climb uniformly high up all four legs unless supported by the reference.
 
-## 8.4 Tail
+### 8.4 Tail
 
 - long
 - very bushy
@@ -363,7 +363,7 @@ Do not make the white climb uniformly high up all four legs unless supported by 
 
 Do not add a white tail tip.
 
-## 8.5 Fur texture
+### 8.5 Fur texture
 
 The coat is:
 
@@ -386,17 +386,17 @@ Avoid rendering the coat as:
 
 ---
 
-# 9. Silhouette
+## 9. Silhouette
 
 Catileo's silhouette changes dramatically by pose.
 
-## Sitting silhouette
+### Sitting silhouette
 
-**ear points + dark head + huge light chest wedge + narrow visible forelegs + white paws + dark body mass + plume tail**
+**ear points + dark head + huge light chest wedge + narrow visible forelegs + white paws + dark body mass + plume tail.**
 
 This is one of the strongest canonical reads.
 
-## Standing silhouette
+### Standing silhouette
 
 - medium-long body
 - substantial ruff
@@ -405,7 +405,7 @@ This is one of the strongest canonical reads.
 - white feet
 - horizontal plume tail or low sweeping tail
 
-## Loaf silhouette
+### Loaf silhouette
 
 - broad dark oval
 - ear points
@@ -413,14 +413,14 @@ This is one of the strongest canonical reads.
 - paws largely hidden
 - tail merged into body mass
 
-## Sprawl silhouette
+### Sprawl silhouette
 
 - very long furry body
 - dramatic plume tail
 - white paws punctuation at the ends
 - relaxed, almost boneless appearance
 
-## Close-up silhouette
+### Close-up silhouette
 
 - tall ear points
 - dark forehead
@@ -430,7 +430,7 @@ This is one of the strongest canonical reads.
 
 ---
 
-# 10. Scale relative to Lorenzo
+## 10. Scale relative to Lorenzo
 
 Catileo should read as a **large domestic cat**, not a tiny mascot animal.
 
@@ -445,11 +445,11 @@ Do not scale him up into a fantasy giant cat unless explicitly non-canonical.
 
 ---
 
-# 11. Color reference
+## 11. Color reference
 
 Catileo should harmonize with the Lorenzo palette without being recolored to match it.
 
-## Core fur palette
+### Core fur palette
 
 | Name             | Hex       | Use                       |
 | ---------------- | --------- | ------------------------- |
@@ -462,7 +462,7 @@ Catileo should harmonize with the Lorenzo palette without being recolored to mat
 | Ruff Shadow      | `#C9C5BC` | White-fur shadow          |
 | Ruff Warm Shadow | `#B7ACA2` | Warm environment shadow   |
 
-## Face accents
+### Face accents
 
 | Name            | Hex       | Use                                |
 | --------------- | --------- | ---------------------------------- |
@@ -480,7 +480,7 @@ Identity should survive lighting.
 
 ---
 
-# 12. Relationship to the Lorenzo brand palette
+## 12. Relationship to the Lorenzo brand palette
 
 Catileo should naturally coexist with:
 
@@ -502,7 +502,7 @@ This separation keeps both characters legible.
 
 ---
 
-# 13. Facial-expression library
+## 13. Facial-expression library
 
 Catileo's expression system should remain feline.
 
@@ -519,7 +519,7 @@ Most emotion comes from:
 
 Avoid human eyebrow acting.
 
-## Core expressions
+### Core expressions
 
 1. **Neutral / Regal** — direct gaze, ears forward-neutral, mouth closed.
 2. **Slow-Blink Contentment** — eyes partly closed, face relaxed.
@@ -534,7 +534,7 @@ Avoid human eyebrow acting.
 11. **Offended** — ears slightly outward / back, narrowed stare, body withdrawal.
 12. **Play-Hunt Focus** — low head, dilated pupils, forward attention.
 
-## Secondary expressions
+### Secondary expressions
 
 - blissful grooming
 - tongue out / lick
@@ -548,7 +548,7 @@ Avoid human eyebrow acting.
 
 ---
 
-# 14. Expression boundaries
+## 14. Expression boundaries
 
 Avoid:
 
@@ -564,9 +564,9 @@ Catileo's humor comes from readable but believable cat expressions.
 
 ---
 
-# 15. Pose library
+## 15. Pose library
 
-## Core poses
+### Core poses
 
 1. upright sit
 2. windowsill sit
@@ -596,9 +596,9 @@ Catileo's humor comes from readable but believable cat expressions.
 
 ---
 
-# 16. Pose families
+## 16. Pose families
 
-## Public / emblematic
+### Public / emblematic
 
 Use sparingly:
 
@@ -610,7 +610,7 @@ Use sparingly:
 
 This is the closest thing to a formal portrait.
 
-## Domestic
+### Domestic
 
 Most common:
 
@@ -622,7 +622,7 @@ Most common:
 - blanket curl
 - chair occupation
 
-## Work-surface
+### Work-surface
 
 Essential to the character:
 
@@ -635,7 +635,7 @@ Essential to the character:
 - sitting exactly on the needed document
 - tail across active work area
 
-## Interactive with Lorenzo
+### Interactive with Lorenzo
 
 - sleeping against Lorenzo's arm
 - cheek rubbing hand
@@ -648,7 +648,7 @@ Essential to the character:
 - being worked around
 - taking Lorenzo's chair the moment they stand
 
-## Play
+### Play
 
 - batting ribbon
 - stalking pen
@@ -659,11 +659,11 @@ Essential to the character:
 
 ---
 
-# 17. Body language
+## 17. Body language
 
 Catileo's default body language is grounded and self-possessed.
 
-## Calm
+### Calm
 
 - body weight settles fully
 - tail rests heavily
@@ -671,21 +671,21 @@ Catileo's default body language is grounded and self-possessed.
 - slow blink
 - minimal motion
 
-## Curious
+### Curious
 
 - head extends
 - ears forward
 - whiskers orient
 - body follows after head
 
-## Skeptical / displeased
+### Skeptical / displeased
 
 - ears rotate outward
 - eyes narrow
 - chin retracts
 - body remains still
 
-## Affectionate
+### Affectionate
 
 - head press
 - cheek rub
@@ -694,7 +694,7 @@ Catileo's default body language is grounded and self-possessed.
 - slow blink
 - proximity without constant eye contact
 
-## Playful
+### Playful
 
 - body lowers
 - hindquarters prepare
@@ -703,7 +703,7 @@ Catileo's default body language is grounded and self-possessed.
 
 ---
 
-# 18. Behavioral traits
+## 18. Behavioral traits
 
 Catileo is generally:
 
@@ -731,7 +731,7 @@ He is not:
 
 ---
 
-# 19. The Catileo comedy model
+## 19. The Catileo comedy model
 
 The basic comedic structure is:
 
@@ -750,7 +750,7 @@ The key is that Catileo should usually **not look guilty**.
 
 ---
 
-# 20. Affection model
+## 20. Affection model
 
 Catileo's affection is physical but not performative.
 
@@ -773,7 +773,7 @@ Ordinary companionship is stronger.
 
 ---
 
-# 21. Relationship with Lorenzo
+## 21. Relationship with Lorenzo
 
 Their relationship should feel long-established.
 
@@ -783,7 +783,7 @@ Catileo knows Lorenzo's spaces.
 
 Neither needs to make a production of affection.
 
-## Recurring dynamic
+### Recurring dynamic
 
 1. Lorenzo arranges something.
 2. Catileo changes the arrangement.
@@ -792,7 +792,7 @@ Neither needs to make a production of affection.
 5. Catileo remains.
 6. Lorenzo adapts.
 
-## Emotional function
+### Emotional function
 
 Catileo reveals sides of Lorenzo that other brand material cannot:
 
@@ -807,7 +807,7 @@ Catileo reveals sides of Lorenzo that other brand material cannot:
 
 ---
 
-# 22. Relationship boundaries
+## 22. Relationship boundaries
 
 Do not make Catileo:
 
@@ -822,7 +822,7 @@ Their bond works because it is recognizable as a person living with a cat.
 
 ---
 
-# 23. Vocalization
+## 23. Vocalization
 
 Catileo does not canonically speak human language.
 
@@ -841,14 +841,14 @@ Use vocalization sparingly.
 
 Silence and stare are often more characterful.
 
-## Written representation
+### Written representation
 
 Acceptable:
 
 > _mrrp_
-
+>
 > _prrrr_
-
+>
 > _meow_
 
 Avoid giving him full translated dialogue as standard canon.
@@ -857,11 +857,11 @@ A deliberately non-canonical comic may "translate" him, but it should be treated
 
 ---
 
-# 24. Anthropomorphism boundary
+## 24. Anthropomorphism boundary
 
 Default anthropomorphism level is low.
 
-## Allowed
+### Allowed
 
 - readable staging
 - slightly exaggerated timing
@@ -870,7 +870,7 @@ Default anthropomorphism level is low.
 - comic cuts between Catileo and Lorenzo
 - slightly heightened feline confidence
 
-## Avoid
+### Avoid
 
 - standing upright to gesture
 - human hand gestures
@@ -884,7 +884,7 @@ Default anthropomorphism level is low.
 
 ---
 
-# 25. Accessories
+## 25. Accessories
 
 Catileo should usually wear **no accessory**.
 
@@ -900,7 +900,7 @@ A tiny Lorenzo spark tag may be used in selective brand illustrations, but it sh
 
 ---
 
-# 26. Functional gear
+## 26. Functional gear
 
 When the environment requires protection, Catileo may use appropriately designed animal equipment.
 
@@ -920,19 +920,19 @@ Do not turn necessary gear into anthropomorphic human clothing.
 
 ---
 
-# 27. Setting adaptation
+## 27. Setting adaptation
 
 Central rule:
 
 > **Catileo remains recognizably the same domestic cat. The world adapts around him.**
 
-## Contemporary
+### Contemporary
 
 The default and easiest setting.
 
 Use desks, windows, couches, books, keyboards, blankets, and travel bags.
 
-## Fantasy
+### Fantasy
 
 Catileo may live in an archive tower, inn, cartographer's room, library, caravan, or castle study.
 
@@ -940,37 +940,37 @@ He remains a cat.
 
 Avoid automatically making him a magical familiar.
 
-## Science fiction
+### Science fiction
 
 Use observation windows, ship bunks, warm consoles, cargo cases, equipment bags, and habitat modules.
 
 If free-roaming would be unsafe, depict realistic containment / habitat solutions.
 
-## Cyberpunk
+### Cyberpunk
 
 Use warm electronics, subtle neon reflection on black fur, workstation obstruction, window ledges, bags, and cabling.
 
 Do not add glowing cybernetic eyes.
 
-## Historical
+### Historical
 
 Catileo's anatomy and markings remain unchanged.
 
 Only environment and material culture change.
 
-## Cozy
+### Cozy
 
 This is a core setting.
 
 Push ruff softness, blankets, warm light, sleepy poses, and Lorenzo working around him.
 
-## Mystery / noir
+### Mystery / noir
 
 Catileo can become a visual anchor of quiet normality.
 
 Use desk lamps, files, rain windows, dark chairs, and paper piles.
 
-## Horror
+### Horror
 
 Keep behavior believable.
 
@@ -984,13 +984,13 @@ Normal feline behavior may become ominous through context:
 
 Do not automatically make him supernatural.
 
-## Space opera
+### Space opera
 
 A fluffy ordinary cat in a vast extraordinary environment is often stronger than a "space cat" redesign.
 
 ---
 
-# 28. Color adaptation across settings
+## 28. Color adaptation across settings
 
 Catileo's fur colors should remain natural.
 
@@ -1015,7 +1015,7 @@ Eye color remains olive / yellow-green.
 
 ---
 
-# 29. Illustration simplification levels
+## 29. Illustration simplification levels
 
 Catileo uses the same L1–L5 production ladder as Lorenzo.
 
@@ -1027,7 +1027,7 @@ Catileo uses the same L1–L5 production ladder as Lorenzo.
 | L4    | Spot Illustration      | Simplified head / half-body, minimal shading             | UI states, reactions |
 | L5    | Micro Catileo          | Flat head or compact silhouette, essential markings only | Tiny mascot moments  |
 
-## Simplification anchors
+### Simplification anchors
 
 Always preserve as size permits:
 
@@ -1042,7 +1042,7 @@ Always preserve as size permits:
 
 ---
 
-# 30. Simplification is not kittenization
+## 30. Simplification is not kittenization
 
 Do not make Catileo progressively younger as detail decreases.
 
@@ -1056,15 +1056,15 @@ L5 may be graphically simple, but should still communicate:
 
 The progression is:
 
-**detailed long-haired cat → clean cat illustration → graphic cat → spot cat → cat symbol**
+**detailed long-haired cat → clean cat illustration → graphic cat → spot cat → cat symbol.**
 
 Not:
 
-**adult cat → cute kitten**
+**adult cat → cute kitten.**
 
 ---
 
-# 31. Fur-detail targets
+## 31. Fur-detail targets
 
 | Feature      | L1            | L2                 | L3                | L4                | L5                 |
 | ------------ | ------------- | ------------------ | ----------------- | ----------------- | ------------------ |
@@ -1078,23 +1078,23 @@ Not:
 
 ---
 
-# 32. Animation principles
+## 32. Animation principles
 
 Catileo's motion language contrasts with Lorenzo.
 
 Lorenzo often moves:
 
-**eyes → head → hands → body → clothing**
+**eyes → head → hands → body → clothing.**
 
 Catileo often moves:
 
-**ears / eyes → head → body → tail / fur settle**
+**ears / eyes → head → body → tail / fur settle.**
 
 His default motion is slower and heavier than Lorenzo's, interrupted by sudden feline bursts.
 
 ---
 
-# 33. Animation profile
+## 33. Animation profile
 
 | Dimension      | Catileo rule               |
 | -------------- | -------------------------- |
@@ -1113,9 +1113,9 @@ His default motion is slower and heavier than Lorenzo's, interrupted by sudden f
 
 ---
 
-# 34. Idle animation
+## 34. Idle animation
 
-## Sitting idle
+### Sitting idle
 
 - breathing
 - slow blink
@@ -1125,7 +1125,7 @@ His default motion is slower and heavier than Lorenzo's, interrupted by sudden f
 - tail-tip movement
 - tiny weight shift
 
-## Sleeping idle
+### Sleeping idle
 
 - slow breathing
 - ear twitch
@@ -1134,7 +1134,7 @@ His default motion is slower and heavier than Lorenzo's, interrupted by sudden f
 - tiny reposition
 - tail settling
 
-## Desk idle
+### Desk idle
 
 - eyes follow pen
 - head lowers
@@ -1146,7 +1146,7 @@ Avoid continuous wagging / bobbing.
 
 ---
 
-# 35. Signature motions
+## 35. Signature motions
 
 1. slow blink
 2. ear rotates before head
@@ -1163,7 +1163,7 @@ Avoid continuous wagging / bobbing.
 
 ---
 
-# 36. Fur animation
+## 36. Fur animation
 
 The coat has visible weight.
 
@@ -1175,7 +1175,7 @@ Avoid water-like or weightless fur.
 
 ---
 
-# 37. Tail behavior
+## 37. Tail behavior
 
 Tail is expressive but not a human gesture substitute.
 
@@ -1193,7 +1193,7 @@ Do not synchronize the tail mechanically to every emotion.
 
 ---
 
-# 38. Ear behavior
+## 38. Ear behavior
 
 Ears can lead reactions.
 
@@ -1209,7 +1209,7 @@ At small sizes, ear angle may communicate more clearly than facial detail.
 
 ---
 
-# 39. Catileo + Lorenzo animation
+## 39. Catileo + Lorenzo animation
 
 Good joint scenes are built on timing contrast.
 
@@ -1232,7 +1232,7 @@ Example:
 
 ---
 
-# 40. Public and private brand use
+## 40. Public and private brand use
 
 Catileo belongs primarily in:
 
@@ -1259,7 +1259,7 @@ Catileo should never interfere with comprehension.
 
 ---
 
-# 41. When Catileo may appear alone
+## 41. When Catileo may appear alone
 
 Appropriate:
 
@@ -1284,7 +1284,7 @@ Not appropriate as a replacement for:
 
 ---
 
-# 42. Camera and composition
+## 42. Camera and composition
 
 Catileo is highly effective at:
 
@@ -1303,7 +1303,7 @@ Do not crop both ears casually in formal character art.
 
 ---
 
-# 43. Lighting
+## 43. Lighting
 
 Black fur requires intentional separation.
 
@@ -1321,7 +1321,7 @@ Do not turn the black fur gray merely to make it visible.
 
 ---
 
-# 44. Material interaction
+## 44. Material interaction
 
 Catileo should visibly compress soft materials.
 
@@ -1338,7 +1338,7 @@ These cues help sell his substantial fluffy presence.
 
 ---
 
-# 45. Food behavior
+## 45. Food behavior
 
 Food can appear, but avoid turning food obsession into his sole joke.
 
@@ -1354,7 +1354,7 @@ Avoid constant begging or food theft in every scene.
 
 ---
 
-# 46. Play behavior
+## 46. Play behavior
 
 Play should be cat-specific:
 
@@ -1371,7 +1371,7 @@ Avoid human toys / tools as standard behavior.
 
 ---
 
-# 47. Vulnerable / quiet states
+## 47. Vulnerable / quiet states
 
 Catileo can support calm emotional scenes.
 
@@ -1389,7 +1389,7 @@ Do not force comedy into every appearance.
 
 ---
 
-# 48. Serious / danger behavior
+## 48. Serious / danger behavior
 
 When genuinely frightened:
 
@@ -1407,7 +1407,7 @@ A realistic response may be to hide, flee, freeze, hiss, or stay close.
 
 ---
 
-# 49. Genre-tone shifts
+## 49. Genre-tone shifts
 
 | Tone      | Catileo shifts toward                        |
 | --------- | -------------------------------------------- |
@@ -1424,9 +1424,9 @@ A realistic response may be to hide, flee, freeze, hiss, or stay close.
 
 ---
 
-# 50. Do / Don't
+## 50. Do / Don't
 
-## Do
+### Do
 
 - keep the face mostly black
 - preserve the broad white chest
@@ -1442,7 +1442,7 @@ A realistic response may be to hide, flee, freeze, hiss, or stay close.
 - let him be inconvenient without making him malicious
 - model him after the supplied reference cat, not a generic tuxedo-cat template
 
-## Don't
+### Don't
 
 - add a white nose blaze
 - make the face mostly white
@@ -1459,7 +1459,7 @@ A realistic response may be to hide, flee, freeze, hiss, or stay close.
 
 ---
 
-# 51. Production checklist — illustration
+## 51. Production checklist — illustration
 
 Before approving a Catileo illustration:
 
@@ -1481,7 +1481,7 @@ Before approving a Catileo illustration:
 
 ---
 
-# 52. Production checklist — animation
+## 52. Production checklist — animation
 
 Ask:
 
@@ -1496,7 +1496,7 @@ Ask:
 
 ---
 
-# 53. Production checklist — Lorenzo interaction
+## 53. Production checklist — Lorenzo interaction
 
 Ask:
 
@@ -1511,7 +1511,7 @@ If not, reconsider.
 
 ---
 
-# 54. Reference hierarchy
+## 54. Reference hierarchy
 
 For future Catileo art, use this priority:
 
@@ -1525,19 +1525,19 @@ If the current mascot emblem conflicts with the real-cat markings, **the real-ca
 
 ---
 
-# 55. Canonical short prompt
+## 55. Canonical short prompt
 
 > **Catileo is Lorenzo's adult male long-haired black-and-white cat: a substantial fluffy tuxedo cat with an overwhelmingly black face and body, tall dark ears, olive / yellow-green eyes, a small white lower-chin transition, a large flowing white throat-and-chest bib, white paws, very long white whiskers, and a long dark plume tail. He is calm, stubborn, observant, affectionate on his own terms, and naturally inclined to occupy the exact book, map, keyboard, or chair Lorenzo currently needs. He behaves like a real cat, does not speak, and provides warmth, quiet comedy, and domestic contrast to Lorenzo's polished worldkeeping. Render him in the established Lorenzo illustration style without changing his specific markings into a generic tuxedo-cat pattern.**
 
 ---
 
-# 56. Canonical interaction short prompt
+## 56. Canonical interaction short prompt
 
 > **Lorenzo and Catileo have the comfortable rhythm of a person and cat who have lived and worked around one another for a long time. Lorenzo is articulate, composed, and carefully organized; Catileo calmly occupies the work. Lorenzo mildly objects, adapts, and continues. Their affection is familiar rather than performative, and the humor comes from ordinary feline certainty colliding with elaborate worldkeeping.**
 
 ---
 
-# 57. Future model-sheet roadmap
+## 57. Future model-sheet roadmap
 
 Recommended next assets:
 
@@ -1561,7 +1561,7 @@ Recommended next assets:
 
 ---
 
-# 58. Open details for later confirmation
+## 58. Open details for later confirmation
 
 The references establish Catileo strongly enough for production, but these can be formalized later if desired:
 

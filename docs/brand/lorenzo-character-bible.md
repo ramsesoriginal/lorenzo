@@ -27,9 +27,9 @@ The two systems should support one another without collapsing into each other:
 
 ---
 
-# 2. Character at a glance
+## 2. Character at a glance
 
-## Lorenzo
+### Lorenzo
 
 **Working archetype:** timeless androgynous cosmopolitan lorekeeper.
 
@@ -54,35 +54,35 @@ The emotional center of the character is:
 
 ---
 
-# 3. Core character principles
+## 3. Core character principles
 
 Every depiction of Lorenzo should preserve these principles.
 
-## 3.1 Curious before heroic
+### 3.1 Curious before heroic
 
 Lorenzo notices, investigates, connects, questions, records, and guides.
 
 They may take part in adventures, danger, exploration, or high drama, but the character's default function is not to dominate the situation. Their strength is attention.
 
-## 3.2 Cultured, not pompous
+### 3.2 Cultured, not pompous
 
 Lorenzo is well-read, worldly, and articulate. They do not perform intelligence for status.
 
-## 3.3 Elegant, not precious
+### 3.3 Elegant, not precious
 
 They care about presentation, tailoring, materials, and details, but can climb, repair, fly, dive, hike, get dusty, or improvise when necessary.
 
-## 3.4 Androgynous by design
+### 3.4 Androgynous by design
 
 Lorenzo should not resolve cleanly into a conventionally masculine or conventionally feminine presentation.
 
 Different depictions may lean slightly more masc or femme, but the overall character remains recognizably gender-nonconforming and androgynous.
 
-## 3.5 Approachable before imposing
+### 3.5 Approachable before imposing
 
 Even at their most theatrical or grand, Lorenzo should remain human, conversational, and emotionally accessible.
 
-## 3.6 Performance has an off-switch
+### 3.6 Performance has an off-switch
 
 Public Lorenzo is polished and composed.
 
@@ -92,11 +92,11 @@ This contrast is part of the character.
 
 ---
 
-# 4. Canonicality model
+## 4. Canonicality model
 
 Not every detail has the same importance.
 
-## Tier A — identity anchors
+### Tier A — identity anchors
 
 These should survive almost every interpretation:
 
@@ -114,7 +114,7 @@ These should survive almost every interpretation:
 - elegant hands and gestural body language
 - they/them as default brand pronouns
 
-## Tier B — strong recurring anchors
+### Tier B — strong recurring anchors
 
 Usually present, but may translate with setting:
 
@@ -126,7 +126,7 @@ Usually present, but may translate with setting:
 - blue ribbon / bookmark detail
 - scholar-traveler visual language
 
-## Tier C — context-dependent elements
+### Tier C — context-dependent elements
 
 Free to change:
 
@@ -143,9 +143,9 @@ Free to change:
 
 ---
 
-# 5. Age and presentation
+## 5. Age and presentation
 
-## Apparent age
+### Apparent age
 
 Lorenzo is intentionally **age-ambiguous but unambiguously adult**.
 
@@ -160,7 +160,7 @@ Avoid:
 - making youthfulness the defining trait
 - exaggerated aging markers unless a setting or story explicitly requires them
 
-## Gender presentation
+### Gender presentation
 
 Lorenzo is always androgynous and gender-nonconforming.
 
@@ -183,7 +183,7 @@ The goal is **androgyny through deliberate combination**.
 
 A successful depiction may include a masculine-cut coat with delicate jewelry, a soft blouse with broad structured shoulders, practical boots with elegant rings, or a theatrical silhouette paired with restrained makeup.
 
-## Underlying body
+### Underlying body
 
 The canonical body is lean and slightly top-heavy, with a fuller chest that is usually visually flattened through binding, layering, tailoring, or structured garments in standard depictions.
 
@@ -193,9 +193,9 @@ Avoid using anatomy to force the character into a strongly gendered read.
 
 ---
 
-# 6. Proportions and silhouette
+## 6. Proportions and silhouette
 
-## 6.1 Full-body proportions
+### 6.1 Full-body proportions
 
 Lorenzo's proportions are stylized and fashion-illustration-like rather than strictly realistic.
 
@@ -212,21 +212,21 @@ Typical full-body read:
 
 The body should feel:
 
-**lean + elongated + gestural + composed**
+**lean + elongated + gestural + composed.**
 
 rather than muscular, compact, or physically imposing.
 
-## 6.2 Silhouette language
+### 6.2 Silhouette language
 
 The default worldkeeper silhouette is:
 
-**slender core + sharp shoulders + narrow waist + oversized sweeping outerwear + asymmetrical hair + active hands**
+**slender core + sharp shoulders + narrow waist + oversized sweeping outerwear + asymmetrical hair + active hands.**
 
 The structured coat creates a strong upper frame, while wide sleeves and flaring coat tails broaden toward the bottom.
 
 This produces an overall shape that transitions from a mild inverted triangle into an A-line.
 
-## 6.3 Head silhouette
+### 6.3 Head silhouette
 
 Hair is one of the strongest recognition features.
 
@@ -240,7 +240,7 @@ The silhouette should be:
 
 The long side should carry the strongest blue accents.
 
-## 6.4 Close-up proportion adjustment
+### 6.4 Close-up proportion adjustment
 
 At close range, slight exaggeration is acceptable:
 
@@ -254,9 +254,9 @@ The character should still read as an adult.
 
 ---
 
-# 7. Face and hair
+## 7. Face and hair
 
-## 7.1 Face
+### 7.1 Face
 
 Key facial anchors:
 
@@ -273,7 +273,7 @@ The eyebrows and eyelids should do more acting than the mouth.
 
 Large mouth shapes should be reserved for genuinely large emotions.
 
-## 7.2 Hair
+### 7.2 Hair
 
 Canonical hair:
 
@@ -289,7 +289,7 @@ The amount of visible blue may vary by illustration level and lighting.
 
 The hair should **never become fully blue** in normal canon art.
 
-### Historical adaptation rule
+#### Historical adaptation rule
 
 The **shaved sidecut is canonical and remains literal in every genre and period**, including strict historical settings.
 
@@ -301,7 +301,7 @@ The result should still feel integrated into the setting: the sidecut stays Lore
 
 ---
 
-# 8. Main outfits
+## 8. Main outfits
 
 Lorenzo has two primary default modes.
 
@@ -309,13 +309,13 @@ These are not uniforms. They are canonical outfit families.
 
 ---
 
-## 8.1 Worldkeeper outfit
+### 8.1 Worldkeeper outfit
 
 **Role:** archivist / navigator / guide / traveler / public Lorenzo.
 
 Primary reference: `mascot.png`
 
-### Silhouette
+#### Silhouette — worldkeeper outfit
 
 - structured high collar
 - strong shoulder framing
@@ -327,7 +327,7 @@ Primary reference: `mascot.png`
 - precise gold details
 - fitted dark trousers / lower layers
 
-### Color logic
+#### Color logic — worldkeeper outfit
 
 Primary:
 
@@ -345,7 +345,7 @@ Extended illustration values:
 - Compass Gold `#DD8625`
 - Sunlit Gold `#E9AC61`
 
-### Character
+#### Character — worldkeeper outfit
 
 This outfit should feel:
 
@@ -361,13 +361,13 @@ The coat may translate across genres, but its **shape grammar** should persist m
 
 ---
 
-## 8.2 Researcher outfit
+### 8.2 Researcher outfit
 
 **Role:** researcher / writer / organizer / planner / conversational / relaxed Lorenzo.
 
 Primary reference: `mascot_emblem.png`
 
-### Silhouette
+#### Silhouette — researcher outfit
 
 - thick, comfortable overshirt or soft structured layer
 - warm parchment / beige outer garment
@@ -378,7 +378,7 @@ Primary reference: `mascot_emblem.png`
 - softer shoulders than the worldkeeper outfit
 - more compact overall silhouette
 
-### Color logic
+#### Color logic — researcher outfit
 
 Primary:
 
@@ -396,7 +396,7 @@ Supporting:
 - Skin Light `#F2D7B6`
 - Warm Skin Shadow `#C9936B`
 
-### Character
+#### Character — researcher outfit
 
 This outfit should feel:
 
@@ -412,7 +412,7 @@ This is the default **private / conversational Lorenzo** outfit family.
 
 ---
 
-# 9. Context-specific outfits
+## 9. Context-specific outfits
 
 Lorenzo dresses appropriately for the task.
 
@@ -427,7 +427,7 @@ Examples:
 - lab / archive protective wear when required
 - formal stagewear for presentation or performance
 
-## Outfit translation rules
+### Outfit translation rules
 
 Every context-specific outfit should remain:
 
@@ -452,9 +452,9 @@ Do not force burgundy, teal, parchment, and gold into every outfit.
 
 ---
 
-# 10. Color reference
+## 10. Color reference
 
-## 10.1 Brand-core colors
+### 10.1 Brand-core colors
 
 | Name         | Hex       | Character use                      |
 | ------------ | --------- | ---------------------------------- |
@@ -466,7 +466,7 @@ Do not force burgundy, teal, parchment, and gold into every outfit.
 | Paper        | `#FBFAF7` | Brightest neutral                  |
 | Burgundy     | `#7B2638` | Signature worldkeeper coat         |
 
-## 10.2 Character-support colors
+### 10.2 Character-support colors
 
 | Name             | Hex       | Character use                     |
 | ---------------- | --------- | --------------------------------- |
@@ -488,17 +488,17 @@ Do not force burgundy, teal, parchment, and gold into every outfit.
 | Archive Sand     | `#E7D6C6` | Maps / pages / beige clothing     |
 | Weathered Taupe  | `#BBA695` | Neutral shadows                   |
 
-## 10.3 Material ramps
+### 10.3 Material ramps
 
-### Burgundy
+#### Burgundy
 
 `#4A060E` → `#7B2638` → `#931924`
 
-### Teal
+#### Teal
 
 `#15272A` → `#213C3E` → `#305153`
 
-### Gold
+#### Gold
 
 `#B88A3B` → `#DD8625` → `#E9AC61`
 
@@ -506,9 +506,9 @@ These ramps are preferred to inventing many unrelated local colors.
 
 ---
 
-# 11. Expression library
+## 11. Expression library
 
-## Core expressions
+### Core expressions
 
 These should cover most production needs.
 
@@ -548,17 +548,17 @@ These should cover most production needs.
 12. **Flustered / Caught Off Guard**  
     Uneven raised brows, widened eyes, compact mouth.
 
-## Secondary expressions
+### Secondary expressions
 
-13. Playfully mischievous
-14. Mildly annoyed
-15. Embarrassed but hiding it
-16. Sad / reflective
-17. Angry / protective
-18. Exhausted / over-it
-19. Laughing
+1. Playfully mischievous
+2. Mildly annoyed
+3. Embarrassed but hiding it
+4. Sad / reflective
+5. Angry / protective
+6. Exhausted / over-it
+7. Laughing
 
-## Expression rules
+### Expression rules
 
 Across the library:
 
@@ -571,9 +571,9 @@ Across the library:
 
 ---
 
-# 12. Pose language
+## 12. Pose language
 
-## 12.1 Primary body grammar
+### 12.1 Primary body grammar
 
 Recurring motifs:
 
@@ -595,7 +595,7 @@ Avoid relying on:
 - wide combat-ready stances
 - rigidly centered posture
 
-## 12.2 Core production poses
+### 12.2 Core production poses
 
 1. signature standing pose
 2. presenting / guide
@@ -632,15 +632,15 @@ Most frequently used:
 
 ---
 
-# 13. Pose families by state
+## 13. Pose families by state
 
 Think beyond "ways Lorenzo can stand."
 
 The useful continuum is:
 
-**public → conversational → working → resting → private → playful**
+**public → conversational → working → resting → private → playful.**
 
-## Close-up / head-and-shoulders
+### Close-up / head-and-shoulders
 
 Useful motifs:
 
@@ -657,7 +657,7 @@ Useful motifs:
 
 A recurring motif should be **face + hand interaction**.
 
-## Bust / waist-up conversational
+### Bust / waist-up conversational
 
 - book against chest + free-hand gesture
 - loose crossed arms + pen
@@ -668,7 +668,7 @@ A recurring motif should be **face + hand interaction**.
 - journal under arm
 - two-handed explanation
 
-## Sitting
+### Sitting
 
 - ankle over opposite knee
 - sideways in chair
@@ -684,7 +684,7 @@ A recurring motif should be **face + hand interaction**.
 
 Almost never sit perfectly symmetrically.
 
-## Lounging / relaxing
+### Lounging / relaxing
 
 - book balanced on knee
 - lying on stomach reading
@@ -697,7 +697,7 @@ Almost never sit perfectly symmetrically.
 - blanket + cat
 - leaning back with drink
 
-## Desk / study
+### Desk / study
 
 - map work
 - journal writing
@@ -710,7 +710,7 @@ Almost never sit perfectly symmetrically.
 - looking up when interrupted
 - sitting back after solving something
 
-## Floor-level
+### Floor-level
 
 - cross-legged among books
 - kneeling over unfolded map
@@ -719,7 +719,7 @@ Almost never sit perfectly symmetrically.
 - crouched by object
 - lying among papers and thinking
 
-## Quiet / vulnerable
+### Quiet / vulnerable
 
 - forehead against window
 - reading a letter
@@ -731,7 +731,7 @@ Almost never sit perfectly symmetrically.
 
 These should feel private, not weak.
 
-## Playful / candid
+### Playful / candid
 
 - laughing while nearly spilling drink
 - sitting backward in chair
@@ -743,7 +743,7 @@ These should feel private, not weak.
 - leaning unexpectedly into frame
 - caught mid-yawn
 
-## Extreme close-up
+### Extreme close-up
 
 - eye studying something
 - fingers tracing map
@@ -756,9 +756,9 @@ These should feel private, not weak.
 
 ---
 
-# 14. Pose intensity tiers
+## 14. Pose intensity tiers
 
-## Low intensity
+### Low intensity
 
 Compact and relaxed:
 
@@ -767,7 +767,7 @@ Compact and relaxed:
 - thinking
 - lounging
 
-## Medium intensity
+### Medium intensity
 
 Communicative:
 
@@ -776,7 +776,7 @@ Communicative:
 - walking
 - explaining
 
-## High intensity
+### High intensity
 
 Open silhouette:
 
@@ -789,11 +789,11 @@ High-intensity poses should remain elegant rather than physically aggressive.
 
 ---
 
-# 15. Recurring props
+## 15. Recurring props
 
-## 15.1 Signature props
+### 15.1 Signature props
 
-### Archive Journal
+#### Archive Journal
 
 Dark leather, worn edges, warm metallic details.
 
@@ -810,7 +810,7 @@ Contains:
 
 It should look used, not ceremonial.
 
-### Compass / Spark Pendant
+#### Compass / Spark Pendant
 
 Lorenzo's most portable visual identifier.
 
@@ -818,21 +818,21 @@ The canonical pendant is derived from the **current Lorenzo spark / navigation g
 
 It may be simplified in small art.
 
-### Maps / Charts
+#### Maps / Charts
 
 Folded, annotated, layered, marked, and handled frequently.
 
-### Writing instrument
+#### Writing instrument
 
 Pen, fountain pen, pencil, stylus, or setting-equivalent tool.
 
-### Travel cup
+#### Travel cup
 
 Mug, tumbler, flask, tea cup, insulated vessel, or period / setting equivalent.
 
 ---
 
-## 15.2 Exploration props
+### 15.2 Exploration props
 
 - brass compass
 - rolled maps
@@ -850,7 +850,7 @@ Use selectively.
 
 Lorenzo is a cultural explorer / archivist, not a survivalist caricature.
 
-## 15.3 Scholar / archive props
+### 15.3 Scholar / archive props
 
 - annotated books
 - loose notes
@@ -876,7 +876,7 @@ Documents should look handled:
 - sticky notes
 - uneven stacks
 
-## 15.4 Celestial props
+### 15.4 Celestial props
 
 - star chart
 - astrolabe
@@ -890,7 +890,7 @@ Documents should look handled:
 
 Keep them navigation-adjacent rather than generic mystical clutter.
 
-## 15.5 Relaxed / domestic props
+### 15.5 Relaxed / domestic props
 
 - favorite mug
 - blanket
@@ -904,7 +904,7 @@ Keep them navigation-adjacent rather than generic mystical clutter.
 - paper clutter
 - slippers / socks
 
-## 15.6 Tiny continuity objects
+### 15.6 Tiny continuity objects
 
 - pendant
 - rings
@@ -919,7 +919,7 @@ Keep them navigation-adjacent rather than generic mystical clutter.
 
 ---
 
-# 16. Five iconic recurring elements
+## 16. Five iconic recurring elements
 
 When building a scene, these are the strongest recurring identity devices.
 
@@ -935,7 +935,7 @@ Private Lorenzo has the same journal buried under books, a half-finished drink, 
 
 ---
 
-# 17. Illustration simplification levels
+## 17. Illustration simplification levels
 
 Simplification changes production detail, not identity.
 
@@ -947,7 +947,7 @@ Simplification changes production detail, not identity.
 | L4    | Spot Illustration      | Bust / half-body, minimal shading, 0–2 props                              | UI states, cards, callouts                |
 | L5    | Icon / Micro Lorenzo   | Head or symbolic silhouette, flat fills, minimal lines                    | Tiny avatars, reactions, micro-UI         |
 
-## 17.1 Identity anchors at every level
+### 17.1 Identity anchors at every level
 
 Preserve:
 
@@ -960,19 +960,19 @@ Preserve:
 - characteristic brow / smirk
 - asymmetry in pose
 
-## 17.2 Simplification is not chibi
+### 17.2 Simplification is not chibi
 
 The progression is:
 
-**painted character → clean illustration → graphic character → spot character → symbol**
+**painted character → clean illustration → graphic character → spot character → symbol.**
 
 Not:
 
-**adult character → progressively childlike cartoon**
+**adult character → progressively childlike cartoon.**
 
 Unless a non-canonical novelty asset explicitly calls for chibi treatment, do not use chibi proportions as the default simplification strategy.
 
-## 17.3 Production complexity targets
+### 17.3 Production complexity targets
 
 | Feature          | L1        | L2                  | L3          | L4       | L5     |
 | ---------------- | --------- | ------------------- | ----------- | -------- | ------ |
@@ -986,7 +986,7 @@ Unless a non-canonical novelty asset explicitly calls for chibi treatment, do no
 
 ---
 
-# 18. Animation principles
+## 18. Animation principles
 
 The core motion rule is:
 
@@ -996,7 +996,7 @@ Lorenzo moves with deliberate elegance, then occasionally breaks that composure 
 
 Stillness is part of the performance.
 
-## 18.1 Motion profile
+### 18.1 Motion profile
 
 | Dimension         | Rule                         |
 | ----------------- | ---------------------------- |
@@ -1013,15 +1013,15 @@ Stillness is part of the performance.
 | Exaggeration      | Moderate                     |
 | Stillness         | Important                    |
 
-## 18.2 Basic reaction rhythm
+### 18.2 Basic reaction rhythm
 
 Typical sequence:
 
-**notice → eyes move → brow reacts → head follows → pause → body responds → hand action → settle**
+**notice → eyes move → brow reacts → head follows → pause → body responds → hand action → settle.**
 
 Avoid moving the whole body at once unless the reaction is genuinely abrupt.
 
-## 18.3 Idle behavior
+### 18.3 Idle behavior
 
 Standing:
 
@@ -1044,7 +1044,7 @@ Seated:
 
 Avoid perpetual bouncing or floatiness.
 
-## 18.4 Eye behavior
+### 18.4 Eye behavior
 
 Eyes should often move first.
 
@@ -1056,7 +1056,7 @@ Examples:
 - look briefly toward viewer when amused
 - flick upward while thinking
 
-## 18.5 Head behavior
+### 18.5 Head behavior
 
 Head tilts are signature motions.
 
@@ -1068,7 +1068,7 @@ Use:
 
 Avoid constant dialogue bobbing.
 
-## 18.6 Hand behavior
+### 18.6 Hand behavior
 
 Hands should be intentional and readable.
 
@@ -1086,9 +1086,9 @@ Signature gestures:
 
 Gestures should finish in visually coherent shapes.
 
-## 18.7 Public and private motion
+### 18.7 Public and private motion
 
-### Public Lorenzo
+#### Public Lorenzo — motion
 
 - cleaner arcs
 - controlled posture
@@ -1096,7 +1096,7 @@ Gestures should finish in visually coherent shapes.
 - more coat contribution
 - occasional theatrical flourish
 
-### Private Lorenzo
+#### Private Lorenzo — motion
 
 - more slouch
 - folded posture
@@ -1107,7 +1107,7 @@ Gestures should finish in visually coherent shapes.
 - awkwardly balanced books
 - roughly 30% less self-monitoring
 
-## 18.8 Curiosity and skepticism
+### 18.8 Curiosity and skepticism
 
 Curiosity creates slight **forward motion**:
 
@@ -1123,19 +1123,19 @@ Skepticism creates slight **backward motion**:
 - torso leans back
 - brow rises
 
-## 18.9 Humor
+### 18.9 Humor
 
 Default comedy is underplayed:
 
-**event → freeze → sideways look → blink → tiny mouth movement**
+**event → freeze → sideways look → blink → tiny mouth movement.**
 
 Large comedic reactions are rare and therefore effective.
 
-## 18.10 Surprise
+### 18.10 Surprise
 
 Two-stage response:
 
-**startle → freeze → regain composure**
+**startle → freeze → regain composure.**
 
 Possible recovery behavior:
 
@@ -1145,7 +1145,7 @@ Possible recovery behavior:
 - smooth hair
 - pretend nothing happened
 
-## 18.11 Thinking
+### 18.11 Thinking
 
 Thinking is active:
 
@@ -1155,7 +1155,7 @@ Thinking is active:
 - finger traces
 - sudden solution glance
 
-## 18.12 Walk
+### 18.12 Walk
 
 Confident, non-military.
 
@@ -1169,7 +1169,7 @@ Purposeful walk: looks like they know where they are going.
 
 Exploratory walk: slower, more scanning.
 
-## 18.13 Run
+### 18.13 Run
 
 Light, efficient, slightly forward.
 
@@ -1177,7 +1177,7 @@ Avoid superhero running language.
 
 Hair and coat provide visual chaos.
 
-## 18.14 Hair motion
+### 18.14 Hair motion
 
 Hair has weight.
 
@@ -1186,7 +1186,7 @@ Hair has weight.
 - delayed settle after turns
 - preserve silhouette
 
-## 18.15 Coat motion
+### 18.15 Coat motion
 
 Coat amplifies large motion, not every motion.
 
@@ -1196,7 +1196,7 @@ Coat amplifies large motion, not every motion.
 - flourish: large arc
 - stop: coat settles after body
 
-## 18.16 Jewelry
+### 18.16 Jewelry
 
 Restrained.
 
@@ -1204,13 +1204,13 @@ Pendant / earrings may lag slightly and settle quickly.
 
 No perpetual swinging.
 
-## 18.17 Prop handling
+### 18.17 Prop handling
 
 Lorenzo handles books, maps, cups, notes, and tools with familiarity.
 
 These are used objects, not sacred accessories.
 
-## 18.18 Catileo interaction
+### 18.18 Catileo interaction
 
 Typical loop:
 
@@ -1221,17 +1221,17 @@ Typical loop:
 5. Lorenzo sighs.
 6. Lorenzo works around Catileo.
 
-## 18.19 Dialogue animation
+### 18.19 Dialogue animation
 
 Preferred rhythm:
 
-**speak → gesture → hold → finish line → expression change → settle**
+**speak → gesture → hold → finish line → expression change → settle.**
 
 Dryer lines use less movement.
 
 Serious emotion removes decorative movement.
 
-## 18.20 Negative emotion rule
+### 18.20 Negative emotion rule
 
 The stronger the negative emotion, the less decorative Lorenzo becomes.
 
@@ -1243,7 +1243,7 @@ The head straightens.
 
 Gestures become short and precise.
 
-## 18.21 Timing
+### 18.21 Timing
 
 Favor ease-in / ease-out with clear holds.
 
@@ -1257,9 +1257,9 @@ Adjust by frame rate and medium.
 
 ---
 
-# 19. Animation complexity by illustration level
+## 19. Animation complexity by illustration level
 
-## L1 Hero
+### L1 Hero
 
 - full secondary motion
 - hair strands
@@ -1267,13 +1267,13 @@ Adjust by frame rate and medium.
 - subtle face acting
 - props
 
-## L2 Editorial
+### L2 Editorial
 
 - reduced hair and cloth physics
 - clearer motion arcs
 - larger readable face changes
 
-## L3 Emblem
+### L3 Emblem
 
 - head
 - eyes
@@ -1281,14 +1281,14 @@ Adjust by frame rate and medium.
 - hands
 - large hair / cloth masses
 
-## L4 Spot
+### L4 Spot
 
 - blink
 - head tilt
 - one gesture
 - prop movement
 
-## L5 Icon
+### L5 Icon
 
 Microloops only:
 
@@ -1299,13 +1299,13 @@ Microloops only:
 
 ---
 
-# 20. Voice
+## 20. Voice
 
 The central voice tension is:
 
 > **Cultured, not pompous. Clever, not smug. Warm, not bubbly. Poetic, not florid. Playful, not snarky. Knowledgeable, not omniscient.**
 
-## 20.1 Voice spectrum
+### 20.1 Voice spectrum
 
 | Dimension    | Too little      | Lorenzo                 | Too much              |
 | ------------ | --------------- | ----------------------- | --------------------- |
@@ -1320,7 +1320,7 @@ The central voice tension is:
 | Authority    | uncertain       | informed guide          | know-it-all           |
 | Emotion      | guarded         | controlled but readable | melodramatic          |
 
-## 20.2 Default speaking pattern
+### 20.2 Default speaking pattern
 
 - clean
 - moderately short sentences
@@ -1331,12 +1331,12 @@ The central voice tension is:
 Examples:
 
 > “Interesting. The map says one thing, but the landscape seems to disagree.”
-
+>
 > “Some places are easier to find than to understand.”
-
+>
 > “That’s the obvious route… which is precisely why I’m suspicious of it.”
 
-## 20.3 Avoid
+### 20.3 Avoid
 
 - “Greetings, traveler!” fantasy-guide speech
 - constant “Ah!” / “Indeed!” / “Fascinating!”
@@ -1350,7 +1350,7 @@ Examples:
 - perfect certainty
 - Victorian gentleman-explorer parody
 
-## 20.4 Humor
+### 20.4 Humor
 
 Humor comes from:
 
@@ -1363,12 +1363,12 @@ Humor comes from:
 Examples:
 
 > “I had accounted for several possibilities. That was not one of them.”
-
+>
 > “Technically, yes, that is a path.”
-
+>
 > “Excellent. We have a second opinion.”
 
-## 20.5 Knowledge
+### 20.5 Knowledge
 
 Lorenzo can say:
 
@@ -1380,7 +1380,7 @@ The follow-up may be:
 
 Their expertise should produce better questions, not automatic answers.
 
-## 20.6 Emotional speech
+### 20.6 Emotional speech
 
 Stronger emotion simplifies the voice.
 
@@ -1392,19 +1392,19 @@ Worried:
 
 > “No. Don’t go in there.”
 
-## 20.7 Curiosity behavior
+### 20.7 Curiosity behavior
 
 Lorenzo directs attention:
 
 > “Why is that one marked differently?”
-
+>
 > “Wait. We saw that symbol yesterday.”
-
+>
 > “Look at the corner of the page.”
-
+>
 > “I thought this was a border. I don’t think it is.”
 
-## 20.8 Relationship with audience
+### 20.8 Relationship with audience
 
 Lorenzo treats the audience as a capable traveling companion.
 
@@ -1424,7 +1424,7 @@ over:
 
 > “Let me explain this to you.”
 
-## 20.9 No fixed catchphrase
+### 20.9 No fixed catchphrase
 
 Avoid a slogan-like personal catchphrase.
 
@@ -1435,7 +1435,7 @@ Recurring sentence behaviors are acceptable:
 - “There’s one problem.”
 - “Suppose…”
 
-## 20.10 Public vs private voice
+### 20.10 Public vs private voice
 
 Public:
 
@@ -1445,13 +1445,13 @@ Private:
 
 > “I put it somewhere sensible. Fatal mistake.”
 
-## 20.11 Hard voice boundary
+### 20.11 Hard voice boundary
 
 > **Lorenzo never speaks to prove how clever they are. They speak because something has caught their attention and they want you to see it too. Their language is articulate, economical, warm, and occasionally poetic, with humor rooted in understatement rather than punchlines. They may be confident, teasing, or theatrical, but never condescending, relentlessly sarcastic, archaic, or omniscient. When emotion becomes serious, the performance falls away and their language becomes simpler and more direct.**
 
 ---
 
-# 21. Product voice boundary
+## 21. Product voice boundary
 
 The product itself should not automatically speak in Lorenzo's character voice.
 
@@ -1481,7 +1481,7 @@ Character should add personality, never reduce clarity.
 
 ---
 
-# 22. Representation across genres and settings
+## 22. Representation across genres and settings
 
 Central rule:
 
@@ -1500,7 +1500,7 @@ Setting may change:
 
 The identity grammar remains.
 
-## 22.1 Immutable across settings
+### 22.1 Immutable across settings
 
 Preserve, as far as the setting allows:
 
@@ -1516,7 +1516,7 @@ Preserve, as far as the setting allows:
 - navigation / recording semantics
 - curiosity before dominance
 
-## 22.2 Semantic anchors over literal anchors
+### 22.2 Semantic anchors over literal anchors
 
 | Core idea       | Fantasy           | Contemporary        | Sci-fi            | Historical         | Horror             |
 | --------------- | ----------------- | ------------------- | ----------------- | ------------------ | ------------------ |
@@ -1529,9 +1529,9 @@ Preserve, as far as the setting allows:
 
 ---
 
-# 23. Genre-specific guidance
+## 23. Genre-specific guidance
 
-## High fantasy
+### High fantasy
 
 Prefer:
 
@@ -1554,7 +1554,7 @@ Magic should connect to:
 - portals
 - archives
 
-## Science fiction
+### Science fiction
 
 Think:
 
@@ -1568,7 +1568,7 @@ Prefer elegant technical outerwear over military armor.
 
 Blue may become slightly luminous.
 
-## Cyberpunk
+### Cyberpunk
 
 Preserve restraint.
 
@@ -1584,7 +1584,7 @@ If augmented, prefer a subtle functional device around:
 
 Avoid obscuring the eyes, since they are central to performance.
 
-## Contemporary
+### Contemporary
 
 Lorenzo should look distinctive without looking like they are cosplaying the brand.
 
@@ -1599,7 +1599,7 @@ Think:
 - blue-highlighted undercut
 - notebook / tablet / phone / camera
 
-## Historical
+### Historical
 
 Translate clothing, materials, tools, and the **long side of the hairstyle** into authentic period language.
 
@@ -1609,7 +1609,7 @@ Preserve meaning before literal details in every other respect.
 
 Navigation props and writing tools should reflect actual period material culture.
 
-## Cozy / slice-of-life
+### Cozy / slice-of-life
 
 Use private Lorenzo.
 
@@ -1624,7 +1624,7 @@ Use private Lorenzo.
 
 If Lorenzo is recognizable with nearly all heroic motifs removed, the design is working.
 
-## Mystery / detective
+### Mystery / detective
 
 Use:
 
@@ -1640,7 +1640,7 @@ Avoid hard-boiled cynicism.
 
 Lorenzo solves through observation and connection.
 
-## Horror
+### Horror
 
 Do not redesign Lorenzo into a horror mascot.
 
@@ -1657,7 +1657,7 @@ Good horror-Lorenzo beats:
 
 Curiosity brings Lorenzo closer before fear pushes them back.
 
-## Gothic
+### Gothic
 
 You may push:
 
@@ -1671,7 +1671,7 @@ You may push:
 
 Do not erase wit and curiosity.
 
-## Adventure / pulp
+### Adventure / pulp
 
 Use practical travel equipment and movement.
 
@@ -1679,7 +1679,7 @@ Avoid reducing Lorenzo to an action archetype.
 
 They adventure because they observe, interpret, improvise, and navigate.
 
-## Superhero
+### Superhero
 
 If powers exist, favor:
 
@@ -1693,7 +1693,7 @@ If powers exist, favor:
 
 Avoid generic caped-hero language.
 
-## Space opera
+### Space opera
 
 Grand silhouettes are welcome.
 
@@ -1701,7 +1701,7 @@ Preserve human warmth.
 
 Avoid drifting into remote "enigmatic space royalty."
 
-## Noir
+### Noir
 
 Reduce palette.
 
@@ -1714,7 +1714,7 @@ Humor stays dry rather than bitter.
 
 ---
 
-# 24. Tone affects intensity, not identity
+## 24. Tone affects intensity, not identity
 
 | Setting tone | Lorenzo shifts toward        |
 | ------------ | ---------------------------- |
@@ -1731,7 +1731,7 @@ Humor stays dry rather than bitter.
 
 ---
 
-# 25. Costume translation rule
+## 25. Costume translation rule
 
 > **Preserve shape language before preserving individual garments.**
 
@@ -1748,20 +1748,20 @@ A modern coat, historical frock coat, fantasy mantle, technical jacket, or cardi
 
 ---
 
-# 26. Color translation rule
+## 26. Color translation rule
 
 Do not require every illustration to use every brand color.
 
-## Always
+### Always
 
 - dark anchor
 - recognizable blue accent
 
-## Usually
+### Usually
 
 - gold / brass / warm navigation detail
 
-## Contextual
+### Contextual
 
 - burgundy
 - teal
@@ -1778,7 +1778,7 @@ Examples:
 
 ---
 
-# 27. Camera and composition
+## 27. Camera and composition
 
 Lorenzo benefits from compositions that preserve asymmetry.
 
@@ -1794,7 +1794,7 @@ Preferred:
 
 Avoid making every illustration a centered character poster.
 
-## Useful shot families
+### Useful shot families
 
 - extreme close-up
 - portrait
@@ -1806,9 +1806,9 @@ Avoid making every illustration a centered character poster.
 
 ---
 
-# 28. Character-state matrix
+## 28. Character-state matrix
 
-## Public Lorenzo
+### Public Lorenzo — state
 
 - polished
 - theatrical in moderation
@@ -1818,7 +1818,7 @@ Avoid making every illustration a centered character poster.
 - witty
 - slightly roguish
 
-## Working Lorenzo
+### Working Lorenzo
 
 - focused
 - hands busy
@@ -1826,7 +1826,7 @@ Avoid making every illustration a centered character poster.
 - less performative
 - visibly curious
 
-## Private Lorenzo
+### Private Lorenzo — state
 
 - slouched
 - tactile
@@ -1835,7 +1835,7 @@ Avoid making every illustration a centered character poster.
 - dry humor
 - disorganized around objects despite being mentally organized
 
-## Vulnerable Lorenzo
+### Vulnerable Lorenzo
 
 - reduced movement
 - simpler language
@@ -1845,7 +1845,7 @@ Avoid making every illustration a centered character poster.
 
 ---
 
-# 29. Catileo relationship reference
+## 29. Catileo relationship reference
 
 Catileo is specified independently in `catileo-character-bible.md`.
 
@@ -1859,9 +1859,9 @@ For Lorenzo-focused work, the relevant rules are:
 - Lorenzo may address Catileo conversationally, but Catileo does not canonically speak human language.
 - Catileo's markings, proportions, expression, animation, simplification, and setting adaptation are governed only by the Catileo character bible.
 
-# 30. Do / Don't
+## 30. Do / Don't
 
-## Do
+### Do
 
 - make Lorenzo curious
 - use asymmetry
@@ -1876,7 +1876,7 @@ For Lorenzo-focused work, the relevant rules are:
 - use Catileo for warmth and understated comedy
 - translate the character into the setting rather than forcing a uniform
 
-## Don't
+### Don't
 
 - make Lorenzo a generic fantasy wizard
 - make Lorenzo a generic action hero
@@ -1894,7 +1894,7 @@ For Lorenzo-focused work, the relevant rules are:
 
 ---
 
-# 31. Production checklist — illustration
+## 31. Production checklist — illustration
 
 Before approving a Lorenzo illustration, ask:
 
@@ -1915,7 +1915,7 @@ Before approving a Lorenzo illustration, ask:
 
 ---
 
-# 32. Production checklist — dialogue
+## 32. Production checklist — dialogue
 
 Before approving a line spoken by Lorenzo, ask:
 
@@ -1931,7 +1931,7 @@ Before approving a line spoken by Lorenzo, ask:
 
 ---
 
-# 33. Production checklist — animation
+## 33. Production checklist — animation
 
 Ask:
 
@@ -1948,7 +1948,7 @@ Ask:
 
 ---
 
-# 34. Asset-development roadmap
+## 34. Asset-development roadmap
 
 Recommended future character assets:
 
@@ -1970,7 +1970,7 @@ Recommended future character assets:
 
 ---
 
-# 35. Canonical summary
+## 35. Canonical summary
 
 If only a short prompt or handoff can be provided, use:
 
@@ -1978,7 +1978,7 @@ If only a short prompt or handoff can be provided, use:
 
 ---
 
-# 36. Resolved canon decisions
+## 36. Resolved canon decisions
 
 The following points are now canonical:
 
