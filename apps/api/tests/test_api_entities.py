@@ -6,6 +6,7 @@ from conftest import delete_tenant, make_campaign, make_character
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
+    CampaignGm,
     CharacterPlayer,
     Containment,
     Entity,
@@ -422,6 +423,64 @@ async def test_get_entity_hides_gm_only_information_from_a_plain_member(
     assert response.json()["information"] == []
 
     await delete_tenant(tenant_id)
+
+
+async def test_get_entity_gm_sees_gm_only_information_on_their_own_campaigns_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """RFC 0009/ADR 0035: a campaign's own GM sees GM-only information on
+    that campaign's own characters *directly*, not just their inventory -
+    the RFC's own flagged "easy to forget" case. test_user_id keeps its
+    OWNER Membership here (get_tenant_context needs one) but holds no ORGA
+    role - the immediately-preceding test already proves OWNER alone
+    doesn't see this, so seeing it here must come from the added
+    CampaignGm row, not an accidental is_orga bypass.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
+        await session.flush()
+        session.add(CampaignGm(tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id))
+
+        other_user = User(authgear_subject_id=f"authgear|player-{uuid.uuid4()}")
+        session.add(other_user)
+        await session.flush()
+        player = Player(user_id=other_user.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        session.add(player)
+        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
+        session.add(
+            CharacterPlayer(
+                character_entity_id=character.entity_id, player_id=player.id, tenant_id=tenant_id
+            )
+        )
+        session.add(
+            Information(
+                tenant_id=tenant_id,
+                entity_id=character.entity_id,
+                title="Secretly a doppelganger",
+                type="gm-note",
+            )
+        )
+        await session.commit()
+        character_id, other_user_id = character.entity_id, other_user.id
+
+    response = await client.get(f"/tenants/{tenant_id}/entities/{character_id}")
+    assert response.status_code == 200
+    assert [info["title"] for info in response.json()["information"]] == ["Secretly a doppelganger"]
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, other_user_id))
+        await session.commit()
 
 
 async def test_get_entity_shows_public_information_to_any_tenant_member(
