@@ -196,3 +196,60 @@ async def can_manage_any_of_campaigns(
             for campaign_id in campaign_ids
         ]
     )
+
+
+async def can_manage_every_campaign(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    campaign_ids: frozenset[uuid.UUID],
+    tenant_id: uuid.UUID,
+) -> bool:
+    """can_manage_campaign on *every* one of campaign_ids - the "all, not
+    any" counterpart to can_manage_any_of_campaigns above, added for RFC
+    0007's character authorization. Two of that RFC's three "managed" tiers
+    need this, not just DELETE /characters/{id}'s own "every campaign the
+    character currently belongs to" (demotion ends its presence everywhere
+    at once, so every campaign needs to consent, not just one): the
+    roster-link tier (adding/removing/reassigning a *specific* set of
+    Player rows - CharacterCreate's player_ids, an owner reassignment, or
+    the roster sub-resource PUT/DELETE) also needs "no more and no less"
+    standing - exactly the campaigns of the Player row(s) actually being
+    touched, all of them, not just one - which is this same "all" shape
+    applied to a (usually much smaller, often single-element) set rather
+    than a character's full current roster. An empty campaign_ids is
+    vacuously true (`all([])`) - callers passing an empty set here are
+    expected to have already handled "nothing to scope the check to at
+    all" via their own tenant-wide fallback (mirroring
+    can_manage_any_of_campaigns' identical non-handling of the empty case,
+    and RFC 0005/RFC 0007's own explicit ownerless-creation fallback).
+    """
+    return all(
+        [
+            await can_manage_campaign(
+                session, user_id=user_id, campaign_id=campaign_id, tenant_id=tenant_id
+            )
+            for campaign_id in campaign_ids
+        ]
+    )
+
+
+async def campaign_ids_for_players(
+    session: AsyncSession, *, player_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """Every campaign a given set of Player rows belongs to - RFC 0007's own
+    "specific campaign(s) of the Player row(s) actually being touched" set
+    for a roster-link write, resolved directly from Player rows rather than
+    campaign_ids_for_character's CharacterPlayer walk: a character being
+    created or promoted doesn't exist yet for that walk to start from, and
+    a reassignment/roster-sub-resource write only ever touches one or a
+    few specific Player rows, not a character's whole existing roster. No
+    empty-set short-circuit here (unlike routers/characters.py's own
+    _require_players_exist, which already guards its only call site) -
+    SQLAlchemy's in_() already handles an empty collection safely, and its
+    one caller never actually calls this with one.
+    """
+    stmt = select(Player.campaign_id).where(
+        Player.id.in_(player_ids), Player.tenant_id == tenant_id
+    )
+    return frozenset((await session.execute(stmt)).scalars().all())

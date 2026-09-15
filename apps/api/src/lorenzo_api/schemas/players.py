@@ -8,7 +8,16 @@ from pydantic import BaseModel
 from lorenzo_api.models import Player
 from lorenzo_api.schemas.characters import CharacterSummaryOut
 
-__all__ = ["PlayerDetailOut", "PlayerOut", "PlayerSummaryOut"]
+__all__ = ["PlayerCreate", "PlayerDetailOut", "PlayerOut", "PlayerSummaryOut"]
+
+
+class PlayerCreate(BaseModel):
+    """POST /tenants/{id}/campaigns/{id}/players - ADR 0036/RFC 0007.
+    user_id must already be a real app_user row - this API has no email to
+    invite by (ADR 0009's own boundary; see that RFC's "Invitation,
+    honestly" for the full reasoning)."""
+
+    user_id: uuid.UUID
 
 
 class PlayerSummaryOut(BaseModel):
@@ -43,19 +52,20 @@ class PlayerSummaryOut(BaseModel):
 
 
 class PlayerOut(BaseModel):
-    """Campaign roster shape (GET .../campaigns/{id}/players) - no
-    tenant_id/campaign_id, already in the path.
+    """Campaign roster shape (GET .../campaigns/{id}/players, and the create-
+    response shape for POST .../players) - no tenant_id/campaign_id, already
+    in the path.
 
-    RFC 0004's own shape also carries `created_by`/`updated_by` (ADR
-    0029). Deliberately not included yet: `player.created_by`/`updated_by`
-    don't land until user/player/character CRUD (ADR 0036/RFC 0007)
-    actually writes to this table - matching the same deferral
-    `schemas/tenants.py`'s roster entries make, for the same reason.
+    Now carries `created_by`/`updated_by` (ADR 0029) - `player`'s
+    attribution pair lands with user/player/character CRUD (ADR 0036/RFC
+    0007), which is what actually writes to this table.
     """
 
     id: uuid.UUID
     user_id: uuid.UUID
     characters: list[CharacterSummaryOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_player(cls, player: Player) -> Self:
@@ -66,6 +76,8 @@ class PlayerOut(BaseModel):
                 CharacterSummaryOut.from_character(link.character)
                 for link in player.character_links
             ],
+            created_by=player.created_by,
+            updated_by=player.updated_by,
         )
 
 
