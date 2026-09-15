@@ -2,8 +2,18 @@ from fastapi import APIRouter
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.dependencies import CurrentUser, SessionDep
-from lorenzo_api.models import Being, CampaignGm, Character, CharacterPlayer, Player, User
+from lorenzo_api.dependencies import CurrentUser, SessionDep, set_tenant_rls_context
+from lorenzo_api.exceptions import LastOwnerError
+from lorenzo_api.models import (
+    Being,
+    CampaignGm,
+    Character,
+    CharacterPlayer,
+    Membership,
+    MembershipRole,
+    Player,
+    User,
+)
 from lorenzo_api.schemas.users import MeOut
 
 router = APIRouter(tags=["users"])
@@ -76,3 +86,63 @@ async def get_me(user: CurrentUser, session: SessionDep) -> MeOut:
         campaign_gms.extend(tenant_gms.scalars().all())
 
     return MeOut.from_user(full_user, players=players, campaign_gms=campaign_gms)
+
+
+@router.delete("/me", status_code=204)
+async def delete_me(user: CurrentUser, session: SessionDep) -> None:
+    """ADR 0036/RFC 0007 - removes the caller's own app_user row. Guarded:
+    409 LastOwnerError if the caller is the sole OWNER Membership of any
+    tenant they belong to - deleting themselves would leave that tenant
+    with no one able to administer it at all (the same lockout PATCH/
+    DELETE /memberships also guard, from the other direction).
+
+    Every owner-tenant is checked *before* anything is deleted - one
+    tenant failing the guard must not leave a half-completed deletion
+    behind. Each check needs its own set_tenant_rls_context call first:
+    membership's RLS policy admits a caller's own rows via app.user_id
+    (ADR 0023's own self-access carve-out for GET /me), but *other* users'
+    OWNER rows in the same tenant only become visible once app.tenant_id
+    is set for that specific tenant - unlike this function's own
+    Membership.user_id-scoped query just below, which needs no such
+    context at all.
+
+    Once past every guard, the actual deletion is a bare `DELETE FROM
+    app_user`, no RLS context needed for it either: every cascade this
+    triggers (Membership/Player/CampaignGm/TenantAdminCampaignOptOut rows
+    in *every* tenant this user touched, and every created_by/updated_by
+    this user ever left behind, all `ON DELETE CASCADE`/`SET NULL` per ADR
+    0029) is a foreign-key referential action, which Postgres always runs
+    regardless of row security policies on the referencing tables -
+    confirmed against Postgres's own documented row-security semantics,
+    not just assumed, and proven out by this module's own cascade test.
+    """
+    owner_tenant_ids = (
+        (
+            await session.execute(
+                select(Membership.tenant_id).where(
+                    Membership.user_id == user.id, Membership.role == MembershipRole.OWNER
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    for tenant_id in owner_tenant_ids:
+        await set_tenant_rls_context(session, tenant_id)
+        owner_ids = (
+            (
+                await session.execute(
+                    select(Membership.user_id).where(
+                        Membership.tenant_id == tenant_id, Membership.role == MembershipRole.OWNER
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if owner_ids == [user.id]:
+            raise LastOwnerError(detail=f"User {user.id} is the sole OWNER of tenant {tenant_id}")
+
+    await session.delete(await session.get_one(User, user.id))
+    await session.commit()

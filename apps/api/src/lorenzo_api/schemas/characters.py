@@ -10,7 +10,47 @@ from lorenzo_api.models import Character
 if TYPE_CHECKING:
     from lorenzo_api.schemas.players import PlayerSummaryOut
 
-__all__ = ["CharacterOut", "CharacterSummaryOut"]
+__all__ = [
+    "CharacterCreate",
+    "CharacterOut",
+    "CharacterPromote",
+    "CharacterSummaryOut",
+    "CharacterUpdate",
+]
+
+
+class CharacterCreate(BaseModel):
+    """POST /tenants/{id}/characters - ADR 0036/RFC 0007. owner_player_id is
+    automatically added to player_ids too, if given and not already present
+    - a primary owner who isn't also in the piloting roster would be a
+    strange, easy-to-hit-by-accident state."""
+
+    name: str
+    owner_player_id: uuid.UUID | None = None
+    player_ids: list[uuid.UUID] = []
+
+
+class CharacterPromote(BaseModel):
+    """PUT /tenants/{id}/characters/{id} - promotes an existing `being` into
+    a character (ADR 0036/RFC 0007). Deliberately no `player_ids` list,
+    unlike CharacterCreate - the roster sub-resource endpoints already own
+    adding players one at a time; reintroducing a wholesale list here would
+    undercut the exact race-avoidance reasoning that kept `character_player`
+    off CharacterUpdate below in the first place. If given, owner_player_id
+    is added to the roster automatically too, matching creation's own
+    behavior."""
+
+    owner_player_id: uuid.UUID | None = None
+
+
+class CharacterUpdate(BaseModel):
+    """PATCH /tenants/{id}/characters/{id} - ADR 0036/RFC 0007. Both fields
+    optional; `owner_player_id` is re-checked for authorization against its
+    *new* value if given, not just the character's current state - see
+    routers/characters.py."""
+
+    name: str | None = None
+    owner_player_id: uuid.UUID | None = None
 
 
 class CharacterSummaryOut(BaseModel):

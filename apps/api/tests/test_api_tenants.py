@@ -430,3 +430,355 @@ async def test_update_tenant_with_no_fields_leaves_updated_by_untouched(
     assert response.json()["updated_by"] is None
 
     await delete_tenant(tenant_id)
+
+
+# --- POST/PATCH/DELETE /memberships (ADR 0036/RFC 0007) -------------------
+
+
+async def test_create_membership_as_owner_sets_attribution(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        invitee = User(authgear_subject_id=f"authgear|invitee-{uuid.uuid4()}")
+        session.add(invitee)
+        await session.commit()
+        invitee_id = invitee.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/memberships", json={"user_id": str(invitee_id), "role": "orga"}
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["user_id"] == str(invitee_id)
+    assert body["role"] == "orga"
+    assert body["created_by"] == str(test_user_id)
+    assert body["updated_by"] == str(test_user_id)
+    assert "location" not in response.headers
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, invitee_id))
+        await session.commit()
+
+
+async def test_create_membership_403_for_an_orga_caller(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """OWNER-only, not ORGA - a deliberate narrowing (ADR 0036/RFC 0007)."""
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
+        invitee = User(authgear_subject_id=f"authgear|invitee-{uuid.uuid4()}")
+        session.add(invitee)
+        await session.commit()
+        invitee_id = invitee.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/memberships", json={"user_id": str(invitee_id), "role": "orga"}
+    )
+
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/problem+json"
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, invitee_id))
+        await session.commit()
+
+
+async def test_create_membership_422_for_a_nonexistent_user(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/memberships",
+        json={"user_id": str(uuid.uuid4()), "role": "orga"},
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_create_membership_409_when_already_a_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/memberships", json={"user_id": str(test_user_id), "role": "orga"}
+    )
+
+    assert response.status_code == 409
+    await delete_tenant(tenant_id)
+
+
+async def test_update_membership_role_as_owner(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        member = User(authgear_subject_id=f"authgear|member-{uuid.uuid4()}")
+        session.add(member)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=member.id, role=MembershipRole.ORGA))
+        await session.commit()
+        member_id = member.id
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/memberships/{member_id}", json={"role": "owner"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "owner"
+    assert body["updated_by"] == str(test_user_id)
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, member_id))
+        await session.commit()
+
+
+async def test_update_membership_403_for_an_orga_caller(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
+        other = User(authgear_subject_id=f"authgear|other-{uuid.uuid4()}")
+        session.add(other)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=other.id, role=MembershipRole.ORGA))
+        await session.commit()
+        other_id = other.id
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/memberships/{other_id}", json={"role": "owner"}
+    )
+
+    assert response.status_code == 403
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, other_id))
+        await session.commit()
+
+
+async def test_update_membership_404_for_a_non_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/memberships/{uuid.uuid4()}", json={"role": "owner"}
+    )
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_update_membership_409_demoting_the_sole_owner(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/memberships/{test_user_id}", json={"role": "orga"}
+    )
+
+    assert response.status_code == 409
+    async with admin_session_factory() as session:
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        assert membership.role is MembershipRole.OWNER
+
+    await delete_tenant(tenant_id)
+
+
+async def test_update_membership_allows_demoting_one_of_several_owners(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        co_owner = User(authgear_subject_id=f"authgear|co-owner-{uuid.uuid4()}")
+        session.add(co_owner)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=co_owner.id, role=MembershipRole.OWNER))
+        await session.commit()
+        co_owner_id = co_owner.id
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/memberships/{co_owner_id}", json={"role": "orga"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "orga"
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, co_owner_id))
+        await session.commit()
+
+
+async def test_update_membership_precondition_failed_with_stale_if_match(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        member = User(authgear_subject_id=f"authgear|member-{uuid.uuid4()}")
+        session.add(member)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=member.id, role=MembershipRole.ORGA))
+        await session.commit()
+        member_id = member.id
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/memberships/{member_id}",
+        json={"role": "owner"},
+        headers={"If-Match": 'W/"stale"'},
+    )
+
+    assert response.status_code == 412
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, member_id))
+        await session.commit()
+
+
+async def test_delete_membership_as_owner(client: AsyncClient, test_user_id: uuid.UUID) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        member = User(authgear_subject_id=f"authgear|member-{uuid.uuid4()}")
+        session.add(member)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=member.id, role=MembershipRole.ORGA))
+        await session.commit()
+        member_id = member.id
+
+    response = await client.delete(f"/tenants/{tenant_id}/memberships/{member_id}")
+
+    assert response.status_code == 204
+    async with admin_session_factory() as session:
+        assert await session.get(Membership, (tenant_id, member_id)) is None
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, member_id))
+        await session.commit()
+
+
+async def test_delete_membership_self_removal_without_owner_role(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """A plain ORGA can always leave a tenant on their own, mirroring
+    revoke_campaign_gm's identical self-removal carve-out - as long as
+    they aren't the tenant's sole OWNER (the other guard still applies).
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        owner = User(authgear_subject_id=f"authgear|owner-{uuid.uuid4()}")
+        session.add(owner)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=owner.id, role=MembershipRole.OWNER))
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
+        await session.commit()
+        owner_id = owner.id
+
+    response = await client.delete(f"/tenants/{tenant_id}/memberships/{test_user_id}")
+
+    assert response.status_code == 204
+    async with admin_session_factory() as session:
+        assert await session.get(Membership, (tenant_id, test_user_id)) is None
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, owner_id))
+        await session.commit()
+
+
+async def test_delete_membership_403_for_an_orga_removing_someone_else(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
+        other = User(authgear_subject_id=f"authgear|other-{uuid.uuid4()}")
+        session.add(other)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=other.id, role=MembershipRole.ORGA))
+        await session.commit()
+        other_id = other.id
+
+    response = await client.delete(f"/tenants/{tenant_id}/memberships/{other_id}")
+
+    assert response.status_code == 403
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, other_id))
+        await session.commit()
+
+
+async def test_delete_membership_404_for_a_non_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.delete(f"/tenants/{tenant_id}/memberships/{uuid.uuid4()}")
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_delete_membership_409_removing_the_sole_owner(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The self-removal carve-out doesn't bypass the last-owner guard."""
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.delete(f"/tenants/{tenant_id}/memberships/{test_user_id}")
+
+    assert response.status_code == 409
+    async with admin_session_factory() as session:
+        assert await session.get(Membership, (tenant_id, test_user_id)) is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_delete_membership_precondition_failed_with_stale_if_match(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        member = User(authgear_subject_id=f"authgear|member-{uuid.uuid4()}")
+        session.add(member)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant_id, user_id=member.id, role=MembershipRole.ORGA))
+        await session.commit()
+        member_id = member.id
+
+    response = await client.delete(
+        f"/tenants/{tenant_id}/memberships/{member_id}", headers={"If-Match": 'W/"stale"'}
+    )
+
+    assert response.status_code == 412
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, member_id))
+        await session.commit()
