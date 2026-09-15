@@ -20,6 +20,7 @@ from lorenzo_api.exceptions import (
     CampaignNotFoundError,
     EntityNotFoundError,
     InvalidTokenError,
+    TenantCreationForbiddenError,
     TenantNotFoundError,
 )
 from lorenzo_api.models import Campaign, Entity, Membership, Tenant, User
@@ -34,9 +35,20 @@ __all__ = [
     "get_jwks_client",
     "get_tenant_context",
     "get_tenant_or_404",
+    "require_tenant_creator_role",
     "set_tenant_rls_context",
     "verify_token",
 ]
+
+# Authgear's own claim name for a user's assigned roles - see ADR
+# 0033/RFC 0012. Flagged there for empirical verification against a real
+# Authgear Cloud project (not fully certain from Authgear's docs alone,
+# which don't list `roles` among the JWT access token's documented default
+# claims - plausibly because it only appears once a user actually has a
+# role assigned); this codebase has no live Authgear project to verify
+# against yet, so this is implemented per Authgear's roles/groups guide and
+# left for that empirical confirmation before relying on it in production.
+_AUTHGEAR_ROLES_CLAIM = "https://authgear.com/claims/user/roles"
 
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 ParamsDep = Annotated[Params, Depends()]
@@ -105,6 +117,12 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     commit above, not before: set_config(..., is_local=true) only lasts
     for the current transaction, and the commit ends the one the upsert
     itself ran in.
+
+    Also attaches user.authgear_roles (ADR 0033/RFC 0012) - a plain,
+    non-persisted attribute (see models.User's own docstring on it), read
+    by require_tenant_creator_role below. Defaults to an empty frozenset if
+    the claim is absent entirely - no role granted, no access, the
+    closed-by-default behavior this whole mechanism exists for.
     """
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
@@ -122,10 +140,30 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     user = (await session.scalars(stmt)).one()
     await session.commit()
     await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user.id)})
+    roles = claims.get(_AUTHGEAR_ROLES_CLAIM)
+    user.authgear_roles = frozenset(roles) if isinstance(roles, list) else frozenset()
     return user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def require_tenant_creator_role(user: CurrentUser) -> None:
+    """Gates POST /tenants (ADR 0033/RFC 0012) - a platform-level check,
+    independent of any tenant, since none exists yet for a tenant-scoped
+    dependency like get_tenant_context to check against. Reads the role
+    claim get_current_user already attached to `user` rather than
+    re-verifying the token itself - see that function's own docstring for
+    why (the `client` test fixture's get_current_user override has no real
+    token to re-verify).
+
+    403, not 404: there's no existence to hide here - POST /tenants is the
+    one endpoint with nothing tenant-scoped to leak - the caller just lacks
+    a specific, nameable platform privilege, same reasoning RFC 0005
+    already established for "can read, can't write."
+    """
+    if get_settings().tenant_creator_role_key not in user.authgear_roles:
+        raise TenantCreationForbiddenError(detail="Missing the platform's tenant-creator role")
 
 
 async def set_tenant_rls_context(session: AsyncSession, tenant_id: uuid.UUID) -> None:

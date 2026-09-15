@@ -10,13 +10,54 @@ __all__ = [
     "GmRosterEntryOut",
     "MembershipRosterEntryOut",
     "PlayerRosterEntryOut",
+    "TenantCreate",
     "TenantOut",
     "TenantRole",
     "TenantRosterEntryOut",
     "TenantSummaryOut",
+    "TenantUpdate",
 ]
 
 TenantRole = Literal["owner", "orga", "participant"]
+
+# Basic format only (lowercase alphanumeric segments joined by single
+# hyphens, no leading/trailing/doubled hyphen) - RFC 0012's own "Open
+# questions" explicitly leaves a reserved-word blocklist, profanity
+# filtering, and length limits undesigned; this is just enough to keep an
+# explicitly-given slug usable in a URL path segment.
+_SLUG_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+
+
+class TenantCreate(BaseModel):
+    """POST /tenants - see ADR 0033/RFC 0012. `name` required - the
+    column's own "Unnamed Tenant" server default exists only for
+    pre-existing test fixtures (ADR 0022), not for a fresh create endpoint
+    to ever produce. `slug`, left unset, is derived from `name` and
+    auto-suffixed on collision; given explicitly, it's validated (format,
+    above) and checked for uniqueness with *no* auto-suffix (409
+    SlugConflictError if taken) - creating a tenant never fails just
+    because someone else already picked a similar name, but silently
+    rewriting a slug the caller explicitly chose would be the wrong failure
+    mode. `description` defaults to `''` (the column's own existing server
+    default) when omitted.
+    """
+
+    name: str
+    slug: Annotated[str | None, Field(pattern=_SLUG_PATTERN)] = None
+    description: str | None = None
+
+
+class TenantUpdate(BaseModel):
+    """PATCH /tenants/{id} - all fields optional. Renaming never
+    regenerates `slug` - the two are independent once a tenant exists.
+    Changing `slug` here goes through the same explicit-collision-check
+    path POST uses (no auto-suffix): a specific new slug is being asked for
+    by name, not merely omitted.
+    """
+
+    name: str | None = None
+    slug: Annotated[str | None, Field(pattern=_SLUG_PATTERN)] = None
+    description: str | None = None
 
 
 class TenantSummaryOut(BaseModel):
@@ -40,7 +81,13 @@ class TenantSummaryOut(BaseModel):
 class TenantOut(BaseModel):
     """GET /tenants/{id} - the full detail shape. No role here: the caller
     already knows they're at least a tenant-wide member, since
-    get_tenant_context gates this route."""
+    get_tenant_context gates this route.
+
+    `created_by`/`updated_by` (ADR 0033/RFC 0012): `tenant` moves from
+    excluded to covered by ADR 0029's attribution pair now that POST/PATCH
+    /tenants actually write it - same shape as `campaign`/`membership`/
+    `player`.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,6 +95,8 @@ class TenantOut(BaseModel):
     slug: str
     name: str
     description: str
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
 
 class MembershipRosterEntryOut(BaseModel):
