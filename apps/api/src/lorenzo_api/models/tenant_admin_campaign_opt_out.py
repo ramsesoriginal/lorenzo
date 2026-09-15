@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base
+from lorenzo_api.db import Base, CreatedAt, CreatedBy
 
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign import Campaign
@@ -26,7 +26,8 @@ class TenantAdminCampaignOptOut(Base):
     the old name no longer described what it actually governs. Same shape
     as CampaignGm for the same reasons: composite primary key, tenant_id
     leading, no tenant relationship (denormalized RLS-only column, matching
-    Player's precedent).
+    Player's precedent), created_by/created_at only - opting out (or back
+    in) is a create-or-delete action, never an in-place edit (ADR 0029/0034).
     """
 
     __tablename__ = "tenant_admin_campaign_opt_out"
@@ -40,9 +41,16 @@ class TenantAdminCampaignOptOut(Base):
     campaign_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("campaign.id", ondelete="CASCADE"), primary_key=True
     )
+    created_at: Mapped[CreatedAt]
+    created_by: Mapped[CreatedBy]
 
+    # foreign_keys explicit: created_by is now a second FK to app_user
+    # (ADR 0034), which would otherwise leave SQLAlchemy unable to tell
+    # which column this relationship should join through.
     user: Mapped[User] = relationship(
-        lazy="raise_on_sql", back_populates="tenant_admin_campaign_opt_outs"
+        lazy="raise_on_sql",
+        foreign_keys=[user_id],
+        back_populates="tenant_admin_campaign_opt_outs",
     )
     campaign: Mapped[Campaign] = relationship(
         lazy="raise_on_sql", back_populates="tenant_admin_opt_outs"

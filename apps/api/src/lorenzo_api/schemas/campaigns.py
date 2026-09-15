@@ -6,7 +6,39 @@ from pydantic import BaseModel, ConfigDict
 
 from lorenzo_api.models import CampaignGm
 
-__all__ = ["CampaignOut", "CampaignSummaryOut", "GmOut"]
+__all__ = ["CampaignCreate", "CampaignOut", "CampaignSummaryOut", "CampaignUpdate", "GmOut"]
+
+
+class CampaignCreate(BaseModel):
+    """POST /campaigns - see ADR 0034/RFC 0006. name/game_system/slug/
+    description are all required, no defaults - RFC 0003's own no-default
+    choice for `campaign` (no existing fixture call sites to spare, unlike
+    `tenant`), extended here to the create body. Deliberately doesn't accept
+    entity_id: the campaign's dedicated Entity is created server-side, in
+    the same transaction as the campaign row - there's nothing meaningful a
+    client could set on a brand-new, still-empty entity at creation time.
+    """
+
+    name: str
+    game_system: str
+    slug: str
+    description: str
+    secret: bool = False
+
+
+class CampaignUpdate(BaseModel):
+    """PATCH /campaigns/{id} - every field optional, applied via
+    model_dump(exclude_unset=True) (ADR 0032's convention). Changing
+    game_system mid-campaign is a real consequence (it changes which
+    prototype variants every entity in the campaign resolves through on
+    next read, ADR 0024) but not blocked - flagged here, not guarded.
+    """
+
+    name: str | None = None
+    game_system: str | None = None
+    slug: str | None = None
+    description: str | None = None
+    secret: bool | None = None
 
 
 class CampaignSummaryOut(BaseModel):

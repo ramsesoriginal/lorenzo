@@ -36,4 +36,5 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0031 - Character table, and the user/membership/player/GM read REST API](0031-character-table-and-read-api.md)
 - [0032 - Item and item-instance CRUD API](0032-item-and-item-instance-crud-api.md)
 - [0033 - Tenant creation and update API](0033-tenant-creation-and-update-api.md)
+- [0034 - Campaign CRUD API](0034-campaign-crud-api.md)
 - [0035 - Campaign-scoped GM visibility](0035-campaign-scoped-gm-visibility.md)
