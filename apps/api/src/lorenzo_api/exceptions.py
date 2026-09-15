@@ -25,7 +25,10 @@ __all__ = [
     "CampaignNotFoundError",
     "CharacterNotFoundError",
     "EntityNotFoundError",
+    "EntityStatManagementForbiddenError",
     "InvalidItemPrototypeError",
+    "InvalidStatGroupError",
+    "InvalidStatValueTypeError",
     "InvalidTokenError",
     "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
@@ -36,6 +39,8 @@ __all__ = [
     "PlayerNotFoundError",
     "PreconditionFailedError",
     "SlugConflictError",
+    "StatDefinitionNotFoundError",
+    "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
     "TenantNotFoundError",
 ]
@@ -145,6 +150,48 @@ class CampaignAdminOptOutRequiresAdminError(UnprocessableProblem):
     """
 
     title = "Opting out requires holding tenant-wide OWNER or ORGA"
+
+
+class StatGroupNotFoundError(NotFoundProblem):
+    title = "Stat group not found"
+
+
+class StatDefinitionNotFoundError(NotFoundProblem):
+    title = "Stat definition not found"
+
+
+class InvalidStatGroupError(UnprocessableProblem):
+    """POST /stat-definitions - stat_group_id doesn't resolve to a stat
+    group in this tenant. See ADR 0037/RFC 0008; mirrors
+    InvalidItemPrototypeError's own "body references something that isn't
+    there" shape.
+    """
+
+    title = "Stat group id is not valid"
+
+
+class InvalidStatValueTypeError(UnprocessableProblem):
+    """PUT .../entities/{id}/stats/{stat_definition_id} - the request body's
+    value isn't shaped like the target stat_definition's declared
+    value_type (int/text/float/bool). entity_stat's own CHECK constraint
+    (ADR 0014) only enforces "exactly one value_* column is set," not which
+    one matches the definition - this is that missing application-level
+    check, surfaced as a real 422 instead of an opaque DB error. See ADR
+    0037/RFC 0008.
+    """
+
+    title = "Stat value does not match its definition's value type"
+
+
+class EntityStatManagementForbiddenError(ForbiddenProblem):
+    """Self-or-managed authorization failed for an entity_stat write - see
+    ADR 0037/RFC 0008. Mirrors ItemInstanceManagementForbiddenError's own
+    404-vs-403 reasoning: the caller already knows this entity exists (it
+    passed get_entity_or_404), they just lack a specific write permission
+    over its stats.
+    """
+
+    title = "Not authorized to manage this entity's stats"
 
 
 class PreconditionFailedError(StatusProblem):

@@ -38,3 +38,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0033 - Tenant creation and update API](0033-tenant-creation-and-update-api.md)
 - [0034 - Campaign CRUD API](0034-campaign-crud-api.md)
 - [0035 - Campaign-scoped GM visibility](0035-campaign-scoped-gm-visibility.md)
+- [0037 - Effective stat resolution over the prototype graph](0037-effective-stat-resolution.md)

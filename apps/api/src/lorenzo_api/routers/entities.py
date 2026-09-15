@@ -37,22 +37,21 @@ async def list_entities(
     return page
 
 
-@router.get("/{entity_id}")
-async def get_entity(
-    tenant_id: uuid.UUID,
-    entity_id: uuid.UUID,
-    request: Request,
-    session: SessionDep,
-    user: CurrentUser,
-) -> EntityDetailOut:
-    """The full detail shape, with every relationship eager-loaded up front.
+async def get_entity_detail_or_404(
+    session: SessionDep, entity_id: uuid.UUID, tenant_id: uuid.UUID
+) -> Entity:
+    """The full .options() eager-load chain EntityDetailOut needs - factored
+    out of get_entity below so routers/entity_stats.py's stat-write endpoint
+    (ADR 0037/RFC 0008) can return this same canonical entity-detail shape
+    after a write, rather than keeping a second, drifting copy of this
+    seven-relationship chain (mirrors routers/items.py's own
+    eager_load_options, reused as-is by routers/item_instances.py).
 
-    Queried directly with the full .options() chain rather than delegating
-    to dependencies.get_entity_or_404 first - that helper's plain
-    session.get() wouldn't have any of these relationships loaded, so
-    reusing it here would just mean a second, redundant round trip for
-    this same row. The 404 check below covers exactly what that helper
-    covers (missing id, or an id that belongs to a different tenant).
+    Not dependencies.get_entity_or_404 - that helper's plain session.get()
+    wouldn't have any of these relationships loaded, so reusing it here
+    would just mean a second, redundant round trip for this same row. The
+    404 check below covers exactly what that helper covers (missing id, or
+    an id that belongs to a different tenant).
     """
     stmt = (
         select(Entity)
@@ -82,6 +81,18 @@ async def get_entity(
     entity = await session.scalar(stmt)
     if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    return entity
 
+
+@router.get("/{entity_id}")
+async def get_entity(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> EntityDetailOut:
+    """The full detail shape, with every relationship eager-loaded up front."""
+    entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     return EntityDetailOut.from_entity(entity, request, visibility=visibility)
