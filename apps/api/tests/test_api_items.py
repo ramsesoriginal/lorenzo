@@ -4,12 +4,15 @@ from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_tenant
 from httpx import AsyncClient
 
+from lorenzo_api.etag import etag_for
 from lorenzo_api.models import (
     Containment,
     Entity,
+    EntityPrototype,
     EntityStat,
     Information,
     Item,
+    ItemInstance,
     Membership,
     MembershipRole,
     Payload,
@@ -314,3 +317,162 @@ async def test_list_items_paginates_and_is_tenant_isolated(
 async def test_list_items_404_for_unknown_tenant(client: AsyncClient) -> None:
     response = await client.get("/tenants/00000000-0000-0000-0000-000000000000/items")
     assert response.status_code == 404
+
+
+async def test_create_item_without_prototypes(client: AsyncClient, test_user_id: uuid.UUID) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.post(f"/tenants/{tenant_id}/items", json={"name": "Sword"})
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["title"] is None  # title comes from a "description" Information row, not name
+    assert body["created_by"] == str(test_user_id)
+    assert body["updated_by"] == str(test_user_id)
+    assert response.headers["location"].endswith(f"/tenants/{tenant_id}/items/{body['entity_id']}")
+
+    await delete_tenant(tenant_id)
+
+
+async def test_create_item_with_prototypes_links_entity_prototype(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_response = await client.post(f"/tenants/{tenant_id}/items", json={"name": "Sword"})
+    sword_id = sword_response.json()["entity_id"]
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items",
+        json={"name": "Flaming Sword", "prototype_ids": [sword_id]},
+    )
+
+    assert response.status_code == 201
+    flaming_sword_id = response.json()["entity_id"]
+    async with admin_session_factory() as session:
+        link = await session.get(
+            EntityPrototype, (uuid.UUID(flaming_sword_id), uuid.UUID(sword_id))
+        )
+        assert link is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_create_item_404_for_non_member(client: AsyncClient) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.commit()
+        tenant_id = tenant.id
+
+    response = await client.post(f"/tenants/{tenant_id}/items", json={"name": "Sword"})
+    assert response.status_code == 404
+
+    await delete_tenant(tenant_id)
+
+
+async def test_update_item_renames_and_stamps_updated_by(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/items/{entity_id}", json={"name": "Magic Sword"}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["updated_by"] == str(test_user_id)
+
+    get_response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
+    async with admin_session_factory() as session:
+        entity = await session.get_one(Entity, entity_id)
+        assert entity.name == "Magic Sword"
+    assert get_response.status_code == 200
+
+    await delete_tenant(tenant_id)
+
+
+async def test_update_item_404_for_unknown_id(client: AsyncClient, test_user_id: uuid.UUID) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/items/00000000-0000-0000-0000-000000000000", json={"name": "x"}
+    )
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_update_item_precondition_failed_with_stale_if_match(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/items/{entity_id}",
+        json={"name": "Magic Sword"},
+        headers={"If-Match": 'W/"stale"'},
+    )
+
+    assert response.status_code == 412
+    await delete_tenant(tenant_id)
+
+
+async def test_update_item_succeeds_with_correct_if_match(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+    async with admin_session_factory() as session:
+        entity = await session.get_one(Entity, entity_id)
+        current_etag = etag_for(entity.updated_at)
+
+    response = await client.patch(
+        f"/tenants/{tenant_id}/items/{entity_id}",
+        json={"name": "Magic Sword"},
+        headers={"If-Match": current_etag},
+    )
+
+    assert response.status_code == 200
+    await delete_tenant(tenant_id)
+
+
+async def test_delete_item_removes_entity(client: AsyncClient, test_user_id: uuid.UUID) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.delete(f"/tenants/{tenant_id}/items/{entity_id}")
+
+    assert response.status_code == 204
+    async with admin_session_factory() as session:
+        assert await session.get(Entity, entity_id) is None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_delete_item_409_when_used_as_direct_prototype(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    async with admin_session_factory() as session:
+        instance_entity = Entity(tenant_id=tenant_id, name="Ashfang")
+        session.add(instance_entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=instance_entity.id, tenant_id=tenant_id))
+        session.add(
+            EntityPrototype(
+                entity_id=instance_entity.id, prototype_id=sword_id, tenant_id=tenant_id
+            )
+        )
+        await session.commit()
+
+    response = await client.delete(f"/tenants/{tenant_id}/items/{sword_id}")
+
+    assert response.status_code == 409
+    async with admin_session_factory() as session:
+        assert await session.get(Entity, sword_id) is not None
+
+    await delete_tenant(tenant_id)
