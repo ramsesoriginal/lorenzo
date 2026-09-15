@@ -15,10 +15,12 @@ from lorenzo_api.observability.tracing import configure_tracing
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.entities import router as entities_router
+from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.players import router as players_router
+from lorenzo_api.routers.stats import router as stats_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
 
@@ -52,8 +54,10 @@ def create_app() -> FastAPI:
     app.include_router(characters_router)
     app.include_router(payloads_router)
     app.include_router(entities_router)
+    app.include_router(entity_stats_router)
     app.include_router(items_router)
     app.include_router(item_instances_router)
+    app.include_router(stats_router)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
     # Stashed on app.state so tests can attach their own span processor
