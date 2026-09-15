@@ -45,6 +45,7 @@ Bigger changes — a big feature, a full-app refactor, a new app, or anything th
 - Worktrees live as siblings of this checkout, one directory per branch, path mirroring the branch name exactly: `../lorenzo-worktrees/<branch>` (e.g. `../lorenzo-worktrees/feat/loot-bot`, `../lorenzo-worktrees/docs/brand-mascot`) — the convention already in use (`git worktree list` shows the current ones).
 - If the target branch already has a worktree, use it — `cd` there and work from it, don't create a second one and don't work from the main checkout instead.
 - If it doesn't yet, create one the same way: `git worktree add ../lorenzo-worktrees/<branch> <branch>` for a branch that already exists, or `git worktree add ../lorenzo-worktrees/<branch> -b <branch>` (off `main`) for a new one.
+- Splitting a big feature across several parallel (sub)agents: each one gets its own sub-branch off the *feature* branch, not off `main` — `<feature-branch>/<sub-slug>` — with its own worktree one level deeper, same layout rule: `../lorenzo-worktrees/<feature-branch>/<sub-slug>`. Each agent does its slice of work there, then merges back into the feature branch (a real merge commit, same convention as merging into `main`) once done — never straight into `main`. Remove the sub-worktree after merging (`git worktree remove ../lorenzo-worktrees/<feature-branch>/<sub-slug>`); the branch itself can stay, same as any other merged branch.
 
 ## Before making a change
 
