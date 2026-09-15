@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import (
     CampaignGm,
+    CharacterPlayer,
     Membership,
     MembershipRole,
     Player,
@@ -109,3 +110,89 @@ async def can_access_campaign(
 
     opted_out = await session.get(TenantAdminCampaignOptOut, (tenant_id, user_id, campaign_id))
     return opted_out is None
+
+
+async def can_manage_campaign(
+    session: AsyncSession, *, user_id: uuid.UUID, campaign_id: uuid.UUID, tenant_id: uuid.UUID
+) -> bool:
+    """A CampaignGm row, OR tenant-wide OWNER/ORGA - regardless of any
+    TenantAdminCampaignOptOut for this campaign (RFC 0006). Deliberately
+    does not reuse can_access_campaign wholesale: that predicate is about
+    *play* visibility (a tenant admin's opt-out exists so they can play an
+    ordinary character without their admin access bleeding in), while
+    administrative capability over the campaign as an object is a
+    different axis, tied to who can administer the tenant at all (ADR
+    0010: "ownership transfer is just changing which membership row has
+    role=owner") - an opt-out shouldn't strip that. A plain player is
+    never a manager. Pulled forward into this ADR (0032) rather than
+    waiting for campaign CRUD's own ADR (0034), since RFC 0005's
+    item-instance authorization needs it too - both RFCs consume this one
+    predicate, neither owns it exclusively.
+    """
+    if await session.get(CampaignGm, (tenant_id, user_id, campaign_id)) is not None:
+        return True
+    return await is_tenant_admin(session, tenant_id=tenant_id, user_id=user_id)
+
+
+async def can_manage_any_campaign_in_tenant(
+    session: AsyncSession, *, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> bool:
+    """Whether the caller can_manage_campaign on *at least one* campaign in
+    this tenant - RFC 0005's fallback for ownerless item-instance creation
+    (no character to resolve a specific campaign from). Narrower than
+    is_tenant_participant: a plain player with no GM standing anywhere
+    doesn't qualify just by being a tenant member, matching RFC 0005's own
+    "populating the world with unclaimed items reads closer to authoring
+    than to ordinary play" reasoning.
+    """
+    if await is_tenant_admin(session, tenant_id=tenant_id, user_id=user_id):
+        return True
+    gm_stmt = (
+        select(CampaignGm.campaign_id)
+        .where(CampaignGm.user_id == user_id, CampaignGm.tenant_id == tenant_id)
+        .limit(1)
+    )
+    return (await session.execute(gm_stmt)).first() is not None
+
+
+async def campaign_ids_for_character(
+    session: AsyncSession, *, character_entity_id: uuid.UUID, tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """Every campaign a character is currently rostered into, via its
+    CharacterPlayer -> Player -> campaign_id chain - RFC 0005's "assigning
+    to someone else's character" check needs this to test can_manage_campaign
+    against the *specific* campaign(s) that character belongs to, not every
+    campaign in the tenant.
+    """
+    stmt = (
+        select(Player.campaign_id)
+        .join(CharacterPlayer, CharacterPlayer.player_id == Player.id)
+        .where(
+            CharacterPlayer.character_entity_id == character_entity_id,
+            Player.tenant_id == tenant_id,
+        )
+    )
+    return frozenset((await session.execute(stmt)).scalars().all())
+
+
+async def can_manage_any_of_campaigns(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    campaign_ids: frozenset[uuid.UUID],
+    tenant_id: uuid.UUID,
+) -> bool:
+    """can_manage_campaign on at least one of campaign_ids - RFC 0005's "any
+    one is enough" rule for assigning an item instance to someone else's
+    character: that character's inventory is already shared uniformly
+    across every campaign it's rostered into (ADR 0025), so one campaign's
+    GM oversight is enough.
+    """
+    return any(
+        [
+            await can_manage_campaign(
+                session, user_id=user_id, campaign_id=campaign_id, tenant_id=tenant_id
+            )
+            for campaign_id in campaign_ids
+        ]
+    )

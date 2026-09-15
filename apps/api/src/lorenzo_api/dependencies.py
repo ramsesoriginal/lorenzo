@@ -34,6 +34,7 @@ __all__ = [
     "get_jwks_client",
     "get_tenant_context",
     "get_tenant_or_404",
+    "set_tenant_rls_context",
     "verify_token",
 ]
 
@@ -127,6 +128,24 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+async def set_tenant_rls_context(session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    """set_config(..., is_local=true) only lasts for the current
+    transaction (see get_current_user's identical note on app.user_id) -
+    get_tenant_context/get_tenant_or_404 set this once at dependency
+    resolution, before a route handler's own body runs, which is enough
+    for every read-only route (never commits, so the setting survives for
+    the whole request). A write route that commits mid-request (ADR
+    0032/RFC 0005 onward) ends that same transaction, silently losing
+    app.tenant_id for anything it queries afterward (e.g. re-reading its
+    own row through a security_invoker view to build the response) - such
+    a route must call this again itself, right after its own commit,
+    before its own post-commit read.
+    """
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
+    )
+
+
 async def get_tenant_context(
     tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> uuid.UUID:
@@ -146,9 +165,7 @@ async def get_tenant_context(
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     if await session.get(Membership, (tenant_id, user.id)) is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
-    await session.execute(
-        text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
-    )
+    await set_tenant_rls_context(session, tenant_id)
     return tenant_id
 
 
@@ -162,9 +179,7 @@ async def get_tenant_or_404(tenant_id: uuid.UUID, session: SessionDep) -> uuid.U
     """
     if await session.get(Tenant, tenant_id) is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
-    await session.execute(
-        text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
-    )
+    await set_tenant_rls_context(session, tenant_id)
     return tenant_id
 
 

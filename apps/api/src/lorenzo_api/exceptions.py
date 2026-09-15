@@ -9,18 +9,29 @@ stable, programmatically-distinguishable value beyond the human-readable
 `detail` string.
 """
 
-from fastapi_problem.error import NotFoundProblem, UnauthorisedProblem
+from fastapi_problem.error import (
+    ConflictProblem,
+    ForbiddenProblem,
+    NotFoundProblem,
+    StatusProblem,
+    UnauthorisedProblem,
+    UnprocessableProblem,
+)
 
 __all__ = [
     "CampaignNotFoundError",
     "CharacterNotFoundError",
     "EntityNotFoundError",
+    "InvalidItemPrototypeError",
     "InvalidTokenError",
+    "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
     "ItemNotFoundError",
+    "ItemPrototypeInUseError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
     "PlayerNotFoundError",
+    "PreconditionFailedError",
     "TenantNotFoundError",
 ]
 
@@ -68,3 +79,45 @@ class CharacterNotFoundError(NotFoundProblem):
     """
 
     title = "Character not found"
+
+
+class ItemPrototypeInUseError(ConflictProblem):
+    """DELETE /items/{id} guard - see ADR 0032/RFC 0005: deleting a base
+    item that some instance still directly prototypes would otherwise
+    silently strip that instance's inherited stats via ADR 0018's blanket
+    cascade.
+    """
+
+    title = "Item is still in use as a prototype"
+
+
+class InvalidItemPrototypeError(UnprocessableProblem):
+    """POST /item-instances - prototype_id doesn't resolve to an entity with
+    a matching Item row. See ADR 0032/RFC 0005 and ADR 0019's own
+    real-but-unenforced invariant this endpoint now enforces at creation
+    time.
+    """
+
+    title = "Prototype id is not a base item"
+
+
+class ItemInstanceManagementForbiddenError(ForbiddenProblem):
+    """Self-or-managed authorization failed - see ADR 0032/RFC 0005. The
+    caller already passed get_tenant_context (a real, non-enumerable 404
+    boundary), so this is deliberately 403, not 404: they can already read
+    this instance, they just lack a specific write permission over it.
+    """
+
+    title = "Not authorized to manage this item instance"
+
+
+class PreconditionFailedError(StatusProblem):
+    """If-Match didn't match the resource's current ETag - see ADR
+    0032/RFC 0005. fastapi_problem has no named 412 convenience base
+    (only the 7 status codes its own StatusProblem subclasses cover), so
+    this subclasses the generic StatusProblem directly, the same way its
+    own named bases are themselves built on it.
+    """
+
+    status = 412
+    title = "Precondition failed"

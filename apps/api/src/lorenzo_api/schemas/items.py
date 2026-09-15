@@ -15,10 +15,16 @@ __all__ = [
     "PictureRefOut",
     "StatValueOut",
     "TagValueOut",
+    "ItemCreate",
+    "ItemUpdate",
     "ItemOut",
+    "ItemInstanceCreate",
+    "ItemInstanceUpdate",
     "ItemInstanceOut",
     "OwnedGroupOut",
     "OwnedByResponse",
+    "SetOwnerRequest",
+    "SetContainerRequest",
 ]
 
 
@@ -102,6 +108,23 @@ def _tags_out(pairs: list[tuple[str, bool | None]]) -> list[TagValueOut]:
     return [TagValueOut(name=name, value=value) for name, value in pairs]
 
 
+class ItemCreate(BaseModel):
+    """POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
+    EntityPrototype row per id in prototype_ids, one transaction.
+    """
+
+    name: str
+    prototype_ids: list[uuid.UUID] = []
+
+
+class ItemUpdate(BaseModel):
+    """PATCH /items/{id} - only Entity.name is mutable through this
+    endpoint; nothing else on a bare Item row exists to update.
+    """
+
+    name: str | None = None
+
+
 class ItemOut(BaseModel):
     """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
 
@@ -135,6 +158,8 @@ class ItemOut(BaseModel):
     destroyable_stats: list[StatValueOut]
     damaging_stats: list[StatValueOut]
     tags: list[TagValueOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_v_item(
@@ -159,7 +184,46 @@ class ItemOut(BaseModel):
             destroyable_stats=_stats_out(view.destroyable_stats),
             damaging_stats=_stats_out(view.damaging_stats),
             tags=_tags_out(view.tags),
+            created_by=view.entity.created_by,
+            updated_by=view.entity.updated_by,
         )
+
+
+class ItemInstanceCreate(BaseModel):
+    """POST /item-instances ("instantiate") - see ADR 0032/RFC 0005.
+    prototype_id must resolve to an entity with a matching Item row.
+    One transaction creates Entity (name defaults to the prototype's own
+    name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
+    row if owner_character_id is given and/or a Containment row if
+    container_entity_id is given.
+    """
+
+    name: str | None = None
+    prototype_id: uuid.UUID
+    owner_character_id: uuid.UUID | None = None
+    container_entity_id: uuid.UUID | None = None
+
+
+class ItemInstanceUpdate(BaseModel):
+    """PATCH /item-instances/{id} - owner/container are handled by the
+    dedicated sub-resource actions below, not folded into this general
+    PATCH body, so a client can't accidentally no-op an owner change by
+    omitting the field from a partial update.
+    """
+
+    name: str | None = None
+
+
+class SetOwnerRequest(BaseModel):
+    """PUT /item-instances/{id}/owner body."""
+
+    owner_character_id: uuid.UUID
+
+
+class SetContainerRequest(BaseModel):
+    """PUT /item-instances/{id}/container body."""
+
+    container_entity_id: uuid.UUID
 
 
 class ItemInstanceOut(BaseModel):
@@ -189,6 +253,8 @@ class ItemInstanceOut(BaseModel):
     destroyable_stats: list[StatValueOut]
     damaging_stats: list[StatValueOut]
     tags: list[TagValueOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_v_item_instance(
@@ -214,6 +280,8 @@ class ItemInstanceOut(BaseModel):
             destroyable_stats=_stats_out(view.destroyable_stats),
             damaging_stats=_stats_out(view.damaging_stats),
             tags=_tags_out(view.tags),
+            created_by=view.entity.created_by,
+            updated_by=view.entity.updated_by,
         )
 
 
