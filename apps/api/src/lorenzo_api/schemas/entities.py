@@ -10,6 +10,32 @@ from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 
 
+class InformationCreate(BaseModel):
+    """POST /tenants/{tenant_id}/entities/{entity_id}/information - see ADR
+    0038/RFC 0011. One call creates the Information row plus exactly one
+    PayloadDescription - mirroring RFC 0005's "one transaction, one
+    coherent unit" precedent (instantiate creating Entity+ItemInstance+
+    EntityPrototype together), not two separate calls that could leave an
+    Information row with no Payload yet.
+
+    Deliberately description-only for this slice - payload_number/picture/
+    document creation is explicitly out of scope (RFC 0011's own flagged
+    "binary payload upload mechanics... not resolved here"; a JSON body
+    has nowhere to put raw bytes without base64 or multipart, neither
+    decided). `type` is Information's own free-text narrative category
+    (RFC 0001: "a rumor, an official record, a GM note, ..."), not the
+    payload's kind - callers authoring more than one piece of information
+    about the same entity must give each a distinct `type`, since
+    Information carries UniqueConstraint(entity_id, type).
+    """
+
+    title: str
+    type: str
+    is_public: bool = False
+    content: str
+    locale: str = "en-US"
+
+
 class StatValueOut(BaseModel):
     """A resolved stat value, keyed by its definition's name - see ADR 0020.
 

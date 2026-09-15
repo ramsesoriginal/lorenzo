@@ -28,6 +28,9 @@ __all__ = [
     "EntityNotFoundError",
     "EntityStatManagementForbiddenError",
     "InvalidItemPrototypeError",
+    "InformationAlreadyExistsError",
+    "InformationManagementForbiddenError",
+    "InformationNotFoundError",
     "InvalidStatGroupError",
     "InvalidStatValueTypeError",
     "InvalidTokenError",
@@ -319,3 +322,40 @@ class CharacterManagementForbiddenError(ForbiddenProblem):
     """
 
     title = "Not authorized to manage this character"
+
+
+class InformationAlreadyExistsError(ConflictProblem):
+    """POST /tenants/{id}/entities/{id}/information - this entity already
+    has an Information row of the given `type` (Information's own
+    UniqueConstraint(entity_id, type), ADR 0017). Pre-checked explicitly
+    rather than relying on the constraint violation to surface, matching
+    MembershipAlreadyExistsError/PlayerAlreadyExistsError's own established
+    precedent (ADR 0036) for a real, easily-reachable duplicate-write case.
+    See ADR 0038/RFC 0011.
+    """
+
+    title = "This entity already has information of this type"
+
+
+class InformationNotFoundError(NotFoundProblem):
+    """GET/PUT/DELETE .../information[/{id}[/knowers/{id}]] - see ADR
+    0038/RFC 0011. Also covers "exists, but the caller's
+    information_visibility can't see it" - the same non-enumerable
+    collapsing routers/payloads.py's GET .../content already does for the
+    identical shape (an Information row is only as visible as its own
+    is_public/knowledge state, not a separate authorization concern).
+    """
+
+    title = "Information not found"
+
+
+class InformationManagementForbiddenError(ForbiddenProblem):
+    """Self-or-managed authorization failed for authoring Information/
+    Payload on an entity, or for granting/revoking a Knowledge row - see
+    ADR 0038/RFC 0011. Mirrors EntityStatManagementForbiddenError's own
+    404-vs-403 reasoning: the caller already knows the target entity/
+    information exists, they just lack a specific write permission over
+    it.
+    """
+
+    title = "Not authorized to manage this entity's information"
