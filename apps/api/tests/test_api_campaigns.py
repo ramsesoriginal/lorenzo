@@ -853,9 +853,21 @@ async def test_admin_opt_out_put_as_orga(client: AsyncClient, test_user_id: uuid
     await delete_tenant(tenant_id)
 
 
-async def test_admin_opt_out_put_422_for_a_plain_player(
+async def test_admin_opt_out_put_404_for_a_plain_player_with_no_tenant_membership(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
+    """Gated by get_tenant_context (ADR 0034's fix for the self-lockout
+    below), not get_campaign_context - a plain Player row, which used to be
+    enough to reach this route and get a 422, no longer is: it isn't a
+    tenant-wide Membership, so get_tenant_context itself 404s first. The
+    is_tenant_admin check further down (still present, still requires
+    OWNER/ORGA) is consequently unreachable via any real caller today,
+    since MembershipRole has exactly those two values - any Membership row
+    that gets a caller past get_tenant_context already is one. Kept anyway
+    as the explicit statement of the actual business rule, the same
+    dead-but-documented-intent shape tenants.py's own get_tenant already
+    uses.
+    """
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
@@ -869,7 +881,7 @@ async def test_admin_opt_out_put_422_for_a_plain_player(
 
     response = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out")
 
-    assert response.status_code == 422
+    assert response.status_code == 404
     assert response.headers["content-type"] == "application/problem+json"
 
     await delete_tenant(tenant_id)
@@ -878,20 +890,11 @@ async def test_admin_opt_out_put_422_for_a_plain_player(
 async def test_admin_opt_out_put_is_idempotent(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """A second PUT is a no-op at the row level - test_user_id also holds a
-    Player row here so opting out doesn't strip their own
-    get_campaign_context access entirely (see
-    test_admin_opt_out_put_twice_without_any_other_standing_404s below for
-    what happens without one - a real, documented consequence of RFC 0006's
-    own endpoint table, ADR 0034).
-    """
     tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         campaign = await make_campaign(session, tenant_id=tenant_id)
-        await session.flush()
-        campaign_id = campaign.id
-        session.add(Player(user_id=test_user_id, campaign_id=campaign_id, tenant_id=tenant_id))
         await session.commit()
+        campaign_id = campaign.id
 
     first = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out")
     second = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out")
@@ -902,15 +905,16 @@ async def test_admin_opt_out_put_is_idempotent(
     await delete_tenant(tenant_id)
 
 
-async def test_admin_opt_out_put_twice_without_any_other_standing_404s(
+async def test_admin_opt_out_put_and_delete_survive_having_no_other_standing(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """A documented edge case (ADR 0034's Consequences): opting out of a
-    campaign the caller has no Player/CampaignGm row in removes their only
-    route to get_campaign_context for it - including, notably, back to the
-    admin-opt-out routes themselves. Implemented exactly as RFC 0006's own
-    endpoint table specifies (get_campaign_context on both PUT and DELETE),
-    not silently worked around.
+    """The whole point of gating these two routes on get_tenant_context,
+    not get_campaign_context (ADR 0034): a caller with zero other standing
+    in this campaign (no Player/CampaignGm row) can still opt out, and can
+    still reach the very route that undoes it afterwards - unlike
+    get_campaign_context, which their own opt-out would otherwise revoke
+    their access through. Mirrors DELETE /campaigns/{id}'s identical
+    reasoning against the identical opt-out mechanism.
     """
     tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
@@ -918,11 +922,28 @@ async def test_admin_opt_out_put_twice_without_any_other_standing_404s(
         await session.commit()
         campaign_id = campaign.id
 
-    first = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out")
-    second = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out")
+    put_response = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out")
+    assert put_response.status_code == 200
 
-    assert first.status_code == 200
-    assert second.status_code == 404
+    # Confirm the opt-out really does block ordinary read access (the
+    # mechanism this route exists to toggle) ...
+    get_response = await client.get(f"/tenants/{tenant_id}/campaigns/{campaign_id}")
+    assert get_response.status_code == 404
+
+    # ... yet opting back in via this same self-service route still works.
+    delete_response = await client.delete(
+        f"/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out"
+    )
+    assert delete_response.status_code == 200
+    async with admin_session_factory() as session:
+        assert (
+            await session.get(TenantAdminCampaignOptOut, (tenant_id, test_user_id, campaign_id))
+            is None
+        )
+
+    # And read access is back too, now that the opt-out is gone.
+    get_after_response = await client.get(f"/tenants/{tenant_id}/campaigns/{campaign_id}")
+    assert get_after_response.status_code == 200
 
     await delete_tenant(tenant_id)
 
@@ -930,17 +951,11 @@ async def test_admin_opt_out_put_twice_without_any_other_standing_404s(
 async def test_admin_opt_out_delete_removes_the_row(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """test_user_id also holds a Player row here, same reasoning as
-    test_admin_opt_out_put_is_idempotent above - without one, an already
-    opted-out tenant admin has no route left through get_campaign_context
-    to reach this DELETE route at all (ADR 0034's documented consequence).
-    """
     tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         campaign = await make_campaign(session, tenant_id=tenant_id)
         await session.flush()
         campaign_id = campaign.id
-        session.add(Player(user_id=test_user_id, campaign_id=campaign_id, tenant_id=tenant_id))
         session.add(
             TenantAdminCampaignOptOut(
                 tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign_id
@@ -956,6 +971,19 @@ async def test_admin_opt_out_delete_removes_the_row(
             await session.get(TenantAdminCampaignOptOut, (tenant_id, test_user_id, campaign_id))
             is None
         )
+
+    await delete_tenant(tenant_id)
+
+
+async def test_admin_opt_out_put_404_for_unknown_campaign(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/campaigns/00000000-0000-0000-0000-000000000000/admin-opt-out"
+    )
+    assert response.status_code == 404
 
     await delete_tenant(tenant_id)
 

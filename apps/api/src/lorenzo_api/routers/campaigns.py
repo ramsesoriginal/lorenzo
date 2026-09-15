@@ -312,8 +312,8 @@ async def revoke_campaign_gm(
 
 @router.put("/{campaign_id}/admin-opt-out")
 async def opt_out_of_campaign_admin_visibility(
-    tenant_id: uuid.UUID,
-    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    campaign_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
 ) -> CampaignOut:
@@ -322,7 +322,23 @@ async def opt_out_of_campaign_admin_visibility(
     OWNER/ORGA - 422, not a silent no-op, since opting out of a bypass you
     don't hold in the first place is meaningless. Idempotent, matching the
     GM grant above.
+
+    Gated by get_tenant_context, not get_campaign_context - the identical
+    reasoning DELETE /campaigns/{id} above already applies to itself:
+    can_access_campaign's own opt-out-suppression must not be able to lock
+    its holder out of the very route that would undo it. Still loads the
+    Campaign row scoped to tenant_id first, for the same non-enumerable
+    404 shape - it just doesn't run can_access_campaign against it.
+
+    The is_tenant_admin check below is consequently unreachable via any
+    real caller today: get_tenant_context already requires a Membership
+    row, and MembershipRole has exactly OWNER/ORGA (ADR 0022) - nothing
+    else a Membership row could hold. Kept anyway as the explicit
+    statement of the actual business rule, not merely an artifact of
+    get_tenant_context's own check - the same dead-but-documented-intent
+    shape tenants.py's own get_tenant uses for its post-dependency re-fetch.
     """
+    await _get_campaign_or_404(tenant_id, campaign_id, session)
     if not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
         raise CampaignAdminOptOutRequiresAdminError(
             detail="Opting out requires holding tenant-wide OWNER or ORGA in this tenant"
@@ -342,14 +358,19 @@ async def opt_out_of_campaign_admin_visibility(
 
 @router.delete("/{campaign_id}/admin-opt-out")
 async def opt_back_in_to_campaign_admin_visibility(
-    tenant_id: uuid.UUID,
-    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    campaign_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
 ) -> CampaignOut:
     """Self-service only, no precondition - deleting a row that doesn't
-    exist is already a no-op (ADR 0034/RFC 0006).
+    exist is already a no-op (ADR 0034/RFC 0006). Gated by
+    get_tenant_context, not get_campaign_context, for the same reason the
+    PUT above is: this route is exactly how a holder undoes their own
+    opt-out, so it must stay reachable even after that opt-out has already
+    taken away their can_access_campaign standing.
     """
+    await _get_campaign_or_404(tenant_id, campaign_id, session)
     existing = await session.get(TenantAdminCampaignOptOut, (tenant_id, user.id, campaign_id))
     if existing is not None:
         await session.delete(existing)
