@@ -25,8 +25,7 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md) for the ful
 ## Before you open a PR
 
 ```bash
-mise run lint
-mise run test
+mise run check   # lint (incl. type check) + test, fans out to every app
 ```
 
 [ci.yml](.github/workflows/ci.yml) discovers apps automatically — nothing to configure per app, including the next one.

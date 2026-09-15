@@ -37,3 +37,7 @@ run = "mise run '//apps/...:format'"
 [tasks.test]
 description = "Test everything (fans out to every app)"
 run = "mise run '//apps/...:test'"
+
+[tasks.check]
+description = "Full pre-PR gate: lint (incl. type check) + test, everything"
+depends = ["lint", "test"]

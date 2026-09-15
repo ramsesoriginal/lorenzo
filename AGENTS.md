@@ -25,6 +25,7 @@ docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
 mise run //apps/api:dev                              # apps/api, with autoreload
 mise run lint                                          # fans out to every app (currently just apps/api)
 mise run test                                           # ditto
+mise run check                                          # lint + test - the full pre-PR gate
 ```
 
 `apps/api` already owns `dev`/`lint`/`test`/`build` tasks in its own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
