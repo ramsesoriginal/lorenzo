@@ -207,13 +207,35 @@ async def get_tenant_context(
     return tenant_id
 
 
-async def get_tenant_or_404(tenant_id: uuid.UUID, session: SessionDep) -> uuid.UUID:
+async def get_tenant_or_404(
+    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> uuid.UUID:
     """Existence-only - no Membership check, unlike get_tenant_context. See
     ADR 0030/RFC 0003: which RLS partition a query runs against is a
     scoping decision, not an authorization one - get_campaign_context (or a
     route's own explicit predicate, e.g. is_tenant_participant) layers
     authorization on top of this rather than folding it in here, the same
     division get_tenant_context/can_access_campaign already keep separate.
+
+    `user: CurrentUser` is unused below - it exists purely to force
+    dependency ordering, a real bug found and fixed while building ADR
+    0038: get_current_user performs its own internal commit (the
+    auto-provisioning upsert, ADR 0023), which ends whatever transaction
+    was active - including one this function's own set_tenant_rls_context
+    call below just started. Without an explicit dependency on `user`
+    here, FastAPI has no reason to resolve get_current_user before this
+    function's body runs, and when it resolves it *after* instead (which
+    it did, deterministically, for every router using this as a bare
+    router-level dependency with no `user` parameter of its own -
+    routers/item_instances.py, characters.py, entity_stats.py, campaigns.py
+    via get_campaign_context, entities.py, information.py), the
+    just-set app.tenant_id is silently lost before any query in this
+    request ever uses it. Confirmed via a real end-to-end test using a
+    genuine verified token (`raw_client`), not the test suite's normal
+    `client` fixture, whose fake get_current_user override never commits
+    and so could never have surfaced this. get_tenant_context above has
+    never had this problem, purely incidentally - it already took `user`
+    for its own membership check.
     """
     if await session.get(Tenant, tenant_id) is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")

@@ -284,3 +284,44 @@ async def test_tenant_scoped_route_requires_real_membership(
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.delete(await session.get_one(User, user_id))
         await session.commit()
+
+
+async def test_get_tenant_or_404_gated_route_works_with_a_real_token(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """Regression test for a real bug found and fixed while building ADR
+    0038: get_tenant_or_404 (routers/item_instances.py's own router-level
+    dependency, among several others) didn't take `user` as a parameter,
+    so FastAPI had no reason to resolve get_current_user - whose own
+    internal commit ends whatever transaction was active - before this
+    dependency's own set_tenant_rls_context call. Every other test
+    exercising that router uses the `client` fixture's fake
+    get_current_user override, which never commits and so could never
+    have caught this - only a real, verified token (this fixture) does.
+    Uses item-instances specifically since it was never itself touched by
+    ADR 0038; this proves the dependencies.py fix generalizes, not just
+    that ADR 0038's own new routes happen to work.
+    """
+    subject = f"authgear|{uuid.uuid4()}"
+    token = fake_jwks_server.issue_token(subject)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    me_response = await raw_client.get("/me", headers=headers)
+    user_id = uuid.UUID(me_response.json()["id"])
+
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        session.add(Player(user_id=user_id, campaign_id=campaign.id, tenant_id=tenant_id))
+        await session.commit()
+
+    response = await raw_client.get(f"/tenants/{tenant_id}/item-instances", headers=headers)
+    assert response.status_code == 200
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(Tenant, tenant_id))
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
