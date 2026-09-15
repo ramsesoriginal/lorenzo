@@ -21,6 +21,7 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md) for the ful
 - Commit early and often. Messages follow [Conventional Commits](https://www.conventionalcommits.org/) (enforced by a commit-msg hook) — this drives changelogs and version bumps via release-please.
 - Open a PR into `main` even for solo work — it's the CI gate.
 - PRs merge with a **real merge commit** (not squash, not rebase), so `git log --graph` keeps showing actual branch history. Branches are not auto-deleted after merge.
+- Bigger changes get their own git worktree instead of switching branches in place, so several can be checked out side by side — see [AGENTS.md#worktrees](AGENTS.md#worktrees) for the layout convention.
 
 ## Before you open a PR
 
