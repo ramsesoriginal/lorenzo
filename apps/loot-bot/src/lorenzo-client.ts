@@ -5,6 +5,7 @@ import type { components, paths } from "./lorenzo-schema.js";
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
+export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 
 /** A read paired with the `ETag` the server sent alongside it, if any -
  * `null` until every write route actually sends one back (tracked
@@ -26,6 +27,11 @@ export type MyPlayer = Readonly<{
   campaignId: string;
   characters: readonly ControlledCharacter[];
 }>;
+
+/** One item instance the caller owns, flattened out of whichever
+ * character/container it's actually grouped under - `/give`'s and
+ * `/item`'s own "item" autocomplete both just want a flat pickable list. */
+export type OwnedItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
 
 export class LorenzoApiError extends Error {
   readonly status: number;
@@ -172,6 +178,30 @@ export function createLorenzoApiClient(baseUrl: string) {
     ): Promise<readonly ControlledCharacter[]> {
       const players = await this.getMyPlayers(tenantId, accessToken);
       return players.flatMap((player) => player.characters);
+    },
+
+    /** Every item instance owned by any of the caller's own characters,
+     * flattened across characters and containers - `/give`'s and `/item`'s
+     * "item" autocomplete both source from this. */
+    async getMyItemInstances(tenantId: string, accessToken: string): Promise<readonly OwnedItem[]> {
+      const characters = await this.getControlledCharacters(tenantId, accessToken);
+      const perCharacter = await Promise.all(
+        characters.map(async (character) => {
+          const response = await this.getItemInstancesOwnedBy(
+            tenantId,
+            character.entityId,
+            accessToken,
+          );
+          return response.groups.flatMap((group) =>
+            group.item_instances.map((item) => ({
+              entityId: item.entity_id,
+              title: item.title ?? "(untitled)",
+              quantity: item.quantity,
+            })),
+          );
+        }),
+      );
+      return perCharacter.flat();
     },
 
     /** GET /tenants/{tenant_id}/item-instances/{entity_id} - the current
@@ -340,6 +370,31 @@ export function createLorenzoApiClient(baseUrl: string) {
           ...(containerEntityId !== undefined ? { container_entity_id: containerEntityId } : {}),
         },
       });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** GET /tenants/{tenant_id}/entities/{entity_id} - `/item`'s own read
+     * (ADR: display item). Chosen over `GET /item-instances/{id}`
+     * deliberately: `EntityDetailOut.information` is the full,
+     * already-visibility-filtered list of every `Information` row on the
+     * entity (any `type`, not just ones literally typed "description"),
+     * where `ItemInstanceOut.descriptions`/`.pictures` only surface
+     * description/picture-kind payloads - the fuller shape is what "show
+     * me everything about this item, including GM/player notes I'm
+     * allowed to see" needs. */
+    async getEntity(
+      tenantId: string,
+      entityId: string,
+      accessToken: string,
+    ): Promise<EntityDetailOut> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/entities/{entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
       if (error !== undefined) throw toApiError(error, response.status);
       return data;
     },

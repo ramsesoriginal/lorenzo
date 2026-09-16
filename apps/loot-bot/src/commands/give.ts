@@ -10,8 +10,6 @@ import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import { transferItem } from "./item-transfer.js";
 import type { Command } from "./types.js";
 
-type InventoryItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
-
 /**
  * `/give` - loot-splitting (ADR 0043). No `quantity`, or one that covers
  * the whole stack, transfers the source instance's ownership outright;
@@ -54,7 +52,7 @@ export const giveCommand: Command = {
     const tenantId = ctx.config.lorenzoTenantId;
 
     if (focused.name === "item") {
-      const items = await findMyItems(client, tenantId, accessToken);
+      const items = await client.getMyItemInstances(tenantId, accessToken);
       const choices = items.map((item) => ({
         name: formatItemChoiceName(item.title, item.quantity),
         value: item.entityId,
@@ -128,33 +126,6 @@ export const giveCommand: Command = {
     }
   },
 };
-
-async function findMyItems(
-  client: LorenzoApiClient,
-  tenantId: string,
-  accessToken: string,
-): Promise<readonly InventoryItem[]> {
-  const players = await client.getMyPlayers(tenantId, accessToken);
-  const characters = players.flatMap((player) => player.characters);
-
-  const perCharacter = await Promise.all(
-    characters.map(async (character) => {
-      const response = await client.getItemInstancesOwnedBy(
-        tenantId,
-        character.entityId,
-        accessToken,
-      );
-      return response.groups.flatMap((group) =>
-        group.item_instances.map((item) => ({
-          entityId: item.entity_id,
-          title: item.title ?? "(untitled)",
-          quantity: item.quantity,
-        })),
-      );
-    }),
-  );
-  return perCharacter.flat();
-}
 
 async function findGiveTargets(
   client: LorenzoApiClient,

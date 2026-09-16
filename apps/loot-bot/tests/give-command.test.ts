@@ -8,7 +8,7 @@ vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
 const {
   getMyPlayers,
-  getItemInstancesOwnedBy,
+  getMyItemInstances,
   getItemInstance,
   splitItemInstance,
   setItemInstanceOwner,
@@ -17,7 +17,7 @@ const {
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   getMyPlayers: vi.fn(),
-  getItemInstancesOwnedBy: vi.fn(),
+  getMyItemInstances: vi.fn(),
   getItemInstance: vi.fn(),
   splitItemInstance: vi.fn(),
   setItemInstanceOwner: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
     ...actual,
     createLorenzoApiClient: createLorenzoApiClient.mockReturnValue({
       getMyPlayers,
-      getItemInstancesOwnedBy,
+      getMyItemInstances,
       getItemInstance,
       splitItemInstance,
       setItemInstanceOwner,
@@ -276,20 +276,10 @@ describe("giveCommand.autocomplete", () => {
 
   it("suggests the caller's own items, across every controlled character", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getMyPlayers.mockResolvedValue([
-      { campaignId: "campaign-1", characters: [{ entityId: "char-1", name: "Frodo" }] },
+    getMyItemInstances.mockResolvedValue([
+      { entityId: "item-1", title: "Torch", quantity: 5 },
+      { entityId: "item-2", title: "Sword", quantity: null },
     ]);
-    getItemInstancesOwnedBy.mockResolvedValue({
-      groups: [
-        {
-          container: null,
-          item_instances: [
-            { entity_id: "item-1", title: "Torch", quantity: 5 },
-            { entity_id: "item-2", title: "Sword", quantity: null },
-          ],
-        },
-      ],
-    });
 
     const interaction = fakeAutocomplete("item", "tor");
     await giveCommand.autocomplete?.(interaction, { config, logger: {} as never });

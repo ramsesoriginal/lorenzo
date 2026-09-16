@@ -148,6 +148,96 @@ describe("getControlledCharacters", () => {
   });
 });
 
+describe("getMyItemInstances", () => {
+  it("flattens every controlled character's owned items into one list", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          memberships: [],
+          campaign_gm_grants: [],
+          players: [
+            {
+              id: "player-1",
+              tenant_id: TENANT_ID,
+              campaign_id: "campaign-1",
+              characters: [
+                { entity_id: "char-1", name: "Frodo", is_pc: true },
+                { entity_id: "char-2", name: "Sam", is_pc: true },
+              ],
+            },
+          ],
+        }),
+      ),
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/owned-by/char-1`, () =>
+        HttpResponse.json({
+          groups: [
+            {
+              container: null,
+              item_instances: [{ entity_id: "item-1", title: "Torch", quantity: 5 }],
+            },
+          ],
+        }),
+      ),
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/owned-by/char-2`, () =>
+        HttpResponse.json({
+          groups: [
+            {
+              container: null,
+              item_instances: [{ entity_id: "item-2", title: "Rope", quantity: null }],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.getMyItemInstances(TENANT_ID, "test-token");
+
+    expect(items).toEqual([
+      { entityId: "item-1", title: "Torch", quantity: 5 },
+      { entityId: "item-2", title: "Rope", quantity: null },
+    ]);
+  });
+});
+
+describe("getEntity", () => {
+  it("fetches the entity's full detail shape", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/entities/item-1`, () =>
+        HttpResponse.json({
+          id: "item-1",
+          name: "Ashfang",
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+          stats: [{ name: "damage", value: 10 }],
+          stat_groups: [],
+          information: [
+            {
+              id: "info-1",
+              title: "Description",
+              type: "description",
+              payloads: [{ kind: "description", content: "A flaming sword.", locale: "en-US" }],
+            },
+          ],
+          prototypes: [],
+          instances: [],
+          parent: null,
+          quantity: null,
+          children: [],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const entity = await client.getEntity(TENANT_ID, "item-1", "test-token");
+
+    expect(entity.name).toBe("Ashfang");
+    expect(entity.information[0]?.title).toBe("Description");
+  });
+});
+
 describe("getMyPlayers", () => {
   it("keeps campaignId, unlike getControlledCharacters", async () => {
     server.use(
