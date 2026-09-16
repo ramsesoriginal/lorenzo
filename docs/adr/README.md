@@ -42,3 +42,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0037 - Effective stat resolution over the prototype graph](0037-effective-stat-resolution.md)
 - [0038 - Information, payload, and knowledge CRUD API](0038-information-payload-knowledge-crud-api.md)
 - [0039 - A generic `v_effective_stat` view, read by everything that shows stats](0039-generic-effective-stat-view.md)
+- [0040 - Item-instance read visibility narrows to reachable owners](0040-item-instance-read-visibility.md)
