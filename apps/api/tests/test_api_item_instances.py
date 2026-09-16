@@ -922,6 +922,87 @@ async def test_create_item_instance_invalid_prototype_422(
     await delete_tenant(tenant_id)
 
 
+async def test_create_item_instance_with_slug_resolves_by_slug(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0043: a client can name an instance once at creation and resolve
+    it again later by that name alone, with no need to have persisted its
+    entity_id out-of-band.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    prototype_id = await _make_item(tenant_id, "Flaming Sword")
+
+    create_response = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "ashfang"},
+    )
+    assert create_response.status_code == 201
+    entity_id = create_response.json()["entity_id"]
+    assert create_response.json()["slug"] == "ashfang"
+
+    lookup_response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/ashfang")
+    assert lookup_response.status_code == 200
+    assert lookup_response.json()["entity_id"] == entity_id
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_instance_by_slug_404_for_unknown_slug(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/no-such-slug")
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_create_item_instance_duplicate_slug_is_a_conflict(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    prototype_id = await _make_item(tenant_id, "Flaming Sword")
+    first = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "ashfang"},
+    )
+    assert first.status_code == 201
+
+    second = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "ashfang"},
+    )
+
+    assert second.status_code == 409
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_instance_by_slug_404_for_a_slug_the_caller_cannot_reach(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040's read-visibility predicate applies to the by-slug lookup
+    too - a slug is just an alternate name for an instance, not a separate,
+    unfiltered path into someone else's hidden inventory.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    _, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        bob_instance = await session.get_one(ItemInstance, bob_item_id)
+        bob_instance.slug = "bobs-dagger"
+        await session.commit()
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/bobs-dagger")
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
 async def test_create_item_instance_ownerless_forbidden_for_plain_player(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
