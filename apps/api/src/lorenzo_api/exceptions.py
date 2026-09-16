@@ -38,6 +38,8 @@ __all__ = [
     "InvalidUserError",
     "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
+    "ItemInstanceSlugConflictError",
+    "ItemInstanceSlugNotFoundError",
     "ItemNotFoundError",
     "ItemPrototypeInUseError",
     "LastOwnerError",
@@ -131,6 +133,27 @@ class InvalidSplitQuantityError(UnprocessableProblem):
     """
 
     title = "Invalid split quantity"
+
+
+class ItemInstanceSlugConflictError(ConflictProblem):
+    """POST /item-instances - the given slug is already used by another item
+    instance in this tenant (the partial unique index on
+    (tenant_id, slug), ADR 0043). Pre-checked explicitly, matching
+    MembershipAlreadyExistsError/PlayerAlreadyExistsError/SlugConflictError's
+    own established precedent, rather than letting the constraint violation
+    surface as a bare 500.
+    """
+
+    title = "Item instance slug already in use"
+
+
+class ItemInstanceSlugNotFoundError(NotFoundProblem):
+    """GET .../item-instances/by-slug/{slug} - see ADR 0043. Non-enumerable,
+    same as ItemInstanceNotFoundError: "no such slug in this tenant" and
+    "the slug exists in a different tenant" both 404 identically.
+    """
+
+    title = "Item instance not found"
 
 
 class ItemInstanceManagementForbiddenError(ForbiddenProblem):

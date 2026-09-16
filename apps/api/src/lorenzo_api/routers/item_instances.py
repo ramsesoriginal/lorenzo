@@ -35,6 +35,8 @@ from lorenzo_api.exceptions import (
     InvalidSplitQuantityError,
     ItemInstanceManagementForbiddenError,
     ItemInstanceNotFoundError,
+    ItemInstanceSlugConflictError,
+    ItemInstanceSlugNotFoundError,
     TenantNotFoundError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
@@ -307,6 +309,49 @@ async def list_item_instances_owned_by(
     )
 
 
+@router.get("/by-slug/{slug}")
+async def get_item_instance_by_slug(
+    tenant_id: uuid.UUID,
+    slug: str,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ItemInstanceOut:
+    """ADR 0043. Registered *before* /{entity_id} below, for the identical
+    routing-order reason that route's own docstring already documents for
+    /owned-by/{owner_entity_id} - a wildcard entity_id segment registered
+    first would otherwise greedily match "by-slug" as an id and shadow this
+    route entirely.
+
+    Applies the same ADR 0040 read-visibility predicate as GET
+    /{entity_id} - a slug is just an alternate way to name an instance, not
+    a separate, unfiltered lookup path into someone else's hidden
+    inventory.
+    """
+    await _require_participant(session, tenant_id=tenant_id, user=user)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    predicate = await _visible_owner_predicate(
+        session, tenant_id=tenant_id, user=user, visibility=visibility
+    )
+    stmt = (
+        select(VItemInstance)
+        .where(
+            VItemInstance.tenant_id == tenant_id,
+            VItemInstance.slug == slug,
+            predicate,
+        )
+        .options(*eager_load_options(VItemInstance.entity))
+    )
+    view = (await session.execute(stmt)).scalar_one_or_none()
+    if view is None:
+        raise ItemInstanceSlugNotFoundError(
+            detail=f"No item instance with slug {slug!r} in tenant {tenant_id}"
+        )
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
+    return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
+
+
 @router.get("/{entity_id}")
 async def get_item_instance(
     tenant_id: uuid.UUID,
@@ -503,6 +548,15 @@ async def create_item_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_character_id
     )
 
+    if body.slug is not None:
+        slug_stmt = select(ItemInstance.entity_id).where(
+            ItemInstance.tenant_id == tenant_id, ItemInstance.slug == body.slug
+        )
+        if (await session.execute(slug_stmt)).first() is not None:
+            raise ItemInstanceSlugConflictError(
+                detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
+            )
+
     entity = Entity(
         tenant_id=tenant_id,
         name=body.name if body.name is not None else prototype_entity.name,
@@ -511,7 +565,7 @@ async def create_item_instance(
     )
     session.add(entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
         EntityPrototype(entity_id=entity.id, prototype_id=body.prototype_id, tenant_id=tenant_id)
     )

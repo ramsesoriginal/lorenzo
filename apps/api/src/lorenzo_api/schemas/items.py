@@ -201,13 +201,15 @@ class ItemInstanceCreate(BaseModel):
     One transaction creates Entity (name defaults to the prototype's own
     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
     row if owner_character_id is given and/or a Containment row if
-    container_entity_id is given.
+    container_entity_id is given. slug (ADR 0043) is optional, unique per
+    tenant when set, and resolvable later via GET .../by-slug/{slug}.
     """
 
     name: str | None = None
     prototype_id: uuid.UUID
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
+    slug: str | None = None
 
 
 class ItemInstanceUpdate(BaseModel):
@@ -252,6 +254,7 @@ class ItemInstanceOut(BaseModel):
 
     entity_id: uuid.UUID
     owner_entity_id: uuid.UUID | None
+    slug: str | None
     title: str | None
     weight: int | None
     height: int | None
@@ -281,6 +284,7 @@ class ItemInstanceOut(BaseModel):
         return cls(
             entity_id=view.entity_id,
             owner_entity_id=view.owner_entity_id,
+            slug=view.slug,
             title=view.title,
             weight=view.weight,
             height=view.height,
