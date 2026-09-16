@@ -11,6 +11,7 @@ from lorenzo_api.campaign_access import (
 )
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
+    containing_ancestors_ids,
     controlled_character_entity_ids,
     reachable_entity_ids,
 )
@@ -126,6 +127,58 @@ async def test_reachable_entity_ids_empty_for_empty_roots() -> None:
     async with admin_session_factory() as session:
         assert (
             await reachable_entity_ids(session, root_entity_ids=frozenset(), tenant_id=uuid.uuid4())
+            == frozenset()
+        )
+
+
+async def test_containing_ancestors_ids_walks_upward_and_excludes_start() -> None:
+    """ADR 0046: the exact mirror of reachable_entity_ids' downward walk -
+    every entity that transitively contains a given entity, two hops deep,
+    proving the walk is genuinely recursive and doesn't include the
+    starting entity itself.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        character = await make_character(session, tenant_id=tenant_id, name="Alice")
+
+        tavern = Entity(tenant_id=tenant_id, name="Tavern")
+        town = Entity(tenant_id=tenant_id, name="Town")
+        unrelated = Entity(tenant_id=tenant_id, name="Unrelated")
+        session.add_all([tavern, town, unrelated])
+        await session.flush()
+        session.add_all(
+            [
+                Containment(
+                    child_entity_id=character.entity_id,
+                    parent_entity_id=tavern.id,
+                    tenant_id=tenant_id,
+                ),
+                Containment(
+                    child_entity_id=tavern.id, parent_entity_id=town.id, tenant_id=tenant_id
+                ),
+            ]
+        )
+        await session.commit()
+
+        ancestors = await containing_ancestors_ids(
+            session, entity_ids=frozenset({character.entity_id}), tenant_id=tenant_id
+        )
+
+        assert ancestors == {tavern.id, town.id}
+        assert character.entity_id not in ancestors
+        assert unrelated.id not in ancestors
+
+        await session.delete(tenant)
+        await session.commit()
+
+
+async def test_containing_ancestors_ids_empty_for_empty_input() -> None:
+    async with admin_session_factory() as session:
+        assert (
+            await containing_ancestors_ids(session, entity_ids=frozenset(), tenant_id=uuid.uuid4())
             == frozenset()
         )
 
