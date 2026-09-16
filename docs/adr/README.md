@@ -32,3 +32,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0027 - Authgear Cloud, not self-hosted](0027-authgear-cloud-not-self-hosted.md)
 - [0028 - Knowledge, group membership, and public information](0028-knowledge-and-group-membership.md)
 - [0042 - loot-bot: stack, account linking, and data isolation](0042-loot-bot-stack-linking-and-isolation.md) — numbered past 0029-0041 deliberately, since `feat/rest-api-surface` independently claimed those first; picked the first number free of collision across both branches rather than renumber an already-merged one later.
+- [0043 - loot-bot: `/give`, the first write command (loot-splitting)](0043-loot-bot-give-command.md)

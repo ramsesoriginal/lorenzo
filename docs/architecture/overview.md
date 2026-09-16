@@ -8,7 +8,7 @@ Every deployable app lives under `apps/`, one directory per app, named by purpos
 | --- | --- | --- |
 | Backend API | Source of truth. Multi-tenant REST API over PostgreSQL. | One — [`apps/api`](../../apps/api), read-only endpoints for entities/items/item instances/payloads, plus auth (`/me`) |
 | Web frontend(s) | Static UI for GMs/players (zero-JS by default). | One or many |
-| Discord bot(s) | Talks to the API — e.g. loot/inventory. | [`apps/loot-bot`](../../apps/loot-bot) under construction — Discord account linking + "my inventory" ([ADR 0042](../adr/0042-loot-bot-stack-linking-and-isolation.md)); possibly more later |
+| Discord bot(s) | Talks to the API — e.g. loot/inventory. | [`apps/loot-bot`](../../apps/loot-bot) under construction — Discord account linking, "my inventory", and loot-splitting ([ADR 0042](../adr/0042-loot-bot-stack-linking-and-isolation.md)/[0043](../adr/0043-loot-bot-give-command.md)); possibly more later |
 | Mobile app(s) | Talks to the API — narrower, audience-specific views. | Possibly more than one |
 
 Everything other than the backend API is a *view* onto it — narrower, audience-specific slices of the same data, not a separate source of truth. See the [system context diagram](diagrams/system-context.md).

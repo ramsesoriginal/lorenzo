@@ -118,3 +118,162 @@ describe("getControlledCharacters", () => {
     expect(characters).toEqual([]);
   });
 });
+
+describe("getMyPlayers", () => {
+  it("keeps campaignId, unlike getControlledCharacters", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          memberships: [],
+          campaign_gm_grants: [],
+          players: [
+            {
+              id: "player-1",
+              tenant_id: TENANT_ID,
+              campaign_id: "campaign-1",
+              characters: [{ entity_id: CHARACTER_ID, name: "Frodo", is_pc: true }],
+            },
+          ],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const players = await client.getMyPlayers(TENANT_ID, "test-token");
+
+    expect(players).toEqual([
+      { campaignId: "campaign-1", characters: [{ entityId: CHARACTER_ID, name: "Frodo" }] },
+    ]);
+  });
+});
+
+describe("getItemInstance", () => {
+  it("fetches one instance by id", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1`, () =>
+        HttpResponse.json({
+          entity_id: "item-1",
+          title: "Torch",
+          quantity: 5,
+          owner_entity_id: CHARACTER_ID,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.getItemInstance(TENANT_ID, "item-1", "test-token");
+
+    expect(result.title).toBe("Torch");
+    expect(result.quantity).toBe(5);
+  });
+});
+
+describe("splitItemInstance", () => {
+  it("posts the requested quantity and returns the new instance", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/split`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json(
+            { entity_id: "item-2", title: "Torch", quantity: 3, owner_entity_id: CHARACTER_ID },
+            { status: 201 },
+          );
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.splitItemInstance(TENANT_ID, "item-1", 3, "test-token");
+
+    expect(receivedBody).toEqual({ quantity: 3 });
+    expect(result.entity_id).toBe("item-2");
+    expect(result.quantity).toBe(3);
+  });
+});
+
+describe("setItemInstanceOwner", () => {
+  it("puts the new owner and returns the updated instance", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.put(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/owner`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json({
+            entity_id: "item-1",
+            title: "Torch",
+            owner_entity_id: "char-2",
+          });
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.setItemInstanceOwner(TENANT_ID, "item-1", "char-2", "test-token");
+
+    expect(receivedBody).toEqual({ owner_character_id: "char-2" });
+    expect(result.owner_entity_id).toBe("char-2");
+  });
+});
+
+describe("getCampaignPlayers", () => {
+  it("flattens every player's characters into one list", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/campaigns/campaign-1/players`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "p1",
+              user_id: "u1",
+              characters: [{ entity_id: "c1", name: "Frodo", is_pc: true }],
+            },
+            {
+              id: "p2",
+              user_id: "u2",
+              characters: [{ entity_id: "c2", name: "Sam", is_pc: true }],
+            },
+          ],
+          total: 2,
+          page: 1,
+          size: 50,
+          pages: 1,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const characters = await client.getCampaignPlayers(TENANT_ID, "campaign-1", "test-token");
+
+    expect(characters).toEqual([
+      { entityId: "c1", name: "Frodo" },
+      { entityId: "c2", name: "Sam" },
+    ]);
+  });
+});
+
+describe("getCharacterName", () => {
+  it("returns just the name", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/characters/${CHARACTER_ID}`, () =>
+        HttpResponse.json({
+          entity_id: CHARACTER_ID,
+          name: "Frodo",
+          is_pc: true,
+          owner_player_id: null,
+          players: [],
+          created_by: null,
+          updated_by: null,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const name = await client.getCharacterName(TENANT_ID, CHARACTER_ID, "test-token");
+
+    expect(name).toBe("Frodo");
+  });
+});

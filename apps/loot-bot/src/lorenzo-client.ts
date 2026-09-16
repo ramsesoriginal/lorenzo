@@ -8,6 +8,15 @@ export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 /** One of the caller's own characters (a `being`), as far as this client cares. */
 export type ControlledCharacter = Readonly<{ entityId: string; name: string }>;
 
+/** One `Player` row of the caller's own (`GET /me`), keeping `campaignId` -
+ * `getControlledCharacters` deliberately drops it, but `/give`'s target
+ * autocomplete (ADR 0043) needs it to know which campaign's roster to
+ * search. */
+export type MyPlayer = Readonly<{
+  campaignId: string;
+  characters: readonly ControlledCharacter[];
+}>;
+
 export class LorenzoApiError extends Error {
   readonly status: number;
   readonly problemType: string | undefined;
@@ -71,16 +80,12 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /**
-     * This caller's own controlled characters in `tenantId`, sourced from
-     * `GET /me`'s `players[].characters` (ADR 0031/RFC 0004 - now part of
-     * the real generated schema, no longer provisional). A `Player` row's
-     * `characters` come from `character_player` - every character that
-     * player's user account pilots, not just their primary-owned one.
+     * This caller's own `Player` rows in `tenantId` (each with the
+     * characters it pilots), sourced from `GET /me`'s `players[]` (ADR
+     * 0031/RFC 0004 - now part of the real generated schema, no longer
+     * provisional).
      */
-    async getControlledCharacters(
-      tenantId: string,
-      accessToken: string,
-    ): Promise<readonly ControlledCharacter[]> {
+    async getMyPlayers(tenantId: string, accessToken: string): Promise<readonly MyPlayer[]> {
       const { data, error, response } = await client.GET("/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -88,9 +93,133 @@ export function createLorenzoApiClient(baseUrl: string) {
 
       return data.players
         .filter((player) => player.tenant_id === tenantId)
-        .flatMap((player) =>
-          player.characters.map((c) => ({ entityId: c.entity_id, name: c.name }) as const),
-        );
+        .map((player) => ({
+          campaignId: player.campaign_id,
+          characters: player.characters.map((c) => ({ entityId: c.entity_id, name: c.name })),
+        }));
+    },
+
+    /**
+     * This caller's own controlled characters in `tenantId`, across every
+     * campaign - a flattened view of `getMyPlayers`, for callers (like
+     * `/inventory`) that don't care which campaign a character belongs to.
+     */
+    async getControlledCharacters(
+      tenantId: string,
+      accessToken: string,
+    ): Promise<readonly ControlledCharacter[]> {
+      const players = await this.getMyPlayers(tenantId, accessToken);
+      return players.flatMap((player) => player.characters);
+    },
+
+    /** GET /tenants/{tenant_id}/item-instances/{entity_id} - the current
+     * state of one instance, used by /give (ADR 0043) to decide split-vs-
+     * transfer against a fresh quantity rather than a possibly-stale
+     * autocomplete value. */
+    async getItemInstance(
+      tenantId: string,
+      entityId: string,
+      accessToken: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/item-instances/{entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/{entity_id}/split (ADR 0041) - splits
+     * `quantity` units off the source's current stack into a new sibling
+     * instance (same owner/container as the source) and returns that new
+     * instance. */
+    async splitItemInstance(
+      tenantId: string,
+      entityId: string,
+      quantity: number,
+      accessToken: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/split",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { quantity },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** PUT .../item-instances/{entity_id}/owner - replaces the instance's
+     * owner outright (works for both "set for the first time" and
+     * "transfer"). */
+    async setItemInstanceOwner(
+      tenantId: string,
+      entityId: string,
+      ownerCharacterId: string,
+      accessToken: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.PUT(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/owner",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { owner_character_id: ownerCharacterId },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /**
+     * Every character in `campaignId`'s roster (GM's own characters aren't
+     * distinguished here - GMing isn't tied to a character). Only a
+     * participant of this specific campaign (a player, its GM, or a tenant
+     * admin) can call this - exactly who `/give`'s target autocomplete
+     * (ADR 0043) should be offering choices to anyway. First page only
+     * (up to 50 players) - a party roster is bounded by construction.
+     */
+    async getCampaignPlayers(
+      tenantId: string,
+      campaignId: string,
+      accessToken: string,
+    ): Promise<readonly ControlledCharacter[]> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/campaigns/{campaign_id}/players",
+        {
+          params: { path: { tenant_id: tenantId, campaign_id: campaignId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+
+      return data.items.flatMap((player) =>
+        player.characters.map((c) => ({ entityId: c.entity_id, name: c.name })),
+      );
+    },
+
+    /** GET /tenants/{tenant_id}/characters/{character_id} - just the name,
+     * for /give's (ADR 0043) confirmation message: Discord autocomplete
+     * only returns the `value` a user picked, not the `name` they saw, so
+     * a friendly "gave it to X" reply needs a fresh lookup. */
+    async getCharacterName(
+      tenantId: string,
+      characterId: string,
+      accessToken: string,
+    ): Promise<string> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/characters/{character_id}",
+        {
+          params: { path: { tenant_id: tenantId, character_id: characterId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.name;
     },
   };
 }

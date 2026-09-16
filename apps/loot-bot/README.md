@@ -2,11 +2,9 @@
 
 Lorenzo's Discord bot. TypeScript, Node, discord.js. One bot process serves exactly one Discord guild, mapped 1:1 to one Lorenzo tenant. See [ADR 0042](../../docs/adr/0042-loot-bot-stack-linking-and-isolation.md) for the design and its reasoning, and [docs/domain/client-views.md](../../docs/domain/client-views.md) for why this bot exists at all.
 
-## What it does (this slice)
+## What it does
 
-A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`), then lists the item instances their characters own, grouped by container (`/inventory`). Read-only — no shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules (GM-only vs. public vs. per-character knowledge) apply correctly per person.
-
-**Depends on a small `apps/api` addition that isn't part of this app**: resolving "which characters does this user control" and allowing a player to read their own inventory without a tenant-wide `Membership` row. See ADR 0042's Consequences section.
+A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`), lists the item instances their characters own, grouped by container (`/inventory`), and gives an item — or part of a stack — to another character (`/give`, [ADR 0043](../../docs/adr/0043-loot-bot-give-command.md)). No shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules and the write API's own self-or-managed authorization apply correctly per person.
 
 ## Setup
 
@@ -37,6 +35,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | --- | --- |
 | `/link` | Starts account linking — replies with a one-time Authgear login URL |
 | `/inventory` | Lists the item instances your linked characters own, grouped by container |
+| `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target |
 | `/ping` | Liveness check |
 
 ## Architecture

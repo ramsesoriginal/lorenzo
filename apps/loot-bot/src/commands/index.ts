@@ -1,4 +1,5 @@
 import { type Client, Events, type Interaction } from "discord.js";
+import { giveCommand } from "./give.js";
 import { inventoryCommand } from "./inventory.js";
 import { linkCommand } from "./link.js";
 import { pingCommand } from "./ping.js";
@@ -9,7 +10,7 @@ export type { Command, CommandContext } from "./types.js";
 // New commands (e.g. `link`, `inventory`) are added to this list only -
 // registration (scripts/register-commands.ts) and dispatch (below) both
 // derive from it, so there's exactly one place a new command gets wired in.
-const commands: readonly Command[] = [pingCommand, linkCommand, inventoryCommand];
+const commands: readonly Command[] = [pingCommand, linkCommand, inventoryCommand, giveCommand];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
 
@@ -28,7 +29,7 @@ export function attachCommandHandlers(client: Client, ctx: CommandContext): void
 }
 
 async function handleInteraction(interaction: Interaction, ctx: CommandContext): Promise<void> {
-  if (!interaction.isChatInputCommand()) return;
+  if (!interaction.isChatInputCommand() && !interaction.isAutocomplete()) return;
 
   if (interaction.guildId !== ctx.config.discordGuildId) {
     ctx.logger.warn(
@@ -41,6 +42,23 @@ async function handleInteraction(interaction: Interaction, ctx: CommandContext):
   const command = commandsByName.get(interaction.commandName);
   if (!command) {
     ctx.logger.warn({ commandName: interaction.commandName }, "unknown command");
+    return;
+  }
+
+  if (interaction.isAutocomplete()) {
+    try {
+      await command.autocomplete?.(interaction, ctx);
+    } catch (error) {
+      // Autocomplete has no error-reply channel of its own (ADR 0043's own
+      // note on types.ts's Command.autocomplete) - an empty choice list is
+      // the only graceful failure mode; the real error still surfaces when
+      // the user actually submits the command.
+      ctx.logger.error(
+        { err: error, commandName: interaction.commandName },
+        "autocomplete handler failed",
+      );
+      if (!interaction.responded) await interaction.respond([]);
+    }
     return;
   }
 
