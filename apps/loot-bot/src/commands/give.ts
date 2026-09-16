@@ -7,12 +7,10 @@ import {
   createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
+import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import type { Command } from "./types.js";
 
-const MAX_AUTOCOMPLETE_CHOICES = 25;
-
 type InventoryItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
-type Choice = Readonly<{ name: string; value: string }>;
 
 /**
  * `/give` - loot-splitting (ADR 0043). No `quantity`, or one that covers
@@ -58,7 +56,7 @@ export const giveCommand: Command = {
     if (focused.name === "item") {
       const items = await findMyItems(client, tenantId, accessToken);
       const choices = items.map((item) => ({
-        name: formatItemChoiceName(item),
+        name: formatItemChoiceName(item.title, item.quantity),
         value: item.entityId,
       }));
       await interaction.respond(filterChoices(choices, focused.value));
@@ -227,19 +225,6 @@ async function findGiveTargets(
   );
   const byId = new Map(rosters.flat().map((character) => [character.entityId, character]));
   return [...byId.values()];
-}
-
-function formatItemChoiceName(item: InventoryItem): string {
-  return item.quantity !== null && item.quantity > 1
-    ? `${item.title} ×${item.quantity}`
-    : item.title;
-}
-
-function filterChoices(choices: readonly Choice[], typed: string): Choice[] {
-  const needle = typed.toLowerCase();
-  return choices
-    .filter((choice) => choice.name.toLowerCase().includes(needle))
-    .slice(0, MAX_AUTOCOMPLETE_CHOICES);
 }
 
 function describeGiveError(error: LorenzoApiError): string {
