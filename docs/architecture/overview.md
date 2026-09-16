@@ -8,7 +8,7 @@ Every deployable app lives under `apps/`, one directory per app, named by purpos
 | --- | --- | --- |
 | Backend API | Source of truth. Multi-tenant REST API over PostgreSQL. | One — [`apps/api`](../../apps/api), full CRUD for tenants/memberships/campaigns/players/characters/items/item instances/entity stats/information/payloads/knowledge, plus auth (`/me`) |
 | Web frontend(s) | Static UI for GMs/players (zero-JS by default). | One or many |
-| Discord bot(s) | Talks to the API — e.g. loot/inventory. | [`apps/loot-bot`](../../apps/loot-bot) under construction — Discord account linking, "my inventory", loot-splitting, and GM loot drops with claims ([ADR 0042](../adr/0042-loot-bot-stack-linking-and-isolation.md)/[0043](../adr/0043-loot-bot-give-command.md)/[0044](../adr/0044-loot-bot-loot-drop-and-claims.md)); possibly more later |
+| Discord bot(s) | Talks to the API — e.g. loot/inventory. | [`apps/loot-bot`](../../apps/loot-bot) under construction — Discord account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding ([ADR 0042](../adr/0042-loot-bot-stack-linking-and-isolation.md)/[0043](../adr/0043-loot-bot-give-command.md)/[0044](../adr/0044-loot-bot-loot-drop-and-claims.md)); possibly more later |
 | Mobile app(s) | Talks to the API — narrower, audience-specific views. | Possibly more than one |
 
 Everything other than the backend API is a *view* onto it — narrower, audience-specific slices of the same data, not a separate source of truth. See the [system context diagram](diagrams/system-context.md).

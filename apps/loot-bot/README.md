@@ -4,7 +4,7 @@ Lorenzo's Discord bot. TypeScript, Node, discord.js. One bot process serves exac
 
 ## What it does
 
-A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`), sets a current character/default container (`/set-current`), lists the item instances their characters own, grouped by container (`/inventory`), and gives an item — or part of a stack — to another character (`/give`, [ADR 0043](../../docs/adr/0043-loot-bot-give-command.md)). A GM can drop a pre-made loot container into a channel; players take a whole item or part of a stack immediately, or claim one for the GM to resolve later with "apply claims" (`/drop`, [ADR 0044](../../docs/adr/0044-loot-bot-loot-drop-and-claims.md)). No shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules and the write API's own self-or-managed authorization apply correctly per person.
+A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`, `/unlink`), sets a current character/default container (`/set-current`), lists the item instances their characters own, grouped by container (`/inventory`), displays one in the channel (`/item`), moves one between their own containers (`/move`), adds a public/private/GM-private note to one (`/note`), and gives an item — or part of a stack — to another character (`/give`, [ADR 0043](../../docs/adr/0043-loot-bot-give-command.md)). A GM can award a brand-new item to a character (`/award`), or drop a pre-made loot container into a channel; players take a whole item or part of a stack immediately, or claim one for the GM to resolve later with "apply claims" (`/drop`, [ADR 0044](../../docs/adr/0044-loot-bot-loot-drop-and-claims.md)). No shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules and the write API's own self-or-managed authorization apply correctly per person.
 
 ## Setup
 
@@ -34,6 +34,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | Command | Does |
 | --- | --- |
 | `/link` | Starts account linking — replies with a one-time Authgear login URL |
+| `/unlink` | Unlinks your Discord account from your Lorenzo identity |
 | `/set-current` | Sets your current character and/or default container — what other commands default to |
 | `/inventory` | Lists the item instances your linked characters own, grouped by container |
 | `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target |
