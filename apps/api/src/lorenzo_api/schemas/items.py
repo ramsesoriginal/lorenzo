@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Self
+from typing import Literal, Self
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
@@ -27,6 +27,10 @@ __all__ = [
     "SetOwnerRequest",
     "SetContainerRequest",
     "SplitItemInstanceRequest",
+    "MergeItemInstanceRequest",
+    "ProblemOut",
+    "BulkAssignItem",
+    "BulkAssignResultItem",
 ]
 
 
@@ -235,13 +239,55 @@ class SetContainerRequest(BaseModel):
 
 
 class SplitItemInstanceRequest(BaseModel):
-    """POST /item-instances/{id}/split body - see ADR 0041. `quantity` is
-    how many units to split *off* into a new sibling instance; the source
-    must currently hold strictly more than this (splitting off "all of it"
-    is a container/owner reassignment of the whole stack, not a split).
+    """POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
+    is how many units to split *off* into a new sibling instance; the
+    source must currently hold strictly more than this (splitting off "all
+    of it" is a container/owner reassignment of the whole stack, not a
+    split). `owner_character_id` (ADR 0044) is optional - when given, the
+    new split-off instance is created with that owner instead of copying
+    the source's current owner (the behavior when omitted, unchanged from
+    ADR 0041).
     """
 
     quantity: int
+    owner_character_id: uuid.UUID | None = None
+
+
+class MergeItemInstanceRequest(BaseModel):
+    """POST /item-instances/{id}/merge body - see ADR 0044. into_entity_id
+    is the surviving stack; the path's own entity_id is fully consumed
+    into it and then deleted.
+    """
+
+    into_entity_id: uuid.UUID
+
+
+class ProblemOut(BaseModel):
+    """A plain-dict-shaped mirror of fastapi_problem.error.Problem.marshal()
+    - see ADR 0044. Used only inside BulkAssignResultItem, to embed what a
+    real single-item error response body would have looked like without
+    actually raising/catching it as this request's own top-level response.
+    """
+
+    type: str
+    title: str
+    status: int
+    detail: str | None = None
+
+
+class BulkAssignItem(BaseModel):
+    """POST /item-instances/bulk-assign - one input entry. See ADR 0044:
+    quantity given delegates to split-with-owner (creating a new instance);
+    omitted delegates to the plain owner-PUT path (reassigning entity_id
+    itself). if_match is optional, exactly like every other write in this
+    router - honored per item, a stale claim becomes that item's own
+    "error" entry rather than failing the whole batch.
+    """
+
+    entity_id: uuid.UUID
+    owner_character_id: uuid.UUID
+    quantity: int | None = None
+    if_match: str | None = None
 
 
 class ItemInstanceOut(BaseModel):
@@ -307,6 +353,19 @@ class ItemInstanceOut(BaseModel):
             updated_by=view.entity.updated_by,
             updated_at=view.entity.updated_at,
         )
+
+
+class BulkAssignResultItem(BaseModel):
+    """POST /item-instances/bulk-assign - one output entry, always present
+    for every input entry regardless of outcome (ADR 0044: never
+    all-or-nothing). Exactly one of item_instance/problem is set, matching
+    status.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item_instance: ItemInstanceOut | None = None
+    problem: ProblemOut | None = None
 
 
 class OwnedGroupOut(BaseModel):

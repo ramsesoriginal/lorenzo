@@ -28,6 +28,7 @@ __all__ = [
     "EntityNotFoundError",
     "EntityStatManagementForbiddenError",
     "InvalidItemPrototypeError",
+    "InvalidMergeError",
     "InformationAlreadyExistsError",
     "InformationManagementForbiddenError",
     "InformationNotFoundError",
@@ -154,6 +155,18 @@ class ItemInstanceSlugNotFoundError(NotFoundProblem):
     """
 
     title = "Item instance not found"
+
+
+class InvalidMergeError(UnprocessableProblem):
+    """POST /item-instances/{id}/merge - see ADR 0044. Covers every guard
+    that route enforces with one type (merging into itself, either side
+    missing a Containment row, the two sides having different containers,
+    the two sides having different current owners) - which guard failed is
+    a detail-string distinction, matching InvalidSplitQuantityError's own
+    precedent of one type per route rather than one per specific reason.
+    """
+
+    title = "Invalid merge"
 
 
 class ItemInstanceManagementForbiddenError(ForbiddenProblem):
