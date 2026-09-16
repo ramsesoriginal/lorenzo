@@ -5,6 +5,8 @@ import { giveCommand } from "./give.js";
 import { inventoryCommand } from "./inventory.js";
 import { itemCommand } from "./item.js";
 import { linkCommand } from "./link.js";
+import { moveCommand } from "./move.js";
+import { noteCommand } from "./note.js";
 import { pingCommand } from "./ping.js";
 import { setCurrentCommand } from "./set-current.js";
 import type { Command, CommandContext } from "./types.js";
@@ -23,6 +25,8 @@ const commands: readonly Command[] = [
   dropCommand,
   awardCommand,
   itemCommand,
+  moveCommand,
+  noteCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
