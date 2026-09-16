@@ -10,13 +10,13 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
-    is_tenant_participant,
 )
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import can_self_manage_entity
@@ -25,7 +25,6 @@ from lorenzo_api.exceptions import (
     InformationAlreadyExistsError,
     InformationManagementForbiddenError,
     InformationNotFoundError,
-    TenantNotFoundError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
@@ -46,29 +45,15 @@ from lorenzo_api.schemas.entities import EntityDetailOut, InformationCreate, Inf
 # character's own item needs no tenant-wide Membership row (ADR 0022), so
 # gating the whole router on one would lock them out of self-service
 # entirely. The two pre-existing GET routes each re-add their own explicit
-# is_tenant_participant check instead (see _require_participant), preserving
-# their original ADR 0020 behavior - only tenant participants (broader than
-# Membership) reach them, same as routers/item_instances.py's identical
-# revision. The new POST route uses self-or-managed authorization, narrower
-# still.
+# require_tenant_participant check instead, preserving their original ADR
+# 0020 behavior - only tenant participants (broader than Membership) reach
+# them, same as routers/item_instances.py's identical revision. The new
+# POST route uses self-or-managed authorization, narrower still.
 router = APIRouter(
     prefix="/tenants/{tenant_id}/entities",
     tags=["entities"],
     dependencies=[Depends(get_tenant_or_404)],
 )
-
-
-async def _require_participant(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser
-) -> None:
-    """Gates the two GET routes below - broader than get_tenant_context's
-    Membership requirement (a Player or CampaignGm row also qualifies, ADR
-    0022), narrower than wide open. Mirrors routers/item_instances.py's
-    identical gate (ADR 0032/RFC 0005) - non-enumerable 404, same as
-    everywhere else.
-    """
-    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
 
 
 @router.get("")
@@ -81,7 +66,7 @@ async def list_entities(
     """A lightweight listing - EntitySummary rather than EntityDetailOut, to
     avoid an N+1-heavy response when listing many entities.
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = select(Entity).where(Entity.tenant_id == tenant_id).order_by(Entity.name, Entity.id)
     page: Page[EntitySummary] = await apaginate(session, stmt, params)
     return page
@@ -148,7 +133,7 @@ async def get_entity(
     user: CurrentUser,
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front."""
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     return EntityDetailOut.from_entity(entity, request, visibility=visibility)

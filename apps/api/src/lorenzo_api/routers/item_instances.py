@@ -14,7 +14,6 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
-    is_tenant_participant,
 )
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -22,6 +21,7 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_entity_or_404,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import (
@@ -39,7 +39,6 @@ from lorenzo_api.exceptions import (
     ItemInstanceNotFoundError,
     ItemInstanceSlugConflictError,
     ItemInstanceSlugNotFoundError,
-    TenantNotFoundError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.models import (
@@ -73,8 +72,8 @@ from lorenzo_api.schemas.items import (
 # neither an ordinary player nor a campaign's own GM implies a tenant-wide
 # Membership row (ADR 0022), so gating this whole router on one would lock
 # them out of their own inventory entirely. The three GET routes below each
-# apply their own explicit is_tenant_participant check instead; the write
-# routes use self-or-managed authorization, narrower still.
+# apply their own explicit require_tenant_participant check instead; the
+# write routes use self-or-managed authorization, narrower still.
 router = APIRouter(
     prefix="/tenants/{tenant_id}/item-instances",
     tags=["item-instances"],
@@ -112,20 +111,6 @@ def _item_instances_by_container_stmt(
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(VItemInstance.entity_id)
     )
-
-
-async def _require_participant(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser
-) -> None:
-    """Gates every GET route below - broader than get_tenant_context's
-    Membership requirement (a Player or CampaignGm row also qualifies,
-    ADR 0022), narrower than wide open (an unrelated authenticated user
-    with zero standing in this tenant still can't browse its inventory).
-    Mirrors routers/campaigns.py's identical is_tenant_participant gate
-    (ADR 0030/RFC 0003) - non-enumerable 404, same as everywhere else.
-    """
-    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
 
 
 async def _visible_owner_predicate(
@@ -207,7 +192,7 @@ async def list_item_instances(
     the structurally-different owned-by grouping, which is its own
     endpoint (ADR 0020).
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     # Resolved once per request, not once per row - reused by every item
     # instance on the page (ADR 0028's addendum), and now also by
     # _visible_owner_predicate below (ADR 0040) rather than a second query.
@@ -260,7 +245,7 @@ async def list_item_instances_owned_by(
     grouping, not a recursive container-tree walk. Deliberately not
     paginated - bounded by one owner's inventory (ADR 0020 / task brief).
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     # ADR 0040: an owner_entity_id the caller can't reach (not one of their
     # own characters, not GM-reachable, not is_orga) contributes zero rows
     # below - the response comes back as an empty groups list, identical in
@@ -335,7 +320,7 @@ async def get_item_instance_by_slug(
     a separate, unfiltered lookup path into someone else's hidden
     inventory.
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     predicate = await _visible_owner_predicate(
         session, tenant_id=tenant_id, user=user, visibility=visibility
@@ -378,7 +363,7 @@ async def get_item_instance(
     that getting this order backwards really does break /owned-by/... with
     a 422, not just in theory.
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     # ADR 0040: an item instance the caller can't reach 404s here, the same
     # "no row matched" path an unknown or cross-tenant id already takes -

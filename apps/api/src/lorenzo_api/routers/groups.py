@@ -9,15 +9,14 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from lorenzo_api.campaign_access import is_tenant_participant
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
     get_entity_or_404,
     get_tenant_or_404,
+    require_tenant_participant,
 )
-from lorenzo_api.exceptions import TenantNotFoundError
 from lorenzo_api.models import Entity, GroupMember
 from lorenzo_api.schemas.common import EntitySummary
 
@@ -33,16 +32,6 @@ router = APIRouter(
 )
 
 
-async def _require_participant(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser
-) -> None:
-    """Mirrors routers/item_instances.py's identical helper - non-enumerable
-    404, same as everywhere else in this API.
-    """
-    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
-
-
 @router.get("")
 async def list_groups(
     tenant_id: uuid.UUID, params: ParamsDep, session: SessionDep, user: CurrentUser
@@ -52,7 +41,7 @@ async def list_groups(
     An intentionally-created-but-still-empty group isn't enumerable this
     way, an accepted consequence of that data model, not a new gap.
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = (
         select(Entity)
         .join(GroupMember, GroupMember.group_entity_id == Entity.id)
@@ -84,7 +73,7 @@ async def list_group_members(
     isn't a secret the way another character's inventory is, so there's no
     reason to hide that distinction here.
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await get_entity_or_404(session, group_entity_id, tenant_id)
 
     stmt = (
