@@ -10,6 +10,7 @@ import { noteCommand } from "./note.js";
 import { pingCommand } from "./ping.js";
 import { setCurrentCommand } from "./set-current.js";
 import type { Command, CommandContext } from "./types.js";
+import { unlinkCommand } from "./unlink.js";
 
 export type { Command, CommandContext } from "./types.js";
 
@@ -27,6 +28,7 @@ const commands: readonly Command[] = [
   itemCommand,
   moveCommand,
   noteCommand,
+  unlinkCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
