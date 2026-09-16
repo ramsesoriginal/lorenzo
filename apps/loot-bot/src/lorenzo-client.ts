@@ -6,6 +6,7 @@ export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
 export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
+export type InformationOut = components["schemas"]["InformationOut"];
 
 /** A read paired with the `ETag` the server sent alongside it, if any -
  * `null` until every write route actually sends one back (tracked
@@ -281,6 +282,92 @@ export function createLorenzoApiClient(baseUrl: string) {
           },
           headers: { Authorization: `Bearer ${accessToken}` },
           body: { owner_character_id: ownerCharacterId },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** PUT .../item-instances/{entity_id}/container - moves an item to a
+     * new container, `/move`'s own write. Same `ifMatch` treatment as
+     * {@link setItemInstanceOwner}. */
+    async setItemInstanceContainer(
+      tenantId: string,
+      entityId: string,
+      containerEntityId: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.PUT(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/container",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { container_entity_id: containerEntityId },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../entities/{entity_id}/information - `/note`'s own write.
+     * `isPublic: false` and no follow-up {@link addInformationKnower} call
+     * makes it GM-private (relies on ADR 0035's GM-reachability bypass);
+     * `isPublic: false` plus one knower call makes it visible to exactly
+     * that one entity (plus GM/orga) - the API has no "the author sees
+     * their own writes for free" default, so a private note needs that
+     * explicit follow-up every time. */
+    async createInformation(
+      tenantId: string,
+      entityId: string,
+      fields: { title: string; type: string; isPublic: boolean; content: string },
+      accessToken: string,
+    ): Promise<InformationOut> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/entities/{entity_id}/information",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            title: fields.title,
+            type: fields.type,
+            is_public: fields.isPublic,
+            content: fields.content,
+            // No per-user locale concept in this bot yet (same call this
+            // codebase already made for /item's own descriptions) - the
+            // API's own default, sent explicitly since openapi-typescript
+            // still marks a defaulted field required.
+            locale: "en-US",
+          },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** PUT .../information/{information_id}/knowers/{knower_entity_id} -
+     * grants one more entity (a character, or a group once one exists)
+     * visibility into an already-created `Information` row. */
+    async addInformationKnower(
+      tenantId: string,
+      informationId: string,
+      knowerEntityId: string,
+      accessToken: string,
+    ): Promise<InformationOut> {
+      const { data, error, response } = await client.PUT(
+        "/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}",
+        {
+          params: {
+            path: {
+              tenant_id: tenantId,
+              information_id: informationId,
+              knower_entity_id: knowerEntityId,
+            },
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
       if (error !== undefined) throw toApiError(error, response.status);

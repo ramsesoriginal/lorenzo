@@ -590,6 +590,110 @@ describe("setItemInstanceOwner", () => {
   });
 });
 
+describe("setItemInstanceContainer", () => {
+  it("puts the new container and returns the updated instance", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.put(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/container`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json({
+            entity_id: "item-1",
+            title: "Torch",
+            container_entity_id: "container-2",
+          });
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.setItemInstanceContainer(
+      TENANT_ID,
+      "item-1",
+      "container-2",
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({ container_entity_id: "container-2" });
+    expect(result.container_entity_id).toBe("container-2");
+  });
+
+  it("sends the given etag as If-Match", async () => {
+    let receivedIfMatch: string | null = null;
+    server.use(
+      http.put(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/container`,
+        ({ request }) => {
+          receivedIfMatch = request.headers.get("if-match");
+          return HttpResponse.json({ entity_id: "item-1", title: "Torch" });
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.setItemInstanceContainer(
+      TENANT_ID,
+      "item-1",
+      "container-2",
+      "test-token",
+      'W/"fresh"',
+    );
+
+    expect(receivedIfMatch).toBe('W/"fresh"');
+  });
+});
+
+describe("createInformation", () => {
+  it("posts the note fields with the API's own locale default", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/entities/item-1/information`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json(
+            { id: "info-1", title: "Note", type: "note", payloads: [] },
+            { status: 201 },
+          );
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.createInformation(
+      TENANT_ID,
+      "item-1",
+      { title: "Note", type: "note", isPublic: false, content: "Secretly cursed." },
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({
+      title: "Note",
+      type: "note",
+      is_public: false,
+      content: "Secretly cursed.",
+      locale: "en-US",
+    });
+    expect(result.id).toBe("info-1");
+  });
+});
+
+describe("addInformationKnower", () => {
+  it("puts the knower and returns the updated information", async () => {
+    server.use(
+      http.put(`${BASE_URL}/tenants/${TENANT_ID}/information/info-1/knowers/char-1`, () =>
+        HttpResponse.json({ id: "info-1", title: "Note", type: "note", payloads: [] }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.addInformationKnower(TENANT_ID, "info-1", "char-1", "test-token");
+
+    expect(result.id).toBe("info-1");
+  });
+});
+
 describe("getCampaignPlayers", () => {
   it("flattens every player's characters into one list", async () => {
     server.use(
