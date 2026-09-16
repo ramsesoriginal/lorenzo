@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Self
 
 from fastapi import Request
@@ -162,6 +163,7 @@ class ItemOut(BaseModel):
     tags: list[TagValueOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
+    updated_at: datetime
 
     @classmethod
     def from_v_item(
@@ -189,6 +191,7 @@ class ItemOut(BaseModel):
             tags=_tags_out(view.tags),
             created_by=view.entity.created_by,
             updated_by=view.entity.updated_by,
+            updated_at=view.entity.updated_at,
         )
 
 
@@ -269,6 +272,7 @@ class ItemInstanceOut(BaseModel):
     tags: list[TagValueOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
+    updated_at: datetime
 
     @classmethod
     def from_v_item_instance(
@@ -297,6 +301,7 @@ class ItemInstanceOut(BaseModel):
             tags=_tags_out(view.tags),
             created_by=view.entity.created_by,
             updated_by=view.entity.updated_by,
+            updated_at=view.entity.updated_at,
         )
 
 

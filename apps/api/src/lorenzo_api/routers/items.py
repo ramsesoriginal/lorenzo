@@ -18,7 +18,7 @@ from lorenzo_api.dependencies import (
     get_tenant_context,
     set_tenant_rls_context,
 )
-from lorenzo_api.etag import check_if_match
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import ItemNotFoundError, ItemPrototypeInUseError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
@@ -116,11 +116,13 @@ async def get_item(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemOut:
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemOut.from_v_item(view, request, visibility=visibility)
 
 
@@ -160,11 +162,13 @@ async def _item_out(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemOut:
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemOut.from_v_item(view, request, visibility=visibility)
 
 
@@ -194,7 +198,7 @@ async def create_item(
     response.headers["Location"] = str(
         request.url_for("get_item", tenant_id=tenant_id, entity_id=entity.id)
     )
-    return await _item_out(tenant_id, entity.id, request, session, user)
+    return await _item_out(tenant_id, entity.id, request, response, session, user)
 
 
 @router.patch("/{entity_id}")
@@ -203,6 +207,7 @@ async def update_item(
     entity_id: uuid.UUID,
     body: ItemUpdate,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -215,7 +220,7 @@ async def update_item(
         entity.updated_by = user.id
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_out(tenant_id, entity_id, request, session, user)
+    return await _item_out(tenant_id, entity_id, request, response, session, user)
 
 
 @router.delete("/{entity_id}", status_code=204)
