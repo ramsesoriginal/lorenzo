@@ -47,6 +47,99 @@ async def test_valid_token_grants_access_and_auto_provisions_user(
         await session.commit()
 
 
+async def test_verified_email_claim_is_synced_to_the_user(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """See ADR 0050 - only a *verified* email claim is ever trusted."""
+    subject = f"authgear|{uuid.uuid4()}"
+    email = f"{uuid.uuid4()}@example.com"
+    token = fake_jwks_server.issue_token(subject, email=email, email_verified=True)
+
+    response = await raw_client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["email"] == email
+    user_id = uuid.UUID(response.json()["id"])
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
+
+
+async def test_unverified_email_claim_is_not_synced(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    subject = f"authgear|{uuid.uuid4()}"
+    token = fake_jwks_server.issue_token(
+        subject, email=f"{uuid.uuid4()}@example.com", email_verified=False
+    )
+
+    response = await raw_client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["email"] is None
+    user_id = uuid.UUID(response.json()["id"])
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
+
+
+async def test_absent_email_claim_is_not_synced(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    subject = f"authgear|{uuid.uuid4()}"
+    token = fake_jwks_server.issue_token(subject)
+
+    response = await raw_client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["email"] is None
+    user_id = uuid.UUID(response.json()["id"])
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
+
+
+async def test_colliding_verified_email_does_not_fail_the_login(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """A verified email claim that's already taken by a different user (a
+    genuinely rare edge, e.g. Authgear letting an email move between
+    identities) must not crash the second subject's login - it's logged
+    and skipped, leaving the second user's own email unset. See ADR 0050.
+    """
+    shared_email = f"{uuid.uuid4()}@example.com"
+    first_subject = f"authgear|{uuid.uuid4()}"
+    first_token = fake_jwks_server.issue_token(
+        first_subject, email=shared_email, email_verified=True
+    )
+    first_response = await raw_client.get("/me", headers={"Authorization": f"Bearer {first_token}"})
+    assert first_response.json()["email"] == shared_email
+    first_user_id = uuid.UUID(first_response.json()["id"])
+
+    second_subject = f"authgear|{uuid.uuid4()}"
+    second_token = fake_jwks_server.issue_token(
+        second_subject, email=shared_email, email_verified=True
+    )
+    second_response = await raw_client.get(
+        "/me", headers={"Authorization": f"Bearer {second_token}"}
+    )
+    assert second_response.status_code == 200
+    assert second_response.json()["email"] is None
+    second_user_id = uuid.UUID(second_response.json()["id"])
+
+    # The session survives the conflict and still works for the rest of
+    # this request/subsequent requests - not left in an unusable state.
+    second_response2 = await raw_client.get(
+        "/me", headers={"Authorization": f"Bearer {second_token}"}
+    )
+    assert second_response2.status_code == 200
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, first_user_id))
+        await session.delete(await session.get_one(User, second_user_id))
+        await session.commit()
+
+
 async def test_missing_token_is_rejected(raw_client: AsyncClient) -> None:
     response = await raw_client.get("/me")
     assert response.status_code == 401

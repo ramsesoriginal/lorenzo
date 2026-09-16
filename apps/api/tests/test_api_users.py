@@ -38,6 +38,113 @@ async def _restore_test_user_id(test_user_id: uuid.UUID) -> AsyncGenerator[None]
             await session.commit()
 
 
+# --- PATCH /me, GET /users/by-email|by-nickname (ADR 0050/0051) ----------
+
+
+@pytest.fixture
+async def _restore_test_user_nickname(test_user_id: uuid.UUID) -> AsyncGenerator[None]:
+    """test_user_id is session-scoped and shared by every other test file
+    (see the module docstring above) - any test that sets its nickname
+    must clear it again, or it leaks into unrelated tests run afterward.
+    """
+    yield
+    async with admin_session_factory() as session:
+        user = await session.get(User, test_user_id)
+        if user is not None:
+            user.nickname = None
+            await session.commit()
+
+
+async def test_patch_me_sets_nickname(
+    client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_nickname: None
+) -> None:
+    response = await client.patch("/me", json={"nickname": "Test Nickname"})
+    assert response.status_code == 200
+    assert response.json()["nickname"] == "Test Nickname"
+
+    async with admin_session_factory() as session:
+        assert (await session.get_one(User, test_user_id)).nickname == "Test Nickname"
+
+
+async def test_patch_me_clears_nickname_with_null(
+    client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_nickname: None
+) -> None:
+    async with admin_session_factory() as session:
+        user = await session.get_one(User, test_user_id)
+        user.nickname = "Was Set"
+        await session.commit()
+
+    response = await client.patch("/me", json={"nickname": None})
+    assert response.status_code == 200
+    assert response.json()["nickname"] is None
+
+    async with admin_session_factory() as session:
+        assert (await session.get_one(User, test_user_id)).nickname is None
+
+
+async def test_patch_me_409_on_duplicate_nickname(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        other = User(
+            authgear_subject_id=f"authgear|nickname-taken-{uuid.uuid4()}", nickname="Taken"
+        )
+        session.add(other)
+        await session.commit()
+        other_id = other.id
+
+    response = await client.patch("/me", json={"nickname": "Taken"})
+    assert response.status_code == 409
+    assert response.headers["content-type"] == "application/problem+json"
+
+    async with admin_session_factory() as session:
+        assert (await session.get_one(User, test_user_id)).nickname is None
+        await session.delete(await session.get_one(User, other_id))
+        await session.commit()
+
+
+async def test_get_user_by_email_exact_match(client: AsyncClient) -> None:
+    email = f"{uuid.uuid4()}@example.com"
+    async with admin_session_factory() as session:
+        target = User(authgear_subject_id=f"authgear|by-email-{uuid.uuid4()}", email=email)
+        session.add(target)
+        await session.commit()
+        target_id = target.id
+
+    found = await client.get(f"/users/by-email/{email}")
+    assert found.status_code == 200
+    assert found.json() == {"id": str(target_id), "nickname": None}
+
+    not_found = await client.get(f"/users/by-email/does-not-exist-{uuid.uuid4()}@example.com")
+    assert not_found.status_code == 404
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, target_id))
+        await session.commit()
+
+
+async def test_get_user_by_nickname_exact_match_only(client: AsyncClient) -> None:
+    nickname = f"Nickname-{uuid.uuid4()}"
+    async with admin_session_factory() as session:
+        target = User(authgear_subject_id=f"authgear|by-nick-{uuid.uuid4()}", nickname=nickname)
+        session.add(target)
+        await session.commit()
+        target_id = target.id
+
+    found = await client.get(f"/users/by-nickname/{nickname}")
+    assert found.status_code == 200
+    assert found.json() == {"id": str(target_id), "nickname": nickname}
+
+    # A substring of a real nickname must not match - exact match only,
+    # no partial/fuzzy search surface (ADR 0051).
+    substring_response = await client.get(f"/users/by-nickname/{nickname[:-1]}")
+    assert substring_response.status_code == 404
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, target_id))
+        await session.commit()
+
+
 async def test_delete_me_removes_the_user(
     client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_id: None
 ) -> None:

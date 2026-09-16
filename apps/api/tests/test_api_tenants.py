@@ -166,6 +166,46 @@ async def test_list_tenant_roster_includes_membership_player_and_gm_kinds(
         await session.commit()
 
 
+async def test_list_tenant_roster_includes_nicknames(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0050: the roster is readable without a lookup per row - a user
+    with a nickname shows it, a user without one reports `None`.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        nicknamed_player = User(
+            authgear_subject_id=f"authgear|nicknamed-{uuid.uuid4()}", nickname="Roster Nickname"
+        )
+        session.add(nicknamed_player)
+        await session.flush()
+        session.add(
+            Player(user_id=nicknamed_player.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        )
+        await session.commit()
+        nicknamed_player_id = nicknamed_player.id
+
+    response = await client.get(f"/tenants/{tenant_id}/memberships")
+    assert response.status_code == 200
+    entries_by_user = {item["user_id"]: item for item in response.json()["items"]}
+
+    assert entries_by_user[str(nicknamed_player_id)]["nickname"] == "Roster Nickname"
+    assert entries_by_user[str(test_user_id)]["nickname"] is None
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, nicknamed_player_id))
+        await session.commit()
+
+
 async def test_list_tenant_roster_404_for_non_member(client: AsyncClient) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
