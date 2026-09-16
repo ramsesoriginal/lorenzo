@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from fastapi_pagination.utils import disable_installed_extensions_check
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from lorenzo_api.config import get_settings
 from lorenzo_api.db import engine
 from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.logging import configure_logging
@@ -45,6 +47,24 @@ def create_app() -> FastAPI:
         # "list_entities_tenants__tenant_id__entities_get"), which is ugly
         # and needlessly unstable for any client codegen against this API.
         generate_unique_id_function=lambda route: route.name,
+    )
+
+    # See ADR 0048. allow_credentials=False - this API is bearer-token
+    # authenticated (ADR 0023), not cookie-based, so a client attaches its
+    # token itself rather than relying on the browser's credentialed-request
+    # mode. expose_headers is the easy-to-miss part: browsers only expose a
+    # small built-in safelist to cross-origin JS by default, which excludes
+    # both ETag (ADR 0042's whole concurrency-token mechanism) and Location
+    # (every 201 response, ADR 0032) - without listing them explicitly, a
+    # cross-origin browser client's requests would succeed while silently
+    # being unable to read either header.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_settings().cors_allowed_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["ETag", "Location"],
     )
 
     register_error_handlers(app)
