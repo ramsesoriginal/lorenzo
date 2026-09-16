@@ -92,7 +92,11 @@ export const giveCommand: Command = {
     try {
       // Fresh state, not whatever autocomplete last showed - the quantity
       // decision below has to be correct now, not a moment ago (ADR 0043).
-      const current = await client.getItemInstance(tenantId, itemEntityId, accessToken);
+      const { data: current, etag } = await client.getItemInstance(
+        tenantId,
+        itemEntityId,
+        accessToken,
+      );
 
       if (requestedQuantity !== null && current.quantity === null) {
         await interaction.editReply(
@@ -112,8 +116,15 @@ export const giveCommand: Command = {
             requestedQuantity,
             targetCharacterId,
             accessToken,
+            etag,
           )
-        : await client.setItemInstanceOwner(tenantId, itemEntityId, targetCharacterId, accessToken);
+        : await client.setItemInstanceOwner(
+            tenantId,
+            itemEntityId,
+            targetCharacterId,
+            accessToken,
+            etag ?? undefined,
+          );
 
       const targetName = await client
         .getCharacterName(tenantId, targetCharacterId, accessToken)
@@ -141,14 +152,22 @@ async function giveSplit(
   requestedQuantity: number,
   targetCharacterId: string,
   accessToken: string,
+  sourceEtag: string | null,
 ): Promise<ItemInstanceOut> {
-  const split = await client.splitItemInstance(
+  const { data: split, etag: splitEtag } = await client.splitItemInstance(
     tenantId,
     sourceEntityId,
     requestedQuantity,
     accessToken,
+    sourceEtag ?? undefined,
   );
-  return client.setItemInstanceOwner(tenantId, split.entity_id, targetCharacterId, accessToken);
+  return client.setItemInstanceOwner(
+    tenantId,
+    split.entity_id,
+    targetCharacterId,
+    accessToken,
+    splitEtag ?? undefined,
+  );
 }
 
 async function findMyItems(
@@ -193,7 +212,7 @@ async function findGiveTargets(
     // failed/ambiguous lookup here just falls back to "every campaign I'm
     // in" rather than failing the whole autocomplete request.
     try {
-      const item = await client.getItemInstance(tenantId, chosenItemId, accessToken);
+      const { data: item } = await client.getItemInstance(tenantId, chosenItemId, accessToken);
       const owningPlayer = players.find((player) =>
         player.characters.some((c) => c.entityId === item.owner_entity_id),
       );
@@ -229,6 +248,8 @@ function describeGiveError(error: LorenzoApiError): string {
       return "That's not something you can give away — it isn't reachable from any of your characters.";
     case 404:
       return "Couldn't find that item or that character anymore — run `/give` again and re-pick from the suggestions.";
+    case 412:
+      return "Someone else changed that item just now — run `/give` again to pick it up with the current state.";
     case 422:
       return `Couldn't do that: ${error.message}`;
     default:

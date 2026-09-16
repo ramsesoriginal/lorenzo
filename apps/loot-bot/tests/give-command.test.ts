@@ -98,7 +98,10 @@ describe("giveCommand.execute", () => {
 
   it("transfers the whole instance when no quantity is given", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ entity_id: "item-1", quantity: 5, title: "Torch" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      etag: "etag-1",
+    });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
     getCharacterName.mockResolvedValue("Frodo");
 
@@ -110,14 +113,26 @@ describe("giveCommand.execute", () => {
     await giveCommand.execute(interaction, { config, logger: {} as never });
 
     expect(splitItemInstance).not.toHaveBeenCalled();
-    expect(setItemInstanceOwner).toHaveBeenCalledWith("tenant-1", "item-1", "char-2", "token-123");
+    expect(setItemInstanceOwner).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-1",
+      "char-2",
+      "token-123",
+      "etag-1",
+    );
     expect(interaction.editReply).toHaveBeenCalledWith("Gave Torch to Frodo.");
   });
 
   it("splits off the requested quantity and transfers only the split, for a partial give", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ entity_id: "item-1", quantity: 5, title: "Torch" });
-    splitItemInstance.mockResolvedValue({ entity_id: "item-2", quantity: 2, title: "Torch" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      etag: "etag-1",
+    });
+    splitItemInstance.mockResolvedValue({
+      data: { entity_id: "item-2", quantity: 2, title: "Torch" },
+      etag: "etag-2",
+    });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-2", title: "Torch" });
     getCharacterName.mockResolvedValue("Sam");
 
@@ -129,14 +144,23 @@ describe("giveCommand.execute", () => {
 
     await giveCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(splitItemInstance).toHaveBeenCalledWith("tenant-1", "item-1", 2, "token-123");
-    expect(setItemInstanceOwner).toHaveBeenCalledWith("tenant-1", "item-2", "char-2", "token-123");
+    expect(splitItemInstance).toHaveBeenCalledWith("tenant-1", "item-1", 2, "token-123", "etag-1");
+    expect(setItemInstanceOwner).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-2",
+      "char-2",
+      "token-123",
+      "etag-2",
+    );
     expect(interaction.editReply).toHaveBeenCalledWith("Gave 2 of Torch to Sam.");
   });
 
   it("transfers the whole stack outright when quantity covers all of it", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ entity_id: "item-1", quantity: 5, title: "Torch" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      etag: "etag-1",
+    });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
     getCharacterName.mockResolvedValue("Sam");
 
@@ -149,12 +173,21 @@ describe("giveCommand.execute", () => {
     await giveCommand.execute(interaction, { config, logger: {} as never });
 
     expect(splitItemInstance).not.toHaveBeenCalled();
-    expect(setItemInstanceOwner).toHaveBeenCalledWith("tenant-1", "item-1", "char-2", "token-123");
+    expect(setItemInstanceOwner).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-1",
+      "char-2",
+      "token-123",
+      "etag-1",
+    );
   });
 
   it("rejects a quantity for an item that isn't a stack, before calling the API", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ entity_id: "item-1", quantity: null, title: "Sword" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
 
     const interaction = fakeInteraction();
     interaction.options.getString.mockImplementation((name: string) =>
@@ -189,7 +222,10 @@ describe("giveCommand.execute", () => {
 
   it("still succeeds even if the friendly-name lookup fails", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ entity_id: "item-1", quantity: null, title: "Sword" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
     getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
 
@@ -201,6 +237,26 @@ describe("giveCommand.execute", () => {
     await giveCommand.execute(interaction, { config, logger: {} as never });
 
     expect(interaction.editReply).toHaveBeenCalledWith("Gave Sword to them.");
+  });
+
+  it("tells the caller to retry when the write 412s on a stale etag", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
+
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "char-2",
+    );
+
+    await giveCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("Someone else changed that item"),
+    );
   });
 });
 
@@ -247,7 +303,10 @@ describe("giveCommand.autocomplete", () => {
       { campaignId: "campaign-1", characters: [{ entityId: "char-1", name: "Frodo" }] },
       { campaignId: "campaign-2", characters: [{ entityId: "char-3", name: "Bilbo" }] },
     ]);
-    getItemInstance.mockResolvedValue({ entity_id: "item-1", owner_entity_id: "char-1" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", owner_entity_id: "char-1" },
+      etag: null,
+    });
     getCampaignPlayers.mockResolvedValue([
       { entityId: "char-1", name: "Frodo" },
       { entityId: "char-2", name: "Sam" },
