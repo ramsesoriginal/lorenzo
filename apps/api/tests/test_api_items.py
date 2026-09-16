@@ -380,6 +380,26 @@ async def test_list_items_paginates_and_is_tenant_isolated(
     await delete_tenant(tenant_b)
 
 
+async def test_list_items_q_filters_by_name_case_insensitively(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0047: q matches Entity.name, not VItem.title - Shovel has no
+    description authored at all here, so title is null for every item;
+    a title-based search would find nothing.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Flaming Sword")
+    await _make_bare_item(tenant_id, "Shovel")
+
+    response = await client.get(f"/tenants/{tenant_id}/items", params={"q": "sword"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {item["entity_id"] for item in body["items"]} == {str(sword_id)}
+
+    await delete_tenant(tenant_id)
+
+
 async def test_list_items_404_for_unknown_tenant(client: AsyncClient) -> None:
     response = await client.get("/tenants/00000000-0000-0000-0000-000000000000/items")
     assert response.status_code == 404
