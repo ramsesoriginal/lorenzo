@@ -163,10 +163,44 @@ describe("getItemInstance", () => {
     );
 
     const client = createLorenzoApiClient(BASE_URL);
-    const result = await client.getItemInstance(TENANT_ID, "item-1", "test-token");
+    const { data } = await client.getItemInstance(TENANT_ID, "item-1", "test-token");
 
-    expect(result.title).toBe("Torch");
-    expect(result.quantity).toBe(5);
+    expect(data.title).toBe("Torch");
+    expect(data.quantity).toBe(5);
+  });
+
+  it("captures the ETag response header", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1`, () =>
+        HttpResponse.json(
+          { entity_id: "item-1", title: "Torch", quantity: 5, owner_entity_id: null },
+          { headers: { ETag: 'W/"2026-01-01T00:00:00Z"' } },
+        ),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const { etag } = await client.getItemInstance(TENANT_ID, "item-1", "test-token");
+
+    expect(etag).toBe('W/"2026-01-01T00:00:00Z"');
+  });
+
+  it("returns a null etag when the server doesn't send one", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1`, () =>
+        HttpResponse.json({
+          entity_id: "item-1",
+          title: "Torch",
+          quantity: 5,
+          owner_entity_id: null,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const { etag } = await client.getItemInstance(TENANT_ID, "item-1", "test-token");
+
+    expect(etag).toBeNull();
   });
 });
 
@@ -187,11 +221,45 @@ describe("splitItemInstance", () => {
     );
 
     const client = createLorenzoApiClient(BASE_URL);
-    const result = await client.splitItemInstance(TENANT_ID, "item-1", 3, "test-token");
+    const { data } = await client.splitItemInstance(TENANT_ID, "item-1", 3, "test-token");
 
     expect(receivedBody).toEqual({ quantity: 3 });
-    expect(result.entity_id).toBe("item-2");
-    expect(result.quantity).toBe(3);
+    expect(data.entity_id).toBe("item-2");
+    expect(data.quantity).toBe(3);
+  });
+
+  it("sends the given etag as If-Match", async () => {
+    let receivedIfMatch: string | null = null;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/split`, ({ request }) => {
+        receivedIfMatch = request.headers.get("if-match");
+        return HttpResponse.json(
+          { entity_id: "item-2", title: "Torch", quantity: 3, owner_entity_id: CHARACTER_ID },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.splitItemInstance(TENANT_ID, "item-1", 3, "test-token", 'W/"stale"');
+
+    expect(receivedIfMatch).toBe('W/"stale"');
+  });
+
+  it("throws a 412 LorenzoApiError when If-Match is stale", async () => {
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/split`, () =>
+        HttpResponse.json(
+          { type: "precondition-failed", title: "Precondition Failed", detail: "stale etag" },
+          { status: 412, headers: { "content-type": "application/problem+json" } },
+        ),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await expect(
+      client.splitItemInstance(TENANT_ID, "item-1", 3, "test-token", 'W/"stale"'),
+    ).rejects.toMatchObject({ status: 412 });
   });
 });
 
@@ -217,6 +285,44 @@ describe("setItemInstanceOwner", () => {
 
     expect(receivedBody).toEqual({ owner_character_id: "char-2" });
     expect(result.owner_entity_id).toBe("char-2");
+  });
+
+  it("sends the given etag as If-Match", async () => {
+    let receivedIfMatch: string | null = null;
+    server.use(
+      http.put(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/owner`, ({ request }) => {
+        receivedIfMatch = request.headers.get("if-match");
+        return HttpResponse.json({
+          entity_id: "item-1",
+          title: "Torch",
+          owner_entity_id: "char-2",
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.setItemInstanceOwner(TENANT_ID, "item-1", "char-2", "test-token", 'W/"fresh"');
+
+    expect(receivedIfMatch).toBe('W/"fresh"');
+  });
+
+  it("omits If-Match entirely when no etag is given", async () => {
+    let receivedIfMatch: string | null = null;
+    server.use(
+      http.put(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/owner`, ({ request }) => {
+        receivedIfMatch = request.headers.get("if-match");
+        return HttpResponse.json({
+          entity_id: "item-1",
+          title: "Torch",
+          owner_entity_id: "char-2",
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.setItemInstanceOwner(TENANT_ID, "item-1", "char-2", "test-token");
+
+    expect(receivedIfMatch).toBeNull();
   });
 });
 

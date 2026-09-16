@@ -5,6 +5,15 @@ import type { components, paths } from "./lorenzo-schema.js";
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 
+/** A read paired with the `ETag` the server sent alongside it, if any -
+ * `null` until every write route actually sends one back (tracked
+ * separately; some already do, see ADR 0043's amendment). Passed back as
+ * `If-Match` on a subsequent write against the *same* instance to guard
+ * against clobbering a concurrent change - optimistic concurrency, not a
+ * lock: absent or stale just means "someone else touched this first,"
+ * surfaced as a 412 the caller decides how to handle. */
+export type WithEtag<T> = Readonly<{ data: T; etag: string | null }>;
+
 /** One of the caller's own characters (a `being`), as far as this client cares. */
 export type ControlledCharacter = Readonly<{ entityId: string; name: string }>;
 
@@ -115,12 +124,14 @@ export function createLorenzoApiClient(baseUrl: string) {
     /** GET /tenants/{tenant_id}/item-instances/{entity_id} - the current
      * state of one instance, used by /give (ADR 0043) to decide split-vs-
      * transfer against a fresh quantity rather than a possibly-stale
-     * autocomplete value. */
+     * autocomplete value. Returns the response's `ETag` alongside the body
+     * (Phase 0 amendment to ADR 0043) - pass it back as `ifMatch` on
+     * whichever write acts on this same instance next. */
     async getItemInstance(
       tenantId: string,
       entityId: string,
       accessToken: string,
-    ): Promise<ItemInstanceOut> {
+    ): Promise<WithEtag<ItemInstanceOut>> {
       const { data, error, response } = await client.GET(
         "/tenants/{tenant_id}/item-instances/{entity_id}",
         {
@@ -129,44 +140,62 @@ export function createLorenzoApiClient(baseUrl: string) {
         },
       );
       if (error !== undefined) throw toApiError(error, response.status);
-      return data;
+      return { data, etag: response.headers.get("etag") };
     },
 
     /** POST .../item-instances/{entity_id}/split (ADR 0041) - splits
      * `quantity` units off the source's current stack into a new sibling
      * instance (same owner/container as the source) and returns that new
-     * instance. */
+     * instance. `ifMatch`, if given, guards the *source* stack against a
+     * concurrent change (e.g. someone else already split or took part of
+     * it) - sent as `If-Match`, a stale value 412s. The new instance's own
+     * `ETag` comes back alongside its data, for chaining into the
+     * `setItemInstanceOwner` call that normally follows a split. */
     async splitItemInstance(
       tenantId: string,
       entityId: string,
       quantity: number,
       accessToken: string,
-    ): Promise<ItemInstanceOut> {
+      ifMatch?: string,
+    ): Promise<WithEtag<ItemInstanceOut>> {
       const { data, error, response } = await client.POST(
         "/tenants/{tenant_id}/item-instances/{entity_id}/split",
         {
-          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
           headers: { Authorization: `Bearer ${accessToken}` },
           body: { quantity },
         },
       );
       if (error !== undefined) throw toApiError(error, response.status);
-      return data;
+      return { data, etag: response.headers.get("etag") };
     },
 
     /** PUT .../item-instances/{entity_id}/owner - replaces the instance's
      * owner outright (works for both "set for the first time" and
-     * "transfer"). */
+     * "transfer"). `ifMatch`, if given, is sent as `If-Match` - a stale
+     * value 412s rather than silently overwriting a concurrent change.
+     * Note: owner writes don't change the instance's own `ETag` (ADR 0032
+     * deliberately never touches `entity.updated_at` for this), so this
+     * only actually catches a race against an intervening rename, not
+     * against another owner/container write to the same instance - a real,
+     * documented limitation, not an oversight (see ADR 0043's amendment). */
     async setItemInstanceOwner(
       tenantId: string,
       entityId: string,
       ownerCharacterId: string,
       accessToken: string,
+      ifMatch?: string,
     ): Promise<ItemInstanceOut> {
       const { data, error, response } = await client.PUT(
         "/tenants/{tenant_id}/item-instances/{entity_id}/owner",
         {
-          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
           headers: { Authorization: `Bearer ${accessToken}` },
           body: { owner_character_id: ownerCharacterId },
         },
