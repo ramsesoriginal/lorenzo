@@ -5,7 +5,7 @@ import type { Command } from "./types.js";
 /**
  * `/unlink` - deletes the caller's `linked_account` row. No Authgear-side
  * token revocation call - out of scope, same as `/link`'s own existing
- * scope (ADR 0042). Re-running `/link` already covers re-linking with a
+ * scope (ADR 0050). Re-running `/link` already covers re-linking with a
  * different identity, so this is the one piece that was still missing:
  * disconnecting without immediately reconnecting.
  */

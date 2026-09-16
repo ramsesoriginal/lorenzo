@@ -12,7 +12,7 @@ export default defineConfig({
   // extensionless-friendly relative imports under "moduleResolution":
   // "bundler" while still producing output `node` can run directly - esbuild
   // resolves and rewrites these at bundle time, so there's no NodeNext-style
-  // ".js on every relative import" bookkeeping to maintain by hand (ADR 0042).
+  // ".js on every relative import" bookkeeping to maintain by hand (ADR 0050).
   splitting: false,
   skipNodeModulesBundle: true,
 });

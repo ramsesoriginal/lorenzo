@@ -62,7 +62,7 @@ describe("buildBootstrapSql", () => {
       'ALTER DEFAULT PRIVILEGES IN SCHEMA "loot_bot"\n    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "loot_bot"',
     );
     // Never grants anything on `public` - this role has no business there
-    // (ADR 0042's whole point is isolating it away from apps/api's tables).
+    // (ADR 0050's whole point is isolating it away from apps/api's tables).
     expect(sql).not.toMatch(/schema public/i);
   });
 

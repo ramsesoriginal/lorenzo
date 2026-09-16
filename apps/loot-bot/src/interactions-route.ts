@@ -29,7 +29,7 @@ const GENERIC_FAILURE_RESPONSE: ResponseBody = {
 };
 
 /**
- * `/interactions` - Discord's HTTP Interactions Endpoint (ADR 0045): every
+ * `/interactions` - Discord's HTTP Interactions Endpoint (ADR 0053): every
  * slash command, autocomplete request, button/select-menu click, and modal
  * submit arrives here as a signature-verified webhook POST instead of over
  * a Gateway connection. The signature check needs the *raw* body, read here

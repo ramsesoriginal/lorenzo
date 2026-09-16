@@ -12,7 +12,7 @@ import type { LootClaim } from "./db.js";
 import type { ItemInstanceOut } from "./lorenzo-client.js";
 
 // Discord's own per-select-menu option cap - a drop with more unowned
-// items than this just doesn't show the rest as choices (ADR 0044); the
+// items than this just doesn't show the rest as choices (ADR 0052); the
 // container listing itself is already capped to one page for the same
 // reason (lorenzo-client.ts's getItemInstancesByContainer).
 const MAX_SELECT_OPTIONS = 25;
@@ -23,7 +23,7 @@ export type DropItem = Readonly<{ entityId: string; title: string; quantity: num
  * The container's own listing, narrowed to what's actually still up for
  * grabs - an item with an owner has already been taken (whole, or down to
  * nothing left via split), and isn't shown as a take/claim choice at all
- * (ADR 0044: this bot's rendering only ever shows "what's left in the
+ * (ADR 0052: this bot's rendering only ever shows "what's left in the
  * pool," not a running history of what's already gone).
  */
 export function availableDropItems(items: readonly ItemInstanceOut[]): DropItem[] {
@@ -62,7 +62,7 @@ export function buildDropEmbed(
 }
 
 /**
- * The take/claim select menus + apply-claims button (ADR 0044). Every
+ * The take/claim select menus + apply-claims button (ADR 0052). Every
  * `customId` is namespaced `"drop:<action>:<dropId>"` - commands/index.ts's
  * dispatcher routes on the part before the first `:`.
  */
@@ -104,7 +104,7 @@ export function buildDropComponents(
 }
 
 /** The quantity prompt shown after picking an item from either select
- * menu (ADR 0044) - `customId` bakes in which action and which item, so
+ * menu (ADR 0052) - `customId` bakes in which action and which item, so
  * the modal-submit handler needs no other state to know what to do. */
 export function buildQuantityModal(
   action: "take" | "claim",

@@ -40,7 +40,7 @@ C4Deployment
 
 ## apps/loot-bot
 
-Same GCP project/region and the same Neon instance as `apps/api` above (a separate `loot_bot` role/schema, not a separate database) - a second Artifact Registry repo and Cloud Run service, reusing the same Workload Identity Federation pool/provider/service account rather than a parallel one ([ADR 0045](../../adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md)).
+Same GCP project/region and the same Neon instance as `apps/api` above (a separate `loot_bot` role/schema, not a separate database) - a second Artifact Registry repo and Cloud Run service, reusing the same Workload Identity Federation pool/provider/service account rather than a parallel one ([ADR 0053](../../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)).
 
 ```mermaid
 C4Deployment

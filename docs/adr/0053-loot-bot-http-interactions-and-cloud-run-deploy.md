@@ -1,4 +1,4 @@
-# 0045 - loot-bot: HTTP interactions transport and Cloud Run deployment
+# 0053 - loot-bot: HTTP interactions transport and Cloud Run deployment
 
 Status: accepted
 
@@ -35,7 +35,7 @@ Concretely:
 ## Consequences
 
 - A real, indefinite, $0 deploy path, on infrastructure this project has already audited and trusts - and a second app extending the exact "one GCP project, one WIF-based CD template" pattern `AGENTS.md`'s own mise-task convention already established for CI, now extended to deployment: a template for a third or fourth `apps/*` addition, rather than a fresh decision each time.
-- The bot's interaction layer no longer has a live Gateway connection, so any future feature genuinely requiring Gateway-only data (message content, presence, voice, guild member events) would need its own separate answer. Not expected to be needed given this bot's scope ([ADR 0042](0042-loot-bot-stack-linking-and-isolation.md)/[0043](0043-loot-bot-give-command.md)/[0044](0044-loot-bot-loot-drop-and-claims.md)), but a real, if currently costless, constraint being accepted here.
+- The bot's interaction layer no longer has a live Gateway connection, so any future feature genuinely requiring Gateway-only data (message content, presence, voice, guild member events) would need its own separate answer. Not expected to be needed given this bot's scope ([ADR 0050](0050-loot-bot-stack-linking-and-isolation.md)/[0043](0051-loot-bot-give-command.md)/[0044](0052-loot-bot-loot-drop-and-claims.md)), but a real, if currently costless, constraint being accepted here.
 - Gave up Cloudflare Workers' arguably-more-idiomatic "official Discord sample app" pattern and its lower cold-start latency against the 3-second ack window, in exchange for keeping WIF's no-stored-credential CD property and avoiding a second, independent Postgres-driver migration. Revisit if Cloudflare ships a WIF-equivalent OIDC federation, or if Cloud Run cold starts prove to be a real problem in practice.
 - Real, one-time migration cost: `src/index.ts`, a new `/interactions` route and interaction adapter, and `src/commands/types.ts`'s interaction type imports change. Individual command files are expected to need little to no change beyond that, since every existing test already exercises them against a plain object satisfying the same narrow interface the new adapter provides - confirmed directly against the current test suite, not assumed - but this is verified command-by-command during implementation, not just inferred from the test shape.
 - Deferred, not decided here: whether to keep the full `discord.js` package (used only for its builder classes going forward) or slim down to the standalone `@discordjs/builders` package - a small dependency-hygiene call, not an architectural one.

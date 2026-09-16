@@ -18,7 +18,7 @@ export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference, LootDrop, Lo
 
 /**
  * This app's own restricted role's connection (LOOT_BOT_DATABASE_URL) - not
- * the privileged one migrate.ts uses. See ADR 0042.
+ * the privileged one migrate.ts uses. See ADR 0050.
  *
  * Deliberately not exported: every other module reaches this table only
  * through the functions below, never through the pool or the Drizzle
@@ -43,7 +43,7 @@ export async function closeDb(): Promise<void> {
  * this can be detected rather than silently letting one Lorenzo identity
  * attach to two Discord accounts. The caller (the account-linking
  * workstream) is expected to catch this and turn it into a Discord-facing
- * message per ADR 0042, not let a raw Postgres error surface.
+ * message per ADR 0050, not let a raw Postgres error surface.
  */
 export class AuthgearSubjectAlreadyLinkedError extends Error {
   constructor(public readonly authgearSubjectId: string) {
@@ -87,7 +87,7 @@ export async function getLinkedAccount(discordUserId: string): Promise<LinkedAcc
 }
 
 /**
- * Inserts a brand-new link, or - per ADR 0042 ("`/link` ... always
+ * Inserts a brand-new link, or - per ADR 0050 ("`/link` ... always
  * overwrites any existing link on completion") - completely overwrites an
  * existing one for the same Discord user. One atomic
  * `INSERT ... ON CONFLICT (discord_user_id) DO UPDATE`, not a
@@ -131,7 +131,7 @@ export async function upsertLinkedAccount(row: NewLinkedAccountRow): Promise<voi
 /**
  * Persists the result of a token refresh. A single atomic `UPDATE`, not
  * read-then-write. `fields.refreshTokenEncrypted` is optional *on purpose*:
- * per ADR 0042, Authgear's refresh response doesn't always include a new
+ * per ADR 0050, Authgear's refresh response doesn't always include a new
  * refresh token, and the stored one must only be overwritten when a new one
  * actually arrives - so the token-provider workstream simply omits this key
  * rather than needing some separate "leave refresh token untouched" sentinel.
@@ -168,7 +168,7 @@ export async function updateAccessToken(
 
 /**
  * Deletes a dead link - called when a refresh comes back `invalid_grant`
- * (ADR 0042: "`invalid_grant` deletes the row and surfaces 'run `/link`
+ * (ADR 0050: "`invalid_grant` deletes the row and surfaces 'run `/link`
  * again'"). Idempotent by design (a plain `DELETE ... WHERE`, not asserting
  * a row existed) - safe to call again if a caller retries after a partial
  * failure.
@@ -194,7 +194,7 @@ export async function getPreference(discordUserId: string): Promise<PlayerPrefer
  * lets a caller set either or both in one call, and setting just one
  * (e.g. switching characters) deliberately leaves the other as it was
  * rather than implicitly clearing it (explicit-only, matching this
- * codebase's general preference - see ADR 0043's "container left
+ * codebase's general preference - see ADR 0051's "container left
  * untouched" precedent).
  */
 export async function setPreference(
@@ -230,7 +230,7 @@ export async function deletePreference(discordUserId: string): Promise<void> {
 }
 
 /**
- * Starts a new loot drop (ADR 0044) - inserted *before* the Discord
+ * Starts a new loot drop (ADR 0052) - inserted *before* the Discord
  * message is posted, since the message's own select-menu/button
  * `customId`s need the generated `id` baked in. Returns the full row so
  * the caller has that id without a second round trip.
@@ -279,7 +279,7 @@ export async function markLootDropApplied(dropId: string): Promise<void> {
 }
 
 /** The caller's own existing claim on this item within this drop, if
- * any - the claim-menu's own "toggle" decision (ADR 0044: picking an
+ * any - the claim-menu's own "toggle" decision (ADR 0052: picking an
  * already-claimed item unclaims it, picking anything else opens the
  * quantity modal) reads this first. */
 export async function getLootClaim(
@@ -302,7 +302,7 @@ export async function getLootClaim(
 }
 
 /** Every outstanding claim on a drop, oldest first - the order
- * apply-claims (ADR 0044) processes them in, and what the drop
+ * apply-claims (ADR 0052) processes them in, and what the drop
  * message's own claims-annotation is built from. */
 export async function listLootClaims(dropId: string): Promise<readonly LootClaim[]> {
   return db

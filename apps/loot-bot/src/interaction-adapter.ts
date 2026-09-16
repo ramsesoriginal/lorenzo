@@ -75,7 +75,7 @@ export type RawInteractionPayload = Readonly<{
 export type ResponseBody = Readonly<{ type: number; data?: unknown }>;
 
 /** The seam between "a command calls `deferReply()`/`reply()`/etc." and
- * "something answers Discord's original webhook POST" (ADR 0045). Exactly
+ * "something answers Discord's original webhook POST" (ADR 0053). Exactly
  * one call to `send` per interaction ever matters - a later call is a bug
  * elsewhere and is silently ignored rather than crashing mid-request, the
  * same "don't let one broken path take down the whole response" spirit as
@@ -407,7 +407,7 @@ function buildModalSubmitInteraction(
  * Builds this bot's adapter interaction for a raw, already-signature-
  * verified Discord payload, plus the "first response" promise whichever
  * HTTP handler received the webhook POST must await and answer with
- * (ADR 0045). Returns `undefined` for a `PING` - the caller answers that
+ * (ADR 0053). Returns `undefined` for a `PING` - the caller answers that
  * directly with `{type: 1}` and never reaches command dispatch at all.
  */
 export function buildAdapterInteraction(

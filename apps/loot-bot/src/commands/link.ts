@@ -9,7 +9,7 @@ import { storePendingLink } from "../pending-links.js";
 import type { Command } from "./types.js";
 
 /**
- * `/link` - starts the OAuth Authorization Code + PKCE flow (ADR 0042).
+ * `/link` - starts the OAuth Authorization Code + PKCE flow (ADR 0050).
  * No separate `/auth/start` HTTP hop: the authorization URL is built
  * straight from discovery and handed to the user directly, who is sent on
  * to Authgear itself; `/auth/callback` (auth-callback-route.ts) picks the

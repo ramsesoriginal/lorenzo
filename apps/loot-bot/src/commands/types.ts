@@ -9,7 +9,7 @@ export type CommandContext = Readonly<{
 
 /**
  * This bot's own, transport-agnostic stand-in for discord.js's Gateway-
- * delivered interaction classes (ADR 0045). Every command file was already
+ * delivered interaction classes (ADR 0053). Every command file was already
  * written against exactly this narrow surface - confirmed by grepping every
  * `interaction.*` call site before the rewrite - so these types intentionally
  * mirror discord.js's own method names/shapes and hierarchy (a plain
@@ -145,7 +145,7 @@ export type Command = Readonly<{
   // satisfy this one field.
   definition: SlashCommandBuilder | SlashCommandOptionsOnlyBuilder;
   execute: (interaction: ChatInputCommandInteraction, ctx: CommandContext) => Promise<void>;
-  /** Optional - only commands with an autocompleted option (ADR 0043's
+  /** Optional - only commands with an autocompleted option (ADR 0051's
    * `/give`) need one. Must itself call `interaction.respond([...])`
    * (this bot's own interaction model gives autocomplete no other way to
    * reply) within Discord's ~3s window - never let it throw uncaught (see
@@ -156,7 +156,7 @@ export type Command = Readonly<{
 
   /**
    * Optional - only commands with their own persistent, interactive
-   * message need these (ADR 0044's `/drop`). Every `customId` this bot
+   * message need these (ADR 0052's `/drop`). Every `customId` this bot
    * ever creates is namespaced `"<this command's own definition.name>:
    * <action>:<...ids>"`; commands/index.ts's dispatcher extracts the part
    * before the first `:` and routes to whichever of these three is

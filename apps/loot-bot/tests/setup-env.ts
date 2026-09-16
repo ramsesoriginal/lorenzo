@@ -5,7 +5,7 @@
  * equivalent built-in flag of its own. Node's own `process.loadEnvFile()`
  * (stable since Node 20.12) is used directly rather than adding a
  * `dotenv` dependency, matching this app's existing "Node 22's native
- * --env-file, no dotenv dependency needed" choice (ADR 0042).
+ * --env-file, no dotenv dependency needed" choice (ADR 0050).
  *
  * Only tests/db.test.ts actually needs real environment variables
  * (LOOT_BOT_DATABASE_URL / LOOT_BOT_MIGRATIONS_DATABASE_URL, to reach a
@@ -15,7 +15,7 @@
  *
  * Silently does nothing if `.env` doesn't exist - the expected case in
  * CI, which is expected to provide real environment variables directly
- * instead (see ADR 0042's own note that ci.yml needs
+ * instead (see ADR 0050's own note that ci.yml needs
  * LOOT_BOT_DATABASE_URL/LOOT_BOT_MIGRATIONS_DATABASE_URL added), and the
  * expected case for anyone running the suite without ever having set up
  * a local Postgres.

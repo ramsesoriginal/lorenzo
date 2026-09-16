@@ -19,7 +19,7 @@ export type HttpServer = Readonly<{
  * framework's real value-adds (schema validation, plugin ecosystem) don't
  * engage at that scale. Mirrors apps/api/scripts/get_dev_token.py's own
  * precedent of using the plainest possible HTTP listener for a small OAuth
- * callback - see ADR 0042.
+ * callback - see ADR 0050.
  *
  * Routes are matched on `url.pathname` only (no method routing, no path
  * params) - everything this app needs so far is a distinct GET path; revisit

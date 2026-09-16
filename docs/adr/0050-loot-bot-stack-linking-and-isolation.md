@@ -1,4 +1,4 @@
-# 0042 - loot-bot: stack, account linking, and data isolation
+# 0050 - loot-bot: stack, account linking, and data isolation
 
 Status: accepted
 

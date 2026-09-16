@@ -9,7 +9,7 @@ import { consumePendingLink } from "./pending-links.js";
 
 /**
  * `/auth/callback` - the redirect target Authgear sends the user's browser
- * back to after `/link` (ADR 0042). Builds a `RouteHandler` (not a bare
+ * back to after `/link` (ADR 0050). Builds a `RouteHandler` (not a bare
  * constant like `healthzRoute`) because, unlike `/healthz`, this route
  * needs `config`/`logger` - both closed over here rather than threaded
  * through `RouteHandler`'s own fixed signature.

@@ -72,7 +72,7 @@ export function createState(): string {
 /**
  * The Authgear authorization URL to send a Discord user to for `/link`.
  * Scope includes `offline_access` so the eventual code exchange also
- * returns a refresh token (ADR 0042, confirmed against Authgear's docs).
+ * returns a refresh token (ADR 0050, confirmed against Authgear's docs).
  */
 export function buildAuthorizationUrl(
   oidcConfig: client.Configuration,
@@ -103,7 +103,7 @@ export type TokenResult = Readonly<{
  * token exchange's `redirect_uri` matches exactly what was authorized.
  *
  * The returned id_token's signature is deliberately never verified (see
- * ADR 0042): it arrives over this direct, server-to-server HTTPS response
+ * ADR 0050): it arrives over this direct, server-to-server HTTPS response
  * from Authgear's own token endpoint, not through the user's browser, so
  * there's no one positioned to forge it on this leg. openid-client itself
  * reflects that same reasoning - it only decodes and checks the id_token's
@@ -138,7 +138,7 @@ export type RefreshResult = Readonly<{
 
 /**
  * Exchanges a refresh token for a fresh access token. Whether Authgear
- * rotates the refresh token on use is genuinely undocumented (ADR 0042) -
+ * rotates the refresh token on use is genuinely undocumented (ADR 0050) -
  * callers must check `refreshToken` for a new value themselves rather than
  * assume either behavior.
  */

@@ -35,10 +35,10 @@ export const commandDefinitions = commands.map((c) => c.definition.toJSON());
 const commandsByName = new Map(commands.map((c) => [c.definition.name, c]));
 
 /**
- * Dispatches one already-verified, already-adapted interaction (ADR 0045 -
+ * Dispatches one already-verified, already-adapted interaction (ADR 0053 -
  * built by `interaction-adapter.ts` from a raw HTTP Interactions Endpoint
  * payload, no Gateway `Client` involved). The one-bot-one-guild invariant
- * (ADR 0042) is checked by `interactions-route.ts` before this is ever
+ * (ADR 0050) is checked by `interactions-route.ts` before this is ever
  * called - not repeated here, since by this point some response must
  * always be sent within Discord's response window, and a silent early
  * return would leave that window's promise unresolved.
@@ -48,7 +48,7 @@ export async function dispatchInteraction(
   ctx: CommandContext,
 ): Promise<void> {
   // Chat-input/autocomplete are keyed by commandName; components/modals by
-  // their own customId's namespace prefix (ADR 0044 - "<command name>:
+  // their own customId's namespace prefix (ADR 0052 - "<command name>:
   // <action>:<...ids>"), both resolving into the same commandsByName map.
   // Checked directly via these three guards (rather than through a
   // separate helper predicate) so TypeScript can actually narrow the
@@ -67,7 +67,7 @@ export async function dispatchInteraction(
     try {
       await command.autocomplete?.(interaction, ctx);
     } catch (error) {
-      // Autocomplete has no error-reply channel of its own (ADR 0043's own
+      // Autocomplete has no error-reply channel of its own (ADR 0051's own
       // note on types.ts's Command.autocomplete) - an empty choice list is
       // the only graceful failure mode; the real error still surfaces when
       // the user actually submits the command.

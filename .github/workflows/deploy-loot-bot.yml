@@ -72,7 +72,7 @@ jobs:
         uses: google-github-actions/auth@v3
         with:
           # Same GCP project, same Workload Identity Pool/Provider, same
-          # service account as deploy-api.yml (ADR 0045) - both are already
+          # service account as deploy-api.yml (ADR 0053) - both are already
           # scoped at the project level (run.admin/artifactregistry.writer/
           # iam.serviceAccountUser), so a second Cloud Run service and a
           # second Artifact Registry repo need no new IAM setup.

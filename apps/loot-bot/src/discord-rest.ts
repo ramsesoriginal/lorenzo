@@ -10,7 +10,7 @@ export function ephemeralFlags(ephemeral: boolean | undefined): number | undefin
 }
 
 /** discord.js builder instances (EmbedBuilder, ActionRowBuilder, ...) are
- * passed straight through by every `format-*.ts` module (ADR 0045) - this
+ * passed straight through by every `format-*.ts` module (ADR 0053) - this
  * is the one place they get flattened to plain JSON before hitting the
  * network, via their own `.toJSON()`, same as discord.js itself would do
  * internally. */

@@ -6,7 +6,7 @@ import { logger } from "../src/logger.js";
 /**
  * Registers this bot's slash commands for DISCORD_GUILD_ID. Guild-scoped
  * (not global) commands, deliberately - this bot only ever serves one guild
- * (ADR 0042), and guild command updates propagate immediately, unlike
+ * (ADR 0050), and guild command updates propagate immediately, unlike
  * global commands' up-to-an-hour cache. Run via `mise run register-commands`
  * whenever `src/commands/index.ts`'s command list changes; not run
  * automatically on every boot (see src/index.ts).

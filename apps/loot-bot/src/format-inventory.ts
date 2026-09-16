@@ -13,7 +13,7 @@ const TRUNCATION_MARGIN = 24;
  * container (ADR 0020's own "owned-by, grouped by direct container" shape) -
  * a null container becomes "Not in a container". Pure function, no Discord
  * API calls - deliberately separate from commands/inventory.ts so it's
- * testable against plain fixture data (ADR 0042's own stated test strategy).
+ * testable against plain fixture data (ADR 0050's own stated test strategy).
  *
  * One embed per character; if a character has more containers than fit in
  * one embed's 25 fields, or a container's own item list overflows a single

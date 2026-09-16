@@ -16,7 +16,7 @@ async function main(): Promise<void> {
     new Map([
       ["/healthz", healthzRoute],
       ["/auth/callback", createAuthCallbackRoute(config, logger)],
-      // Discord's HTTP Interactions Endpoint (ADR 0045) - replaces the
+      // Discord's HTTP Interactions Endpoint (ADR 0053) - replaces the
       // Gateway `Client`/`.login()` this process used to run: every slash
       // command, autocomplete, button/select-menu, and modal submit now
       // arrives as a signature-verified webhook POST here instead.

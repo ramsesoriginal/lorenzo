@@ -130,7 +130,7 @@ Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the n
 4. **Trigger a deploy** (push to `main` touching `apps/api/`, or re-run `deploy-api.yml` manually). Its migration step runs as the *privileged* role (`MIGRATIONS_DATABASE_URL`, from step 1) and creates the restricted role using the credentials named in `DATABASE_URL` (from step 3) - by the time the Cloud Run deploy step runs moments later in the same job, that role already exists and is grantable.
 5. **Verify**: the deploy's own `/readyz` smoke test passing confirms the new role can connect and query at all; it doesn't by itself prove RLS is enforced under it. Confirm that separately (e.g. the same live check `test_rls_isolates_tenants_for_a_non_superuser_role` does locally, run once by hand against Neon) before considering this actually closed.
 
-## `apps/loot-bot` (ADR 0045)
+## `apps/loot-bot` (ADR 0053)
 
 Reuses the *same* GCP project, Workload Identity Pool/Provider, and service account as `apps/api` above - all three of that service account's roles (`roles/run.admin`, `roles/artifactregistry.writer`, `roles/iam.serviceAccountUser`) are already project-scoped, not scoped to the `lorenzo-api` Cloud Run service specifically, so a second service and a second Artifact Registry repo need no new IAM setup at all. Only new, loot-bot-specific pieces:
 
