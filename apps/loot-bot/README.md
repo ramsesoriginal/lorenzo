@@ -58,4 +58,4 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 
 ## Deployment
 
-Not yet decided. A persistent Discord gateway connection doesn't fit Cloud Run's scale-to-zero model the way `apps/api` does ([ADR 0011](../../docs/adr/0011-deploy-target-cloud-run-neon.md)) — a real future decision, out of scope for this slice.
+Google Cloud Run, same GCP project and CD pipeline as `apps/api` ([ADR 0011](../../docs/adr/0011-deploy-target-cloud-run-neon.md)). This needed a transport change first — a persistent Discord gateway connection doesn't fit Cloud Run's scale-to-zero model, so the bot receives interactions over Discord's HTTP Interactions Endpoint instead of the gateway; see [ADR 0045](../../docs/adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md) for why and how, and [`docs/operations/deployment-setup.md`](../../docs/operations/deployment-setup.md) for the one-time setup.
