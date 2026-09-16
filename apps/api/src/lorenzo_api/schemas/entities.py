@@ -116,6 +116,7 @@ class EntityDetailOut(BaseModel):
     prototypes: list[EntitySummary]
     instances: list[EntitySummary]
     parent: EntitySummary | None
+    quantity: int | None
     children: list[EntitySummary]
 
     @classmethod
@@ -146,6 +147,22 @@ class EntityDetailOut(BaseModel):
             ],
             prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
             instances=[EntitySummary.from_entity(e) for e in entity.instances],
-            parent=EntitySummary.from_entity(entity.parent) if entity.parent is not None else None,
-            children=[EntitySummary.from_entity(e) for e in entity.children],
+            # ADR 0041: entity.containment (the scalar Containment row for
+            # this entity's own edge), not entity.parent - only the former
+            # carries quantity alongside the parent entity. parent/quantity
+            # are always both None or both set together (no containment
+            # row at all vs. exactly one).
+            parent=(
+                EntitySummary.from_entity(entity.containment.parent)
+                if entity.containment is not None
+                else None
+            ),
+            quantity=entity.containment.quantity if entity.containment is not None else None,
+            # entity.contained_links (the Containment association-object
+            # list), not entity.children (the bare Entity list) - only the
+            # former carries each child's own quantity within this entity.
+            children=[
+                EntitySummary.from_entity(link.child, quantity=link.quantity)
+                for link in entity.contained_links
+            ],
         )

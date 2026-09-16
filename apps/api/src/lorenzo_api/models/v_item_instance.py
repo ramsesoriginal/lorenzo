@@ -36,6 +36,7 @@ class VItemInstance(EntityViewMixin, Base):
     hp: Mapped[int | None]
     armor: Mapped[int | None]
     container_entity_id: Mapped[uuid.UUID | None]
+    quantity: Mapped[int | None]
     is_magical: Mapped[bool | None]
     is_cursed: Mapped[bool | None]
 

@@ -29,6 +29,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
+    Containment,
     Entity,
     Information,
     Ownership,
@@ -123,8 +124,13 @@ async def get_entity_detail_or_404(
             selectinload(Entity.information).selectinload(Information.knowledge_links),
             selectinload(Entity.prototypes),
             selectinload(Entity.instances),
-            selectinload(Entity.parent),
-            selectinload(Entity.children),
+            # ADR 0041: Entity.containment/contained_links (the Containment
+            # association-object relationships), not Entity.parent/children
+            # (the bare Entity lists) - only the former carry the per-edge
+            # quantity column EntityDetailOut.parent/quantity/children now
+            # need.
+            selectinload(Entity.containment).selectinload(Containment.parent),
+            selectinload(Entity.contained_links).selectinload(Containment.child),
         )
     )
     entity = await session.scalar(stmt)

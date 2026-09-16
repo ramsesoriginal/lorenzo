@@ -31,6 +31,7 @@ __all__ = [
     "InformationAlreadyExistsError",
     "InformationManagementForbiddenError",
     "InformationNotFoundError",
+    "InvalidSplitQuantityError",
     "InvalidStatGroupError",
     "InvalidStatValueTypeError",
     "InvalidTokenError",
@@ -119,6 +120,17 @@ class InvalidItemPrototypeError(UnprocessableProblem):
     """
 
     title = "Prototype id is not a base item"
+
+
+class InvalidSplitQuantityError(UnprocessableProblem):
+    """POST /item-instances/{id}/split - see ADR 0041. Either the source has
+    no Containment row at all (nothing to split from), or the requested
+    quantity isn't strictly less than the source's current stack size -
+    splitting off "all of it" is a container/owner reassignment of the
+    whole stack, not a split.
+    """
+
+    title = "Invalid split quantity"
 
 
 class ItemInstanceManagementForbiddenError(ForbiddenProblem):

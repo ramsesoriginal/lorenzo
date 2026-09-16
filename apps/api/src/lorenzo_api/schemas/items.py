@@ -25,6 +25,7 @@ __all__ = [
     "OwnedByResponse",
     "SetOwnerRequest",
     "SetContainerRequest",
+    "SplitItemInstanceRequest",
 ]
 
 
@@ -149,6 +150,7 @@ class ItemOut(BaseModel):
     hp: int | None
     armor: int | None
     container_entity_id: uuid.UUID | None
+    quantity: int | None
     is_magical: bool | None
     is_cursed: bool | None
     descriptions: list[DescriptionOut]
@@ -175,6 +177,7 @@ class ItemOut(BaseModel):
             hp=view.hp,
             armor=view.armor,
             container_entity_id=view.container_entity_id,
+            quantity=view.quantity,
             is_magical=view.is_magical,
             is_cursed=view.is_cursed,
             descriptions=_descriptions_out(view.descriptions(visibility)),
@@ -226,6 +229,16 @@ class SetContainerRequest(BaseModel):
     container_entity_id: uuid.UUID
 
 
+class SplitItemInstanceRequest(BaseModel):
+    """POST /item-instances/{id}/split body - see ADR 0041. `quantity` is
+    how many units to split *off* into a new sibling instance; the source
+    must currently hold strictly more than this (splitting off "all of it"
+    is a container/owner reassignment of the whole stack, not a split).
+    """
+
+    quantity: int
+
+
 class ItemInstanceOut(BaseModel):
     """A specific, ownable item ("My Shovel"), from `VItemInstance` -
     identical to `ItemOut` plus `owner_entity_id`. See ADR 0019/0020 and
@@ -244,6 +257,7 @@ class ItemInstanceOut(BaseModel):
     hp: int | None
     armor: int | None
     container_entity_id: uuid.UUID | None
+    quantity: int | None
     is_magical: bool | None
     is_cursed: bool | None
     descriptions: list[DescriptionOut]
@@ -271,6 +285,7 @@ class ItemInstanceOut(BaseModel):
             hp=view.hp,
             armor=view.armor,
             container_entity_id=view.container_entity_id,
+            quantity=view.quantity,
             is_magical=view.is_magical,
             is_cursed=view.is_cursed,
             descriptions=_descriptions_out(view.descriptions(visibility)),

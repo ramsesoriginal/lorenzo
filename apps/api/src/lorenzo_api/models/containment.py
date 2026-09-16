@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, TenantFk
@@ -22,6 +22,7 @@ class Containment(Base):
     """
 
     __tablename__ = "containment"
+    __table_args__ = (CheckConstraint("quantity >= 1", name="containment_quantity_positive"),)
 
     child_entity_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
@@ -30,6 +31,13 @@ class Containment(Base):
         ForeignKey("entity.id", ondelete="CASCADE"), index=True
     )
     tenant_id: Mapped[TenantFk]
+    # How many indistinguishable copies of child_entity_id this row
+    # represents - see ADR 0041. DEFAULT 1 (not nullable) so an ordinary,
+    # non-stacked containment link is trivially and correctly "a stack of
+    # one," not a special case every aggregate query has to COALESCE
+    # around - mirrors stat_group.priority's identical server_default
+    # shape (ADR 0014).
+    quantity: Mapped[int] = mapped_column(Integer, server_default=text("1"))
 
     child: Mapped[Entity] = relationship(
         lazy="raise_on_sql", foreign_keys=[child_entity_id], back_populates="containment"

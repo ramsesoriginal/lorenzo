@@ -32,6 +32,7 @@ from lorenzo_api.entity_access import (
 from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
     InvalidItemPrototypeError,
+    InvalidSplitQuantityError,
     ItemInstanceManagementForbiddenError,
     ItemInstanceNotFoundError,
     TenantNotFoundError,
@@ -56,6 +57,7 @@ from lorenzo_api.schemas.items import (
     OwnedGroupOut,
     SetContainerRequest,
     SetOwnerRequest,
+    SplitItemInstanceRequest,
 )
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0032/RFC 0005,
@@ -688,3 +690,93 @@ async def clear_item_instance_container(
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, session, user)
+
+
+@router.post("/{entity_id}/split", status_code=201)
+async def split_item_instance(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: SplitItemInstanceRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> ItemInstanceOut:
+    """Splits body.quantity units off entity_id's current stack into a new
+    sibling instance at the same container, decrementing the source's own
+    Containment.quantity by that amount - see ADR 0041. Self-or-managed
+    authorization against the *source* entity (_authorize_instance_write,
+    unchanged) - splitting your own stack is acting on your own stuff, the
+    same tier every other instance write already uses.
+
+    The new instance copies the source's own direct EntityPrototype
+    link(s) and current owner, if any - it's a fresh instance of the same
+    prototype(s), created the same way POST /item-instances creates one,
+    not a deep clone of the source's own accumulated entity_stat overrides,
+    Information, or attribution trail.
+
+    201 + Location + the *new* instance's canonical shape, mirroring
+    POST /item-instances's own convention - a caller that wants the
+    source's own new (decremented) quantity re-GETs it, same as any other
+    write's side effects on a different resource.
+    """
+    entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+
+    source_containment = await session.get(Containment, entity_id)
+    if source_containment is None or body.quantity >= source_containment.quantity:
+        current = source_containment.quantity if source_containment is not None else None
+        raise InvalidSplitQuantityError(
+            detail=(
+                f"Cannot split {body.quantity} unit(s) off item instance {entity_id} "
+                f"(current stack quantity: {current})"
+            )
+        )
+
+    prototype_ids = (
+        (
+            await session.execute(
+                select(EntityPrototype.prototype_id).where(
+                    EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    owner_id = await _current_owner_character_id(session, entity_id=entity_id, tenant_id=tenant_id)
+
+    new_entity = Entity(
+        tenant_id=tenant_id, name=entity.name, created_by=user.id, updated_by=user.id
+    )
+    session.add(new_entity)
+    await session.flush()
+    session.add(ItemInstance(entity_id=new_entity.id, tenant_id=tenant_id))
+    for prototype_id in prototype_ids:
+        session.add(
+            EntityPrototype(entity_id=new_entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
+        )
+    if owner_id is not None:
+        session.add(
+            Ownership(
+                owned_entity_id=new_entity.id, owner_character_id=owner_id, tenant_id=tenant_id
+            )
+        )
+    session.add(
+        Containment(
+            child_entity_id=new_entity.id,
+            parent_entity_id=source_containment.parent_entity_id,
+            tenant_id=tenant_id,
+            quantity=body.quantity,
+        )
+    )
+    source_containment.quantity -= body.quantity
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    response.headers["Location"] = str(
+        request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=new_entity.id)
+    )
+    return await _item_instance_out(tenant_id, new_entity.id, request, session, user)
