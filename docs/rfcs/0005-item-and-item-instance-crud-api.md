@@ -81,6 +81,8 @@ This resolves this RFC's own original "Finer-grained instance authorization" ope
 
 **Should `instantiate` accept multiple containers/owners atomically for "give this loot to five characters at once"?** Not proposed — `POST /item-instances` creates exactly one instance per call, matching REST's usual one-resource-per-`POST` shape; a bulk-instantiate endpoint is a plausible future addition but isn't asked for here.
 
+**Assigning an instance to someone else's character needs `can_manage_campaign` on only *one* of that character's campaigns — [RFC 0007](0007-user-player-character-crud-api.md) used to require *every one* of a character's campaigns for its own analogous "reassign to someone else" cases.** **Resolved in RFC 0007's favor of a three-way split, not by changing anything here**: this RFC's own "any one is enough" rule was already correct for what it actually does — assigning an item touches no roster link at all, the same "no cross-campaign effect" shape RFC 0007 now calls its any-one-current-campaign tier for a plain character rename. RFC 0007's old blanket "every campaign" rule was the one that needed splitting, not this one; see its Decision section for the full breakdown (roster-link changes scoped to the specific campaign touched, plain edits any-one, and only a full demote needing every campaign).
+
 ## Consequences
 
 - No migration of this RFC's own for `item`/`item_instance`/`entity_prototype`/`ownership`/`containment`, which all already exist — but it now depends on [RFC 0010](0010-created-by-updated-by-attribution.md)'s migration (`entity.created_by`/`updated_by`) having landed first, unlike this RFC's first draft.

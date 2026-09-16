@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base
-from lorenzo_api.models.item_view_mixin import ItemViewMixin
+from lorenzo_api.models.entity_view_mixin import EntityViewMixin
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
 
 
-class VItemInstance(ItemViewMixin, Base):
+class VItemInstance(EntityViewMixin, Base):
     """Read-only view over every item_instance-typed entity (the
     `item_instance` table only, not `item`) - see ADR 0019. Same shape as
     VItem plus `owner_entity_id`, since finding "what does this character
@@ -36,6 +36,7 @@ class VItemInstance(ItemViewMixin, Base):
     hp: Mapped[int | None]
     armor: Mapped[int | None]
     container_entity_id: Mapped[uuid.UUID | None]
+    quantity: Mapped[int | None]
     is_magical: Mapped[bool | None]
     is_cursed: Mapped[bool | None]
 

@@ -3,6 +3,7 @@ from sqlalchemy import text
 
 from lorenzo_api.models import (
     Being,
+    Character,
     Containment,
     Entity,
     EntityPrototype,
@@ -30,6 +31,7 @@ _CASCADE_TABLES = (
     "information",
     "payload",
     "payload_description",
+    "character",
     "group_member",
     "knowledge",
 )
@@ -70,9 +72,12 @@ async def test_deleting_tenant_cascades_through_every_table() -> None:
         session.add(payload)
         await session.flush()
         # b also doubles as group_member's character side - needs a Being
-        # row first (character_entity_id FKs to being.entity_id, not a bare
-        # entity.id).
+        # row and a Character row first (character_entity_id FKs to
+        # character.entity_id, which itself FKs to being.entity_id, not a
+        # bare entity.id).
         session.add(Being(entity_id=b.id, tenant_id=tenant_id))
+        await session.flush()
+        session.add(Character(entity_id=b.id, tenant_id=tenant_id))
         await session.flush()
 
         session.add_all(
@@ -151,8 +156,11 @@ async def test_deleting_entity_cascades_its_own_rows_but_not_siblings() -> None:
         session.add(payload)
         await session.flush()
         # b doubles as group_member's character side - needs a Being row
-        # first (character_entity_id FKs to being.entity_id).
+        # and a Character row first (character_entity_id FKs to
+        # character.entity_id, which itself FKs to being.entity_id).
         session.add(Being(entity_id=b_id, tenant_id=tenant_id))
+        await session.flush()
+        session.add(Character(entity_id=b_id, tenant_id=tenant_id))
         await session.flush()
 
         session.add_all(

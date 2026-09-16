@@ -20,7 +20,7 @@ For each `CampaignGm` row the caller holds in this tenant:
 2. Extend through `Ownership` — anything owned by one of those characters.
 3. Extend through `Containment`, recursively — anything inside/on any entity reached so far (an item in a bag on a character; a bag in a chest that character owns) — using the same bounded, cycle-safe recursive-walk shape `routers/item_instances.py`'s `_recursive_descendants_cte`/`_MAX_CONTAINMENT_DEPTH` already establishes for exactly this kind of walk, since `Containment` is deliberately cycle-*tolerant* ([ADR 0016](../adr/0016-containment.md)).
 
-Steps 2-3 (ownership/containment reachability from a character) are the same walk [RFC 0005](0005-item-and-item-instance-crud-api.md) later reuses for its own self-or-managed item-instance authorization — both live in a shared `entity_access.py`, not two independent implementations of the identical traversal.
+Steps 2-3 (ownership/containment reachability from a character) are the same walk [RFC 0005](0005-item-and-item-instance-crud-api.md) later reuses for its own self-or-managed item-instance authorization — meant to live in one shared `entity_access.py` both RFCs call, not two independent implementations of the identical traversal (see Consequences below for the extraction's own status).
 
 The full GM-reachable set is the union of this walk across **every** campaign the caller GMs in the tenant — mirroring, one level up, the same "union across every campaign" shape character-knowledge resolution already uses for `CharacterPlayer`. A user GMing two campaigns sees the union of both, each still bounded to what's reachable from that specific campaign's own characters — GMing campaign A never leaks visibility into campaign C's unrelated content just because the same user holds both grants.
 
@@ -64,6 +64,6 @@ Deliberately does not add a `campaign_id` parameter to `GET /tenants/{tenant_id}
 ## Consequences
 
 - No schema change — `CharacterPlayer`, `Ownership`, `Containment`, `CampaignGm` all already exist exactly as this needs them.
-- Its ownership/containment reachability walk is shared with [RFC 0005](0005-item-and-item-instance-crud-api.md)'s later `entity_access.py` — written first here for GM-visibility, reused there for item-instance write authorization, not reimplemented.
+- Its ownership/containment reachability walk is meant to be shared with [RFC 0005](0005-item-and-item-instance-crud-api.md)'s item-instance write authorization via a common `entity_access.py`, not reimplemented — named here as this RFC's own consequence, but the actual extraction is RFC 0005's own flagged follow-up (its Consequences section), not yet done by either RFC: both are still proposals, and today this walk exists nowhere but in this document's own Decision section above.
 - Fixes a real, currently-shipping gap: a campaign's own GM, holding no tenant-wide `Membership`, sees strictly less than the milestone's scenario requires today.
 - `information_visibility.py`'s test suite gains its first case proving GM-only information becomes visible to a `CampaignGm` who is not tenant-orga — today only the orga path and the player/character-knowledge paths are covered.

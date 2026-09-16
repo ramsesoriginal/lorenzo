@@ -15,18 +15,29 @@ uv = "0.12.3"
 # kotlin = "2.1"
 # dotnet = "9"
 
+# `//...:x` (Bazel-style "everything under here") also matches this file's
+# own `//:x` task, since the root project is part of "everything" - so it
+# recursed into itself infinitely instead of fanning out. `//apps/...:x`
+# scopes the glob to actual sub-projects instead. Extend to
+# `//packages/...:x` too once packages/* exists (see
+# docs/guides/adding-a-package.md) - omitted for now because mise errors on
+# a glob that matches zero tasks.
 [tasks.dev]
 description = "Run every app's dev task"
-run = "mise run '//...:dev'"
+run = "mise run '//apps/...:dev'"
 
 [tasks.lint]
 description = "Lint everything (fans out to every app)"
-run = "mise run '//...:lint'"
+run = "mise run '//apps/...:lint'"
 
 [tasks.format]
 description = "Format everything (fans out to every app)"
-run = "mise run '//...:format'"
+run = "mise run '//apps/...:format'"
 
 [tasks.test]
 description = "Test everything (fans out to every app)"
-run = "mise run '//...:test'"
+run = "mise run '//apps/...:test'"
+
+[tasks.check]
+description = "Full pre-PR gate: lint (incl. type check) + test, everything"
+depends = ["lint", "test"]

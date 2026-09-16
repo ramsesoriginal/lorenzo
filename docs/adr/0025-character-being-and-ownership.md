@@ -1,6 +1,6 @@
 # 0025 - Character (being), roster reuse, and ownership
 
-Status: accepted
+Status: accepted — partially superseded by [ADR 0031](0031-character-table-and-read-api.md), which moves `owner_player_id` off `being` onto a new `character` table layered under it, and retargets `character_player.character_entity_id` from `being.entity_id` to `character.entity_id` (a being now has to be "promoted" to a character row before it can be rostered); the roster-reuse/ownership decisions themselves stand
 
 ## Context
 

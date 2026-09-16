@@ -1,6 +1,6 @@
 # 0026 - Campaign GM, orga, and the campaign access rule
 
-Status: accepted
+Status: accepted — partially superseded by [ADR 0030](0030-tenant-campaign-read-api.md), which widens `can_access_campaign`'s blanket-bypass branch from ORGA-only to `is_tenant_admin` (OWNER or ORGA) and renames `orga_campaign_opt_out` to `tenant_admin_campaign_opt_out`; the access rule's shape (a player row, a campaign_gm row, or the bypass) and everything else below stand
 
 ## Context
 

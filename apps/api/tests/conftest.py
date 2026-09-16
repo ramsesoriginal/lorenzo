@@ -1,7 +1,7 @@
 import subprocess
 import sys
 import uuid
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
 import pytest
 from _admin_db import admin_session_factory
@@ -14,7 +14,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.dependencies import SessionDep, get_current_user, get_jwks_client
 from lorenzo_api.main import app
-from lorenzo_api.models import Membership, MembershipRole, Player, Tenant, User
+from lorenzo_api.models import (
+    Being,
+    Campaign,
+    Character,
+    Entity,
+    Membership,
+    MembershipRole,
+    Player,
+    Tenant,
+    User,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -89,6 +99,36 @@ async def delete_tenant(tenant_id: uuid.UUID) -> None:
         await session.commit()
 
 
+async def make_campaign(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    name: str = "Campaign",
+    game_system: str = "D&D 5e",
+) -> Campaign:
+    """A campaign with its required dedicated Entity already attached (ADR
+    0030) and a valid random slug/description - promoted here since every
+    existing Campaign(...) fixture call needed both the moment slug/
+    description stopped being optional, the same trigger make_player was
+    promoted for. Not a pytest fixture, matching make_player - some tests
+    need more than one campaign per tenant.
+    """
+    entity = Entity(tenant_id=tenant_id, name=name)
+    session.add(entity)
+    await session.flush()
+    campaign = Campaign(
+        tenant_id=tenant_id,
+        name=name,
+        game_system=game_system,
+        slug=f"campaign-{uuid.uuid4()}",
+        description="",
+        entity_id=entity.id,
+    )
+    session.add(campaign)
+    await session.flush()
+    return campaign
+
+
 async def make_player(
     session: AsyncSession, *, tenant_id: uuid.UUID, campaign_id: uuid.UUID
 ) -> Player:
@@ -108,11 +148,43 @@ async def make_player(
     return player
 
 
-@pytest.fixture
-async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
-    """get_current_user is overridden to a fixed test user - real token
-    verification is its own concern, tested directly in test_auth.py via
-    `raw_client` instead. Every other test uses this fixture.
+async def make_being(session: AsyncSession, *, tenant_id: uuid.UUID, name: str = "Being") -> Being:
+    """A bare sentient entity, no Character row - an NPC/monster stub not worth
+    individual tracking (ADR 0031).
+    """
+    entity = Entity(tenant_id=tenant_id, name=name)
+    session.add(entity)
+    await session.flush()
+    being = Being(entity_id=entity.id, tenant_id=tenant_id)
+    session.add(being)
+    await session.flush()
+    return being
+
+
+async def make_character(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    name: str = "Character",
+    owner_player_id: uuid.UUID | None = None,
+) -> Character:
+    """A tracked character - a being, promoted (ADR 0031/RFC 0004)."""
+    being = await make_being(session, tenant_id=tenant_id, name=name)
+    character = Character(
+        entity_id=being.entity_id, tenant_id=tenant_id, owner_player_id=owner_player_id
+    )
+    session.add(character)
+    await session.flush()
+    return character
+
+
+def _make_fake_current_user(
+    test_user_id: uuid.UUID, *, authgear_roles: frozenset[str]
+) -> Callable[[SessionDep], Awaitable[User]]:
+    """Builds the get_current_user override both `client` fixtures below
+    install - parameterized on authgear_roles (ADR 0033/RFC 0012) so the
+    tenant-creation negative-case test can get one with an empty set
+    without duplicating the rest of this function.
     """
 
     async def _fake_current_user(session: SessionDep) -> User:
@@ -123,9 +195,44 @@ async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
         await session.execute(
             text("SELECT set_config('app.user_id', :u, true)"), {"u": str(test_user_id)}
         )
-        return User(id=test_user_id, authgear_subject_id="conftest-fixture-user")
+        user = User(id=test_user_id, authgear_subject_id="conftest-fixture-user")
+        # Not a mapped column - see models.User's own docstring on it.
+        user.authgear_roles = authgear_roles
+        return user
 
-    app.dependency_overrides[get_current_user] = _fake_current_user
+    return _fake_current_user
+
+
+@pytest.fixture
+async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
+    """get_current_user is overridden to a fixed test user - real token
+    verification is its own concern, tested directly in test_auth.py via
+    `raw_client` instead. Every other test uses this fixture.
+
+    authgear_roles defaults to including "tenant-creator" (ADR 0033/RFC
+    0012) so tests unrelated to that role aren't newly blocked from
+    POST /tenants - the specific negative-case test for its 403 uses
+    `client_without_tenant_creator_role` below instead.
+    """
+    app.dependency_overrides[get_current_user] = _make_fake_current_user(
+        test_user_id, authgear_roles=frozenset({"tenant-creator"})
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    del app.dependency_overrides[get_current_user]
+
+
+@pytest.fixture
+async def client_without_tenant_creator_role(
+    test_user_id: uuid.UUID,
+) -> AsyncGenerator[AsyncClient]:
+    """Same as `client`, but with an empty authgear_roles - ADR 0033/RFC
+    0012's own negative case for POST /tenants' 403.
+    """
+    app.dependency_overrides[get_current_user] = _make_fake_current_user(
+        test_user_id, authgear_roles=frozenset()
+    )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

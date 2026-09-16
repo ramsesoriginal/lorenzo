@@ -5,9 +5,35 @@ from fastapi import Request
 from pydantic import BaseModel
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, EntityStat, Information, StatValueType
+from lorenzo_api.models import Entity, Information, StatValueType, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
+
+
+class InformationCreate(BaseModel):
+    """POST /tenants/{tenant_id}/entities/{entity_id}/information - see ADR
+    0038/RFC 0011. One call creates the Information row plus exactly one
+    PayloadDescription - mirroring RFC 0005's "one transaction, one
+    coherent unit" precedent (instantiate creating Entity+ItemInstance+
+    EntityPrototype together), not two separate calls that could leave an
+    Information row with no Payload yet.
+
+    Deliberately description-only for this slice - payload_number/picture/
+    document creation is explicitly out of scope (RFC 0011's own flagged
+    "binary payload upload mechanics... not resolved here"; a JSON body
+    has nowhere to put raw bytes without base64 or multipart, neither
+    decided). `type` is Information's own free-text narrative category
+    (RFC 0001: "a rumor, an official record, a GM note, ..."), not the
+    payload's kind - callers authoring more than one piece of information
+    about the same entity must give each a distinct `type`, since
+    Information carries UniqueConstraint(entity_id, type).
+    """
+
+    title: str
+    type: str
+    is_public: bool = False
+    content: str
+    locale: str = "en-US"
 
 
 class StatValueOut(BaseModel):
@@ -17,14 +43,19 @@ class StatValueOut(BaseModel):
     rather than from_attributes: which value_* column actually holds the
     value is chosen by reading StatDefinition.value_type first, not by
     probing all four columns for non-null (the DB's own CHECK constraint
-    on entity_stat already guarantees exactly one is ever set).
+    on entity_stat, and v_effective_stat's identical shape, already
+    guarantees exactly one is ever set).
     """
 
     name: str
     value: int | str | float | bool
 
     @classmethod
-    def from_entity_stat(cls, stat: EntityStat) -> StatValueOut:
+    def from_effective_stat(cls, stat: VEffectiveStat) -> StatValueOut:
+        """Takes a v_effective_stat row (ADR 0039), not an EntityStat - this
+        always reflects prototype-inherited values, not just an entity's own
+        direct ones.
+        """
         definition = stat.stat_definition
         value: int | str | float | bool | None
         if definition.value_type is StatValueType.INT:
@@ -39,7 +70,7 @@ class StatValueOut(BaseModel):
             raise ValueError(f"Unhandled StatValueType: {definition.value_type!r}")
         if value is None:
             raise ValueError(
-                f"EntityStat({stat.entity_id}, {stat.stat_definition_id}) is declared "
+                f"VEffectiveStat({stat.entity_id}, {stat.stat_definition_id}) is declared "
                 f"{definition.value_type.value} but its value column is null"
             )
         return cls(name=definition.name, value=value)
@@ -85,6 +116,7 @@ class EntityDetailOut(BaseModel):
     prototypes: list[EntitySummary]
     instances: list[EntitySummary]
     parent: EntitySummary | None
+    quantity: int | None
     children: list[EntitySummary]
 
     @classmethod
@@ -96,7 +128,7 @@ class EntityDetailOut(BaseModel):
             name=entity.name,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
-            stats=[StatValueOut.from_entity_stat(stat) for stat in entity.stats],
+            stats=[StatValueOut.from_effective_stat(stat) for stat in entity.effective_stats],
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
             # is typed for Entity specifically), reusing EntitySummary only
@@ -115,6 +147,22 @@ class EntityDetailOut(BaseModel):
             ],
             prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
             instances=[EntitySummary.from_entity(e) for e in entity.instances],
-            parent=EntitySummary.from_entity(entity.parent) if entity.parent is not None else None,
-            children=[EntitySummary.from_entity(e) for e in entity.children],
+            # ADR 0041: entity.containment (the scalar Containment row for
+            # this entity's own edge), not entity.parent - only the former
+            # carries quantity alongside the parent entity. parent/quantity
+            # are always both None or both set together (no containment
+            # row at all vs. exactly one).
+            parent=(
+                EntitySummary.from_entity(entity.containment.parent)
+                if entity.containment is not None
+                else None
+            ),
+            quantity=entity.containment.quantity if entity.containment is not None else None,
+            # entity.contained_links (the Containment association-object
+            # list), not entity.children (the bare Entity list) - only the
+            # former carries each child's own quantity within this entity.
+            children=[
+                EntitySummary.from_entity(link.child, quantity=link.quantity)
+                for link in entity.contained_links
+            ],
         )
