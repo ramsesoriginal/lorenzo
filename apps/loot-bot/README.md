@@ -38,6 +38,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/inventory` | Lists the item instances your linked characters own, grouped by container |
 | `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target |
 | `/drop` | GM-only: drops a pre-made loot container into the channel — take/claim/unclaim, then "apply claims" |
+| `/award` | GM-only: awards a brand-new item straight from the catalog to a character |
 | `/ping` | Liveness check |
 
 ## Architecture
