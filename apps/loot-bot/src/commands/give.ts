@@ -11,10 +11,10 @@ import { transferItem } from "./item-transfer.js";
 import type { Command } from "./types.js";
 
 /**
- * `/give` - loot-splitting (ADR 0043). No `quantity`, or one that covers
+ * `/give` - loot-splitting (ADR 0051). No `quantity`, or one that covers
  * the whole stack, transfers the source instance's ownership outright;
  * a smaller `quantity` splits that amount off first (POST .../split) and
- * transfers only the split-off instance - see ADR 0043 for the full
+ * transfers only the split-off instance - see ADR 0051 for the full
  * split-vs-transfer reasoning and why the item's container is left
  * untouched either way.
  */
@@ -87,7 +87,7 @@ export const giveCommand: Command = {
 
     try {
       // Fresh state, not whatever autocomplete last showed - the quantity
-      // decision below has to be correct now, not a moment ago (ADR 0043).
+      // decision below has to be correct now, not a moment ago (ADR 0051).
       const { data: current, etag } = await client.getItemInstance(
         tenantId,
         itemEntityId,
@@ -138,7 +138,7 @@ async function findGiveTargets(
 
   if (chosenItemId) {
     // Narrow to the chosen item's own campaign, if we can tell which one -
-    // autocomplete is a convenience, never authoritative (ADR 0043), so a
+    // autocomplete is a convenience, never authoritative (ADR 0051), so a
     // failed/ambiguous lookup here just falls back to "every campaign I'm
     // in" rather than failing the whole autocomplete request.
     try {

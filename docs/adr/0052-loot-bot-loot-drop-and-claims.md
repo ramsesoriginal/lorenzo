@@ -1,4 +1,4 @@
-# 0044 - loot-bot: loot drop, take, claim/unclaim, apply claims
+# 0052 - loot-bot: loot drop, take, claim/unclaim, apply claims
 
 Status: accepted
 
@@ -6,7 +6,7 @@ Status: accepted
 
 The user's own scenario: a GM has already prepared a container item instance holding other item instances (how - out of scope, a separate tool). The GM tells the bot to drop it; the bot displays the contents; players can take a whole item or part of a stack immediately, or just *claim* one (a local, non-authoritative marker, purely so a party can talk out how to split something before anyone actually takes it) and *unclaim* it again; the GM can then "apply claims," turning every outstanding claim into a real transfer at once.
 
-This is the first command in this bot needing more interaction surface than a plain slash command + autocomplete (`/give`, ADR 0043) - a drop needs to stay interactive across an open-ended stretch of real time while a party discusses loot, with several different users clicking on the same message.
+This is the first command in this bot needing more interaction surface than a plain slash command + autocomplete (`/give`, ADR 0051) - a drop needs to stay interactive across an open-ended stretch of real time while a party discusses loot, with several different users clicking on the same message.
 
 ## Decision
 
@@ -32,14 +32,14 @@ Picking an item from the **claim** menu is a *toggle*, not always "claim": if th
 
 ### Claims are persisted, not in-memory
 
-Unlike `/link`'s short-lived pending-state map (ADR 0042 - a lost in-flight attempt just means re-running `/link`), a loot-drop conversation can run for a real GM session's length. Losing every claim on a bot restart mid-session would be a visible regression, not a minor inconvenience. Two new `loot_bot` tables:
+Unlike `/link`'s short-lived pending-state map (ADR 0050 - a lost in-flight attempt just means re-running `/link`), a loot-drop conversation can run for a real GM session's length. Losing every claim on a bot restart mid-session would be a visible regression, not a minor inconvenience. Two new `loot_bot` tables:
 
 - `loot_drop`: `id` (uuid, pk), `container_entity_id`, `discord_channel_id`, `discord_message_id`, `created_by_discord_user_id`, `status` (`"open" | "applied"`), `created_at`.
 - `loot_claim`: `loot_drop_id` (fk), `item_entity_id`, `discord_user_id`, `character_entity_id` (resolved once, from the claimant's `/set-current` preference, at claim time - not re-resolved when claims are later applied), `quantity` (nullable int - null means "whatever's left"), `created_at`. Primary key `(loot_drop_id, item_entity_id, discord_user_id)` - one active claim per user per item; claiming again updates it in place (the toggle above deletes it instead, for the same user+item).
 
 ### Take: immediate, real, re-validated against fresh state every time
 
-Exactly `/give`'s own discipline, reused via `transferItem`: re-`GET` the item (capturing its `ETag`) immediately before deciding split-vs-whole, write with `If-Match`, map a `412` to a friendly retry message. Same known, documented gap as ADR 0043's amendment: owner/container writes don't bump `entity.updated_at`, so `If-Match` catches a race against an intervening rename but not against a second "take" on the same item - unresolved here too, not silently reintroduced as a surprise.
+Exactly `/give`'s own discipline, reused via `transferItem`: re-`GET` the item (capturing its `ETag`) immediately before deciding split-vs-whole, write with `If-Match`, map a `412` to a friendly retry message. Same known, documented gap as ADR 0051's amendment: owner/container writes don't bump `entity.updated_at`, so `If-Match` catches a race against an intervening rename but not against a second "take" on the same item - unresolved here too, not silently reintroduced as a surprise.
 
 ### Claim/unclaim: no API call, confirmed local-only
 
@@ -80,3 +80,10 @@ Two things surfaced only once the read side was actually implemented against ADR
 **Rendering always re-fetches the container listing using the *drop's own creator's* access token** (`getValidAccessToken(drop.createdByDiscordUserId)`), never the token of whichever player happened to trigger the refresh (a take, a claim, an unclaim). ADR 0040 narrows an *owned* item instance's visibility to whoever can reach its owner - self, GM, or orga. Once Alice takes the torch, Bob's own read of the container would simply stop returning it, and if Bob's own token were used to rebuild the shared message, the torch would silently vanish from everyone's view rather than showing "taken." The GM's own read, via ADR 0035/0040's GM-reach (rooted at their campaign's character roster), retains visibility into anything now owned by a character in a campaign they GM - which covers every realistic take/claim target, since those characters come from the same campaign roster the drop's own GM-gate already assumes. Accepted, undocumented-until-now residual gap: a player taking with a character from a campaign the drop's own GM does *not* GM would fall outside even the GM's own reach - the transfer itself still succeeds (it's authorized independently), only this bot's own shared-message rendering for that specific item would degrade.
 
 **A taken item disappears from the message entirely, rather than staying listed as struck-through history.** `availableDropItems` filters to `owner_entity_id === null` before building either the embed or the select menus - once an item (or the last unit of a stack) has an owner, it's gone from view, matching what "still up for grabs" needs to mean for the take/claim menus to stay accurate, at the cost of the message not doubling as a full running log of who got what mid-session (the final apply-claims summary is the actual record of outcomes, not the live message).
+
+## Addendum: apply-claims moved to `bulk-assign`; `/drop`'s container accepts a slug
+
+`apps/api` 0.4.0 closed two gaps this ADR's own plan had explicitly deferred:
+
+- **`POST .../item-instances/bulk-assign`** (its own ADR 0044) replaces `applyAllClaims`'s old one-`GET`-and-one-write-per-claim loop with one read per *distinct* claimed item (not per claim - nothing mutates until the single batch call, so claims sharing an item share a snapshot) followed by one bulk call. Eligibility (already-taken, not-enough-left) is still decided entirely client-side, same as before, for a reason specific to this endpoint: `bulk-assign`'s own authorization has a documented gap (its ADR's own Context section) where reassigning an already-owned instance isn't blocked, so nothing server-side stops a *later* array entry from silently overwriting a same-batch *earlier* entry's claim on a non-stack item - `assignedThisRun`/`remainingByItem` (tracked client-side, in claim order) do the job the old per-claim re-fetch used to do implicitly. Array order still has to match claim order (oldest first) for this to hold, since the server processes same-`entity_id` entries within one batch sequentially, in array order, reproducing the same step-by-step result a loop of real writes would have.
+- **`GET .../item-instances/by-slug/{slug}`** (ADR 0043) lets `/drop container:` accept a human-assigned slug instead of a raw entity id - resolved first whenever the input doesn't already look like a UUID. The originally-deferred "maybe a slug later" idea from this bot's own early design conversation is what this is.
