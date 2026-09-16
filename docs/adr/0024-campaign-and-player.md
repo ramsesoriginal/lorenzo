@@ -1,6 +1,6 @@
 # 0024 - Campaign and Player
 
-Status: accepted
+Status: accepted — extended by [ADR 0030](0030-tenant-campaign-read-api.md), which adds `slug`/`description`/`secret`/`entity_id`/`created_by`/`updated_by` columns to `campaign`; nothing decided below is reversed
 
 ## Context
 

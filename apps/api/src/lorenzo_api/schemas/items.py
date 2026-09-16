@@ -15,15 +15,22 @@ __all__ = [
     "PictureRefOut",
     "StatValueOut",
     "TagValueOut",
+    "ItemCreate",
+    "ItemUpdate",
     "ItemOut",
+    "ItemInstanceCreate",
+    "ItemInstanceUpdate",
     "ItemInstanceOut",
     "OwnedGroupOut",
     "OwnedByResponse",
+    "SetOwnerRequest",
+    "SetContainerRequest",
+    "SplitItemInstanceRequest",
 ]
 
 
 class DescriptionOut(BaseModel):
-    """Wraps one entry of `ItemViewMixin.descriptions` - see ADR 0020: the
+    """Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
     contract (no field names), so it's wrapped into a small named schema.
     """
@@ -38,7 +45,7 @@ class PictureRefOut(BaseModel):
     """A picture reference - a `url` pointing at the existing payload-content
     endpoint, plus `file_type`. `_picture_refs` below walks
     entity.information -> payloads -> picture directly rather than through
-    an `ItemViewMixin` property (there never was one - checked, `pictures`
+    an `EntityViewMixin` property (there never was one - checked, `pictures`
     would have needed the owning `Payload` row's own id to link through,
     not just its bytes, so it was never a fit here). Inlining raw picture
     bytes into a paginated list response (`GET /items` can return up to
@@ -82,7 +89,7 @@ class StatValueOut(BaseModel):
 
 
 class TagValueOut(BaseModel):
-    """Wraps one entry of `ItemViewMixin.tags` (`list[tuple[str, bool | None]]`)."""
+    """Wraps one entry of `EntityViewMixin.tags` (`list[tuple[str, bool | None]]`)."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -100,6 +107,23 @@ def _stats_out(pairs: list[tuple[str, int | None]]) -> list[StatValueOut]:
 
 def _tags_out(pairs: list[tuple[str, bool | None]]) -> list[TagValueOut]:
     return [TagValueOut(name=name, value=value) for name, value in pairs]
+
+
+class ItemCreate(BaseModel):
+    """POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
+    EntityPrototype row per id in prototype_ids, one transaction.
+    """
+
+    name: str
+    prototype_ids: list[uuid.UUID] = []
+
+
+class ItemUpdate(BaseModel):
+    """PATCH /items/{id} - only Entity.name is mutable through this
+    endpoint; nothing else on a bare Item row exists to update.
+    """
+
+    name: str | None = None
 
 
 class ItemOut(BaseModel):
@@ -126,6 +150,7 @@ class ItemOut(BaseModel):
     hp: int | None
     armor: int | None
     container_entity_id: uuid.UUID | None
+    quantity: int | None
     is_magical: bool | None
     is_cursed: bool | None
     descriptions: list[DescriptionOut]
@@ -135,6 +160,8 @@ class ItemOut(BaseModel):
     destroyable_stats: list[StatValueOut]
     damaging_stats: list[StatValueOut]
     tags: list[TagValueOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_v_item(
@@ -150,6 +177,7 @@ class ItemOut(BaseModel):
             hp=view.hp,
             armor=view.armor,
             container_entity_id=view.container_entity_id,
+            quantity=view.quantity,
             is_magical=view.is_magical,
             is_cursed=view.is_cursed,
             descriptions=_descriptions_out(view.descriptions(visibility)),
@@ -159,7 +187,56 @@ class ItemOut(BaseModel):
             destroyable_stats=_stats_out(view.destroyable_stats),
             damaging_stats=_stats_out(view.damaging_stats),
             tags=_tags_out(view.tags),
+            created_by=view.entity.created_by,
+            updated_by=view.entity.updated_by,
         )
+
+
+class ItemInstanceCreate(BaseModel):
+    """POST /item-instances ("instantiate") - see ADR 0032/RFC 0005.
+    prototype_id must resolve to an entity with a matching Item row.
+    One transaction creates Entity (name defaults to the prototype's own
+    name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
+    row if owner_character_id is given and/or a Containment row if
+    container_entity_id is given.
+    """
+
+    name: str | None = None
+    prototype_id: uuid.UUID
+    owner_character_id: uuid.UUID | None = None
+    container_entity_id: uuid.UUID | None = None
+
+
+class ItemInstanceUpdate(BaseModel):
+    """PATCH /item-instances/{id} - owner/container are handled by the
+    dedicated sub-resource actions below, not folded into this general
+    PATCH body, so a client can't accidentally no-op an owner change by
+    omitting the field from a partial update.
+    """
+
+    name: str | None = None
+
+
+class SetOwnerRequest(BaseModel):
+    """PUT /item-instances/{id}/owner body."""
+
+    owner_character_id: uuid.UUID
+
+
+class SetContainerRequest(BaseModel):
+    """PUT /item-instances/{id}/container body."""
+
+    container_entity_id: uuid.UUID
+
+
+class SplitItemInstanceRequest(BaseModel):
+    """POST /item-instances/{id}/split body - see ADR 0041. `quantity` is
+    how many units to split *off* into a new sibling instance; the source
+    must currently hold strictly more than this (splitting off "all of it"
+    is a container/owner reassignment of the whole stack, not a split).
+    """
+
+    quantity: int
 
 
 class ItemInstanceOut(BaseModel):
@@ -180,6 +257,7 @@ class ItemInstanceOut(BaseModel):
     hp: int | None
     armor: int | None
     container_entity_id: uuid.UUID | None
+    quantity: int | None
     is_magical: bool | None
     is_cursed: bool | None
     descriptions: list[DescriptionOut]
@@ -189,6 +267,8 @@ class ItemInstanceOut(BaseModel):
     destroyable_stats: list[StatValueOut]
     damaging_stats: list[StatValueOut]
     tags: list[TagValueOut]
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
 
     @classmethod
     def from_v_item_instance(
@@ -205,6 +285,7 @@ class ItemInstanceOut(BaseModel):
             hp=view.hp,
             armor=view.armor,
             container_entity_id=view.container_entity_id,
+            quantity=view.quantity,
             is_magical=view.is_magical,
             is_cursed=view.is_cursed,
             descriptions=_descriptions_out(view.descriptions(visibility)),
@@ -214,6 +295,8 @@ class ItemInstanceOut(BaseModel):
             destroyable_stats=_stats_out(view.destroyable_stats),
             damaging_stats=_stats_out(view.damaging_stats),
             tags=_tags_out(view.tags),
+            created_by=view.entity.created_by,
+            updated_by=view.entity.updated_by,
         )
 
 

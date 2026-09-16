@@ -2,12 +2,11 @@ import uuid
 from decimal import Decimal
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant
+from conftest import delete_tenant, make_campaign, make_character
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
-    Being,
-    Campaign,
+    CampaignGm,
     CharacterPlayer,
     Containment,
     Entity,
@@ -19,7 +18,6 @@ from lorenzo_api.models import (
     Knowledge,
     Membership,
     MembershipRole,
-    OrgaCampaignOptOut,
     Payload,
     PayloadDescription,
     PayloadDocument,
@@ -30,6 +28,7 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
     Tenant,
+    TenantAdminCampaignOptOut,
     User,
 )
 
@@ -332,6 +331,113 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
     await delete_tenant(tenant_id)
 
 
+async def test_get_entity_exposes_containment_quantity_for_any_entity_type(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0041's own flagship case: quantity generalizes to entities that
+    aren't items at all - a crowd of 20 townsfolk in a room needs no
+    item-specific modeling, unlike ItemOut/ItemInstanceOut's quantity field,
+    which only items ever populate.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        room = Entity(tenant_id=tenant_id, name="Tavern")
+        townsfolk = Entity(tenant_id=tenant_id, name="Townsfolk")
+        session.add_all([room, townsfolk])
+        await session.flush()
+        session.add(
+            Containment(
+                child_entity_id=townsfolk.id,
+                parent_entity_id=room.id,
+                tenant_id=tenant_id,
+                quantity=20,
+            )
+        )
+        await session.commit()
+        room_id, townsfolk_id = room.id, townsfolk.id
+
+    # The crowd's own detail: "how many of me are in my own container" -
+    # symmetric with `parent`, both set together.
+    townsfolk_response = await client.get(f"/tenants/{tenant_id}/entities/{townsfolk_id}")
+    assert townsfolk_response.status_code == 200
+    townsfolk_body = townsfolk_response.json()
+    assert townsfolk_body["quantity"] == 20
+    assert townsfolk_body["parent"]["id"] == str(room_id)
+
+    # The room's own detail: each entry in `children` carries its own
+    # quantity, so a caller sees "20 townsfolk" without a second fetch.
+    room_response = await client.get(f"/tenants/{tenant_id}/entities/{room_id}")
+    assert room_response.status_code == 200
+    room_body = room_response.json()
+    assert room_body["quantity"] is None  # the room itself isn't contained anywhere
+    children_by_id = {c["id"]: c for c in room_body["children"]}
+    assert children_by_id[str(townsfolk_id)]["quantity"] == 20
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_entity_stats_reflect_prototype_inherited_values(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0039: GET /entities/{id}'s own `stats` field (EntityDetailOut,
+    reading Entity.effective_stats) must agree with an item's resolved
+    weight/hp/etc. for a value only ever inherited, not just an entity's
+    own direct rows - the previously-known gap ADR 0037 flagged and left
+    open. `derived` here isn't item/item_instance/character-typed at all,
+    proving the walk resolves stats for any entity, not only items.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        base = Entity(tenant_id=tenant_id, name="Base")
+        derived = Entity(tenant_id=tenant_id, name="Derived")
+        session.add_all([base, derived])
+        await session.flush()
+        session.add(
+            EntityPrototype(entity_id=derived.id, prototype_id=base.id, tenant_id=tenant_id)
+        )
+
+        physical = StatGroup(tenant_id=tenant_id, name="physical")
+        session.add(physical)
+        await session.flush()
+        hp_def = StatDefinition(
+            tenant_id=tenant_id,
+            stat_group_id=physical.id,
+            name="hp",
+            value_type=StatValueType.INT,
+        )
+        session.add(hp_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=base.id, stat_definition_id=hp_def.id, tenant_id=tenant_id, value_int=10
+            )
+        )
+        await session.commit()
+        derived_id = derived.id
+
+    response = await client.get(f"/tenants/{tenant_id}/entities/{derived_id}")
+
+    assert response.status_code == 200
+    stats = {s["name"]: s["value"] for s in response.json()["stats"]}
+    assert stats == {"hp": 10}
+
+    await delete_tenant(tenant_id)
+
+
 async def test_get_entity_404_for_unknown_entity_id(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
@@ -426,6 +532,64 @@ async def test_get_entity_hides_gm_only_information_from_a_plain_member(
     await delete_tenant(tenant_id)
 
 
+async def test_get_entity_gm_sees_gm_only_information_on_their_own_campaigns_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """RFC 0009/ADR 0035: a campaign's own GM sees GM-only information on
+    that campaign's own characters *directly*, not just their inventory -
+    the RFC's own flagged "easy to forget" case. test_user_id keeps its
+    OWNER Membership here (get_tenant_context needs one) but holds no ORGA
+    role - the immediately-preceding test already proves OWNER alone
+    doesn't see this, so seeing it here must come from the added
+    CampaignGm row, not an accidental is_orga bypass.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
+        await session.flush()
+        session.add(CampaignGm(tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id))
+
+        other_user = User(authgear_subject_id=f"authgear|player-{uuid.uuid4()}")
+        session.add(other_user)
+        await session.flush()
+        player = Player(user_id=other_user.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        session.add(player)
+        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
+        session.add(
+            CharacterPlayer(
+                character_entity_id=character.entity_id, player_id=player.id, tenant_id=tenant_id
+            )
+        )
+        session.add(
+            Information(
+                tenant_id=tenant_id,
+                entity_id=character.entity_id,
+                title="Secretly a doppelganger",
+                type="gm-note",
+            )
+        )
+        await session.commit()
+        character_id, other_user_id = character.entity_id, other_user.id
+
+    response = await client.get(f"/tenants/{tenant_id}/entities/{character_id}")
+    assert response.status_code == 200
+    assert [info["title"] for info in response.json()["information"]] == ["Secretly a doppelganger"]
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, other_user_id))
+        await session.commit()
+
+
 async def test_get_entity_shows_public_information_to_any_tenant_member(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
@@ -462,8 +626,8 @@ async def test_get_entity_shows_public_information_to_any_tenant_member(
 async def test_get_entity_shows_information_known_via_direct_character_knowledge(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """Full Campaign/Player/Being/CharacterPlayer/Knowledge chain, not a
-    shortcut - proves the real roster-reuse traversal, not just that a
+    """Full Campaign/Player/Being/Character/CharacterPlayer/Knowledge chain,
+    not a shortcut - proves the real roster-reuse traversal, not just that a
     Knowledge row with a matching id exists somewhere.
     """
     async with admin_session_factory() as session:
@@ -474,22 +638,21 @@ async def test_get_entity_shows_information_known_via_direct_character_knowledge
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([character, subject])
+        session.add(subject)
         await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add(
             CharacterPlayer(
-                character_entity_id=character.id, player_id=player.id, tenant_id=tenant_id
+                character_entity_id=character.entity_id, player_id=player.id, tenant_id=tenant_id
             )
         )
         info = Information(
@@ -498,7 +661,9 @@ async def test_get_entity_shows_information_known_via_direct_character_knowledge
         session.add(info)
         await session.flush()
         session.add(
-            Knowledge(tenant_id=tenant_id, knower_entity_id=character.id, information_id=info.id)
+            Knowledge(
+                tenant_id=tenant_id, knower_entity_id=character.entity_id, information_id=info.id
+            )
         )
         await session.commit()
         subject_id = subject.id
@@ -521,27 +686,30 @@ async def test_get_entity_shows_information_known_via_group_membership(
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
         await session.flush()
 
-        character = Entity(tenant_id=tenant_id, name="Character")
         group = Entity(tenant_id=tenant_id, name="Group")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([character, group, subject])
+        session.add_all([group, subject])
         await session.flush()
-        session.add(Being(entity_id=character.id, tenant_id=tenant_id))
-        await session.flush()
+        character = await make_character(session, tenant_id=tenant_id, name="Character")
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=character.id, player_id=player.id, tenant_id=tenant_id
+                    character_entity_id=character.entity_id,
+                    player_id=player.id,
+                    tenant_id=tenant_id,
                 ),
                 GroupMember(
-                    group_entity_id=group.id, character_entity_id=character.id, tenant_id=tenant_id
+                    group_entity_id=group.id,
+                    character_entity_id=character.entity_id,
+                    tenant_id=tenant_id,
                 ),
             ]
         )
@@ -579,8 +747,9 @@ async def test_get_entity_shows_information_known_via_direct_player_knowledge(
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
         session.add(player)
@@ -623,8 +792,9 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         session.add(
             Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
         )
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
 
         other_user = User(authgear_subject_id=f"authgear|other-{uuid.uuid4()}")
@@ -635,27 +805,20 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         session.add_all([my_player, other_player])
         await session.flush()
 
-        my_character = Entity(tenant_id=tenant_id, name="My Character")
-        other_character = Entity(tenant_id=tenant_id, name="Other Character")
         subject = Entity(tenant_id=tenant_id, name="Subject")
-        session.add_all([my_character, other_character, subject])
+        session.add(subject)
         await session.flush()
-        session.add_all(
-            [
-                Being(entity_id=my_character.id, tenant_id=tenant_id),
-                Being(entity_id=other_character.id, tenant_id=tenant_id),
-            ]
-        )
-        await session.flush()
+        my_character = await make_character(session, tenant_id=tenant_id, name="My Character")
+        other_character = await make_character(session, tenant_id=tenant_id, name="Other Character")
         session.add_all(
             [
                 CharacterPlayer(
-                    character_entity_id=my_character.id,
+                    character_entity_id=my_character.entity_id,
                     player_id=my_player.id,
                     tenant_id=tenant_id,
                 ),
                 CharacterPlayer(
-                    character_entity_id=other_character.id,
+                    character_entity_id=other_character.entity_id,
                     player_id=other_player.id,
                     tenant_id=tenant_id,
                 ),
@@ -668,7 +831,9 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         await session.flush()
         session.add(
             Knowledge(
-                tenant_id=tenant_id, knower_entity_id=other_character.id, information_id=info.id
+                tenant_id=tenant_id,
+                knower_entity_id=other_character.entity_id,
+                information_id=info.id,
             )
         )
         await session.commit()
@@ -713,7 +878,7 @@ async def test_get_entity_orga_bypass_suppressed_by_opt_out(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     """ADR 0028's addendum: an ORGA's blanket bypass is suppressed on this
-    route by any active OrgaCampaignOptOut anywhere in the tenant - the
+    route by any active TenantAdminCampaignOptOut anywhere in the tenant - the
     fail-closed choice, since this route has no campaign context to check
     the opt-out's own per-campaign scope against.
     """
@@ -723,11 +888,14 @@ async def test_get_entity_orga_bypass_suppressed_by_opt_out(
         await session.flush()
         tenant_id = tenant.id
         session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
-        campaign = Campaign(tenant_id=tenant_id, name="Campaign", game_system="D&D 5e")
-        session.add(campaign)
+        campaign = await make_campaign(
+            session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
+        )
         await session.flush()
         session.add(
-            OrgaCampaignOptOut(tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id)
+            TenantAdminCampaignOptOut(
+                tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id
+            )
         )
         entity = Entity(tenant_id=tenant_id, name="Entity")
         session.add(entity)
@@ -776,20 +944,19 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
 
         # Tenant B: a full player/character/Knowledge chain that would
         # grant visibility - but only within tenant B.
-        campaign_b = Campaign(tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e")
-        session.add(campaign_b)
+        campaign_b = await make_campaign(
+            session, tenant_id=tenant_b_id, name="Campaign B", game_system="D&D 5e"
+        )
         await session.flush()
         player_b = Player(user_id=test_user_id, campaign_id=campaign_b.id, tenant_id=tenant_b_id)
         session.add(player_b)
         await session.flush()
-        character_b = Entity(tenant_id=tenant_b_id, name="Character B")
-        session.add(character_b)
-        await session.flush()
-        session.add(Being(entity_id=character_b.id, tenant_id=tenant_b_id))
-        await session.flush()
+        character_b = await make_character(session, tenant_id=tenant_b_id, name="Character B")
         session.add(
             CharacterPlayer(
-                character_entity_id=character_b.id, player_id=player_b.id, tenant_id=tenant_b_id
+                character_entity_id=character_b.entity_id,
+                player_id=player_b.id,
+                tenant_id=tenant_b_id,
             )
         )
         entity_b = Entity(tenant_id=tenant_b_id, name="Entity B")
@@ -802,7 +969,9 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
         await session.flush()
         session.add(
             Knowledge(
-                tenant_id=tenant_b_id, knower_entity_id=character_b.id, information_id=info_b.id
+                tenant_id=tenant_b_id,
+                knower_entity_id=character_b.entity_id,
+                information_id=info_b.id,
             )
         )
         await session.commit()

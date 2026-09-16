@@ -126,6 +126,68 @@ async def test_child_can_have_at_most_one_parent() -> None:
         await session.commit()
 
 
+async def test_quantity_defaults_to_one() -> None:
+    """ADR 0041: an ordinary, non-stacked containment link is trivially and
+    correctly "a stack of one" via the column's own server_default, not a
+    value the application has to set explicitly.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        sword = Entity(tenant_id=tenant_id, name="Sword")
+        session.add_all([backpack, sword])
+        await session.flush()
+        backpack_id, sword_id = backpack.id, sword.id
+
+        session.add(
+            Containment(child_entity_id=sword_id, parent_entity_id=backpack_id, tenant_id=tenant_id)
+        )
+        await session.commit()
+
+        row = await session.get(Containment, sword_id)
+        assert row is not None
+        assert row.quantity == 1
+
+        await session.delete(tenant)
+        await session.commit()
+
+
+async def test_quantity_must_be_positive() -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        arrows = Entity(tenant_id=tenant_id, name="Arrows")
+        session.add_all([backpack, arrows])
+        # A real commit here, not just a flush - the constraint violation
+        # below rolls back the whole open transaction, and the tenant must
+        # survive that rollback for cleanup to find it afterwards (mirrors
+        # test_child_can_have_at_most_one_parent's identical shape).
+        await session.commit()
+
+        session.add(
+            Containment(
+                child_entity_id=arrows.id,
+                parent_entity_id=backpack.id,
+                tenant_id=tenant_id,
+                quantity=0,
+            )
+        )
+        with pytest.raises(IntegrityError, match="containment_quantity_positive"):
+            await session.commit()
+        await session.rollback()
+
+        await session.delete(await session.get_one(Tenant, tenant_id))
+        await session.commit()
+
+
 async def test_containment_rls_isolates_tenants_for_a_non_superuser_role() -> None:
     """Same ENABLE+FORCE+policy pattern as every tenant-scoped table so far -
     proves it works for containment too rather than purely extrapolating

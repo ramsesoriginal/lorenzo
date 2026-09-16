@@ -12,6 +12,14 @@ Knowledge.knower_entity_id references the character/group entity directly
 with no per-campaign qualifier - a character's knowledge holds regardless
 of which campaign session is active, exactly like its inventory.
 
+gm_reachable_entity_ids (RFC 0009/ADR 0035) is the opposite shape: GM
+sight is per-campaign-grant, not tenant-wide - a CampaignGm row only ever
+extends visibility to that one campaign's own reachable entities, unioned
+across every campaign the caller GMs. Computed by reusing entity_access.
+reachable_entity_ids (ADR 0032's shared ownership/containment walk, built
+anticipating exactly this use) rooted at each GM'd campaign's own
+CharacterPlayer roster, rather than reimplementing that traversal here.
+
 The knower_player_id half is NOT campaign-independent in that same sense -
 Player is UniqueConstraint(campaign_id, user_id): a user gets a fresh
 Player row per campaign, on purpose, which is exactly why character_player
@@ -38,7 +46,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_orga
-from lorenzo_api.models import CharacterPlayer, GroupMember, Information, OrgaCampaignOptOut, Player
+from lorenzo_api.entity_access import reachable_entity_ids
+from lorenzo_api.models import (
+    CampaignGm,
+    CharacterPlayer,
+    GroupMember,
+    Information,
+    Player,
+    TenantAdminCampaignOptOut,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +67,7 @@ class InformationVisibility:
     is_orga: bool
     player_ids: frozenset[uuid.UUID]
     knower_entity_ids: frozenset[uuid.UUID]
+    gm_reachable_entity_ids: frozenset[uuid.UUID]
 
     def can_see(self, info: Information) -> bool:
         """info.knowledge_links must already be eager-loaded (raise_on_sql,
@@ -61,8 +78,16 @@ class InformationVisibility:
         Several distinct Knowledge rows can legitimately share the same
         information_id (the "visible to a subset" case), so this checks
         all of them, not just the first.
+
+        gm_reachable_entity_ids is a second, differently-shaped bypass
+        from is_orga (RFC 0009/ADR 0035): a set rather than a single bit,
+        checked against info.entity_id directly - already a plain, always-
+        loaded column, no eager-load chain needed for this check the way
+        knowledge_links needs one.
         """
         if self.is_orga or info.is_public:
+            return True
+        if info.entity_id in self.gm_reachable_entity_ids:
             return True
         return any(
             link.knower_player_id in self.player_ids
@@ -84,10 +109,27 @@ async def resolve_information_visibility(
     once its input set is empty, mirroring can_access_campaign's own
     short-circuiting order.
 
-    is_orga is suppressed if the user has any active OrgaCampaignOptOut
-    row anywhere in this tenant - coarser than that row's own per-campaign
-    shape, forced by this route having no campaign parameter to check
-    against; see the module docstring and ADR 0028's addendum.
+    is_orga is suppressed if the user has any active
+    TenantAdminCampaignOptOut row anywhere in this tenant - coarser than
+    that row's own per-campaign shape, forced by this route having no
+    campaign parameter to check against; see the module docstring and ADR
+    0028's addendum. Still ORGA-only, unchanged by ADR 0030's
+    is_tenant_admin widening elsewhere - see
+    campaign_access.can_access_campaign's own docstring for why campaign
+    reachability and information visibility are deliberately different
+    questions.
+
+    gm_reachable_entity_ids (RFC 0009/ADR 0035): every CampaignGm row the
+    caller holds in this tenant, resolved to that campaign's own
+    CharacterPlayer roster (via Player.campaign_id, the same join
+    character_ids above already does per-player), unioned across every
+    campaign GM'd, then walked once through entity_access.
+    reachable_entity_ids - not once per campaign, since that walk's own
+    root set already accepts a union of roots and produces the same
+    result either way. Tenant OWNER is deliberately not folded in here -
+    see is_orga's own bypass above and campaign_access.can_manage_campaign's
+    docstring: administrative capability over a campaign as an object is a
+    different axis from character/GM *knowledge* of it.
     """
     player_ids: set[uuid.UUID] = set(
         (
@@ -133,18 +175,54 @@ async def resolve_information_visibility(
     if is_orga:
         has_opt_out = (
             await session.execute(
-                select(OrgaCampaignOptOut.campaign_id)
+                select(TenantAdminCampaignOptOut.campaign_id)
                 .where(
-                    OrgaCampaignOptOut.tenant_id == tenant_id,
-                    OrgaCampaignOptOut.user_id == user_id,
+                    TenantAdminCampaignOptOut.tenant_id == tenant_id,
+                    TenantAdminCampaignOptOut.user_id == user_id,
                 )
                 .limit(1)
             )
         ).first() is not None
         is_orga = not has_opt_out
 
+    gm_campaign_ids: set[uuid.UUID] = set(
+        (
+            await session.execute(
+                select(CampaignGm.campaign_id).where(
+                    CampaignGm.user_id == user_id, CampaignGm.tenant_id == tenant_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    gm_character_ids: set[uuid.UUID] = set()
+    if gm_campaign_ids:
+        gm_character_ids = set(
+            (
+                await session.execute(
+                    select(CharacterPlayer.character_entity_id)
+                    .join(Player, Player.id == CharacterPlayer.player_id)
+                    .where(
+                        Player.campaign_id.in_(gm_campaign_ids),
+                        Player.tenant_id == tenant_id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    gm_reachable_ids: frozenset[uuid.UUID] = frozenset()
+    if gm_character_ids:
+        gm_reachable_ids = await reachable_entity_ids(
+            session, root_entity_ids=frozenset(gm_character_ids), tenant_id=tenant_id
+        )
+
     return InformationVisibility(
         is_orga=is_orga,
         player_ids=frozenset(player_ids),
         knower_entity_ids=frozenset(character_ids | group_ids),
+        gm_reachable_entity_ids=gm_reachable_ids,
     )

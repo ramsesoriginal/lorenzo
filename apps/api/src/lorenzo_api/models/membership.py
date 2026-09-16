@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, UpdatedAt
+from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy
 
 if TYPE_CHECKING:
     from lorenzo_api.models.tenant import Tenant
@@ -47,6 +47,19 @@ class Membership(Base):
     )
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
+    # ADR 0029/0036: who invited this member (created_by) and who last
+    # changed their role (updated_by) - the granter, never the grantee, the
+    # same "who made this happen, not who it happened to" distinction ADR
+    # 0034 draws for campaign_gm's own created_by.
+    created_by: Mapped[CreatedBy]
+    updated_by: Mapped[UpdatedBy]
 
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="memberships")
-    user: Mapped[User] = relationship(lazy="raise_on_sql", back_populates="memberships")
+    # foreign_keys explicit: membership gained created_by/updated_by (ADR
+    # 0036), a second and third FK to app_user alongside user_id, which this
+    # relationship must be pointed at explicitly rather than left for
+    # SQLAlchemy to guess between - same shape as User.campaign_gms/
+    # tenant_admin_campaign_opt_outs' own existing disambiguation.
+    user: Mapped[User] = relationship(
+        lazy="raise_on_sql", foreign_keys=[user_id], back_populates="memberships"
+    )

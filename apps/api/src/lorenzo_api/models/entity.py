@@ -4,10 +4,11 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Mapped, relationship
 
-from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UpdatedBy, UuidPk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.being import Being
+    from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_stat import EntityStat
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
+    from lorenzo_api.models.v_effective_stat import VEffectiveStat
 
 
 class Entity(Base):
@@ -32,6 +34,14 @@ class Entity(Base):
     name: Mapped[str]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
+    # Bare user ids only (ADR 0029) - covers item/item_instance/being for
+    # free, since none of the three ever exists independently of the entity
+    # row created alongside it. No relationship() to User: nothing needs to
+    # navigate this as an object today (every consumer this RFC names wants
+    # a bare id back over REST), and adding one would just be another
+    # lazy="raise_on_sql" trap for every existing eager-load chain to forget.
+    created_by: Mapped[CreatedBy]
+    updated_by: Mapped[UpdatedBy]
 
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="entities")
     stats: Mapped[list[EntityStat]] = relationship(
@@ -45,6 +55,19 @@ class Entity(Base):
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    # v_effective_stat (ADR 0039): the *resolved* counterpart to `stats`
+    # above - every stat_definition's inherited-or-own value, read through
+    # the prototype graph. viewonly, no back_populates (same shape as
+    # VItem/VItemInstance's own `entity` relationship, just the reverse
+    # direction) since a view can't be written to. `stats` itself is
+    # unchanged and stays the one write paths (routers/entity_stats.py)
+    # still read/write directly - this is for display only.
+    effective_stats: Mapped[list[VEffectiveStat]] = relationship(
+        primaryjoin="Entity.id == VEffectiveStat.entity_id",
+        foreign_keys="VEffectiveStat.entity_id",
+        viewonly=True,
+        lazy="raise_on_sql",
     )
     information: Mapped[list[Information]] = relationship(
         lazy="raise_on_sql",
@@ -70,6 +93,14 @@ class Entity(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    # campaign: ADR 0030's dedicated-entity attachment point - the reverse
+    # is the "one" side despite entity being the referenced table, since
+    # campaign.entity_id (not entity.id) carries the FK; no cascade= here,
+    # matching campaign.entity_id's own ON DELETE RESTRICT - nothing about
+    # deleting this Entity should implicitly delete the Campaign owning it,
+    # or vice versa (that's an explicit two-step application concern, RFC
+    # 0006, not an ORM cascade).
+    campaign: Mapped[Campaign | None] = relationship(lazy="raise_on_sql", back_populates="entity")
 
     # ownership: ADR 0025's generic ownership table has two independent FKs
     # to this table (owned_entity_id and owner_character_id), same
