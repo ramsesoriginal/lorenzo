@@ -248,8 +248,8 @@ export interface paths {
         };
         /**
          * List Campaigns
-         * @description The tenant's campaign catalog - gated by is_tenant_participant (any
-         *     Membership/Player/CampaignGm row anywhere in the tenant), not
+         * @description The tenant's campaign catalog - gated by require_tenant_participant
+         *     (any Membership/Player/CampaignGm row anywhere in the tenant), not
          *     get_tenant_context, per ADR 0030/RFC 0003. Secret campaigns are then
          *     filtered per row: included only if the caller is that campaign's own GM
          *     or a tenant admin - a plain Player of a secret campaign they don't GM
@@ -431,7 +431,7 @@ export interface paths {
         };
         /**
          * Get Player
-         * @description Same shape as PlayerOut (RFC 0004: Player has no columns the
+         * @description Same shape as PlayerSummaryOut (RFC 0004: Player has no columns the
          *     summary omits) - its own schema/route anyway, matching the RFC's own
          *     endpoint table.
          */
@@ -546,6 +546,32 @@ export interface paths {
          *     entity's own columns.
          */
         patch: operations["update_character"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/characters/{character_id}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Character Groups
+         * @description ADR 0045's nice-to-have: the reverse of GET /tenants/{tenant_id}/
+         *     groups/{group_entity_id}/members - which groups this character belongs
+         *     to, sparing a client from fetching every tenant group and
+         *     cross-referencing membership client-side. Gated the same way as this
+         *     router's other two pre-existing GET routes (_require_tenant_member),
+         *     not routers/groups.py's own broader is_tenant_participant - consistency
+         *     with this router's own neighbors, not with groups.py.
+         */
+        get: operations["list_character_groups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/characters/{character_id}/players/{player_id}": {
@@ -717,6 +743,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Groups
+         * @description See ADR 0045: a group has no dedicated table (ADR 0028) - it's any
+         *     entity that appears at least once as group_member.group_entity_id.
+         *     An intentionally-created-but-still-empty group isn't enumerable this
+         *     way, an accepted consequence of that data model, not a new gap.
+         */
+        get: operations["list_groups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/groups/{group_entity_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Group Members
+         * @description Not paginated - bounded by one group's membership, mirroring GET
+         *     .../item-instances/owned-by/{owner_entity_id}'s identical precedent.
+         *
+         *     404 only if group_entity_id isn't a real entity in this tenant at all;
+         *     an empty list (not a 404) if it is one but currently has no members -
+         *     unlike ADR 0040's item-instance precedent, a group's bare existence
+         *     isn't a secret the way another character's inventory is, so there's no
+         *     reason to hide that distinction here.
+         */
+        get: operations["list_group_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/information/{information_id}": {
         parameters: {
             query?: never;
@@ -780,6 +856,10 @@ export interface paths {
          * @description Every base item type for this tenant - see ADR 0019/0020. Explicit
          *     tenant_id filter as defense in depth alongside RLS, not a replacement
          *     for it (ADR 0002/0021).
+         *
+         *     q (ADR 0047) matches against Entity.name, not VItem.title - title is a
+         *     nullable, description-payload-sourced display field, name is the
+         *     item's own stable, always-set identifier and the right search target.
          */
         get: operations["list_items"];
         put?: never;
@@ -866,6 +946,35 @@ export interface paths {
          *     paginated - bounded by one owner's inventory (ADR 0020 / task brief).
          */
         get: operations["list_item_instances_owned_by"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/by-slug/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Item Instance By Slug
+         * @description ADR 0043. Registered *before* /{entity_id} below, for the identical
+         *     routing-order reason that route's own docstring already documents for
+         *     /owned-by/{owner_entity_id} - a wildcard entity_id segment registered
+         *     first would otherwise greedily match "by-slug" as an id and shadow this
+         *     route entirely.
+         *
+         *     Applies the same ADR 0040 read-visibility predicate as GET
+         *     /{entity_id} - a slug is just an alternate way to name an instance, not
+         *     a separate, unfiltered lookup path into someone else's hidden
+         *     inventory.
+         */
+        get: operations["get_item_instance_by_slug"];
         put?: never;
         post?: never;
         delete?: never;
@@ -974,18 +1083,10 @@ export interface paths {
         put?: never;
         /**
          * Split Item Instance
-         * @description Splits body.quantity units off entity_id's current stack into a new
-         *     sibling instance at the same container, decrementing the source's own
-         *     Containment.quantity by that amount - see ADR 0041. Self-or-managed
-         *     authorization against the *source* entity (_authorize_instance_write,
-         *     unchanged) - splitting your own stack is acting on your own stuff, the
-         *     same tier every other instance write already uses.
-         *
-         *     The new instance copies the source's own direct EntityPrototype
-         *     link(s) and current owner, if any - it's a fresh instance of the same
-         *     prototype(s), created the same way POST /item-instances creates one,
-         *     not a deep clone of the source's own accumulated entity_stat overrides,
-         *     Information, or attribution trail.
+         * @description Self-or-managed authorization against the *source* entity
+         *     (_authorize_instance_write, unchanged) - splitting your own stack is
+         *     acting on your own stuff, the same tier every other instance write
+         *     already uses. See _perform_split for the actual mechanics.
          *
          *     201 + Location + the *new* instance's canonical shape, mirroring
          *     POST /item-instances's own convention - a caller that wants the
@@ -993,6 +1094,71 @@ export interface paths {
          *     write's side effects on a different resource.
          */
         post: operations["split_item_instance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/{entity_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Item Instance
+         * @description The inverse of split (ADR 0044): entity_id's entire current stack is
+         *     added onto into_entity_id's, then entity_id is deleted. Authorized
+         *     against *both* sides (_authorize_instance_write) - this mutates both
+         *     rows, unlike every other write in this router, which only ever touches
+         *     one. If-Match (optional, as everywhere) is checked against the source
+         *     (entity_id) only, mirroring split's own single-sided precondition.
+         *
+         *     200 + the *target*'s resulting shape, not 201 - nothing new is created
+         *     here, unlike split.
+         */
+        post: operations["merge_item_instance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/bulk-assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Assign Item Instances
+         * @description Assigns several already-decided items to characters in one call
+         *     (ADR 0044) - a GM's own "resolve a whole loot session" step. quantity
+         *     given delegates to split-with-owner (_perform_split); omitted
+         *     delegates to the plain owner-PUT path (_perform_set_owner) -both share
+         *     exactly the mechanics (and, for split, the authorization) the
+         *     single-item routes above use.
+         *
+         *     Never all-or-nothing: each item runs inside its own session.
+         *     begin_nested() (a SQL SAVEPOINT) so one item's failure rolls back only
+         *     that item, not the others sharing this request's session/transaction -
+         *     a caught fastapi_problem.error.Problem (404/403/412/422) becomes that
+         *     item's own "error" entry (via the identical .marshal() shape a real
+         *     single-item error response would have), everything else already
+         *     applied by earlier items in the batch proceeds to the one shared
+         *     commit at the end. An unexpected (non-Problem) exception is not caught
+         *     here and fails the whole request as a 500 - this only ever gracefully
+         *     handles anticipated, typed failure modes, matching this codebase's
+         *     general practice.
+         */
+        post: operations["bulk_assign_item_instances"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1106,6 +1272,52 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BulkAssignItem
+         * @description POST /item-instances/bulk-assign - one input entry. See ADR 0044:
+         *     quantity given delegates to split-with-owner (creating a new instance);
+         *     omitted delegates to the plain owner-PUT path (reassigning entity_id
+         *     itself). if_match is optional, exactly like every other write in this
+         *     router - honored per item, a stale claim becomes that item's own
+         *     "error" entry rather than failing the whole batch.
+         */
+        BulkAssignItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Owner Character Id
+             * Format: uuid
+             */
+            owner_character_id: string;
+            /** Quantity */
+            quantity?: number | null;
+            /** If Match */
+            if_match?: string | null;
+        };
+        /**
+         * BulkAssignResultItem
+         * @description POST /item-instances/bulk-assign - one output entry, always present
+         *     for every input entry regardless of outcome (ADR 0044: never
+         *     all-or-nothing). Exactly one of item_instance/problem is set, matching
+         *     status.
+         */
+        BulkAssignResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            item_instance?: components["schemas"]["ItemInstanceOut"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
         /**
          * CampaignCreate
          * @description POST /campaigns - see ADR 0034/RFC 0006. name/game_system/slug/
@@ -1243,14 +1455,14 @@ export interface components {
          *     underlying `being` (that's `entity.created_by`, a different, also
          *     meaningful fact - ADR 0029's own open question).
          *
-         *     `players` reuses `PlayerSummaryOut` whole (RFC 0004's own accepted
+         *     `players` reuses `PlayerContextOut` whole (RFC 0004's own accepted
          *     minor redundancy: each returned player entry redundantly re-includes
          *     the very character being viewed, among any others that player
          *     controls - not worth a fourth schema variant to trim).
          *
-         *     `PlayerSummaryOut` (schemas/players.py) needs `CharacterSummaryOut`
+         *     `PlayerContextOut` (schemas/players.py) needs `CharacterSummaryOut`
          *     right back - a genuine two-way schema reference, not an accident.
-         *     Broken here the standard way: `PlayerSummaryOut` only appears under
+         *     Broken here the standard way: `PlayerContextOut` only appears under
          *     `TYPE_CHECKING` (so this module never really imports players.py,
          *     which itself really imports this one for `CharacterSummaryOut` above
          *     - a real cycle either direction if both were real imports), and
@@ -1272,7 +1484,7 @@ export interface components {
             /** Owner Player Id */
             owner_player_id: string | null;
             /** Players */
-            players: components["schemas"]["PlayerSummaryOut"][];
+            players: components["schemas"]["PlayerContextOut"][];
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -1368,7 +1580,7 @@ export interface components {
              */
             updated_at: string;
             /** Stats */
-            stats: components["schemas"]["lorenzo_api__schemas__entities__StatValueOut"][];
+            stats: components["schemas"]["EntityStatValueOut"][];
             /** Stat Groups */
             stat_groups: components["schemas"]["EntitySummary"][];
             /** Information */
@@ -1384,17 +1596,38 @@ export interface components {
             children: components["schemas"]["EntitySummary"][];
         };
         /**
+         * EntityStatValueOut
+         * @description A resolved stat value, keyed by its definition's name - see ADR 0020.
+         *
+         *     Reshaping, not a plain-column mapping, so built via a classmethod
+         *     rather than from_attributes: which value_* column actually holds the
+         *     value is chosen by reading StatDefinition.value_type first, not by
+         *     probing all four columns for non-null (the DB's own CHECK constraint
+         *     on entity_stat, and v_effective_stat's identical shape, already
+         *     guarantees exactly one is ever set).
+         */
+        EntityStatValueOut: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | string | boolean;
+        };
+        /**
          * EntitySummary
          * @description A lightweight entity reference - used anywhere an entity is pointed
          *     at generically (a container, a prototype, an owner) rather than fully
          *     described. See ADR 0020.
          *
-         *     `quantity` (ADR 0041) is only ever populated for `EntityDetailOut.
-         *     children` entries - "how many of *this* child are in the entity being
-         *     described" is a fact about that specific containment edge, not about
-         *     the entity being referenced in general, so it stays unset (`None`) for
-         *     every other use of this shape (`prototypes`, `instances`, `stat_groups`,
-         *     `parent`).
+         *     `quantity` (ADR 0041) is only ever populated where this reference
+         *     describes one side of an actual `Containment` edge - `EntityDetailOut.
+         *     children` entries ("how many of *this* child are in the entity being
+         *     described") and `EntityDetailOut.parent` ("how many of the described
+         *     entity sit in that parent" - the same number as `EntityDetailOut.
+         *     quantity` itself, attached to the parent reference too). It stays
+         *     unset (`None`) for every use of this shape that isn't a containment
+         *     edge at all (`prototypes`, `instances`, `stat_groups`) - "how many"
+         *     has no meaning for those relationships, so leaving it `None` there
+         *     represents "not applicable," not "exactly one."
          */
         EntitySummary: {
             /**
@@ -1542,7 +1775,8 @@ export interface components {
          *     One transaction creates Entity (name defaults to the prototype's own
          *     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
          *     row if owner_character_id is given and/or a Containment row if
-         *     container_entity_id is given.
+         *     container_entity_id is given. slug (ADR 0043) is optional, unique per
+         *     tenant when set, and resolvable later via GET .../by-slug/{slug}.
          */
         ItemInstanceCreate: {
             /** Name */
@@ -1556,12 +1790,14 @@ export interface components {
             owner_character_id?: string | null;
             /** Container Entity Id */
             container_entity_id?: string | null;
+            /** Slug */
+            slug?: string | null;
         };
         /**
          * ItemInstanceOut
          * @description A specific, ownable item ("My Shovel"), from `VItemInstance` -
-         *     identical to `ItemOut` plus `owner_entity_id`. See ADR 0019/0020 and
-         *     `ItemOut`'s docstring for the eager-load requirement.
+         *     identical to `ItemOut` plus `owner_entity_id`/`slug`. See ADR 0019/0020
+         *     and `ItemOut`'s docstring for the eager-load requirement.
          */
         ItemInstanceOut: {
             /**
@@ -1569,8 +1805,6 @@ export interface components {
              * Format: uuid
              */
             entity_id: string;
-            /** Owner Entity Id */
-            owner_entity_id: string | null;
             /** Title */
             title: string | null;
             /** Weight */
@@ -1598,19 +1832,28 @@ export interface components {
             /** Pictures */
             pictures: components["schemas"]["PictureRefOut"][];
             /** Physical Stats */
-            physical_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            physical_stats: components["schemas"]["StatValueOut"][];
             /** Economic Stats */
-            economic_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            economic_stats: components["schemas"]["StatValueOut"][];
             /** Destroyable Stats */
-            destroyable_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            destroyable_stats: components["schemas"]["StatValueOut"][];
             /** Damaging Stats */
-            damaging_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            damaging_stats: components["schemas"]["StatValueOut"][];
             /** Tags */
             tags: components["schemas"]["TagValueOut"][];
             /** Created By */
             created_by: string | null;
             /** Updated By */
             updated_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Owner Entity Id */
+            owner_entity_id: string | null;
+            /** Slug */
+            slug: string | null;
         };
         /**
          * ItemInstanceUpdate
@@ -1635,6 +1878,10 @@ export interface components {
          *     `routers.items.eager_load_options`, the exact recipe proven in
          *     `tests/test_v_item.py`) - the six wrapped properties/methods raise
          *     MissingGreenlet otherwise, they do not silently lazy-load.
+         *
+         *     `ItemInstanceOut` below extends this directly - identical fields plus
+         *     `owner_entity_id`/`slug` - rather than repeating the field list a
+         *     second time.
          */
         ItemOut: {
             /**
@@ -1669,19 +1916,24 @@ export interface components {
             /** Pictures */
             pictures: components["schemas"]["PictureRefOut"][];
             /** Physical Stats */
-            physical_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            physical_stats: components["schemas"]["StatValueOut"][];
             /** Economic Stats */
-            economic_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            economic_stats: components["schemas"]["StatValueOut"][];
             /** Destroyable Stats */
-            destroyable_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            destroyable_stats: components["schemas"]["StatValueOut"][];
             /** Damaging Stats */
-            damaging_stats: components["schemas"]["lorenzo_api__schemas__items__StatValueOut"][];
+            damaging_stats: components["schemas"]["StatValueOut"][];
             /** Tags */
             tags: components["schemas"]["TagValueOut"][];
             /** Created By */
             created_by: string | null;
             /** Updated By */
             updated_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * ItemUpdate
@@ -1712,7 +1964,7 @@ export interface components {
             /** Memberships */
             memberships: components["schemas"]["MembershipOut"][];
             /** Players */
-            players: components["schemas"]["PlayerSummaryOut"][];
+            players: components["schemas"]["PlayerContextOut"][];
             /** Campaign Gm Grants */
             campaign_gm_grants: components["schemas"]["CampaignSummaryOut"][];
         };
@@ -1789,6 +2041,19 @@ export interface components {
              * @enum {string}
              */
             role: "owner" | "orga";
+        };
+        /**
+         * MergeItemInstanceRequest
+         * @description POST /item-instances/{id}/merge body - see ADR 0044. into_entity_id
+         *     is the surviving stack; the path's own entity_id is fully consumed
+         *     into it and then deleted.
+         */
+        MergeItemInstanceRequest: {
+            /**
+             * Into Entity Id
+             * Format: uuid
+             */
+            into_entity_id: string;
         };
         /**
          * OwnedByResponse
@@ -1890,10 +2155,10 @@ export interface components {
             /** Pages */
             pages: number;
         };
-        /** Page[PlayerOut] */
-        Page_PlayerOut_: {
+        /** Page[PlayerSummaryOut] */
+        Page_PlayerSummaryOut_: {
             /** Items */
-            items: components["schemas"]["PlayerOut"][];
+            items: components["schemas"]["PlayerSummaryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -1985,6 +2250,39 @@ export interface components {
             file_type: string;
         };
         /**
+         * PlayerContextOut
+         * @description Used by GET /me and CharacterOut.players (RFC 0004) - a bare Player
+         *     row alone (just ids) wouldn't answer anything useful in either place;
+         *     a caller needs to know not just which campaigns a player row belongs
+         *     to but which characters it plays there. Carries its own tenant_id/
+         *     campaign_id explicitly, unlike PlayerSummaryOut/PlayerOut above -
+         *     neither /me (spans every tenant) nor a character's own roster (spans
+         *     every campaign that character is rostered into, ADR 0025's roster
+         *     reuse) has a single campaign-nested URL to infer them from.
+         *
+         *     Requires `player.character_links` (each with `.character.being.entity`)
+         *     eager-loaded first (`lazy="raise_on_sql"`, ADR 0018).
+         */
+        PlayerContextOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Characters */
+            characters: components["schemas"]["CharacterSummaryOut"][];
+        };
+        /**
          * PlayerCreate
          * @description POST /tenants/{id}/campaigns/{id}/players - ADR 0036/RFC 0007.
          *     user_id must already be a real app_user row - this API has no email to
@@ -1999,41 +2297,14 @@ export interface components {
             user_id: string;
         };
         /**
-         * PlayerDetailOut
-         * @description Identical shape to PlayerOut - Player has no columns the summary
-         *     omits, unlike Entity's list/detail split (RFC 0004's own words). Kept
-         *     as its own class anyway (rather than reusing PlayerOut as both list
-         *     and detail response) since the RFC's endpoint table names it as its
-         *     own schema, and a distinct name gives GET .../players/{id} its own
-         *     OpenAPI schema rather than sharing one meant for a paginated list.
-         */
-        PlayerDetailOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * User Id
-             * Format: uuid
-             */
-            user_id: string;
-            /** Characters */
-            characters: components["schemas"]["CharacterSummaryOut"][];
-            /** Created By */
-            created_by: string | null;
-            /** Updated By */
-            updated_by: string | null;
-        };
-        /**
          * PlayerOut
-         * @description Campaign roster shape (GET .../campaigns/{id}/players, and the create-
-         *     response shape for POST .../players) - no tenant_id/campaign_id, already
-         *     in the path.
-         *
-         *     Now carries `created_by`/`updated_by` (ADR 0029) - `player`'s
-         *     attribution pair lands with user/player/character CRUD (ADR 0036/RFC
-         *     0007), which is what actually writes to this table.
+         * @description GET .../players/{id} - identical shape to PlayerSummaryOut above,
+         *     Player has no columns the summary omits, unlike Entity's list/detail
+         *     split (RFC 0004's own words). Kept as its own class anyway (rather
+         *     than reusing PlayerSummaryOut as both list and detail response) since
+         *     the RFC's endpoint table names it as its own schema, and a distinct
+         *     name gives this route its own OpenAPI schema rather than sharing one
+         *     meant for a paginated list.
          */
         PlayerOut: {
             /**
@@ -2087,16 +2358,13 @@ export interface components {
         };
         /**
          * PlayerSummaryOut
-         * @description Used by GET /me (RFC 0004) - a bare Player row alone (just ids)
-         *     wouldn't answer anything useful there; a caller needs to know not just
-         *     which campaigns they're in but which characters they play there.
-         *     Carries its own tenant_id/campaign_id explicitly, unlike PlayerOut
-         *     below - /me spans every tenant, so there's no URL scoping to infer
-         *     them from the way a campaign-nested route already has both in its
-         *     path.
+         * @description Campaign roster shape (GET .../campaigns/{id}/players, and the create-
+         *     response shape for POST .../players) - no tenant_id/campaign_id, already
+         *     in the path.
          *
-         *     Requires `player.character_links` (each with `.character.being.entity`)
-         *     eager-loaded first (`lazy="raise_on_sql"`, ADR 0018).
+         *     Now carries `created_by`/`updated_by` (ADR 0029) - `player`'s
+         *     attribution pair lands with user/player/character CRUD (ADR 0036/RFC
+         *     0007), which is what actually writes to this table.
          */
         PlayerSummaryOut: {
             /**
@@ -2105,17 +2373,33 @@ export interface components {
              */
             id: string;
             /**
-             * Tenant Id
+             * User Id
              * Format: uuid
              */
-            tenant_id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
+            user_id: string;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+        };
+        /**
+         * ProblemOut
+         * @description A plain-dict-shaped mirror of fastapi_problem.error.Problem.marshal()
+         *     - see ADR 0044. Used only inside BulkAssignResultItem, to embed what a
+         *     real single-item error response body would have looked like without
+         *     actually raising/catching it as this request's own top-level response.
+         */
+        ProblemOut: {
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Status */
+            status: number;
+            /** Detail */
+            detail?: string | null;
         };
         /**
          * SetContainerRequest
@@ -2155,14 +2439,20 @@ export interface components {
         };
         /**
          * SplitItemInstanceRequest
-         * @description POST /item-instances/{id}/split body - see ADR 0041. `quantity` is
-         *     how many units to split *off* into a new sibling instance; the source
-         *     must currently hold strictly more than this (splitting off "all of it"
-         *     is a container/owner reassignment of the whole stack, not a split).
+         * @description POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
+         *     is how many units to split *off* into a new sibling instance; the
+         *     source must currently hold strictly more than this (splitting off "all
+         *     of it" is a container/owner reassignment of the whole stack, not a
+         *     split). `owner_character_id` (ADR 0044) is optional - when given, the
+         *     new split-off instance is created with that owner instead of copying
+         *     the source's current owner (the behavior when omitted, unchanged from
+         *     ADR 0041).
          */
         SplitItemInstanceRequest: {
             /** Quantity */
             quantity: number;
+            /** Owner Character Id */
+            owner_character_id?: string | null;
         };
         /**
          * StatDefinitionCreate
@@ -2180,7 +2470,11 @@ export interface components {
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
         };
-        /** StatDefinitionOut */
+        /**
+         * StatDefinitionOut
+         * @description Constructed via .model_validate(stat_definition) at call sites - same
+         *     reasoning as StatGroupOut above.
+         */
         StatDefinitionOut: {
             /**
              * Id
@@ -2222,7 +2516,12 @@ export interface components {
              */
             priority: number;
         };
-        /** StatGroupOut */
+        /**
+         * StatGroupOut
+         * @description Constructed via .model_validate(stat_group) at call sites - every
+         *     field here is a plain 1:1 column copy, so from_attributes=True already
+         *     does the whole job; no wrapper classmethod needed.
+         */
         StatGroupOut: {
             /**
              * Id
@@ -2243,6 +2542,17 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * StatValueOut
+         * @description Wraps one entry of physical_stats/economic_stats/destroyable_stats/
+         *     damaging_stats (each `list[tuple[str, int | None]]`).
+         */
+        StatValueOut: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | null;
         };
         /**
          * StatValueType
@@ -2362,34 +2672,6 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
-        };
-        /**
-         * StatValueOut
-         * @description A resolved stat value, keyed by its definition's name - see ADR 0020.
-         *
-         *     Reshaping, not a plain-column mapping, so built via a classmethod
-         *     rather than from_attributes: which value_* column actually holds the
-         *     value is chosen by reading StatDefinition.value_type first, not by
-         *     probing all four columns for non-null (the DB's own CHECK constraint
-         *     on entity_stat, and v_effective_stat's identical shape, already
-         *     guarantees exactly one is ever set).
-         */
-        lorenzo_api__schemas__entities__StatValueOut: {
-            /** Name */
-            name: string;
-            /** Value */
-            value: number | string | boolean;
-        };
-        /**
-         * StatValueOut
-         * @description Wraps one entry of physical_stats/economic_stats/destroyable_stats/
-         *     damaging_stats (each `list[tuple[str, int | None]]`).
-         */
-        lorenzo_api__schemas__items__StatValueOut: {
-            /** Name */
-            name: string;
-            /** Value */
-            value: number | null;
         };
         /** Problem */
         Problem: {
@@ -3804,7 +4086,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_PlayerOut_"];
+                    "application/json": components["schemas"]["Page_PlayerSummaryOut_"];
                 };
             };
             /** @description Validation Error */
@@ -3874,7 +4156,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerOut"];
+                    "application/json": components["schemas"]["PlayerSummaryOut"];
                 };
             };
             /** @description Validation Error */
@@ -3941,7 +4223,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerDetailOut"];
+                    "application/json": components["schemas"]["PlayerOut"];
                 };
             };
             /** @description Validation Error */
@@ -4125,6 +4407,8 @@ export interface operations {
     list_characters: {
         parameters: {
             query?: {
+                /** @description Only characters owned by the caller (owner_player_id resolves to one of their own Player rows) - not the broader roster of characters they merely co-pilot, see ADR 0049. */
+                mine?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -4488,6 +4772,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_character_groups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"][];
                 };
             };
             /** @description Validation Error */
@@ -5016,6 +5366,140 @@ export interface operations {
             };
         };
     };
+    list_groups: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EntitySummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_group_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_information: {
         parameters: {
             query?: never;
@@ -5219,6 +5703,8 @@ export interface operations {
     list_items: {
         parameters: {
             query?: {
+                /** @description Case-insensitive substring match against the item's name. */
+                q?: string | null;
                 page?: number;
                 size?: number;
             };
@@ -5717,6 +6203,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OwnedByResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_item_instance_by_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemInstanceOut"];
                 };
             };
             /** @description Validation Error */
@@ -6273,6 +6825,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemInstanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    merge_item_instance: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeItemInstanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemInstanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_assign_item_instances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkAssignItem"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkAssignResultItem"][];
                 };
             };
             /** @description Validation Error */

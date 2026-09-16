@@ -19,6 +19,8 @@ function item(title: string | null, quantity: number | null = null): ItemInstanc
     is_cursed: null,
     created_by: null,
     updated_by: null,
+    updated_at: "2026-01-01T00:00:00Z",
+    slug: null,
     descriptions: [],
     pictures: [],
     physical_stats: [],
