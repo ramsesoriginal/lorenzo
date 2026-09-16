@@ -5,6 +5,7 @@ from conftest import delete_tenant, make_campaign, make_character, make_tenant
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.etag import etag_for
 from lorenzo_api.models import (
     CampaignGm,
     Character,
@@ -313,6 +314,9 @@ async def test_get_item_instance_returns_detail(
 
     assert response.status_code == 200
     assert response.json()["entity_id"] == str(entity_id)
+    async with admin_session_factory() as session:
+        stored = await session.get_one(Entity, entity_id)
+        assert response.headers["etag"] == etag_for(stored.updated_at)
 
     await delete_tenant(tenant_id)
 
@@ -1035,6 +1039,10 @@ async def test_update_item_instance_self_service_rename(
     async with admin_session_factory() as session:
         updated_entity = await session.get_one(Entity, entity_id)
         assert updated_entity.name == "Renamed Ashfang"
+        # Unlike owner/container writes, a rename does touch entity.updated_at
+        # (ADR 0029) - the returned ETag reflects the new value, not the
+        # pre-rename one.
+        assert response.headers["etag"] == etag_for(updated_entity.updated_at)
 
     await delete_tenant(tenant_id)
 
@@ -1126,16 +1134,26 @@ async def test_set_and_clear_item_instance_owner(
         await session.commit()
         character_id = character.entity_id
 
+    async with admin_session_factory() as session:
+        original_etag = etag_for((await session.get_one(Entity, entity_id)).updated_at)
+
     set_response = await client.put(
         f"/tenants/{tenant_id}/item-instances/{entity_id}/owner",
         json={"owner_character_id": str(character_id)},
     )
     assert set_response.status_code == 200
     assert set_response.json()["owner_entity_id"] == str(character_id)
+    # entity.updated_at is deliberately untouched by owner/container writes
+    # (ADR 0032) - the ETag response header is real (this endpoint accepts
+    # If-Match), but it does not change across an ownership transfer, so it
+    # cannot by itself detect two callers racing to take the same item.
+    # Documented here, not just assumed.
+    assert set_response.headers["etag"] == original_etag
 
     clear_response = await client.delete(f"/tenants/{tenant_id}/item-instances/{entity_id}/owner")
     assert clear_response.status_code == 200
     assert clear_response.json()["owner_entity_id"] is None
+    assert clear_response.headers["etag"] == original_etag
 
     await delete_tenant(tenant_id)
 
@@ -1170,6 +1188,9 @@ async def test_set_container_moves_item(client: AsyncClient, test_user_id: uuid.
         await session.commit()
         entity_id, chest_id = entity.id, chest.id
 
+    async with admin_session_factory() as session:
+        original_etag = etag_for((await session.get_one(Entity, entity_id)).updated_at)
+
     response = await client.put(
         f"/tenants/{tenant_id}/item-instances/{entity_id}/container",
         json={"container_entity_id": str(chest_id)},
@@ -1177,12 +1198,14 @@ async def test_set_container_moves_item(client: AsyncClient, test_user_id: uuid.
 
     assert response.status_code == 200
     assert response.json()["container_entity_id"] == str(chest_id)
+    assert response.headers["etag"] == original_etag
 
     clear_response = await client.delete(
         f"/tenants/{tenant_id}/item-instances/{entity_id}/container"
     )
     assert clear_response.status_code == 200
     assert clear_response.json()["container_entity_id"] is None
+    assert clear_response.headers["etag"] == original_etag
 
     await delete_tenant(tenant_id)
 
@@ -1467,6 +1490,9 @@ async def test_split_item_instance_creates_new_stack_and_decrements_source(
     assert response.headers["location"].endswith(
         f"/tenants/{tenant_id}/item-instances/{new_entity_id}"
     )
+    async with admin_session_factory() as session:
+        new_entity = await session.get_one(Entity, uuid.UUID(new_entity_id))
+        assert response.headers["etag"] == etag_for(new_entity.updated_at)
 
     source_response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
     assert source_response.status_code == 200

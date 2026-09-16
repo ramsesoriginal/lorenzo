@@ -29,7 +29,7 @@ from lorenzo_api.entity_access import (
     reachable_entity_ids,
     recursive_descendants_cte,
 )
-from lorenzo_api.etag import check_if_match
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     InvalidItemPrototypeError,
     InvalidSplitQuantityError,
@@ -312,6 +312,7 @@ async def get_item_instance(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemInstanceOut:
@@ -341,6 +342,7 @@ async def get_item_instance(
     view = await _get_v_item_instance_or_404(
         tenant_id, entity_id, session, extra_predicate=predicate
     )
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
 
 
@@ -532,6 +534,7 @@ async def create_item_instance(
     response.headers["Location"] = str(
         request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=entity.id)
     )
+    response.headers["ETag"] = etag_for(entity.updated_at)
     return await _item_instance_out(tenant_id, entity.id, request, session, user)
 
 
@@ -541,6 +544,7 @@ async def update_item_instance(
     entity_id: uuid.UUID,
     body: ItemInstanceUpdate,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -554,6 +558,7 @@ async def update_item_instance(
         entity.updated_by = user.id
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
+    response.headers["ETag"] = etag_for(entity.updated_at)
     return await _item_instance_out(tenant_id, entity_id, request, session, user)
 
 
@@ -582,6 +587,7 @@ async def set_item_instance_owner(
     entity_id: uuid.UUID,
     body: SetOwnerRequest,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -608,6 +614,7 @@ async def set_item_instance_owner(
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
+    response.headers["ETag"] = etag_for(entity.updated_at)
     return await _item_instance_out(tenant_id, entity_id, request, session, user)
 
 
@@ -616,6 +623,7 @@ async def clear_item_instance_owner(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -633,6 +641,7 @@ async def clear_item_instance_owner(
         await session.delete(existing)
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
+    response.headers["ETag"] = etag_for(entity.updated_at)
     return await _item_instance_out(tenant_id, entity_id, request, session, user)
 
 
@@ -642,6 +651,7 @@ async def set_item_instance_container(
     entity_id: uuid.UUID,
     body: SetContainerRequest,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -668,6 +678,7 @@ async def set_item_instance_container(
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
+    response.headers["ETag"] = etag_for(entity.updated_at)
     return await _item_instance_out(tenant_id, entity_id, request, session, user)
 
 
@@ -676,6 +687,7 @@ async def clear_item_instance_container(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -689,6 +701,7 @@ async def clear_item_instance_container(
         await session.delete(existing)
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
+    response.headers["ETag"] = etag_for(entity.updated_at)
     return await _item_instance_out(tenant_id, entity_id, request, session, user)
 
 
@@ -779,4 +792,5 @@ async def split_item_instance(
     response.headers["Location"] = str(
         request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=new_entity.id)
     )
+    response.headers["ETag"] = etag_for(new_entity.updated_at)
     return await _item_instance_out(tenant_id, new_entity.id, request, session, user)
