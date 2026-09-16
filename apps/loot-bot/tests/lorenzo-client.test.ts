@@ -222,6 +222,107 @@ describe("isCampaignGm", () => {
   });
 });
 
+describe("getGmCampaignIds", () => {
+  it("returns the ids of every campaign_gm_grants entry", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          memberships: [],
+          players: [],
+          campaign_gm_grants: [
+            { id: "campaign-1", slug: "a", name: "A", game_system: "5e", secret: false },
+            { id: "campaign-2", slug: "b", name: "B", game_system: "5e", secret: false },
+          ],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await expect(client.getGmCampaignIds("test-token")).resolves.toEqual([
+      "campaign-1",
+      "campaign-2",
+    ]);
+  });
+});
+
+describe("listItems", () => {
+  it("returns the catalog page's items", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/items`, () =>
+        HttpResponse.json({
+          items: [{ entity_id: "item-1", title: "Sword" }],
+          total: 1,
+          page: 1,
+          size: 50,
+          pages: 1,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.listItems(TENANT_ID, "test-token");
+
+    expect(items).toEqual([{ entity_id: "item-1", title: "Sword" }]);
+  });
+});
+
+describe("createItemInstance", () => {
+  it("posts prototype_id and owner_character_id, omitting container when not given", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(
+          { entity_id: "item-1", title: "Sword", owner_entity_id: CHARACTER_ID },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const result = await client.createItemInstance(
+      TENANT_ID,
+      "prototype-1",
+      CHARACTER_ID,
+      undefined,
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({ prototype_id: "prototype-1", owner_character_id: CHARACTER_ID });
+    expect(result.owner_entity_id).toBe(CHARACTER_ID);
+  });
+
+  it("includes container_entity_id when given", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json(
+          { entity_id: "item-1", title: "Sword", owner_entity_id: CHARACTER_ID },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.createItemInstance(
+      TENANT_ID,
+      "prototype-1",
+      CHARACTER_ID,
+      "container-1",
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({
+      prototype_id: "prototype-1",
+      owner_character_id: CHARACTER_ID,
+      container_entity_id: "container-1",
+    });
+  });
+});
+
 describe("getItemInstance", () => {
   it("fetches one instance by id", async () => {
     server.use(

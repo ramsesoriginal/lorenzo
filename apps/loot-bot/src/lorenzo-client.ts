@@ -4,6 +4,7 @@ import type { components, paths } from "./lorenzo-schema.js";
 
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
+export type ItemOut = components["schemas"]["ItemOut"];
 
 /** A read paired with the `ETag` the server sent alongside it, if any -
  * `null` until every write route actually sends one back (tracked
@@ -127,6 +128,17 @@ export function createLorenzoApiClient(baseUrl: string) {
       });
       if (error !== undefined) throw toApiError(error, response.status);
       return data.campaign_gm_grants.length > 0;
+    },
+
+    /** Every campaign id the caller holds a `CampaignGm` grant for -
+     * `/award`'s own "which characters can I award to" source, same
+     * cross-tenant caveat as {@link isCampaignGm}. */
+    async getGmCampaignIds(accessToken: string): Promise<readonly string[]> {
+      const { data, error, response } = await client.GET("/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.campaign_gm_grants.map((grant) => grant.id);
     },
 
     /**
@@ -290,6 +302,46 @@ export function createLorenzoApiClient(baseUrl: string) {
       );
       if (error !== undefined) throw toApiError(error, response.status);
       return data.name;
+    },
+
+    /** GET /tenants/{tenant_id}/items - the item *catalog* (prototypes),
+     * not instances. First page only - no search query param exists on
+     * this endpoint, so `/award`'s item autocomplete filters this
+     * client-side, same caveat every other catalog-sized autocomplete in
+     * this codebase already accepts. */
+    async listItems(tenantId: string, accessToken: string): Promise<readonly ItemOut[]> {
+      const { data, error, response } = await client.GET("/tenants/{tenant_id}/items", {
+        params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.items;
+    },
+
+    /** POST /tenants/{tenant_id}/item-instances - instantiates a new item
+     * instance from a catalog prototype, `/award`'s own write. `quantity`
+     * isn't a creation-time field (ADR 0041 - it lives on `Containment`,
+     * not `ItemInstance`), so awarding a stack needs `containerEntityId`
+     * given; `/award` itself is responsible for deciding what to do when
+     * it's missing, not this method. */
+    async createItemInstance(
+      tenantId: string,
+      prototypeId: string,
+      ownerCharacterId: string,
+      containerEntityId: string | undefined,
+      accessToken: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.POST("/tenants/{tenant_id}/item-instances", {
+        params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: {
+          prototype_id: prototypeId,
+          owner_character_id: ownerCharacterId,
+          ...(containerEntityId !== undefined ? { container_entity_id: containerEntityId } : {}),
+        },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
     },
   };
 }
