@@ -178,6 +178,9 @@ async def test_get_item_returns_full_wrapped_shape(
     assert body["is_magical"] is True
     assert body["is_cursed"] is None
     assert body["container_entity_id"] == str(chest_id)
+    # ADR 0041: an ordinary containment link (no explicit quantity given by
+    # _make_full_item) defaults to a stack of one, not null.
+    assert body["quantity"] == 1
     assert body["descriptions"] == [{"content": "A gleaming blade.", "locale": "en-US"}]
     assert len(body["pictures"]) == 1
     assert body["pictures"][0]["file_type"] == "image/png"

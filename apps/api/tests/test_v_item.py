@@ -625,6 +625,50 @@ async def test_v_item_priority_tie_break_is_not_just_insertion_or_id_order() -> 
         await session.commit()
 
 
+async def test_v_item_instance_exposes_containment_quantity() -> None:
+    """ADR 0041: v_item_instance.quantity reads straight off the same
+    LEFT JOIN containment already producing container_entity_id - NULL
+    when uncontained, otherwise the row's own quantity (a stack of 20
+    arrows here, not the default 1).
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+
+        quiver = Entity(tenant_id=tenant.id, name="Quiver")
+        arrows = Entity(tenant_id=tenant.id, name="Arrows")
+        loose_dagger = Entity(tenant_id=tenant.id, name="Loose Dagger")
+        session.add_all([quiver, arrows, loose_dagger])
+        await session.flush()
+
+        session.add(ItemInstance(entity_id=arrows.id, tenant_id=tenant.id))
+        session.add(ItemInstance(entity_id=loose_dagger.id, tenant_id=tenant.id))
+        session.add(
+            Containment(
+                child_entity_id=arrows.id,
+                parent_entity_id=quiver.id,
+                tenant_id=tenant.id,
+                quantity=20,
+            )
+        )
+        await session.commit()
+        arrows_id, loose_dagger_id = arrows.id, loose_dagger.id
+
+        arrows_view = await session.get(VItemInstance, arrows_id)
+        assert arrows_view is not None
+        assert arrows_view.quantity == 20
+
+        # Uncontained - no stack concept applies, not "1 by default".
+        loose_view = await session.get(VItemInstance, loose_dagger_id)
+        assert loose_view is not None
+        assert loose_view.quantity is None
+        assert loose_view.container_entity_id is None
+
+        await session.delete(tenant)
+        await session.commit()
+
+
 async def test_v_item_instance_container_move_does_not_change_resolved_stats() -> None:
     """Moving an instance between containers (ADR 0032's PUT
     .../container) is a Containment change only - entity_prototype is

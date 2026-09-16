@@ -331,6 +331,58 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
     await delete_tenant(tenant_id)
 
 
+async def test_get_entity_exposes_containment_quantity_for_any_entity_type(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0041's own flagship case: quantity generalizes to entities that
+    aren't items at all - a crowd of 20 townsfolk in a room needs no
+    item-specific modeling, unlike ItemOut/ItemInstanceOut's quantity field,
+    which only items ever populate.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        room = Entity(tenant_id=tenant_id, name="Tavern")
+        townsfolk = Entity(tenant_id=tenant_id, name="Townsfolk")
+        session.add_all([room, townsfolk])
+        await session.flush()
+        session.add(
+            Containment(
+                child_entity_id=townsfolk.id,
+                parent_entity_id=room.id,
+                tenant_id=tenant_id,
+                quantity=20,
+            )
+        )
+        await session.commit()
+        room_id, townsfolk_id = room.id, townsfolk.id
+
+    # The crowd's own detail: "how many of me are in my own container" -
+    # symmetric with `parent`, both set together.
+    townsfolk_response = await client.get(f"/tenants/{tenant_id}/entities/{townsfolk_id}")
+    assert townsfolk_response.status_code == 200
+    townsfolk_body = townsfolk_response.json()
+    assert townsfolk_body["quantity"] == 20
+    assert townsfolk_body["parent"]["id"] == str(room_id)
+
+    # The room's own detail: each entry in `children` carries its own
+    # quantity, so a caller sees "20 townsfolk" without a second fetch.
+    room_response = await client.get(f"/tenants/{tenant_id}/entities/{room_id}")
+    assert room_response.status_code == 200
+    room_body = room_response.json()
+    assert room_body["quantity"] is None  # the room itself isn't contained anywhere
+    children_by_id = {c["id"]: c for c in room_body["children"]}
+    assert children_by_id[str(townsfolk_id)]["quantity"] == 20
+
+    await delete_tenant(tenant_id)
+
+
 async def test_get_entity_stats_reflect_prototype_inherited_values(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:

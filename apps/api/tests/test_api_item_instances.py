@@ -11,6 +11,7 @@ from lorenzo_api.models import (
     CharacterPlayer,
     Containment,
     Entity,
+    EntityPrototype,
     Information,
     Item,
     ItemInstance,
@@ -1400,4 +1401,157 @@ async def test_set_item_instance_container_when_none_existed(
 
     assert response.status_code == 200
     assert response.json()["container_entity_id"] == str(chest_id)
+    await delete_tenant(tenant_id)
+
+
+async def _make_stacked_instance(
+    tenant_id: uuid.UUID, *, test_user_id: uuid.UUID, quantity: int
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+    """A stack of `quantity` arrows, owned by test_user_id's own character,
+    contained in a backpack - ADR 0041's own split fixture shape. Returns
+    (entity_id, character_id, container_id).
+    """
+    prototype_id = await _make_item(tenant_id, "Arrow")
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+        character = await _make_own_character(
+            session, tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id
+        )
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        entity = Entity(tenant_id=tenant_id, name="Arrows")
+        session.add_all([backpack, entity])
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+        session.add(
+            EntityPrototype(entity_id=entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
+        )
+        session.add(
+            Ownership(
+                owned_entity_id=entity.id,
+                owner_character_id=character.entity_id,
+                tenant_id=tenant_id,
+            )
+        )
+        session.add(
+            Containment(
+                child_entity_id=entity.id,
+                parent_entity_id=backpack.id,
+                tenant_id=tenant_id,
+                quantity=quantity,
+            )
+        )
+        await session.commit()
+        return entity.id, character.entity_id, backpack.id
+
+
+async def test_split_item_instance_creates_new_stack_and_decrements_source(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, character_id, backpack_id = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=20
+    )
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/split", json={"quantity": 12}
+    )
+
+    assert response.status_code == 201
+    new_body = response.json()
+    assert new_body["quantity"] == 12
+    assert new_body["container_entity_id"] == str(backpack_id)
+    assert new_body["owner_entity_id"] == str(character_id)
+    new_entity_id = new_body["entity_id"]
+    assert new_entity_id != str(entity_id)
+    assert response.headers["location"].endswith(
+        f"/tenants/{tenant_id}/item-instances/{new_entity_id}"
+    )
+
+    source_response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert source_response.status_code == 200
+    assert source_response.json()["quantity"] == 8
+
+    await delete_tenant(tenant_id)
+
+
+async def test_split_item_instance_422_when_quantity_not_less_than_stack(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _, _ = await _make_stacked_instance(tenant_id, test_user_id=test_user_id, quantity=5)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/split", json={"quantity": 5}
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_split_item_instance_422_when_uncontained(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_instance(tenant_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/split", json={"quantity": 1}
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_split_item_instance_403_for_unrelated_player(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+        bob = await make_character(session, tenant_id=tenant_id, name="Bob")
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        entity = Entity(tenant_id=tenant_id, name="Arrows")
+        session.add_all([backpack, entity])
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+        session.add(
+            Ownership(
+                owned_entity_id=entity.id, owner_character_id=bob.entity_id, tenant_id=tenant_id
+            )
+        )
+        session.add(
+            Containment(
+                child_entity_id=entity.id,
+                parent_entity_id=backpack.id,
+                tenant_id=tenant_id,
+                quantity=10,
+            )
+        )
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        await session.delete(membership)
+        session.add(Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id))
+        await session.commit()
+        entity_id = entity.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/split", json={"quantity": 4}
+    )
+
+    assert response.status_code == 403
+    await delete_tenant(tenant_id)
+
+
+async def test_split_item_instance_404_for_unknown_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/00000000-0000-0000-0000-000000000000/split",
+        json={"quantity": 1},
+    )
+
+    assert response.status_code == 404
     await delete_tenant(tenant_id)
