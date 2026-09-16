@@ -40,6 +40,8 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/drop` | GM-only: drops a pre-made loot container into the channel — take/claim/unclaim, then "apply claims" |
 | `/award` | GM-only: awards a brand-new item straight from the catalog to a character |
 | `/item` | Displays an item's description, stats, and notes in the channel |
+| `/move` | Moves one of your items into another container you own |
+| `/note` | Adds a public, private, or GM-private note to an item |
 | `/ping` | Liveness check |
 
 ## Architecture
