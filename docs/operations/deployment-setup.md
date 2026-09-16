@@ -134,14 +134,18 @@ Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the n
 Reuses the *same* GCP project, Workload Identity Pool/Provider, and service account as `apps/api` above - all three of that service account's roles (`roles/run.admin`, `roles/artifactregistry.writer`, `roles/iam.serviceAccountUser`) are already project-scoped, not scoped to the `lorenzo-api` Cloud Run service specifically, so a second service and a second Artifact Registry repo need no new IAM setup at all. Only new, loot-bot-specific pieces:
 
 1. **Artifact Registry**: a second repo, same region:
+
    ```bash
    gcloud artifacts repositories create lorenzo-loot-bot --repository-format=docker --location="$REGION"
    ```
+
 2. **First deploy**: push to `main` touching `apps/loot-bot/**`, or trigger `deploy-loot-bot.yml` manually (Actions → "Deploy loot-bot" → "Run workflow"). This first run is expected to fail at its final `curl .../healthz` step - `LOOT_BOT_PUBLIC_BASE_URL` isn't known yet (it's the Cloud Run URL itself, a real chicken-and-egg: the URL doesn't exist until the service is first deployed). The service and its revision are still created either way, same as `apps/api`'s own first deploy.
 3. **Make the service public**, once it exists (same reasoning as `apps/api`'s own step 7 above - new Cloud Run services are private by default):
+
    ```bash
    gcloud run services update lorenzo-loot-bot --region="$REGION" --no-invoker-iam-check
    ```
+
 4. **Note the assigned URL** (`gcloud run services describe lorenzo-loot-bot --region="$REGION" --format='value(status.url)'`, or the Cloud Console). Set the `LOOT_BOT_PUBLIC_BASE_URL` GitHub variable (below) to it.
 5. **Discord Developer Portal**: set the application's **Interactions Endpoint URL** to `<that url>/interactions`. Discord immediately sends a `PING` to verify it - the first real end-to-end proof the deployed signature verification (`DISCORD_PUBLIC_KEY`) actually works against the real key, not just the placeholder `ci-placeholder-public-key` value `ci.yml`/`deploy-loot-bot.yml`'s own test job uses.
 6. **Authgear**: update this bot's *own* confidential OIDC client's Authorized Redirect URI to `<that url>/auth/callback` (see `apps/loot-bot/README.md`'s Setup section for registering that client in the first place - separate from `apps/api`'s own dev client, same Authgear project).

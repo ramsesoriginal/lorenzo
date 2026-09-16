@@ -1,4 +1,6 @@
-# Deployment diagram: apps/api
+# Deployment diagrams
+
+## apps/api
 
 ```mermaid
 C4Deployment
@@ -36,4 +38,43 @@ C4Deployment
   Rel(api, neondb, "SQL", "asyncpg, TLS")
 ```
 
-See [docs/architecture/deployment.md](../deployment.md) for the prose version of this, including a local-vs-deployed comparison table.
+## apps/loot-bot
+
+Same GCP project/region and the same Neon instance as `apps/api` above (a separate `loot_bot` role/schema, not a separate database) - a second Artifact Registry repo and Cloud Run service, reusing the same Workload Identity Federation pool/provider/service account rather than a parallel one ([ADR 0045](../../adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md)).
+
+```mermaid
+C4Deployment
+  title Lorenzo loot-bot deployment (local dev + production)
+
+  Deployment_Node(dev, "Developer machine", "Local dev environment"){
+    Container(localbot, "apps/loot-bot", "tsx --env-file=.env watch", "Autoreload, port 8090 - /healthz /auth/callback /interactions")
+  }
+
+  Deployment_Node(gha, "GitHub Actions", "ubuntu-latest runner"){
+    Container(deployjob, "deploy-loot-bot.yml deploy job", "build, migrate, deploy", "Same OIDC/WIF identity as deploy-api.yml")
+  }
+
+  Deployment_Node(gcp, "Google Cloud - lorenzo-medici-api", "europe-west1"){
+    Deployment_Node(ar, "Artifact Registry", "lorenzo-loot-bot repo"){
+      Container(image, "loot-bot image", "container image", "Tagged by commit SHA")
+    }
+    Deployment_Node(cr, "Cloud Run", "scale-to-zero, public"){
+      Container(bot, "lorenzo-loot-bot service", "HTTP service, no Gateway Client", "Serves healthz, auth/callback, interactions")
+    }
+  }
+
+  Deployment_Node(neon, "Neon", "Managed Postgres - same instance as apps/api"){
+    ContainerDb(neondb, "Postgres", "loot_bot role/schema", "Same pooled connection host")
+  }
+
+  System_Ext(discord, "Discord", "Interactions Endpoint webhook")
+
+  Rel(discord, bot, "POST /interactions", "Ed25519-signed webhook")
+  Rel(deployjob, image, "docker push")
+  Rel(cr, image, "pulls")
+  Rel(deployjob, cr, "deploys new revision")
+  Rel(deployjob, neondb, "tsx src/migrate.ts", "before deploy")
+  Rel(bot, neondb, "SQL", "pg, TLS")
+```
+
+See [docs/architecture/deployment.md](../deployment.md) for the prose version of both, including a local-vs-deployed comparison table.
