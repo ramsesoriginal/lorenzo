@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
@@ -102,19 +102,44 @@ async def _require_tenant_member(
 
 @router.get("")
 async def list_characters(
-    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser, params: ParamsDep
+    tenant_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    params: ParamsDep,
+    mine: Annotated[
+        bool,
+        Query(
+            description=(
+                "Only characters owned by the caller (owner_player_id resolves to "
+                "one of their own Player rows) - not the broader roster of "
+                "characters they merely co-pilot, see ADR 0049."
+            )
+        ),
+    ] = False,
 ) -> Page[CharacterSummaryOut]:
     """Specifically a roster of Character rows, not every Being - a bare
     being with no character row doesn't appear here at all (ADR 0031/RFC
     0004).
     """
     await _require_tenant_member(session, tenant_id=tenant_id, user=user)
-    stmt = (
-        select(Character)
-        .where(Character.tenant_id == tenant_id)
-        .options(_name_eager_load)
-        .order_by(Character.entity_id)
-    )
+    stmt = select(Character).where(Character.tenant_id == tenant_id)
+    if mine:
+        # Mirrors entity_access.py's own "resolve the caller's Player rows
+        # in this tenant first" idiom rather than an inline subquery - see
+        # ADR 0049.
+        player_ids = (
+            (
+                await session.execute(
+                    select(Player.id).where(
+                        Player.user_id == user.id, Player.tenant_id == tenant_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        stmt = stmt.where(Character.owner_player_id.in_(player_ids))
+    stmt = stmt.options(_name_eager_load).order_by(Character.entity_id)
 
     def _characters_out(characters: Sequence[Character]) -> list[CharacterSummaryOut]:
         return [CharacterSummaryOut.from_character(c) for c in characters]
