@@ -1,4 +1,5 @@
 import { type Client, Events, type Interaction } from "discord.js";
+import { awardCommand } from "./award.js";
 import { dropCommand } from "./drop.js";
 import { giveCommand } from "./give.js";
 import { inventoryCommand } from "./inventory.js";
@@ -19,6 +20,7 @@ const commands: readonly Command[] = [
   giveCommand,
   setCurrentCommand,
   dropCommand,
+  awardCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
