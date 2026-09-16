@@ -69,10 +69,15 @@ export class LinkedAccountNotFoundError extends Error {
 }
 
 function isUniqueViolation(error: unknown, constraintNameIncludes: string): boolean {
+  // drizzle-orm wraps every driver error in its own DrizzleQueryError, with
+  // the real pg DatabaseError only reachable via `.cause` - unwrap it before
+  // checking, rather than assuming `error` itself is the raw driver error.
+  const cause =
+    error instanceof Error && error.cause instanceof DatabaseError ? error.cause : error;
   return (
-    error instanceof DatabaseError &&
-    error.code === "23505" &&
-    (error.constraint?.includes(constraintNameIncludes) ?? false)
+    cause instanceof DatabaseError &&
+    cause.code === "23505" &&
+    (cause.constraint?.includes(constraintNameIncludes) ?? false)
   );
 }
 
