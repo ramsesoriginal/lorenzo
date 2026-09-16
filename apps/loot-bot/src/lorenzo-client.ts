@@ -7,10 +7,12 @@ export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
 export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
+export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
+export type BulkAssignResultItem = components["schemas"]["BulkAssignResultItem"];
 
 /** A read paired with the `ETag` the server sent alongside it, if any -
  * `null` until every write route actually sends one back (tracked
- * separately; some already do, see ADR 0043's amendment). Passed back as
+ * separately; some already do, see ADR 0051's amendment). Passed back as
  * `If-Match` on a subsequent write against the *same* instance to guard
  * against clobbering a concurrent change - optimistic concurrency, not a
  * lock: absent or stale just means "someone else touched this first,"
@@ -22,7 +24,7 @@ export type ControlledCharacter = Readonly<{ entityId: string; name: string }>;
 
 /** One `Player` row of the caller's own (`GET /me`), keeping `campaignId` -
  * `getControlledCharacters` deliberately drops it, but `/give`'s target
- * autocomplete (ADR 0043) needs it to know which campaign's roster to
+ * autocomplete (ADR 0051) needs it to know which campaign's roster to
  * search. */
 export type MyPlayer = Readonly<{
   campaignId: string;
@@ -33,6 +35,11 @@ export type MyPlayer = Readonly<{
  * character/container it's actually grouped under - `/give`'s and
  * `/item`'s own "item" autocomplete both just want a flat pickable list. */
 export type OwnedItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
+
+/** One group entity (ADR 0028/0045) - a bare `entity` with no dedicated
+ * table, defined purely by having members; `/note`'s `visibility:group`
+ * option (ADR 0052) sources its autocomplete from this. */
+export type GroupSummary = Readonly<{ entityId: string; name: string }>;
 
 export class LorenzoApiError extends Error {
   readonly status: number;
@@ -74,7 +81,7 @@ export function createLorenzoApiClient(baseUrl: string) {
 
   return {
     /**
-     * Direct contents of `containerEntityId` (ADR 0044's `/drop`) - never
+     * Direct contents of `containerEntityId` (ADR 0052's `/drop`) - never
      * recursive, matching how `/give`/`/set-current` already treat "what's
      * in here." First page only (up to the API's own default page size) -
      * a drop's own select menus cap out at Discord's 25-option limit
@@ -100,7 +107,7 @@ export function createLorenzoApiClient(baseUrl: string) {
      * Every item instance `characterEntityId` owns, grouped by direct
      * container - GET /tenants/{tenant_id}/item-instances/owned-by/{id}
      * (routers/item_instances.py). Requires the backend access-gate loosening
-     * described in ADR 0042 to succeed for a caller with no tenant-wide
+     * described in ADR 0050 to succeed for a caller with no tenant-wide
      * Membership; the response shape itself needs no change.
      */
     async getItemInstancesOwnedBy(
@@ -124,7 +131,7 @@ export function createLorenzoApiClient(baseUrl: string) {
      * `/me`'s `campaign_gm_grants` carries no `tenant_id`, so this can't
      * be narrowed to just this bot's own tenant client-side. Used only as
      * a fast, friendly gate before showing GM-only affordances (`/drop`,
-     * "apply claims" - ADR 0044); the real authorization boundary is each
+     * "apply claims" - ADR 0052); the real authorization boundary is each
      * write's own server-side `can_manage_campaign` check, evaluated
      * against the real `tenant_id` in the request path and unaffected by
      * this method's own cross-tenant imprecision.
@@ -206,10 +213,10 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /** GET /tenants/{tenant_id}/item-instances/{entity_id} - the current
-     * state of one instance, used by /give (ADR 0043) to decide split-vs-
+     * state of one instance, used by /give (ADR 0051) to decide split-vs-
      * transfer against a fresh quantity rather than a possibly-stale
      * autocomplete value. Returns the response's `ETag` alongside the body
-     * (Phase 0 amendment to ADR 0043) - pass it back as `ifMatch` on
+     * (Phase 0 amendment to ADR 0051) - pass it back as `ifMatch` on
      * whichever write acts on this same instance next. */
     async getItemInstance(
       tenantId: string,
@@ -227,20 +234,46 @@ export function createLorenzoApiClient(baseUrl: string) {
       return { data, etag: response.headers.get("etag") };
     },
 
+    /** GET .../item-instances/by-slug/{slug} (ADR 0043) - resolves a
+     * human-assigned slug to its current instance state, same `WithEtag`
+     * shape as {@link getItemInstance}. `/drop`'s `container` option (ADR
+     * 0052) accepts either a raw entity id or a slug; this is the slug
+     * path. 404s (`LorenzoApiError`) if nothing in this tenant currently
+     * has that slug. */
+    async getItemInstanceBySlug(
+      tenantId: string,
+      slug: string,
+      accessToken: string,
+    ): Promise<WithEtag<ItemInstanceOut>> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/item-instances/by-slug/{slug}",
+        {
+          params: { path: { tenant_id: tenantId, slug } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return { data, etag: response.headers.get("etag") };
+    },
+
     /** POST .../item-instances/{entity_id}/split (ADR 0041) - splits
      * `quantity` units off the source's current stack into a new sibling
-     * instance (same owner/container as the source) and returns that new
-     * instance. `ifMatch`, if given, guards the *source* stack against a
-     * concurrent change (e.g. someone else already split or took part of
-     * it) - sent as `If-Match`, a stale value 412s. The new instance's own
-     * `ETag` comes back alongside its data, for chaining into the
-     * `setItemInstanceOwner` call that normally follows a split. */
+     * instance and returns that new instance. `ifMatch`, if given, guards
+     * the *source* stack against a concurrent change (e.g. someone else
+     * already split or took part of it) - sent as `If-Match`, a stale value
+     * 412s. `ownerCharacterId`, if given, hands the split-off instance
+     * straight to that character instead of copying the source's own owner
+     * (ADR 0044's "split-with-owner") - one call instead of this followed
+     * by a separate `setItemInstanceOwner`, closing the race window between
+     * them. Omitted, the split-off instance keeps the source's owner,
+     * unchanged from before ADR 0044. */
     async splitItemInstance(
       tenantId: string,
       entityId: string,
       quantity: number,
       accessToken: string,
       ifMatch?: string,
+      ownerCharacterId?: string,
     ): Promise<WithEtag<ItemInstanceOut>> {
       const { data, error, response } = await client.POST(
         "/tenants/{tenant_id}/item-instances/{entity_id}/split",
@@ -250,7 +283,10 @@ export function createLorenzoApiClient(baseUrl: string) {
             ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { quantity },
+          body: {
+            quantity,
+            ...(ownerCharacterId !== undefined ? { owner_character_id: ownerCharacterId } : {}),
+          },
         },
       );
       if (error !== undefined) throw toApiError(error, response.status);
@@ -265,7 +301,7 @@ export function createLorenzoApiClient(baseUrl: string) {
      * deliberately never touches `entity.updated_at` for this), so this
      * only actually catches a race against an intervening rename, not
      * against another owner/container write to the same instance - a real,
-     * documented limitation, not an oversight (see ADR 0043's amendment). */
+     * documented limitation, not an oversight (see ADR 0051's amendment). */
     async setItemInstanceOwner(
       tenantId: string,
       entityId: string,
@@ -379,7 +415,7 @@ export function createLorenzoApiClient(baseUrl: string) {
      * distinguished here - GMing isn't tied to a character). Only a
      * participant of this specific campaign (a player, its GM, or a tenant
      * admin) can call this - exactly who `/give`'s target autocomplete
-     * (ADR 0043) should be offering choices to anyway. First page only
+     * (ADR 0051) should be offering choices to anyway. First page only
      * (up to 50 players) - a party roster is bounded by construction.
      */
     async getCampaignPlayers(
@@ -402,7 +438,7 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /** GET /tenants/{tenant_id}/characters/{character_id} - just the name,
-     * for /give's (ADR 0043) confirmation message: Discord autocomplete
+     * for /give's (ADR 0051) confirmation message: Discord autocomplete
      * only returns the `value` a user picked, not the `name` they saw, so
      * a friendly "gave it to X" reply needs a fresh lookup. */
     async getCharacterName(
@@ -484,6 +520,44 @@ export function createLorenzoApiClient(baseUrl: string) {
       );
       if (error !== undefined) throw toApiError(error, response.status);
       return data;
+    },
+
+    /** POST .../item-instances/bulk-assign (ADR 0044) - resolves several
+     * already-decided claim assignments in one request. Always `200`, one
+     * `BulkAssignResultItem` per input entry regardless of outcome - a
+     * stale `if_match`/already-taken/not-enough-left item becomes that
+     * entry's own `"error"` status, not a thrown exception, so `/drop`'s
+     * apply-claims (ADR 0052) can map every result to a per-claim outcome
+     * without a partial-failure try/catch of its own. */
+    async bulkAssignItemInstances(
+      tenantId: string,
+      items: readonly BulkAssignItem[],
+      accessToken: string,
+    ): Promise<readonly BulkAssignResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/bulk-assign",
+        {
+          params: { path: { tenant_id: tenantId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: [...items],
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** GET .../groups (ADR 0045) - every group entity this tenant currently
+     * has (a group is just an entity with at least one `GroupMember` row
+     * naming it, no dedicated table). First page only, same convention as
+     * every other catalog-sized listing in this client. `/note`'s
+     * `visibility:group` option (ADR 0052) sources its autocomplete here. */
+    async listGroups(tenantId: string, accessToken: string): Promise<readonly GroupSummary[]> {
+      const { data, error, response } = await client.GET("/tenants/{tenant_id}/groups", {
+        params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.items.map((group) => ({ entityId: group.id, name: group.name }));
     },
   };
 }

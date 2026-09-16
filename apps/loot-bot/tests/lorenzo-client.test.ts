@@ -492,6 +492,27 @@ describe("splitItemInstance", () => {
     expect(data.quantity).toBe(3);
   });
 
+  it("includes owner_character_id when given (ADR 0044 split-with-owner)", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/item-1/split`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json(
+            { entity_id: "item-2", title: "Torch", quantity: 3, owner_entity_id: CHARACTER_ID },
+            { status: 201 },
+          );
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.splitItemInstance(TENANT_ID, "item-1", 3, "test-token", undefined, CHARACTER_ID);
+
+    expect(receivedBody).toEqual({ quantity: 3, owner_character_id: CHARACTER_ID });
+  });
+
   it("sends the given etag as If-Match", async () => {
     let receivedIfMatch: string | null = null;
     server.use(
@@ -749,5 +770,107 @@ describe("getCharacterName", () => {
     const name = await client.getCharacterName(TENANT_ID, CHARACTER_ID, "test-token");
 
     expect(name).toBe("Frodo");
+  });
+});
+
+describe("getItemInstanceBySlug", () => {
+  it("resolves a slug to its current instance state, with etag", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/by-slug/the-chest`, () =>
+        HttpResponse.json(
+          { entity_id: "item-1", title: "The Chest", quantity: null, owner_entity_id: null },
+          { headers: { etag: 'W/"abc"' } },
+        ),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const { data, etag } = await client.getItemInstanceBySlug(TENANT_ID, "the-chest", "test-token");
+
+    expect(data.entity_id).toBe("item-1");
+    expect(etag).toBe('W/"abc"');
+  });
+
+  it("throws a 404 LorenzoApiError when no instance has that slug", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/by-slug/no-such-slug`, () =>
+        HttpResponse.json(
+          { type: "not-found", title: "Not Found", detail: "no instance with that slug" },
+          { status: 404, headers: { "content-type": "application/problem+json" } },
+        ),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await expect(
+      client.getItemInstanceBySlug(TENANT_ID, "no-such-slug", "test-token"),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe("bulkAssignItemInstances", () => {
+  it("posts the array body and returns one result per input entry", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/bulk-assign`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json([
+            { entity_id: "item-1", status: "ok", item_instance: { entity_id: "item-1" } },
+            {
+              entity_id: "item-2",
+              status: "error",
+              problem: { type: "conflict", title: "Precondition Failed", status: 412 },
+            },
+          ]);
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const results = await client.bulkAssignItemInstances(
+      TENANT_ID,
+      [
+        { entity_id: "item-1", owner_character_id: CHARACTER_ID, if_match: 'W/"a"' },
+        { entity_id: "item-2", owner_character_id: CHARACTER_ID, quantity: 2 },
+      ],
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual([
+      { entity_id: "item-1", owner_character_id: CHARACTER_ID, if_match: 'W/"a"' },
+      { entity_id: "item-2", owner_character_id: CHARACTER_ID, quantity: 2 },
+    ]);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({ status: "ok" });
+    expect(results[1]).toMatchObject({ status: "error" });
+  });
+});
+
+describe("listGroups", () => {
+  it("returns the first page of groups, flattened to entityId/name", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/groups`, () =>
+        HttpResponse.json({
+          items: [
+            { id: "group-1", name: "The Party" },
+            { id: "group-2", name: "Villains" },
+          ],
+          total: 2,
+          page: 1,
+          size: 50,
+          pages: 1,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const groups = await client.listGroups(TENANT_ID, "test-token");
+
+    expect(groups).toEqual([
+      { entityId: "group-1", name: "The Party" },
+      { entityId: "group-2", name: "Villains" },
+    ]);
   });
 });
