@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Self
 
 from pydantic import BaseModel, ConfigDict
 
-from lorenzo_api.models import StatDefinition, StatGroup, StatValueType
+from lorenzo_api.models import StatValueType
 
 __all__ = [
     "SetEntityStatRequest",
@@ -29,6 +28,11 @@ class StatGroupCreate(BaseModel):
 
 
 class StatGroupOut(BaseModel):
+    """Constructed via .model_validate(stat_group) at call sites - every
+    field here is a plain 1:1 column copy, so from_attributes=True already
+    does the whole job; no wrapper classmethod needed.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
@@ -36,16 +40,6 @@ class StatGroupOut(BaseModel):
     priority: int
     created_at: datetime
     updated_at: datetime
-
-    @classmethod
-    def from_stat_group(cls, stat_group: StatGroup) -> Self:
-        return cls(
-            id=stat_group.id,
-            name=stat_group.name,
-            priority=stat_group.priority,
-            created_at=stat_group.created_at,
-            updated_at=stat_group.updated_at,
-        )
 
 
 class StatDefinitionCreate(BaseModel):
@@ -60,6 +54,10 @@ class StatDefinitionCreate(BaseModel):
 
 
 class StatDefinitionOut(BaseModel):
+    """Constructed via .model_validate(stat_definition) at call sites - same
+    reasoning as StatGroupOut above.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
@@ -68,17 +66,6 @@ class StatDefinitionOut(BaseModel):
     value_type: StatValueType
     created_at: datetime
     updated_at: datetime
-
-    @classmethod
-    def from_stat_definition(cls, stat_definition: StatDefinition) -> Self:
-        return cls(
-            id=stat_definition.id,
-            name=stat_definition.name,
-            stat_group_id=stat_definition.stat_group_id,
-            value_type=stat_definition.value_type,
-            created_at=stat_definition.created_at,
-            updated_at=stat_definition.updated_at,
-        )
 
 
 class SetEntityStatRequest(BaseModel):

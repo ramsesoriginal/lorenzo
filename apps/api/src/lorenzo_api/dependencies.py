@@ -13,7 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.campaign_access import can_access_campaign
+from lorenzo_api.campaign_access import can_access_campaign, is_tenant_participant
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import get_db_session
 from lorenzo_api.exceptions import (
@@ -36,6 +36,7 @@ __all__ = [
     "get_tenant_context",
     "get_tenant_or_404",
     "require_tenant_creator_role",
+    "require_tenant_participant",
     "set_tenant_rls_context",
     "verify_token",
 ]
@@ -244,6 +245,26 @@ async def get_tenant_or_404(
 
 
 TenantOrNotFound = Annotated[uuid.UUID, Depends(get_tenant_or_404)]
+
+
+async def require_tenant_participant(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser
+) -> None:
+    """Broader than get_tenant_context's Membership requirement (a Player or
+    CampaignGm row also qualifies, ADR 0022), narrower than wide open (an
+    unrelated authenticated user with zero standing in this tenant still
+    can't reach whatever this gates). Non-enumerable 404, same as every
+    other tenant-scoped check in this API.
+
+    Extracted here (rather than kept as each router's own private
+    `_require_participant` helper) because it had been copy-pasted
+    verbatim into routers/entities.py, routers/groups.py, and
+    routers/item_instances.py, plus inlined a fourth time in
+    routers/campaigns.py's list_campaigns - four identical copies of the
+    same two-line check, not four independently-reasoned ones.
+    """
+    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
 
 
 async def get_campaign_context(

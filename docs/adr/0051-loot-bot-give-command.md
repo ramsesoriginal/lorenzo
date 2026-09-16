@@ -1,10 +1,10 @@
-# 0043 - loot-bot: `/give`, the first write command (loot-splitting)
+# 0051 - loot-bot: `/give`, the first write command (loot-splitting)
 
 Status: accepted
 
 ## Context
 
-[ADR 0042](0042-loot-bot-stack-linking-and-isolation.md) scoped `loot-bot`'s first slice to read-only (`/link`, `/inventory`). [docs/domain/client-views.md](../domain/client-views.md)'s own worked example names "mechanical tasks like splitting loot among a party" as the bot's actual reason for existing — this ADR is that slice, now that `apps/api`'s write API is real and confirmed (`feat/rest-api-surface`, 93 operations including a dedicated `POST .../item-instances/{id}/split`, ADR 0041 there).
+[ADR 0050](0050-loot-bot-stack-linking-and-isolation.md) scoped `loot-bot`'s first slice to read-only (`/link`, `/inventory`). [docs/domain/client-views.md](../domain/client-views.md)'s own worked example names "mechanical tasks like splitting loot among a party" as the bot's actual reason for existing — this ADR is that slice, now that `apps/api`'s write API is real and confirmed (`feat/rest-api-surface`, 93 operations including a dedicated `POST .../item-instances/{id}/split`, ADR 0041 there).
 
 RFC 0005's own "Not in scope" section (that branch) is explicit that bulk/orchestrated operations like this are a client-side concern: "a client-side loop over the single-item endpoints... not a new REST primitive." This ADR is that orchestration, client-side.
 
@@ -14,7 +14,7 @@ RFC 0005's own "Not in scope" section (that branch) is explicit that bulk/orches
 
 A player thinks "give Sam 5 torches," not "split off 5 torches, then transfer the split's ownership" — two backend calls, one user intent. `/give item:<autocomplete> to:<autocomplete> [quantity:<int>]`:
 
-- No `quantity`, or `quantity >= ` the item's current stack size → the *whole* instance's ownership transfers directly (`PUT .../item-instances/{id}/owner`) — no split. Matches the split endpoint's own documented invariant ("splitting off 'all of it' is a container/owner reassignment of the whole stack, not a split").
+- No `quantity`, or a `quantity` that covers the item's whole current stack size → the *whole* instance's ownership transfers directly (`PUT .../item-instances/{id}/owner`) — no split. Matches the split endpoint's own documented invariant ("splitting off 'all of it' is a container/owner reassignment of the whole stack, not a split").
 - `quantity` less than the current stack size → `POST .../item-instances/{id}/split` (quantity split off into a new sibling instance, same owner/container as the source, per that endpoint's own contract) followed by `PUT .../owner` on the *new* instance, transferring only the split-off portion.
 - `quantity` given against a non-stacked item (`quantity` field `null`, i.e. "just one") is rejected client-side with a clear message before calling anything, rather than letting a confusing 422 surface from the backend.
 

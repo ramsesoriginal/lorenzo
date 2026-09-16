@@ -81,7 +81,7 @@ async def create_stat_group(
     response.headers["Location"] = str(
         request.url_for("get_stat_group", tenant_id=tenant_id, stat_group_id=stat_group.id)
     )
-    return StatGroupOut.from_stat_group(stat_group)
+    return StatGroupOut.model_validate(stat_group)
 
 
 @router.get("/stat-groups/{stat_group_id}")
@@ -89,7 +89,7 @@ async def get_stat_group(
     tenant_id: uuid.UUID, stat_group_id: uuid.UUID, session: SessionDep
 ) -> StatGroupOut:
     stat_group = await _get_stat_group_or_404(tenant_id, stat_group_id, session)
-    return StatGroupOut.from_stat_group(stat_group)
+    return StatGroupOut.model_validate(stat_group)
 
 
 @router.post("/stat-definitions", status_code=201)
@@ -125,7 +125,7 @@ async def create_stat_definition(
             "get_stat_definition", tenant_id=tenant_id, stat_definition_id=stat_definition.id
         )
     )
-    return StatDefinitionOut.from_stat_definition(stat_definition)
+    return StatDefinitionOut.model_validate(stat_definition)
 
 
 @router.get("/stat-definitions/{stat_definition_id}")
@@ -133,4 +133,4 @@ async def get_stat_definition(
     tenant_id: uuid.UUID, stat_definition_id: uuid.UUID, session: SessionDep
 ) -> StatDefinitionOut:
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
-    return StatDefinitionOut.from_stat_definition(stat_definition)
+    return StatDefinitionOut.model_validate(stat_definition)

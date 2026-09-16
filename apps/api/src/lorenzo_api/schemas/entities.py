@@ -36,7 +36,7 @@ class InformationCreate(BaseModel):
     locale: str = "en-US"
 
 
-class StatValueOut(BaseModel):
+class EntityStatValueOut(BaseModel):
     """A resolved stat value, keyed by its definition's name - see ADR 0020.
 
     Reshaping, not a plain-column mapping, so built via a classmethod
@@ -51,7 +51,7 @@ class StatValueOut(BaseModel):
     value: int | str | float | bool
 
     @classmethod
-    def from_effective_stat(cls, stat: VEffectiveStat) -> StatValueOut:
+    def from_effective_stat(cls, stat: VEffectiveStat) -> EntityStatValueOut:
         """Takes a v_effective_stat row (ADR 0039), not an EntityStat - this
         always reflects prototype-inherited values, not just an entity's own
         direct ones.
@@ -110,7 +110,7 @@ class EntityDetailOut(BaseModel):
     name: str
     created_at: datetime
     updated_at: datetime
-    stats: list[StatValueOut]
+    stats: list[EntityStatValueOut]
     stat_groups: list[EntitySummary]
     information: list[InformationOut]
     prototypes: list[EntitySummary]
@@ -128,7 +128,7 @@ class EntityDetailOut(BaseModel):
             name=entity.name,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
-            stats=[StatValueOut.from_effective_stat(stat) for stat in entity.effective_stats],
+            stats=[EntityStatValueOut.from_effective_stat(stat) for stat in entity.effective_stats],
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
             # is typed for Entity specifically), reusing EntitySummary only
@@ -145,15 +145,27 @@ class EntityDetailOut(BaseModel):
                 for info in entity.information
                 if visibility.can_see(info)
             ],
+            # quantity stays unset (None) for prototypes/instances/
+            # stat_groups below - those aren't containment edges at all, so
+            # "how many" doesn't apply; defaulting it to 1 there would
+            # assert a fact about a relationship that has no such concept,
+            # not correctly describe one that happens to be singular.
             prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
             instances=[EntitySummary.from_entity(e) for e in entity.instances],
             # ADR 0041: entity.containment (the scalar Containment row for
             # this entity's own edge), not entity.parent - only the former
             # carries quantity alongside the parent entity. parent/quantity
             # are always both None or both set together (no containment
-            # row at all vs. exactly one).
+            # row at all vs. exactly one). parent.quantity mirrors the
+            # top-level quantity field below - both describe the identical
+            # edge ("how many of this entity sit in that parent"), just
+            # attached to the parent reference too, for the same reason
+            # each children[] entry already carries its own quantity rather
+            # than leaving it to the reader to cross-reference by id.
             parent=(
-                EntitySummary.from_entity(entity.containment.parent)
+                EntitySummary.from_entity(
+                    entity.containment.parent, quantity=entity.containment.quantity
+                )
                 if entity.containment is not None
                 else None
             ),

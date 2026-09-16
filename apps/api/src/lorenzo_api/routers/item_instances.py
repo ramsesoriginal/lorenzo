@@ -7,13 +7,13 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
+from fastapi_problem.error import Problem
 from sqlalchemy import ColumnElement, Select, or_, select, true
 
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
-    is_tenant_participant,
 )
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -21,6 +21,7 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_entity_or_404,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import (
@@ -29,13 +30,15 @@ from lorenzo_api.entity_access import (
     reachable_entity_ids,
     recursive_descendants_cte,
 )
-from lorenzo_api.etag import check_if_match
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     InvalidItemPrototypeError,
+    InvalidMergeError,
     InvalidSplitQuantityError,
     ItemInstanceManagementForbiddenError,
     ItemInstanceNotFoundError,
-    TenantNotFoundError,
+    ItemInstanceSlugConflictError,
+    ItemInstanceSlugNotFoundError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.models import (
@@ -50,11 +53,15 @@ from lorenzo_api.models import (
 from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.items import (
+    BulkAssignItem,
+    BulkAssignResultItem,
     ItemInstanceCreate,
     ItemInstanceOut,
     ItemInstanceUpdate,
+    MergeItemInstanceRequest,
     OwnedByResponse,
     OwnedGroupOut,
+    ProblemOut,
     SetContainerRequest,
     SetOwnerRequest,
     SplitItemInstanceRequest,
@@ -65,8 +72,8 @@ from lorenzo_api.schemas.items import (
 # neither an ordinary player nor a campaign's own GM implies a tenant-wide
 # Membership row (ADR 0022), so gating this whole router on one would lock
 # them out of their own inventory entirely. The three GET routes below each
-# apply their own explicit is_tenant_participant check instead; the write
-# routes use self-or-managed authorization, narrower still.
+# apply their own explicit require_tenant_participant check instead; the
+# write routes use self-or-managed authorization, narrower still.
 router = APIRouter(
     prefix="/tenants/{tenant_id}/item-instances",
     tags=["item-instances"],
@@ -104,20 +111,6 @@ def _item_instances_by_container_stmt(
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(VItemInstance.entity_id)
     )
-
-
-async def _require_participant(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser
-) -> None:
-    """Gates every GET route below - broader than get_tenant_context's
-    Membership requirement (a Player or CampaignGm row also qualifies,
-    ADR 0022), narrower than wide open (an unrelated authenticated user
-    with zero standing in this tenant still can't browse its inventory).
-    Mirrors routers/campaigns.py's identical is_tenant_participant gate
-    (ADR 0030/RFC 0003) - non-enumerable 404, same as everywhere else.
-    """
-    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
 
 
 async def _visible_owner_predicate(
@@ -199,7 +192,7 @@ async def list_item_instances(
     the structurally-different owned-by grouping, which is its own
     endpoint (ADR 0020).
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     # Resolved once per request, not once per row - reused by every item
     # instance on the page (ADR 0028's addendum), and now also by
     # _visible_owner_predicate below (ADR 0040) rather than a second query.
@@ -252,7 +245,7 @@ async def list_item_instances_owned_by(
     grouping, not a recursive container-tree walk. Deliberately not
     paginated - bounded by one owner's inventory (ADR 0020 / task brief).
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     # ADR 0040: an owner_entity_id the caller can't reach (not one of their
     # own characters, not GM-reachable, not is_orga) contributes zero rows
     # below - the response comes back as an empty groups list, identical in
@@ -307,11 +300,55 @@ async def list_item_instances_owned_by(
     )
 
 
+@router.get("/by-slug/{slug}")
+async def get_item_instance_by_slug(
+    tenant_id: uuid.UUID,
+    slug: str,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ItemInstanceOut:
+    """ADR 0043. Registered *before* /{entity_id} below, for the identical
+    routing-order reason that route's own docstring already documents for
+    /owned-by/{owner_entity_id} - a wildcard entity_id segment registered
+    first would otherwise greedily match "by-slug" as an id and shadow this
+    route entirely.
+
+    Applies the same ADR 0040 read-visibility predicate as GET
+    /{entity_id} - a slug is just an alternate way to name an instance, not
+    a separate, unfiltered lookup path into someone else's hidden
+    inventory.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    predicate = await _visible_owner_predicate(
+        session, tenant_id=tenant_id, user=user, visibility=visibility
+    )
+    stmt = (
+        select(VItemInstance)
+        .where(
+            VItemInstance.tenant_id == tenant_id,
+            VItemInstance.slug == slug,
+            predicate,
+        )
+        .options(*eager_load_options(VItemInstance.entity))
+    )
+    view = (await session.execute(stmt)).scalar_one_or_none()
+    if view is None:
+        raise ItemInstanceSlugNotFoundError(
+            detail=f"No item instance with slug {slug!r} in tenant {tenant_id}"
+        )
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
+    return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
+
+
 @router.get("/{entity_id}")
 async def get_item_instance(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemInstanceOut:
@@ -326,7 +363,7 @@ async def get_item_instance(
     that getting this order backwards really does break /owned-by/... with
     a 422, not just in theory.
     """
-    await _require_participant(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     # ADR 0040: an item instance the caller can't reach 404s here, the same
     # "no row matched" path an unknown or cross-tenant id already takes -
@@ -341,6 +378,7 @@ async def get_item_instance(
     view = await _get_v_item_instance_or_404(
         tenant_id, entity_id, session, extra_predicate=predicate
     )
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
 
 
@@ -391,11 +429,18 @@ async def _item_instance_out(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response | None,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemInstanceOut:
+    """response is None only for bulk-assign's per-item results (ADR 0044) -
+    a batch response representing N resources has no single ETag of its
+    own to set, unlike every single-item route that calls this.
+    """
     view = await _get_v_item_instance_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    if response is not None:
+        response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
 
 
@@ -499,6 +544,15 @@ async def create_item_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_character_id
     )
 
+    if body.slug is not None:
+        slug_stmt = select(ItemInstance.entity_id).where(
+            ItemInstance.tenant_id == tenant_id, ItemInstance.slug == body.slug
+        )
+        if (await session.execute(slug_stmt)).first() is not None:
+            raise ItemInstanceSlugConflictError(
+                detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
+            )
+
     entity = Entity(
         tenant_id=tenant_id,
         name=body.name if body.name is not None else prototype_entity.name,
@@ -507,7 +561,7 @@ async def create_item_instance(
     )
     session.add(entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
         EntityPrototype(entity_id=entity.id, prototype_id=body.prototype_id, tenant_id=tenant_id)
     )
@@ -532,7 +586,7 @@ async def create_item_instance(
     response.headers["Location"] = str(
         request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=entity.id)
     )
-    return await _item_instance_out(tenant_id, entity.id, request, session, user)
+    return await _item_instance_out(tenant_id, entity.id, request, response, session, user)
 
 
 @router.patch("/{entity_id}")
@@ -541,6 +595,7 @@ async def update_item_instance(
     entity_id: uuid.UUID,
     body: ItemInstanceUpdate,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -554,7 +609,7 @@ async def update_item_instance(
         entity.updated_by = user.id
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, session, user)
+    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
 @router.delete("/{entity_id}", status_code=204)
@@ -576,12 +631,38 @@ async def delete_item_instance(
     await session.commit()
 
 
+async def _perform_set_owner(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    owner_character_id: uuid.UUID,
+) -> None:
+    """Core owner-set mechanics only - no auth, no If-Match, no response
+    shaping, no commit - shared by the single-item PUT .../owner route and
+    bulk-assign's own quantity-omitted branch (ADR 0044), so the two can't
+    drift.
+    """
+    existing = await session.get(Ownership, entity_id)
+    if existing is not None:
+        existing.owner_character_id = owner_character_id
+    else:
+        session.add(
+            Ownership(
+                owned_entity_id=entity_id,
+                owner_character_id=owner_character_id,
+                tenant_id=tenant_id,
+            )
+        )
+
+
 @router.put("/{entity_id}/owner")
 async def set_item_instance_owner(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     body: SetOwnerRequest,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -595,20 +676,15 @@ async def set_item_instance_owner(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
-    existing = await session.get(Ownership, entity_id)
-    if existing is not None:
-        existing.owner_character_id = body.owner_character_id
-    else:
-        session.add(
-            Ownership(
-                owned_entity_id=entity_id,
-                owner_character_id=body.owner_character_id,
-                tenant_id=tenant_id,
-            )
-        )
+    await _perform_set_owner(
+        session,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        owner_character_id=body.owner_character_id,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, session, user)
+    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
 @router.delete("/{entity_id}/owner")
@@ -616,6 +692,7 @@ async def clear_item_instance_owner(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -633,7 +710,7 @@ async def clear_item_instance_owner(
         await session.delete(existing)
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, session, user)
+    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
 @router.put("/{entity_id}/container")
@@ -642,6 +719,7 @@ async def set_item_instance_container(
     entity_id: uuid.UUID,
     body: SetContainerRequest,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -668,7 +746,7 @@ async def set_item_instance_container(
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, session, user)
+    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
 @router.delete("/{entity_id}/container")
@@ -676,6 +754,7 @@ async def clear_item_instance_container(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -689,48 +768,40 @@ async def clear_item_instance_container(
         await session.delete(existing)
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, session, user)
+    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
-@router.post("/{entity_id}/split", status_code=201)
-async def split_item_instance(
-    tenant_id: uuid.UUID,
-    entity_id: uuid.UUID,
-    body: SplitItemInstanceRequest,
-    request: Request,
-    response: Response,
+async def _perform_split(
     session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity: Entity,
+    quantity: int,
+    owner_character_id: uuid.UUID | None,
     user: CurrentUser,
-    if_match: Annotated[str | None, Header()] = None,
-) -> ItemInstanceOut:
-    """Splits body.quantity units off entity_id's current stack into a new
-    sibling instance at the same container, decrementing the source's own
-    Containment.quantity by that amount - see ADR 0041. Self-or-managed
-    authorization against the *source* entity (_authorize_instance_write,
-    unchanged) - splitting your own stack is acting on your own stuff, the
-    same tier every other instance write already uses.
+) -> uuid.UUID:
+    """Core split mechanics only - no auth, no If-Match, no response
+    shaping, no commit - shared by the single-item POST .../split route and
+    bulk-assign's own quantity-given branch (ADR 0044), so the two can't
+    drift. Returns the new (split-off) instance's entity_id.
 
-    The new instance copies the source's own direct EntityPrototype
-    link(s) and current owner, if any - it's a fresh instance of the same
-    prototype(s), created the same way POST /item-instances creates one,
-    not a deep clone of the source's own accumulated entity_stat overrides,
-    Information, or attribution trail.
-
-    201 + Location + the *new* instance's canonical shape, mirroring
-    POST /item-instances's own convention - a caller that wants the
-    source's own new (decremented) quantity re-GETs it, same as any other
-    write's side effects on a different resource.
+    Splits `quantity` units off entity's current stack into a new sibling
+    instance at the same container, decrementing the source's own
+    Containment.quantity by that amount - see ADR 0041. The new instance
+    copies the source's own direct EntityPrototype link(s) - it's a fresh
+    instance of the same prototype(s), created the same way
+    POST /item-instances creates one, not a deep clone of the source's own
+    accumulated entity_stat overrides, Information, or attribution trail.
+    `owner_character_id` (ADR 0044): the new instance's owner if given,
+    else the source's own current owner (ADR 0041's original behavior).
     """
-    entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
-    check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
-
+    entity_id = entity.id
     source_containment = await session.get(Containment, entity_id)
-    if source_containment is None or body.quantity >= source_containment.quantity:
+    if source_containment is None or quantity >= source_containment.quantity:
         current = source_containment.quantity if source_containment is not None else None
         raise InvalidSplitQuantityError(
             detail=(
-                f"Cannot split {body.quantity} unit(s) off item instance {entity_id} "
+                f"Cannot split {quantity} unit(s) off item instance {entity_id} "
                 f"(current stack quantity: {current})"
             )
         )
@@ -746,7 +817,13 @@ async def split_item_instance(
         .scalars()
         .all()
     )
-    owner_id = await _current_owner_character_id(session, entity_id=entity_id, tenant_id=tenant_id)
+    new_owner_id: uuid.UUID | None
+    if owner_character_id is not None:
+        new_owner_id = owner_character_id
+    else:
+        new_owner_id = await _current_owner_character_id(
+            session, entity_id=entity_id, tenant_id=tenant_id
+        )
 
     new_entity = Entity(
         tenant_id=tenant_id, name=entity.name, created_by=user.id, updated_by=user.id
@@ -758,10 +835,10 @@ async def split_item_instance(
         session.add(
             EntityPrototype(entity_id=new_entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
         )
-    if owner_id is not None:
+    if new_owner_id is not None:
         session.add(
             Ownership(
-                owned_entity_id=new_entity.id, owner_character_id=owner_id, tenant_id=tenant_id
+                owned_entity_id=new_entity.id, owner_character_id=new_owner_id, tenant_id=tenant_id
             )
         )
     session.add(
@@ -769,14 +846,190 @@ async def split_item_instance(
             child_entity_id=new_entity.id,
             parent_entity_id=source_containment.parent_entity_id,
             tenant_id=tenant_id,
-            quantity=body.quantity,
+            quantity=quantity,
         )
     )
-    source_containment.quantity -= body.quantity
+    source_containment.quantity -= quantity
+    return new_entity.id
+
+
+@router.post("/{entity_id}/split", status_code=201)
+async def split_item_instance(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: SplitItemInstanceRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> ItemInstanceOut:
+    """Self-or-managed authorization against the *source* entity
+    (_authorize_instance_write, unchanged) - splitting your own stack is
+    acting on your own stuff, the same tier every other instance write
+    already uses. See _perform_split for the actual mechanics.
+
+    201 + Location + the *new* instance's canonical shape, mirroring
+    POST /item-instances's own convention - a caller that wants the
+    source's own new (decremented) quantity re-GETs it, same as any other
+    write's side effects on a different resource.
+    """
+    entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+
+    new_entity_id = await _perform_split(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        quantity=body.quantity,
+        owner_character_id=body.owner_character_id,
+        user=user,
+    )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
-        request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=new_entity.id)
+        request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=new_entity_id)
     )
-    return await _item_instance_out(tenant_id, new_entity.id, request, session, user)
+    return await _item_instance_out(tenant_id, new_entity_id, request, response, session, user)
+
+
+@router.post("/{entity_id}/merge")
+async def merge_item_instance(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: MergeItemInstanceRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> ItemInstanceOut:
+    """The inverse of split (ADR 0044): entity_id's entire current stack is
+    added onto into_entity_id's, then entity_id is deleted. Authorized
+    against *both* sides (_authorize_instance_write) - this mutates both
+    rows, unlike every other write in this router, which only ever touches
+    one. If-Match (optional, as everywhere) is checked against the source
+    (entity_id) only, mirroring split's own single-sided precondition.
+
+    200 + the *target*'s resulting shape, not 201 - nothing new is created
+    here, unlike split.
+    """
+    if entity_id == body.into_entity_id:
+        raise InvalidMergeError(detail="Cannot merge an item instance into itself")
+
+    source_entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
+    check_if_match(if_match, updated_at=source_entity.updated_at)
+    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    # Also 404s (via the identical tenant-scoped lookup every other route
+    # here uses) if into_entity_id doesn't resolve to an item instance in
+    # this tenant at all.
+    await _get_item_instance_entity_or_404(tenant_id, body.into_entity_id, session)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=body.into_entity_id
+    )
+
+    source_containment = await session.get(Containment, entity_id)
+    target_containment = await session.get(Containment, body.into_entity_id)
+    if source_containment is None or target_containment is None:
+        raise InvalidMergeError(
+            detail="Both item instances must currently be contained somewhere to merge"
+        )
+    if source_containment.parent_entity_id != target_containment.parent_entity_id:
+        raise InvalidMergeError(detail="Cannot merge item instances in different containers")
+
+    source_owner_id = await _current_owner_character_id(
+        session, entity_id=entity_id, tenant_id=tenant_id
+    )
+    target_owner_id = await _current_owner_character_id(
+        session, entity_id=body.into_entity_id, tenant_id=tenant_id
+    )
+    if source_owner_id != target_owner_id:
+        raise InvalidMergeError(detail="Cannot merge item instances with different owners")
+
+    target_containment.quantity += source_containment.quantity
+    await session.delete(source_entity)
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await _item_instance_out(
+        tenant_id, body.into_entity_id, request, response, session, user
+    )
+
+
+@router.post("/bulk-assign")
+async def bulk_assign_item_instances(
+    tenant_id: uuid.UUID,
+    body: list[BulkAssignItem],
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BulkAssignResultItem]:
+    """Assigns several already-decided items to characters in one call
+    (ADR 0044) - a GM's own "resolve a whole loot session" step. quantity
+    given delegates to split-with-owner (_perform_split); omitted
+    delegates to the plain owner-PUT path (_perform_set_owner) -both share
+    exactly the mechanics (and, for split, the authorization) the
+    single-item routes above use.
+
+    Never all-or-nothing: each item runs inside its own session.
+    begin_nested() (a SQL SAVEPOINT) so one item's failure rolls back only
+    that item, not the others sharing this request's session/transaction -
+    a caught fastapi_problem.error.Problem (404/403/412/422) becomes that
+    item's own "error" entry (via the identical .marshal() shape a real
+    single-item error response would have), everything else already
+    applied by earlier items in the batch proceeds to the one shared
+    commit at the end. An unexpected (non-Problem) exception is not caught
+    here and fails the whole request as a 500 - this only ever gracefully
+    handles anticipated, typed failure modes, matching this codebase's
+    general practice.
+    """
+    results: list[BulkAssignResultItem] = []
+    for item in body:
+        try:
+            async with session.begin_nested():
+                entity = await _get_item_instance_entity_or_404(tenant_id, item.entity_id, session)
+                check_if_match(item.if_match, updated_at=entity.updated_at)
+                await _authorize_instance_write(
+                    session, tenant_id=tenant_id, user=user, entity_id=item.entity_id
+                )
+                if item.quantity is not None:
+                    result_entity_id = await _perform_split(
+                        session,
+                        tenant_id=tenant_id,
+                        entity=entity,
+                        quantity=item.quantity,
+                        owner_character_id=item.owner_character_id,
+                        user=user,
+                    )
+                else:
+                    await _perform_set_owner(
+                        session,
+                        tenant_id=tenant_id,
+                        entity_id=item.entity_id,
+                        owner_character_id=item.owner_character_id,
+                    )
+                    result_entity_id = item.entity_id
+        except Problem as exc:
+            results.append(
+                BulkAssignResultItem(
+                    entity_id=item.entity_id,
+                    status="error",
+                    item_instance=None,
+                    problem=ProblemOut(**exc.marshal()),
+                )
+            )
+            continue
+        item_instance = await _item_instance_out(
+            tenant_id, result_entity_id, request, None, session, user
+        )
+        results.append(
+            BulkAssignResultItem(
+                entity_id=item.entity_id, status="ok", item_instance=item_instance, problem=None
+            )
+        )
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return results

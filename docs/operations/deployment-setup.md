@@ -116,6 +116,7 @@ Create a `production` [Environment](https://docs.github.com/en/actions/deploymen
 
 - **Secret**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`.
 - **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE` — the values from the Authgear Cloud section above. None of these seven are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
+- **Variable, optional**: `CORS_ALLOWED_ORIGINS` — set this once a static frontend needs to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). Must be a **JSON array** of exact origins, e.g. `["https://lorenzo.example.com"]` — not a bare URL or a comma-separated list. Leave unset to keep CORS closed (the default, and what every deploy so far has run with); the workflow substitutes `[]` automatically if this variable doesn't exist, so an unset value never breaks a deploy.
 
 Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger it — the workflow's own `paths: apps/api/**` filter won't fire, so trigger it manually once (Actions → "Deploy API" → "Run workflow") to actually apply new environment variables to the live service.
 

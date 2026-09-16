@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     # of truth for who holds it, this app just needs to know its name.
     tenant_creator_role_key: str = "tenant-creator"
 
+    # CORS (ADR 0048) - a JSON array of exact origins in the
+    # CORS_ALLOWED_ORIGINS env var, e.g. ["https://lorenzo.example.com"].
+    # Defaults to empty (no cross-origin browser access at all), matching
+    # this app's other fail-closed defaults - curl/server-to-server callers
+    # are unaffected either way, CORS only ever restricts browser JS.
+    cors_allowed_origins: list[str] = []
+
     @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:

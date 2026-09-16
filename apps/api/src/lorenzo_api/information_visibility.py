@@ -46,7 +46,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_orga
-from lorenzo_api.entity_access import reachable_entity_ids
+from lorenzo_api.entity_access import containing_ancestors_ids, reachable_entity_ids
 from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
@@ -123,13 +123,16 @@ async def resolve_information_visibility(
     caller holds in this tenant, resolved to that campaign's own
     CharacterPlayer roster (via Player.campaign_id, the same join
     character_ids above already does per-player), unioned across every
-    campaign GM'd, then walked once through entity_access.
-    reachable_entity_ids - not once per campaign, since that walk's own
-    root set already accepts a union of roots and produces the same
-    result either way. Tenant OWNER is deliberately not folded in here -
-    see is_orga's own bypass above and campaign_access.can_manage_campaign's
-    docstring: administrative capability over a campaign as an object is a
-    different axis from character/GM *knowledge* of it.
+    campaign GM'd, widened to also include every entity that transitively
+    contains one of those characters (entity_access.containing_ancestors_ids
+    - the room a PC is standing in, and so on up the containment chain,
+    ADR 0046), then walked once through entity_access.reachable_entity_ids -
+    not once per campaign, since that walk's own root set already accepts a
+    union of roots and produces the same result either way. Tenant OWNER is
+    deliberately not folded in here - see is_orga's own bypass above and
+    campaign_access.can_manage_campaign's docstring: administrative
+    capability over a campaign as an object is a different axis from
+    character/GM *knowledge* of it.
     """
     player_ids: set[uuid.UUID] = set(
         (
@@ -216,8 +219,17 @@ async def resolve_information_visibility(
 
     gm_reachable_ids: frozenset[uuid.UUID] = frozenset()
     if gm_character_ids:
+        # ADR 0046: rooted not just at the campaign's own characters (what
+        # they own/carry, downward only) but also at every entity that
+        # transitively contains one of them (the room a PC is standing in,
+        # the building that room is in, ...) - reachable_entity_ids' own
+        # existing downward walk from those extra roots then naturally
+        # pulls in the room itself and everything else in it.
+        gm_root_ids = frozenset(gm_character_ids) | await containing_ancestors_ids(
+            session, entity_ids=frozenset(gm_character_ids), tenant_id=tenant_id
+        )
         gm_reachable_ids = await reachable_entity_ids(
-            session, root_entity_ids=frozenset(gm_character_ids), tenant_id=tenant_id
+            session, root_entity_ids=gm_root_ids, tenant_id=tenant_id
         )
 
     return InformationVisibility(
