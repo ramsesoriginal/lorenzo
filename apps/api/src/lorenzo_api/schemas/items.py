@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
@@ -131,6 +131,42 @@ class ItemUpdate(BaseModel):
     name: str | None = None
 
 
+def _common_item_fields(
+    view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
+) -> dict[str, Any]:
+    """Every field ItemOut and ItemInstanceOut share - both views expose the
+    identical EntityViewMixin-backed surface (ADR 0019), differing only in
+    ItemInstanceOut's own extra owner_entity_id/slug. Extracted so the two
+    schemas' constructors can't drift apart the way they used to (every
+    field added here historically meant editing both from_v_item and
+    from_v_item_instance by hand, in lockstep).
+    """
+    return dict(
+        entity_id=view.entity_id,
+        title=view.title,
+        weight=view.weight,
+        height=view.height,
+        price=view.price,
+        rarity=view.rarity,
+        hp=view.hp,
+        armor=view.armor,
+        container_entity_id=view.container_entity_id,
+        quantity=view.quantity,
+        is_magical=view.is_magical,
+        is_cursed=view.is_cursed,
+        descriptions=_descriptions_out(view.descriptions(visibility)),
+        pictures=_picture_refs(view.entity, request, visibility),
+        physical_stats=_stats_out(view.physical_stats),
+        economic_stats=_stats_out(view.economic_stats),
+        destroyable_stats=_stats_out(view.destroyable_stats),
+        damaging_stats=_stats_out(view.damaging_stats),
+        tags=_tags_out(view.tags),
+        created_by=view.entity.created_by,
+        updated_by=view.entity.updated_by,
+        updated_at=view.entity.updated_at,
+    )
+
+
 class ItemOut(BaseModel):
     """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
 
@@ -142,6 +178,10 @@ class ItemOut(BaseModel):
     `routers.items.eager_load_options`, the exact recipe proven in
     `tests/test_v_item.py`) - the six wrapped properties/methods raise
     MissingGreenlet otherwise, they do not silently lazy-load.
+
+    `ItemInstanceOut` below extends this directly - identical fields plus
+    `owner_entity_id`/`slug` - rather than repeating the field list a
+    second time.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -173,30 +213,7 @@ class ItemOut(BaseModel):
     def from_v_item(
         cls, view: VItem, request: Request, *, visibility: InformationVisibility
     ) -> Self:
-        return cls(
-            entity_id=view.entity_id,
-            title=view.title,
-            weight=view.weight,
-            height=view.height,
-            price=view.price,
-            rarity=view.rarity,
-            hp=view.hp,
-            armor=view.armor,
-            container_entity_id=view.container_entity_id,
-            quantity=view.quantity,
-            is_magical=view.is_magical,
-            is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions(visibility)),
-            pictures=_picture_refs(view.entity, request, visibility),
-            physical_stats=_stats_out(view.physical_stats),
-            economic_stats=_stats_out(view.economic_stats),
-            destroyable_stats=_stats_out(view.destroyable_stats),
-            damaging_stats=_stats_out(view.damaging_stats),
-            tags=_tags_out(view.tags),
-            created_by=view.entity.created_by,
-            updated_by=view.entity.updated_by,
-            updated_at=view.entity.updated_at,
-        )
+        return cls(**_common_item_fields(view, request, visibility=visibility))
 
 
 class ItemInstanceCreate(BaseModel):
@@ -290,68 +307,23 @@ class BulkAssignItem(BaseModel):
     if_match: str | None = None
 
 
-class ItemInstanceOut(BaseModel):
+class ItemInstanceOut(ItemOut):
     """A specific, ownable item ("My Shovel"), from `VItemInstance` -
-    identical to `ItemOut` plus `owner_entity_id`. See ADR 0019/0020 and
-    `ItemOut`'s docstring for the eager-load requirement.
+    identical to `ItemOut` plus `owner_entity_id`/`slug`. See ADR 0019/0020
+    and `ItemOut`'s docstring for the eager-load requirement.
     """
 
-    model_config = ConfigDict(from_attributes=True)
-
-    entity_id: uuid.UUID
     owner_entity_id: uuid.UUID | None
     slug: str | None
-    title: str | None
-    weight: int | None
-    height: int | None
-    price: int | None
-    rarity: int | None
-    hp: int | None
-    armor: int | None
-    container_entity_id: uuid.UUID | None
-    quantity: int | None
-    is_magical: bool | None
-    is_cursed: bool | None
-    descriptions: list[DescriptionOut]
-    pictures: list[PictureRefOut]
-    physical_stats: list[StatValueOut]
-    economic_stats: list[StatValueOut]
-    destroyable_stats: list[StatValueOut]
-    damaging_stats: list[StatValueOut]
-    tags: list[TagValueOut]
-    created_by: uuid.UUID | None
-    updated_by: uuid.UUID | None
-    updated_at: datetime
 
     @classmethod
     def from_v_item_instance(
         cls, view: VItemInstance, request: Request, *, visibility: InformationVisibility
     ) -> Self:
         return cls(
-            entity_id=view.entity_id,
+            **_common_item_fields(view, request, visibility=visibility),
             owner_entity_id=view.owner_entity_id,
             slug=view.slug,
-            title=view.title,
-            weight=view.weight,
-            height=view.height,
-            price=view.price,
-            rarity=view.rarity,
-            hp=view.hp,
-            armor=view.armor,
-            container_entity_id=view.container_entity_id,
-            quantity=view.quantity,
-            is_magical=view.is_magical,
-            is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions(visibility)),
-            pictures=_picture_refs(view.entity, request, visibility),
-            physical_stats=_stats_out(view.physical_stats),
-            economic_stats=_stats_out(view.economic_stats),
-            destroyable_stats=_stats_out(view.destroyable_stats),
-            damaging_stats=_stats_out(view.damaging_stats),
-            tags=_tags_out(view.tags),
-            created_by=view.entity.created_by,
-            updated_by=view.entity.updated_by,
-            updated_at=view.entity.updated_at,
         )
 
 
