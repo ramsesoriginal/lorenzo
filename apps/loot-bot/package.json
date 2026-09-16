@@ -35,13 +35,14 @@
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "drizzle-kit": "^0.31.10",
     "msw": "^2.7.0",
     "openapi-typescript": "^7.5.2",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vite": "^8.3.0",
+    "vitest": "^4.1.11"
   }
 }
