@@ -1,13 +1,13 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
   type ControlledCharacter,
-  type ItemInstanceOut,
   type LorenzoApiClient,
   LorenzoApiError,
   createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
+import { transferItem } from "./item-transfer.js";
 import type { Command } from "./types.js";
 
 type InventoryItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
@@ -96,39 +96,28 @@ export const giveCommand: Command = {
         accessToken,
       );
 
-      if (requestedQuantity !== null && current.quantity === null) {
+      const result = await transferItem(
+        client,
+        tenantId,
+        current,
+        etag,
+        requestedQuantity,
+        targetCharacterId,
+        accessToken,
+      );
+
+      if (result.kind === "not-a-stack") {
         await interaction.editReply(
           "That item isn't a stack — omit the quantity to give the whole thing.",
         );
         return;
       }
 
-      const currentQuantity = current.quantity ?? 1;
-      const splitting = requestedQuantity !== null && requestedQuantity < currentQuantity;
-
-      const given = splitting
-        ? await giveSplit(
-            client,
-            tenantId,
-            itemEntityId,
-            requestedQuantity,
-            targetCharacterId,
-            accessToken,
-            etag,
-          )
-        : await client.setItemInstanceOwner(
-            tenantId,
-            itemEntityId,
-            targetCharacterId,
-            accessToken,
-            etag ?? undefined,
-          );
-
       const targetName = await client
         .getCharacterName(tenantId, targetCharacterId, accessToken)
         .catch(() => "them");
-      const itemName = given.title ?? "(untitled)";
-      const amount = splitting ? `${requestedQuantity} of ` : "";
+      const itemName = result.given.title ?? "(untitled)";
+      const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
       await interaction.editReply(`Gave ${amount}${itemName} to ${targetName}.`);
     } catch (error) {
       if (error instanceof LorenzoApiError) {
@@ -139,34 +128,6 @@ export const giveCommand: Command = {
     }
   },
 };
-
-// `requestedQuantity` is a plain `number` here (not `number | null`) purely
-// to keep the call site above's ternary honest about which branch actually
-// needs it - splitting is only ever true when it's already non-null.
-async function giveSplit(
-  client: LorenzoApiClient,
-  tenantId: string,
-  sourceEntityId: string,
-  requestedQuantity: number,
-  targetCharacterId: string,
-  accessToken: string,
-  sourceEtag: string | null,
-): Promise<ItemInstanceOut> {
-  const { data: split, etag: splitEtag } = await client.splitItemInstance(
-    tenantId,
-    sourceEntityId,
-    requestedQuantity,
-    accessToken,
-    sourceEtag ?? undefined,
-  );
-  return client.setItemInstanceOwner(
-    tenantId,
-    split.entity_id,
-    targetCharacterId,
-    accessToken,
-    splitEtag ?? undefined,
-  );
-}
 
 async function findMyItems(
   client: LorenzoApiClient,
