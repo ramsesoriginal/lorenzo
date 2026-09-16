@@ -1,8 +1,7 @@
-import { Client, Events, GatewayIntentBits } from "discord.js";
 import { createAuthCallbackRoute } from "./auth-callback-route.js";
-import { attachCommandHandlers } from "./commands/index.js";
 import { loadConfig } from "./config.js";
 import { createHttpServer, healthzRoute } from "./http-server.js";
+import { createInteractionsRoute } from "./interactions-route.js";
 import { logger } from "./logger.js";
 
 async function main(): Promise<void> {
@@ -13,24 +12,20 @@ async function main(): Promise<void> {
   // every boot - avoids hitting Discord's registration rate limits on every
   // restart and matches apps/api's own separate `alembic upgrade head` step
   // rather than auto-migrating on startup.
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-  attachCommandHandlers(client, { config, logger });
-
-  client.once(Events.ClientReady, (readyClient) => {
-    logger.info({ tag: readyClient.user.tag }, "discord client ready");
-  });
-
   const httpServer = createHttpServer(
     new Map([
       ["/healthz", healthzRoute],
       ["/auth/callback", createAuthCallbackRoute(config, logger)],
+      // Discord's HTTP Interactions Endpoint (ADR 0045) - replaces the
+      // Gateway `Client`/`.login()` this process used to run: every slash
+      // command, autocomplete, button/select-menu, and modal submit now
+      // arrives as a signature-verified webhook POST here instead.
+      ["/interactions", createInteractionsRoute({ config, logger })],
     ]),
     { port: config.httpPort, logger },
   );
   await httpServer.listen();
   logger.info({ port: config.httpPort }, "http server listening");
-
-  await client.login(config.discordBotToken);
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
@@ -39,7 +34,6 @@ async function main(): Promise<void> {
     logger.info({ signal }, "shutting down");
     try {
       await httpServer.close();
-      client.destroy();
     } finally {
       process.exit(0);
     }

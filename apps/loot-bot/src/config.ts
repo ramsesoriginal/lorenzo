@@ -4,6 +4,7 @@ const envSchema = z.object({
   DISCORD_BOT_TOKEN: z.string().min(1),
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_GUILD_ID: z.string().min(1),
+  DISCORD_PUBLIC_KEY: z.string().min(1),
 
   LORENZO_API_BASE_URL: z.string().url(),
   LORENZO_TENANT_ID: z.string().uuid(),
@@ -24,6 +25,7 @@ export type Config = Readonly<{
   discordBotToken: string;
   discordClientId: string;
   discordGuildId: string;
+  discordPublicKey: string;
   lorenzoApiBaseUrl: string;
   lorenzoTenantId: string;
   authgearIssuer: string;
@@ -60,6 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     discordBotToken: e.DISCORD_BOT_TOKEN,
     discordClientId: e.DISCORD_CLIENT_ID,
     discordGuildId: e.DISCORD_GUILD_ID,
+    discordPublicKey: e.DISCORD_PUBLIC_KEY,
     lorenzoApiBaseUrl: e.LORENZO_API_BASE_URL,
     lorenzoTenantId: e.LORENZO_TENANT_ID,
     authgearIssuer: e.AUTHGEAR_ISSUER,

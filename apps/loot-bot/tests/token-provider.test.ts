@@ -29,6 +29,7 @@ const validEnv = {
   DISCORD_BOT_TOKEN: "token",
   DISCORD_CLIENT_ID: "123",
   DISCORD_GUILD_ID: "456",
+  DISCORD_PUBLIC_KEY: "public-key",
   LORENZO_API_BASE_URL: "http://localhost:8000",
   LORENZO_TENANT_ID: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   AUTHGEAR_ISSUER: ISSUER,

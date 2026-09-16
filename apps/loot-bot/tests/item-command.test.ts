@@ -1,5 +1,8 @@
-import type { AutocompleteInteraction, ChatInputCommandInteraction } from "discord.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  AutocompleteInteraction,
+  ChatInputCommandInteraction,
+} from "../src/commands/types.js";
 import type { Config } from "../src/config.js";
 import { LorenzoApiError } from "../src/lorenzo-client.js";
 

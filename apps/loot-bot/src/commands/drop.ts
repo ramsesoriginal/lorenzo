@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import type { ModalMessageModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 import {
   type LootClaim,
   deleteLootClaim,
@@ -29,7 +28,12 @@ import {
 import { resolveCurrentCharacter } from "../preferences.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { transferItem } from "./item-transfer.js";
-import type { Command, CommandContext } from "./types.js";
+import type {
+  Command,
+  CommandContext,
+  ModalMessageModalSubmitInteraction,
+  StringSelectMenuInteraction,
+} from "./types.js";
 
 /**
  * `/drop` - a GM drops a pre-made container's contents into the channel;

@@ -10,6 +10,9 @@ importers:
 
   apps/loot-bot:
     dependencies:
+      discord-interactions:
+        specifier: ^4.1.0
+        version: 4.4.0
       discord.js:
         specifier: ^14.16.3
         version: 14.27.0
@@ -1364,6 +1367,10 @@ packages:
 
   discord-api-types@0.38.55:
     resolution: {integrity: sha512-ytuaRTzdnHUCXJ6KjL9MrItQX0xKncBKEeYI1Bst4+ud47eejH3cG6gaesYakjpPcUhh68XYS2YwGq3mmujFsA==}
+
+  discord-interactions@4.4.0:
+    resolution: {integrity: sha512-jjJx8iwAeJcj8oEauV43fue9lNqkf38fy60aSs2+G8D1nJmDxUIrk08o3h0F3wgwuBWWJUZO+X/VgfXsxpCiJA==}
+    engines: {node: '>=18.4.0'}
 
   discord.js@14.27.0:
     resolution: {integrity: sha512-qHbFlFG2N7y3LjPySYsL6A1+BnX6bkTVgo842EX0CqVPk/KTMwZkojPHEXKsQUpWZNyz5BISNHK1cPpQw0+m4A==}
@@ -3130,6 +3137,8 @@ snapshots:
   deep-eql@5.0.2: {}
 
   discord-api-types@0.38.55: {}
+
+  discord-interactions@4.4.0: {}
 
   discord.js@14.27.0:
     dependencies:

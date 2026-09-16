@@ -1,4 +1,3 @@
-import { type Client, Events, type Interaction } from "discord.js";
 import { awardCommand } from "./award.js";
 import { dropCommand } from "./drop.js";
 import { giveCommand } from "./give.js";
@@ -9,10 +8,10 @@ import { moveCommand } from "./move.js";
 import { noteCommand } from "./note.js";
 import { pingCommand } from "./ping.js";
 import { setCurrentCommand } from "./set-current.js";
-import type { Command, CommandContext } from "./types.js";
+import type { AnyInteraction, Command, CommandContext } from "./types.js";
 import { unlinkCommand } from "./unlink.js";
 
-export type { Command, CommandContext } from "./types.js";
+export type { AnyInteraction, Command, CommandContext } from "./types.js";
 
 // New commands (e.g. `link`, `inventory`) are added to this list only -
 // registration (scripts/register-commands.ts) and dispatch (below) both
@@ -36,45 +35,28 @@ export const commandDefinitions = commands.map((c) => c.definition.toJSON());
 const commandsByName = new Map(commands.map((c) => [c.definition.name, c]));
 
 /**
- * Wires interactionCreate dispatch onto an already-constructed discord.js
- * Client. Enforces the one-bot-one-guild invariant defensively (ADR 0042) -
- * command registration already scopes commands to DISCORD_GUILD_ID, but a
- * stray interaction from elsewhere is ignored rather than trusted.
+ * Dispatches one already-verified, already-adapted interaction (ADR 0045 -
+ * built by `interaction-adapter.ts` from a raw HTTP Interactions Endpoint
+ * payload, no Gateway `Client` involved). The one-bot-one-guild invariant
+ * (ADR 0042) is checked by `interactions-route.ts` before this is ever
+ * called - not repeated here, since by this point some response must
+ * always be sent within Discord's response window, and a silent early
+ * return would leave that window's promise unresolved.
  */
-export function attachCommandHandlers(client: Client, ctx: CommandContext): void {
-  client.on(Events.InteractionCreate, (interaction: Interaction) => {
-    void handleInteraction(interaction, ctx);
-  });
-}
-
-const isComponentOrModal = (
-  interaction: Interaction,
-): interaction is Interaction & { customId: string } =>
-  interaction.isStringSelectMenu() || interaction.isButton() || interaction.isModalSubmit();
-
-async function handleInteraction(interaction: Interaction, ctx: CommandContext): Promise<void> {
-  if (
-    !interaction.isChatInputCommand() &&
-    !interaction.isAutocomplete() &&
-    !isComponentOrModal(interaction)
-  ) {
-    return;
-  }
-
-  if (interaction.guildId !== ctx.config.discordGuildId) {
-    ctx.logger.warn(
-      { guildId: interaction.guildId },
-      "ignoring interaction from an unconfigured guild",
-    );
-    return;
-  }
-
+export async function dispatchInteraction(
+  interaction: AnyInteraction,
+  ctx: CommandContext,
+): Promise<void> {
   // Chat-input/autocomplete are keyed by commandName; components/modals by
   // their own customId's namespace prefix (ADR 0044 - "<command name>:
   // <action>:<...ids>"), both resolving into the same commandsByName map.
-  const commandName = isComponentOrModal(interaction)
-    ? (interaction.customId.split(":")[0] ?? "")
-    : interaction.commandName;
+  // Checked directly via these three guards (rather than through a
+  // separate helper predicate) so TypeScript can actually narrow the
+  // `else` branch down to the two commandName-bearing kinds.
+  const commandName =
+    interaction.isStringSelectMenu() || interaction.isButton() || interaction.isModalSubmit()
+      ? (interaction.customId.split(":")[0] ?? "")
+      : interaction.commandName;
   const command = commandsByName.get(commandName);
   if (!command) {
     ctx.logger.warn({ commandName }, "unknown command");
@@ -89,10 +71,7 @@ async function handleInteraction(interaction: Interaction, ctx: CommandContext):
       // note on types.ts's Command.autocomplete) - an empty choice list is
       // the only graceful failure mode; the real error still surfaces when
       // the user actually submits the command.
-      ctx.logger.error(
-        { err: error, commandName: interaction.commandName },
-        "autocomplete handler failed",
-      );
+      ctx.logger.error({ err: error, commandName }, "autocomplete handler failed");
       if (!interaction.responded) await interaction.respond([]);
     }
     return;

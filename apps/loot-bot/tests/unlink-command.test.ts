@@ -1,5 +1,5 @@
-import type { ChatInputCommandInteraction } from "discord.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChatInputCommandInteraction } from "../src/commands/types.js";
 
 const { getLinkedAccount, deleteLinkedAccount } = vi.hoisted(() => ({
   getLinkedAccount: vi.fn(),
