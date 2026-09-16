@@ -47,6 +47,7 @@ __all__ = [
     "MembershipAlreadyExistsError",
     "MembershipManagementForbiddenError",
     "MembershipNotFoundError",
+    "NicknameConflictError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
     "PlayerAlreadyExistsError",
@@ -57,6 +58,7 @@ __all__ = [
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
     "TenantNotFoundError",
+    "UserNotFoundError",
 ]
 
 
@@ -94,6 +96,14 @@ class PayloadContentNotFoundError(NotFoundProblem):
 
 class PlayerNotFoundError(NotFoundProblem):
     title = "Player not found"
+
+
+class UserNotFoundError(NotFoundProblem):
+    """GET /users/by-email/{email}, GET /users/by-nickname/{nickname} - no
+    user has that exact value. See ADR 0051.
+    """
+
+    title = "User not found"
 
 
 class CharacterNotFoundError(NotFoundProblem):
@@ -331,6 +341,16 @@ class MembershipAlreadyExistsError(ConflictProblem):
     """
 
     title = "This user already has a membership in this tenant"
+
+
+class NicknameConflictError(ConflictProblem):
+    """PATCH /me - the requested nickname is already taken by another user.
+    See ADR 0050. Nicknames are globally unique, not tenant-scoped - the
+    same "explicit choice, no silent auto-suffix" reasoning SlugConflictError
+    already gives for an explicitly-requested tenant slug.
+    """
+
+    title = "Nickname already in use"
 
 
 class PlayerAlreadyExistsError(ConflictProblem):

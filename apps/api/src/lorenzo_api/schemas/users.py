@@ -1,7 +1,7 @@
 import uuid
-from typing import Self
+from typing import Annotated, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from lorenzo_api.models import CampaignGm, Membership, Player, User
 from lorenzo_api.schemas.campaigns import CampaignSummaryOut
@@ -30,6 +30,8 @@ class MeOut(BaseModel):
 
     id: uuid.UUID
     authgear_subject_id: str
+    email: str | None
+    nickname: str | None
     memberships: list[MembershipOut]
     players: list[PlayerContextOut]
     campaign_gm_grants: list[CampaignSummaryOut]
@@ -48,9 +50,38 @@ class MeOut(BaseModel):
         return cls(
             id=user.id,
             authgear_subject_id=user.authgear_subject_id,
+            email=user.email,
+            nickname=user.nickname,
             memberships=[MembershipOut.from_membership(m) for m in user.memberships],
             players=[PlayerContextOut.from_player(p) for p in players],
             campaign_gm_grants=[
                 CampaignSummaryOut.model_validate(gm.campaign) for gm in campaign_gms
             ],
         )
+
+
+class UserRefOut(BaseModel):
+    """A minimal, deliberately-thin reference to a user - see ADR 0051.
+    Returned by the by-email/by-nickname lookup routes so a client can
+    resolve an identifier it already knows into the user_id the existing
+    invite-shaped endpoints (POST .../memberships, player creation) still
+    take. Never echoes email back - the caller already supplied it.
+    """
+
+    id: uuid.UUID
+    nickname: str | None
+
+    @classmethod
+    def from_user(cls, user: User) -> Self:
+        return cls(id=user.id, nickname=user.nickname)
+
+
+class NicknameUpdate(BaseModel):
+    """PATCH /me - see ADR 0050. `None` clears the nickname; a given value
+    must be non-empty (`min_length=1`) - an empty string would still pass
+    the column's own partial unique index (it only excludes NULL), letting
+    the *first* user to "clear" it this way silently block everyone else
+    from ever doing the same.
+    """
+
+    nickname: Annotated[str, Field(min_length=1)] | None

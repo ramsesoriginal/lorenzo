@@ -16,8 +16,11 @@ if TYPE_CHECKING:
 class User(Base):
     """Global identity, not tenant-scoped - a link back to Authgear's
     verified subject id (ADR 0009), holding only what's actually
-    domain-relevant (ADR 0010/0022). No email, name, password, or OAuth
-    token lives here - those stay in Authgear.
+    domain-relevant (ADR 0010/0022). No password or OAuth token lives here -
+    those stay in Authgear. `email`/`nickname` (ADR 0050) are the one
+    deliberate exception: `email` is a read-only cache of Authgear's own
+    verified claim, `nickname` is genuinely local data with no Authgear
+    equivalent - see each field's own comment below.
 
     Table is `app_user`, not `user` - `user` is a reserved word in Postgres
     (confirmed empirically, not assumed - see ADR 0022).
@@ -33,6 +36,16 @@ class User(Base):
 
     id: Mapped[UuidPk]
     authgear_subject_id: Mapped[str] = mapped_column(unique=True)
+    # Both optional and globally unique (ADR 0050) - `unique=True` relies on
+    # Postgres already treating every NULL as distinct from every other NULL
+    # in a plain unique constraint (same reasoning ADR 0028 gives for
+    # `knowledge`'s own UniqueConstraints), matching the migration's actual
+    # partial unique indexes. `email` is synced read-only from Authgear's
+    # verified `email` claim (dependencies.get_current_user) - never written
+    # anywhere else. `nickname` has no Authgear equivalent and is set
+    # directly via `PATCH /me`.
+    email: Mapped[str | None] = mapped_column(unique=True)
+    nickname: Mapped[str | None] = mapped_column(unique=True)
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

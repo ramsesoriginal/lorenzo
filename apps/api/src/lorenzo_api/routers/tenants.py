@@ -301,10 +301,32 @@ async def list_tenant_roster(
         .all()
     )
 
+    # One extra query for every user_id appearing above, not a join per
+    # row/table (ADR 0050) - keeps each of the three source queries
+    # unchanged and matches this function's own "combined in Python, not a
+    # SQL UNION" precedent already given below.
+    user_ids = (
+        {m.user_id for m in memberships}
+        | {p.user_id for p in players}
+        | {g.user_id for g in campaign_gms}
+    )
+    nickname_by_user_id: dict[uuid.UUID, str | None] = dict(
+        (await session.execute(select(User.id, User.nickname).where(User.id.in_(user_ids)))).all()
+    )
+
     entries: list[TenantRosterEntryOut] = [
-        *(MembershipRosterEntryOut.from_membership(m) for m in memberships),
-        *(PlayerRosterEntryOut.from_player(p) for p in players),
-        *(GmRosterEntryOut.from_campaign_gm(g) for g in campaign_gms),
+        *(
+            MembershipRosterEntryOut.from_membership(m, nickname=nickname_by_user_id.get(m.user_id))
+            for m in memberships
+        ),
+        *(
+            PlayerRosterEntryOut.from_player(p, nickname=nickname_by_user_id.get(p.user_id))
+            for p in players
+        ),
+        *(
+            GmRosterEntryOut.from_campaign_gm(g, nickname=nickname_by_user_id.get(g.user_id))
+            for g in campaign_gms
+        ),
     ]
     entries.sort(key=lambda entry: entry.user_id)
     # paginate is typed to return Any (fastapi_pagination's own signature) -
@@ -354,7 +376,9 @@ async def _membership_out(
         raise MembershipNotFoundError(
             detail=f"No membership for user {user_id} in tenant {tenant_id}"
         )
-    return MembershipRosterEntryOut.from_membership(membership)
+    user = await session.get(User, user_id)
+    nickname = user.nickname if user is not None else None
+    return MembershipRosterEntryOut.from_membership(membership, nickname=nickname)
 
 
 @router.post("/{tenant_id}/memberships", status_code=201)

@@ -139,14 +139,16 @@ class MembershipRosterEntryOut(BaseModel):
 
     kind: Literal["membership"] = "membership"
     user_id: uuid.UUID
+    nickname: str | None
     role: str
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 
     @classmethod
-    def from_membership(cls, membership: Membership) -> Self:
+    def from_membership(cls, membership: Membership, *, nickname: str | None) -> Self:
         return cls(
             user_id=membership.user_id,
+            nickname=nickname,
             role=membership.role.value,
             created_by=membership.created_by,
             updated_by=membership.updated_by,
@@ -164,15 +166,17 @@ class PlayerRosterEntryOut(BaseModel):
 
     kind: Literal["player"] = "player"
     user_id: uuid.UUID
+    nickname: str | None
     campaign_id: uuid.UUID
     characters: list[CharacterSummaryOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 
     @classmethod
-    def from_player(cls, player: Player) -> Self:
+    def from_player(cls, player: Player, *, nickname: str | None) -> Self:
         return cls(
             user_id=player.user_id,
+            nickname=nickname,
             campaign_id=player.campaign_id,
             characters=[
                 CharacterSummaryOut.from_character(link.character)
@@ -200,11 +204,14 @@ class GmRosterEntryOut(BaseModel):
 
     kind: Literal["gm"] = "gm"
     user_id: uuid.UUID
+    nickname: str | None
     campaign_id: uuid.UUID
 
     @classmethod
-    def from_campaign_gm(cls, campaign_gm: CampaignGm) -> Self:
-        return cls(user_id=campaign_gm.user_id, campaign_id=campaign_gm.campaign_id)
+    def from_campaign_gm(cls, campaign_gm: CampaignGm, *, nickname: str | None) -> Self:
+        return cls(
+            user_id=campaign_gm.user_id, nickname=nickname, campaign_id=campaign_gm.campaign_id
+        )
 
 
 TenantRosterEntryOut = Annotated[
