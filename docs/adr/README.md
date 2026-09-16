@@ -46,3 +46,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0041 - Quantity and stacking, on `Containment`](0041-containment-quantity-and-stacking.md)
 - [0042 - loot-bot: stack, account linking, and data isolation](0042-loot-bot-stack-linking-and-isolation.md) — numbered past 0029-0041 deliberately, since `feat/rest-api-surface` independently claimed those first; picked the first number free of collision across both branches rather than renumber an already-merged one later.
 - [0043 - loot-bot: `/give`, the first write command (loot-splitting)](0043-loot-bot-give-command.md)
+- [0044 - loot-bot: loot drop, take, claim/unclaim, apply claims](0044-loot-bot-loot-drop-and-claims.md)
