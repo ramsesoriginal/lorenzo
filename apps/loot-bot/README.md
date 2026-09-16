@@ -8,7 +8,7 @@ A player links their Discord account to their real Authgear-verified Lorenzo ide
 
 ## Setup
 
-1. **Discord**: create an application at the [Discord Developer Portal](https://discord.com/developers/applications), add a bot user, invite it to your test server with the `applications.commands` scope. `DISCORD_BOT_TOKEN`/`DISCORD_CLIENT_ID` come from there; `DISCORD_GUILD_ID` is your test server's id (Developer Mode → right-click the server).
+1. **Discord**: create an application at the [Discord Developer Portal](https://discord.com/developers/applications), add a bot user, invite it to your test server with the `applications.commands` scope. `DISCORD_BOT_TOKEN`/`DISCORD_CLIENT_ID` come from there; `DISCORD_GUILD_ID` is your test server's id (Developer Mode → right-click the server); `DISCORD_PUBLIC_KEY` is on the application's own "General Information" page — verifies inbound interaction webhooks ([ADR 0045](../../docs/adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md)). Once the bot is reachable at a public URL, set the application's **Interactions Endpoint URL** to `<that url>/interactions` — Discord sends a `PING` immediately to verify it.
 2. **Authgear**: register a new, *separate* OIDC/SAML Client Application (confidential — gets a client secret) in the same Authgear project `apps/api` verifies tokens against — see [`docs/operations/local-authgear-setup.md`](../../docs/operations/local-authgear-setup.md) for the portal walkthrough (this bot needs its own client, not `apps/api`'s dev one). Scope `openid offline_access`. Authorized Redirect URI: `LOOT_BOT_PUBLIC_BASE_URL` + `/auth/callback` (`http://127.0.0.1:8090/auth/callback` for local dev).
 3. **Postgres**: reuses `apps/api`'s own instance ([`infra/docker-compose.yml`](../../infra/docker-compose.yml)) — a separate role/schema (`loot_bot`/`loot_bot`), never `apps/api`'s own `lorenzo_app`/`lorenzo` schema. `mise run db-migrate` bootstraps the role/schema on first run.
 4. Copy [`.env.example`](.env.example) to `.env` and fill in the above (read relative to this directory, not the repo root — see the root [`.env.example`](../../.env.example)'s own note on this).
@@ -48,8 +48,10 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 ## Architecture
 
 - `src/config.ts` — env loading/validation (zod).
-- `src/http-server.ts` — a bare `node:http` server (`/healthz`, `/auth/callback`) — no framework; see ADR 0042 for why.
-- `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts` (chat-input, autocomplete, and — since `/drop`, ADR 0044 — select-menu/button/modal interactions too, routed by a `customId` namespace convention).
+- `src/http-server.ts` — a bare `node:http` server (`/healthz`, `/auth/callback`, `/interactions`) — no framework; see ADR 0042 for why.
+- `src/interactions-route.ts` — the `/interactions` route: verifies each webhook's Ed25519 signature (`src/discord-signature.ts`), builds this bot's adapter interaction (`src/interaction-adapter.ts`), and answers Discord's original request with whatever a command's first reply/deferReply/deferUpdate/update/showModal/respond call resolves — no `discord.js` Gateway `Client` involved ([ADR 0045](../../docs/adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md)).
+- `src/discord-rest.ts` — the small set of outbound Discord HTTP calls a deferred response needs (`editReply`/`followUp`), authenticated by the interaction's own token, not a bot token.
+- `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts` (chat-input, autocomplete, and — since `/drop`, ADR 0044 — select-menu/button/modal interactions too, routed by a `customId` namespace convention). Every command file is written against `src/commands/types.ts`'s own transport-agnostic interaction types, not `discord.js`'s Gateway-only classes.
 - `src/commands/item-transfer.ts` — the split-vs-whole-transfer decision `/give` and `/drop`'s take/apply-claims share.
 - `src/token-provider.ts` — `getValidAccessToken(discordUserId)`: the seam between commands and the account-linking/refresh machinery.
 - `src/preferences.ts` — `resolveCurrentCharacter`/`resolveCurrentContainer`: the seam commands resolve an optional character/container parameter through, falling back to `/set-current`'s stored preference.

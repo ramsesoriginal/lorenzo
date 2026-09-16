@@ -24,13 +24,13 @@
 
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth. `apps/loot-bot`, a Discord bot, is under construction on top of it. Everything else is still structure and tooling. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a read-only REST API, and Authgear-backed auth. `apps/loot-bot`, a Discord bot, is built on top of it, with its deploy pipeline wired up (Google Cloud Run, [ADR 0045](docs/adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md)) pending its one-time GCP setup. Everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 | --- | --- | --- |
 | Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — domain model, read-only REST API, Authgear auth |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
-| Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — in progress: Discord account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding (see [ADR 0042](docs/adr/0042-loot-bot-stack-linking-and-isolation.md)/[0043](docs/adr/0043-loot-bot-give-command.md)/[0044](docs/adr/0044-loot-bot-loot-drop-and-claims.md)) |
+| Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — Discord account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding (see [ADR 0042](docs/adr/0042-loot-bot-stack-linking-and-isolation.md)/[0043](docs/adr/0043-loot-bot-give-command.md)/[0044](docs/adr/0044-loot-bot-loot-drop-and-claims.md)), deployed on Google Cloud Run over Discord's HTTP Interactions Endpoint ([ADR 0045](docs/adr/0045-loot-bot-http-interactions-and-cloud-run-deploy.md)) |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
 
 Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md).
