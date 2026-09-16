@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from fastapi_pagination.utils import disable_installed_extensions_check
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from lorenzo_api.config import get_settings
 from lorenzo_api.db import engine
 from lorenzo_api.errors import register_error_handlers
 from lorenzo_api.logging import configure_logging
@@ -16,6 +18,7 @@ from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
+from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
@@ -46,6 +49,24 @@ def create_app() -> FastAPI:
         generate_unique_id_function=lambda route: route.name,
     )
 
+    # See ADR 0048. allow_credentials=False - this API is bearer-token
+    # authenticated (ADR 0023), not cookie-based, so a client attaches its
+    # token itself rather than relying on the browser's credentialed-request
+    # mode. expose_headers is the easy-to-miss part: browsers only expose a
+    # small built-in safelist to cross-origin JS by default, which excludes
+    # both ETag (ADR 0042's whole concurrency-token mechanism) and Location
+    # (every 201 response, ADR 0032) - without listing them explicitly, a
+    # cross-origin browser client's requests would succeed while silently
+    # being unable to read either header.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_settings().cors_allowed_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["ETag", "Location"],
+    )
+
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(users_router)
@@ -56,6 +77,7 @@ def create_app() -> FastAPI:
     app.include_router(payloads_router)
     app.include_router(entities_router)
     app.include_router(entity_stats_router)
+    app.include_router(groups_router)
     app.include_router(information_router)
     app.include_router(items_router)
     app.include_router(item_instances_router)

@@ -442,6 +442,83 @@ async def test_resolve_information_visibility_gm_reachable_includes_owned_and_co
         await session.commit()
 
 
+async def test_resolve_information_visibility_gm_reachable_includes_the_room() -> None:
+    """ADR 0046: the upward-widening this ADR adds - a character placed
+    inside a location entity via Containment (RFC 0001's own "a character
+    in a room" example, already exercised for real in
+    test_api_characters.py) makes that room, and everything else sharing
+    it, GM-reachable too - not just what the character owns/carries.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        gm_user = _make_user()
+        session.add_all([tenant, gm_user])
+        await session.flush()
+        tenant_id, gm_user_id = tenant.id, gm_user.id
+        campaign = await make_campaign(session, tenant_id=tenant_id, name="The Ashen Crown")
+        await session.flush()
+        player = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        character = await make_character(session, tenant_id=tenant_id, name="Alice")
+        session.add(
+            CharacterPlayer(
+                character_entity_id=character.entity_id, player_id=player.id, tenant_id=tenant_id
+            )
+        )
+        session.add(CampaignGm(tenant_id=tenant_id, user_id=gm_user_id, campaign_id=campaign.id))
+
+        tavern = Entity(tenant_id=tenant_id, name="The Prancing Pony")
+        bartender = Entity(tenant_id=tenant_id, name="Barliman")
+        world = Entity(tenant_id=tenant_id, name="Bree")
+        session.add_all([tavern, bartender, world])
+        await session.flush()
+        session.add_all(
+            [
+                # Alice is in the tavern; the bartender is too (a sibling,
+                # not owned/contained by Alice at all); the tavern itself is
+                # in the wider town.
+                Containment(
+                    child_entity_id=character.entity_id,
+                    parent_entity_id=tavern.id,
+                    tenant_id=tenant_id,
+                ),
+                Containment(
+                    child_entity_id=bartender.id, parent_entity_id=tavern.id, tenant_id=tenant_id
+                ),
+                Containment(
+                    child_entity_id=tavern.id, parent_entity_id=world.id, tenant_id=tenant_id
+                ),
+            ]
+        )
+        await session.commit()
+        tavern_id, bartender_id, world_id, player_user_id = (
+            tavern.id,
+            bartender.id,
+            world.id,
+            player.user_id,
+        )
+
+        visibility = await resolve_information_visibility(
+            session, user_id=gm_user_id, tenant_id=tenant_id
+        )
+        assert tavern_id in visibility.gm_reachable_entity_ids
+        assert bartender_id in visibility.gm_reachable_entity_ids
+        assert world_id in visibility.gm_reachable_entity_ids
+
+        barliman_is_a_spy = Information(
+            tenant_id=tenant_id,
+            entity_id=bartender_id,
+            title="Barliman is secretly a spy",
+            type="gm-note",
+            knowledge_links=[],
+        )
+        assert visibility.can_see(barliman_is_a_spy) is True
+
+        await session.delete(await session.get_one(Tenant, tenant_id))
+        await session.delete(await session.get_one(User, gm_user_id))
+        await session.delete(await session.get_one(User, player_user_id))
+        await session.commit()
+
+
 async def test_resolve_information_visibility_gm_reachable_excludes_a_campaign_not_gmd() -> None:
     """A GM of campaign A must not see campaign C's own character's items
     just because both campaigns exist in the same tenant - GM sight is

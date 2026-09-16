@@ -370,6 +370,10 @@ async def test_get_entity_exposes_containment_quantity_for_any_entity_type(
     townsfolk_body = townsfolk_response.json()
     assert townsfolk_body["quantity"] == 20
     assert townsfolk_body["parent"]["id"] == str(room_id)
+    # parent.quantity mirrors the top-level quantity field - both describe
+    # the identical containment edge, just attached to the parent
+    # reference too (schemas/common.py's EntitySummary.quantity).
+    assert townsfolk_body["parent"]["quantity"] == 20
 
     # The room's own detail: each entry in `children` carries its own
     # quantity, so a caller sees "20 townsfolk" without a second fetch.

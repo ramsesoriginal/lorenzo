@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from typing import Self
+from datetime import datetime
+from typing import Any, Literal, Self
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict
@@ -26,6 +27,10 @@ __all__ = [
     "SetOwnerRequest",
     "SetContainerRequest",
     "SplitItemInstanceRequest",
+    "MergeItemInstanceRequest",
+    "ProblemOut",
+    "BulkAssignItem",
+    "BulkAssignResultItem",
 ]
 
 
@@ -126,6 +131,42 @@ class ItemUpdate(BaseModel):
     name: str | None = None
 
 
+def _common_item_fields(
+    view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
+) -> dict[str, Any]:
+    """Every field ItemOut and ItemInstanceOut share - both views expose the
+    identical EntityViewMixin-backed surface (ADR 0019), differing only in
+    ItemInstanceOut's own extra owner_entity_id/slug. Extracted so the two
+    schemas' constructors can't drift apart the way they used to (every
+    field added here historically meant editing both from_v_item and
+    from_v_item_instance by hand, in lockstep).
+    """
+    return dict(
+        entity_id=view.entity_id,
+        title=view.title,
+        weight=view.weight,
+        height=view.height,
+        price=view.price,
+        rarity=view.rarity,
+        hp=view.hp,
+        armor=view.armor,
+        container_entity_id=view.container_entity_id,
+        quantity=view.quantity,
+        is_magical=view.is_magical,
+        is_cursed=view.is_cursed,
+        descriptions=_descriptions_out(view.descriptions(visibility)),
+        pictures=_picture_refs(view.entity, request, visibility),
+        physical_stats=_stats_out(view.physical_stats),
+        economic_stats=_stats_out(view.economic_stats),
+        destroyable_stats=_stats_out(view.destroyable_stats),
+        damaging_stats=_stats_out(view.damaging_stats),
+        tags=_tags_out(view.tags),
+        created_by=view.entity.created_by,
+        updated_by=view.entity.updated_by,
+        updated_at=view.entity.updated_at,
+    )
+
+
 class ItemOut(BaseModel):
     """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
 
@@ -137,6 +178,10 @@ class ItemOut(BaseModel):
     `routers.items.eager_load_options`, the exact recipe proven in
     `tests/test_v_item.py`) - the six wrapped properties/methods raise
     MissingGreenlet otherwise, they do not silently lazy-load.
+
+    `ItemInstanceOut` below extends this directly - identical fields plus
+    `owner_entity_id`/`slug` - rather than repeating the field list a
+    second time.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -162,34 +207,13 @@ class ItemOut(BaseModel):
     tags: list[TagValueOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
+    updated_at: datetime
 
     @classmethod
     def from_v_item(
         cls, view: VItem, request: Request, *, visibility: InformationVisibility
     ) -> Self:
-        return cls(
-            entity_id=view.entity_id,
-            title=view.title,
-            weight=view.weight,
-            height=view.height,
-            price=view.price,
-            rarity=view.rarity,
-            hp=view.hp,
-            armor=view.armor,
-            container_entity_id=view.container_entity_id,
-            quantity=view.quantity,
-            is_magical=view.is_magical,
-            is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions(visibility)),
-            pictures=_picture_refs(view.entity, request, visibility),
-            physical_stats=_stats_out(view.physical_stats),
-            economic_stats=_stats_out(view.economic_stats),
-            destroyable_stats=_stats_out(view.destroyable_stats),
-            damaging_stats=_stats_out(view.damaging_stats),
-            tags=_tags_out(view.tags),
-            created_by=view.entity.created_by,
-            updated_by=view.entity.updated_by,
-        )
+        return cls(**_common_item_fields(view, request, visibility=visibility))
 
 
 class ItemInstanceCreate(BaseModel):
@@ -198,13 +222,15 @@ class ItemInstanceCreate(BaseModel):
     One transaction creates Entity (name defaults to the prototype's own
     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
     row if owner_character_id is given and/or a Containment row if
-    container_entity_id is given.
+    container_entity_id is given. slug (ADR 0043) is optional, unique per
+    tenant when set, and resolvable later via GET .../by-slug/{slug}.
     """
 
     name: str | None = None
     prototype_id: uuid.UUID
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
+    slug: str | None = None
 
 
 class ItemInstanceUpdate(BaseModel):
@@ -230,74 +256,88 @@ class SetContainerRequest(BaseModel):
 
 
 class SplitItemInstanceRequest(BaseModel):
-    """POST /item-instances/{id}/split body - see ADR 0041. `quantity` is
-    how many units to split *off* into a new sibling instance; the source
-    must currently hold strictly more than this (splitting off "all of it"
-    is a container/owner reassignment of the whole stack, not a split).
+    """POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
+    is how many units to split *off* into a new sibling instance; the
+    source must currently hold strictly more than this (splitting off "all
+    of it" is a container/owner reassignment of the whole stack, not a
+    split). `owner_character_id` (ADR 0044) is optional - when given, the
+    new split-off instance is created with that owner instead of copying
+    the source's current owner (the behavior when omitted, unchanged from
+    ADR 0041).
     """
 
     quantity: int
+    owner_character_id: uuid.UUID | None = None
 
 
-class ItemInstanceOut(BaseModel):
-    """A specific, ownable item ("My Shovel"), from `VItemInstance` -
-    identical to `ItemOut` plus `owner_entity_id`. See ADR 0019/0020 and
-    `ItemOut`'s docstring for the eager-load requirement.
+class MergeItemInstanceRequest(BaseModel):
+    """POST /item-instances/{id}/merge body - see ADR 0044. into_entity_id
+    is the surviving stack; the path's own entity_id is fully consumed
+    into it and then deleted.
     """
 
-    model_config = ConfigDict(from_attributes=True)
+    into_entity_id: uuid.UUID
+
+
+class ProblemOut(BaseModel):
+    """A plain-dict-shaped mirror of fastapi_problem.error.Problem.marshal()
+    - see ADR 0044. Used only inside BulkAssignResultItem, to embed what a
+    real single-item error response body would have looked like without
+    actually raising/catching it as this request's own top-level response.
+    """
+
+    type: str
+    title: str
+    status: int
+    detail: str | None = None
+
+
+class BulkAssignItem(BaseModel):
+    """POST /item-instances/bulk-assign - one input entry. See ADR 0044:
+    quantity given delegates to split-with-owner (creating a new instance);
+    omitted delegates to the plain owner-PUT path (reassigning entity_id
+    itself). if_match is optional, exactly like every other write in this
+    router - honored per item, a stale claim becomes that item's own
+    "error" entry rather than failing the whole batch.
+    """
 
     entity_id: uuid.UUID
+    owner_character_id: uuid.UUID
+    quantity: int | None = None
+    if_match: str | None = None
+
+
+class ItemInstanceOut(ItemOut):
+    """A specific, ownable item ("My Shovel"), from `VItemInstance` -
+    identical to `ItemOut` plus `owner_entity_id`/`slug`. See ADR 0019/0020
+    and `ItemOut`'s docstring for the eager-load requirement.
+    """
+
     owner_entity_id: uuid.UUID | None
-    title: str | None
-    weight: int | None
-    height: int | None
-    price: int | None
-    rarity: int | None
-    hp: int | None
-    armor: int | None
-    container_entity_id: uuid.UUID | None
-    quantity: int | None
-    is_magical: bool | None
-    is_cursed: bool | None
-    descriptions: list[DescriptionOut]
-    pictures: list[PictureRefOut]
-    physical_stats: list[StatValueOut]
-    economic_stats: list[StatValueOut]
-    destroyable_stats: list[StatValueOut]
-    damaging_stats: list[StatValueOut]
-    tags: list[TagValueOut]
-    created_by: uuid.UUID | None
-    updated_by: uuid.UUID | None
+    slug: str | None
 
     @classmethod
     def from_v_item_instance(
         cls, view: VItemInstance, request: Request, *, visibility: InformationVisibility
     ) -> Self:
         return cls(
-            entity_id=view.entity_id,
+            **_common_item_fields(view, request, visibility=visibility),
             owner_entity_id=view.owner_entity_id,
-            title=view.title,
-            weight=view.weight,
-            height=view.height,
-            price=view.price,
-            rarity=view.rarity,
-            hp=view.hp,
-            armor=view.armor,
-            container_entity_id=view.container_entity_id,
-            quantity=view.quantity,
-            is_magical=view.is_magical,
-            is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions(visibility)),
-            pictures=_picture_refs(view.entity, request, visibility),
-            physical_stats=_stats_out(view.physical_stats),
-            economic_stats=_stats_out(view.economic_stats),
-            destroyable_stats=_stats_out(view.destroyable_stats),
-            damaging_stats=_stats_out(view.damaging_stats),
-            tags=_tags_out(view.tags),
-            created_by=view.entity.created_by,
-            updated_by=view.entity.updated_by,
+            slug=view.slug,
         )
+
+
+class BulkAssignResultItem(BaseModel):
+    """POST /item-instances/bulk-assign - one output entry, always present
+    for every input entry regardless of outcome (ADR 0044: never
+    all-or-nothing). Exactly one of item_instance/problem is set, matching
+    status.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item_instance: ItemInstanceOut | None = None
+    problem: ProblemOut | None = None
 
 
 class OwnedGroupOut(BaseModel):

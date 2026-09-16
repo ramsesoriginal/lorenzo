@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from lorenzo_api.models import CampaignGm, Membership, Player, User
 from lorenzo_api.schemas.campaigns import CampaignSummaryOut
-from lorenzo_api.schemas.players import PlayerSummaryOut
+from lorenzo_api.schemas.players import PlayerContextOut
 
 
 class MembershipOut(BaseModel):
@@ -31,7 +31,7 @@ class MeOut(BaseModel):
     id: uuid.UUID
     authgear_subject_id: str
     memberships: list[MembershipOut]
-    players: list[PlayerSummaryOut]
+    players: list[PlayerContextOut]
     campaign_gm_grants: list[CampaignSummaryOut]
 
     @classmethod
@@ -49,7 +49,7 @@ class MeOut(BaseModel):
             id=user.id,
             authgear_subject_id=user.authgear_subject_id,
             memberships=[MembershipOut.from_membership(m) for m in user.memberships],
-            players=[PlayerSummaryOut.from_player(p) for p in players],
+            players=[PlayerContextOut.from_player(p) for p in players],
             campaign_gm_grants=[
                 CampaignSummaryOut.model_validate(gm.campaign) for gm in campaign_gms
             ],

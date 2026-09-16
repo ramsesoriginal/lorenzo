@@ -1,10 +1,12 @@
 import uuid
+from datetime import datetime
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_character, make_tenant
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.etag import etag_for
 from lorenzo_api.models import (
     CampaignGm,
     Character,
@@ -920,6 +922,87 @@ async def test_create_item_instance_invalid_prototype_422(
     await delete_tenant(tenant_id)
 
 
+async def test_create_item_instance_with_slug_resolves_by_slug(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0043: a client can name an instance once at creation and resolve
+    it again later by that name alone, with no need to have persisted its
+    entity_id out-of-band.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    prototype_id = await _make_item(tenant_id, "Flaming Sword")
+
+    create_response = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "ashfang"},
+    )
+    assert create_response.status_code == 201
+    entity_id = create_response.json()["entity_id"]
+    assert create_response.json()["slug"] == "ashfang"
+
+    lookup_response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/ashfang")
+    assert lookup_response.status_code == 200
+    assert lookup_response.json()["entity_id"] == entity_id
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_instance_by_slug_404_for_unknown_slug(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/no-such-slug")
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_create_item_instance_duplicate_slug_is_a_conflict(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    prototype_id = await _make_item(tenant_id, "Flaming Sword")
+    first = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "ashfang"},
+    )
+    assert first.status_code == 201
+
+    second = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "ashfang"},
+    )
+
+    assert second.status_code == 409
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_instance_by_slug_404_for_a_slug_the_caller_cannot_reach(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040's read-visibility predicate applies to the by-slug lookup
+    too - a slug is just an alternate name for an instance, not a separate,
+    unfiltered path into someone else's hidden inventory.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    _, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        bob_instance = await session.get_one(ItemInstance, bob_item_id)
+        bob_instance.slug = "bobs-dagger"
+        await session.commit()
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/bobs-dagger")
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
 async def test_create_item_instance_ownerless_forbidden_for_plain_player(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
@@ -1094,6 +1177,36 @@ async def test_update_item_instance_precondition_failed_with_stale_if_match(
     )
 
     assert response.status_code == 412
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_instance_exposes_etag_and_updated_at_for_round_tripping(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0042: a client obtains its concurrency token purely from the HTTP
+    response (either the ETag header or the updated_at field), closing the
+    "If-Match is unusable, nothing hands out a token" gap - no direct DB
+    access needed, unlike test_update_item_instance_precondition_failed_
+    with_stale_if_match above (which only exercises the failure side).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_instance(tenant_id)
+
+    get_response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert get_response.status_code == 200
+    body = get_response.json()
+    assert "updated_at" in body
+    assert get_response.headers["etag"] == etag_for(datetime.fromisoformat(body["updated_at"]))
+
+    patch_response = await client.patch(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}",
+        json={"name": "Ashfang, Renamed"},
+        headers={"If-Match": get_response.headers["etag"]},
+    )
+    assert patch_response.status_code == 200
+    assert "etag" in patch_response.headers
+    assert patch_response.json()["updated_at"] != body["updated_at"]
+
     await delete_tenant(tenant_id)
 
 
@@ -1554,4 +1667,328 @@ async def test_split_item_instance_404_for_unknown_id(
     )
 
     assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_split_item_instance_with_owner_assigns_new_owner(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0044: the split-off piece goes to owner_character_id when given,
+    instead of copying the source's own current owner.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, character_id, backpack_id = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=20
+    )
+    async with admin_session_factory() as session:
+        other_character = await make_character(session, tenant_id=tenant_id, name="Other")
+        await session.commit()
+        other_character_id = other_character.entity_id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/split",
+        json={"quantity": 12, "owner_character_id": str(other_character_id)},
+    )
+
+    assert response.status_code == 201
+    new_body = response.json()
+    assert new_body["owner_entity_id"] == str(other_character_id)
+    assert new_body["owner_entity_id"] != str(character_id)
+    assert new_body["container_entity_id"] == str(backpack_id)
+
+    await delete_tenant(tenant_id)
+
+
+async def test_merge_item_instance_combines_stacks_and_deletes_source(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, character_id, backpack_id = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=5
+    )
+    split_response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/split", json={"quantity": 3}
+    )
+    assert split_response.status_code == 201
+    other_entity_id = split_response.json()["entity_id"]
+
+    merge_response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        json={"into_entity_id": other_entity_id},
+    )
+
+    assert merge_response.status_code == 200
+    merged = merge_response.json()
+    assert merged["entity_id"] == other_entity_id
+    assert merged["quantity"] == 5
+    assert merged["owner_entity_id"] == str(character_id)
+    assert merged["container_entity_id"] == str(backpack_id)
+
+    gone_response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert gone_response.status_code == 404
+
+    await delete_tenant(tenant_id)
+
+
+async def test_merge_item_instance_422_into_itself(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _, _ = await _make_stacked_instance(tenant_id, test_user_id=test_user_id, quantity=5)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        json={"into_entity_id": str(entity_id)},
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_merge_item_instance_422_uncontained_target(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, character_id, _ = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=5
+    )
+    async with admin_session_factory() as session:
+        uncontained = Entity(tenant_id=tenant_id, name="Loose Arrows")
+        session.add(uncontained)
+        await session.flush()
+        session.add(ItemInstance(entity_id=uncontained.id, tenant_id=tenant_id))
+        session.add(
+            Ownership(
+                owned_entity_id=uncontained.id,
+                owner_character_id=character_id,
+                tenant_id=tenant_id,
+            )
+        )
+        await session.commit()
+        uncontained_id = uncontained.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        json={"into_entity_id": str(uncontained_id)},
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_merge_item_instance_422_different_containers(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, character_id, _ = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=5
+    )
+    async with admin_session_factory() as session:
+        other_backpack = Entity(tenant_id=tenant_id, name="Other Backpack")
+        other_entity = Entity(tenant_id=tenant_id, name="Other Arrows")
+        session.add_all([other_backpack, other_entity])
+        await session.flush()
+        session.add(ItemInstance(entity_id=other_entity.id, tenant_id=tenant_id))
+        session.add(
+            Ownership(
+                owned_entity_id=other_entity.id,
+                owner_character_id=character_id,
+                tenant_id=tenant_id,
+            )
+        )
+        session.add(
+            Containment(
+                child_entity_id=other_entity.id,
+                parent_entity_id=other_backpack.id,
+                tenant_id=tenant_id,
+                quantity=2,
+            )
+        )
+        await session.commit()
+        other_entity_id = other_entity.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        json={"into_entity_id": str(other_entity_id)},
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_merge_item_instance_422_different_owners(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _, backpack_id = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=5
+    )
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id, name="Other Campaign")
+        await session.flush()
+        other_character = await make_character(session, tenant_id=tenant_id, name="Other")
+        # other_character needs *some* campaign standing, or
+        # _authorize_instance_write 403s on it before this test ever
+        # reaches the different-owners guard it means to exercise -
+        # test_user_id's own tenant OWNER role (make_tenant's default)
+        # then covers it via can_manage_campaign's OWNER/ORGA bypass
+        # (ADR 0032), same as it would for any other campaign in this
+        # tenant.
+        dummy_user = User(authgear_subject_id=f"dummy-{uuid.uuid4()}")
+        session.add(dummy_user)
+        await session.flush()
+        dummy_player = Player(user_id=dummy_user.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        session.add(dummy_player)
+        await session.flush()
+        session.add(
+            CharacterPlayer(
+                character_entity_id=other_character.entity_id,
+                player_id=dummy_player.id,
+                tenant_id=tenant_id,
+            )
+        )
+        other_entity = Entity(tenant_id=tenant_id, name="Other Arrows")
+        session.add(other_entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=other_entity.id, tenant_id=tenant_id))
+        session.add(
+            Ownership(
+                owned_entity_id=other_entity.id,
+                owner_character_id=other_character.entity_id,
+                tenant_id=tenant_id,
+            )
+        )
+        session.add(
+            Containment(
+                child_entity_id=other_entity.id,
+                parent_entity_id=backpack_id,
+                tenant_id=tenant_id,
+                quantity=2,
+            )
+        )
+        await session.commit()
+        other_entity_id = other_entity.id
+        dummy_user_id = dummy_user.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        json={"into_entity_id": str(other_entity_id)},
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, dummy_user_id))
+        await session.commit()
+
+
+async def test_merge_item_instance_404_for_unknown_target(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _, _ = await _make_stacked_instance(tenant_id, test_user_id=test_user_id, quantity=5)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        json={"into_entity_id": "00000000-0000-0000-0000-000000000000"},
+    )
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_assign_reports_mixed_outcomes_without_failing_the_batch(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0044: never all-or-nothing - a stale If-Match on one item, and an
+    unrelated player's item with no standing, don't stop the rest of the
+    batch from applying and being reported "ok".
+    """
+    tenant_id = await make_tenant(test_user_id)
+    ok_entity_id, _, _ = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=10
+    )
+    _, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        other_character = await make_character(session, tenant_id=tenant_id, name="Recipient")
+        # Downgrade test_user_id away from make_tenant's default tenant
+        # OWNER role - can_manage_campaign's own bypass (ADR 0032) lets
+        # OWNER/ORGA manage *any* campaign's items, which would otherwise
+        # make bob_item_id succeed too and defeat this test's whole point.
+        # Self-management of ok_entity_id (via its own Player/CharacterPlayer
+        # rows, unrelated to Membership) is unaffected by this downgrade -
+        # mirrors test_split_item_instance_403_for_unrelated_player's own
+        # identical setup.
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        await session.delete(membership)
+        await session.commit()
+        recipient_id = other_character.entity_id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-assign",
+        json=[
+            {
+                "entity_id": str(ok_entity_id),
+                "owner_character_id": str(recipient_id),
+                "quantity": 4,
+            },
+            {
+                "entity_id": str(ok_entity_id),
+                "owner_character_id": str(recipient_id),
+                "if_match": 'W/"stale"',
+            },
+            {"entity_id": str(bob_item_id), "owner_character_id": str(recipient_id)},
+        ],
+    )
+
+    assert response.status_code == 200
+    results = response.json()
+    assert len(results) == 3
+    assert results[0]["status"] == "ok"
+    assert results[0]["item_instance"]["owner_entity_id"] == str(recipient_id)
+    assert results[0]["item_instance"]["quantity"] == 4
+    assert results[1]["status"] == "error"
+    assert results[1]["problem"]["status"] == 412
+    assert results[2]["status"] == "error"
+    assert results[2]["problem"]["status"] == 403
+
+    # The successful item really did apply, despite the other two failing.
+    source_response = await client.get(f"/tenants/{tenant_id}/item-instances/{ok_entity_id}")
+    assert source_response.json()["quantity"] == 6
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
+async def test_bulk_assign_without_quantity_reassigns_whole_instance(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0044: quantity omitted delegates to the plain owner-PUT path
+    (_perform_set_owner), reassigning entity_id itself rather than
+    splitting a piece off it.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _, _ = await _make_stacked_instance(tenant_id, test_user_id=test_user_id, quantity=1)
+    async with admin_session_factory() as session:
+        recipient = await make_character(session, tenant_id=tenant_id, name="Recipient")
+        await session.commit()
+        recipient_id = recipient.entity_id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-assign",
+        json=[{"entity_id": str(entity_id), "owner_character_id": str(recipient_id)}],
+    )
+
+    assert response.status_code == 200
+    results = response.json()
+    assert len(results) == 1
+    assert results[0]["status"] == "ok"
+    assert results[0]["entity_id"] == str(entity_id)
+    assert results[0]["item_instance"]["entity_id"] == str(entity_id)
+    assert results[0]["item_instance"]["owner_entity_id"] == str(recipient_id)
+
     await delete_tenant(tenant_id)

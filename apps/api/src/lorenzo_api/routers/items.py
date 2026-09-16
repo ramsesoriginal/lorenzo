@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
@@ -18,7 +18,7 @@ from lorenzo_api.dependencies import (
     get_tenant_context,
     set_tenant_rls_context,
 )
-from lorenzo_api.etag import check_if_match
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import ItemNotFoundError, ItemPrototypeInUseError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
@@ -87,17 +87,28 @@ async def list_items(
     params: ParamsDep,
     session: SessionDep,
     user: CurrentUser,
+    q: Annotated[
+        str | None,
+        Query(description="Case-insensitive substring match against the item's name."),
+    ] = None,
 ) -> Page[ItemOut]:
     """Every base item type for this tenant - see ADR 0019/0020. Explicit
     tenant_id filter as defense in depth alongside RLS, not a replacement
     for it (ADR 0002/0021).
+
+    q (ADR 0047) matches against Entity.name, not VItem.title - title is a
+    nullable, description-payload-sourced display field, name is the
+    item's own stable, always-set identifier and the right search target.
     """
     stmt = (
         select(VItem)
+        .join(Entity, Entity.id == VItem.entity_id)
         .where(VItem.tenant_id == tenant_id)
         .options(*eager_load_options(VItem.entity))
         .order_by(VItem.entity_id)
     )
+    if q is not None:
+        stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
     # Resolved once per request, not once per row - reused by every item on
     # the page (ADR 0028's addendum).
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
@@ -116,11 +127,13 @@ async def get_item(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemOut:
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemOut.from_v_item(view, request, visibility=visibility)
 
 
@@ -160,11 +173,13 @@ async def _item_out(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemOut:
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemOut.from_v_item(view, request, visibility=visibility)
 
 
@@ -194,7 +209,7 @@ async def create_item(
     response.headers["Location"] = str(
         request.url_for("get_item", tenant_id=tenant_id, entity_id=entity.id)
     )
-    return await _item_out(tenant_id, entity.id, request, session, user)
+    return await _item_out(tenant_id, entity.id, request, response, session, user)
 
 
 @router.patch("/{entity_id}")
@@ -203,6 +218,7 @@ async def update_item(
     entity_id: uuid.UUID,
     body: ItemUpdate,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
@@ -215,7 +231,7 @@ async def update_item(
         entity.updated_by = user.id
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_out(tenant_id, entity_id, request, session, user)
+    return await _item_out(tenant_id, entity_id, request, response, session, user)
 
 
 @router.delete("/{entity_id}", status_code=204)

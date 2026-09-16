@@ -25,7 +25,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.models import Being, CampaignGm, Character, CharacterPlayer, Player, User
 from lorenzo_api.schemas.campaigns import GmOut
-from lorenzo_api.schemas.players import PlayerCreate, PlayerDetailOut, PlayerOut
+from lorenzo_api.schemas.players import PlayerCreate, PlayerOut, PlayerSummaryOut
 
 # get_campaign_context here, not per-route (ADR 0020's revised guidance,
 # matching entities.py) - every route on this router needs it and none read
@@ -50,7 +50,7 @@ _character_eager_load = (
 @router.get("/players")
 async def list_players(
     tenant_id: uuid.UUID, campaign_id: uuid.UUID, session: SessionDep, params: ParamsDep
-) -> Page[PlayerOut]:
+) -> Page[PlayerSummaryOut]:
     stmt = (
         select(Player)
         .where(Player.campaign_id == campaign_id, Player.tenant_id == tenant_id)
@@ -58,19 +58,21 @@ async def list_players(
         .order_by(Player.id)
     )
 
-    def _players_out(players: Sequence[Player]) -> list[PlayerOut]:
-        return [PlayerOut.from_player(p) for p in players]
+    def _players_out(players: Sequence[Player]) -> list[PlayerSummaryOut]:
+        return [PlayerSummaryOut.from_player(p) for p in players]
 
     # apaginate is typed to return Any (fastapi_pagination's own signature) -
     # cast rather than suppress, the declared return type is otherwise exact.
-    return cast(Page[PlayerOut], await apaginate(session, stmt, params, transformer=_players_out))
+    return cast(
+        Page[PlayerSummaryOut], await apaginate(session, stmt, params, transformer=_players_out)
+    )
 
 
 @router.get("/players/{player_id}")
 async def get_player(
     tenant_id: uuid.UUID, campaign_id: uuid.UUID, player_id: uuid.UUID, session: SessionDep
-) -> PlayerDetailOut:
-    """Same shape as PlayerOut (RFC 0004: Player has no columns the
+) -> PlayerOut:
+    """Same shape as PlayerSummaryOut (RFC 0004: Player has no columns the
     summary omits) - its own schema/route anyway, matching the RFC's own
     endpoint table.
     """
@@ -86,7 +88,7 @@ async def get_player(
     player = (await session.execute(stmt)).scalar_one_or_none()
     if player is None:
         raise PlayerNotFoundError(detail=f"No player with id {player_id} in campaign {campaign_id}")
-    return PlayerDetailOut.from_player(player)
+    return PlayerOut.from_player(player)
 
 
 @router.get("/gms")
@@ -136,7 +138,7 @@ async def create_player(
     response: Response,
     session: SessionDep,
     user: CurrentUser,
-) -> PlayerOut:
+) -> PlayerSummaryOut:
     """can_manage_campaign gates adding - a GM building their own roster,
     or a tenant admin, not a self-service join (RFC 0007's own Open
     questions: no invite-link/visibility mechanism exists yet that would
@@ -175,7 +177,7 @@ async def create_player(
         )
     )
     created = await _get_player_or_404(tenant_id, campaign_id, player.id, session)
-    return PlayerOut.from_player(created)
+    return PlayerSummaryOut.from_player(created)
 
 
 @router.delete("/players/{player_id}", status_code=204)

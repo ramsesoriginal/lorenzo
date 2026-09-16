@@ -6,7 +6,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import exists, select
 
-from lorenzo_api.campaign_access import can_manage_campaign, is_tenant_admin, is_tenant_participant
+from lorenzo_api.campaign_access import can_manage_campaign, is_tenant_admin
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -14,6 +14,7 @@ from lorenzo_api.dependencies import (
     get_campaign_context,
     get_tenant_context,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match
@@ -22,7 +23,6 @@ from lorenzo_api.exceptions import (
     CampaignManagementForbiddenError,
     CampaignNotEmptyError,
     CampaignNotFoundError,
-    TenantNotFoundError,
 )
 from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut
 from lorenzo_api.schemas.campaigns import (
@@ -48,16 +48,15 @@ router = APIRouter(
 async def list_campaigns(
     tenant_id: uuid.UUID, user: CurrentUser, session: SessionDep, params: ParamsDep
 ) -> Page[CampaignSummaryOut]:
-    """The tenant's campaign catalog - gated by is_tenant_participant (any
-    Membership/Player/CampaignGm row anywhere in the tenant), not
+    """The tenant's campaign catalog - gated by require_tenant_participant
+    (any Membership/Player/CampaignGm row anywhere in the tenant), not
     get_tenant_context, per ADR 0030/RFC 0003. Secret campaigns are then
     filtered per row: included only if the caller is that campaign's own GM
     or a tenant admin - a plain Player of a secret campaign they don't GM
     doesn't see it here either (they already know about it directly via
     their own `/me` response, RFC 0004).
     """
-    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
 
     stmt = select(Campaign).where(Campaign.tenant_id == tenant_id)
     if not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
