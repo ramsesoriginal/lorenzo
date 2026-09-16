@@ -7,7 +7,7 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import Select, select
+from sqlalchemy import ColumnElement, Select, or_, select, true
 
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
@@ -26,6 +26,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
     controlled_character_entity_ids,
+    reachable_entity_ids,
     recursive_descendants_cte,
 )
 from lorenzo_api.etag import check_if_match
@@ -35,7 +36,7 @@ from lorenzo_api.exceptions import (
     ItemInstanceNotFoundError,
     TenantNotFoundError,
 )
-from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.models import (
     Containment,
     Entity,
@@ -117,6 +118,55 @@ async def _require_participant(
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
 
 
+async def _visible_owner_predicate(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    visibility: InformationVisibility,
+) -> ColumnElement[bool]:
+    """ADR 0040: narrows which *owned* item instances a read route may
+    return to whoever can reach the owner - self (the caller's own
+    characters, the identical entity_access.reachable_entity_ids shape
+    RFC 0005's self-or-managed write authorization already uses),
+    GM (visibility.gm_reachable_entity_ids, already resolved once per
+    request by every caller of this function), or is_orga.
+
+    Deliberately visibility.is_orga, not campaign_access.is_tenant_admin -
+    whether an admin can see that a character owns a hidden item is read
+    as a narrative-knowledge question, not an administrative-capability
+    one, mirroring RFC 0009's "administrative access != automatic
+    character/GM knowledge" principle. is_orga already carries the correct
+    per-tenant TenantAdminCampaignOptOut suppression for exactly this
+    reason - reused as-is rather than re-derived.
+
+    Ownerless instances are never filtered by this at all (the OR's first
+    branch, unconditional) - only instances a character actually owns
+    narrow. Not used by _get_v_item_instance_or_404's own default (no
+    predicate) path, which the post-write response builders below still
+    rely on - a write is already independently authorized via
+    _authorize_instance_write/_authorize_create_instance before this
+    would ever run, and those checks (can_manage_campaign, in particular)
+    are not a subset of this read predicate - a plain tenant OWNER managing
+    someone else's item via can_manage_any_of_campaigns, without holding
+    ORGA, would otherwise 404 on the very write they just made.
+    """
+    if visibility.is_orga:
+        return true()
+    self_reachable = await reachable_entity_ids(
+        session,
+        root_entity_ids=await controlled_character_entity_ids(
+            session, user_id=user.id, tenant_id=tenant_id
+        ),
+        tenant_id=tenant_id,
+    )
+    visible_entity_ids = self_reachable | visibility.gm_reachable_entity_ids
+    return or_(
+        VItemInstance.owner_entity_id.is_(None),
+        VItemInstance.entity_id.in_(visible_entity_ids),
+    )
+
+
 @router.get("")
 async def list_item_instances(
     tenant_id: uuid.UUID,
@@ -148,23 +198,29 @@ async def list_item_instances(
     endpoint (ADR 0020).
     """
     await _require_participant(session, tenant_id=tenant_id, user=user)
+    # Resolved once per request, not once per row - reused by every item
+    # instance on the page (ADR 0028's addendum), and now also by
+    # _visible_owner_predicate below (ADR 0040) rather than a second query.
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    predicate = await _visible_owner_predicate(
+        session, tenant_id=tenant_id, user=user, visibility=visibility
+    )
     if container_id is not None:
         # Validate container_id belongs to *this* tenant before anything
         # else - a cross-tenant probe must 404 exactly like an unknown id,
         # with no other response difference either.
         await get_entity_or_404(session, container_id, tenant_id)
-        stmt = _item_instances_by_container_stmt(tenant_id, container_id, recursive=recursive)
+        stmt = _item_instances_by_container_stmt(
+            tenant_id, container_id, recursive=recursive
+        ).where(predicate)
     else:
         stmt = (
             select(VItemInstance)
             .where(VItemInstance.tenant_id == tenant_id)
+            .where(predicate)
             .options(*eager_load_options(VItemInstance.entity))
             .order_by(VItemInstance.entity_id)
         )
-
-    # Resolved once per request, not once per row - reused by every item
-    # instance on the page (ADR 0028's addendum).
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
     def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
         return [
@@ -195,6 +251,16 @@ async def list_item_instances_owned_by(
     paginated - bounded by one owner's inventory (ADR 0020 / task brief).
     """
     await _require_participant(session, tenant_id=tenant_id, user=user)
+    # ADR 0040: an owner_entity_id the caller can't reach (not one of their
+    # own characters, not GM-reachable, not is_orga) contributes zero rows
+    # below - the response comes back as an empty groups list, identical in
+    # shape to "this character owns nothing." No separate existence check
+    # needed, and no way to distinguish "doesn't exist" from "hidden from
+    # you" from the response alone.
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    predicate = await _visible_owner_predicate(
+        session, tenant_id=tenant_id, user=user, visibility=visibility
+    )
     stmt = (
         select(VItemInstance, Containment.parent_entity_id)
         .outerjoin(Containment, Containment.child_entity_id == VItemInstance.entity_id)
@@ -202,6 +268,7 @@ async def list_item_instances_owned_by(
             VItemInstance.owner_entity_id == owner_entity_id,
             VItemInstance.tenant_id == tenant_id,
         )
+        .where(predicate)
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(Containment.parent_entity_id, VItemInstance.entity_id)
     )
@@ -217,7 +284,6 @@ async def list_item_instances_owned_by(
         ).scalars()
         containers = {entity.id: entity for entity in container_entities}
 
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     groups: dict[uuid.UUID | None, list[ItemInstanceOut]] = {}
     for view, container_id in rows:
         groups.setdefault(container_id, []).append(
@@ -259,19 +325,37 @@ async def get_item_instance(
     a 422, not just in theory.
     """
     await _require_participant(session, tenant_id=tenant_id, user=user)
-    view = await _get_v_item_instance_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    # ADR 0040: an item instance the caller can't reach 404s here, the same
+    # "no row matched" path an unknown or cross-tenant id already takes -
+    # existence hidden, not a redacted 200. _item_instance_out below (used
+    # only after an already-independently-authorized write) deliberately
+    # does not pass this predicate - see _visible_owner_predicate's own
+    # docstring for why that would be a real bug, not just a redundant
+    # extra check.
+    predicate = await _visible_owner_predicate(
+        session, tenant_id=tenant_id, user=user, visibility=visibility
+    )
+    view = await _get_v_item_instance_or_404(
+        tenant_id, entity_id, session, extra_predicate=predicate
+    )
     return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
 
 
 async def _get_v_item_instance_or_404(
-    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    *,
+    extra_predicate: ColumnElement[bool] | None = None,
 ) -> VItemInstance:
     stmt = (
         select(VItemInstance)
         .where(VItemInstance.entity_id == entity_id, VItemInstance.tenant_id == tenant_id)
         .options(*eager_load_options(VItemInstance.entity))
     )
+    if extra_predicate is not None:
+        stmt = stmt.where(extra_predicate)
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
         raise ItemInstanceNotFoundError(
