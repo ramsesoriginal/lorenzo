@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
@@ -87,17 +87,28 @@ async def list_items(
     params: ParamsDep,
     session: SessionDep,
     user: CurrentUser,
+    q: Annotated[
+        str | None,
+        Query(description="Case-insensitive substring match against the item's name."),
+    ] = None,
 ) -> Page[ItemOut]:
     """Every base item type for this tenant - see ADR 0019/0020. Explicit
     tenant_id filter as defense in depth alongside RLS, not a replacement
     for it (ADR 0002/0021).
+
+    q (ADR 0047) matches against Entity.name, not VItem.title - title is a
+    nullable, description-payload-sourced display field, name is the
+    item's own stable, always-set identifier and the right search target.
     """
     stmt = (
         select(VItem)
+        .join(Entity, Entity.id == VItem.entity_id)
         .where(VItem.tenant_id == tenant_id)
         .options(*eager_load_options(VItem.entity))
         .order_by(VItem.entity_id)
     )
+    if q is not None:
+        stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
     # Resolved once per request, not once per row - reused by every item on
     # the page (ADR 0028's addendum).
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
