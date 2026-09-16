@@ -48,16 +48,16 @@ from lorenzo_api.schemas.characters import (
     CharacterUpdate,
 )
 from lorenzo_api.schemas.common import EntitySummary
-from lorenzo_api.schemas.players import PlayerSummaryOut
+from lorenzo_api.schemas.players import PlayerContextOut
 
-# CharacterOut.players: list[PlayerSummaryOut] is a forward reference
+# CharacterOut.players: list[PlayerContextOut] is a forward reference
 # (schemas/characters.py only imports schemas/players.py under
 # TYPE_CHECKING, to avoid a real circular import - see that module's own
-# docstring). Resolving it needs PlayerSummaryOut in scope somewhere;
+# docstring). Resolving it needs PlayerContextOut in scope somewhere;
 # rebuilt explicitly here, at import time, rather than relying on whichever
 # module happens to import schemas/players.py first - this router needs
 # both anyway and is guaranteed to load once, at app startup.
-CharacterOut.model_rebuild(_types_namespace={"PlayerSummaryOut": PlayerSummaryOut})
+CharacterOut.model_rebuild(_types_namespace={"PlayerContextOut": PlayerContextOut})
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0036/RFC 0007,
 # mirroring routers/item_instances.py's identical ADR 0032/RFC 0005
