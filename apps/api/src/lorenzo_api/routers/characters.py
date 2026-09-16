@@ -31,7 +31,15 @@ from lorenzo_api.exceptions import (
     PlayerNotFoundError,
     TenantNotFoundError,
 )
-from lorenzo_api.models import Being, Character, CharacterPlayer, Entity, Membership, Player
+from lorenzo_api.models import (
+    Being,
+    Character,
+    CharacterPlayer,
+    Entity,
+    GroupMember,
+    Membership,
+    Player,
+)
 from lorenzo_api.schemas.characters import (
     CharacterCreate,
     CharacterOut,
@@ -39,6 +47,7 @@ from lorenzo_api.schemas.characters import (
     CharacterSummaryOut,
     CharacterUpdate,
 )
+from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.players import PlayerSummaryOut
 
 # CharacterOut.players: list[PlayerSummaryOut] is a forward reference
@@ -124,6 +133,31 @@ async def get_character(
 ) -> CharacterOut:
     await _require_tenant_member(session, tenant_id=tenant_id, user=user)
     return await _character_out(tenant_id, character_id, session)
+
+
+@router.get("/{character_id}/groups")
+async def list_character_groups(
+    tenant_id: uuid.UUID, character_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> list[EntitySummary]:
+    """ADR 0045's nice-to-have: the reverse of GET /tenants/{tenant_id}/
+    groups/{group_entity_id}/members - which groups this character belongs
+    to, sparing a client from fetching every tenant group and
+    cross-referencing membership client-side. Gated the same way as this
+    router's other two pre-existing GET routes (_require_tenant_member),
+    not routers/groups.py's own broader is_tenant_participant - consistency
+    with this router's own neighbors, not with groups.py.
+    """
+    await _require_tenant_member(session, tenant_id=tenant_id, user=user)
+    await _get_character_or_404(tenant_id, character_id, session)
+
+    stmt = (
+        select(Entity)
+        .join(GroupMember, GroupMember.group_entity_id == Entity.id)
+        .where(GroupMember.character_entity_id == character_id, GroupMember.tenant_id == tenant_id)
+        .order_by(Entity.id)
+    )
+    groups = (await session.execute(stmt)).scalars().all()
+    return [EntitySummary.from_entity(group) for group in groups]
 
 
 async def _get_character_or_404(
