@@ -13,6 +13,35 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+describe("getItemInstancesByContainer", () => {
+  it("passes container_id and recursive=false, returning the page's items", async () => {
+    let receivedUrl: URL | undefined;
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances`, ({ request }) => {
+        receivedUrl = new URL(request.url);
+        return HttpResponse.json({
+          items: [
+            { entity_id: "item-1", title: "Torch", quantity: 5, owner_entity_id: null },
+            { entity_id: "item-2", title: "Sword", quantity: null, owner_entity_id: null },
+          ],
+          total: 2,
+          page: 1,
+          size: 50,
+          pages: 1,
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.getItemInstancesByContainer(TENANT_ID, "container-1", "test-token");
+
+    expect(receivedUrl?.searchParams.get("container_id")).toBe("container-1");
+    expect(receivedUrl?.searchParams.get("recursive")).toBe("false");
+    expect(items).toHaveLength(2);
+    expect(items[0]?.title).toBe("Torch");
+  });
+});
+
 describe("getItemInstancesOwnedBy", () => {
   it("sends a bearer token and returns the parsed response", async () => {
     let receivedAuth: string | null = null;

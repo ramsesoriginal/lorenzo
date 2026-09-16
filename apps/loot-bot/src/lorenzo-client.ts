@@ -66,6 +66,29 @@ export function createLorenzoApiClient(baseUrl: string) {
 
   return {
     /**
+     * Direct contents of `containerEntityId` (ADR 0044's `/drop`) - never
+     * recursive, matching how `/give`/`/set-current` already treat "what's
+     * in here." First page only (up to the API's own default page size) -
+     * a drop's own select menus cap out at Discord's 25-option limit
+     * anyway, so nothing past that would ever be shown regardless.
+     */
+    async getItemInstancesByContainer(
+      tenantId: string,
+      containerEntityId: string,
+      accessToken: string,
+    ): Promise<readonly ItemInstanceOut[]> {
+      const { data, error, response } = await client.GET("/tenants/{tenant_id}/item-instances", {
+        params: {
+          path: { tenant_id: tenantId },
+          query: { container_id: containerEntityId, recursive: false },
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.items;
+    },
+
+    /**
      * Every item instance `characterEntityId` owns, grouped by direct
      * container - GET /tenants/{tenant_id}/item-instances/owned-by/{id}
      * (routers/item_instances.py). Requires the backend access-gate loosening
