@@ -30,11 +30,11 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Entity,
-    EntityStat,
     Information,
     Ownership,
     Payload,
     PayloadDescription,
+    VEffectiveStat,
 )
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import EntityDetailOut, InformationCreate, InformationOut
@@ -106,7 +106,7 @@ async def get_entity_detail_or_404(
         select(Entity)
         .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
         .options(
-            selectinload(Entity.stats).selectinload(EntityStat.stat_definition),
+            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
             selectinload(Entity.stat_groups),
             selectinload(Entity.information)
             .selectinload(Information.payloads)

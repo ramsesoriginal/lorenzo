@@ -24,12 +24,12 @@ from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Entity,
     EntityPrototype,
-    EntityStat,
     Information,
     Item,
     ItemInstance,
     Payload,
     StatDefinition,
+    VEffectiveStat,
     VItem,
 )
 from lorenzo_api.schemas.items import ItemCreate, ItemOut, ItemUpdate
@@ -54,6 +54,12 @@ def eager_load_options(
     view's own `entity` relationship attribute (`VItem.entity` here,
     `VItemInstance.entity` in `routers/item_instances.py`, which imports
     this same helper) since each view's join condition differs.
+
+    Loads `Entity.effective_stats` (ADR 0039's resolved, prototype-
+    inheriting view), not `Entity.stats` - `EntityViewMixin`'s
+    `physical_stats`/`tags`/etc. read the former so they agree with
+    `weight`/`hp`/`armor`/etc. instead of silently showing an entity's own
+    direct stats only.
     """
     return (
         selectinload(view_entity_attr)
@@ -68,8 +74,8 @@ def eager_load_options(
         .selectinload(Entity.information)
         .selectinload(Information.knowledge_links),
         selectinload(view_entity_attr)
-        .selectinload(Entity.stats)
-        .selectinload(EntityStat.stat_definition)
+        .selectinload(Entity.effective_stats)
+        .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
     )
 

@@ -5,7 +5,7 @@ from fastapi import Request
 from pydantic import BaseModel
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, EntityStat, Information, StatValueType
+from lorenzo_api.models import Entity, Information, StatValueType, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 
@@ -43,14 +43,19 @@ class StatValueOut(BaseModel):
     rather than from_attributes: which value_* column actually holds the
     value is chosen by reading StatDefinition.value_type first, not by
     probing all four columns for non-null (the DB's own CHECK constraint
-    on entity_stat already guarantees exactly one is ever set).
+    on entity_stat, and v_effective_stat's identical shape, already
+    guarantees exactly one is ever set).
     """
 
     name: str
     value: int | str | float | bool
 
     @classmethod
-    def from_entity_stat(cls, stat: EntityStat) -> StatValueOut:
+    def from_effective_stat(cls, stat: VEffectiveStat) -> StatValueOut:
+        """Takes a v_effective_stat row (ADR 0039), not an EntityStat - this
+        always reflects prototype-inherited values, not just an entity's own
+        direct ones.
+        """
         definition = stat.stat_definition
         value: int | str | float | bool | None
         if definition.value_type is StatValueType.INT:
@@ -65,7 +70,7 @@ class StatValueOut(BaseModel):
             raise ValueError(f"Unhandled StatValueType: {definition.value_type!r}")
         if value is None:
             raise ValueError(
-                f"EntityStat({stat.entity_id}, {stat.stat_definition_id}) is declared "
+                f"VEffectiveStat({stat.entity_id}, {stat.stat_definition_id}) is declared "
                 f"{definition.value_type.value} but its value column is null"
             )
         return cls(name=definition.name, value=value)
@@ -122,7 +127,7 @@ class EntityDetailOut(BaseModel):
             name=entity.name,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
-            stats=[StatValueOut.from_entity_stat(stat) for stat in entity.stats],
+            stats=[StatValueOut.from_effective_stat(stat) for stat in entity.effective_stats],
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
             # is typed for Entity specifically), reusing EntitySummary only

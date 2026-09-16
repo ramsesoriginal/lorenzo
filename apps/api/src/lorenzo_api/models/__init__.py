@@ -27,6 +27,7 @@ from lorenzo_api.models.tenant import Tenant
 from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 from lorenzo_api.models.user import User
 from lorenzo_api.models.v_character import VCharacter
+from lorenzo_api.models.v_effective_stat import VEffectiveStat
 from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
@@ -62,6 +63,7 @@ __all__ = [
     "TenantAdminCampaignOptOut",
     "User",
     "VCharacter",
+    "VEffectiveStat",
     "VItem",
     "VItemInstance",
 ]

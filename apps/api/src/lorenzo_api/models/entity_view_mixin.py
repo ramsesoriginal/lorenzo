@@ -27,10 +27,17 @@ class EntityViewMixin:
     `character`/`being`). Fully populating these properties requires
     eager-loading entity -> information -> payloads -> description, entity
     -> information -> knowledge_links (needed by `descriptions` below - ADR
-    0028), and entity -> stats -> stat_definition -> stat_group; accessing
-    them without doing so returns an empty list or raises, it does not
-    silently lazy-load in this project's async setup (see ADR 0018's own
-    async lazy-load pitfalls).
+    0028), and entity -> effective_stats -> stat_definition -> stat_group;
+    accessing them without doing so returns an empty list or raises, it
+    does not silently lazy-load in this project's async setup (see ADR
+    0018's own async lazy-load pitfalls).
+
+    `_stats_for_group`/`tags` read `entity.effective_stats` (ADR 0039's
+    resolved, prototype-inheriting view), not `entity.stats` (an entity's
+    own direct rows only) - so these agree with `weight`/`hp`/`armor`/etc.
+    on the same view's plain columns instead of silently disagreeing with
+    them for anything inherited, the gap ADR 0037 originally left open and
+    ADR 0039 closed.
 
     No `pictures` here (unlike `descriptions`) - checked and confirmed
     unused: `schemas/items.py`'s `_picture_refs` needs the owning `Payload`
@@ -60,7 +67,7 @@ class EntityViewMixin:
     def _stats_for_group(self, group_name: str) -> list[tuple[str, int | None]]:
         return [
             (stat.stat_definition.name, stat.value_int)
-            for stat in self.entity.stats
+            for stat in self.entity.effective_stats
             if stat.stat_definition.stat_group.name == group_name
         ]
 
@@ -84,6 +91,6 @@ class EntityViewMixin:
     def tags(self) -> list[tuple[str, bool | None]]:
         return [
             (stat.stat_definition.name, stat.value_bool)
-            for stat in self.entity.stats
+            for stat in self.entity.effective_stats
             if stat.stat_definition.stat_group.name == "tags"
         ]

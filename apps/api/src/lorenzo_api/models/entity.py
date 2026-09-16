@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
+    from lorenzo_api.models.v_effective_stat import VEffectiveStat
 
 
 class Entity(Base):
@@ -54,6 +55,19 @@ class Entity(Base):
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    # v_effective_stat (ADR 0039): the *resolved* counterpart to `stats`
+    # above - every stat_definition's inherited-or-own value, read through
+    # the prototype graph. viewonly, no back_populates (same shape as
+    # VItem/VItemInstance's own `entity` relationship, just the reverse
+    # direction) since a view can't be written to. `stats` itself is
+    # unchanged and stays the one write paths (routers/entity_stats.py)
+    # still read/write directly - this is for display only.
+    effective_stats: Mapped[list[VEffectiveStat]] = relationship(
+        primaryjoin="Entity.id == VEffectiveStat.entity_id",
+        foreign_keys="VEffectiveStat.entity_id",
+        viewonly=True,
+        lazy="raise_on_sql",
     )
     information: Mapped[list[Information]] = relationship(
         lazy="raise_on_sql",
