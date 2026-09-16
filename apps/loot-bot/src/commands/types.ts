@@ -1,8 +1,11 @@
 import type {
   AutocompleteInteraction,
+  ButtonInteraction,
   ChatInputCommandInteraction,
+  ModalSubmitInteraction,
   SlashCommandBuilder,
   SlashCommandOptionsOnlyBuilder,
+  StringSelectMenuInteraction,
 } from "discord.js";
 import type { Logger } from "pino";
 import type { Config } from "../config.js";
@@ -27,4 +30,17 @@ export type Command = Readonly<{
    * dispatcher, which treats a thrown autocomplete handler as "respond
    * with no choices" rather than a failed interaction). */
   autocomplete?: (interaction: AutocompleteInteraction, ctx: CommandContext) => Promise<void>;
+
+  /**
+   * Optional - only commands with their own persistent, interactive
+   * message need these (ADR 0044's `/drop`). Every `customId` this bot
+   * ever creates is namespaced `"<this command's own definition.name>:
+   * <action>:<...ids>"`; commands/index.ts's dispatcher extracts the part
+   * before the first `:` and routes to whichever of these three is
+   * relevant, on this same command - one dispatch convention, not a
+   * parallel routing table per interaction kind.
+   */
+  onSelectMenu?: (interaction: StringSelectMenuInteraction, ctx: CommandContext) => Promise<void>;
+  onButton?: (interaction: ButtonInteraction, ctx: CommandContext) => Promise<void>;
+  onModalSubmit?: (interaction: ModalSubmitInteraction, ctx: CommandContext) => Promise<void>;
 }>;

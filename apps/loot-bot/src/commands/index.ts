@@ -35,8 +35,19 @@ export function attachCommandHandlers(client: Client, ctx: CommandContext): void
   });
 }
 
+const isComponentOrModal = (
+  interaction: Interaction,
+): interaction is Interaction & { customId: string } =>
+  interaction.isStringSelectMenu() || interaction.isButton() || interaction.isModalSubmit();
+
 async function handleInteraction(interaction: Interaction, ctx: CommandContext): Promise<void> {
-  if (!interaction.isChatInputCommand() && !interaction.isAutocomplete()) return;
+  if (
+    !interaction.isChatInputCommand() &&
+    !interaction.isAutocomplete() &&
+    !isComponentOrModal(interaction)
+  ) {
+    return;
+  }
 
   if (interaction.guildId !== ctx.config.discordGuildId) {
     ctx.logger.warn(
@@ -46,9 +57,15 @@ async function handleInteraction(interaction: Interaction, ctx: CommandContext):
     return;
   }
 
-  const command = commandsByName.get(interaction.commandName);
+  // Chat-input/autocomplete are keyed by commandName; components/modals by
+  // their own customId's namespace prefix (ADR 0044 - "<command name>:
+  // <action>:<...ids>"), both resolving into the same commandsByName map.
+  const commandName = isComponentOrModal(interaction)
+    ? (interaction.customId.split(":")[0] ?? "")
+    : interaction.commandName;
+  const command = commandsByName.get(commandName);
   if (!command) {
-    ctx.logger.warn({ commandName: interaction.commandName }, "unknown command");
+    ctx.logger.warn({ commandName }, "unknown command");
     return;
   }
 
@@ -70,9 +87,17 @@ async function handleInteraction(interaction: Interaction, ctx: CommandContext):
   }
 
   try {
-    await command.execute(interaction, ctx);
+    if (interaction.isStringSelectMenu()) {
+      await command.onSelectMenu?.(interaction, ctx);
+    } else if (interaction.isButton()) {
+      await command.onButton?.(interaction, ctx);
+    } else if (interaction.isModalSubmit()) {
+      await command.onModalSubmit?.(interaction, ctx);
+    } else if (interaction.isChatInputCommand()) {
+      await command.execute(interaction, ctx);
+    }
   } catch (error) {
-    ctx.logger.error({ err: error, commandName: interaction.commandName }, "command failed");
+    ctx.logger.error({ err: error, commandName }, "command failed");
     const payload = { content: "Something went wrong running that command.", ephemeral: true };
     if (interaction.deferred || interaction.replied) {
       await interaction.followUp(payload);
