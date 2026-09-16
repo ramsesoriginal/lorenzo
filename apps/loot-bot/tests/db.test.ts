@@ -311,3 +311,202 @@ describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
     await expect(db.deletePreference("never-set-user")).resolves.toBeUndefined();
   });
 });
+
+describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => {
+  const DISCORD_ID_A = "db-test-claimant-a";
+  const DISCORD_ID_B = "db-test-claimant-b";
+
+  let dropId: string;
+
+  afterEach(async () => {
+    // Deleting the drop cascades to its claims too (loot_claim's own
+    // ON DELETE CASCADE) - one call cleans up everything a test created.
+    if (dropId) await db.deleteLootDrop(dropId);
+  });
+
+  afterAll(async () => {
+    await db.closeDb();
+  });
+
+  async function makeDrop(): Promise<string> {
+    const row = await db.insertLootDrop({
+      containerEntityId: "container-1",
+      discordChannelId: "channel-1",
+      createdByDiscordUserId: "gm-1",
+    });
+    dropId = row.id;
+    return row.id;
+  }
+
+  it("starts open, with no message id yet", async () => {
+    const id = await makeDrop();
+
+    const row = await db.getLootDrop(id);
+    expect(row?.status).toBe("open");
+    expect(row?.discordMessageId).toBeNull();
+    expect(row?.containerEntityId).toBe("container-1");
+  });
+
+  it("records the message id once the drop's message is posted", async () => {
+    const id = await makeDrop();
+
+    await db.setLootDropMessageId(id, "message-1");
+
+    const row = await db.getLootDrop(id);
+    expect(row?.discordMessageId).toBe("message-1");
+  });
+
+  it("marks a drop applied", async () => {
+    const id = await makeDrop();
+
+    await db.markLootDropApplied(id);
+
+    const row = await db.getLootDrop(id);
+    expect(row?.status).toBe("applied");
+  });
+
+  it("returns undefined for a drop that doesn't exist", async () => {
+    await expect(db.getLootDrop("00000000-0000-0000-0000-000000000000")).resolves.toBeUndefined();
+  });
+
+  it("has no claim for a user who hasn't claimed anything", async () => {
+    const id = await makeDrop();
+
+    await expect(db.getLootClaim(id, "item-1", DISCORD_ID_A)).resolves.toBeUndefined();
+  });
+
+  it("upserts a claim and reads it back", async () => {
+    const id = await makeDrop();
+
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: 3,
+    });
+
+    const row = await db.getLootClaim(id, "item-1", DISCORD_ID_A);
+    expect(row?.characterEntityId).toBe("char-1");
+    expect(row?.quantity).toBe(3);
+  });
+
+  it("re-claiming the same item replaces the existing claim, not a second row", async () => {
+    const id = await makeDrop();
+
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: 3,
+    });
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: 5,
+    });
+
+    const claims = await db.listLootClaims(id);
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.quantity).toBe(5);
+  });
+
+  it("lists claims oldest first, across different claimants", async () => {
+    const id = await makeDrop();
+
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: null,
+    });
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_B,
+      characterEntityId: "char-2",
+      quantity: null,
+    });
+
+    const claims = await db.listLootClaims(id);
+    expect(claims.map((c) => c.discordUserId)).toEqual([DISCORD_ID_A, DISCORD_ID_B]);
+  });
+
+  it("deletes one claim (unclaim) without touching another claimant's", async () => {
+    const id = await makeDrop();
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: null,
+    });
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_B,
+      characterEntityId: "char-2",
+      quantity: null,
+    });
+
+    await db.deleteLootClaim(id, "item-1", DISCORD_ID_A);
+
+    await expect(db.getLootClaim(id, "item-1", DISCORD_ID_A)).resolves.toBeUndefined();
+    await expect(db.getLootClaim(id, "item-1", DISCORD_ID_B)).resolves.toBeDefined();
+  });
+
+  it("is idempotent when unclaiming something that was never claimed", async () => {
+    const id = await makeDrop();
+
+    await expect(db.deleteLootClaim(id, "item-1", DISCORD_ID_A)).resolves.toBeUndefined();
+  });
+
+  it("deletes every claim for a drop at once", async () => {
+    const id = await makeDrop();
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: null,
+    });
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-2",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: null,
+    });
+
+    await db.deleteLootClaimsForDrop(id);
+
+    await expect(db.listLootClaims(id)).resolves.toEqual([]);
+  });
+
+  it("cascades: deleting a drop deletes its claims too", async () => {
+    const id = await makeDrop();
+    await db.upsertLootClaim({
+      lootDropId: id,
+      itemEntityId: "item-1",
+      discordUserId: DISCORD_ID_A,
+      characterEntityId: "char-1",
+      quantity: null,
+    });
+
+    await db.deleteLootDrop(id);
+    dropId = ""; // already gone - afterEach's own cleanup would no-op harmlessly either way
+
+    await expect(db.getLootDrop(id)).resolves.toBeUndefined();
+    await expect(db.listLootClaims(id)).resolves.toEqual([]);
+  });
+
+  it("is idempotent when deleting a drop that doesn't exist", async () => {
+    await expect(
+      db.deleteLootDrop("00000000-0000-0000-0000-000000000000"),
+    ).resolves.toBeUndefined();
+  });
+});

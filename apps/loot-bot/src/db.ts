@@ -1,16 +1,20 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { DatabaseError, Pool } from "pg";
 import { loadConfig } from "./config.js";
 import {
   type LinkedAccount,
+  type LootClaim,
+  type LootDrop,
   type NewLinkedAccountRow,
   type PlayerPreference,
   linkedAccount,
+  lootClaim,
+  lootDrop,
   playerPreference,
 } from "./db-schema.js";
 
-export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference };
+export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference, LootDrop, LootClaim };
 
 /**
  * This app's own restricted role's connection (LOOT_BOT_DATABASE_URL) - not
@@ -21,7 +25,7 @@ export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference };
  * query builder directly.
  */
 const pool = new Pool({ connectionString: loadConfig().databaseUrl });
-const db = drizzle(pool, { schema: { linkedAccount, playerPreference } });
+const db = drizzle(pool, { schema: { linkedAccount, playerPreference, lootDrop, lootClaim } });
 
 /** Closes the underlying connection pool - for graceful shutdown and for
  * tests, so a real-Postgres test run doesn't leave the process hanging on
@@ -223,4 +227,135 @@ export async function setPreference(
  * never set. */
 export async function deletePreference(discordUserId: string): Promise<void> {
   await db.delete(playerPreference).where(eq(playerPreference.discordUserId, discordUserId));
+}
+
+/**
+ * Starts a new loot drop (ADR 0044) - inserted *before* the Discord
+ * message is posted, since the message's own select-menu/button
+ * `customId`s need the generated `id` baked in. Returns the full row so
+ * the caller has that id without a second round trip.
+ */
+export async function insertLootDrop(fields: {
+  containerEntityId: string;
+  discordChannelId: string;
+  createdByDiscordUserId: string;
+}): Promise<LootDrop> {
+  const rows = await db.insert(lootDrop).values(fields).returning();
+  const row = rows[0];
+  if (!row) throw new Error("insertLootDrop: INSERT ... RETURNING produced no row");
+  return row;
+}
+
+/** Records which message a drop ended up on, once it's actually been
+ * posted - see {@link insertLootDrop}'s own note on why this is a
+ * separate step rather than part of the initial insert. */
+export async function setLootDropMessageId(
+  dropId: string,
+  discordMessageId: string,
+): Promise<void> {
+  await db.update(lootDrop).set({ discordMessageId }).where(eq(lootDrop.id, dropId));
+}
+
+export async function getLootDrop(dropId: string): Promise<LootDrop | undefined> {
+  const rows = await db.select().from(lootDrop).where(eq(lootDrop.id, dropId)).limit(1);
+  return rows[0];
+}
+
+/** Matches every other table in this schema having a full delete path -
+ * used by this file's own tests to clean up after themselves (mirroring
+ * {@link deleteLinkedAccount}/{@link deletePreference}'s identical role),
+ * and exercises `loot_claim.loot_drop_id`'s `ON DELETE CASCADE`. */
+export async function deleteLootDrop(dropId: string): Promise<void> {
+  await db.delete(lootDrop).where(eq(lootDrop.id, dropId));
+}
+
+/** Marks a drop as resolved, once every outstanding claim has been
+ * processed - `/drop`'s own handler is responsible for deleting the
+ * drop's claim rows separately ({@link deleteLootClaimsForDrop}), not
+ * this function, so a caller can still read them one last time (e.g. to
+ * build the final summary) before they're gone. */
+export async function markLootDropApplied(dropId: string): Promise<void> {
+  await db.update(lootDrop).set({ status: "applied" }).where(eq(lootDrop.id, dropId));
+}
+
+/** The caller's own existing claim on this item within this drop, if
+ * any - the claim-menu's own "toggle" decision (ADR 0044: picking an
+ * already-claimed item unclaims it, picking anything else opens the
+ * quantity modal) reads this first. */
+export async function getLootClaim(
+  dropId: string,
+  itemEntityId: string,
+  discordUserId: string,
+): Promise<LootClaim | undefined> {
+  const rows = await db
+    .select()
+    .from(lootClaim)
+    .where(
+      and(
+        eq(lootClaim.lootDropId, dropId),
+        eq(lootClaim.itemEntityId, itemEntityId),
+        eq(lootClaim.discordUserId, discordUserId),
+      ),
+    )
+    .limit(1);
+  return rows[0];
+}
+
+/** Every outstanding claim on a drop, oldest first - the order
+ * apply-claims (ADR 0044) processes them in, and what the drop
+ * message's own claims-annotation is built from. */
+export async function listLootClaims(dropId: string): Promise<readonly LootClaim[]> {
+  return db
+    .select()
+    .from(lootClaim)
+    .where(eq(lootClaim.lootDropId, dropId))
+    .orderBy(lootClaim.createdAt);
+}
+
+/** Upserts one player's claim on one item - claiming again (a new
+ * quantity, or re-confirming the same one) replaces the existing row for
+ * that `(dropId, itemEntityId, discordUserId)` rather than stacking a
+ * second one, matching the table's own primary key. */
+export async function upsertLootClaim(fields: {
+  lootDropId: string;
+  itemEntityId: string;
+  discordUserId: string;
+  characterEntityId: string;
+  quantity: number | null;
+}): Promise<void> {
+  await db
+    .insert(lootClaim)
+    .values(fields)
+    .onConflictDoUpdate({
+      target: [lootClaim.lootDropId, lootClaim.itemEntityId, lootClaim.discordUserId],
+      set: {
+        characterEntityId: fields.characterEntityId,
+        quantity: fields.quantity,
+      },
+    });
+}
+
+/** Idempotent, matching every other `delete*` function in this module -
+ * safe to call on a claim that doesn't exist (e.g. a double-click on
+ * "unclaim"). */
+export async function deleteLootClaim(
+  dropId: string,
+  itemEntityId: string,
+  discordUserId: string,
+): Promise<void> {
+  await db
+    .delete(lootClaim)
+    .where(
+      and(
+        eq(lootClaim.lootDropId, dropId),
+        eq(lootClaim.itemEntityId, itemEntityId),
+        eq(lootClaim.discordUserId, discordUserId),
+      ),
+    );
+}
+
+/** Cleanup once a drop's claims have all been processed - see
+ * {@link markLootDropApplied}'s own note on why this is separate. */
+export async function deleteLootClaimsForDrop(dropId: string): Promise<void> {
+  await db.delete(lootClaim).where(eq(lootClaim.lootDropId, dropId));
 }

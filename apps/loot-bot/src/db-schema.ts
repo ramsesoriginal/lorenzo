@@ -1,4 +1,13 @@
-import { customType, pgSchema, smallint, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  customType,
+  integer,
+  pgSchema,
+  primaryKey,
+  smallint,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /**
  * This bot's own schema inside the shared `lorenzo` database - a dedicated
@@ -89,3 +98,64 @@ export const playerPreference = lootBotSchema.table("player_preference", {
 
 export type PlayerPreference = typeof playerPreference.$inferSelect;
 export type NewPlayerPreferenceRow = typeof playerPreference.$inferInsert;
+
+/**
+ * A GM's "drop" of a pre-made container's contents into a Discord channel
+ * (ADR 0044) - one row per `/drop`, tracking the message it lives on
+ * (needed to find and edit it later, as items get taken/claimed/applied)
+ * and whether claims have been applied yet. `status` is a plain `text`
+ * column with a TypeScript-level union (`LootDropStatus`), not a Postgres
+ * enum or CHECK constraint - matches this schema's existing minimalism
+ * (`linked_account` has none either), and the only two writers of this
+ * column (`insertLootDrop`, `markLootDropApplied` in db.ts) already fully
+ * control which value goes in.
+ */
+export const lootDrop = lootBotSchema.table("loot_drop", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  containerEntityId: text("container_entity_id").notNull(),
+  discordChannelId: text("discord_channel_id").notNull(),
+  // Set once the message is actually posted - the row is inserted first
+  // (its generated id gets baked into the message's own component
+  // customIds), so this starts null.
+  discordMessageId: text("discord_message_id"),
+  createdByDiscordUserId: text("created_by_discord_user_id").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type LootDropStatus = "open" | "applied";
+export type LootDrop = typeof lootDrop.$inferSelect;
+export type NewLootDropRow = typeof lootDrop.$inferInsert;
+
+/**
+ * One player's outstanding claim on one item within one drop - bot-local
+ * bookkeeping only, never itself an `apps/api` call (ADR 0044: claiming
+ * doesn't reserve anything). `characterEntityId` is resolved once, from
+ * the claimant's `/set-current` preference, at claim time - not re-
+ * resolved when claims are later applied, so a claim always targets the
+ * character the claimant meant at the moment they made it.
+ *
+ * Primary key `(lootDropId, itemEntityId, discordUserId)`: one active
+ * claim per user per item: claiming again with a different quantity
+ * updates this same row (an upsert) rather than stacking a second one;
+ * unclaiming deletes it.
+ */
+export const lootClaim = lootBotSchema.table(
+  "loot_claim",
+  {
+    lootDropId: uuid("loot_drop_id")
+      .notNull()
+      .references(() => lootDrop.id, { onDelete: "cascade" }),
+    itemEntityId: text("item_entity_id").notNull(),
+    discordUserId: text("discord_user_id").notNull(),
+    characterEntityId: text("character_entity_id").notNull(),
+    // null means "whatever's left when this claim gets applied" - not
+    // "the current amount right now" (claims don't reserve anything).
+    quantity: integer("quantity"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.lootDropId, table.itemEntityId, table.discordUserId] })],
+);
+
+export type LootClaim = typeof lootClaim.$inferSelect;
+export type NewLootClaimRow = typeof lootClaim.$inferInsert;
