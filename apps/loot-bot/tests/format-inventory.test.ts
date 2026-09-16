@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatInventoryEmbed } from "../src/format-inventory.js";
 import type { ItemInstanceOut, OwnedByResponse } from "../src/lorenzo-client.js";
 
-function item(title: string | null): ItemInstanceOut {
+function item(title: string | null, quantity: number | null = null): ItemInstanceOut {
   return {
     entity_id: crypto.randomUUID(),
     owner_entity_id: null,
@@ -14,8 +14,11 @@ function item(title: string | null): ItemInstanceOut {
     hp: null,
     armor: null,
     container_entity_id: null,
+    quantity,
     is_magical: null,
     is_cursed: null,
+    created_by: null,
+    updated_by: null,
     descriptions: [],
     pictures: [],
     physical_stats: [],
@@ -67,6 +70,19 @@ describe("formatInventoryEmbed", () => {
     };
     const embed = formatInventoryEmbed("Frodo", response).toJSON();
     expect(embed.fields?.[0]?.value).toBe("• (untitled)");
+  });
+
+  it("shows a stack's quantity, but not for a lone item", () => {
+    const response: OwnedByResponse = {
+      groups: [
+        {
+          container: null,
+          item_instances: [item("Torch", 5), item("Sword", 1), item("Shield", null)],
+        },
+      ],
+    };
+    const embed = formatInventoryEmbed("Frodo", response).toJSON();
+    expect(embed.fields?.[0]?.value).toBe("• Torch ×5\n• Sword\n• Shield");
   });
 
   it("truncates a container's item list to fit Discord's 1024-char field value limit", () => {

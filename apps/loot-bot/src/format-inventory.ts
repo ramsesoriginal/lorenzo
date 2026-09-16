@@ -51,7 +51,7 @@ export function formatInventoryEmbed(
 }
 
 function formatItemList(items: OwnedByResponse["groups"][number]["item_instances"]): string {
-  const lines = items.map((item) => `• ${item.title ?? "(untitled)"}`);
+  const lines = items.map((item) => `• ${formatItemLine(item)}`);
   const full = lines.join("\n");
   if (full.length <= MAX_FIELD_VALUE_LENGTH) return full;
 
@@ -65,4 +65,12 @@ function formatItemList(items: OwnedByResponse["groups"][number]["item_instances
   }
   const omitted = lines.length - shown;
   return `${result}\n…and ${omitted} more item${omitted === 1 ? "" : "s"}.`;
+}
+
+// `quantity` is a stack size (ADR 0041 - splitting a stack needs one) -
+// null/1 means "just one, not a stack", so it's only surfaced when it's
+// actually informative.
+function formatItemLine(item: OwnedByResponse["groups"][number]["item_instances"][number]): string {
+  const name = item.title ?? "(untitled)";
+  return item.quantity !== null && item.quantity > 1 ? `${name} ×${item.quantity}` : name;
 }
