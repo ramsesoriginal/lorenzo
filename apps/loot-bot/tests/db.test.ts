@@ -46,6 +46,14 @@ async function tryPrepareDatabase(): Promise<boolean> {
 
 const canRunDbTests = await tryPrepareDatabase();
 
+// Closed exactly once, after every describe block below has finished - all
+// three share this file's one module-level pool (db.ts's own singleton),
+// so closing it per-block would tear it down after the first block and
+// throw "Called end on pool more than once" on every block after that.
+afterAll(async () => {
+  if (canRunDbTests) await db.closeDb();
+});
+
 describe.skipIf(!canRunDbTests)("linked_account (real Postgres)", () => {
   // Distinct per-file IDs so a run of this suite can never collide with
   // anything a developer's own manual testing left behind.
@@ -60,10 +68,6 @@ describe.skipIf(!canRunDbTests)("linked_account (real Postgres)", () => {
     // other, and keeps re-runs against a persistent dev database clean.
     await db.deleteLinkedAccount(DISCORD_ID_A);
     await db.deleteLinkedAccount(DISCORD_ID_B);
-  });
-
-  afterAll(async () => {
-    await db.closeDb();
   });
 
   it("returns undefined for a discord user that was never linked", async () => {
@@ -254,10 +258,6 @@ describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
     await db.deletePreference(DISCORD_ID);
   });
 
-  afterAll(async () => {
-    await db.closeDb();
-  });
-
   it("returns undefined for a discord user with no preference set", async () => {
     await expect(db.getPreference(DISCORD_ID)).resolves.toBeUndefined();
   });
@@ -322,10 +322,6 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
     // Deleting the drop cascades to its claims too (loot_claim's own
     // ON DELETE CASCADE) - one call cleans up everything a test created.
     if (dropId) await db.deleteLootDrop(dropId);
-  });
-
-  afterAll(async () => {
-    await db.closeDb();
   });
 
   async function makeDrop(): Promise<string> {
