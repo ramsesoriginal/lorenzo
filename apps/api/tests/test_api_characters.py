@@ -56,6 +56,65 @@ async def test_list_characters_only_includes_promoted_beings(
     await delete_tenant(tenant_id)
 
 
+async def test_list_characters_mine_filters_to_the_callers_own_owned_characters(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0049: owner_player_id specifically, not the broader roster - a
+    character test_user_id merely co-pilots (via character_player) but
+    doesn't own doesn't come back under mine=true either.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+
+        my_player = Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant_id)
+        other_user = User(authgear_subject_id=f"authgear|other-{uuid.uuid4()}")
+        session.add_all([my_player, other_user])
+        await session.flush()
+        other_player = Player(user_id=other_user.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        session.add(other_player)
+        await session.flush()
+
+        alice = await make_character(
+            session, tenant_id=tenant_id, name="Alice", owner_player_id=my_player.id
+        )
+        bob = await make_character(
+            session, tenant_id=tenant_id, name="Bob", owner_player_id=other_player.id
+        )
+        # test_user_id co-pilots Bob without owning him - must not count as
+        # "mine" either.
+        session.add(
+            CharacterPlayer(
+                character_entity_id=bob.entity_id, player_id=my_player.id, tenant_id=tenant_id
+            )
+        )
+        await session.commit()
+        alice_id, bob_id, other_user_id = alice.entity_id, bob.entity_id, other_user.id
+
+    mine_response = await client.get(f"/tenants/{tenant_id}/characters", params={"mine": True})
+    assert mine_response.status_code == 200
+    mine_ids = {c["entity_id"] for c in mine_response.json()["items"]}
+    assert mine_ids == {str(alice_id)}
+    assert str(bob_id) not in mine_ids
+
+    all_response = await client.get(f"/tenants/{tenant_id}/characters")
+    assert all_response.status_code == 200
+    all_ids = {c["entity_id"] for c in all_response.json()["items"]}
+    assert all_ids == {str(alice_id), str(bob_id)}
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, other_user_id))
+        await session.commit()
+
+
 async def test_get_character_detail_reports_owner_and_players(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
