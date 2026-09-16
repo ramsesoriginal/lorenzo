@@ -92,9 +92,7 @@ def upgrade() -> None:
         _create_view(
             "v_item_instance",
             "item_instance",
-            extra_select=(
-                ", ownership.owner_character_id AS owner_entity_id, st.slug AS slug"
-            ),
+            extra_select=(", ownership.owner_character_id AS owner_entity_id, st.slug AS slug"),
             extra_join="LEFT JOIN ownership ON ownership.owned_entity_id = e.id",
         )
     )
