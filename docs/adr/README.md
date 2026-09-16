@@ -52,3 +52,5 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0047 - Item catalog search and container-capability convention](0047-item-catalog-search-and-container-convention.md)
 - [0048 - CORS configuration](0048-cors-configuration.md)
 - [0049 - `mine` filter on `GET /tenants/{tenant_id}/characters`](0049-list-characters-mine-filter.md)
+- [0050 - User identity: Authgear-synced email + local nickname](0050-user-identity-email-and-nickname.md)
+- [0051 - Exact-match user lookup by email or nickname](0051-user-lookup-by-email-or-nickname.md)
