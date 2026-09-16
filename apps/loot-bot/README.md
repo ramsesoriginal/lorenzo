@@ -4,7 +4,7 @@ Lorenzo's Discord bot. TypeScript, Node, discord.js. One bot process serves exac
 
 ## What it does
 
-A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`), lists the item instances their characters own, grouped by container (`/inventory`), and gives an item — or part of a stack — to another character (`/give`, [ADR 0043](../../docs/adr/0043-loot-bot-give-command.md)). No shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules and the write API's own self-or-managed authorization apply correctly per person.
+A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`), sets a current character/default container (`/set-current`), lists the item instances their characters own, grouped by container (`/inventory`), and gives an item — or part of a stack — to another character (`/give`, [ADR 0043](../../docs/adr/0043-loot-bot-give-command.md)). A GM can drop a pre-made loot container into a channel; players take a whole item or part of a stack immediately, or claim one for the GM to resolve later with "apply claims" (`/drop`, [ADR 0044](../../docs/adr/0044-loot-bot-loot-drop-and-claims.md)). No shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules and the write API's own self-or-managed authorization apply correctly per person.
 
 ## Setup
 
@@ -34,18 +34,22 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | Command | Does |
 | --- | --- |
 | `/link` | Starts account linking — replies with a one-time Authgear login URL |
+| `/set-current` | Sets your current character and/or default container — what other commands default to |
 | `/inventory` | Lists the item instances your linked characters own, grouped by container |
 | `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target |
+| `/drop` | GM-only: drops a pre-made loot container into the channel — take/claim/unclaim, then "apply claims" |
 | `/ping` | Liveness check |
 
 ## Architecture
 
 - `src/config.ts` — env loading/validation (zod).
 - `src/http-server.ts` — a bare `node:http` server (`/healthz`, `/auth/callback`) — no framework; see ADR 0042 for why.
-- `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts`.
+- `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts` (chat-input, autocomplete, and — since `/drop`, ADR 0044 — select-menu/button/modal interactions too, routed by a `customId` namespace convention).
+- `src/commands/item-transfer.ts` — the split-vs-whole-transfer decision `/give` and `/drop`'s take/apply-claims share.
 - `src/token-provider.ts` — `getValidAccessToken(discordUserId)`: the seam between commands and the account-linking/refresh machinery.
+- `src/preferences.ts` — `resolveCurrentCharacter`/`resolveCurrentContainer`: the seam commands resolve an optional character/container parameter through, falling back to `/set-current`'s stored preference.
 - `src/lorenzo-client.ts` — a thin wrapper over a generated (`openapi-typescript`/`openapi-fetch`) typed client for `apps/api`. Regenerate with `mise run generate-client` after `apps/api`'s OpenAPI schema changes.
-- `src/db-schema.ts`/`src/db.ts` — Drizzle ORM over the bot's own `loot_bot` Postgres schema (`linked_account`, the account-linking store) — entirely separate from `apps/api`'s own tenant-scoped, RLS'd tables.
+- `src/db-schema.ts`/`src/db.ts` — Drizzle ORM over the bot's own `loot_bot` Postgres schema (`linked_account`, `player_preference`, `loot_drop`, `loot_claim`) — entirely separate from `apps/api`'s own tenant-scoped, RLS'd tables.
 
 ## Deployment
 
