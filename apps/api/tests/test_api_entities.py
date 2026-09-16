@@ -331,6 +331,61 @@ async def test_get_entity_returns_full_detail_with_every_relationship_resolved(
     await delete_tenant(tenant_id)
 
 
+async def test_get_entity_stats_reflect_prototype_inherited_values(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0039: GET /entities/{id}'s own `stats` field (EntityDetailOut,
+    reading Entity.effective_stats) must agree with an item's resolved
+    weight/hp/etc. for a value only ever inherited, not just an entity's
+    own direct rows - the previously-known gap ADR 0037 flagged and left
+    open. `derived` here isn't item/item_instance/character-typed at all,
+    proving the walk resolves stats for any entity, not only items.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        base = Entity(tenant_id=tenant_id, name="Base")
+        derived = Entity(tenant_id=tenant_id, name="Derived")
+        session.add_all([base, derived])
+        await session.flush()
+        session.add(
+            EntityPrototype(entity_id=derived.id, prototype_id=base.id, tenant_id=tenant_id)
+        )
+
+        physical = StatGroup(tenant_id=tenant_id, name="physical")
+        session.add(physical)
+        await session.flush()
+        hp_def = StatDefinition(
+            tenant_id=tenant_id,
+            stat_group_id=physical.id,
+            name="hp",
+            value_type=StatValueType.INT,
+        )
+        session.add(hp_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=base.id, stat_definition_id=hp_def.id, tenant_id=tenant_id, value_int=10
+            )
+        )
+        await session.commit()
+        derived_id = derived.id
+
+    response = await client.get(f"/tenants/{tenant_id}/entities/{derived_id}")
+
+    assert response.status_code == 200
+    stats = {s["name"]: s["value"] for s in response.json()["stats"]}
+    assert stats == {"hp": 10}
+
+    await delete_tenant(tenant_id)
+
+
 async def test_get_entity_404_for_unknown_entity_id(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:

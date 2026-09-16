@@ -201,6 +201,68 @@ async def test_get_item_returns_full_wrapped_shape(
     await delete_tenant(tenant_id)
 
 
+async def _make_item_prototype_chain(tenant_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:
+    """Sword sets weight directly; Flaming Sword inherits it through one
+    prototype hop and sets nothing of its own - proves ADR 0039's fix
+    (physical_stats agreeing with weight for an inherited value), not just
+    the always-passing hop-0 case _make_full_item above already covers.
+    Returns (sword_id, flaming_sword_id).
+    """
+    async with admin_session_factory() as session:
+        sword = Entity(tenant_id=tenant_id, name="Sword")
+        flaming_sword = Entity(tenant_id=tenant_id, name="Flaming Sword")
+        session.add_all([sword, flaming_sword])
+        await session.flush()
+        session.add(Item(entity_id=sword.id, tenant_id=tenant_id))
+        session.add(Item(entity_id=flaming_sword.id, tenant_id=tenant_id))
+        session.add(
+            EntityPrototype(entity_id=flaming_sword.id, prototype_id=sword.id, tenant_id=tenant_id)
+        )
+
+        physical = StatGroup(tenant_id=tenant_id, name="physical")
+        session.add(physical)
+        await session.flush()
+        weight_def = StatDefinition(
+            tenant_id=tenant_id,
+            stat_group_id=physical.id,
+            name="weight",
+            value_type=StatValueType.INT,
+        )
+        session.add(weight_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=sword.id,
+                stat_definition_id=weight_def.id,
+                tenant_id=tenant_id,
+                value_int=3,
+            )
+        )
+        await session.commit()
+        return sword.id, flaming_sword.id
+
+
+async def test_get_item_physical_stats_reflect_prototype_inherited_values(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0039: physical_stats must agree with weight for a value only
+    ever inherited, not just for one set directly (the case
+    test_get_item_returns_full_wrapped_shape above already covers) - the
+    previously-known gap ADR 0037 flagged and left open.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    _, flaming_sword_id = await _make_item_prototype_chain(tenant_id)
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{flaming_sword_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["weight"] == 3
+    assert body["physical_stats"] == [{"name": "weight", "value": 3}]
+
+    await delete_tenant(tenant_id)
+
+
 async def test_get_item_hides_gm_only_description_from_a_plain_member(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:

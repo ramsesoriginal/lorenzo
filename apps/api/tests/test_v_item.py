@@ -1,7 +1,7 @@
 import uuid
 
 from _admin_db import admin_session_factory
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
@@ -25,6 +25,7 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
     Tenant,
+    VEffectiveStat,
     VItem,
     VItemInstance,
 )
@@ -58,8 +59,8 @@ def _eager_load_options(
         .selectinload(Entity.information)
         .selectinload(Information.knowledge_links),
         selectinload(view_entity_attr)
-        .selectinload(Entity.stats)
-        .selectinload(EntityStat.stat_definition)
+        .selectinload(Entity.effective_stats)
+        .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
     )
 
@@ -314,7 +315,8 @@ async def test_v_item_instance_rls_isolates_tenants_for_a_non_superuser_role() -
     await _rls_probe("v_item_instance", "item_instance")
 
 
-# --- Effective stat resolution over the prototype graph (ADR 0037/RFC 0008) ---
+# --- Effective stat resolution over the prototype graph (ADR 0037/RFC 0008,
+# generalized to v_effective_stat and any entity by ADR 0039) ---
 
 
 async def test_v_item_instance_resolves_stat_inherited_through_two_prototype_hops() -> None:
@@ -370,13 +372,20 @@ async def test_v_item_instance_resolves_stat_inherited_through_two_prototype_hop
 
         sword_view = await session.get(VItem, sword_id)
         flaming_sword_view = await session.get(VItem, flaming_sword_id)
-        ashfang_view = await session.get(VItemInstance, ashfang_id)
+        ashfang_view = await session.get(
+            VItemInstance, ashfang_id, options=list(_eager_load_options(VItemInstance.entity))
+        )
         assert sword_view is not None
         assert sword_view.weight == 5
         assert flaming_sword_view is not None
         assert flaming_sword_view.weight == 5
         assert ashfang_view is not None
         assert ashfang_view.weight == 5
+        # ADR 0039: physical_stats (EntityViewMixin, reading
+        # Entity.effective_stats) must agree with the plain `weight` column
+        # above - the previously-known gap (ADR 0037) where an inherited
+        # value showed up in `weight` but not in `physical_stats` at all.
+        assert ashfang_view.physical_stats == [("weight", 5)]
 
         await session.delete(tenant)
         await session.commit()
@@ -444,6 +453,66 @@ async def test_v_item_instance_direct_override_wins_outright_over_inherited_valu
         ashfang_view = await session.get(VItemInstance, ashfang_id)
         assert ashfang_view is not None
         assert ashfang_view.weight == 99
+
+        await session.delete(tenant)
+        await session.commit()
+
+
+async def test_v_effective_stat_resolves_for_any_entity_not_only_items() -> None:
+    """ADR 0039's core generalization: the resolution walk's base case is
+    `FROM entity e` (every entity in the tenant), not `item`/`item_instance`
+    rows only - proven here with entities that are neither, so no
+    v_item/v_item_instance row for them exists at all. Mirrors what makes
+    VCharacter's own EntityViewMixin properties able to see inherited stats
+    too, not just VItem/VItemInstance's.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+
+        base = Entity(tenant_id=tenant.id, name="Base Being")
+        derived = Entity(tenant_id=tenant.id, name="Derived Being")
+        session.add_all([base, derived])
+        await session.flush()
+
+        session.add(
+            EntityPrototype(entity_id=derived.id, prototype_id=base.id, tenant_id=tenant.id)
+        )
+
+        physical = StatGroup(tenant_id=tenant.id, name="physical")
+        session.add(physical)
+        await session.flush()
+        hp_def = StatDefinition(
+            tenant_id=tenant.id,
+            stat_group_id=physical.id,
+            name="hp",
+            value_type=StatValueType.INT,
+        )
+        session.add(hp_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=base.id, stat_definition_id=hp_def.id, tenant_id=tenant.id, value_int=10
+            )
+        )
+        await session.commit()
+        derived_id = derived.id
+
+        assert await session.get(VItem, derived_id) is None
+        assert await session.get(VItemInstance, derived_id) is None
+
+        rows = (
+            (
+                await session.execute(
+                    select(VEffectiveStat).where(VEffectiveStat.entity_id == derived_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].value_int == 10
 
         await session.delete(tenant)
         await session.commit()
