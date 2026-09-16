@@ -59,12 +59,251 @@ export interface paths {
          *     not scoped to one.
          *
          *     Re-fetched with memberships eager-loaded rather than reusing the
-         *     `user` CurrentUser resolved - that one only ever needs `.id` itself
-         *     (get_tenant_context's Membership lookup), so eager-loading memberships
-         *     on every authenticated request regardless of whether a route needs
-         *     them would be wasted work.
+         *     `user` CurrentUser resolved - that one only ever needs `.id` itself.
+         *
+         *     Players/campaign_gm_grants (ADR 0031/RFC 0004) are resolved tenant by
+         *     tenant, deliberately not in one eager-loaded query off `user`. `Player`/
+         *     `CampaignGm` rows self-authorize via `user_id` regardless of
+         *     `app.tenant_id` (ADR 0030's addendum), but what each one references -
+         *     `character_player`/`character`/`being`/`entity` via `Player`; `Campaign`
+         *     via `CampaignGm` - has no `user_id` column of its own for RLS to
+         *     self-authorize against, and this user's players/GM grants can
+         *     legitimately span *multiple* tenants, so there is no single
+         *     `app.tenant_id` that would correctly authorize all of them at once
+         *     regardless (unlike `/me`'s own memberships, campaign_gm, and player
+         *     rows themselves). Confirmed empirically, not assumed: querying this
+         *     chain with `app.tenant_id` never set at all raises
+         *     `UndefinedObjectError`, the same "genuinely never set" failure mode
+         *     every other RLS-protected table already has - `player`/`campaign_gm`
+         *     just happen to have a `user_id`-based escape hatch, and nothing past
+         *     them does.
          */
         get: operations["get_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenants
+         * @description Every tenant the caller belongs to in *any* capacity - a Membership
+         *     row, a Player row, or a CampaignGm row, anywhere in it (ADR 0030/RFC
+         *     0003). Filtered directly in SQL via EXISTS (not combined in Python the
+         *     way information_visibility.resolve_information_visibility does it) so
+         *     real pagination works over an arbitrarily large tenant list - unlike
+         *     that module's use case, this one needs Page[...]/apaginate's LIMIT/
+         *     OFFSET to operate on one real query, not a small in-memory id set.
+         */
+        get: operations["list_tenants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Tenant */
+        get: operations["get_tenant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenant Roster
+         * @description Broadened from a pure membership list to the tenant's full roster -
+         *     every user with *any* standing in this tenant, not just its tenant-wide
+         *     admins (ADR 0031/RFC 0004). One row per relationship, not per user - a
+         *     user who is ORGA, GMs one campaign, and plays in another appears three
+         *     times. Still gated by get_tenant_context, unchanged: an ordinary player
+         *     doesn't need this to find their own standing, `/me` already covers that.
+         *
+         *     Combined in Python from three separate queries (mirroring
+         *     resolve_information_visibility's own precedent), not one SQL UNION -
+         *     the three row shapes are genuinely heterogeneous, and this is
+         *     tenant-admin-only, so the data is bounded by how many people administer
+         *     one world, not by total tenant traffic - paginating the already-fetched
+         *     list, not the query, is a reasonable trade at that scale.
+         */
+        get: operations["list_tenant_roster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Campaigns
+         * @description The tenant's campaign catalog - gated by is_tenant_participant (any
+         *     Membership/Player/CampaignGm row anywhere in the tenant), not
+         *     get_tenant_context, per ADR 0030/RFC 0003. Secret campaigns are then
+         *     filtered per row: included only if the caller is that campaign's own GM
+         *     or a tenant admin - a plain Player of a secret campaign they don't GM
+         *     doesn't see it here either (they already know about it directly via
+         *     their own `/me` response, RFC 0004).
+         */
+        get: operations["list_campaigns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/campaigns/{campaign_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Campaign
+         * @description Unaffected by `secret` - get_campaign_context already only admits a
+         *     player, a GM, or a tenant admin of this specific campaign; secret only
+         *     governs the general browse-all list above, not whether someone who
+         *     already has a legitimate way to reach it can open it directly (ADR
+         *     0030/RFC 0003, same shape as a private GitHub repo).
+         */
+        get: operations["get_campaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/campaigns/{campaign_id}/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Players */
+        get: operations["list_players"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/campaigns/{campaign_id}/players/{player_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Player
+         * @description Same shape as PlayerOut (RFC 0004: Player has no columns the
+         *     summary omits) - its own schema/route anyway, matching the RFC's own
+         *     endpoint table.
+         */
+        get: operations["get_player"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/campaigns/{campaign_id}/gms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Gms
+         * @description Unpaginated - matching OwnedByResponse's existing precedent of
+         *     skipping pagination for a collection inherently small and bounded by
+         *     construction (ADR 0031/RFC 0004).
+         */
+        get: operations["list_gms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Characters
+         * @description Specifically a roster of Character rows, not every Being - a bare
+         *     being with no character row doesn't appear here at all (ADR 0031/RFC
+         *     0004).
+         */
+        get: operations["list_characters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/characters/{character_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Character */
+        get: operations["get_character"];
         put?: never;
         post?: never;
         delete?: never;
@@ -294,8 +533,141 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * CampaignOut
+         * @description GET /tenants/{id}/campaigns/{id} - the full detail shape.
+         *     Deliberately doesn't expose entity_id: it's an internal attachment
+         *     point for Information/Knowledge, not something a client addresses
+         *     directly yet (ADR 0030/RFC 0003). created_by/updated_by are bare
+         *     user_ids (ADR 0029) - resolving one to a display name is a client
+         *     concern this API doesn't store data for.
+         */
+        CampaignOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Game System */
+            game_system: string;
+            /** Secret */
+            secret: boolean;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * CampaignSummaryOut
+         * @description One row of `GET /tenants/{id}/campaigns` - lean on purpose, matching
+         *     every other *SummaryOut shape in this API (ADR 0020). See ADR 0030/RFC
+         *     0003.
+         */
+        CampaignSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Game System */
+            game_system: string;
+            /** Secret */
+            secret: boolean;
+        };
+        /**
+         * CharacterOut
+         * @description GET /tenants/{id}/characters/{id} - see ADR 0031/RFC 0004.
+         *     `created_by`/`updated_by` are this row's own (ADR 0029) - who
+         *     *promoted* this being into a tracked character, not who created the
+         *     underlying `being` (that's `entity.created_by`, a different, also
+         *     meaningful fact - ADR 0029's own open question).
+         *
+         *     `players` reuses `PlayerSummaryOut` whole (RFC 0004's own accepted
+         *     minor redundancy: each returned player entry redundantly re-includes
+         *     the very character being viewed, among any others that player
+         *     controls - not worth a fourth schema variant to trim).
+         *
+         *     `PlayerSummaryOut` (schemas/players.py) needs `CharacterSummaryOut`
+         *     right back - a genuine two-way schema reference, not an accident.
+         *     Broken here the standard way: `PlayerSummaryOut` only appears under
+         *     `TYPE_CHECKING` (so this module never really imports players.py,
+         *     which itself really imports this one for `CharacterSummaryOut` above
+         *     - a real cycle either direction if both were real imports), and
+         *     `from_character` below imports it locally, deferred until actually
+         *     called. Whatever first imports `routers/characters.py` calls
+         *     `CharacterOut.model_rebuild(...)` to make the forward reference
+         *     resolvable - see that module.
+         */
+        CharacterOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Is Pc */
+            is_pc: boolean;
+            /** Owner Player Id */
+            owner_player_id: string | null;
+            /** Players */
+            players: components["schemas"]["PlayerSummaryOut"][];
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+        };
+        /**
+         * CharacterSummaryOut
+         * @description Identity/roster shape, not the fuller narrative view `v_character`
+         *     exists for - see ADR 0031/RFC 0004. `name` is plain `Entity.name` (the
+         *     internal/reference name, ADR 0012), not `v_character.title` - reaching
+         *     for the view here would just be a second, unnecessary join. `is_pc` is
+         *     RFC 0001/0002's derived fact (`owner_player_id IS NOT NULL`), computed
+         *     here, not stored.
+         *
+         *     Requires `character.being.entity` eager-loaded first (`lazy=
+         *     "raise_on_sql"`, ADR 0018) - raises rather than silently lazy-loading
+         *     if the caller forgot.
+         */
+        CharacterSummaryOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Is Pc */
+            is_pc: boolean;
+        };
+        /**
          * DescriptionOut
-         * @description Wraps one entry of `ItemViewMixin.descriptions` - see ADR 0020: the
+         * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
          *     contract (no field names), so it's wrapped into a small named schema.
          */
@@ -358,6 +730,52 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /**
+         * GmOut
+         * @description One row of GET .../campaigns/{id}/gms - campaign_id/tenant_id are
+         *     already in the path, no need to repeat them per row. See ADR 0031/RFC
+         *     0004; fits here rather than a one-class module of its own, alongside
+         *     campaign-roster concerns generally.
+         */
+        GmOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * GmRosterEntryOut
+         * @description One row per CampaignGm row in the tenant. No `characters` field -
+         *     GM-ing isn't tied to any character; a GM who also plays a PC already
+         *     gets their own separate player-kind row for that.
+         *
+         *     RFC 0004's own shape also carries `created_by` (matching
+         *     `campaign_gm`'s eventual lighter, create-only attribution shape - no
+         *     `updated_by`, since a grant is never "updated," only made or revoked).
+         *     Deliberately not included yet: per ADR 0029's phased table,
+         *     `campaign_gm.created_by` itself doesn't land until campaign CRUD (ADR
+         *     0034/RFC 0006) actually writes to this table - exposing a column that
+         *     doesn't exist would be building ahead of that slice, not this one.
+         *     Add it here as a small, natural follow-up once ADR 0034 lands.
+         */
+        GmRosterEntryOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "gm";
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
         };
         /** RequestValidationError */
         HTTPValidationError: {
@@ -495,9 +913,12 @@ export interface components {
         };
         /**
          * MeOut
-         * @description The caller's own identity and tenant-wide memberships - see ADR 0023.
-         *     Exists purely to prove the token-verification pipeline end to end over
-         *     real HTTP, not the start of a fuller /users API.
+         * @description The caller's own identity, tenant-wide memberships, campaign
+         *     memberships, and GM grants - see ADR 0023/0031. `players`/
+         *     `campaign_gm_grants` (ADR 0031/RFC 0004) are the concrete answer to
+         *     "user -> owner|orga|member of tenant -> [player(campaign) ->
+         *     character | GM(campaign)]" for the caller's own identity - the single
+         *     place a client reads "everything I am, everywhere."
          */
         MeOut: {
             /**
@@ -509,6 +930,10 @@ export interface components {
             authgear_subject_id: string;
             /** Memberships */
             memberships: components["schemas"]["MembershipOut"][];
+            /** Players */
+            players: components["schemas"]["PlayerSummaryOut"][];
+            /** Campaign Gm Grants */
+            campaign_gm_grants: components["schemas"]["CampaignSummaryOut"][];
         };
         /**
          * MembershipOut
@@ -520,6 +945,33 @@ export interface components {
              * Format: uuid
              */
             tenant_id: string;
+            /** Role */
+            role: string;
+        };
+        /**
+         * MembershipRosterEntryOut
+         * @description One row of GET /tenants/{id}/memberships' broadened roster (ADR
+         *     0031/RFC 0004) - see TenantRosterEntryOut below for why this is a
+         *     discriminated union rather than one schema with sometimes-meaningful
+         *     fields, matching the PayloadOut precedent (ADR 0020).
+         *
+         *     RFC 0004's own shape also carries `created_by`/`updated_by`.
+         *     Deliberately not included yet: per ADR 0029's phased table,
+         *     `membership`'s attribution pair doesn't land until user/player/
+         *     character CRUD (ADR 0036/RFC 0007) actually writes to this table -
+         *     add it here as a small follow-up once that lands.
+         */
+        MembershipRosterEntryOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "membership";
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
             /** Role */
             role: string;
         };
@@ -544,6 +996,45 @@ export interface components {
             container: components["schemas"]["EntitySummary"] | null;
             /** Item Instances */
             item_instances: components["schemas"]["ItemInstanceOut"][];
+        };
+        /** Page[Annotated[Union[MembershipRosterEntryOut, PlayerRosterEntryOut, GmRosterEntryOut], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]] */
+        Page_Annotated_Union_MembershipRosterEntryOut__PlayerRosterEntryOut__GmRosterEntryOut___FieldInfo_annotation_NoneType__required_True__discriminator__kind____: {
+            /** Items */
+            items: (components["schemas"]["MembershipRosterEntryOut"] | components["schemas"]["PlayerRosterEntryOut"] | components["schemas"]["GmRosterEntryOut"])[];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[CampaignSummaryOut] */
+        Page_CampaignSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["CampaignSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[CharacterSummaryOut] */
+        Page_CharacterSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["CharacterSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
         };
         /** Page[EntitySummary] */
         Page_EntitySummary_: {
@@ -575,6 +1066,32 @@ export interface components {
         Page_ItemOut_: {
             /** Items */
             items: components["schemas"]["ItemOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[PlayerOut] */
+        Page_PlayerOut_: {
+            /** Items */
+            items: components["schemas"]["PlayerOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[TenantSummaryOut] */
+        Page_TenantSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["TenantSummaryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -637,7 +1154,7 @@ export interface components {
          * @description A picture reference - a `url` pointing at the existing payload-content
          *     endpoint, plus `file_type`. `_picture_refs` below walks
          *     entity.information -> payloads -> picture directly rather than through
-         *     an `ItemViewMixin` property (there never was one - checked, `pictures`
+         *     an `EntityViewMixin` property (there never was one - checked, `pictures`
          *     would have needed the owning `Payload` row's own id to link through,
          *     not just its bytes, so it was never a fit here). Inlining raw picture
          *     bytes into a paginated list response (`GET /items` can return up to
@@ -653,14 +1170,165 @@ export interface components {
             file_type: string;
         };
         /**
+         * PlayerDetailOut
+         * @description Identical shape to PlayerOut - Player has no columns the summary
+         *     omits, unlike Entity's list/detail split (RFC 0004's own words). Kept
+         *     as its own class anyway (rather than reusing PlayerOut as both list
+         *     and detail response) since the RFC's endpoint table names it as its
+         *     own schema, and a distinct name gives GET .../players/{id} its own
+         *     OpenAPI schema rather than sharing one meant for a paginated list.
+         */
+        PlayerDetailOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Characters */
+            characters: components["schemas"]["CharacterSummaryOut"][];
+        };
+        /**
+         * PlayerOut
+         * @description Campaign roster shape (GET .../campaigns/{id}/players) - no
+         *     tenant_id/campaign_id, already in the path.
+         *
+         *     RFC 0004's own shape also carries `created_by`/`updated_by` (ADR
+         *     0029). Deliberately not included yet: `player.created_by`/`updated_by`
+         *     don't land until user/player/character CRUD (ADR 0036/RFC 0007)
+         *     actually writes to this table - matching the same deferral
+         *     `schemas/tenants.py`'s roster entries make, for the same reason.
+         */
+        PlayerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Characters */
+            characters: components["schemas"]["CharacterSummaryOut"][];
+        };
+        /**
+         * PlayerRosterEntryOut
+         * @description Sourced the same way `is_tenant_participant` (ADR 0030) already
+         *     queries every Player row where Player.tenant_id matches - already
+         *     denormalized, no join through Campaign needed.
+         *
+         *     Same attribution deferral as MembershipRosterEntryOut above -
+         *     `player.created_by`/`updated_by` don't exist until ADR 0036/RFC 0007.
+         */
+        PlayerRosterEntryOut: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "player";
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Characters */
+            characters: components["schemas"]["CharacterSummaryOut"][];
+        };
+        /**
+         * PlayerSummaryOut
+         * @description Used by GET /me (RFC 0004) - a bare Player row alone (just ids)
+         *     wouldn't answer anything useful there; a caller needs to know not just
+         *     which campaigns they're in but which characters they play there.
+         *     Carries its own tenant_id/campaign_id explicitly, unlike PlayerOut
+         *     below - /me spans every tenant, so there's no URL scoping to infer
+         *     them from the way a campaign-nested route already has both in its
+         *     path.
+         *
+         *     Requires `player.character_links` (each with `.character.being.entity`)
+         *     eager-loaded first (`lazy="raise_on_sql"`, ADR 0018).
+         */
+        PlayerSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Characters */
+            characters: components["schemas"]["CharacterSummaryOut"][];
+        };
+        /**
          * TagValueOut
-         * @description Wraps one entry of `ItemViewMixin.tags` (`list[tuple[str, bool | None]]`).
+         * @description Wraps one entry of `EntityViewMixin.tags` (`list[tuple[str, bool | None]]`).
          */
         TagValueOut: {
             /** Name */
             name: string;
             /** Value */
             value: boolean | null;
+        };
+        /**
+         * TenantOut
+         * @description GET /tenants/{id} - the full detail shape. No role here: the caller
+         *     already knows they're at least a tenant-wide member, since
+         *     get_tenant_context gates this route.
+         */
+        TenantOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+        };
+        /**
+         * TenantSummaryOut
+         * @description One row of `GET /tenants` - every tenant the caller belongs to in
+         *     any capacity. `role` is derived, not a plain column, so this needs an
+         *     explicit constructor rather than `from_attributes=True` alone (ADR
+         *     0020's own precedent for anything needing data beyond a bare ORM
+         *     attribute copy). See ADR 0030/RFC 0003.
+         */
+        TenantSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "orga" | "participant";
         };
         /** ValidationError */
         ValidationError: {
@@ -850,6 +1518,675 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeOut"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_tenants: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TenantSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_tenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_tenant_roster: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Annotated_Union_MembershipRosterEntryOut__PlayerRosterEntryOut__GmRosterEntryOut___FieldInfo_annotation_NoneType__required_True__discriminator__kind____"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_campaigns: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CampaignSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_campaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_players: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PlayerOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_player: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_gms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_characters: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CharacterSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_character: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Client Error */

@@ -41,27 +41,6 @@ function toApiError(error: unknown, status: number): LorenzoApiError {
   );
 }
 
-/**
- * PROVISIONAL - matches the `GET /me` extension proposed in ADR 0029 /
- * apps/api's CRUD-API work in progress (RFC 0004's own already-recorded
- * direction: `players: [{tenant_id, campaign_id, characters: [...]}]`),
- * which is not part of the generated schema yet because it doesn't exist in
- * apps/api today. Validated at runtime (not just typed) so a real mismatch
- * against whatever actually ships fails loudly and specifically, here, the
- * moment it's wired up - not as a silent `undefined` deep in a Discord
- * embed. Delete this schema and `getControlledCharacters` below's manual
- * typing once the real endpoint ships: regenerate via `mise run
- * generate-client` and read `operations["get_me"]` instead.
- */
-const provisionalMeSchema = z.object({
-  players: z.array(
-    z.object({
-      tenant_id: z.string(),
-      characters: z.array(z.object({ entity_id: z.string(), name: z.string() })),
-    }),
-  ),
-});
-
 export type LorenzoApiClient = ReturnType<typeof createLorenzoApiClient>;
 
 export function createLorenzoApiClient(baseUrl: string) {
@@ -92,9 +71,11 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /**
-     * PROVISIONAL - see provisionalMeSchema above. Returns this caller's own
-     * controlled characters in `tenantId`, sourced from `GET /me` once it
-     * carries `players[].characters`.
+     * This caller's own controlled characters in `tenantId`, sourced from
+     * `GET /me`'s `players[].characters` (ADR 0031/RFC 0004 - now part of
+     * the real generated schema, no longer provisional). A `Player` row's
+     * `characters` come from `character_player` - every character that
+     * player's user account pilots, not just their primary-owned one.
      */
     async getControlledCharacters(
       tenantId: string,
@@ -105,14 +86,7 @@ export function createLorenzoApiClient(baseUrl: string) {
       });
       if (error !== undefined) throw toApiError(error, response.status);
 
-      const parsed = provisionalMeSchema.safeParse(data);
-      if (!parsed.success) {
-        throw new Error(
-          `GET /me does not (yet) match the players[].characters shape this client assumes (ADR 0029) - regenerate the client once apps/api ships it: ${parsed.error.message}`,
-        );
-      }
-
-      return parsed.data.players
+      return data.players
         .filter((player) => player.tenant_id === tenantId)
         .flatMap((player) =>
           player.characters.map((c) => ({ entityId: c.entity_id, name: c.name }) as const),

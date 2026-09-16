@@ -74,16 +74,19 @@ describe("getControlledCharacters", () => {
           id: "user-1",
           authgear_subject_id: "sub-1",
           memberships: [],
+          campaign_gm_grants: [],
           players: [
             {
+              id: "player-1",
               tenant_id: TENANT_ID,
               campaign_id: "campaign-1",
-              characters: [{ entity_id: CHARACTER_ID, name: "Frodo" }],
+              characters: [{ entity_id: CHARACTER_ID, name: "Frodo", is_pc: true }],
             },
             {
+              id: "player-2",
               tenant_id: "some-other-tenant",
               campaign_id: "campaign-2",
-              characters: [{ entity_id: "other-character", name: "Sam" }],
+              characters: [{ entity_id: "other-character", name: "Sam", is_pc: true }],
             },
           ],
         }),
@@ -96,16 +99,22 @@ describe("getControlledCharacters", () => {
     expect(characters).toEqual([{ entityId: CHARACTER_ID, name: "Frodo" }]);
   });
 
-  it("fails loudly if GET /me doesn't (yet) carry players[] - today's real shape", async () => {
+  it("returns an empty list when the caller has no players in this tenant", async () => {
     server.use(
       http.get(`${BASE_URL}/me`, () =>
-        HttpResponse.json({ id: "user-1", authgear_subject_id: "sub-1", memberships: [] }),
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          memberships: [],
+          campaign_gm_grants: [],
+          players: [],
+        }),
       ),
     );
 
     const client = createLorenzoApiClient(BASE_URL);
-    await expect(client.getControlledCharacters(TENANT_ID, "test-token")).rejects.toThrow(
-      /does not \(yet\) match/,
-    );
+    const characters = await client.getControlledCharacters(TENANT_ID, "test-token");
+
+    expect(characters).toEqual([]);
   });
 });
