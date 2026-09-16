@@ -178,6 +178,50 @@ describe("getMyPlayers", () => {
   });
 });
 
+describe("isCampaignGm", () => {
+  it("is true when /me has at least one campaign_gm_grants entry", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          memberships: [],
+          players: [],
+          campaign_gm_grants: [
+            {
+              id: "campaign-1",
+              slug: "ashen-crown",
+              name: "The Ashen Crown",
+              game_system: "5e",
+              secret: false,
+            },
+          ],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await expect(client.isCampaignGm("test-token")).resolves.toBe(true);
+  });
+
+  it("is false when campaign_gm_grants is empty", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          memberships: [],
+          players: [],
+          campaign_gm_grants: [],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await expect(client.isCampaignGm("test-token")).resolves.toBe(false);
+  });
+});
+
 describe("getItemInstance", () => {
   it("fetches one instance by id", async () => {
     server.use(

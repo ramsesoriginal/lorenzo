@@ -112,6 +112,24 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /**
+     * Whether the caller holds at least one `CampaignGm` grant, anywhere -
+     * `/me`'s `campaign_gm_grants` carries no `tenant_id`, so this can't
+     * be narrowed to just this bot's own tenant client-side. Used only as
+     * a fast, friendly gate before showing GM-only affordances (`/drop`,
+     * "apply claims" - ADR 0044); the real authorization boundary is each
+     * write's own server-side `can_manage_campaign` check, evaluated
+     * against the real `tenant_id` in the request path and unaffected by
+     * this method's own cross-tenant imprecision.
+     */
+    async isCampaignGm(accessToken: string): Promise<boolean> {
+      const { data, error, response } = await client.GET("/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.campaign_gm_grants.length > 0;
+    },
+
+    /**
      * This caller's own `Player` rows in `tenantId` (each with the
      * characters it pilots), sourced from `GET /me`'s `players[]` (ADR
      * 0031/RFC 0004 - now part of the real generated schema, no longer
