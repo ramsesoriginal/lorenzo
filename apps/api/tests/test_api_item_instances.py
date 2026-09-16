@@ -95,6 +95,207 @@ async def test_list_item_instances_404_for_unknown_tenant(client: AsyncClient) -
     assert response.headers["content-type"] == "application/problem+json"
 
 
+async def _make_cross_owner_fixture(
+    tenant_id: uuid.UUID, *, test_user_id: uuid.UUID
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:
+    """ADR 0040's own fixture shape: Alice (test_user_id's own character, in
+    Campaign A) owns one instance; Bob, a character rostered only in a
+    separate Campaign B test_user_id has no standing over, owns another; a
+    third instance has no owner at all. Returns (campaign_b_id, bob_id,
+    alice_item_id, bob_item_id, loose_item_id, bob_user_id) - the last one
+    for callers to clean up after delete_tenant, mirroring
+    test_update_item_instance_allowed_for_gm_of_current_owners_campaign's
+    own cleanup (a Tenant delete doesn't cascade to User, ADR 0022).
+    """
+    async with admin_session_factory() as session:
+        campaign_a = await make_campaign(session, tenant_id=tenant_id, name="Campaign A")
+        campaign_b = await make_campaign(session, tenant_id=tenant_id, name="Campaign B")
+        await session.flush()
+        alice = await _make_own_character(
+            session, tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign_a.id
+        )
+
+        bob_user = User(authgear_subject_id=f"bob-{uuid.uuid4()}")
+        session.add(bob_user)
+        await session.flush()
+        bob_player = Player(user_id=bob_user.id, campaign_id=campaign_b.id, tenant_id=tenant_id)
+        session.add(bob_player)
+        await session.flush()
+        bob = await make_character(
+            session, tenant_id=tenant_id, name="Bob", owner_player_id=bob_player.id
+        )
+        session.add(
+            CharacterPlayer(
+                character_entity_id=bob.entity_id, player_id=bob_player.id, tenant_id=tenant_id
+            )
+        )
+
+        alice_item = Entity(tenant_id=tenant_id, name="Alice's Sword")
+        bob_item = Entity(tenant_id=tenant_id, name="Bob's Dagger")
+        loose_item = Entity(tenant_id=tenant_id, name="Loose Loot")
+        session.add_all([alice_item, bob_item, loose_item])
+        await session.flush()
+        session.add_all(
+            [
+                ItemInstance(entity_id=alice_item.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=bob_item.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=loose_item.id, tenant_id=tenant_id),
+            ]
+        )
+        session.add_all(
+            [
+                Ownership(
+                    owned_entity_id=alice_item.id,
+                    owner_character_id=alice.entity_id,
+                    tenant_id=tenant_id,
+                ),
+                Ownership(
+                    owned_entity_id=bob_item.id,
+                    owner_character_id=bob.entity_id,
+                    tenant_id=tenant_id,
+                ),
+            ]
+        )
+        await session.commit()
+        return (
+            campaign_b.id,
+            bob.entity_id,
+            alice_item.id,
+            bob_item.id,
+            loose_item.id,
+            bob_user.id,
+        )
+
+
+async def test_list_item_instances_hides_items_owned_by_an_unrelated_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040. test_user_id is tenant OWNER here (make_tenant's default)
+    and controls Alice, but has no CampaignGm/Player standing in Bob's own
+    campaign and no ORGA role - plain OWNER gets no bonus read visibility
+    over another character's inventory, only self/GM/ORGA do (see the
+    dedicated tests below for those). Ownerless stays visible regardless.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    _, _, alice_item_id, bob_item_id, loose_item_id, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances")
+
+    assert response.status_code == 200
+    visible_ids = {i["entity_id"] for i in response.json()["items"]}
+    assert visible_ids == {str(alice_item_id), str(loose_item_id)}
+    assert str(bob_item_id) not in visible_ids
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
+async def test_owned_by_returns_empty_groups_for_an_owner_the_caller_cannot_reach(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040. No separate existence check is needed for this route - the
+    shared visibility predicate already makes an unreachable owner's
+    inventory come back indistinguishable from "owns nothing."
+    """
+    tenant_id = await make_tenant(test_user_id)
+    _, bob_id, _, _, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/owned-by/{bob_id}")
+
+    assert response.status_code == 200
+    assert response.json()["groups"] == []
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
+async def test_get_item_instance_404_for_an_owned_item_the_caller_cannot_reach(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040. Existence hidden, the same path an unknown/cross-tenant id
+    already takes - not a redacted 200.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    _, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/{bob_item_id}")
+
+    assert response.status_code == 404
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
+async def test_list_item_instances_gm_of_owners_campaign_sees_it(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040's GM tier - a genuine CampaignGm row on Bob's own campaign,
+    not the OWNER-bypass test_update_item_instance_allowed_for_gm_of_
+    current_owners_campaign relies on for write authorization. Membership
+    is removed first so this only proves the GM path, not OWNER's own
+    (deliberately absent) read bonus.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    campaign_b_id, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(Membership, (tenant_id, test_user_id)))
+        session.add(
+            CampaignGm(user_id=test_user_id, campaign_id=campaign_b_id, tenant_id=tenant_id)
+        )
+        await session.commit()
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances")
+
+    assert response.status_code == 200
+    assert str(bob_item_id) in {i["entity_id"] for i in response.json()["items"]}
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
+async def test_list_item_instances_orga_sees_items_owned_by_unrelated_characters(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040's admin tier is is_orga specifically, not is_tenant_admin -
+    proven here by promoting test_user_id's existing OWNER Membership to
+    ORGA (make_tenant's default role, which the earlier hides-Bob's-item
+    test already proves gets no bonus on its own)."""
+    tenant_id = await make_tenant(test_user_id)
+    _, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        membership.role = MembershipRole.ORGA
+        await session.commit()
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances")
+
+    assert response.status_code == 200
+    assert str(bob_item_id) in {i["entity_id"] for i in response.json()["items"]}
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
 async def test_get_item_instance_returns_detail(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
@@ -177,14 +378,17 @@ async def test_owned_by_route_is_not_shadowed_by_the_detail_route(
 async def test_owned_by_groups_multiple_owners_multiple_containers_and_uncontained(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
+    """ORGA, not OWNER (ADR 0040): owner1/owner2 are bare Entity rows, not
+    characters test_user_id controls or GMs - this test is about the
+    owned-by grouping/pagination mechanism, not read-visibility scoping, so
+    it needs the is_orga bypass to see across both owners at all.
+    """
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
-        session.add(
-            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
-        )
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
 
         owner1 = Entity(tenant_id=tenant_id, name="Owner One")
         owner2 = Entity(tenant_id=tenant_id, name="Owner Two")
@@ -1066,6 +1270,65 @@ async def test_update_item_instance_allowed_for_gm_of_current_owners_campaign(
     )
 
     assert response.status_code == 200
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_owner_id))
+        await session.commit()
+
+
+async def test_update_item_instance_response_correct_even_when_caller_cannot_read_it_back(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0040's own flagged edge case: test_user_id here manages Bob's
+    item purely via the tenant OWNER bypass in can_manage_any_of_campaigns
+    (no CampaignGm row, no ORGA role - the exact same fixture as
+    test_update_item_instance_allowed_for_gm_of_current_owners_campaign
+    above). The write must still return the correct, fully-populated body
+    - _item_instance_out's post-write fetch deliberately does not apply
+    the new read-visibility predicate, precisely to avoid a caller 404ing
+    on the very write they just made. A fresh, independent GET afterwards
+    does 404, though - proving the two are genuinely decoupled, not that
+    the predicate silently never applies.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+        bob_owner = User(authgear_subject_id=f"bob-owner-{uuid.uuid4()}")
+        session.add(bob_owner)
+        await session.flush()
+        bob_player = Player(user_id=bob_owner.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        session.add(bob_player)
+        await session.flush()
+        bob = await make_character(
+            session, tenant_id=tenant_id, name="Bob", owner_player_id=bob_player.id
+        )
+        session.add(
+            CharacterPlayer(
+                character_entity_id=bob.entity_id, player_id=bob_player.id, tenant_id=tenant_id
+            )
+        )
+        entity = Entity(tenant_id=tenant_id, name="Ashfang")
+        session.add(entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+        session.add(
+            Ownership(
+                owned_entity_id=entity.id, owner_character_id=bob.entity_id, tenant_id=tenant_id
+            )
+        )
+        await session.commit()
+        entity_id, bob_owner_id = entity.id, bob_owner.id
+
+    patch_response = await client.patch(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}", json={"name": "Renamed by Owner"}
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["entity_id"] == str(entity_id)
+
+    get_response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert get_response.status_code == 404
+
     await delete_tenant(tenant_id)
     async with admin_session_factory() as session:
         await session.delete(await session.get_one(User, bob_owner_id))
