@@ -11,6 +11,7 @@ from lorenzo_api.models import (
     CharacterPlayer,
     Containment,
     Entity,
+    GroupMember,
     Information,
     Knowledge,
     Membership,
@@ -123,6 +124,37 @@ async def test_get_character_404_for_a_bare_being_with_no_character_row(
 
     response = await client.get(f"/tenants/{tenant_id}/characters/{npc_entity_id}")
     assert response.status_code == 404
+
+    await delete_tenant(tenant_id)
+
+
+async def test_list_character_groups_returns_groups_the_character_belongs_to(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0045's nice-to-have - the reverse of GET .../groups/{id}/members."""
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        alice = await make_character(session, tenant_id=tenant_id, name="Alice")
+        goblins = Entity(tenant_id=tenant_id, name="Goblins")
+        thieves_guild = Entity(tenant_id=tenant_id, name="Thieves' Guild")
+        session.add_all([goblins, thieves_guild])
+        await session.flush()
+        session.add(
+            GroupMember(
+                group_entity_id=goblins.id,
+                character_entity_id=alice.entity_id,
+                tenant_id=tenant_id,
+            )
+        )
+        await session.commit()
+        alice_id, goblins_id, thieves_guild_id = alice.entity_id, goblins.id, thieves_guild.id
+
+    response = await client.get(f"/tenants/{tenant_id}/characters/{alice_id}/groups")
+
+    assert response.status_code == 200
+    group_ids = {item["id"] for item in response.json()}
+    assert group_ids == {str(goblins_id)}
+    assert str(thieves_guild_id) not in group_ids
 
     await delete_tenant(tenant_id)
 
