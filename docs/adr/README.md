@@ -45,3 +45,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0040 - Item-instance read visibility narrows to reachable owners](0040-item-instance-read-visibility.md)
 - [0041 - Quantity and stacking, on `Containment`](0041-containment-quantity-and-stacking.md)
 - [0042 - Concurrency token on reads](0042-concurrency-token-on-reads.md)
+- [0043 - Item-instance slug](0043-item-instance-slug.md)
