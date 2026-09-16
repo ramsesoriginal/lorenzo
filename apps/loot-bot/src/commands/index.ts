@@ -17,7 +17,7 @@ const commandsByName = new Map(commands.map((c) => [c.definition.name, c]));
 
 /**
  * Wires interactionCreate dispatch onto an already-constructed discord.js
- * Client. Enforces the one-bot-one-guild invariant defensively (ADR 0029) -
+ * Client. Enforces the one-bot-one-guild invariant defensively (ADR 0042) -
  * command registration already scopes commands to DISCORD_GUILD_ID, but a
  * stray interaction from elsewhere is ignored rather than trusted.
  */

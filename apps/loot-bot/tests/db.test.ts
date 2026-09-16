@@ -101,7 +101,7 @@ describe.skipIf(!canRunDbTests)("linked_account (real Postgres)", () => {
     expect(row?.keyVersion).toBe(1);
   });
 
-  it("completely overwrites an existing link on re-upsert (ADR 0029: /link always overwrites)", async () => {
+  it("completely overwrites an existing link on re-upsert (ADR 0042: /link always overwrites)", async () => {
     await db.upsertLinkedAccount({
       discordUserId: DISCORD_ID_A,
       authgearSubjectId: SUBJECT_A,

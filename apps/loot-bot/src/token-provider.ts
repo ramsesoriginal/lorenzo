@@ -12,7 +12,7 @@ import { deleteLinkedAccount, getLinkedAccount, updateAccessToken } from "./db.j
 // Lorenzo API call racing against the token expiring mid-flight.
 const EXPIRY_SAFETY_MARGIN_MS = 60_000;
 
-// Single-flight de-duplication (ADR 0029): two concurrent commands for the
+// Single-flight de-duplication (ADR 0042): two concurrent commands for the
 // same Discord user (e.g. two /inventory invocations) share one in-flight
 // lookup-or-refresh instead of racing separate refresh grants against the
 // same stored refresh token.
@@ -24,7 +24,7 @@ const inFlight = new Map<string, Promise<string | null>>();
  * separate workstream) calls into. Returns `null` when there's no linked
  * account, or the link is no longer valid (Authgear rejected the refresh
  * token) - either way, telling the user to run `/link` is the caller's job,
- * not this function's (see ADR 0029).
+ * not this function's (see ADR 0042).
  */
 export function getValidAccessToken(discordUserId: string): Promise<string | null> {
   const existing = inFlight.get(discordUserId);

@@ -9,14 +9,14 @@ const AUTH_TAG_LENGTH_BYTES = 16; // node:crypto's own GCM default
 /**
  * The only encryption key version this codebase currently produces or
  * accepts. `db.ts`'s `key_version` column is populated from every row's
- * creation (ADR 0029) so a future key-rotation scheme has somewhere to
+ * creation (ADR 0042) so a future key-rotation scheme has somewhere to
  * record which key encrypted a given row, but no rotation is implemented
  * yet - there is only ever "the current key" today.
  */
 export const CURRENT_KEY_VERSION = 1;
 
 /**
- * Derives the AES-256-GCM key from LOOT_BOT_TOKEN_ENCRYPTION_KEY (ADR 0029).
+ * Derives the AES-256-GCM key from LOOT_BOT_TOKEN_ENCRYPTION_KEY (ADR 0042).
  * Expected input format: exactly 32 random bytes, base64-encoded (see
  * .env.example, e.g. `openssl rand -base64 32`). The decoded length is
  * validated strictly - a too-short or too-long value throws here rather

@@ -30,7 +30,7 @@ This repository is the monorepo for the whole project. `apps/api` exists with it
 | --- | --- | --- |
 | Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — domain model, read-only REST API, Authgear auth |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
-| Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — in progress: Discord account linking + "my inventory" (see [ADR 0029](docs/adr/0029-loot-bot-stack-linking-and-isolation.md)) |
+| Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — in progress: Discord account linking + "my inventory" (see [ADR 0042](docs/adr/0042-loot-bot-stack-linking-and-isolation.md)) |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
 
 Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md).

@@ -51,7 +51,7 @@ export function createLorenzoApiClient(baseUrl: string) {
      * Every item instance `characterEntityId` owns, grouped by direct
      * container - GET /tenants/{tenant_id}/item-instances/owned-by/{id}
      * (routers/item_instances.py). Requires the backend access-gate loosening
-     * described in ADR 0029 to succeed for a caller with no tenant-wide
+     * described in ADR 0042 to succeed for a caller with no tenant-wide
      * Membership; the response shape itself needs no change.
      */
     async getItemInstancesOwnedBy(

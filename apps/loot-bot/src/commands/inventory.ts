@@ -10,7 +10,7 @@ const MAX_EMBEDS_PER_REPLY = 10;
 /**
  * `/inventory` - lists the item instances the caller's own characters own,
  * one embed per character, grouped by container (formatInventoryEmbed).
- * Depends on the backend contract noted in ADR 0029
+ * Depends on the backend contract noted in ADR 0042
  * (`getControlledCharacters`/`getItemInstancesOwnedBy` in lorenzo-client.ts)
  * which isn't fully live in apps/api yet - a 404 from either call is
  * treated as "not available yet" rather than a generic failure.
@@ -68,7 +68,7 @@ export const inventoryCommand: Command = {
  * Runs `fn`, and if it throws a 404 `LorenzoApiError`, replies with a
  * specific "not available yet" message and returns `undefined` instead of
  * rethrowing - the expected outcome while apps/api's own character-
- * resolution endpoint (ADR 0029) hasn't shipped yet. Any other error
+ * resolution endpoint (ADR 0042) hasn't shipped yet. Any other error
  * propagates to commands/index.ts's own generic failure handler.
  */
 async function withNotYetAvailableMessage<T>(

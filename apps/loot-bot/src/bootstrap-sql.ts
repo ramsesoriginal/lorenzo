@@ -2,7 +2,7 @@
  * Builds the idempotent, hand-written SQL that bootstraps this app's own
  * restricted Postgres role and schema - the direct TS port of
  * apps/api/migrations/versions/8aced4b80842_create_restricted_lorenzo_app_role.py,
- * extended for the two things that migration didn't need (see ADR 0029,
+ * extended for the two things that migration didn't need (see ADR 0042,
  * "Data isolation: own role + schema, same Postgres instance"):
  *
  *  - `apps/api` granted onto the `public` schema, which already existed.
@@ -21,7 +21,7 @@
  * unit-testable without a database - see tests/bootstrap-sql.test.ts.
  */
 
-/** Fixed by ADR 0029 - not environment-derived like the role/password are. */
+/** Fixed by ADR 0042 - not environment-derived like the role/password are. */
 export const LOOT_BOT_SCHEMA = "loot_bot";
 
 /** Safely embeds `value` as a double-quoted Postgres identifier. */
@@ -83,7 +83,7 @@ export function parseRoleCredentials(databaseUrl: string): { role: string; passw
  *
  * Deliberately grants nothing on `public`: unlike apps/api's own migration
  * (which only ever had `public` to work with), this role's whole reason to
- * exist is to never need anything outside its own schema (ADR 0029).
+ * exist is to never need anything outside its own schema (ADR 0042).
  */
 export function buildBootstrapSql(role: string, password: string): string {
   const roleIdent = pgIdentifier(role);

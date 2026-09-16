@@ -1,12 +1,12 @@
 # apps/loot-bot
 
-Lorenzo's Discord bot. TypeScript, Node, discord.js. One bot process serves exactly one Discord guild, mapped 1:1 to one Lorenzo tenant. See [ADR 0029](../../docs/adr/0029-loot-bot-stack-linking-and-isolation.md) for the design and its reasoning, and [docs/domain/client-views.md](../../docs/domain/client-views.md) for why this bot exists at all.
+Lorenzo's Discord bot. TypeScript, Node, discord.js. One bot process serves exactly one Discord guild, mapped 1:1 to one Lorenzo tenant. See [ADR 0042](../../docs/adr/0042-loot-bot-stack-linking-and-isolation.md) for the design and its reasoning, and [docs/domain/client-views.md](../../docs/domain/client-views.md) for why this bot exists at all.
 
 ## What it does (this slice)
 
 A player links their Discord account to their real Authgear-verified Lorenzo identity (`/link`), then lists the item instances their characters own, grouped by container (`/inventory`). Read-only — no shared GM/service token: every API call is made as the specific Discord user who ran the command, so [`information_visibility.py`](../api/src/lorenzo_api/information_visibility.py)'s per-player visibility rules (GM-only vs. public vs. per-character knowledge) apply correctly per person.
 
-**Depends on a small `apps/api` addition that isn't part of this app**: resolving "which characters does this user control" and allowing a player to read their own inventory without a tenant-wide `Membership` row. See ADR 0029's Consequences section.
+**Depends on a small `apps/api` addition that isn't part of this app**: resolving "which characters does this user control" and allowing a player to read their own inventory without a tenant-wide `Membership` row. See ADR 0042's Consequences section.
 
 ## Setup
 
@@ -42,7 +42,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 ## Architecture
 
 - `src/config.ts` — env loading/validation (zod).
-- `src/http-server.ts` — a bare `node:http` server (`/healthz`, `/auth/callback`) — no framework; see ADR 0029 for why.
+- `src/http-server.ts` — a bare `node:http` server (`/healthz`, `/auth/callback`) — no framework; see ADR 0042 for why.
 - `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts`.
 - `src/token-provider.ts` — `getValidAccessToken(discordUserId)`: the seam between commands and the account-linking/refresh machinery.
 - `src/lorenzo-client.ts` — a thin wrapper over a generated (`openapi-typescript`/`openapi-fetch`) typed client for `apps/api`. Regenerate with `mise run generate-client` after `apps/api`'s OpenAPI schema changes.

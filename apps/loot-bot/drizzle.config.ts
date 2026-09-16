@@ -9,7 +9,7 @@ import { loadConfig } from "./src/config.js";
  *
  * `dbCredentials` uses the *privileged* bootstrap role
  * (LOOT_BOT_MIGRATIONS_DATABASE_URL), matching migrate.ts's own connection
- * choice (ADR 0029) - `generate` itself never actually opens a connection
+ * choice (ADR 0042) - `generate` itself never actually opens a connection
  * (it only diffs local files against apps/loot-bot/migrations/meta), but
  * DDL-issuing commands do, and DDL needs the privileged role regardless.
  *
@@ -19,7 +19,7 @@ import { loadConfig } from "./src/config.js";
  * its bin.cjs) before this file is evaluated, the same way
  * `tsx --env-file=.env` does for every other entrypoint here.
  *
- * `schemaFilter` is the actual isolation boundary ADR 0029 relies on:
+ * `schemaFilter` is the actual isolation boundary ADR 0042 relies on:
  * scoped to `loot_bot` only, so drizzle-kit is structurally incapable of
  * ever seeing or diffing apps/api's own tables (all under `public`), even
  * by accident.

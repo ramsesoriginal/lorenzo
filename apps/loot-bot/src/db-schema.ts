@@ -2,7 +2,7 @@ import { customType, pgSchema, smallint, text, timestamp } from "drizzle-orm/pg-
 
 /**
  * This bot's own schema inside the shared `lorenzo` database - a dedicated
- * role/schema, not a second database, per ADR 0029 ("Data isolation: own
+ * role/schema, not a second database, per ADR 0042 ("Data isolation: own
  * role + schema, same Postgres instance"). `drizzle.config.ts`'s own
  * `schemaFilter: ["loot_bot"]` keeps drizzle-kit structurally incapable of
  * ever seeing or diffing apps/api's own tables (which live in `public`).
@@ -27,7 +27,7 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 });
 
 /**
- * One Discord user <-> one Authgear identity link (ADR 0029's "Account
+ * One Discord user <-> one Authgear identity link (ADR 0042's "Account
  * linking" section). Encryption of the token columns themselves is a
  * separate workstream (src/token-provider.ts) - this table only owns the
  * storage shape (`bytea` for ciphertext) and the query functions in db.ts.
@@ -40,14 +40,14 @@ export const linkedAccount = lootBotSchema.table("linked_account", {
 
   // Mirrors apps/api's own `app_user.authgear_subject_id` UNIQUE constraint
   // (see apps/api/src/lorenzo_api/models/user.py) - one Lorenzo identity
-  // can't silently attach to two Discord users (ADR 0029).
+  // can't silently attach to two Discord users (ADR 0042).
   authgearSubjectId: text("authgear_subject_id").notNull().unique(),
 
   refreshTokenEncrypted: bytea("refresh_token_encrypted").notNull(),
   accessTokenEncrypted: bytea("access_token_encrypted"),
   accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
 
-  // Enables future key rotation (ADR 0029) at zero migration cost - the
+  // Enables future key rotation (ADR 0042) at zero migration cost - the
   // column has existed, and been populated, since day one.
   keyVersion: smallint("key_version").notNull().default(1),
 

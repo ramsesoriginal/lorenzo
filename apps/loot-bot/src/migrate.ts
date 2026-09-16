@@ -16,7 +16,7 @@ const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url)
 /**
  * Applies everything this app's database needs, in the only order that can
  * work, against the *privileged* bootstrap role
- * (LOOT_BOT_MIGRATIONS_DATABASE_URL) throughout - see ADR 0029's "Data
+ * (LOOT_BOT_MIGRATIONS_DATABASE_URL) throughout - see ADR 0042's "Data
  * isolation" section:
  *
  *  1. The hand-written bootstrap SQL (bootstrap-sql.ts) - creates the

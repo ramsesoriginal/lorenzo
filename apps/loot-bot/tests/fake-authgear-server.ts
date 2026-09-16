@@ -3,7 +3,7 @@ import http from "node:http";
 
 /**
  * A real, local, fake Authgear server for testing the account-linking flow
- * (ADR 0029) - mirrors apps/api/tests/_fake_jwks.py's own stated principle:
+ * (ADR 0042) - mirrors apps/api/tests/_fake_jwks.py's own stated principle:
  * only the issuer is fake here, not the verification mechanism. Serves a
  * real discovery document and a real `/oauth2/token` endpoint that
  * genuinely validates the PKCE `code_verifier` and mints a real RS256
