@@ -20,6 +20,7 @@ import {
   buildQuantityModal,
 } from "../format-drop.js";
 import {
+  type BulkAssignItem,
   type ItemInstanceOut,
   type LorenzoApiClient,
   LorenzoApiError,
@@ -38,7 +39,7 @@ import type {
 /**
  * `/drop` - a GM drops a pre-made container's contents into the channel;
  * players take a whole item or part of a stack immediately, or claim one
- * for the GM to resolve later with "apply claims" (ADR 0044). The one
+ * for the GM to resolve later with "apply claims" (ADR 0052). The one
  * command in this bot with its own persistent, multi-user-interactive
  * message rather than a single request/response.
  */
@@ -47,7 +48,10 @@ export const dropCommand: Command = {
     .setName("drop")
     .setDescription("Drop a pre-made loot container's contents into this channel.")
     .addStringOption((opt) =>
-      opt.setName("container").setDescription("The container's entity id").setRequired(true),
+      opt
+        .setName("container")
+        .setDescription("The container's entity id or slug")
+        .setRequired(true),
     ),
 
   async execute(interaction, ctx) {
@@ -65,15 +69,25 @@ export const dropCommand: Command = {
       return;
     }
 
-    const containerEntityId = interaction.options.getString("container", true);
+    const containerInput = interaction.options.getString("container", true);
     const tenantId = ctx.config.lorenzoTenantId;
 
+    let containerEntityId: string;
     let items: readonly ItemInstanceOut[];
     try {
+      // A slug (ADR 0043) is a friendlier way for a GM to name a
+      // pre-prepared container than pasting a raw entity id - resolved
+      // first when the input doesn't already look like one.
+      containerEntityId = isUuid(containerInput)
+        ? containerInput
+        : (await client.getItemInstanceBySlug(tenantId, containerInput, accessToken)).data
+            .entity_id;
       items = await client.getItemInstancesByContainer(tenantId, containerEntityId, accessToken);
     } catch (error) {
       if (error instanceof LorenzoApiError && (error.status === 404 || error.status === 422)) {
-        await interaction.editReply("Couldn't find that container — check the id and try again.");
+        await interaction.editReply(
+          "Couldn't find that container — check the id/slug and try again.",
+        );
         return;
       }
       throw error;
@@ -162,6 +176,12 @@ export const dropCommand: Command = {
     });
   },
 };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
 
 type QuantityInput = number | null | "invalid";
 
@@ -285,7 +305,7 @@ async function handleClaimModalSubmit(
 
 /** Rebuilds and applies the drop message's embed/components in place -
  * the shared step after every take/claim/unclaim. Uses the *drop's own
- * creator's* access token, not the acting user's - ADR 0044's own
+ * creator's* access token, not the acting user's - ADR 0052's own
  * documented reasoning: once an item has an owner, ADR 0040 narrows who
  * can still see it, and the GM who started this drop is far more likely
  * to retain reach into it (their own campaign's roster) than whichever
@@ -324,18 +344,26 @@ async function refreshDropMessage(
   });
 }
 
+type ItemSnapshot = Readonly<{ current: ItemInstanceOut; etag: string | null }>;
+
 /**
- * Applies every outstanding claim on a drop (ADR 0044's own resolution
- * algorithm) - oldest `created_at` first, re-`GET`ting the claimed item
- * fresh immediately before *each* write, never trusting a cached
- * quantity from an earlier iteration of this same loop. One failed claim
- * (already taken, or not enough left) never aborts the rest. Runs
- * entirely under the applying GM's own token - correct for "GM assigns
- * to any character in their own campaign" (ADR 0032) and, incidentally,
- * why a second claim on the same non-stack item is reliably detected as
- * already-taken on its own turn through the loop (the GM's own read
- * retains reach into whatever their first claim's transfer just
- * assigned).
+ * Applies every outstanding claim on a drop in one `bulk-assign` call (ADR
+ * 0044/0052), instead of one sequential write per claim. Every claimed
+ * item is read once up front (nothing mutates until the single call at
+ * the end, so every claim against the same item can share one snapshot -
+ * a real reduction in round-trips over the old one-`GET`-per-claim loop).
+ *
+ * Eligibility is still decided oldest-`created_at`-first, client-side,
+ * exactly as before: `bulk-assign`'s own server-side authorization has a
+ * documented gap (ADR 0044's own Context section) where reassigning an
+ * already-owned instance isn't blocked, so nothing stops a *later* array
+ * entry from silently stealing a non-stack item a same-batch *earlier*
+ * entry already claimed - `assignedThisRun` tracks that here instead. A
+ * stack's remaining quantity is tracked the same way (`remainingByItem`),
+ * mirroring what a live re-fetch between writes would have shown; the
+ * server's own sequential, same-transaction processing of same-`entity_id`
+ * array entries then reproduces the same step-by-step result a loop of
+ * real writes would have, as long as array order matches claim order.
  */
 async function applyAllClaims(
   client: LorenzoApiClient,
@@ -343,36 +371,54 @@ async function applyAllClaims(
   claims: readonly LootClaim[],
   accessToken: string,
 ): Promise<ClaimOutcome[]> {
+  const uniqueItemIds = [...new Set(claims.map((claim) => claim.itemEntityId))];
+  const snapshots = new Map<string, ItemSnapshot | "not-found">();
+  await Promise.all(
+    uniqueItemIds.map(async (itemEntityId) => {
+      try {
+        const { data: current, etag } = await client.getItemInstance(
+          tenantId,
+          itemEntityId,
+          accessToken,
+        );
+        snapshots.set(itemEntityId, { current, etag });
+      } catch (error) {
+        if (error instanceof LorenzoApiError && error.status === 404) {
+          snapshots.set(itemEntityId, "not-found");
+          return;
+        }
+        throw error;
+      }
+    }),
+  );
+
   const outcomes: ClaimOutcome[] = [];
+  const remainingByItem = new Map<string, number>();
+  const assignedThisRun = new Set<string>();
+  const requests: BulkAssignItem[] = [];
+  // Parallel to `requests` - which claim/title each bulk-assign entry
+  // belongs to, to map each result back to its own ClaimOutcome.
+  const requestContext: Array<{ claim: LootClaim; itemTitle: string }> = [];
 
   for (const claim of claims) {
-    let current: ItemInstanceOut;
-    let etag: string | null;
-    try {
-      ({ data: current, etag } = await client.getItemInstance(
-        tenantId,
-        claim.itemEntityId,
-        accessToken,
-      ));
-    } catch (error) {
-      if (error instanceof LorenzoApiError && error.status === 404) {
-        outcomes.push({
-          discordUserId: claim.discordUserId,
-          itemTitle: "(item no longer available)",
-          status: "already-taken",
-          quantity: claim.quantity,
-        });
-        continue;
-      }
-      throw error;
+    const snapshot = snapshots.get(claim.itemEntityId);
+    if (snapshot === undefined || snapshot === "not-found") {
+      outcomes.push({
+        discordUserId: claim.discordUserId,
+        itemTitle: "(item no longer available)",
+        status: "already-taken",
+        quantity: claim.quantity,
+      });
+      continue;
     }
 
+    const { current, etag } = snapshot;
     const itemTitle = current.title ?? "(untitled)";
 
     if (current.quantity === null) {
-      const alreadyTakenByAnother =
+      const alreadyTakenBeforeThisRun =
         current.owner_entity_id !== null && current.owner_entity_id !== claim.characterEntityId;
-      if (alreadyTakenByAnother) {
+      if (alreadyTakenBeforeThisRun || assignedThisRun.has(claim.itemEntityId)) {
         outcomes.push({
           discordUserId: claim.discordUserId,
           itemTitle,
@@ -381,26 +427,19 @@ async function applyAllClaims(
         });
         continue;
       }
-      await transferItem(
-        client,
-        tenantId,
-        current,
-        etag,
-        null,
-        claim.characterEntityId,
-        accessToken,
-      );
-      outcomes.push({
-        discordUserId: claim.discordUserId,
-        itemTitle,
-        status: "given",
-        quantity: null,
+      assignedThisRun.add(claim.itemEntityId);
+      requests.push({
+        entity_id: claim.itemEntityId,
+        owner_character_id: claim.characterEntityId,
+        ...(etag !== null ? { if_match: etag } : {}),
       });
+      requestContext.push({ claim, itemTitle });
       continue;
     }
 
-    const requested = claim.quantity ?? current.quantity;
-    if (requested <= 0 || requested > current.quantity) {
+    const remaining = remainingByItem.get(claim.itemEntityId) ?? current.quantity;
+    const requested = claim.quantity ?? remaining;
+    if (requested <= 0 || requested > remaining) {
       outcomes.push({
         discordUserId: claim.discordUserId,
         itemTitle,
@@ -409,23 +448,42 @@ async function applyAllClaims(
       });
       continue;
     }
+    remainingByItem.set(claim.itemEntityId, remaining - requested);
 
-    await transferItem(
-      client,
-      tenantId,
-      current,
-      etag,
-      requested,
-      claim.characterEntityId,
-      accessToken,
-    );
+    requests.push({
+      entity_id: claim.itemEntityId,
+      owner_character_id: claim.characterEntityId,
+      ...(requested < remaining ? { quantity: requested } : {}),
+      ...(etag !== null ? { if_match: etag } : {}),
+    });
+    requestContext.push({ claim, itemTitle });
+  }
+
+  if (requests.length === 0) return outcomes;
+
+  const results = await client.bulkAssignItemInstances(tenantId, requests, accessToken);
+  results.forEach((result, index) => {
+    const context = requestContext[index];
+    if (!context) return;
+    const { claim, itemTitle } = context;
+
+    if (result.status === "ok") {
+      outcomes.push({
+        discordUserId: claim.discordUserId,
+        itemTitle,
+        status: "given",
+        quantity: requests[index]?.quantity ?? null,
+      });
+      return;
+    }
+
     outcomes.push({
       discordUserId: claim.discordUserId,
       itemTitle,
-      status: "given",
-      quantity: requested,
+      status: result.problem?.status === 422 ? "not-enough-left" : "already-taken",
+      quantity: claim.quantity,
     });
-  }
+  });
 
   return outcomes;
 }

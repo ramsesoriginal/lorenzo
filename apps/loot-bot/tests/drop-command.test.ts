@@ -51,15 +51,19 @@ const {
   isCampaignGm,
   getItemInstancesByContainer,
   getItemInstance,
+  getItemInstanceBySlug,
   splitItemInstance,
   setItemInstanceOwner,
+  bulkAssignItemInstances,
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   isCampaignGm: vi.fn(),
   getItemInstancesByContainer: vi.fn(),
   getItemInstance: vi.fn(),
+  getItemInstanceBySlug: vi.fn(),
   splitItemInstance: vi.fn(),
   setItemInstanceOwner: vi.fn(),
+  bulkAssignItemInstances: vi.fn(),
   createLorenzoApiClient: vi.fn(),
 }));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
@@ -70,8 +74,10 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       isCampaignGm,
       getItemInstancesByContainer,
       getItemInstance,
+      getItemInstanceBySlug,
       splitItemInstance,
       setItemInstanceOwner,
+      bulkAssignItemInstances,
     }),
   };
 });
@@ -83,11 +89,13 @@ const config = {
   lorenzoTenantId: "tenant-1",
 } as Config;
 
-function fakeExecuteInteraction(userId = "gm-1") {
+const CONTAINER_UUID = "11111111-1111-1111-1111-111111111111";
+
+function fakeExecuteInteraction(userId = "gm-1", container = CONTAINER_UUID) {
   return {
     user: { id: userId },
     channelId: "channel-1",
-    options: { getString: vi.fn(() => "container-1") },
+    options: { getString: vi.fn(() => container) },
     deferReply: vi.fn(async () => undefined),
     editReply: vi.fn(async () => ({ id: "message-1" })),
   } as unknown as ChatInputCommandInteraction & {
@@ -184,6 +192,44 @@ describe("dropCommand.execute", () => {
     );
   });
 
+  it("resolves a non-uuid container option as a slug (ADR 0043) before listing contents", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    isCampaignGm.mockResolvedValue(true);
+    getItemInstanceBySlug.mockResolvedValue({
+      data: { entity_id: CONTAINER_UUID, title: "The Chest" },
+      etag: "etag-container",
+    });
+    getItemInstancesByContainer.mockResolvedValue([]);
+    insertLootDrop.mockResolvedValue({ id: "drop-1" });
+    const interaction = fakeExecuteInteraction("gm-1", "the-chest");
+
+    await dropCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(getItemInstanceBySlug).toHaveBeenCalledWith("tenant-1", "the-chest", "token-123");
+    expect(getItemInstancesByContainer).toHaveBeenCalledWith(
+      "tenant-1",
+      CONTAINER_UUID,
+      "token-123",
+    );
+    expect(insertLootDrop).toHaveBeenCalledWith(
+      expect.objectContaining({ containerEntityId: CONTAINER_UUID }),
+    );
+  });
+
+  it("gives a friendly message for an unknown slug", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    isCampaignGm.mockResolvedValue(true);
+    getItemInstanceBySlug.mockRejectedValue(new LorenzoApiError("not found", 404));
+    const interaction = fakeExecuteInteraction("gm-1", "no-such-slug");
+
+    await dropCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("Couldn't find that container"),
+    );
+    expect(getItemInstancesByContainer).not.toHaveBeenCalled();
+  });
+
   it("posts the drop message and records its id", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     isCampaignGm.mockResolvedValue(true);
@@ -196,7 +242,7 @@ describe("dropCommand.execute", () => {
     await dropCommand.execute(interaction, { config, logger: {} as never });
 
     expect(insertLootDrop).toHaveBeenCalledWith({
-      containerEntityId: "container-1",
+      containerEntityId: CONTAINER_UUID,
       discordChannelId: "channel-1",
       createdByDiscordUserId: "gm-1",
     });
@@ -434,7 +480,7 @@ describe("dropCommand.onButton — apply claims", () => {
     expect(listLootClaims).not.toHaveBeenCalled();
   });
 
-  it("processes each claim, reports mixed outcomes, and cleans up", async () => {
+  it("resolves eligibility client-side, then applies everything eligible in one bulk-assign call", async () => {
     getValidAccessToken.mockResolvedValue("gm-token");
     isCampaignGm.mockResolvedValue(true);
     listLootClaims.mockResolvedValue([
@@ -463,37 +509,115 @@ describe("dropCommand.onButton — apply claims", () => {
         createdAt: new Date("2026-01-01T00:02:00Z"),
       },
     ]);
-    // First claim on item-1: unowned -> succeeds. Second claim on item-1
-    // re-fetches fresh and sees it's now owned by char-1 -> already-taken.
-    getItemInstance
-      .mockResolvedValueOnce({
-        data: { entity_id: "item-1", title: "Sword", quantity: null, owner_entity_id: null },
-        etag: "etag-1",
-      })
-      .mockResolvedValueOnce({
-        data: { entity_id: "item-1", title: "Sword", quantity: null, owner_entity_id: "char-1" },
-        etag: "etag-1b",
-      })
-      .mockResolvedValueOnce({
+    // One snapshot per unique item (not per claim) - item-1 is unowned, so
+    // the *first* (oldest) of its two claims is eligible; the second is
+    // rejected client-side (already assigned this run), never reaching
+    // bulk-assign at all. Claim 3 asks for more of item-2 than its
+    // snapshot has (10 > 5) - also rejected client-side, never sent.
+    getItemInstance.mockImplementation(async (_tenantId: string, entityId: string) => {
+      if (entityId === "item-1") {
+        return {
+          data: { entity_id: "item-1", title: "Sword", quantity: null, owner_entity_id: null },
+          etag: "etag-1",
+        };
+      }
+      return {
         data: { entity_id: "item-2", title: "Torch", quantity: 5, owner_entity_id: null },
         etag: "etag-2",
-      });
-    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
+      };
+    });
+    bulkAssignItemInstances.mockResolvedValue([
+      { entity_id: "item-1", status: "ok", item_instance: { entity_id: "item-1", title: "Sword" } },
+    ]);
     const interaction = fakeButton("drop:apply:drop-1");
 
     await dropCommand.onButton?.(interaction, { config, logger: {} as never });
 
-    expect(setItemInstanceOwner).toHaveBeenCalledTimes(1);
-    expect(setItemInstanceOwner).toHaveBeenCalledWith(
+    expect(getItemInstance).toHaveBeenCalledTimes(2); // once per unique item, not per claim
+    expect(setItemInstanceOwner).not.toHaveBeenCalled();
+    expect(splitItemInstance).not.toHaveBeenCalled();
+    expect(bulkAssignItemInstances).toHaveBeenCalledWith(
       "tenant-1",
-      "item-1",
-      "char-1",
+      [{ entity_id: "item-1", owner_character_id: "char-1", if_match: "etag-1" }],
       "gm-token",
-      "etag-1",
     );
-    expect(splitItemInstance).not.toHaveBeenCalled(); // claim 3 requested more than the 5 available
     expect(markLootDropApplied).toHaveBeenCalledWith("drop-1");
     expect(deleteLootClaimsForDrop).toHaveBeenCalledWith("drop-1");
     expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({ components: [] }));
+  });
+
+  it("splits a stack across two claims in the same batch, whole-transferring what's left to the last one", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    listLootClaims.mockResolvedValue([
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-1",
+        characterEntityId: "char-1",
+        quantity: 2,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-2",
+        characterEntityId: "char-2",
+        quantity: null, // "whatever's left"
+        createdAt: new Date("2026-01-01T00:01:00Z"),
+      },
+    ]);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Arrows", quantity: 5, owner_entity_id: null },
+      etag: "etag-1",
+    });
+    bulkAssignItemInstances.mockResolvedValue([
+      {
+        entity_id: "item-1",
+        status: "ok",
+        item_instance: { entity_id: "item-2", title: "Arrows" },
+      },
+      {
+        entity_id: "item-1",
+        status: "ok",
+        item_instance: { entity_id: "item-1", title: "Arrows" },
+      },
+    ]);
+    const interaction = fakeButton("drop:apply:drop-1");
+
+    await dropCommand.onButton?.(interaction, { config, logger: {} as never });
+
+    expect(bulkAssignItemInstances).toHaveBeenCalledWith(
+      "tenant-1",
+      [
+        { entity_id: "item-1", owner_character_id: "char-1", quantity: 2, if_match: "etag-1" },
+        { entity_id: "item-1", owner_character_id: "char-2", if_match: "etag-1" },
+      ],
+      "gm-token",
+    );
+  });
+
+  it("rejects a claim for more than a stack's snapshotted quantity before ever calling bulk-assign", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    listLootClaims.mockResolvedValue([
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-2",
+        discordUserId: "user-3",
+        characterEntityId: "char-3",
+        quantity: 10,
+        createdAt: new Date("2026-01-01T00:02:00Z"),
+      },
+    ]);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-2", title: "Torch", quantity: 5, owner_entity_id: null },
+      etag: "etag-2",
+    });
+    const interaction = fakeButton("drop:apply:drop-1");
+
+    await dropCommand.onButton?.(interaction, { config, logger: {} as never });
+
+    expect(bulkAssignItemInstances).not.toHaveBeenCalled();
   });
 });
