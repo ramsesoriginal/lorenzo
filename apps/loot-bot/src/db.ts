@@ -2,9 +2,15 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { DatabaseError, Pool } from "pg";
 import { loadConfig } from "./config.js";
-import { type LinkedAccount, type NewLinkedAccountRow, linkedAccount } from "./db-schema.js";
+import {
+  type LinkedAccount,
+  type NewLinkedAccountRow,
+  type PlayerPreference,
+  linkedAccount,
+  playerPreference,
+} from "./db-schema.js";
 
-export type { LinkedAccount, NewLinkedAccountRow };
+export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference };
 
 /**
  * This app's own restricted role's connection (LOOT_BOT_DATABASE_URL) - not
@@ -15,7 +21,7 @@ export type { LinkedAccount, NewLinkedAccountRow };
  * query builder directly.
  */
 const pool = new Pool({ connectionString: loadConfig().databaseUrl });
-const db = drizzle(pool, { schema: { linkedAccount } });
+const db = drizzle(pool, { schema: { linkedAccount, playerPreference } });
 
 /** Closes the underlying connection pool - for graceful shutdown and for
  * tests, so a real-Postgres test run doesn't leave the process hanging on
@@ -165,4 +171,56 @@ export async function updateAccessToken(
  */
 export async function deleteLinkedAccount(discordUserId: string): Promise<void> {
   await db.delete(linkedAccount).where(eq(linkedAccount.discordUserId, discordUserId));
+}
+
+/** Looks up a Discord user's "current character"/"current default
+ * container" preference, if any has ever been set. */
+export async function getPreference(discordUserId: string): Promise<PlayerPreference | undefined> {
+  const rows = await db
+    .select()
+    .from(playerPreference)
+    .where(eq(playerPreference.discordUserId, discordUserId))
+    .limit(1);
+  return rows[0];
+}
+
+/**
+ * Upserts a Discord user's current-character/current-container preference.
+ * Only the fields actually given are touched on conflict - `/set-current`
+ * lets a caller set either or both in one call, and setting just one
+ * (e.g. switching characters) deliberately leaves the other as it was
+ * rather than implicitly clearing it (explicit-only, matching this
+ * codebase's general preference - see ADR 0043's "container left
+ * untouched" precedent).
+ */
+export async function setPreference(
+  discordUserId: string,
+  fields: { characterEntityId?: string; containerEntityId?: string },
+): Promise<void> {
+  await db
+    .insert(playerPreference)
+    .values({
+      discordUserId,
+      currentCharacterEntityId: fields.characterEntityId ?? null,
+      currentContainerEntityId: fields.containerEntityId ?? null,
+    })
+    .onConflictDoUpdate({
+      target: playerPreference.discordUserId,
+      set: {
+        updatedAt: new Date(),
+        ...(fields.characterEntityId !== undefined
+          ? { currentCharacterEntityId: fields.characterEntityId }
+          : {}),
+        ...(fields.containerEntityId !== undefined
+          ? { currentContainerEntityId: fields.containerEntityId }
+          : {}),
+      },
+    });
+}
+
+/** Idempotent by design, matching {@link deleteLinkedAccount}'s own
+ * shape - a plain `DELETE ... WHERE`, safe to call on a row that was
+ * never set. */
+export async function deletePreference(discordUserId: string): Promise<void> {
+  await db.delete(playerPreference).where(eq(playerPreference.discordUserId, discordUserId));
 }

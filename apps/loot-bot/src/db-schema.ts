@@ -65,3 +65,27 @@ export const linkedAccount = lootBotSchema.table("linked_account", {
  */
 export type LinkedAccount = typeof linkedAccount.$inferSelect;
 export type NewLinkedAccountRow = typeof linkedAccount.$inferInsert;
+
+/**
+ * A Discord user's "current character" and "current default container" -
+ * what every command that takes an implicit character/container target
+ * (loot-drop take, `/award`, `/move`) falls back to when nothing explicit
+ * is given. Bot-local state, not an `apps/api` concept - a player can have
+ * many controlled characters (`GET /me`'s `players[].characters[]`) and
+ * apps/api has no notion of "which one is active right now."
+ *
+ * No FK to `linked_account.discord_user_id`: this row can outlive an
+ * unlink/relink (the preference itself - "I usually play Frodo" - isn't
+ * tied to which Authgear identity happens to be linked at the moment),
+ * and `character_entity_id`/`container_entity_id` are apps/api entity ids,
+ * meaningless to validate against this bot's own schema anyway.
+ */
+export const playerPreference = lootBotSchema.table("player_preference", {
+  discordUserId: text("discord_user_id").primaryKey(),
+  currentCharacterEntityId: text("current_character_entity_id"),
+  currentContainerEntityId: text("current_container_entity_id"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PlayerPreference = typeof playerPreference.$inferSelect;
+export type NewPlayerPreferenceRow = typeof playerPreference.$inferInsert;

@@ -246,3 +246,68 @@ describe.skipIf(!canRunDbTests)("linked_account (real Postgres)", () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
+  const DISCORD_ID = "db-test-preference-user";
+
+  afterEach(async () => {
+    await db.deletePreference(DISCORD_ID);
+  });
+
+  afterAll(async () => {
+    await db.closeDb();
+  });
+
+  it("returns undefined for a discord user with no preference set", async () => {
+    await expect(db.getPreference(DISCORD_ID)).resolves.toBeUndefined();
+  });
+
+  it("sets a character on first use, leaving container unset", async () => {
+    await db.setPreference(DISCORD_ID, { characterEntityId: "char-1" });
+
+    const row = await db.getPreference(DISCORD_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-1");
+    expect(row?.currentContainerEntityId).toBeNull();
+  });
+
+  it("sets both character and container in one call", async () => {
+    await db.setPreference(DISCORD_ID, {
+      characterEntityId: "char-1",
+      containerEntityId: "container-1",
+    });
+
+    const row = await db.getPreference(DISCORD_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-1");
+    expect(row?.currentContainerEntityId).toBe("container-1");
+  });
+
+  it("updating just the container leaves the existing character untouched", async () => {
+    await db.setPreference(DISCORD_ID, {
+      characterEntityId: "char-1",
+      containerEntityId: "container-1",
+    });
+
+    await db.setPreference(DISCORD_ID, { containerEntityId: "container-2" });
+
+    const row = await db.getPreference(DISCORD_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-1");
+    expect(row?.currentContainerEntityId).toBe("container-2");
+  });
+
+  it("updating just the character leaves the existing container untouched", async () => {
+    await db.setPreference(DISCORD_ID, {
+      characterEntityId: "char-1",
+      containerEntityId: "container-1",
+    });
+
+    await db.setPreference(DISCORD_ID, { characterEntityId: "char-2" });
+
+    const row = await db.getPreference(DISCORD_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-2");
+    expect(row?.currentContainerEntityId).toBe("container-1");
+  });
+
+  it("is idempotent when deleting a preference that was never set", async () => {
+    await expect(db.deletePreference("never-set-user")).resolves.toBeUndefined();
+  });
+});
