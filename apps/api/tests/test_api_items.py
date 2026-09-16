@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_tenant
@@ -501,6 +502,36 @@ async def test_update_item_succeeds_with_correct_if_match(
     )
 
     assert response.status_code == 200
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_exposes_etag_and_updated_at_for_round_tripping(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0042: a client obtains its concurrency token purely from the HTTP
+    response (either the ETag header or the updated_at field) - no direct DB
+    access required, unlike test_update_item_succeeds_with_correct_if_match
+    above (which predates this ADR and still reaches into the DB for it).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+
+    get_response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
+    assert get_response.status_code == 200
+    body = get_response.json()
+    assert "updated_at" in body
+    assert get_response.headers["etag"] == etag_for(datetime.fromisoformat(body["updated_at"]))
+
+    patch_response = await client.patch(
+        f"/tenants/{tenant_id}/items/{entity_id}",
+        json={"name": "Magic Sword"},
+        headers={"If-Match": get_response.headers["etag"]},
+    )
+    assert patch_response.status_code == 200
+    # The response to the write itself also carries a fresh token.
+    assert "etag" in patch_response.headers
+    assert patch_response.json()["updated_at"] != body["updated_at"]
+
     await delete_tenant(tenant_id)
 
 

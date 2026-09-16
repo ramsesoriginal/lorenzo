@@ -1,10 +1,12 @@
 import uuid
+from datetime import datetime
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_character, make_tenant
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.etag import etag_for
 from lorenzo_api.models import (
     CampaignGm,
     Character,
@@ -1094,6 +1096,36 @@ async def test_update_item_instance_precondition_failed_with_stale_if_match(
     )
 
     assert response.status_code == 412
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_instance_exposes_etag_and_updated_at_for_round_tripping(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0042: a client obtains its concurrency token purely from the HTTP
+    response (either the ETag header or the updated_at field), closing the
+    "If-Match is unusable, nothing hands out a token" gap - no direct DB
+    access needed, unlike test_update_item_instance_precondition_failed_
+    with_stale_if_match above (which only exercises the failure side).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_instance(tenant_id)
+
+    get_response = await client.get(f"/tenants/{tenant_id}/item-instances/{entity_id}")
+    assert get_response.status_code == 200
+    body = get_response.json()
+    assert "updated_at" in body
+    assert get_response.headers["etag"] == etag_for(datetime.fromisoformat(body["updated_at"]))
+
+    patch_response = await client.patch(
+        f"/tenants/{tenant_id}/item-instances/{entity_id}",
+        json={"name": "Ashfang, Renamed"},
+        headers={"If-Match": get_response.headers["etag"]},
+    )
+    assert patch_response.status_code == 200
+    assert "etag" in patch_response.headers
+    assert patch_response.json()["updated_at"] != body["updated_at"]
+
     await delete_tenant(tenant_id)
 
 
