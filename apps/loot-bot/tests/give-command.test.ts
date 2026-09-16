@@ -126,17 +126,16 @@ describe("giveCommand.execute", () => {
     expect(interaction.editReply).toHaveBeenCalledWith("Gave Torch to Frodo.");
   });
 
-  it("splits off the requested quantity and transfers only the split, for a partial give", async () => {
+  it("splits with the owner in one call for a partial give (ADR 0044 split-with-owner)", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
       data: { entity_id: "item-1", quantity: 5, title: "Torch" },
       etag: "etag-1",
     });
     splitItemInstance.mockResolvedValue({
-      data: { entity_id: "item-2", quantity: 2, title: "Torch" },
+      data: { entity_id: "item-2", quantity: 2, title: "Torch", owner_entity_id: "char-2" },
       etag: "etag-2",
     });
-    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-2", title: "Torch" });
     getCharacterName.mockResolvedValue("Sam");
 
     const interaction = fakeInteraction();
@@ -147,14 +146,15 @@ describe("giveCommand.execute", () => {
 
     await giveCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(splitItemInstance).toHaveBeenCalledWith("tenant-1", "item-1", 2, "token-123", "etag-1");
-    expect(setItemInstanceOwner).toHaveBeenCalledWith(
+    expect(splitItemInstance).toHaveBeenCalledWith(
       "tenant-1",
-      "item-2",
-      "char-2",
+      "item-1",
+      2,
       "token-123",
-      "etag-2",
+      "etag-1",
+      "char-2",
     );
+    expect(setItemInstanceOwner).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith("Gave 2 of Torch to Sam.");
   });
 

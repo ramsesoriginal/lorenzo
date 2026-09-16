@@ -106,15 +106,12 @@ describe("transferItem", () => {
     expect(result).toMatchObject({ kind: "transferred", splitting: false });
   });
 
-  it("splits then transfers only the split-off portion for a partial request", async () => {
+  it("splits with the owner in one call for a partial request (ADR 0044 split-with-owner)", async () => {
     const { transferItem } = await import("../src/commands/item-transfer.js");
     vi.mocked(client.splitItemInstance).mockResolvedValue({
-      data: item({ entity_id: "item-2", quantity: 2 }),
+      data: item({ entity_id: "item-2", quantity: 2, owner_entity_id: "char-2" }),
       etag: "etag-2",
     } as never);
-    vi.mocked(client.setItemInstanceOwner).mockResolvedValue(
-      item({ entity_id: "item-2", quantity: 2 }) as never,
-    );
 
     const result = await transferItem(
       client,
@@ -132,14 +129,9 @@ describe("transferItem", () => {
       2,
       "token-123",
       "etag-1",
-    );
-    expect(client.setItemInstanceOwner).toHaveBeenCalledWith(
-      "tenant-1",
-      "item-2",
       "char-2",
-      "token-123",
-      "etag-2",
     );
+    expect(client.setItemInstanceOwner).not.toHaveBeenCalled();
     expect(result).toMatchObject({ kind: "transferred", splitting: true, requestedQuantity: 2 });
   });
 

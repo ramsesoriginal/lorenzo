@@ -1,8 +1,8 @@
 import type { ItemInstanceOut, LorenzoApiClient } from "../lorenzo-client.js";
 
 /**
- * The split-vs-whole-transfer decision `/give` (ADR 0043) and `/drop`'s
- * take/apply-claims (ADR 0044) both need against an already-fetched,
+ * The split-vs-whole-transfer decision `/give` (ADR 0051) and `/drop`'s
+ * take/apply-claims (ADR 0052) both need against an already-fetched,
  * already-etagged read of the *same* item - re-fetching is the caller's
  * job (each has its own reason to control exactly when: `/give` once,
  * right before deciding; apply-claims once per claim, every iteration of
@@ -15,7 +15,7 @@ import type { ItemInstanceOut, LorenzoApiClient } from "../lorenzo-client.js";
  * least the current stack size, transfers the *whole* instance outright
  * (no split) - matches the split endpoint's own "splitting off all of it
  * isn't a split" rule. A caller wanting a stricter "there isn't enough
- * left" rejection (apply-claims, ADR 0044) checks that itself before
+ * left" rejection (apply-claims, ADR 0052) checks that itself before
  * calling this - silently capping to "everything available" is `/give`'s
  * own accepted behavior, not assumed correct for every caller.
  */
@@ -68,6 +68,10 @@ export async function transferItem(
 // `requestedQuantity` is a plain `number` here (not `number | null`) purely
 // to keep transferItem's own ternary honest about which branch actually
 // needs it - splitting is only ever true when it's already non-null.
+//
+// One call, not split-then-PUT-owner (ADR 0044's "split-with-owner") -
+// closes the race window a separate follow-up owner-PUT would leave open
+// between the two writes.
 async function splitAndTransfer(
   client: LorenzoApiClient,
   tenantId: string,
@@ -77,18 +81,13 @@ async function splitAndTransfer(
   accessToken: string,
   sourceEtag: string | null,
 ): Promise<ItemInstanceOut> {
-  const { data: split, etag: splitEtag } = await client.splitItemInstance(
+  const { data: given } = await client.splitItemInstance(
     tenantId,
     sourceEntityId,
     requestedQuantity,
     accessToken,
     sourceEtag ?? undefined,
-  );
-  return client.setItemInstanceOwner(
-    tenantId,
-    split.entity_id,
     targetCharacterId,
-    accessToken,
-    splitEtag ?? undefined,
   );
+  return given;
 }
