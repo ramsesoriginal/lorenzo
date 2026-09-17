@@ -10,6 +10,7 @@ import { itemCommand } from "./item.js";
 import { linkCommand } from "./link.js";
 import { mergeCommand } from "./merge.js";
 import { moveCommand } from "./move.js";
+import { myGroupsCommand } from "./my-groups.js";
 import { noteCommand } from "./note.js";
 import { pendingClaimsCommand } from "./pending-claims.js";
 import { pingCommand } from "./ping.js";
@@ -48,6 +49,7 @@ const commands: readonly Command[] = [
   renameCommand,
   giveBulkCommand,
   undoCommand,
+  myGroupsCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
