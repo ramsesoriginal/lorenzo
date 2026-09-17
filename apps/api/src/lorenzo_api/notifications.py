@@ -24,6 +24,7 @@ from lorenzo_api.models import (
 
 def _build(
     *,
+    batch_id: uuid.UUID,
     user_id: uuid.UUID,
     tenant_id: uuid.UUID | None,
     scope: str,
@@ -34,6 +35,7 @@ def _build(
     created_by: uuid.UUID | None,
 ) -> Notification:
     return Notification(
+        batch_id=batch_id,
         user_id=user_id,
         tenant_id=tenant_id,
         scope=scope,
@@ -73,15 +75,19 @@ async def create_tenant_notification(
     created_by: uuid.UUID | None,
 ) -> list[Notification]:
     """scope="tenant". An omitted `recipient_user_id` broadcasts to the
-    tenant's full roster.
+    tenant's full roster. Every row shares one `batch_id` (ADR 0057), so
+    the sender can later pull the whole broadcast's read state in one
+    query (`GET /me/notifications/sent?batch_id=...`).
     """
     recipient_ids = (
         {recipient_user_id}
         if recipient_user_id is not None
         else await _tenant_roster_user_ids(session, tenant_id=tenant_id)
     )
+    batch_id = uuid.uuid4()
     notifications = [
         _build(
+            batch_id=batch_id,
             user_id=user_id,
             tenant_id=tenant_id,
             scope="tenant",
@@ -130,8 +136,10 @@ async def create_campaign_notification(
         ).scalars()
         recipient_ids = set(player_ids) | set(gm_ids)
 
+    batch_id = uuid.uuid4()
     notifications = [
         _build(
+            batch_id=batch_id,
             user_id=user_id,
             tenant_id=tenant_id,
             scope="campaign",
@@ -173,8 +181,10 @@ async def create_character_notification(
         )
         recipient_ids = set((await session.execute(stmt)).scalars())
 
+    batch_id = uuid.uuid4()
     notifications = [
         _build(
+            batch_id=batch_id,
             user_id=user_id,
             tenant_id=tenant_id,
             scope="character",
@@ -223,8 +233,10 @@ async def create_group_notification(
         )
         recipient_ids = set((await session.execute(stmt)).scalars())
 
+    batch_id = uuid.uuid4()
     notifications = [
         _build(
+            batch_id=batch_id,
             user_id=user_id,
             tenant_id=tenant_id,
             scope="group",
@@ -244,9 +256,12 @@ def create_platform_notification(
     *, recipient_user_id: uuid.UUID, type: str, title: str, body: str, created_by: uuid.UUID | None
 ) -> Notification:
     """scope="platform". Always single-recipient - see ADR 0054's own
-    named non-goal (no broadcast-to-every-user mechanism yet).
+    named non-goal (no broadcast-to-every-user mechanism yet). Still gets
+    its own `batch_id` (ADR 0057), for consistency with the other four
+    scopes even though it's always a batch of one.
     """
     return _build(
+        batch_id=uuid.uuid4(),
         user_id=recipient_user_id,
         tenant_id=None,
         scope="platform",

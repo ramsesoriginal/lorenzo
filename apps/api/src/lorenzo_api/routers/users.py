@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Request, UploadFile
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select, text
@@ -31,7 +31,7 @@ from lorenzo_api.profile_pictures import (
     upsert_user_profile_picture,
 )
 from lorenzo_api.schemas.notifications import NotificationOut
-from lorenzo_api.schemas.users import MeOut, NicknameUpdate, UserRefOut
+from lorenzo_api.schemas.users import MeOut, ProfileUpdate, UserRefOut
 
 router = APIRouter(tags=["users"])
 
@@ -43,7 +43,7 @@ _character_eager_load = (
 )
 
 
-async def _me_out(user_id: uuid.UUID, session: SessionDep) -> MeOut:
+async def _me_out(user_id: uuid.UUID, request: Request, session: SessionDep) -> MeOut:
     """Shared by GET /me and PATCH /me (ADR 0050) - the caller's own
     identity, tenant-wide memberships, campaign memberships, and GM grants.
 
@@ -100,51 +100,62 @@ async def _me_out(user_id: uuid.UUID, session: SessionDep) -> MeOut:
         )
         campaign_gms.extend(tenant_gms.scalars().all())
 
-    return MeOut.from_user(full_user, players=players, campaign_gms=campaign_gms)
+    return MeOut.from_user(full_user, request=request, players=players, campaign_gms=campaign_gms)
 
 
 @router.get("/me")
-async def get_me(user: CurrentUser, session: SessionDep) -> MeOut:
+async def get_me(user: CurrentUser, request: Request, session: SessionDep) -> MeOut:
     """Proves the whole token-verification pipeline end to end over real
     HTTP - see ADR 0023. Not nested under /tenants/{tenant_id}/... - this
     is about the caller's own identity across every tenant they belong to,
     not scoped to one.
     """
-    return await _me_out(user.id, session)
+    return await _me_out(user.id, request, session)
 
 
 @router.patch("/me")
-async def update_me(user: CurrentUser, body: NicknameUpdate, session: SessionDep) -> MeOut:
-    """Sets or clears the caller's own nickname (ADR 0050) - `email` isn't
-    settable here at all, it's a read-only Authgear-derived cache
-    (dependencies.get_current_user), and everything else on MeOut is
-    derived, not directly editable.
+async def update_me(
+    user: CurrentUser, body: ProfileUpdate, request: Request, session: SessionDep
+) -> MeOut:
+    """Sets any of the caller's own self-editable profile fields (ADR
+    0050/0056) - `email` isn't settable here at all, it's a read-only
+    Authgear-derived cache (dependencies.get_current_user), and everything
+    else on MeOut is derived, not directly editable.
 
-    Checked-then-written, not caught off the partial unique index's own
-    conflict - matches this codebase's existing slug-conflict precedent
-    (routers/tenants.py's `_resolve_create_slug`/`_check_slug_available_for_update`),
-    not a new convention. No `If-Match`: see ADR 0050 for why a
-    single self-editable field on your own record isn't a meaningful
-    concurrent-write risk.
+    `exclude_unset=True`: a client updating just `bio` doesn't have to
+    resend every other field to avoid wiping them - matches
+    `update_tenant`/`update_campaign`'s own established PATCH convention,
+    unlike the narrower single-required-field `NicknameUpdate` this
+    replaced. `nickname`'s own conflict is still checked-then-written, not
+    caught off the partial unique index's own conflict - matches this
+    codebase's existing slug-conflict precedent (routers/tenants.py's
+    `_resolve_create_slug`/`_check_slug_available_for_update`). No
+    `If-Match`: see ADR 0050 for why self-editable fields on your own
+    record aren't a meaningful concurrent-write risk.
 
     Re-fetched via `session.get_one`, not mutated directly on `user` - the
     `CurrentUser` the request was resolved with isn't guaranteed to be the
     same session-attached instance a write needs (the `client` test
     fixture's own fake override returns a transient one), the same
     "re-fetch before mutating" precedent every other write route already
-    follows (e.g. routers/tenants.py's `update_tenant`).
+    follows.
     """
-    if body.nickname is not None and body.nickname != user.nickname:
+    update = body.model_dump(exclude_unset=True)
+    if "nickname" in update and update["nickname"] != user.nickname:
         conflict = await session.execute(
-            select(User.id).where(User.nickname == body.nickname, User.id != user.id).limit(1)
+            select(User.id).where(User.nickname == update["nickname"], User.id != user.id).limit(1)
         )
         if conflict.first() is not None:
-            raise NicknameConflictError(detail=f"Nickname '{body.nickname}' is already in use")
+            raise NicknameConflictError(detail=f"Nickname '{update['nickname']}' is already in use")
 
     db_user = await session.get_one(User, user.id)
-    db_user.nickname = body.nickname
+    for field in ("nickname", "display_name", "pronouns", "bio", "user_color"):
+        if field in update:
+            setattr(db_user, field, update[field])
+    if "locales" in update:
+        db_user.locales = update["locales"] or []
     await session.commit()
-    return await _me_out(user.id, session)
+    return await _me_out(user.id, request, session)
 
 
 @router.put("/me/picture", status_code=204)
@@ -185,6 +196,29 @@ async def list_my_notifications(
     stmt = select(Notification).where(Notification.user_id == user.id)
     if unread_only:
         stmt = stmt.where(Notification.read_at.is_(None))
+    stmt = stmt.order_by(Notification.created_at.desc(), Notification.id)
+    page: Page[NotificationOut] = await apaginate(session, stmt, params)
+    return page
+
+
+@router.get("/me/notifications/sent")
+async def list_my_sent_notifications(
+    user: CurrentUser,
+    session: SessionDep,
+    params: ParamsDep,
+    batch_id: uuid.UUID | None = None,
+) -> Page[NotificationOut]:
+    """See ADR 0057 - the sender's side of read receipts: did anyone
+    actually read what I sent? `WHERE created_by = caller.id`, not
+    `user_id` - works today with no RLS change, since the
+    `created_by = app.user_id` clause ADR 0054 already added (for the
+    `INSERT ... RETURNING` fix) already permits exactly this read.
+    Optional `batch_id` pulls just one broadcast's full recipient list -
+    every row a single creation call fanned out shares one.
+    """
+    stmt = select(Notification).where(Notification.created_by == user.id)
+    if batch_id is not None:
+        stmt = stmt.where(Notification.batch_id == batch_id)
     stmt = stmt.order_by(Notification.created_at.desc(), Notification.id)
     page: Page[NotificationOut] = await apaginate(session, stmt, params)
     return page

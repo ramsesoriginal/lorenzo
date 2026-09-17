@@ -39,6 +39,13 @@ class Notification(Base):
     __tablename__ = "notification"
 
     id: Mapped[UuidPk]
+    # ADR 0057 - one value shared by every row a single creation call fans
+    # out, so a sender can pull "everyone I sent this to" (GET /me/
+    # notifications/sent?batch_id=...) in one query instead of correlating
+    # by title/timestamp. Always set explicitly by lorenzo_api.notifications
+    # - the column default only ever backfills a hypothetical pre-existing
+    # row, never relied on for a real creation call.
+    batch_id: Mapped[uuid.UUID] = mapped_column(index=True)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("app_user.id", ondelete="CASCADE"), index=True
     )

@@ -6,6 +6,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import exists, select
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import can_manage_campaign, is_tenant_admin
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -165,6 +166,16 @@ async def create_campaign(
         updated_by=user.id,
     )
     session.add(campaign)
+    await session.flush()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="campaign.created",
+        target_type="campaign",
+        target_id=campaign.id,
+        detail=campaign.name,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -231,6 +242,7 @@ async def delete_campaign(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     campaign_id: uuid.UUID,
     session: SessionDep,
+    user: CurrentUser,
     force: Annotated[
         bool,
         Query(
@@ -288,9 +300,19 @@ async def delete_campaign(
     await delete_campaign_profile_picture(session, campaign_id=campaign_id)
 
     entity_id = campaign.entity_id
+    campaign_name = campaign.name
     await session.delete(campaign)
     await session.flush()
     await session.delete(await session.get_one(Entity, entity_id))
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="campaign.deleted",
+        target_type="campaign",
+        target_id=campaign_id,
+        detail=campaign_name,
+    )
     await session.commit()
 
 
@@ -326,6 +348,15 @@ async def grant_campaign_gm(
                 tenant_id=tenant_id, user_id=user_id, campaign_id=campaign_id, created_by=user.id
             )
         )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign_gm.granted",
+            target_type="campaign_gm",
+            target_id=user_id,
+            detail=f"campaign_id={campaign_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
@@ -354,6 +385,15 @@ async def revoke_campaign_gm(
     existing = await session.get(CampaignGm, (tenant_id, user_id, campaign_id))
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign_gm.revoked",
+            target_type="campaign_gm",
+            target_id=user_id,
+            detail=f"campaign_id={campaign_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)

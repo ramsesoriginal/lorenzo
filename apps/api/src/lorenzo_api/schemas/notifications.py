@@ -7,14 +7,20 @@ __all__ = ["AdminNotificationCreate", "NotificationCreate", "NotificationOut"]
 
 
 class NotificationOut(BaseModel):
-    """GET /me/notifications, POST /me/notifications/{id}/read - see ADR
-    0054. A plain ORM passthrough - every field is copied onto the row
-    directly at creation time, nothing derived at read time.
+    """GET /me/notifications, GET /me/notifications/sent, POST /me/
+    notifications/{id}/read - see ADR 0054/0057. A plain ORM passthrough -
+    every field is copied onto the row directly at creation time, nothing
+    derived at read time. `user_id` (the recipient) and `batch_id` are
+    harmless to echo back on a recipient's own inbox read (it's already
+    their own id) and exactly what a sender needs reading the same shape
+    from the other side via `/sent`.
     """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    batch_id: uuid.UUID
+    user_id: uuid.UUID
     scope: str
     type: str
     tenant_id: uuid.UUID | None

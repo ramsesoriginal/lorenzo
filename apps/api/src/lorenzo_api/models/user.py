@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ARRAY, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
@@ -60,6 +60,20 @@ class User(Base):
         ForeignKey("app_user.id", ondelete="SET NULL"), index=True
     )
     suspension_reason: Mapped[str | None]
+    # ADR 0056 - a fuller profile. display_name is a friendly label,
+    # deliberately not unique (unlike nickname, ADR 0050/0051's own lookup
+    # handle) - two users can both be "Alex". locales is this codebase's
+    # first native Postgres array column: a short, homogeneous,
+    # order-not-load-bearing list of locale tags doesn't earn a join table
+    # the way a genuine many-to-many domain relationship does. user_color
+    # is validated as #RRGGBB at the schema boundary (schemas/users.py),
+    # not here - same "format-checking is an application concern" precedent
+    # PayloadDescription.locale (ADR 0017) already established.
+    display_name: Mapped[str | None]
+    pronouns: Mapped[str | None]
+    bio: Mapped[str | None]
+    locales: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    user_color: Mapped[str | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

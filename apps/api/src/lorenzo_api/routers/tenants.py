@@ -6,9 +6,11 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, Header, Request, Response, UploadFile
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
+from fastapi_problem.error import Problem
 from sqlalchemy import exists, select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -44,8 +46,10 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_tenant_profile_picture,
 )
+from lorenzo_api.schemas.common import ProblemOut
 from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 from lorenzo_api.schemas.tenants import (
+    BulkMembershipResultItem,
     GmRosterEntryOut,
     MembershipCreate,
     MembershipRosterEntryOut,
@@ -336,30 +340,52 @@ async def list_tenant_roster(
     # One extra query for every user_id appearing above, not a join per
     # row/table (ADR 0050) - keeps each of the three source queries
     # unchanged and matches this function's own "combined in Python, not a
-    # SQL UNION" precedent already given below.
+    # SQL UNION" precedent already given below. Widened to display_name/
+    # user_color (ADR 0056) in the same query - no new round trip.
     user_ids = (
         {m.user_id for m in memberships}
         | {p.user_id for p in players}
         | {g.user_id for g in campaign_gms}
     )
-    nickname_rows = await session.execute(
-        select(User.id, User.nickname).where(User.id.in_(user_ids))
+    profile_rows = await session.execute(
+        select(User.id, User.nickname, User.display_name, User.user_color).where(
+            User.id.in_(user_ids)
+        )
     )
-    nickname_by_user_id: dict[uuid.UUID, str | None] = {
-        row.id: row.nickname for row in nickname_rows
-    }
+    nickname_by_user_id: dict[uuid.UUID, str | None] = {}
+    display_name_by_user_id: dict[uuid.UUID, str | None] = {}
+    user_color_by_user_id: dict[uuid.UUID, str | None] = {}
+    for row in profile_rows:
+        nickname_by_user_id[row.id] = row.nickname
+        display_name_by_user_id[row.id] = row.display_name
+        user_color_by_user_id[row.id] = row.user_color
 
     entries: list[TenantRosterEntryOut] = [
         *(
-            MembershipRosterEntryOut.from_membership(m, nickname=nickname_by_user_id.get(m.user_id))
+            MembershipRosterEntryOut.from_membership(
+                m,
+                nickname=nickname_by_user_id.get(m.user_id),
+                display_name=display_name_by_user_id.get(m.user_id),
+                user_color=user_color_by_user_id.get(m.user_id),
+            )
             for m in memberships
         ),
         *(
-            PlayerRosterEntryOut.from_player(p, nickname=nickname_by_user_id.get(p.user_id))
+            PlayerRosterEntryOut.from_player(
+                p,
+                nickname=nickname_by_user_id.get(p.user_id),
+                display_name=display_name_by_user_id.get(p.user_id),
+                user_color=user_color_by_user_id.get(p.user_id),
+            )
             for p in players
         ),
         *(
-            GmRosterEntryOut.from_campaign_gm(g, nickname=nickname_by_user_id.get(g.user_id))
+            GmRosterEntryOut.from_campaign_gm(
+                g,
+                nickname=nickname_by_user_id.get(g.user_id),
+                display_name=display_name_by_user_id.get(g.user_id),
+                user_color=user_color_by_user_id.get(g.user_id),
+            )
             for g in campaign_gms
         ),
     ]
@@ -412,31 +438,33 @@ async def _membership_out(
             detail=f"No membership for user {user_id} in tenant {tenant_id}"
         )
     user = await session.get(User, user_id)
-    nickname = user.nickname if user is not None else None
-    return MembershipRosterEntryOut.from_membership(membership, nickname=nickname)
+    return MembershipRosterEntryOut.from_membership(
+        membership,
+        nickname=user.nickname if user is not None else None,
+        display_name=user.display_name if user is not None else None,
+        user_color=user.user_color if user is not None else None,
+    )
 
 
-@router.post("/{tenant_id}/memberships", status_code=201)
-async def create_membership(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
-    body: MembershipCreate,
+async def _create_membership_core(
     session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    tenant: Tenant,
+    body: MembershipCreate,
     user: CurrentUser,
-) -> MembershipRosterEntryOut:
-    """No Location header - unlike every other POST in this codebase,
-    there is no single-resource GET .../memberships/{user_id} route to
-    point one at (only the broadened roster list above); RFC 0007's own
-    endpoint table doesn't add one either. Deliberately not making one up.
+) -> None:
+    """Core mechanics only - no auth-gate check (the caller already ran
+    `_require_owner` once, up front - see ADR 0058 for why that's correct
+    here, unlike `bulk_assign_item_instances`'s own per-item re-check), no
+    commit. Shared by `create_membership` and `bulk_create_memberships` so
+    the two can't drift - the same `_perform_split`/`_perform_set_owner`
+    shape (`routers/item_instances.py`, ADR 0044).
 
     Also creates a `scope="tenant", type="tenant_invite"` notification for
-    the new member, in the same transaction (ADR 0054) - the one
-    system-triggered notification this pass wires in, proving the pattern
-    end to end rather than leaving it purely theoretical.
+    the new member (ADR 0054) and an activity-log entry (ADR 0059), both
+    in the same transaction.
     """
-    await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
-    tenant = await session.get(Tenant, tenant_id)
-    if tenant is None:
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     if await session.get(User, body.user_id) is None:
         raise InvalidUserError(detail=f"{body.user_id} is not an existing user")
     if await session.get(Membership, (tenant_id, body.user_id)) is not None:
@@ -462,9 +490,94 @@ async def create_membership(
         body=f"You now have {body.role} access to {tenant.name}.",
         created_by=user.id,
     )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="membership.created",
+        target_type="membership",
+        target_id=body.user_id,
+        detail=f"role={body.role}",
+    )
+
+
+@router.post("/{tenant_id}/memberships", status_code=201)
+async def create_membership(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    body: MembershipCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> MembershipRosterEntryOut:
+    """No Location header - unlike every other POST in this codebase,
+    there is no single-resource GET .../memberships/{user_id} route to
+    point one at (only the broadened roster list above); RFC 0007's own
+    endpoint table doesn't add one either. Deliberately not making one up.
+    """
+    await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+
+    await _create_membership_core(session, tenant_id=tenant_id, tenant=tenant, body=body, user=user)
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _membership_out(tenant_id, body.user_id, session)
+
+
+@router.post("/{tenant_id}/memberships/bulk", status_code=201)
+async def bulk_create_memberships(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    body: list[MembershipCreate],
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BulkMembershipResultItem]:
+    """Invites several people into a tenant in one call (ADR 0058). Gated
+    by `_require_owner` **once**, up front - unlike `bulk_assign_item_
+    instances`'s per-item re-check (item-instance ownership varies per
+    item; "is the caller OWNER of this tenant" doesn't, it's the same fact
+    for every entry in the batch).
+
+    Never all-or-nothing: each item runs inside its own `session.
+    begin_nested()` (a SQL SAVEPOINT), so one item's failure rolls back
+    only that item - a caught `fastapi_problem.error.Problem` becomes that
+    item's own "error" entry (via the identical `.marshal()` shape a real
+    single-item error response would have), everything else already
+    applied by earlier items in the batch proceeds to the one shared
+    commit at the end. The exact `bulk_assign_item_instances` pattern
+    (ADR 0044), applied to membership invites.
+    """
+    await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+
+    results: list[BulkMembershipResultItem] = []
+    for item in body:
+        try:
+            async with session.begin_nested():
+                await _create_membership_core(
+                    session, tenant_id=tenant_id, tenant=tenant, body=item, user=user
+                )
+        except Problem as exc:
+            results.append(
+                BulkMembershipResultItem(
+                    user_id=item.user_id,
+                    status="error",
+                    membership=None,
+                    problem=ProblemOut(**exc.marshal()),
+                )
+            )
+            continue
+        membership_out = await _membership_out(tenant_id, item.user_id, session)
+        results.append(
+            BulkMembershipResultItem(
+                user_id=item.user_id, status="ok", membership=membership_out, problem=None
+            )
+        )
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return results
 
 
 @router.patch("/{tenant_id}/memberships/{user_id}")
@@ -495,6 +608,15 @@ async def update_membership(
     if membership.role != new_role:
         membership.role = new_role
         membership.updated_by = user.id
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="membership.role_changed",
+            target_type="membership",
+            target_id=user_id,
+            detail=f"role={new_role.value}",
+        )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -528,6 +650,15 @@ async def delete_membership(
     ):
         raise LastOwnerError(detail=f"User {user_id} is the sole OWNER of tenant {tenant_id}")
 
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="membership.deleted",
+        target_type="membership",
+        target_id=user_id,
+        detail=None,
+    )
     await session.delete(membership)
     await session.commit()
 

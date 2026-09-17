@@ -5,8 +5,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from lorenzo_api.models import CampaignGm, Membership, Player, Tenant
 from lorenzo_api.schemas.characters import CharacterSummaryOut
+from lorenzo_api.schemas.common import ProblemOut
 
 __all__ = [
+    "BulkMembershipResultItem",
     "GmRosterEntryOut",
     "MembershipCreate",
     "MembershipRoleName",
@@ -140,15 +142,26 @@ class MembershipRosterEntryOut(BaseModel):
     kind: Literal["membership"] = "membership"
     user_id: uuid.UUID
     nickname: str | None
+    display_name: str | None
+    user_color: str | None
     role: str
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 
     @classmethod
-    def from_membership(cls, membership: Membership, *, nickname: str | None) -> Self:
+    def from_membership(
+        cls,
+        membership: Membership,
+        *,
+        nickname: str | None,
+        display_name: str | None,
+        user_color: str | None,
+    ) -> Self:
         return cls(
             user_id=membership.user_id,
             nickname=nickname,
+            display_name=display_name,
+            user_color=user_color,
             role=membership.role.value,
             created_by=membership.created_by,
             updated_by=membership.updated_by,
@@ -167,16 +180,27 @@ class PlayerRosterEntryOut(BaseModel):
     kind: Literal["player"] = "player"
     user_id: uuid.UUID
     nickname: str | None
+    display_name: str | None
+    user_color: str | None
     campaign_id: uuid.UUID
     characters: list[CharacterSummaryOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 
     @classmethod
-    def from_player(cls, player: Player, *, nickname: str | None) -> Self:
+    def from_player(
+        cls,
+        player: Player,
+        *,
+        nickname: str | None,
+        display_name: str | None,
+        user_color: str | None,
+    ) -> Self:
         return cls(
             user_id=player.user_id,
             nickname=nickname,
+            display_name=display_name,
+            user_color=user_color,
             campaign_id=player.campaign_id,
             characters=[
                 CharacterSummaryOut.from_character(link.character)
@@ -205,15 +229,42 @@ class GmRosterEntryOut(BaseModel):
     kind: Literal["gm"] = "gm"
     user_id: uuid.UUID
     nickname: str | None
+    display_name: str | None
+    user_color: str | None
     campaign_id: uuid.UUID
 
     @classmethod
-    def from_campaign_gm(cls, campaign_gm: CampaignGm, *, nickname: str | None) -> Self:
+    def from_campaign_gm(
+        cls,
+        campaign_gm: CampaignGm,
+        *,
+        nickname: str | None,
+        display_name: str | None,
+        user_color: str | None,
+    ) -> Self:
         return cls(
-            user_id=campaign_gm.user_id, nickname=nickname, campaign_id=campaign_gm.campaign_id
+            user_id=campaign_gm.user_id,
+            nickname=nickname,
+            display_name=display_name,
+            user_color=user_color,
+            campaign_id=campaign_gm.campaign_id,
         )
 
 
 TenantRosterEntryOut = Annotated[
     MembershipRosterEntryOut | PlayerRosterEntryOut | GmRosterEntryOut, Field(discriminator="kind")
 ]
+
+
+class BulkMembershipResultItem(BaseModel):
+    """POST /tenants/{id}/memberships/bulk - one output entry, always
+    present for every input entry regardless of outcome (ADR 0058: never
+    all-or-nothing). Exactly one of membership/problem is set, matching
+    status - the identical shape `BulkAssignResultItem` (ADR 0044,
+    `schemas/items.py`) already established for the same pattern.
+    """
+
+    user_id: uuid.UUID
+    status: Literal["ok", "error"]
+    membership: MembershipRosterEntryOut | None = None
+    problem: ProblemOut | None = None
