@@ -110,6 +110,15 @@ New Cloud Run services are private by default — every request needs a Google-s
 
 Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live on Authgear's own subdomain), 1-day log retention, and a "2 Applications" cap whose exact scope (client apps within a project, vs. a project-count ceiling) is worth confirming directly in their console rather than assuming.
 
+### Granting the `tenant-creator` role (ADR 0033)
+
+`POST /tenants` is gated by a platform-level Authgear role, not by anything in this app's own tables ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)) — bootstrapping the very first tenant is a manual, human step, not a cold API call:
+
+1. **Authgear Portal → your production project → Configuration → Roles** (create the role here first if it doesn't exist yet) **→ Users → the account that should be able to create tenants → assign the role.**
+2. **Role keys can't contain `-` at all** — the Portal accepts a display name like "tenant-creator," but silently rewrites the underlying *key* (the value that actually lands in the token's `https://authgear.com/claims/user/roles` claim) to `tenant_creator`. Confirmed empirically, not assumed from Authgear's docs — see [ADR 0033's addendum](../adr/0033-tenant-creation-and-update-api.md#addendum-role-keys-cant-contain-hyphens-only-underscores). `Settings.tenant_creator_role_key` already defaults to `tenant_creator` to match; only override `TENANT_CREATOR_ROLE_KEY` if you deliberately pick a different role key in the Portal.
+3. **Get a real access token for that account**: from `apps/api/`, `AUTHGEAR_DEV_CLIENT_ID=<client id> AUTHGEAR_DEV_CLIENT_SECRET=<client secret> mise run dev-token -- --issuer <production issuer>`, using the OIDC client registered in step 2 of the section above (needs `http://127.0.0.1:8765/callback` as an Authorized Redirect URI on that client). Opens a browser, logs in, prints the token.
+4. **Call `POST /tenants`** with that token — either the deployed API's own Swagger UI at `<base url>/docs` (Authorize, then try out `POST /tenants`), or `curl -X POST <base url>/tenants -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name": "..."}'`. The response's `id` is the tenant's UUID.
+
 ## GitHub setup
 
 Create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments), and add:

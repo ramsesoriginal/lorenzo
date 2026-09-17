@@ -185,7 +185,7 @@ async def test_require_tenant_creator_role_checks_the_claim_directly() -> None:
     for testing an authorization predicate in isolation.
     """
     user_with_role = User(authgear_subject_id="has-tenant-creator-role")
-    user_with_role.authgear_roles = frozenset({"tenant-creator"})
+    user_with_role.authgear_roles = frozenset({"tenant_creator"})
     await require_tenant_creator_role(user_with_role)  # must not raise
 
     user_without_role = User(authgear_subject_id="no-roles-at-all")
