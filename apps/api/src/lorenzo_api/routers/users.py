@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,11 @@ from lorenzo_api.models import (
     MembershipRole,
     Player,
     User,
+)
+from lorenzo_api.profile_pictures import (
+    delete_user_profile_picture,
+    read_and_validate_upload,
+    upsert_user_profile_picture,
 )
 from lorenzo_api.schemas.users import MeOut, NicknameUpdate, UserRefOut
 
@@ -132,6 +137,26 @@ async def update_me(user: CurrentUser, body: NicknameUpdate, session: SessionDep
     return await _me_out(user.id, session)
 
 
+@router.put("/me/picture", status_code=204)
+async def upload_my_picture(user: CurrentUser, session: SessionDep, file: UploadFile) -> None:
+    """Uploads or replaces the caller's own profile picture - see ADR 0052.
+    No `If-Match`, same reasoning as `PATCH /me`: a single self-editable
+    resource on your own record isn't a meaningful concurrent-write risk.
+    """
+    data, file_type = await read_and_validate_upload(file)
+    await upsert_user_profile_picture(session, user_id=user.id, data=data, file_type=file_type)
+    await session.commit()
+
+
+@router.delete("/me/picture", status_code=204)
+async def delete_my_picture(user: CurrentUser, session: SessionDep) -> None:
+    """No-op (still 204), not 404, if there was never a custom picture to
+    delete - matches DELETE's own general idempotency expectation.
+    """
+    await delete_user_profile_picture(session, user_id=user.id)
+    await session.commit()
+
+
 @router.get("/users/by-email/{email}")
 async def get_user_by_email(email: str, user: CurrentUser, session: SessionDep) -> UserRefOut:
     """Exact match only, open to any authenticated user - see ADR 0051.
@@ -211,5 +236,9 @@ async def delete_me(user: CurrentUser, session: SessionDep) -> None:
         if owner_ids == [user.id]:
             raise LastOwnerError(detail=f"User {user.id} is the sole OWNER of tenant {tenant_id}")
 
+    # The user_profile_picture link cascades away with the User row below,
+    # but nothing points the other way - the profile_picture row itself
+    # would otherwise be orphaned forever (ADR 0052).
+    await delete_user_profile_picture(session, user_id=user.id)
     await session.delete(await session.get_one(User, user.id))
     await session.commit()

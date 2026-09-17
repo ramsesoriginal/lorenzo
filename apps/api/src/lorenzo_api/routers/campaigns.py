@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, UploadFile
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import exists, select
@@ -25,6 +25,11 @@ from lorenzo_api.exceptions import (
     CampaignNotFoundError,
 )
 from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut
+from lorenzo_api.profile_pictures import (
+    delete_campaign_profile_picture,
+    read_and_validate_upload,
+    upsert_campaign_profile_picture,
+)
 from lorenzo_api.schemas.campaigns import (
     CampaignCreate,
     CampaignOut,
@@ -189,6 +194,35 @@ async def update_campaign(
     return await _campaign_out(tenant_id, campaign_id, session)
 
 
+@router.put("/{campaign_id}/picture", status_code=204)
+async def upload_campaign_picture(
+    tenant_id: uuid.UUID,
+    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    session: SessionDep,
+    user: CurrentUser,
+    file: UploadFile,
+) -> None:
+    """Same gate `update_campaign` uses (ADR 0052)."""
+    await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    data, file_type = await read_and_validate_upload(file)
+    await upsert_campaign_profile_picture(
+        session, tenant_id=tenant_id, campaign_id=campaign_id, data=data, file_type=file_type
+    )
+    await session.commit()
+
+
+@router.delete("/{campaign_id}/picture", status_code=204)
+async def delete_campaign_picture(
+    tenant_id: uuid.UUID,
+    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    await delete_campaign_profile_picture(session, campaign_id=campaign_id)
+    await session.commit()
+
+
 @router.delete("/{campaign_id}", status_code=204)
 async def delete_campaign(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -243,6 +277,12 @@ async def delete_campaign(
                     "pass ?force=true to delete anyway"
                 )
             )
+
+    # The campaign_profile_picture link cascades away with campaign below,
+    # but nothing points the other way - the profile_picture row itself
+    # would otherwise be orphaned forever (ADR 0052). Must run before the
+    # campaign row (and its link) is actually gone.
+    await delete_campaign_profile_picture(session, campaign_id=campaign_id)
 
     entity_id = campaign.entity_id
     await session.delete(campaign)

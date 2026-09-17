@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # are unaffected either way, CORS only ever restricts browser JS.
     cors_allowed_origins: list[str] = []
 
+    # Profile pictures (ADR 0052) - bytes are stored directly in Postgres
+    # (matching payload_picture's own precedent, ADR 0017), so this caps
+    # both the request body size and the row size, not a bucket quota.
+    profile_picture_max_bytes: int = 2_000_000
+
     @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:

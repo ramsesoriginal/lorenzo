@@ -34,6 +34,7 @@ __all__ = [
     "InformationNotFoundError",
     "InvalidSplitQuantityError",
     "InvalidStatGroupError",
+    "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
     "InvalidTokenError",
     "InvalidUserError",
@@ -53,6 +54,7 @@ __all__ = [
     "PlayerAlreadyExistsError",
     "PlayerNotFoundError",
     "PreconditionFailedError",
+    "ProfilePictureNotFoundError",
     "SlugConflictError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
@@ -123,6 +125,15 @@ class ItemPrototypeInUseError(ConflictProblem):
     """
 
     title = "Item is still in use as a prototype"
+
+
+class InvalidProfilePictureError(UnprocessableProblem):
+    """PUT .../picture - the uploaded content-type isn't in the allow-list
+    (image/png, image/jpeg, image/webp, image/gif), or the body exceeds
+    `Settings.profile_picture_max_bytes`. See ADR 0052.
+    """
+
+    title = "Invalid profile picture"
 
 
 class InvalidItemPrototypeError(UnprocessableProblem):
@@ -272,6 +283,14 @@ class PreconditionFailedError(StatusProblem):
 
     status = 412
     title = "Precondition failed"
+
+
+class ProfilePictureNotFoundError(NotFoundProblem):
+    """GET .../picture - no uploaded picture and, for a user, no email to
+    fall back to a Gravatar with either. See ADR 0052.
+    """
+
+    title = "Profile picture not found"
 
 
 class TenantCreationForbiddenError(ForbiddenProblem):

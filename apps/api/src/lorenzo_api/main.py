@@ -23,6 +23,7 @@ from lorenzo_api.routers.information import router as information_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.payloads import router as payloads_router
+from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.stats import router as stats_router
 from lorenzo_api.routers.tenants import router as tenants_router
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(players_router)
     app.include_router(characters_router)
     app.include_router(payloads_router)
+    app.include_router(pictures_router)
     app.include_router(entities_router)
     app.include_router(entity_stats_router)
     app.include_router(groups_router)

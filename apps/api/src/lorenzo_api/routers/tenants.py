@@ -3,7 +3,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Request, Response, UploadFile
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import exists, select
@@ -37,6 +37,11 @@ from lorenzo_api.models import (
     Player,
     Tenant,
     User,
+)
+from lorenzo_api.profile_pictures import (
+    delete_tenant_profile_picture,
+    read_and_validate_upload,
+    upsert_tenant_profile_picture,
 )
 from lorenzo_api.schemas.tenants import (
     GmRosterEntryOut,
@@ -254,6 +259,31 @@ async def update_tenant(
     return await _tenant_out(tenant_id, session)
 
 
+@router.put("/{tenant_id}/picture", status_code=204)
+async def upload_tenant_picture(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    file: UploadFile,
+) -> None:
+    """Same gate `update_tenant` uses (ADR 0052) - ORGA+, not OWNER-only:
+    a tenant's picture is day-to-day tenant administration, not a
+    membership-management decision.
+    """
+    data, file_type = await read_and_validate_upload(file)
+    await upsert_tenant_profile_picture(
+        session, tenant_id=tenant_id, data=data, file_type=file_type
+    )
+    await session.commit()
+
+
+@router.delete("/{tenant_id}/picture", status_code=204)
+async def delete_tenant_picture(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)], session: SessionDep
+) -> None:
+    await delete_tenant_profile_picture(session, tenant_id=tenant_id)
+    await session.commit()
+
+
 @router.get("/{tenant_id}/memberships")
 async def list_tenant_roster(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -310,9 +340,12 @@ async def list_tenant_roster(
         | {p.user_id for p in players}
         | {g.user_id for g in campaign_gms}
     )
-    nickname_by_user_id: dict[uuid.UUID, str | None] = dict(
-        (await session.execute(select(User.id, User.nickname).where(User.id.in_(user_ids)))).all()
+    nickname_rows = await session.execute(
+        select(User.id, User.nickname).where(User.id.in_(user_ids))
     )
+    nickname_by_user_id: dict[uuid.UUID, str | None] = {
+        row.id: row.nickname for row in nickname_rows
+    }
 
     entries: list[TenantRosterEntryOut] = [
         *(
