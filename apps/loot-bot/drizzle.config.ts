@@ -24,12 +24,20 @@ import { loadConfig } from "./src/config.js";
  * ever seeing or diffing apps/api's own tables (all under `public`), even
  * by accident.
  */
+const config = loadConfig();
+// Optional in the shared schema (only migrate.ts's deployed-server
+// counterpart is allowed to run without it - see config.ts's own note), but
+// this file always runs from a developer's own .env, which does have it.
+if (!config.migrationsDatabaseUrl) {
+  throw new Error("LOOT_BOT_MIGRATIONS_DATABASE_URL is required to run drizzle-kit");
+}
+
 export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db-schema.ts",
   out: "./migrations",
   dbCredentials: {
-    url: loadConfig().migrationsDatabaseUrl,
+    url: config.migrationsDatabaseUrl,
   },
   schemaFilter: ["loot_bot"],
 });

@@ -14,7 +14,15 @@ const envSchema = z.object({
   AUTHGEAR_CLIENT_SECRET: z.string().min(1),
 
   LOOT_BOT_DATABASE_URL: z.string().min(1),
-  LOOT_BOT_MIGRATIONS_DATABASE_URL: z.string().min(1),
+  // Optional here, not required: only migrate.ts's one-shot process ever
+  // reads this (the privileged bootstrap/DDL role - see its own docstring).
+  // The deployed server (index.ts) must never hold it, so
+  // deploy-loot-bot.yml's own env_vars for the running container
+  // deliberately don't set it - loadConfig() validates one shared schema for
+  // both entry points, so requiring it here would crash the server's own
+  // startup on every deploy. migrate.ts asserts it's actually present
+  // itself, since it's the one place that genuinely can't run without it.
+  LOOT_BOT_MIGRATIONS_DATABASE_URL: z.string().min(1).optional(),
   LOOT_BOT_TOKEN_ENCRYPTION_KEY: z.string().min(1),
 
   LOOT_BOT_HTTP_PORT: z.coerce.number().int().positive().default(8090),
@@ -44,7 +52,7 @@ export type Config = Readonly<{
   authgearClientId: string;
   authgearClientSecret: string;
   databaseUrl: string;
-  migrationsDatabaseUrl: string;
+  migrationsDatabaseUrl: string | undefined;
   tokenEncryptionKey: string;
   httpPort: number;
   publicBaseUrl: string;
