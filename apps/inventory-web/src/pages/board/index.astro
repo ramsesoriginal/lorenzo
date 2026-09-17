@@ -25,6 +25,19 @@ import Base from '../../layouts/Base.astro';
     </section>
   </div>
 
+  <dialog id="item-detail" class="item-detail">
+    <div class="item-detail-content">
+      <button type="button" id="item-detail-close" class="item-detail-close" aria-label="Close"
+        >&times;</button
+      >
+      <h2 id="item-detail-title" class="display"></h2>
+      <p id="item-detail-qty" class="item-detail-qty" hidden></p>
+      <dl id="item-detail-stats" class="item-detail-stats"></dl>
+      <p id="item-detail-flags" class="item-detail-flags" hidden></p>
+      <div id="item-detail-descriptions" class="item-detail-descriptions"></div>
+    </div>
+  </dialog>
+
   <script>
     import { isAuthenticated } from '../../lib/auth';
     import { listMyCharacters } from '../../lib/characters';
@@ -46,6 +59,13 @@ import Base from '../../layouts/Base.astro';
     const inventoryEmpty = document.getElementById('inventory-empty')!;
     const inventoryError = document.getElementById('inventory-error')!;
     const boardColumns = document.getElementById('board-columns')!;
+
+    const detailDialog = document.getElementById('item-detail') as HTMLDialogElement;
+    const detailTitle = document.getElementById('item-detail-title')!;
+    const detailQty = document.getElementById('item-detail-qty')!;
+    const detailStats = document.getElementById('item-detail-stats')!;
+    const detailFlags = document.getElementById('item-detail-flags')!;
+    const detailDescriptions = document.getElementById('item-detail-descriptions')!;
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
@@ -71,6 +91,88 @@ import Base from '../../layouts/Base.astro';
         mutate();
       }
     }
+
+    let openCard: HTMLElement | null = null;
+
+    function populateDetail(item: ItemInstance) {
+      detailTitle.textContent = item.title ?? '(unnamed item)';
+
+      const showQty = Boolean(item.quantity && item.quantity > 1);
+      detailQty.hidden = !showQty;
+      detailQty.textContent = showQty ? `×${item.quantity}` : '';
+
+      detailStats.replaceChildren();
+      const stats: [string, number | null][] = [
+        ['Weight', item.weight],
+        ['Height', item.height],
+        ['Price', item.price],
+        ['Rarity', item.rarity],
+        ['HP', item.hp],
+        ['Armor', item.armor],
+      ];
+      for (const [label, value] of stats) {
+        if (value === null) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.textContent = String(value);
+        detailStats.append(dt, dd);
+      }
+
+      const flags = [item.is_magical && 'Magical', item.is_cursed && 'Cursed'].filter(Boolean);
+      detailFlags.hidden = flags.length === 0;
+      detailFlags.textContent = flags.join(' · ');
+
+      detailDescriptions.replaceChildren();
+      for (const description of item.descriptions) {
+        const p = document.createElement('p');
+        p.textContent = description.content;
+        detailDescriptions.append(p);
+      }
+    }
+
+    // The dialog borrows the clicked card's view-transition-name for the
+    // duration it's open (and gives it back on close) - two different
+    // elements sharing one name, one at a time, is what makes the browser
+    // morph between them instead of just cross-fading.
+    function openDetail(item: ItemInstance, card: HTMLElement) {
+      openCard = card;
+      withReflow(() => {
+        card.style.viewTransitionName = '';
+        detailDialog.style.viewTransitionName = `item-${item.entity_id}`;
+        populateDetail(item);
+        detailDialog.showModal();
+      });
+    }
+
+    function closeDetail() {
+      const card = openCard;
+      openCard = null;
+      withReflow(() => {
+        detailDialog.close();
+        detailDialog.style.viewTransitionName = '';
+        if (card?.dataset.entityId) {
+          card.style.viewTransitionName = `item-${card.dataset.entityId}`;
+        }
+      });
+    }
+
+    document.getElementById('item-detail-close')?.addEventListener('click', () => closeDetail());
+
+    // Escape fires 'cancel' first (cancelable) - intercept it so Escape
+    // also gets the animated close instead of an instant native one.
+    detailDialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeDetail();
+    });
+
+    // A click that lands on the <dialog> element itself (not a descendant)
+    // is a backdrop click - the standard click-outside-to-close idiom.
+    detailDialog.addEventListener('click', (event) => {
+      if (event.target === detailDialog) {
+        closeDetail();
+      }
+    });
 
     function ensurePlaceholder(list: HTMLUListElement) {
       if (list.children.length === 0) {
@@ -176,6 +278,8 @@ import Base from '../../layouts/Base.astro';
           event.dataTransfer.effectAllowed = 'move';
         }
       });
+
+      li.addEventListener('click', () => openDetail(item, li));
 
       const title = document.createElement('span');
       title.className = 'item-card-title';

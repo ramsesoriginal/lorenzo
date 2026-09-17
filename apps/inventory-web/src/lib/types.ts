@@ -39,6 +39,11 @@ export interface TagValue {
   value: boolean | null;
 }
 
+export interface Description {
+  content: string;
+  locale: string;
+}
+
 export interface ItemInstance {
   entity_id: string;
   title: string | null;
@@ -46,6 +51,15 @@ export interface ItemInstance {
   container_entity_id: string | null;
   owner_entity_id: string | null;
   tags: TagValue[];
+  weight: number | null;
+  height: number | null;
+  price: number | null;
+  rarity: number | null;
+  hp: number | null;
+  armor: number | null;
+  is_magical: boolean | null;
+  is_cursed: boolean | null;
+  descriptions: Description[];
 }
 
 export interface EntitySummary {
