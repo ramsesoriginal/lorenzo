@@ -9,6 +9,8 @@ export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
 export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
 export type BulkAssignResultItem = components["schemas"]["BulkAssignResultItem"];
+export type GroupMemberResultItem = components["schemas"]["GroupMemberResultItem"];
+export type BulkMoveResultItem = components["schemas"]["BulkMoveResultItem"];
 
 /** A read paired with the `ETag` the server sent alongside it, if any -
  * `null` until every write route actually sends one back (tracked
@@ -66,7 +68,17 @@ export type MyProfile = Readonly<{
 /** One item instance the caller owns, flattened out of whichever
  * character/container it's actually grouped under - `/give`'s and
  * `/item`'s own "item" autocomplete both just want a flat pickable list. */
-export type OwnedItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
+export type OwnedItem = Readonly<{
+  entityId: string;
+  title: string;
+  quantity: number | null;
+  /** ADR 0066 (main's) computed field - `true`/`false` when explicitly
+   * tagged, `true` when unset but the instance currently holds something,
+   * else `null` ("unknown"). `/move`'s and `/set-current`'s own container
+   * autocomplete (ADR 0068) narrow to `isContainer === true` instead of
+   * "everything you own." */
+  isContainer: boolean | null;
+}>;
 
 /** One group entity (ADR 0028/0045) - a bare `entity` with no dedicated
  * table, defined purely by having members; `/note`'s `visibility:group`
@@ -268,6 +280,7 @@ export function createLorenzoApiClient(baseUrl: string) {
               entityId: item.entity_id,
               title: item.title ?? "(untitled)",
               quantity: item.quantity,
+              isContainer: item.is_container,
             })),
           );
         }),
@@ -381,6 +394,88 @@ export function createLorenzoApiClient(baseUrl: string) {
           },
           headers: { Authorization: `Bearer ${accessToken}` },
           body: { owner_character_id: ownerCharacterId },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** DELETE .../item-instances/{entity_id} - a plain cascade delete
+     * (ADR 0068's `/confiscate`, GM-only in this bot even though the
+     * route itself is self-or-managed like every other write here - a
+     * player destroying their own item isn't a scenario this bot exposes
+     * a command for). `ifMatch`, if given, is sent as `If-Match`, same
+     * treatment as every other write below. */
+    async deleteItemInstance(
+      tenantId: string,
+      entityId: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<void> {
+      const { error, response } = await client.DELETE(
+        "/tenants/{tenant_id}/item-instances/{entity_id}",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+    },
+
+    /** PATCH .../item-instances/{entity_id} - renames an instance
+     * (ADR 0068's `/rename`; owner/container have their own dedicated
+     * sub-resource actions, per `ItemInstanceUpdate`'s own docstring, so
+     * this is the only field this route ever actually changes today).
+     * Same `ifMatch` treatment as every other write below. */
+    async renameItemInstance(
+      tenantId: string,
+      entityId: string,
+      name: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.PATCH(
+        "/tenants/{tenant_id}/item-instances/{entity_id}",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { name },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/{entity_id}/merge - consumes `entityId`'s
+     * whole current stack into `intoEntityId`'s, then deletes `entityId`
+     * (ADR 0044/0064's `/merge`). Returns the *surviving* instance
+     * (`intoEntityId`'s new shape) - it keeps its own existing container
+     * untouched, which is what already satisfies "a merge has to end up
+     * in a container," not a separate mechanism. `ifMatch`, if given,
+     * guards the *source* (`entityId`) only, mirroring split's own
+     * single-sided precondition. */
+    async mergeItemInstance(
+      tenantId: string,
+      entityId: string,
+      intoEntityId: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { into_entity_id: intoEntityId },
         },
       );
       if (error !== undefined) throw toApiError(error, response.status);
@@ -621,6 +716,120 @@ export function createLorenzoApiClient(baseUrl: string) {
       });
       if (error !== undefined) throw toApiError(error, response.status);
       return data.items.map((group) => ({ entityId: group.id, name: group.name }));
+    },
+
+    /** GET .../characters/{character_id}/groups (ADR 0045's "reverse
+     * direction" addition) - every group a specific character belongs to.
+     * `/my-groups`'s own source (ADR 0068), one call per controlled
+     * character. Not paginated - bounded by one character's own
+     * memberships, same convention as `getItemInstancesOwnedBy`. */
+    async getCharacterGroups(
+      tenantId: string,
+      characterEntityId: string,
+      accessToken: string,
+    ): Promise<readonly GroupSummary[]> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/characters/{character_id}/groups",
+        {
+          params: { path: { tenant_id: tenantId, character_id: characterEntityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.map((group) => ({ entityId: group.id, name: group.name }));
+    },
+
+    /** POST /tenants/{tenant_id}/groups (ADR 0064) - creates a new group
+     * entity, optionally with its initial members in the same call.
+     * `/add-to-group`/`/add-channel-to-group`'s own "create it, if not yet
+     * present" path (ADR 0068). */
+    async createGroup(
+      tenantId: string,
+      name: string,
+      memberCharacterIds: readonly string[],
+      accessToken: string,
+    ): Promise<GroupSummary> {
+      const { data, error, response } = await client.POST("/tenants/{tenant_id}/groups", {
+        params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { name, member_character_ids: [...memberCharacterIds] },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return { entityId: data.id, name: data.name };
+    },
+
+    /** PUT .../groups/{group_entity_id}/members/{character_entity_id}
+     * (ADR 0064) - idempotent single-member add, returns the group's full
+     * updated member list. */
+    async addGroupMember(
+      tenantId: string,
+      groupEntityId: string,
+      characterEntityId: string,
+      accessToken: string,
+    ): Promise<readonly GroupSummary[]> {
+      const { data, error, response } = await client.PUT(
+        "/tenants/{tenant_id}/groups/{group_entity_id}/members/{character_entity_id}",
+        {
+          params: {
+            path: {
+              tenant_id: tenantId,
+              group_entity_id: groupEntityId,
+              character_entity_id: characterEntityId,
+            },
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.map((member) => ({ entityId: member.id, name: member.name }));
+    },
+
+    /** POST .../groups/{group_entity_id}/members/bulk (ADR 0064) - adds
+     * several characters to an existing group in one call, never
+     * all-or-nothing (one result per input id regardless of outcome). */
+    async bulkAddGroupMembers(
+      tenantId: string,
+      groupEntityId: string,
+      characterEntityIds: readonly string[],
+      accessToken: string,
+    ): Promise<readonly GroupMemberResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/groups/{group_entity_id}/members/bulk",
+        {
+          params: { path: { tenant_id: tenantId, group_entity_id: groupEntityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: [...characterEntityIds],
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/bulk-move (ADR 0065) - `/move-bulk`'s own
+     * write (ADR 0068): empties every item directly inside
+     * `fromContainerEntityId` into `toContainerEntityId` in one call, never
+     * all-or-nothing. The API also supports an explicit `items` list mode
+     * (mutually exclusive with `fromContainerEntityId`) - not used by this
+     * bot yet, no wrapper needed for it until something actually calls it. */
+    async bulkMoveItemInstancesFromContainer(
+      tenantId: string,
+      fromContainerEntityId: string,
+      toContainerEntityId: string,
+      accessToken: string,
+    ): Promise<readonly BulkMoveResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/bulk-move",
+        {
+          params: { path: { tenant_id: tenantId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            to_container_entity_id: toContainerEntityId,
+            from_container_entity_id: fromContainerEntityId,
+          },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
     },
   };
 }

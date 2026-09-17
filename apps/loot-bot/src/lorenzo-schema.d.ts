@@ -1225,11 +1225,65 @@ export interface paths {
          */
         get: operations["list_groups"];
         put?: never;
-        post?: never;
+        /**
+         * Create Group
+         * @description Creates a fresh bare Entity to serve as the group, plus one
+         *     GroupMember row per id in member_character_ids - see ADR 0064. Gated
+         *     by require_tenant_participant only: a brand-new, still-empty group is
+         *     exactly as low-stakes to create as it already is to browse (ADR
+         *     0045). Each initial member is individually validated/authorized by
+         *     _authorize_add_member, same as adding one later - creating a group
+         *     with members you don't control isn't a free pass just because the
+         *     group itself is new. Duplicate ids in member_character_ids collapse
+         *     silently (dict.fromkeys, order-preserving) rather than hitting
+         *     GroupMember's own composite-PK violation as a bare 500.
+         */
+        post: operations["create_group"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/groups/{group_entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Group
+         * @description A group's own identity is just "an entity with a name" - the same
+         *     lightweight shape list_groups already uses (ADR 0045), not the
+         *     heavier generic GET /entities/{id}. See ADR 0064: needed as the
+         *     Location target for create_group/duplicate_group below, and reused as
+         *     update_group/delete_group's own response shape.
+         */
+        get: operations["get_group"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Group
+         * @description Removes every GroupMember row naming this group - it stops being a
+         *     group - but deliberately does not delete the underlying Entity: RFC
+         *     0001 is explicit that nothing stops the same entity_id from playing
+         *     more than one role, so an entity that was already something else
+         *     before being used as a group must survive this. An entity created
+         *     purely via create_group and later fully emptied this way is left an
+         *     orphaned bare entity with no members and no other role - a real,
+         *     accepted gap, not solved here (see ADR 0064). Idempotent - a group
+         *     with zero members already is a no-op.
+         */
+        delete: operations["delete_group"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Group
+         * @description Rename only - a group has nothing else of its own to update. See
+         *     ADR 0064.
+         */
+        patch: operations["update_group"];
         trace?: never;
     };
     "/tenants/{tenant_id}/groups/{group_entity_id}/members": {
@@ -1253,6 +1307,98 @@ export interface paths {
         get: operations["list_group_members"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/groups/{group_entity_id}/members/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Add Group Members
+         * @description Adds several characters to a group in one call - see ADR 0064.
+         *     _require_can_manage_group is checked **once**, up front - it doesn't
+         *     vary per item, the same reasoning ADR 0062's own up-front
+         *     _require_owner check gives. Existence, the self-loop guard, and
+         *     can_manage_character *do* vary per item, so each runs inside its own
+         *     session.begin_nested() (a SQL SAVEPOINT) - the exact
+         *     bulk_assign_item_instances/bulk_create_memberships pattern (ADR
+         *     0044/0062): never all-or-nothing, a caught Problem becomes that
+         *     item's own "error" entry, everything else already applied proceeds to
+         *     the one shared commit.
+         *
+         *     Registered *before* /{group_entity_id}/members/{character_entity_id}
+         *     below - "bulk" would fail that route's UUID path converter anyway,
+         *     but registering the more specific literal path first matches this
+         *     codebase's established defensive convention (routers/item_
+         *     instances.py's /owned-by and /by-slug precedent) rather than relying
+         *     on that converter behavior alone.
+         */
+        post: operations["bulk_add_group_members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/groups/{group_entity_id}/members/{character_entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add Group Member
+         * @description Idempotent add - a re-PUT of an existing membership is a no-op,
+         *     mirroring grant_campaign_gm's exact shape. See ADR 0064. Returns the
+         *     group's full, updated member list (list_group_members' own shape) -
+         *     more immediately useful than a bare parent reference, and the caller
+         *     already knows this shape from GET .../members.
+         */
+        put: operations["add_group_member"];
+        post?: never;
+        /**
+         * Remove Group Member
+         * @description Idempotent remove - already covered by _require_can_manage_group
+         *     alone, since the member being removed is by definition a *current*
+         *     member. See ADR 0064.
+         */
+        delete: operations["remove_group_member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/groups/{group_entity_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate Group
+         * @description Copies group_entity_id's entire current roster into a fresh group -
+         *     see ADR 0064. _require_can_manage_group against the *source* only:
+         *     proving the caller can manage every one of its current members already
+         *     authorizes copying that same set onto a new group, no separate
+         *     per-member check needed on the copy. name defaults to the source's own
+         *     name when omitted; an empty source produces an empty duplicate, not an
+         *     error.
+         */
+        post: operations["duplicate_group"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1545,13 +1691,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Set Item Instance Container
-         * @description No cycle check - ADR 0016 deliberately allows containment cycles
-         *     ("game worlds can be legitimately non-Euclidean"), and this API layer
-         *     doesn't second-guess that by rejecting what the schema was explicitly
-         *     built to allow.
-         */
+        /** Set Item Instance Container */
         put: operations["set_item_instance_container"];
         post?: never;
         /** Clear Item Instance Container */
@@ -1648,6 +1788,48 @@ export interface paths {
          *     general practice.
          */
         post: operations["bulk_assign_item_instances"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/bulk-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Move Item Instances
+         * @description Moves several item instances into to_container_entity_id in one call
+         *     - see ADR 0065. to_container_entity_id is validated once, up front (a
+         *     404 if it isn't a real entity in this tenant) - it's the same
+         *     destination for every entry, doesn't vary per item, the identical
+         *     reasoning ADR 0062's own up-front check gives.
+         *
+         *     Two mutually exclusive input modes (enforced by
+         *     BulkMoveContainerRequest's own model_validator):
+         *     from_container_entity_id resolves to every item instance *directly*
+         *     contained there (that container's own existence is checked the same
+         *     way; resolving to zero item instances is not an error, just an empty
+         *     result) - no if_match is possible in this mode, there are no per-item
+         *     ids to attach one to ahead of time. items names an explicit list, each
+         *     with its own optional if_match, mirroring BulkAssignItem's identical
+         *     shape.
+         *
+         *     Never all-or-nothing, the same session.begin_nested()-per-item pattern
+         *     as bulk_assign_item_instances: a caught Problem becomes that item's own
+         *     "error" entry, everything else already applied proceeds to the one
+         *     shared commit. The actual mutation is _perform_set_container, shared
+         *     with the single-item PUT .../container route so the two can't drift -
+         *     including that route's own lack of any cycle/self-containment guard,
+         *     not tightened here either.
+         */
+        post: operations["bulk_move_item_instances"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1931,6 +2113,63 @@ export interface components {
             problem?: components["schemas"]["ProblemOut"] | null;
         };
         /**
+         * BulkMoveContainerRequest
+         * @description POST /item-instances/bulk-move body - see ADR 0065. Exactly one of
+         *     `from_container_entity_id` ("move everything directly inside this
+         *     container") or `items` ("move exactly this list") must be given -
+         *     a request-shape invariant, not a domain rule with a row to `CHECK`,
+         *     so it's validated here rather than via a typed `Problem`.
+         */
+        BulkMoveContainerRequest: {
+            /**
+             * To Container Entity Id
+             * Format: uuid
+             */
+            to_container_entity_id: string;
+            /** From Container Entity Id */
+            from_container_entity_id?: string | null;
+            /** Items */
+            items?: components["schemas"]["BulkMoveItem"][] | null;
+        };
+        /**
+         * BulkMoveItem
+         * @description POST /item-instances/bulk-move - one entry of the `items` mode. See
+         *     ADR 0065. `if_match` is optional, exactly like `BulkAssignItem`'s
+         *     identical field - honored per item, a stale claim becomes that item's
+         *     own "error" entry rather than failing the whole batch.
+         */
+        BulkMoveItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** If Match */
+            if_match?: string | null;
+        };
+        /**
+         * BulkMoveResultItem
+         * @description POST /item-instances/bulk-move - one output entry, always present
+         *     for every resolved item regardless of outcome (ADR 0065: never
+         *     all-or-nothing). Exactly one of item_instance/problem is set, matching
+         *     status - the identical shape `BulkAssignResultItem` already
+         *     established.
+         */
+        BulkMoveResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            item_instance?: components["schemas"]["ItemInstanceOut"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /**
          * CampaignCreate
          * @description POST /campaigns - see ADR 0034/RFC 0006. name/game_system/slug/
          *     description are all required, no defaults - RFC 0003's own no-default
@@ -2167,6 +2406,15 @@ export interface components {
             locale: string;
         };
         /**
+         * DuplicateGroupRequest
+         * @description POST /groups/{id}/duplicate - name defaults to the source group's
+         *     own name when omitted.
+         */
+        DuplicateGroupRequest: {
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * EntityDetailOut
          * @description The full shape of a single entity - every relationship resolved and
          *     inlined. See ADR 0020. Deliberately not reused for the list endpoint,
@@ -2304,6 +2552,51 @@ export interface components {
              */
             campaign_id: string;
         };
+        /**
+         * GroupCreate
+         * @description POST /groups - see ADR 0064. Creates a fresh bare Entity to serve as
+         *     the group, plus one GroupMember row per id in member_character_ids
+         *     (each individually validated and authorized, same as the single-member
+         *     PUT route below).
+         */
+        GroupCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Member Character Ids
+             * @default []
+             */
+            member_character_ids: string[];
+        };
+        /**
+         * GroupMemberResultItem
+         * @description POST /groups/{id}/members/bulk - one output entry, always present
+         *     for every input entry regardless of outcome (never all-or-nothing,
+         *     matching BulkAssignResultItem/BulkMembershipResultItem's identical
+         *     shape). Exactly one of problem/status="ok" applies.
+         */
+        GroupMemberResultItem: {
+            /**
+             * Character Entity Id
+             * Format: uuid
+             */
+            character_entity_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /**
+         * GroupUpdate
+         * @description PATCH /groups/{id} - only Entity.name is mutable, a group has
+         *     nothing else of its own.
+         */
+        GroupUpdate: {
+            /** Name */
+            name?: string | null;
+        };
         /** RequestValidationError */
         HTTPValidationError: {
             /** Problem title */
@@ -2424,7 +2717,7 @@ export interface components {
              */
             entity_id: string;
             /** Title */
-            title: string | null;
+            title: string;
             /** Weight */
             weight: number | null;
             /** Height */
@@ -2445,6 +2738,8 @@ export interface components {
             is_magical: boolean | null;
             /** Is Cursed */
             is_cursed: boolean | null;
+            /** Is Container */
+            is_container: boolean | null;
             /** Descriptions */
             descriptions: components["schemas"]["DescriptionOut"][];
             /** Pictures */
@@ -2487,15 +2782,22 @@ export interface components {
         /**
          * ItemOut
          * @description A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
+         *     `title` is always populated - `VItem.title` itself is still nullable
+         *     (no "description" Information row authored at all), but `_title_out`
+         *     (ADR 0067) falls back to the entity's own `name` whenever it's empty,
+         *     so a client always has something to display without checking for
+         *     `None` first.
          *
          *     Constructing this requires the source `VItem` to already have its
          *     entity->information->payloads->description/picture,
          *     entity->information->knowledge_links (ADR 0028 - `descriptions` is
-         *     visibility-gated, not a bare property anymore), and
-         *     entity->stats->stat_definition->stat_group eager-loaded (see
-         *     `routers.items.eager_load_options`, the exact recipe proven in
-         *     `tests/test_v_item.py`) - the six wrapped properties/methods raise
-         *     MissingGreenlet otherwise, they do not silently lazy-load.
+         *     visibility-gated, not a bare property anymore),
+         *     entity->stats->stat_definition->stat_group, and entity->contained_links
+         *     (ADR 0066 - `_is_container_out`'s own structural fallback) eager-loaded
+         *     (see `routers.items.eager_load_options`, the exact recipe proven in
+         *     `tests/test_v_item.py`) - the six wrapped properties/methods (plus
+         *     `contained_links` itself) raise MissingGreenlet otherwise, they do not
+         *     silently lazy-load.
          *
          *     `ItemInstanceOut` below extends this directly - identical fields plus
          *     `owner_entity_id`/`slug` - rather than repeating the field list a
@@ -2508,7 +2810,7 @@ export interface components {
              */
             entity_id: string;
             /** Title */
-            title: string | null;
+            title: string;
             /** Weight */
             weight: number | null;
             /** Height */
@@ -2529,6 +2831,8 @@ export interface components {
             is_magical: boolean | null;
             /** Is Cursed */
             is_cursed: boolean | null;
+            /** Is Container */
+            is_container: boolean | null;
             /** Descriptions */
             descriptions: components["schemas"]["DescriptionOut"][];
             /** Pictures */
@@ -7912,6 +8216,279 @@ export interface operations {
             };
         };
     };
+    create_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_group: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_group: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GroupUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_group_members: {
         parameters: {
             query?: never;
@@ -7931,6 +8508,280 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntitySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_add_group_members: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": string[];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupMemberResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_group_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+                character_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_group_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+                character_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    duplicate_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"];
                 };
             };
             /** @description Validation Error */
@@ -9514,6 +10365,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkAssignResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_move_item_instances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkMoveContainerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkMoveResultItem"][];
                 };
             };
             /** @description Validation Error */

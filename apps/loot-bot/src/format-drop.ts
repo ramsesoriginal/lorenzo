@@ -8,7 +8,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import type { LootClaim } from "./db.js";
+import type { ClaimType, LootClaim } from "./db.js";
 import type { ItemInstanceOut } from "./lorenzo-client.js";
 
 // Discord's own per-select-menu option cap - a drop with more unowned
@@ -50,10 +50,13 @@ export function buildDropEmbed(
     const amount = item.quantity !== null && item.quantity > 1 ? ` ×${item.quantity}` : "";
     const claimedBy = claims
       .filter((claim) => claim.itemEntityId === item.entityId)
-      .map(
-        (claim) =>
-          `<@${claim.discordUserId}>${claim.quantity !== null ? ` (${claim.quantity})` : ""}`,
-      );
+      .map((claim) => {
+        const details = [
+          claim.quantity !== null ? String(claim.quantity) : undefined,
+          claim.claimType === "need" ? "need" : undefined,
+        ].filter((d) => d !== undefined);
+        return `<@${claim.discordUserId}>${details.length > 0 ? ` (${details.join(", ")})` : ""}`;
+      });
     const claimText = claimedBy.length > 0 ? ` — claimed by ${claimedBy.join(", ")}` : "";
     return `**${item.title}**${amount}${claimText}`;
   });
@@ -62,9 +65,9 @@ export function buildDropEmbed(
 }
 
 /**
- * The take/claim select menus + apply-claims button (ADR 0052). Every
- * `customId` is namespaced `"drop:<action>:<dropId>"` - commands/index.ts's
- * dispatcher routes on the part before the first `:`.
+ * The take/claim select menus + apply/clear-claims buttons (ADR 0052/0064).
+ * Every `customId` is namespaced `"drop:<action>:<dropId>"` -
+ * commands/index.ts's dispatcher routes on the part before the first `:`.
  */
 export function buildDropComponents(
   dropId: string,
@@ -75,6 +78,10 @@ export function buildDropComponents(
       .setCustomId(`drop:apply:${dropId}`)
       .setLabel("Apply claims")
       .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`drop:clear:${dropId}`)
+      .setLabel("Clear claims")
+      .setStyle(ButtonStyle.Danger),
   );
 
   if (items.length === 0) {
@@ -105,13 +112,17 @@ export function buildDropComponents(
 
 /** The quantity prompt shown after picking an item from either select
  * menu (ADR 0052) - `customId` bakes in which action and which item, so
- * the modal-submit handler needs no other state to know what to do. */
+ * the modal-submit handler needs no other state to know what to do. A
+ * "claim" also asks for need-vs-greed (ADR 0068) - a second text field, not
+ * a separate step: Discord modals only support text inputs, no
+ * buttons/selects, so this is the only way to ask for it without adding a
+ * whole extra interaction round-trip. */
 export function buildQuantityModal(
   action: "take" | "claim",
   dropId: string,
   itemEntityId: string,
 ): ModalBuilder {
-  const input = new TextInputBuilder()
+  const quantityInput = new TextInputBuilder()
     .setCustomId("quantity")
     .setLabel("Quantity")
     .setPlaceholder(
@@ -119,10 +130,80 @@ export function buildQuantityModal(
     )
     .setStyle(TextInputStyle.Short)
     .setRequired(false);
+  const rows = [new ActionRowBuilder<TextInputBuilder>().addComponents(quantityInput)];
+
+  if (action === "claim") {
+    const claimTypeInput = new TextInputBuilder()
+      .setCustomId("claim-type")
+      .setLabel("Need or greed?")
+      .setPlaceholder("Type need or greed - blank defaults to greed")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+    rows.push(new ActionRowBuilder<TextInputBuilder>().addComponents(claimTypeInput));
+  }
+
   return new ModalBuilder()
     .setCustomId(`drop:${action}-modal:${dropId}:${itemEntityId}`)
     .setTitle(action === "take" ? "Take item" : "Claim item")
-    .addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
+    .addComponents(...rows);
+}
+
+/** Parses the claim modal's "need or greed?" text field - anything other
+ * than a case-insensitive "need" is treated as greed, matching the field's
+ * own "blank defaults to greed" placeholder. */
+export function parseClaimType(raw: string): ClaimType {
+  return raw.trim().toLowerCase() === "need" ? "need" : "greed";
+}
+
+export type PendingDropClaim = Readonly<{
+  discordUserId: string;
+  itemTitle: string;
+  quantity: number | null;
+  claimType: string;
+}>;
+
+export type PendingDropSummary = Readonly<{
+  discordChannelId: string;
+  discordMessageId: string | null;
+  containerTitle: string;
+  claims: readonly PendingDropClaim[];
+}>;
+
+/** `/pending-claims` (ADR 0068) - everyone's own cross-channel summary of
+ * every currently-open drop, not just GMs (unlike every other new drop
+ * affordance) - a long-running drop's own message can scroll out of view,
+ * and checking what's still outstanding shouldn't require a GM. */
+export function formatPendingDropsEmbed(
+  guildId: string,
+  drops: readonly PendingDropSummary[],
+): EmbedBuilder {
+  const embed = new EmbedBuilder().setTitle("Pending loot drops").setColor(0xc9a227);
+
+  if (drops.length === 0) {
+    return embed.setDescription("No pending drops.");
+  }
+
+  for (const drop of drops) {
+    const jumpLink = drop.discordMessageId
+      ? `https://discord.com/channels/${guildId}/${drop.discordChannelId}/${drop.discordMessageId}`
+      : undefined;
+    const header = `<#${drop.discordChannelId}>${jumpLink ? ` — [jump to message](${jumpLink})` : ""}`;
+
+    const claimLines =
+      drop.claims.length > 0
+        ? drop.claims
+            .map((claim) => {
+              const amount = claim.quantity !== null ? `${claim.quantity} of ` : "";
+              const tier = claim.claimType === "need" ? " (need)" : "";
+              return `<@${claim.discordUserId}> wants ${amount}**${claim.itemTitle}**${tier}`;
+            })
+            .join("\n")
+        : "Nothing claimed yet.";
+
+    embed.addFields({ name: drop.containerTitle, value: `${header}\n${claimLines}` });
+  }
+
+  return embed;
 }
 
 export type ClaimOutcome = Readonly<{

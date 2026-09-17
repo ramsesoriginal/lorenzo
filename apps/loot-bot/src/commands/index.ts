@@ -1,15 +1,28 @@
+import { addChannelToGroupCommand } from "./add-channel-to-group.js";
+import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
+import { confiscateCommand } from "./confiscate.js";
 import { dropCommand } from "./drop.js";
+import { giveBulkCommand } from "./give-bulk.js";
 import { giveCommand } from "./give.js";
+import { helpCommand } from "./help.js";
+import { inspectCommand } from "./inspect.js";
 import { introduceCommand } from "./introduce.js";
 import { inventoryCommand } from "./inventory.js";
 import { itemCommand } from "./item.js";
 import { linkCommand } from "./link.js";
+import { mergeCommand } from "./merge.js";
+import { moveBulkCommand } from "./move-bulk.js";
 import { moveCommand } from "./move.js";
+import { myGroupsCommand } from "./my-groups.js";
 import { noteCommand } from "./note.js";
+import { pendingClaimsCommand } from "./pending-claims.js";
 import { pingCommand } from "./ping.js";
+import { reassignCommand } from "./reassign.js";
+import { renameCommand } from "./rename.js";
 import { setCurrentCommand } from "./set-current.js";
 import type { AnyInteraction, Command, CommandContext } from "./types.js";
+import { undoCommand } from "./undo.js";
 import { unlinkCommand } from "./unlink.js";
 import { whoamiCommand } from "./whoami.js";
 
@@ -32,6 +45,19 @@ const commands: readonly Command[] = [
   unlinkCommand,
   whoamiCommand,
   introduceCommand,
+  inspectCommand,
+  confiscateCommand,
+  reassignCommand,
+  pendingClaimsCommand,
+  mergeCommand,
+  renameCommand,
+  giveBulkCommand,
+  undoCommand,
+  myGroupsCommand,
+  moveBulkCommand,
+  addToGroupCommand,
+  addChannelToGroupCommand,
+  helpCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
@@ -51,6 +77,12 @@ export async function dispatchInteraction(
   interaction: AnyInteraction,
   ctx: CommandContext,
 ): Promise<void> {
+  // Every command sees the full list via ctx.commands, not just its own
+  // definition - the one place this gets wired in, so `/help` (ADR 0068)
+  // can describe every other command without a second, hand-maintained
+  // list that could drift from this one.
+  const ctxWithCommands: CommandContext = { ...ctx, commands };
+
   // Chat-input/autocomplete are keyed by commandName; components/modals by
   // their own customId's namespace prefix (ADR 0052 - "<command name>:
   // <action>:<...ids>"), both resolving into the same commandsByName map.
@@ -69,7 +101,7 @@ export async function dispatchInteraction(
 
   if (interaction.isAutocomplete()) {
     try {
-      await command.autocomplete?.(interaction, ctx);
+      await command.autocomplete?.(interaction, ctxWithCommands);
     } catch (error) {
       // Autocomplete has no error-reply channel of its own (ADR 0051's own
       // note on types.ts's Command.autocomplete) - an empty choice list is
@@ -83,13 +115,13 @@ export async function dispatchInteraction(
 
   try {
     if (interaction.isStringSelectMenu()) {
-      await command.onSelectMenu?.(interaction, ctx);
+      await command.onSelectMenu?.(interaction, ctxWithCommands);
     } else if (interaction.isButton()) {
-      await command.onButton?.(interaction, ctx);
+      await command.onButton?.(interaction, ctxWithCommands);
     } else if (interaction.isModalSubmit()) {
-      await command.onModalSubmit?.(interaction, ctx);
+      await command.onModalSubmit?.(interaction, ctxWithCommands);
     } else if (interaction.isChatInputCommand()) {
-      await command.execute(interaction, ctx);
+      await command.execute(interaction, ctxWithCommands);
     }
   } catch (error) {
     ctx.logger.error({ err: error, commandName }, "command failed");

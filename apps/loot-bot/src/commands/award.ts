@@ -1,12 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
-import {
-  type ControlledCharacter,
-  type LorenzoApiClient,
-  LorenzoApiError,
-  createLorenzoApiClient,
-} from "../lorenzo-client.js";
+import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices } from "./autocomplete.js";
+import { findGmControlledCharacters } from "./gm-roster.js";
 import type { Command } from "./types.js";
 
 /**
@@ -60,7 +56,7 @@ export const awardCommand: Command = {
     }
 
     if (focused.name === "character") {
-      const characters = await findAwardTargets(client, tenantId, accessToken);
+      const characters = await findGmControlledCharacters(client, tenantId, accessToken);
       const choices = characters.map((c) => ({ name: c.name, value: c.entityId }));
       await interaction.respond(filterChoices(choices, focused.value));
     }
@@ -106,25 +102,6 @@ export const awardCommand: Command = {
     }
   },
 };
-
-/** Every character in a campaign the caller GMs, deduplicated - `getGmCampaignIds`
- * isn't tenant-scoped (see its own docstring), so a campaign belonging to
- * a different tenant just fails this tenant-scoped roster lookup and is
- * silently skipped, rather than failing the whole autocomplete request. */
-async function findAwardTargets(
-  client: LorenzoApiClient,
-  tenantId: string,
-  accessToken: string,
-): Promise<readonly ControlledCharacter[]> {
-  const campaignIds = await client.getGmCampaignIds(accessToken);
-  const rosters = await Promise.all(
-    campaignIds.map((campaignId) =>
-      client.getCampaignPlayers(tenantId, campaignId, accessToken).catch(() => []),
-    ),
-  );
-  const byId = new Map(rosters.flat().map((character) => [character.entityId, character]));
-  return [...byId.values()];
-}
 
 function describeAwardError(error: LorenzoApiError): string {
   switch (error.status) {

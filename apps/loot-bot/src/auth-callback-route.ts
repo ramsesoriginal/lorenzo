@@ -3,8 +3,14 @@ import type { Logger } from "pino";
 import { exchangeAuthorizationCode, getAuthgearConfiguration } from "./authgear-client.js";
 import type { Config } from "./config.js";
 import { CURRENT_KEY_VERSION, encrypt } from "./crypto.js";
-import { AuthgearSubjectAlreadyLinkedError, upsertLinkedAccount } from "./db.js";
+import {
+  AuthgearSubjectAlreadyLinkedError,
+  GLOBAL_PREFERENCE_CHANNEL_ID,
+  setPreference,
+  upsertLinkedAccount,
+} from "./db.js";
 import type { RouteHandler } from "./http-server.js";
+import { createLorenzoApiClient } from "./lorenzo-client.js";
 import { consumePendingLink } from "./pending-links.js";
 
 /**
@@ -101,6 +107,13 @@ export function createAuthCallbackRoute(config: Config, logger: Logger): RouteHa
         keyVersion: CURRENT_KEY_VERSION,
       });
 
+      await autoSetSoleCharacterAsCurrent(
+        config,
+        logger,
+        pending.discordUserId,
+        tokens.accessToken,
+      );
+
       sendHtml(res, 200, "Linked", "Linked - you can close this tab.");
     } catch (error) {
       if (error instanceof AuthgearSubjectAlreadyLinkedError) {
@@ -124,6 +137,45 @@ export function createAuthCallbackRoute(config: Config, logger: Logger): RouteHa
       );
     }
   };
+}
+
+/**
+ * If linking just resolved to exactly one controlled character, make it
+ * the caller's current character right away (ADR 0068) - the common case
+ * for a player with only one PC, who'd otherwise have to run
+ * `/set-current` immediately after every `/link`. Stored under
+ * `GLOBAL_PREFERENCE_CHANNEL_ID`, not a specific channel - this callback
+ * runs from a browser redirect, with no Discord channel context at all,
+ * and `getPreference`'s own channel-then-global fallback (db.ts) is what
+ * makes that the right place for it.
+ *
+ * Best-effort: this never fails the callback itself. Linking already
+ * succeeded by the time this runs - a failed lookup or write here is a
+ * missed convenience, not a reason to show the caller an error for a link
+ * that actually worked.
+ */
+async function autoSetSoleCharacterAsCurrent(
+  config: Config,
+  logger: Logger,
+  discordUserId: string,
+  accessToken: string,
+): Promise<void> {
+  try {
+    const client = createLorenzoApiClient(config.lorenzoApiBaseUrl);
+    const characters = await client.getControlledCharacters(config.lorenzoTenantId, accessToken);
+    if (characters.length !== 1) return;
+    const [character] = characters;
+    if (!character) return;
+
+    await setPreference(discordUserId, GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: character.entityId,
+    });
+  } catch (error) {
+    logger.warn(
+      { err: error, discordUserId },
+      "couldn't auto-set the caller's sole character as current after linking",
+    );
+  }
 }
 
 function sendHtml(res: ServerResponse, status: number, title: string, message: string): void {

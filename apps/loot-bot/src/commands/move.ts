@@ -1,18 +1,21 @@
 import { SlashCommandBuilder } from "discord.js";
 import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
+import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import type { Command } from "./types.js";
 
 /**
  * `/move` - moves one of the caller's own items into another container
  * they own. Self-service only - self-or-managed's "self" branch already
- * covers "rearrange your own stuff," no GM gate needed. Both options
- * autocomplete from the same "things I own" list (`getMyItemInstances`) -
- * same known limitation as `/set-current`'s own container option: nothing
- * in the real API flags which owned items are actually container-capable,
- * so this suggests everything and trusts the player to pick something
- * sensible.
+ * covers "rearrange your own stuff," no GM gate needed. `item` suggests
+ * everything owned; `container` narrows to `isContainer === true` (ADR
+ * 0068, consuming main's own `is_container` computed field, ADR 0066) -
+ * closing the gap this docstring used to flag directly: "nothing in the
+ * real API flags which owned items are actually container-capable."
+ * Still just a suggestion, not a restriction - free-typing any owned
+ * entity id still works, same convention every other autocomplete here
+ * follows.
  */
 export const moveCommand: Command = {
   definition: new SlashCommandBuilder()
@@ -45,7 +48,8 @@ export const moveCommand: Command = {
     const tenantId = ctx.config.lorenzoTenantId;
 
     const items = await client.getMyItemInstances(tenantId, accessToken);
-    const choices = items.map((item) => ({
+    const candidates = focused.name === "container" ? items.filter((i) => i.isContainer) : items;
+    const choices = candidates.map((item) => ({
       name: formatItemChoiceName(item.title, item.quantity),
       value: item.entityId,
     }));
@@ -70,7 +74,11 @@ export const moveCommand: Command = {
       // Fresh etag, not whatever autocomplete last showed - same
       // re-validate-before-writing discipline every other write command
       // in this bot already follows.
-      const { etag } = await client.getItemInstance(tenantId, itemEntityId, accessToken);
+      const { data: current, etag } = await client.getItemInstance(
+        tenantId,
+        itemEntityId,
+        accessToken,
+      );
       const moved = await client.setItemInstanceContainer(
         tenantId,
         itemEntityId,
@@ -78,6 +86,13 @@ export const moveCommand: Command = {
         accessToken,
         etag ?? undefined,
       );
+
+      await recordUndo(interaction.user.id, {
+        kind: "restore-container",
+        entityId: itemEntityId,
+        previousContainerEntityId: current.container_entity_id,
+      });
+
       await interaction.editReply(`Moved ${moved.title ?? "(untitled)"}.`);
     } catch (error) {
       if (error instanceof LorenzoApiError) {

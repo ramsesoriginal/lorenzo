@@ -5,6 +5,13 @@ import type { Config } from "../config.js";
 export type CommandContext = Readonly<{
   config: Config;
   logger: Logger;
+  // Populated by commands/index.ts's own dispatchInteraction before a
+  // command's execute/autocomplete ever runs - optional here only because
+  // the ctx first built in interactions-route.ts (and every existing
+  // test's own fixture ctx) doesn't know the command list yet. `/help`
+  // (ADR 0068) is the one command that reads this, to describe every
+  // other command without a second, hand-maintained list that could drift.
+  commands?: readonly Command[];
 }>;
 
 /**
@@ -64,6 +71,11 @@ type BaseInteraction = InteractionGuards &
   Readonly<{
     user: Readonly<{ id: string }>;
     guildId: string | null;
+    // Every raw interaction payload carries channel_id regardless of kind
+    // (ADR 0068) - interaction-adapter.ts sets this the same way for every
+    // kind, not just chat-input, so preferences.ts can scope "current
+    // character"/"current container" per channel from any interaction.
+    channelId: string;
   }>;
 
 /** Every kind that can answer Discord's original webhook POST at all -
@@ -82,7 +94,6 @@ type RepliableInteraction = BaseInteraction &
 export type ChatInputCommandInteraction = RepliableInteraction &
   Readonly<{
     commandName: string;
-    channelId: string;
     options: OptionsReader;
     deferReply(opts?: Readonly<{ ephemeral?: boolean }>): Promise<void>;
     editReply(opts: MessagePayload): Promise<SentMessage>;

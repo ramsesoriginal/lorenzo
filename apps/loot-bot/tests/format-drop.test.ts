@@ -6,6 +6,8 @@ import {
   buildDropComponents,
   buildDropEmbed,
   buildQuantityModal,
+  formatPendingDropsEmbed,
+  parseClaimType,
 } from "../src/format-drop.js";
 import type { ItemInstanceOut } from "../src/lorenzo-client.js";
 
@@ -35,6 +37,7 @@ function claim(overrides: Partial<LootClaim> = {}): LootClaim {
     discordUserId: "user-1",
     characterEntityId: "char-1",
     quantity: null,
+    claimType: "greed",
     createdAt: new Date(),
     ...overrides,
   } as LootClaim;
@@ -48,12 +51,6 @@ describe("availableDropItems", () => {
     ];
 
     expect(availableDropItems(items).map((i) => i.entityId)).toEqual(["item-1"]);
-  });
-
-  it("defaults a missing title to (untitled)", () => {
-    const items = [item({ title: null })];
-
-    expect(availableDropItems(items)[0]?.title).toBe("(untitled)");
   });
 });
 
@@ -98,17 +95,37 @@ describe("buildDropEmbed", () => {
 
     expect(embed.data.description).not.toContain("claimed by");
   });
+
+  it("flags a need claim inline, alongside its quantity", () => {
+    const embed = buildDropEmbed(
+      [{ entityId: "item-1", title: "Torch", quantity: 5 }],
+      [claim({ discordUserId: "user-1", quantity: 2, claimType: "need" })],
+    );
+
+    expect(embed.data.description).toContain("claimed by <@user-1> (2, need)");
+  });
+
+  it("doesn't flag a greed claim", () => {
+    const embed = buildDropEmbed(
+      [{ entityId: "item-1", title: "Torch", quantity: 5 }],
+      [claim({ discordUserId: "user-1", quantity: null, claimType: "greed" })],
+    );
+
+    expect(embed.data.description).toContain("claimed by <@user-1>");
+    expect(embed.data.description).not.toContain("need");
+  });
 });
 
 describe("buildDropComponents", () => {
-  it("returns only the apply-claims button when nothing is left", () => {
+  it("returns only the apply/clear-claims buttons when nothing is left", () => {
     const rows = buildDropComponents("drop-1", []);
 
     expect(rows).toHaveLength(1);
     expect(customIdOf(rows[0]?.components[0])).toBe("drop:apply:drop-1");
+    expect(customIdOf(rows[0]?.components[1])).toBe("drop:clear:drop-1");
   });
 
-  it("returns take/claim menus plus the apply button when items remain", () => {
+  it("returns take/claim menus plus the apply/clear buttons when items remain", () => {
     const rows = buildDropComponents("drop-1", [
       { entityId: "item-1", title: "Torch", quantity: 5 },
     ]);
@@ -118,6 +135,7 @@ describe("buildDropComponents", () => {
     expect(customIdOf(takeRow?.components[0])).toBe("drop:take:drop-1");
     expect(customIdOf(claimRow?.components[0])).toBe("drop:claim:drop-1");
     expect(customIdOf(applyRow?.components[0])).toBe("drop:apply:drop-1");
+    expect(customIdOf(applyRow?.components[1])).toBe("drop:clear:drop-1");
   });
 
   it("caps select menu options at 25", () => {
@@ -145,6 +163,71 @@ describe("buildQuantityModal", () => {
     const modal = buildQuantityModal("claim", "drop-1", "item-1");
 
     expect(modal.data.custom_id).toBe("drop:claim-modal:drop-1:item-1");
+  });
+
+  it("adds a need-or-greed field only for claim, not take", () => {
+    const claimModal = buildQuantityModal("claim", "drop-1", "item-1");
+    const takeModal = buildQuantityModal("take", "drop-1", "item-1");
+
+    expect(claimModal.components).toHaveLength(2);
+    expect(takeModal.components).toHaveLength(1);
+  });
+});
+
+describe("formatPendingDropsEmbed", () => {
+  it("shows a friendly message when there are no pending drops", () => {
+    const embed = formatPendingDropsEmbed("guild-1", []);
+
+    expect(embed.data.description).toContain("No pending drops");
+  });
+
+  it("shows a channel mention, jump link, and each outstanding claim", () => {
+    const embed = formatPendingDropsEmbed("guild-1", [
+      {
+        discordChannelId: "channel-1",
+        discordMessageId: "message-1",
+        containerTitle: "Treasure Chest",
+        claims: [
+          { discordUserId: "user-1", itemTitle: "Torch", quantity: 2, claimType: "greed" },
+          { discordUserId: "user-2", itemTitle: "Sword", quantity: null, claimType: "need" },
+        ],
+      },
+    ]);
+
+    const field = embed.data.fields?.[0];
+    expect(field?.name).toBe("Treasure Chest");
+    expect(field?.value).toContain("<#channel-1>");
+    expect(field?.value).toContain("https://discord.com/channels/guild-1/channel-1/message-1");
+    expect(field?.value).toContain("<@user-1> wants 2 of **Torch**");
+    expect(field?.value).toContain("<@user-2> wants **Sword** (need)");
+  });
+
+  it("omits the jump link when the drop has no message id yet", () => {
+    const embed = formatPendingDropsEmbed("guild-1", [
+      {
+        discordChannelId: "channel-1",
+        discordMessageId: null,
+        containerTitle: "Treasure Chest",
+        claims: [],
+      },
+    ]);
+
+    expect(embed.data.fields?.[0]?.value).not.toContain("discord.com");
+    expect(embed.data.fields?.[0]?.value).toContain("Nothing claimed yet");
+  });
+});
+
+describe("parseClaimType", () => {
+  it("parses 'need', case-insensitively", () => {
+    expect(parseClaimType("need")).toBe("need");
+    expect(parseClaimType("Need")).toBe("need");
+    expect(parseClaimType("  NEED  ")).toBe("need");
+  });
+
+  it("defaults anything else, including blank, to greed", () => {
+    expect(parseClaimType("")).toBe("greed");
+    expect(parseClaimType("greed")).toBe("greed");
+    expect(parseClaimType("whatever")).toBe("greed");
   });
 });
 

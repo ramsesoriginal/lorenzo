@@ -120,11 +120,15 @@ function fakeSelectMenu(customId: string, value: string, userId = "user-1") {
   };
 }
 
-function fakeModalSubmit(customId: string, quantity: string, userId = "user-1") {
+function fakeModalSubmit(customId: string, quantity: string, userId = "user-1", claimType = "") {
   return {
     user: { id: userId },
     customId,
-    fields: { getTextInputValue: vi.fn(() => quantity) },
+    fields: {
+      getTextInputValue: vi.fn((fieldId: string) =>
+        fieldId === "claim-type" ? claimType : quantity,
+      ),
+    },
     isFromMessage: vi.fn(() => true),
     reply: vi.fn(async () => undefined),
     update: vi.fn(async () => undefined),
@@ -440,8 +444,26 @@ describe("dropCommand.onModalSubmit — claim", () => {
       discordUserId: "user-1",
       characterEntityId: "char-1",
       quantity: 3,
+      claimType: "greed",
     });
     expect(interaction.update).toHaveBeenCalled();
+  });
+
+  it("records a need claim when the claim-type field says so", async () => {
+    resolveCurrentCharacter.mockResolvedValue("char-1");
+    getLootDrop.mockResolvedValue({
+      id: "drop-1",
+      containerEntityId: "container-1",
+      createdByDiscordUserId: "gm-1",
+    });
+    getValidAccessToken.mockResolvedValue("gm-token");
+    getItemInstancesByContainer.mockResolvedValue([]);
+    listLootClaims.mockResolvedValue([]);
+    const interaction = fakeModalSubmit("drop:claim-modal:drop-1:item-1", "", "user-1", "Need");
+
+    await dropCommand.onModalSubmit?.(interaction, { config, logger: {} as never });
+
+    expect(upsertLootClaim).toHaveBeenCalledWith(expect.objectContaining({ claimType: "need" }));
   });
 
   it("blank quantity claims null (whatever's left)", async () => {
@@ -619,5 +641,88 @@ describe("dropCommand.onButton — apply claims", () => {
     await dropCommand.onButton?.(interaction, { config, logger: {} as never });
 
     expect(bulkAssignItemInstances).not.toHaveBeenCalled();
+  });
+
+  it("gives a need claim first crack at a non-stack item, even though it was claimed second", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    listLootClaims.mockResolvedValue([
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-greed",
+        characterEntityId: "char-greed",
+        quantity: null,
+        claimType: "greed",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-need",
+        characterEntityId: "char-need",
+        quantity: null,
+        claimType: "need",
+        createdAt: new Date("2026-01-01T00:01:00Z"),
+      },
+    ]);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Sword", quantity: null, owner_entity_id: null },
+      etag: "etag-1",
+    });
+    bulkAssignItemInstances.mockResolvedValue([
+      { entity_id: "item-1", status: "ok", item_instance: { entity_id: "item-1", title: "Sword" } },
+    ]);
+    const interaction = fakeButton("drop:apply:drop-1");
+
+    await dropCommand.onButton?.(interaction, { config, logger: {} as never });
+
+    // Only one bulk-assign entry: the need claim wins the non-stack item
+    // even though the greed claim was made first (ADR 0068).
+    expect(bulkAssignItemInstances).toHaveBeenCalledWith(
+      "tenant-1",
+      [{ entity_id: "item-1", owner_character_id: "char-need", if_match: "etag-1" }],
+      "gm-token",
+    );
+  });
+});
+
+describe("dropCommand.onButton — clear claims", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects a non-GM, without touching any claim", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    isCampaignGm.mockResolvedValue(false);
+    const interaction = fakeButton("drop:clear:drop-1");
+
+    await dropCommand.onButton?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining("Only a GM") }),
+    );
+    expect(deleteLootClaimsForDrop).not.toHaveBeenCalled();
+  });
+
+  it("discards every claim and leaves the drop open, unlike apply", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    getLootDrop.mockResolvedValue({
+      id: "drop-1",
+      containerEntityId: "container-1",
+      createdByDiscordUserId: "gm-1",
+    });
+    getItemInstancesByContainer.mockResolvedValue([]);
+    listLootClaims.mockResolvedValue([]);
+    const interaction = fakeButton("drop:clear:drop-1");
+
+    await dropCommand.onButton?.(interaction, { config, logger: {} as never });
+
+    expect(deleteLootClaimsForDrop).toHaveBeenCalledWith("drop-1");
+    expect(markLootDropApplied).not.toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ embeds: expect.anything(), components: expect.anything() }),
+    );
   });
 });

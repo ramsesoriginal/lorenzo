@@ -46,6 +46,7 @@ const config = {
 function fakeInteraction(userId = "discord-user-1") {
   return {
     user: { id: userId },
+    channelId: "channel-1",
     options: { getString: vi.fn(() => null) },
     deferReply: vi.fn(async () => undefined),
     editReply: vi.fn(async () => undefined),
@@ -63,6 +64,7 @@ function fakeAutocomplete(
 ) {
   return {
     user: { id: "discord-user-1" },
+    channelId: "channel-1",
     options: {
       getFocused: vi.fn(() => ({ name: focusedName, value: focusedValue })),
       getString: vi.fn((name: string) => (name === "character" ? characterValue : null)),
@@ -110,7 +112,9 @@ describe("setCurrentCommand.execute", () => {
 
     await setCurrentCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(setPreference).toHaveBeenCalledWith("discord-user-1", { characterEntityId: "char-1" });
+    expect(setPreference).toHaveBeenCalledWith("discord-user-1", "channel-1", {
+      characterEntityId: "char-1",
+    });
     expect(interaction.editReply).toHaveBeenCalledWith("Set your current character: Frodo.");
   });
 
@@ -125,7 +129,7 @@ describe("setCurrentCommand.execute", () => {
 
     await setCurrentCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(setPreference).toHaveBeenCalledWith("discord-user-1", {
+    expect(setPreference).toHaveBeenCalledWith("discord-user-1", "channel-1", {
       characterEntityId: "char-1",
       containerEntityId: "container-1",
     });
@@ -183,7 +187,9 @@ describe("setCurrentCommand.autocomplete", () => {
       groups: [
         {
           container: null,
-          item_instances: [{ entity_id: "item-1", title: "Backpack", quantity: null }],
+          item_instances: [
+            { entity_id: "item-1", title: "Backpack", quantity: null, is_container: true },
+          ],
         },
       ],
     });
@@ -192,6 +198,26 @@ describe("setCurrentCommand.autocomplete", () => {
     await setCurrentCommand.autocomplete?.(interaction, { config, logger: {} as never });
 
     expect(getItemInstancesOwnedBy).toHaveBeenCalledWith("tenant-1", "char-1", "token-123");
+    expect(interaction.respond).toHaveBeenCalledWith([{ name: "Backpack", value: "item-1" }]);
+  });
+
+  it("narrows container suggestions to items flagged as containers", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstancesOwnedBy.mockResolvedValue({
+      groups: [
+        {
+          container: null,
+          item_instances: [
+            { entity_id: "item-1", title: "Backpack", quantity: null, is_container: true },
+            { entity_id: "item-2", title: "Sword", quantity: null, is_container: false },
+          ],
+        },
+      ],
+    });
+
+    const interaction = fakeAutocomplete("container", "", "char-1");
+    await setCurrentCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
     expect(interaction.respond).toHaveBeenCalledWith([{ name: "Backpack", value: "item-1" }]);
   });
 

@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
+vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
+
 const {
   getMyPlayers,
   getMyItemInstances,
@@ -102,7 +105,7 @@ describe("giveCommand.execute", () => {
   it("transfers the whole instance when no quantity is given", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
-      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
       etag: "etag-1",
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
@@ -124,12 +127,17 @@ describe("giveCommand.execute", () => {
       "etag-1",
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Gave Torch to Frodo.");
+    expect(recordUndo).toHaveBeenCalledWith("discord-user-1", {
+      kind: "restore-owner",
+      entityId: "item-1",
+      previousOwnerCharacterId: "char-1",
+    });
   });
 
   it("splits with the owner in one call for a partial give (ADR 0044 split-with-owner)", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
-      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
       etag: "etag-1",
     });
     splitItemInstance.mockResolvedValue({
@@ -156,6 +164,13 @@ describe("giveCommand.execute", () => {
     );
     expect(setItemInstanceOwner).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith("Gave 2 of Torch to Sam.");
+    // Undo of a split-give gives the *split-off* instance back, not the
+    // original source - the source's own remaining quantity is untouched.
+    expect(recordUndo).toHaveBeenCalledWith("discord-user-1", {
+      kind: "restore-owner",
+      entityId: "item-2",
+      previousOwnerCharacterId: "char-1",
+    });
   });
 
   it("transfers the whole stack outright when quantity covers all of it", async () => {

@@ -18,6 +18,7 @@ import {
   buildDropComponents,
   buildDropEmbed,
   buildQuantityModal,
+  parseClaimType,
 } from "../format-drop.js";
 import {
   type BulkAssignItem,
@@ -144,7 +145,7 @@ export const dropCommand: Command = {
 
   async onButton(interaction, ctx) {
     const [, action, dropId] = interaction.customId.split(":");
-    if (action !== "apply" || !dropId) return;
+    if ((action !== "apply" && action !== "clear") || !dropId) return;
 
     const accessToken = await getValidAccessToken(interaction.user.id);
     if (!accessToken) {
@@ -157,13 +158,33 @@ export const dropCommand: Command = {
 
     const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
     if (!(await client.isCampaignGm(accessToken))) {
-      await interaction.reply({ content: "Only a GM can apply claims.", ephemeral: true });
+      await interaction.reply({
+        content: `Only a GM can ${action === "apply" ? "apply" : "clear"} claims.`,
+        ephemeral: true,
+      });
       return;
     }
 
     await interaction.deferUpdate();
-
     const tenantId = ctx.config.lorenzoTenantId;
+
+    if (action === "clear") {
+      // No apply - just discard every outstanding claim and leave the drop
+      // open (ADR 0068), unlike "apply" below which also marks it resolved.
+      await deleteLootClaimsForDrop(dropId);
+      const drop = await getLootDrop(dropId);
+      if (!drop) return;
+      const view = await buildDropView(
+        client,
+        tenantId,
+        drop.containerEntityId,
+        dropId,
+        accessToken,
+      );
+      await interaction.editReply(view);
+      return;
+    }
+
     const claims = await listLootClaims(dropId);
     const outcomes = await applyAllClaims(client, tenantId, claims, accessToken);
 
@@ -217,7 +238,11 @@ async function handleTakeModalSubmit(
     return;
   }
 
-  const characterEntityId = await resolveCurrentCharacter(interaction.user.id, undefined);
+  const characterEntityId = await resolveCurrentCharacter(
+    interaction.user.id,
+    interaction.channelId,
+    undefined,
+  );
   if (!characterEntityId) {
     await interaction.reply({
       content: "Set a current character first — run `/set-current`.",
@@ -283,7 +308,11 @@ async function handleClaimModalSubmit(
     return;
   }
 
-  const characterEntityId = await resolveCurrentCharacter(interaction.user.id, undefined);
+  const characterEntityId = await resolveCurrentCharacter(
+    interaction.user.id,
+    interaction.channelId,
+    undefined,
+  );
   if (!characterEntityId) {
     await interaction.reply({
       content: "Set a current character first — run `/set-current`.",
@@ -292,12 +321,15 @@ async function handleClaimModalSubmit(
     return;
   }
 
+  const claimType = parseClaimType(interaction.fields.getTextInputValue("claim-type"));
+
   await upsertLootClaim({
     lootDropId: dropId,
     itemEntityId,
     discordUserId: interaction.user.id,
     characterEntityId,
     quantity,
+    claimType,
   });
 
   await refreshDropMessage(interaction, ctx, dropId);
@@ -313,6 +345,30 @@ async function handleClaimModalSubmit(
  * (just acknowledges the interaction) if the drop or the GM's own token
  * can't be found - a known, accepted edge case, not a crash.
  */
+/** The embed/components pair every drop-message rebuild needs (initial
+ * post, every take/claim/unclaim refresh, and "clear claims" - ADR 0068) -
+ * factored out once a third call site needed the identical sequence. */
+async function buildDropView(
+  client: LorenzoApiClient,
+  tenantId: string,
+  containerEntityId: string,
+  dropId: string,
+  accessToken: string,
+): Promise<{
+  embeds: [ReturnType<typeof buildDropEmbed>];
+  components: ReturnType<typeof buildDropComponents>;
+}> {
+  const [items, claims] = await Promise.all([
+    client.getItemInstancesByContainer(tenantId, containerEntityId, accessToken),
+    listLootClaims(dropId),
+  ]);
+  const available = availableDropItems(items);
+  return {
+    embeds: [buildDropEmbed(available, claims)],
+    components: buildDropComponents(dropId, available),
+  };
+}
+
 async function refreshDropMessage(
   interaction: StringSelectMenuInteraction | ModalMessageModalSubmitInteraction,
   ctx: CommandContext,
@@ -332,16 +388,8 @@ async function refreshDropMessage(
 
   const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
   const tenantId = ctx.config.lorenzoTenantId;
-  const [items, claims] = await Promise.all([
-    client.getItemInstancesByContainer(tenantId, drop.containerEntityId, gmAccessToken),
-    listLootClaims(dropId),
-  ]);
-  const available = availableDropItems(items);
-
-  await interaction.update({
-    embeds: [buildDropEmbed(available, claims)],
-    components: buildDropComponents(dropId, available),
-  });
+  const view = await buildDropView(client, tenantId, drop.containerEntityId, dropId, gmAccessToken);
+  await interaction.update(view);
 }
 
 type ItemSnapshot = Readonly<{ current: ItemInstanceOut; etag: string | null }>;
@@ -353,24 +401,32 @@ type ItemSnapshot = Readonly<{ current: ItemInstanceOut; etag: string | null }>;
  * the end, so every claim against the same item can share one snapshot -
  * a real reduction in round-trips over the old one-`GET`-per-claim loop).
  *
- * Eligibility is still decided oldest-`created_at`-first, client-side,
- * exactly as before: `bulk-assign`'s own server-side authorization has a
- * documented gap (ADR 0044's own Context section) where reassigning an
- * already-owned instance isn't blocked, so nothing stops a *later* array
- * entry from silently stealing a non-stack item a same-batch *earlier*
- * entry already claimed - `assignedThisRun` tracks that here instead. A
- * stack's remaining quantity is tracked the same way (`remainingByItem`),
- * mirroring what a live re-fetch between writes would have shown; the
- * server's own sequential, same-transaction processing of same-`entity_id`
- * array entries then reproduces the same step-by-step result a loop of
- * real writes would have, as long as array order matches claim order.
+ * Eligibility is decided need-before-greed, oldest-`created_at`-first
+ * within each tier (ADR 0068 - need claims always get first crack at a
+ * stack's remaining quantity or a non-stack's ownership), client-side:
+ * `bulk-assign`'s own server-side authorization has a documented gap (ADR
+ * 0044's own Context section) where reassigning an already-owned instance
+ * isn't blocked, so nothing stops a *later* array entry from silently
+ * stealing a non-stack item a same-batch *earlier* entry already claimed -
+ * `assignedThisRun` tracks that here instead. A stack's remaining quantity
+ * is tracked the same way (`remainingByItem`), mirroring what a live
+ * re-fetch between writes would have shown; the server's own sequential,
+ * same-transaction processing of same-`entity_id` array entries then
+ * reproduces the same step-by-step result a loop of real writes would
+ * have, as long as array order matches claim-resolution order.
  */
 async function applyAllClaims(
   client: LorenzoApiClient,
   tenantId: string,
-  claims: readonly LootClaim[],
+  claimsInCreatedOrder: readonly LootClaim[],
   accessToken: string,
 ): Promise<ClaimOutcome[]> {
+  // Array.prototype.sort is stable (ES2019+), so claims already ordered by
+  // createdAt (listLootClaims) stay oldest-first within each tier after
+  // this - a plain re-sort on tier alone is enough, no secondary key needed.
+  const claims = [...claimsInCreatedOrder].sort((a, b) =>
+    a.claimType === b.claimType ? 0 : a.claimType === "need" ? -1 : 1,
+  );
   const uniqueItemIds = [...new Set(claims.map((claim) => claim.itemEntityId))];
   const snapshots = new Map<string, ItemSnapshot | "not-found">();
   await Promise.all(

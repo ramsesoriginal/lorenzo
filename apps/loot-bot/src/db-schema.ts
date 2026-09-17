@@ -83,21 +83,39 @@ export type NewLinkedAccountRow = typeof linkedAccount.$inferInsert;
  * many controlled characters (`GET /me`'s `players[].characters[]`) and
  * apps/api has no notion of "which one is active right now."
  *
+ * Scoped per Discord channel (ADR 0068) - primary key
+ * `(discordUserId, discordChannelId)` - a player active in more than one
+ * channel (e.g. a "downtime" channel vs. the main table channel) can have a
+ * different current character/container in each. `discordChannelId = ""`
+ * is a reserved sentinel for the "global default" row: `/link`'s own
+ * auto-set-on-single-character behavior writes there (an OAuth callback has
+ * no Discord channel to scope to at all), and `getPreference` falls back to
+ * it whenever no channel-specific row exists yet.
+ *
  * No FK to `linked_account.discord_user_id`: this row can outlive an
  * unlink/relink (the preference itself - "I usually play Frodo" - isn't
  * tied to which Authgear identity happens to be linked at the moment),
  * and `character_entity_id`/`container_entity_id` are apps/api entity ids,
  * meaningless to validate against this bot's own schema anyway.
  */
-export const playerPreference = lootBotSchema.table("player_preference", {
-  discordUserId: text("discord_user_id").primaryKey(),
-  currentCharacterEntityId: text("current_character_entity_id"),
-  currentContainerEntityId: text("current_container_entity_id"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const playerPreference = lootBotSchema.table(
+  "player_preference",
+  {
+    discordUserId: text("discord_user_id").notNull(),
+    discordChannelId: text("discord_channel_id").notNull(),
+    currentCharacterEntityId: text("current_character_entity_id"),
+    currentContainerEntityId: text("current_container_entity_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.discordUserId, table.discordChannelId] })],
+);
 
 export type PlayerPreference = typeof playerPreference.$inferSelect;
 export type NewPlayerPreferenceRow = typeof playerPreference.$inferInsert;
+
+/** The reserved `discordChannelId` for a "global default" preference row -
+ * see {@link playerPreference}'s own docstring. */
+export const GLOBAL_PREFERENCE_CHANNEL_ID = "";
 
 /**
  * A GM's "drop" of a pre-made container's contents into a Discord channel
@@ -139,6 +157,12 @@ export type NewLootDropRow = typeof lootDrop.$inferInsert;
  * claim per user per item: claiming again with a different quantity
  * updates this same row (an upsert) rather than stacking a second one;
  * unclaiming deletes it.
+ *
+ * `claimType` (ADR 0068) is a need/greed tier, plain `text` with a
+ * TypeScript-level union (`ClaimType`) - same not-a-Postgres-enum idiom
+ * `loot_drop.status` already uses. Defaults `"greed"` so any row inserted
+ * before this column existed reads the same as an explicit greed claim,
+ * not a silently-more-privileged need claim.
  */
 export const lootClaim = lootBotSchema.table(
   "loot_claim",
@@ -152,10 +176,31 @@ export const lootClaim = lootBotSchema.table(
     // null means "whatever's left when this claim gets applied" - not
     // "the current amount right now" (claims don't reserve anything).
     quantity: integer("quantity"),
+    claimType: text("claim_type").notNull().default("greed"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.lootDropId, table.itemEntityId, table.discordUserId] })],
 );
 
+export type ClaimType = "need" | "greed";
 export type LootClaim = typeof lootClaim.$inferSelect;
 export type NewLootClaimRow = typeof lootClaim.$inferInsert;
+
+/**
+ * The caller's own most recent undoable action (ADR 0068) - one row per
+ * Discord user, overwritten by each new undoable write, not a history/stack.
+ * `payload` is a plain JSON-encoded `text` column (matching this schema's
+ * existing minimalism - no `jsonb` used anywhere else here either); its
+ * shape depends on `actionType` and is interpreted only by `/undo`'s own
+ * dispatch. `/confiscate` never writes here - a destroyed instance's id is
+ * gone, so there is no real inverse to record.
+ */
+export const pendingUndo = lootBotSchema.table("pending_undo", {
+  discordUserId: text("discord_user_id").primaryKey(),
+  actionType: text("action_type").notNull(),
+  payload: text("payload").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PendingUndo = typeof pendingUndo.$inferSelect;
+export type NewPendingUndoRow = typeof pendingUndo.$inferInsert;

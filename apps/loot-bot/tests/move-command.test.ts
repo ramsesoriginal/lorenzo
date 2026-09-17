@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
+vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
+
 const { getMyItemInstances, getItemInstance, setItemInstanceContainer, createLorenzoApiClient } =
   vi.hoisted(() => ({
     getMyItemInstances: vi.fn(),
@@ -48,10 +51,10 @@ function fakeInteraction() {
   };
 }
 
-function fakeAutocomplete(value = "") {
+function fakeAutocomplete(value = "", focusedName: "item" | "container" = "item") {
   return {
     user: { id: "user-1" },
-    options: { getFocused: vi.fn(() => ({ name: "item", value })) },
+    options: { getFocused: vi.fn(() => ({ name: focusedName, value })) },
     respond: vi.fn(async () => undefined),
   } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
 }
@@ -75,7 +78,10 @@ describe("moveCommand.execute", () => {
 
   it("moves the item with a fresh etag and confirms", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ data: { entity_id: "item-1" }, etag: "etag-1" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", container_entity_id: "old-container-1" },
+      etag: "etag-1",
+    });
     setItemInstanceContainer.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
     const interaction = fakeInteraction();
     interaction.options.getString.mockImplementation((name: string) =>
@@ -92,6 +98,11 @@ describe("moveCommand.execute", () => {
       "etag-1",
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Moved Torch.");
+    expect(recordUndo).toHaveBeenCalledWith("user-1", {
+      kind: "restore-container",
+      entityId: "item-1",
+      previousContainerEntityId: "old-container-1",
+    });
   });
 
   it.each([
@@ -118,13 +129,29 @@ describe("moveCommand.autocomplete", () => {
     vi.clearAllMocks();
   });
 
-  it("suggests the caller's own items", async () => {
+  it("suggests every owned item for 'item', container-capable or not", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getMyItemInstances.mockResolvedValue([{ entityId: "item-1", title: "Torch", quantity: 5 }]);
+    getMyItemInstances.mockResolvedValue([
+      { entityId: "item-1", title: "Torch", quantity: 5, isContainer: null },
+    ]);
 
-    const interaction = fakeAutocomplete("tor");
+    const interaction = fakeAutocomplete("tor", "item");
     await moveCommand.autocomplete?.(interaction, { config, logger: {} as never });
 
     expect(interaction.respond).toHaveBeenCalledWith([{ name: "Torch ×5", value: "item-1" }]);
+  });
+
+  it("narrows 'container' to items flagged as containers", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getMyItemInstances.mockResolvedValue([
+      { entityId: "item-1", title: "Backpack", quantity: null, isContainer: true },
+      { entityId: "item-2", title: "Sword", quantity: null, isContainer: false },
+      { entityId: "item-3", title: "Chest", quantity: null, isContainer: null },
+    ]);
+
+    const interaction = fakeAutocomplete("", "container");
+    await moveCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.respond).toHaveBeenCalledWith([{ name: "Backpack", value: "item-1" }]);
   });
 });

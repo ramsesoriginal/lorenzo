@@ -65,6 +65,57 @@ export async function transferItem(
   return { kind: "transferred", given, splitting, requestedQuantity };
 }
 
+/**
+ * `/confiscate`'s own split-vs-whole decision (ADR 0068) - the same shape
+ * as {@link transferItem} above, minus the owner-reassignment step: a
+ * partial-stack confiscation splits the requested amount off into a new
+ * sibling instance first, then deletes *that* split-off instance, leaving
+ * the rest with its original owner untouched; a whole-instance
+ * confiscation just deletes the instance outright.
+ */
+export type DestroyResult =
+  | { kind: "not-a-stack" }
+  | { kind: "destroyed"; destroyedTitle: string; requestedQuantity: number | null };
+
+export async function destroyItem(
+  client: LorenzoApiClient,
+  tenantId: string,
+  current: ItemInstanceOut,
+  etag: string | null,
+  requestedQuantity: number | null,
+  accessToken: string,
+): Promise<DestroyResult> {
+  if (requestedQuantity !== null && current.quantity === null) {
+    return { kind: "not-a-stack" };
+  }
+
+  const currentQuantity = current.quantity ?? 1;
+  const splitting = requestedQuantity !== null && requestedQuantity < currentQuantity;
+
+  if (splitting) {
+    const { data: splitOff } = await client.splitItemInstance(
+      tenantId,
+      current.entity_id,
+      requestedQuantity,
+      accessToken,
+      etag ?? undefined,
+    );
+    await client.deleteItemInstance(tenantId, splitOff.entity_id, accessToken);
+    return {
+      kind: "destroyed",
+      destroyedTitle: splitOff.title ?? "(untitled)",
+      requestedQuantity,
+    };
+  }
+
+  await client.deleteItemInstance(tenantId, current.entity_id, accessToken, etag ?? undefined);
+  return {
+    kind: "destroyed",
+    destroyedTitle: current.title ?? "(untitled)",
+    requestedQuantity,
+  };
+}
+
 // `requestedQuantity` is a plain `number` here (not `number | null`) purely
 // to keep transferItem's own ternary honest about which branch actually
 // needs it - splitting is only ever true when it's already non-null.

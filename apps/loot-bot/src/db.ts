@@ -3,18 +3,31 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { DatabaseError, Pool } from "pg";
 import { loadConfig } from "./config.js";
 import {
+  type ClaimType,
+  GLOBAL_PREFERENCE_CHANNEL_ID,
   type LinkedAccount,
   type LootClaim,
   type LootDrop,
   type NewLinkedAccountRow,
+  type PendingUndo,
   type PlayerPreference,
   linkedAccount,
   lootClaim,
   lootDrop,
+  pendingUndo,
   playerPreference,
 } from "./db-schema.js";
 
-export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference, LootDrop, LootClaim };
+export type {
+  LinkedAccount,
+  NewLinkedAccountRow,
+  PlayerPreference,
+  LootDrop,
+  LootClaim,
+  ClaimType,
+  PendingUndo,
+};
+export { GLOBAL_PREFERENCE_CHANNEL_ID };
 
 /**
  * This app's own restricted role's connection (LOOT_BOT_DATABASE_URL) - not
@@ -25,7 +38,9 @@ export type { LinkedAccount, NewLinkedAccountRow, PlayerPreference, LootDrop, Lo
  * query builder directly.
  */
 const pool = new Pool({ connectionString: loadConfig().databaseUrl });
-const db = drizzle(pool, { schema: { linkedAccount, playerPreference, lootDrop, lootClaim } });
+const db = drizzle(pool, {
+  schema: { linkedAccount, playerPreference, lootDrop, lootClaim, pendingUndo },
+});
 
 /** Closes the underlying connection pool - for graceful shutdown and for
  * tests, so a real-Postgres test run doesn't leave the process hanging on
@@ -182,39 +197,68 @@ export async function deleteLinkedAccount(discordUserId: string): Promise<void> 
   await db.delete(linkedAccount).where(eq(linkedAccount.discordUserId, discordUserId));
 }
 
-/** Looks up a Discord user's "current character"/"current default
- * container" preference, if any has ever been set. */
-export async function getPreference(discordUserId: string): Promise<PlayerPreference | undefined> {
+/**
+ * Looks up a Discord user's "current character"/"current default
+ * container" preference for one channel, if any has ever been set for it -
+ * falling back to the `GLOBAL_PREFERENCE_CHANNEL_ID` "global default" row
+ * (ADR 0068) when no channel-specific one exists yet. Pass
+ * `GLOBAL_PREFERENCE_CHANNEL_ID` itself to look up only the global default
+ * (skips the redundant second query).
+ */
+export async function getPreference(
+  discordUserId: string,
+  discordChannelId: string,
+): Promise<PlayerPreference | undefined> {
   const rows = await db
     .select()
     .from(playerPreference)
-    .where(eq(playerPreference.discordUserId, discordUserId))
+    .where(
+      and(
+        eq(playerPreference.discordUserId, discordUserId),
+        eq(playerPreference.discordChannelId, discordChannelId),
+      ),
+    )
     .limit(1);
-  return rows[0];
+  if (rows[0] || discordChannelId === GLOBAL_PREFERENCE_CHANNEL_ID) return rows[0];
+
+  const globalRows = await db
+    .select()
+    .from(playerPreference)
+    .where(
+      and(
+        eq(playerPreference.discordUserId, discordUserId),
+        eq(playerPreference.discordChannelId, GLOBAL_PREFERENCE_CHANNEL_ID),
+      ),
+    )
+    .limit(1);
+  return globalRows[0];
 }
 
 /**
- * Upserts a Discord user's current-character/current-container preference.
- * Only the fields actually given are touched on conflict - `/set-current`
- * lets a caller set either or both in one call, and setting just one
- * (e.g. switching characters) deliberately leaves the other as it was
- * rather than implicitly clearing it (explicit-only, matching this
+ * Upserts a Discord user's current-character/current-container preference
+ * for one channel (or the `GLOBAL_PREFERENCE_CHANNEL_ID` global default -
+ * ADR 0068). Only the fields actually given are touched on conflict -
+ * `/set-current` lets a caller set either or both in one call, and setting
+ * just one (e.g. switching characters) deliberately leaves the other as it
+ * was rather than implicitly clearing it (explicit-only, matching this
  * codebase's general preference - see ADR 0051's "container left
  * untouched" precedent).
  */
 export async function setPreference(
   discordUserId: string,
+  discordChannelId: string,
   fields: { characterEntityId?: string; containerEntityId?: string },
 ): Promise<void> {
   await db
     .insert(playerPreference)
     .values({
       discordUserId,
+      discordChannelId,
       currentCharacterEntityId: fields.characterEntityId ?? null,
       currentContainerEntityId: fields.containerEntityId ?? null,
     })
     .onConflictDoUpdate({
-      target: playerPreference.discordUserId,
+      target: [playerPreference.discordUserId, playerPreference.discordChannelId],
       set: {
         updatedAt: new Date(),
         ...(fields.characterEntityId !== undefined
@@ -230,8 +274,18 @@ export async function setPreference(
 /** Idempotent by design, matching {@link deleteLinkedAccount}'s own
  * shape - a plain `DELETE ... WHERE`, safe to call on a row that was
  * never set. */
-export async function deletePreference(discordUserId: string): Promise<void> {
-  await db.delete(playerPreference).where(eq(playerPreference.discordUserId, discordUserId));
+export async function deletePreference(
+  discordUserId: string,
+  discordChannelId: string,
+): Promise<void> {
+  await db
+    .delete(playerPreference)
+    .where(
+      and(
+        eq(playerPreference.discordUserId, discordUserId),
+        eq(playerPreference.discordChannelId, discordChannelId),
+      ),
+    );
 }
 
 /**
@@ -264,6 +318,13 @@ export async function setLootDropMessageId(
 export async function getLootDrop(dropId: string): Promise<LootDrop | undefined> {
   const rows = await db.select().from(lootDrop).where(eq(lootDrop.id, dropId)).limit(1);
   return rows[0];
+}
+
+/** Every drop still `"open"` (not yet applied) - `/pending-claims`'s own
+ * source (ADR 0068), oldest first so a long-running server sees its
+ * oldest-outstanding drops first. */
+export async function listOpenLootDrops(): Promise<readonly LootDrop[]> {
+  return db.select().from(lootDrop).where(eq(lootDrop.status, "open")).orderBy(lootDrop.createdAt);
 }
 
 /** Matches every other table in this schema having a full delete path -
@@ -320,13 +381,16 @@ export async function listLootClaims(dropId: string): Promise<readonly LootClaim
 /** Upserts one player's claim on one item - claiming again (a new
  * quantity, or re-confirming the same one) replaces the existing row for
  * that `(dropId, itemEntityId, discordUserId)` rather than stacking a
- * second one, matching the table's own primary key. */
+ * second one, matching the table's own primary key. `claimType` (ADR 0068)
+ * is re-set on every upsert too - re-claiming can change need-vs-greed,
+ * not just quantity. */
 export async function upsertLootClaim(fields: {
   lootDropId: string;
   itemEntityId: string;
   discordUserId: string;
   characterEntityId: string;
   quantity: number | null;
+  claimType: ClaimType;
 }): Promise<void> {
   await db
     .insert(lootClaim)
@@ -336,6 +400,7 @@ export async function upsertLootClaim(fields: {
       set: {
         characterEntityId: fields.characterEntityId,
         quantity: fields.quantity,
+        claimType: fields.claimType,
       },
     });
 }
@@ -363,4 +428,40 @@ export async function deleteLootClaim(
  * {@link markLootDropApplied}'s own note on why this is separate. */
 export async function deleteLootClaimsForDrop(dropId: string): Promise<void> {
   await db.delete(lootClaim).where(eq(lootClaim.lootDropId, dropId));
+}
+
+/** The caller's own most recent undoable action, if any (ADR 0068) -
+ * `/undo`'s own read; the caller decides what "too old" means (a TTL),
+ * this just returns whatever's there. */
+export async function getPendingUndo(discordUserId: string): Promise<PendingUndo | undefined> {
+  const rows = await db
+    .select()
+    .from(pendingUndo)
+    .where(eq(pendingUndo.discordUserId, discordUserId))
+    .limit(1);
+  return rows[0];
+}
+
+/** Records (or overwrites) the caller's one undoable action - one row per
+ * user by design (ADR 0068: a history/stack was explicitly not built),
+ * so a second undoable write silently replaces whatever was there before. */
+export async function setPendingUndo(
+  discordUserId: string,
+  fields: { actionType: string; payload: string },
+): Promise<void> {
+  await db
+    .insert(pendingUndo)
+    .values({ discordUserId, ...fields })
+    .onConflictDoUpdate({
+      target: pendingUndo.discordUserId,
+      set: { ...fields, createdAt: new Date() },
+    });
+}
+
+/** Idempotent, matching every other `delete*` function in this module -
+ * `/undo` calls this once it's done, whether or not the undo actually
+ * succeeded (a failed inverse call shouldn't leave a stale row someone
+ * might retry against outdated state). */
+export async function deletePendingUndo(discordUserId: string): Promise<void> {
+  await db.delete(pendingUndo).where(eq(pendingUndo.discordUserId, discordUserId));
 }

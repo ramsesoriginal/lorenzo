@@ -113,7 +113,11 @@ export const noteCommand: Command = {
 
     let authorCharacterId: string | undefined;
     if (visibility === "private") {
-      authorCharacterId = await resolveCurrentCharacter(interaction.user.id, undefined);
+      authorCharacterId = await resolveCurrentCharacter(
+        interaction.user.id,
+        interaction.channelId,
+        undefined,
+      );
       if (!authorCharacterId) {
         await interaction.editReply(
           "Set a current character first — run `/set-current` — a private note needs to know whose eyes it's for.",
