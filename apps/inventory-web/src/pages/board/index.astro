@@ -17,16 +17,20 @@ import Base from '../../layouts/Base.astro';
       <ul id="character-strip" class="character-strip"></ul>
     </section>
 
-    <p id="board-placeholder" class="next-up" hidden>
-      The inventory board for <strong id="selected-character-name"></strong> comes next.
-    </p>
+    <section id="inventory">
+      <p id="inventory-loading" hidden>Loading inventory&hellip;</p>
+      <p id="inventory-empty" class="next-up" hidden></p>
+      <p id="inventory-error" class="board-error" hidden></p>
+      <div id="board-columns" class="board-columns"></div>
+    </section>
   </div>
 
   <script>
     import { isAuthenticated } from '../../lib/auth';
     import { listMyCharacters } from '../../lib/characters';
+    import { getOwnedItemInstances } from '../../lib/items';
     import { getTenant } from '../../lib/tenants';
-    import type { CharacterSummary } from '../../lib/types';
+    import type { CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
 
     const status = document.getElementById('status')!;
     const board = document.getElementById('board')!;
@@ -37,11 +41,94 @@ import Base from '../../layouts/Base.astro';
     const charactersEmpty = document.getElementById('characters-empty')!;
     const charactersError = document.getElementById('characters-error')!;
     const characterStrip = document.getElementById('character-strip')!;
-    const boardPlaceholder = document.getElementById('board-placeholder')!;
-    const selectedCharacterName = document.getElementById('selected-character-name')!;
+
+    const inventoryLoading = document.getElementById('inventory-loading')!;
+    const inventoryEmpty = document.getElementById('inventory-empty')!;
+    const inventoryError = document.getElementById('inventory-error')!;
+    const boardColumns = document.getElementById('board-columns')!;
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
+
+    function isContainerElsewhere(entityId: string, groups: OwnedGroup[]): boolean {
+      return groups.some((g) => g.container?.id === entityId);
+    }
+
+    function renderCard(item: ItemInstance, groups: OwnedGroup[]): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'item-card';
+      if (isContainerElsewhere(item.entity_id, groups)) {
+        li.classList.add('item-card--container');
+      }
+
+      const title = document.createElement('span');
+      title.className = 'item-card-title';
+      title.textContent = item.title ?? '(unnamed item)';
+      li.append(title);
+
+      if (item.quantity && item.quantity > 1) {
+        const qty = document.createElement('span');
+        qty.className = 'item-card-qty';
+        qty.textContent = `×${item.quantity}`;
+        li.append(qty);
+      }
+
+      return li;
+    }
+
+    function renderColumn(group: OwnedGroup, rootTitle: string, groups: OwnedGroup[]): HTMLElement {
+      const section = document.createElement('section');
+      section.className = 'board-column';
+
+      const heading = document.createElement('h3');
+      heading.textContent = group.container?.name ?? rootTitle;
+      section.append(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'column-cards';
+      if (group.item_instances.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'column-empty';
+        empty.textContent = 'This container is empty.';
+        list.append(empty);
+      } else {
+        for (const item of group.item_instances) {
+          list.append(renderCard(item, groups));
+        }
+      }
+      section.append(list);
+      return section;
+    }
+
+    async function loadBoard(characterEntityId: string, characterName: string) {
+      boardColumns.replaceChildren();
+      inventoryEmpty.hidden = true;
+      inventoryError.hidden = true;
+      inventoryLoading.hidden = false;
+      try {
+        const response = await getOwnedItemInstances(tenantId as string, characterEntityId);
+        inventoryLoading.hidden = true;
+        const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
+        if (!hasAnything) {
+          inventoryEmpty.hidden = false;
+          inventoryEmpty.textContent = `${characterName} isn't carrying anything yet.`;
+          return;
+        }
+        // The null-container group (things with no container, including
+        // top-level containers themselves) reads first - everything else
+        // keeps the order the API returned.
+        const ordered = [...response.groups].sort((a, b) =>
+          a.container === null ? -1 : b.container === null ? 1 : 0,
+        );
+        for (const group of ordered) {
+          boardColumns.append(renderColumn(group, characterName, response.groups));
+        }
+      } catch (e) {
+        inventoryLoading.hidden = true;
+        inventoryError.hidden = false;
+        inventoryError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
 
     function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
       for (const el of characterStrip.querySelectorAll('button')) {
@@ -50,8 +137,7 @@ import Base from '../../layouts/Base.astro';
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
       window.history.replaceState({}, '', url);
-      selectedCharacterName.textContent = character.name;
-      boardPlaceholder.hidden = false;
+      void loadBoard(character.entity_id, character.name);
     }
 
     async function loadCharacters(currentTenantId: string) {
@@ -147,6 +233,122 @@ import Base from '../../layouts/Base.astro';
       background: var(--action);
       border-color: var(--action);
       color: var(--lorenzo-paper);
+    }
+
+    #inventory {
+      margin-top: var(--space-5);
+    }
+
+    .board-columns {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(240px, 300px);
+      gap: var(--space-3);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding-bottom: var(--space-2);
+    }
+
+    .board-column {
+      container-type: inline-size;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      background: var(--fill-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-surface);
+      padding: var(--space-3);
+    }
+
+    .board-column h3 {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .column-cards {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .column-empty {
+      color: var(--fg-tertiary);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    /* --item-accent is typed (@property, tokens.css) specifically so this
+       can transition smoothly instead of snapping between colors. */
+    .item-card {
+      --item-accent: var(--border);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      background: var(--bg);
+      border: 1px solid var(--item-accent);
+      border-radius: var(--radius-card);
+      padding: var(--space-2) var(--space-3);
+      transition: --item-accent 150ms ease;
+    }
+
+    .item-card:hover {
+      --item-accent: var(--action);
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .item-card {
+        transition:
+          --item-accent 150ms ease,
+          transform 150ms ease;
+      }
+
+      .item-card:hover {
+        transform: translateY(-1px);
+      }
+    }
+
+    .item-card-title {
+      font-size: 14px;
+    }
+
+    .item-card-qty {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--fg-tertiary);
+    }
+
+    /* A container-card gets a small gold mark - the same affordance a
+       future click-to-drill-in interaction (v1.1) will hang off of. */
+    .item-card--container::after {
+      content: '';
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-pill);
+      background: var(--lorenzo-gold);
+    }
+
+    @container (max-width: 220px) {
+      .item-card {
+        padding: var(--space-1) var(--space-2);
+      }
+
+      .item-card-title {
+        font-size: 13px;
+      }
     }
   </style>
 </Base>

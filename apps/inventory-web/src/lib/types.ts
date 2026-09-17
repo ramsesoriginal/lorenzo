@@ -33,3 +33,26 @@ export interface CharacterSummary {
   name: string;
   is_pc: boolean;
 }
+
+export interface ItemInstance {
+  entity_id: string;
+  title: string | null;
+  quantity: number | null;
+  container_entity_id: string | null;
+  owner_entity_id: string | null;
+}
+
+export interface EntitySummary {
+  id: string;
+  name: string;
+  quantity: number | null;
+}
+
+export interface OwnedGroup {
+  container: EntitySummary | null;
+  item_instances: ItemInstance[];
+}
+
+export interface OwnedByResponse {
+  groups: OwnedGroup[];
+}
