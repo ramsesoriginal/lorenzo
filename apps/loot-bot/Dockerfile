@@ -7,7 +7,7 @@
 # Docker available there) - deployment itself is out of scope for this
 # slice (ADR 0029); smoke-test this before relying on it.
 
-FROM node:22-slim AS build
+FROM node:26-slim AS build
 WORKDIR /workspace
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
@@ -22,7 +22,7 @@ RUN pnpm run build
 # image build, instead of hand-rolling a filtered install.
 RUN pnpm deploy --filter @lorenzo/loot-bot --prod /deploy
 
-FROM node:22-slim
+FROM node:26-slim
 WORKDIR /app
 
 COPY --from=build /deploy/node_modules ./node_modules
