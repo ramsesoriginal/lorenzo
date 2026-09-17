@@ -337,6 +337,101 @@ describe("getGmCampaignIds", () => {
   });
 });
 
+describe("getMyProfile", () => {
+  it("carries every ADR 0060 profile field straight through, alongside membership role, this tenant's characters, and a global gm count", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          email: "frodo@shire.example",
+          nickname: "frodo",
+          display_name: "Frodo Baggins",
+          pronouns: "he/him",
+          bio: "Just a hobbit.",
+          locales: ["en-US"],
+          user_color: "#00FF00",
+          picture_url: "https://lorenzo-api.test/users/user-1/picture",
+          memberships: [{ tenant_id: TENANT_ID, role: "orga" }],
+          players: [
+            {
+              id: "player-1",
+              tenant_id: TENANT_ID,
+              campaign_id: "campaign-1",
+              characters: [{ entity_id: CHARACTER_ID, name: "Frodo", is_pc: true }],
+            },
+            {
+              id: "player-2",
+              tenant_id: "some-other-tenant",
+              campaign_id: "campaign-2",
+              characters: [{ entity_id: "other-character", name: "Elsewhere", is_pc: true }],
+            },
+          ],
+          campaign_gm_grants: [
+            { id: "campaign-3", slug: "a", name: "A", game_system: "5e", secret: false },
+          ],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const profile = await client.getMyProfile(TENANT_ID, "test-token");
+
+    expect(profile).toEqual({
+      email: "frodo@shire.example",
+      nickname: "frodo",
+      displayName: "Frodo Baggins",
+      pronouns: "he/him",
+      bio: "Just a hobbit.",
+      locales: ["en-US"],
+      color: "#00FF00",
+      pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
+      membershipRole: "orga",
+      characters: [{ entityId: CHARACTER_ID, name: "Frodo" }],
+      gmCampaignCount: 1,
+    });
+  });
+
+  it("reports a null membershipRole when the caller has no Membership row in this tenant, and nulls for every unset profile field", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me`, () =>
+        HttpResponse.json({
+          id: "user-1",
+          authgear_subject_id: "sub-1",
+          email: null,
+          nickname: null,
+          display_name: null,
+          pronouns: null,
+          bio: null,
+          locales: [],
+          user_color: null,
+          picture_url: "https://lorenzo-api.test/users/user-1/picture",
+          memberships: [],
+          players: [],
+          campaign_gm_grants: [],
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const profile = await client.getMyProfile(TENANT_ID, "test-token");
+
+    expect(profile).toEqual({
+      email: null,
+      nickname: null,
+      displayName: null,
+      pronouns: null,
+      bio: null,
+      locales: [],
+      color: null,
+      pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
+      membershipRole: null,
+      characters: [],
+      gmCampaignCount: 0,
+    });
+  });
+});
+
 describe("listItems", () => {
   it("returns the catalog page's items", async () => {
     server.use(

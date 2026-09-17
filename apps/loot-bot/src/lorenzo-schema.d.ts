@@ -44,6 +44,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Tenants
+         * @description Every tenant on the platform, no membership filter - unlike
+         *     GET /tenants (ADR 0030), which is scoped to the caller's own
+         *     relationships. See ADR 0057.
+         */
+        get: operations["list_all_tenants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Users
+         * @description A real browse/search - `q` (optional) does a case-insensitive
+         *     substring match against nickname/email, unlike ADR 0055's deliberately
+         *     exact-match, no-search public lookup. Safe to widen here: this sits
+         *     behind the platform-operator role, not open to any authenticated user.
+         */
+        get: operations["list_all_users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Suspend User
+         * @description Idempotent - re-suspending an already-suspended account updates the
+         *     reason/operator but doesn't error, mirroring `grant_campaign_gm`'s own
+         *     idempotent-PUT precedent. See ADR 0057: the target's *next* request,
+         *     anywhere in the API, is rejected by `dependencies.get_current_user`.
+         */
+        put: operations["suspend_user"];
+        post?: never;
+        /**
+         * Unsuspend User
+         * @description No-op (still 200), not 404, if the account wasn't suspended -
+         *     matches DELETE's own general idempotency expectation.
+         */
+        delete: operations["unsuspend_user"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Platform Notification Route
+         * @description scope="platform" - see ADR 0058. `recipient_user_id` is required
+         *     here (`AdminNotificationCreate`'s own narrowing) - no
+         *     broadcast-to-every-user mechanism exists yet.
+         */
+        post: operations["create_platform_notification_route"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/activity-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Activity Log
+         * @description See ADR 0063 - a first, deliberately narrow slice: only membership
+         *     and campaign/GM lifecycle events are logged (`lorenzo_api.
+         *     activity_log.record_activity`'s own call sites), not an exhaustive
+         *     record of every mutation in the API. Gated by `get_tenant_context`,
+         *     the same bar `list_tenant_roster` already uses - any tenant-wide
+         *     member, not OWNER-only.
+         */
+        get: operations["list_activity_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -57,26 +177,6 @@ export interface paths {
          *     HTTP - see ADR 0023. Not nested under /tenants/{tenant_id}/... - this
          *     is about the caller's own identity across every tenant they belong to,
          *     not scoped to one.
-         *
-         *     Re-fetched with memberships eager-loaded rather than reusing the
-         *     `user` CurrentUser resolved - that one only ever needs `.id` itself.
-         *
-         *     Players/campaign_gm_grants (ADR 0031/RFC 0004) are resolved tenant by
-         *     tenant, deliberately not in one eager-loaded query off `user`. `Player`/
-         *     `CampaignGm` rows self-authorize via `user_id` regardless of
-         *     `app.tenant_id` (ADR 0030's addendum), but what each one references -
-         *     `character_player`/`character`/`being`/`entity` via `Player`; `Campaign`
-         *     via `CampaignGm` - has no `user_id` column of its own for RLS to
-         *     self-authorize against, and this user's players/GM grants can
-         *     legitimately span *multiple* tenants, so there is no single
-         *     `app.tenant_id` that would correctly authorize all of them at once
-         *     regardless (unlike `/me`'s own memberships, campaign_gm, and player
-         *     rows themselves). Confirmed empirically, not assumed: querying this
-         *     chain with `app.tenant_id` never set at all raises
-         *     `UndefinedObjectError`, the same "genuinely never set" failure mode
-         *     every other RLS-protected table already has - `player`/`campaign_gm`
-         *     just happen to have a `user_id`-based escape hatch, and nothing past
-         *     them does.
          */
         get: operations["get_me"];
         put?: never;
@@ -110,6 +210,176 @@ export interface paths {
          *     not just assumed, and proven out by this module's own cascade test.
          */
         delete: operations["delete_me"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Me
+         * @description Sets any of the caller's own self-editable profile fields (ADR
+         *     0054/0060) - `email` isn't settable here at all, it's a read-only
+         *     Authgear-derived cache (dependencies.get_current_user), and everything
+         *     else on MeOut is derived, not directly editable.
+         *
+         *     `exclude_unset=True`: a client updating just `bio` doesn't have to
+         *     resend every other field to avoid wiping them - matches
+         *     `update_tenant`/`update_campaign`'s own established PATCH convention,
+         *     unlike the narrower single-required-field `NicknameUpdate` this
+         *     replaced. `nickname`'s own conflict is still checked-then-written, not
+         *     caught off the partial unique index's own conflict - matches this
+         *     codebase's existing slug-conflict precedent (routers/tenants.py's
+         *     `_resolve_create_slug`/`_check_slug_available_for_update`). No
+         *     `If-Match`: see ADR 0054 for why self-editable fields on your own
+         *     record aren't a meaningful concurrent-write risk.
+         *
+         *     Re-fetched via `session.get_one`, not mutated directly on `user` - the
+         *     `CurrentUser` the request was resolved with isn't guaranteed to be the
+         *     same session-attached instance a write needs (the `client` test
+         *     fixture's own fake override returns a transient one), the same
+         *     "re-fetch before mutating" precedent every other write route already
+         *     follows.
+         */
+        patch: operations["update_me"];
+        trace?: never;
+    };
+    "/me/picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload My Picture
+         * @description Uploads or replaces the caller's own profile picture - see ADR 0056.
+         *     No `If-Match`, same reasoning as `PATCH /me`: a single self-editable
+         *     resource on your own record isn't a meaningful concurrent-write risk.
+         */
+        put: operations["upload_my_picture"];
+        post?: never;
+        /**
+         * Delete My Picture
+         * @description No-op (still 204), not 404, if there was never a custom picture to
+         *     delete - matches DELETE's own general idempotency expectation.
+         */
+        delete: operations["delete_my_picture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Notifications
+         * @description See ADR 0058 - a single flat query, no per-tenant RLS-context
+         *     looping needed (unlike `_me_out`'s own Player/CampaignGm resolution):
+         *     `notification`'s RLS policy already admits a caller's own rows via
+         *     `app.user_id` regardless of `app.tenant_id` (the same self-access
+         *     shape `player`/`campaign_gm` have, ADR 0030's addendum), and every
+         *     field this response needs is already denormalized onto the row
+         *     itself - nothing here is joined from live, tenant-scoped data.
+         */
+        get: operations["list_my_notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Sent Notifications
+         * @description See ADR 0061 - the sender's side of read receipts: did anyone
+         *     actually read what I sent? `WHERE created_by = caller.id`, not
+         *     `user_id` - works today with no RLS change, since the
+         *     `created_by = app.user_id` clause ADR 0058 already added (for the
+         *     `INSERT ... RETURNING` fix) already permits exactly this read.
+         *     Optional `batch_id` pulls just one broadcast's full recipient list -
+         *     every row a single creation call fanned out shares one.
+         */
+        get: operations["list_my_sent_notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Notification Read
+         * @description Idempotent - re-marking an already-read notification is a no-op,
+         *     not an error, mirroring `grant_campaign_gm`'s own idempotent-PUT
+         *     precedent. Explicitly filtered by `user_id == caller.id`, not left to
+         *     RLS alone (defense in depth, ADR 0002) - an unknown or not-mine id
+         *     both 404, collapsed indistinguishably.
+         */
+        post: operations["mark_notification_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/by-email/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User By Email
+         * @description Exact match only, open to any authenticated user - see ADR 0055.
+         *     `user` isn't otherwise used - CurrentUser's own token verification is
+         *     the entire gate here, no tenant/role check on top of it.
+         */
+        get: operations["get_user_by_email"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/by-nickname/{nickname}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User By Nickname
+         * @description Exact match only, open to any authenticated user - see ADR 0055.
+         */
+        get: operations["get_user_by_nickname"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -177,6 +447,36 @@ export interface paths {
         patch: operations["update_tenant"];
         trace?: never;
     };
+    "/tenants/{tenant_id}/picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tenant Picture
+         * @description No auth, no fallback - see module docstring and ADR 0056. A tenant
+         *     with no uploaded picture 404s the same way an unknown tenant_id does;
+         *     the only signal disclosed either way is whether a *picture* exists for
+         *     this id, not bare tenant existence beyond that.
+         */
+        get: operations["get_tenant_picture"];
+        /**
+         * Upload Tenant Picture
+         * @description Same gate `update_tenant` uses (ADR 0056) - ORGA+, not OWNER-only:
+         *     a tenant's picture is day-to-day tenant administration, not a
+         *     membership-management decision.
+         */
+        put: operations["upload_tenant_picture"];
+        post?: never;
+        /** Delete Tenant Picture */
+        delete: operations["delete_tenant_picture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/memberships": {
         parameters: {
             query?: never;
@@ -216,6 +516,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/memberships/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Create Memberships
+         * @description Invites several people into a tenant in one call (ADR 0062). Gated
+         *     by `_require_owner` **once**, up front - unlike `bulk_assign_item_
+         *     instances`'s per-item re-check (item-instance ownership varies per
+         *     item; "is the caller OWNER of this tenant" doesn't, it's the same fact
+         *     for every entry in the batch).
+         *
+         *     Never all-or-nothing: each item runs inside its own `session.
+         *     begin_nested()` (a SQL SAVEPOINT), so one item's failure rolls back
+         *     only that item - a caught `fastapi_problem.error.Problem` becomes that
+         *     item's own "error" entry (via the identical `.marshal()` shape a real
+         *     single-item error response would have), everything else already
+         *     applied by earlier items in the batch proceeds to the one shared
+         *     commit at the end. The exact `bulk_assign_item_instances` pattern
+         *     (ADR 0044), applied to membership invites.
+         */
+        post: operations["bulk_create_memberships"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/memberships/{user_id}": {
         parameters: {
             query?: never;
@@ -237,6 +570,29 @@ export interface paths {
         head?: never;
         /** Update Membership */
         patch: operations["update_membership"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Tenant Notification Route
+         * @description scope="tenant" - see ADR 0058. Gated by `get_tenant_context`, same as
+         *     `update_tenant` - any tenant-wide member, not OWNER-only (unlike
+         *     membership management above). An omitted `recipient_user_id` broadcasts
+         *     to the tenant's full roster, so this can return more than one row.
+         */
+        post: operations["create_tenant_notification_route"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/campaigns": {
@@ -313,6 +669,39 @@ export interface paths {
         patch: operations["update_campaign"];
         trace?: never;
     };
+    "/tenants/{tenant_id}/campaigns/{campaign_id}/picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Campaign Picture
+         * @description No auth, no fallback - see get_tenant_picture above, same reasoning.
+         *
+         *     Explicitly filtered by both `campaign_id` and `tenant_id`, not just
+         *     looked up by its `campaign_id` primary key - RLS (via
+         *     `set_tenant_rls_context` above) would already reject a `campaign_id`
+         *     belonging to a different tenant than the one in the URL, but every
+         *     route in this codebase still filters its own queries by tenant_id
+         *     explicitly regardless; RLS is defense in depth for a missed filter, not
+         *     a replacement for filtering deliberately (ADR 0002).
+         */
+        get: operations["get_campaign_picture"];
+        /**
+         * Upload Campaign Picture
+         * @description Same gate `update_campaign` uses (ADR 0056).
+         */
+        put: operations["upload_campaign_picture"];
+        post?: never;
+        /** Delete Campaign Picture */
+        delete: operations["delete_campaign_picture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}": {
         parameters: {
             query?: never;
@@ -330,6 +719,11 @@ export interface paths {
          *     granter (the caller), not the grantee (user_id) - never touched again
          *     on a re-grant, since the row's existence alone is the fact being
          *     recorded.
+         *
+         *     Validates user_id is a real user first, same as create_membership/
+         *     create_player - without this, a nonexistent user_id would otherwise
+         *     hit CampaignGm.user_id's foreign key directly and surface as a raw,
+         *     unhandled IntegrityError (a bare 500) instead of a clean 422.
          */
         put: operations["grant_campaign_gm"];
         post?: never;
@@ -393,6 +787,28 @@ export interface paths {
          *     taken away their can_access_campaign standing.
          */
         delete: operations["opt_back_in_to_campaign_admin_visibility"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/campaigns/{campaign_id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Campaign Notification Route
+         * @description scope="campaign" - see ADR 0058. Same gate `update_campaign` uses.
+         *     An omitted `recipient_user_id` broadcasts to the campaign's Player +
+         *     CampaignGm rows, so this can return more than one row.
+         */
+        post: operations["create_campaign_notification_route"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -602,6 +1018,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/characters/{character_id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Character Notification Route
+         * @description scope="character" - see ADR 0058. Same authorization
+         *     `PATCH /{character_id}`'s rename path uses (`_authorize_rename`) - a
+         *     GM, or the character's own controlling player, can post an in-game
+         *     event about it. An omitted `recipient_user_id` broadcasts to every
+         *     player controlling this character via `CharacterPlayer` (roster reuse,
+         *     ADR 0025), so this can return more than one row.
+         */
+        post: operations["create_character_notification_route"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/payloads/{payload_id}/content": {
         parameters: {
             query?: never;
@@ -624,6 +1065,31 @@ export interface paths {
          *     "found, but not for you."
          */
         get: operations["payload_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{user_id}/picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Picture
+         * @description No auth - see module docstring. Falls back to a computed Gravatar
+         *     URL (302, not 301 - so a later custom upload isn't cached past) when
+         *     the user has no upload but does have a verified email; 404 only when
+         *     neither exists. `user_profile_picture` carries no RLS (ADR 0056), so no
+         *     `set_tenant_rls_context` call is needed here, unlike the tenant/
+         *     campaign routes below.
+         */
+        get: operations["get_user_picture"];
         put?: never;
         post?: never;
         delete?: never;
@@ -787,6 +1253,29 @@ export interface paths {
         get: operations["list_group_members"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/groups/{group_entity_id}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Group Notification Route
+         * @description scope="group" - see ADR 0059. An omitted `recipient_user_id`
+         *     broadcasts to every player controlling any member character (roster
+         *     reuse across every member at once, ADR 0025), so this can return more
+         *     than one row.
+         */
+        post: operations["create_group_notification_route"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1273,6 +1762,107 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AdminNotificationCreate
+         * @description POST /admin/notifications - platform scope requires an explicit
+         *     recipient; no broadcast-to-every-user-on-the-platform mechanism exists
+         *     yet (ADR 0058, a deliberately smaller, safer slice than a mass-mailing
+         *     feature).
+         */
+        AdminNotificationCreate: {
+            /**
+             * Recipient User Id
+             * Format: uuid
+             */
+            recipient_user_id: string;
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+        };
+        /**
+         * AdminUserOut
+         * @description GET /admin/users, PUT/DELETE /admin/users/{id}/suspend - see ADR
+         *     0057. Deliberately more than `UserRefOut` exposes (email, suspension
+         *     state, the full ADR 0060 profile) - admin-only, unlike that public
+         *     exact-match lookup.
+         */
+        AdminUserOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Pronouns */
+            pronouns: string | null;
+            /** Bio */
+            bio: string | null;
+            /** Locales */
+            locales: string[];
+            /** User Color */
+            user_color: string | null;
+            /** Suspended At */
+            suspended_at: string | null;
+            /** Suspension Reason */
+            suspension_reason: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * AuditLogEntryOut
+         * @description GET /tenants/{tenant_id}/activity-log - see ADR 0063. A plain ORM
+         *     passthrough, same shape `NotificationOut` already uses for the same
+         *     reason: every field is copied onto the row directly at creation time,
+         *     nothing derived at read time.
+         */
+        AuditLogEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Actor Id */
+            actor_id: string | null;
+            /** Action */
+            action: string;
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string | null;
+            /** Detail */
+            detail: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** Body_upload_campaign_picture */
+        Body_upload_campaign_picture: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_my_picture */
+        Body_upload_my_picture: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_tenant_picture */
+        Body_upload_tenant_picture: {
+            /** File */
+            file: string;
+        };
+        /**
          * BulkAssignItem
          * @description POST /item-instances/bulk-assign - one input entry. See ADR 0044:
          *     quantity given delegates to split-with-owner (creating a new instance);
@@ -1316,6 +1906,28 @@ export interface components {
              */
             status: "ok" | "error";
             item_instance?: components["schemas"]["ItemInstanceOut"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /**
+         * BulkMembershipResultItem
+         * @description POST /tenants/{id}/memberships/bulk - one output entry, always
+         *     present for every input entry regardless of outcome (ADR 0062: never
+         *     all-or-nothing). Exactly one of membership/problem is set, matching
+         *     status - the identical shape `BulkAssignResultItem` (ADR 0044,
+         *     `schemas/items.py`) already established for the same pattern.
+         */
+        BulkMembershipResultItem: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            membership?: components["schemas"]["MembershipRosterEntryOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
         };
         /**
@@ -1680,6 +2292,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /**
              * Campaign Id
              * Format: uuid
@@ -1961,6 +2579,22 @@ export interface components {
             id: string;
             /** Authgear Subject Id */
             authgear_subject_id: string;
+            /** Email */
+            email: string | null;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Pronouns */
+            pronouns: string | null;
+            /** Bio */
+            bio: string | null;
+            /** Locales */
+            locales: string[];
+            /** User Color */
+            user_color: string | null;
+            /** Picture Url */
+            picture_url: string;
             /** Memberships */
             memberships: components["schemas"]["MembershipOut"][];
             /** Players */
@@ -2022,6 +2656,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /** Role */
             role: string;
             /** Created By */
@@ -2056,6 +2696,70 @@ export interface components {
             into_entity_id: string;
         };
         /**
+         * NotificationCreate
+         * @description POST .../notifications body, shared by the tenant/campaign/character
+         *     scope routes - see ADR 0058. An omitted `recipient_user_id` broadcasts
+         *     to that scope's own roster (each route's own docstring says exactly
+         *     who that includes) - not accepted at platform scope, which requires an
+         *     explicit recipient (`AdminNotificationCreate` below).
+         */
+        NotificationCreate: {
+            /** Recipient User Id */
+            recipient_user_id?: string | null;
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+        };
+        /**
+         * NotificationOut
+         * @description GET /me/notifications, GET /me/notifications/sent, POST /me/
+         *     notifications/{id}/read - see ADR 0058/0061. A plain ORM passthrough -
+         *     every field is copied onto the row directly at creation time, nothing
+         *     derived at read time. `user_id` (the recipient) and `batch_id` are
+         *     harmless to echo back on a recipient's own inbox read (it's already
+         *     their own id) and exactly what a sender needs reading the same shape
+         *     from the other side via `/sent`.
+         */
+        NotificationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Scope */
+            scope: string;
+            /** Type */
+            type: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Source Id */
+            source_id: string | null;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Read At */
+            read_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
          * OwnedByResponse
          * @description GET .../item-instances/owned-by/{owner_entity_id} - deliberately not
          *     paginated (ADR 0020 / task brief): bounded by one owner's inventory.
@@ -2077,10 +2781,36 @@ export interface components {
             /** Item Instances */
             item_instances: components["schemas"]["ItemInstanceOut"][];
         };
+        /** Page[AdminUserOut] */
+        Page_AdminUserOut_: {
+            /** Items */
+            items: components["schemas"]["AdminUserOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[Annotated[Union[MembershipRosterEntryOut, PlayerRosterEntryOut, GmRosterEntryOut], FieldInfo(annotation=NoneType, required=True, discriminator='kind')]] */
         Page_Annotated_Union_MembershipRosterEntryOut__PlayerRosterEntryOut__GmRosterEntryOut___FieldInfo_annotation_NoneType__required_True__discriminator__kind____: {
             /** Items */
             items: (components["schemas"]["MembershipRosterEntryOut"] | components["schemas"]["PlayerRosterEntryOut"] | components["schemas"]["GmRosterEntryOut"])[];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[AuditLogEntryOut] */
+        Page_AuditLogEntryOut_: {
+            /** Items */
+            items: components["schemas"]["AuditLogEntryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -2155,10 +2885,36 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[NotificationOut] */
+        Page_NotificationOut_: {
+            /** Items */
+            items: components["schemas"]["NotificationOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[PlayerSummaryOut] */
         Page_PlayerSummaryOut_: {
             /** Items */
             items: components["schemas"]["PlayerSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[TenantOut] */
+        Page_TenantOut_: {
+            /** Items */
+            items: components["schemas"]["TenantOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -2344,6 +3100,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /**
              * Campaign Id
              * Format: uuid
@@ -2386,10 +3148,14 @@ export interface components {
         };
         /**
          * ProblemOut
-         * @description A plain-dict-shaped mirror of fastapi_problem.error.Problem.marshal()
-         *     - see ADR 0044. Used only inside BulkAssignResultItem, to embed what a
-         *     real single-item error response body would have looked like without
-         *     actually raising/catching it as this request's own top-level response.
+         * @description A plain-dict-shaped mirror of `fastapi_problem.error.Problem.
+         *     marshal()` - see ADR 0044. Used inside a bulk operation's per-item
+         *     result (`BulkAssignResultItem`, `BulkMembershipResultItem`, ADR 0062)
+         *     to embed what a real single-item error response body would have
+         *     looked like without actually raising/catching it as this request's own
+         *     top-level response. Lives here, not in `schemas/items.py` (its
+         *     original, ADR 0044 home), since it has nothing item-specific about it
+         *     and now has a second, unrelated consumer.
          */
         ProblemOut: {
             /** Type */
@@ -2400,6 +3166,37 @@ export interface components {
             status: number;
             /** Detail */
             detail?: string | null;
+        };
+        /**
+         * ProfileUpdate
+         * @description PATCH /me - see ADR 0054/0060. Replaces the narrower NicknameUpdate:
+         *     every field is optional and independently omittable (`exclude_unset`
+         *     semantics, matching `TenantUpdate`/`CampaignUpdate`'s own established
+         *     PATCH convention) - a client updating just `bio` no longer has to
+         *     resend every other field to avoid wiping them. An explicitly-sent
+         *     `null` still clears a field (`nickname`'s own pre-existing behavior,
+         *     ADR 0054); omitting the key entirely leaves it untouched.
+         *
+         *     `nickname`, given, must be non-empty (`min_length=1`) - an empty
+         *     string would still pass the column's own partial unique index (it
+         *     only excludes NULL), letting the *first* user to "clear" it this way
+         *     silently block everyone else from ever doing the same. `user_color`,
+         *     given, must be a `#RRGGBB` hex string - format-checked here, not
+         *     enforced as meaningful beyond that shape (ADR 0060).
+         */
+        ProfileUpdate: {
+            /** Nickname */
+            nickname?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Pronouns */
+            pronouns?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Locales */
+            locales?: string[] | null;
+            /** User Color */
+            user_color?: string | null;
         };
         /**
          * SetContainerRequest
@@ -2561,6 +3358,14 @@ export interface components {
          */
         StatValueType: "int" | "text" | "float" | "bool";
         /**
+         * SuspendUserRequest
+         * @description PUT /admin/users/{id}/suspend body - see ADR 0057.
+         */
+        SuspendUserRequest: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
          * TagValueOut
          * @description Wraps one entry of `EntityViewMixin.tags` (`list[tuple[str, bool | None]]`).
          */
@@ -2659,6 +3464,28 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
+        };
+        /**
+         * UserRefOut
+         * @description A minimal, deliberately-thin reference to a user - see ADR 0055.
+         *     Returned by the by-email/by-nickname lookup routes so a client can
+         *     resolve an identifier it already knows into the user_id the existing
+         *     invite-shaped endpoints (POST .../memberships, player creation) still
+         *     take. Never echoes email back - the caller already supplied it.
+         *     `display_name` (ADR 0060) is included as a friendlier label while
+         *     resolving who you're about to invite - not `user_color`, which is for
+         *     shared UI rendering, not a lookup result.
+         */
+        UserRefOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2805,6 +3632,408 @@ export interface operations {
             };
         };
     };
+    list_all_tenants: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TenantOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_all_users: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AdminUserOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    suspend_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuspendUserRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unsuspend_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_platform_notification_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNotificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_activity_log: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AuditLogEntryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_me: {
         parameters: {
             query?: never;
@@ -2874,6 +4103,519 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_my_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_my_picture"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_my_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_my_notifications: {
+        parameters: {
+            query?: {
+                unread_only?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_NotificationOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_my_sent_notifications: {
+        parameters: {
+            query?: {
+                batch_id?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_NotificationOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    mark_notification_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_user_by_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRefOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_user_by_nickname: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nickname: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRefOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
             };
             /** @description Client Error */
             "4XX": {
@@ -3180,6 +4922,201 @@ export interface operations {
             };
         };
     };
+    get_tenant_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_tenant_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_tenant_picture"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_tenant_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_tenant_roster: {
         parameters: {
             query?: {
@@ -3270,6 +5207,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MembershipRosterEntryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_create_memberships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCreate"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkMembershipResultItem"][];
                 };
             };
             /** @description Validation Error */
@@ -3408,6 +5414,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MembershipRosterEntryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_tenant_notification_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"][];
                 };
             };
             /** @description Validation Error */
@@ -3799,6 +5874,204 @@ export interface operations {
             };
         };
     };
+    get_campaign_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_campaign_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_campaign_picture"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_campaign_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     grant_campaign_gm: {
         parameters: {
             query?: never;
@@ -4018,6 +6291,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CampaignOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_campaign_notification_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"][];
                 };
             };
             /** @description Validation Error */
@@ -5023,6 +7366,76 @@ export interface operations {
             };
         };
     };
+    create_character_notification_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                character_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     payload_content: {
         parameters: {
             query?: never;
@@ -5030,6 +7443,71 @@ export interface operations {
             path: {
                 tenant_id: string;
                 payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_user_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
             };
             cookie?: never;
         };
@@ -5453,6 +7931,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntitySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_group_notification_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                group_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"][];
                 };
             };
             /** @description Validation Error */

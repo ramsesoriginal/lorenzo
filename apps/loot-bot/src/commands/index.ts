@@ -1,6 +1,7 @@
 import { awardCommand } from "./award.js";
 import { dropCommand } from "./drop.js";
 import { giveCommand } from "./give.js";
+import { introduceCommand } from "./introduce.js";
 import { inventoryCommand } from "./inventory.js";
 import { itemCommand } from "./item.js";
 import { linkCommand } from "./link.js";
@@ -10,6 +11,7 @@ import { pingCommand } from "./ping.js";
 import { setCurrentCommand } from "./set-current.js";
 import type { AnyInteraction, Command, CommandContext } from "./types.js";
 import { unlinkCommand } from "./unlink.js";
+import { whoamiCommand } from "./whoami.js";
 
 export type { AnyInteraction, Command, CommandContext } from "./types.js";
 
@@ -28,6 +30,8 @@ const commands: readonly Command[] = [
   moveCommand,
   noteCommand,
   unlinkCommand,
+  whoamiCommand,
+  introduceCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
