@@ -20,6 +20,7 @@ Status: accepted
 `MeOut` gains all six fields, plus `picture_url: str` - always a constructed URL (`request.url_for("get_user_picture", ...)`), not conditional on a picture actually existing, the same "hand back the URL, let the resource itself 404/redirect" precedent `PayloadPictureOut.url` already established (ADR 0020).
 
 **Visibility, decided per field, not blanket:**
+
 - `display_name`/`user_color` join `nickname` on the tenant-roster schemas (`MembershipRosterEntryOut`/`PlayerRosterEntryOut`/`GmRosterEntryOut`) - `user_color`'s whole point is other people's clients rendering it, so it has to actually reach them.
 - `UserRefOut` (the by-email/by-nickname lookup, ADR 0055) gains `display_name` only - a friendlier label while resolving who you're about to invite, not a rendering context, so no `user_color`.
 - `pronouns`/`bio`/`locales` stay private to `MeOut`/`AdminUserOut` - more personal, no stated need for anyone else to see them yet.
