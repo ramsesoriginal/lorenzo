@@ -92,6 +92,24 @@ jobs:
           uv sync --locked
           uv run alembic upgrade head
 
+      - id: cors
+        # deploy-cloudrun's `env_vars` joins KEY=VALUE pairs with `,` -
+        # a JSON array of more than one origin has a literal `,` *inside*
+        # the value (between origins), which collides with that separator
+        # unless escaped (the action's own docs: "keys or values that
+        # contain separators must be escaped with a backslash"). Confirmed
+        # the hard way: a real deploy with two origins crashed the app on
+        # startup with `SettingsError: error parsing value for field
+        # "cors_allowed_origins"` - gcloud had split the value at the
+        # internal comma, so the container only ever saw a truncated,
+        # invalid-JSON fragment. Escaping it here, once, keeps the GitHub
+        # variable itself plain, valid JSON - matching ADR 0048's own
+        # documented format - rather than requiring whoever edits it to
+        # remember to hand-escape commas every time.
+        run: |
+          value=$(printf '%s' '${{ vars.CORS_ALLOWED_ORIGINS || '[]' }}' | sed 's/,/\\\\,/g')
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
       - id: deploy
         uses: google-github-actions/deploy-cloudrun@v3
         with:
@@ -104,20 +122,21 @@ jobs:
           # OIDC metadata URLs, not credentials, so these come from
           # `vars` like GCP_REGION/GCP_PROJECT_ID above, not `secrets`.
           # CORS_ALLOWED_ORIGINS (ADR 0048): a JSON array of origins, e.g.
-          # ["https://lorenzo.example.com"] - the `|| '[]'` fallback matters
-          # here specifically: Settings.cors_allowed_origins is a list[str],
-          # and pydantic-settings JSON-decodes whatever's actually in the
-          # env var rather than falling back to the field's own Python
-          # default once the var exists at all - an unset GitHub variable
-          # would otherwise deploy with CORS_ALLOWED_ORIGINS="" (empty
-          # string, not absent), which fails JSON parsing and crashes the
-          # app at startup.
+          # ["https://lorenzo.example.com"] - steps.cors already applied
+          # the `|| '[]'` fallback and the comma-escaping above.
+          # Settings.cors_allowed_origins is a list[str], and
+          # pydantic-settings JSON-decodes whatever's actually in the env
+          # var rather than falling back to the field's own Python default
+          # once the var exists at all - an unset GitHub variable would
+          # otherwise deploy with CORS_ALLOWED_ORIGINS="" (empty string,
+          # not absent), which fails JSON parsing and crashes the app at
+          # startup.
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
             AUTHGEAR_JWKS_URL=${{ vars.AUTHGEAR_JWKS_URL }}
             AUTHGEAR_AUDIENCE=${{ vars.AUTHGEAR_AUDIENCE }}
-            CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS || '[]' }}
+            CORS_ALLOWED_ORIGINS=${{ steps.cors.outputs.value }}
 
       - name: Verify the deployed revision is actually ready
         run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/readyz"
