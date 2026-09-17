@@ -14,7 +14,9 @@ This gives you: no force-push/deletion of `main`, PRs required, merge commits on
 
 Confirmed via the real check-runs on `main` (`curl https://api.github.com/repos/ramsesoriginal/lorenzo/commits/main/check-runs`): the matrix jobs report as `test (apps/api)` and `codeql (python)`. Both are now in [.github/rulesets/main.json](../../.github/rulesets/main.json) alongside `ci-summary`.
 
-Re-importing the file doesn't happen automatically, though — the live ruleset (Settings → Rules → Rulesets → **main**) needs the same two contexts added by hand under "Require status checks to pass," or it'll keep enforcing only the old `ci-summary`-only list.
+`test (apps/loot-bot)` and `codeql (javascript-typescript)` are also in that file now that `apps/loot-bot` has real TypeScript source (`ci.yml`'s `test` job matrixes over `matrix.app`; `security.yml`'s `codeql` job matrixes over whichever languages its own `discover` step finds source for — the naming follows the exact same `<job> (<matrix value>)` pattern the two already-confirmed contexts do). Unlike those two, these haven't been empirically re-confirmed against a real check-run yet - `ci.yml`/`security.yml` only trigger on a push to `main` or an open PR, and `feat/loot-bot` hasn't had either happen yet. Confirm the exact strings the same way (the `check-runs` API call above, once this branch's PR is open) before relying on them.
+
+Re-importing the file doesn't happen automatically, though — the live ruleset (Settings → Rules → Rulesets → **main**) needs the same contexts added by hand under "Require status checks to pass," or it'll keep enforcing only whatever list it already has.
 
 ## Actions: allow workflows to open pull requests
 

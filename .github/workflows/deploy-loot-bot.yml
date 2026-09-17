@@ -1,0 +1,157 @@
+name: Deploy loot-bot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/loot-bot/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-loot-bot-${{ github.ref }}
+  cancel-in-progress: false # queue, never race two deploys/migrations
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # Self-contained rather than depending on ci.yml via workflow_run - same
+  # reasoning as deploy-api.yml.
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lorenzo
+          POSTGRES_PASSWORD: lorenzo
+          POSTGRES_DB: lorenzo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+      - run: corepack enable
+      - run: mise run lint
+        working-directory: apps/loot-bot
+      - run: mise run test
+        working-directory: apps/loot-bot
+        env:
+          # Same split as ci.yml's own loot-bot matrix entry - see ADR 0029.
+          DATABASE_URL: postgresql+asyncpg://lorenzo_app:lorenzo_app@localhost:5432/lorenzo
+          MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
+          LOOT_BOT_DATABASE_URL: postgres://loot_bot:loot_bot@localhost:5432/lorenzo
+          LOOT_BOT_MIGRATIONS_DATABASE_URL: postgres://lorenzo:lorenzo@localhost:5432/lorenzo
+          DISCORD_BOT_TOKEN: ci-placeholder-token
+          DISCORD_CLIENT_ID: "000000000000000000"
+          DISCORD_GUILD_ID: "000000000000000001"
+          DISCORD_PUBLIC_KEY: ci-placeholder-public-key
+          LORENZO_API_BASE_URL: http://localhost:8000
+          LORENZO_TENANT_ID: 00000000-0000-0000-0000-000000000000
+          AUTHGEAR_ISSUER: http://localhost:4000
+          AUTHGEAR_CLIENT_ID: ci-placeholder-client
+          AUTHGEAR_CLIENT_SECRET: ci-placeholder-secret
+          LOOT_BOT_TOKEN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          # Same GCP project, same Workload Identity Pool/Provider, same
+          # service account as deploy-api.yml (ADR 0053) - both are already
+          # scoped at the project level (run.admin/artifactregistry.writer/
+          # iam.serviceAccountUser), so a second Cloud Run service and a
+          # second Artifact Registry repo need no new IAM setup.
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - id: meta
+        run: echo "image=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/lorenzo-loot-bot/loot-bot:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          # Context is the repo root, not apps/loot-bot - this app is a pnpm
+          # workspace member sharing the root lockfile (Dockerfile's own
+          # comment/ADR 0003/0029), unlike apps/api's standalone build.
+          context: .
+          file: apps/loot-bot/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+      - run: corepack enable
+
+      - name: Run migrations against the shared Neon instance's loot_bot schema
+        working-directory: apps/loot-bot
+        env:
+          # Privileged - bootstraps the loot_bot role/schema on first run
+          # (src/migrate.ts), same as apps/api's own MIGRATIONS_DATABASE_URL
+          # split (ADR 0021). Runs `tsx` directly, not `mise run db-migrate`:
+          # that task's own script hardcodes `--env-file=.env`, which Node
+          # errors on when the file doesn't exist - true here, since .env
+          # is gitignored and this checkout never has one; real config comes
+          # from these env vars instead, same as apps/api's deploy step.
+          LOOT_BOT_MIGRATIONS_DATABASE_URL: ${{ secrets.LOOT_BOT_MIGRATIONS_DATABASE_URL }}
+          LOOT_BOT_DATABASE_URL: ${{ secrets.LOOT_BOT_DATABASE_URL }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ vars.DISCORD_CLIENT_ID }}
+          DISCORD_GUILD_ID: ${{ vars.DISCORD_GUILD_ID }}
+          DISCORD_PUBLIC_KEY: ${{ vars.DISCORD_PUBLIC_KEY }}
+          LORENZO_API_BASE_URL: ${{ vars.LORENZO_API_BASE_URL }}
+          LORENZO_TENANT_ID: ${{ vars.LORENZO_TENANT_ID }}
+          AUTHGEAR_ISSUER: ${{ vars.AUTHGEAR_ISSUER }}
+          AUTHGEAR_CLIENT_ID: ${{ vars.LOOT_BOT_AUTHGEAR_CLIENT_ID }}
+          AUTHGEAR_CLIENT_SECRET: ${{ secrets.LOOT_BOT_AUTHGEAR_CLIENT_SECRET }}
+          LOOT_BOT_TOKEN_ENCRYPTION_KEY: ${{ secrets.LOOT_BOT_TOKEN_ENCRYPTION_KEY }}
+        run: pnpm install --frozen-lockfile && pnpm exec tsx src/migrate.ts
+
+      - id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: lorenzo-loot-bot
+          region: ${{ vars.GCP_REGION }}
+          image: ${{ steps.meta.outputs.image }}
+          # DISCORD_PUBLIC_KEY/DISCORD_CLIENT_ID/DISCORD_GUILD_ID and the
+          # AUTHGEAR_* identifiers are public identifiers/URLs, not
+          # credentials (same reasoning as deploy-api.yml's own AUTHGEAR_*
+          # vars) - only the bot token, the OIDC client secret, the DB URL,
+          # and the token-encryption key are real secrets.
+          env_vars: |
+            DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
+            DISCORD_CLIENT_ID=${{ vars.DISCORD_CLIENT_ID }}
+            DISCORD_GUILD_ID=${{ vars.DISCORD_GUILD_ID }}
+            DISCORD_PUBLIC_KEY=${{ vars.DISCORD_PUBLIC_KEY }}
+            LORENZO_API_BASE_URL=${{ vars.LORENZO_API_BASE_URL }}
+            LORENZO_TENANT_ID=${{ vars.LORENZO_TENANT_ID }}
+            AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
+            AUTHGEAR_CLIENT_ID=${{ vars.LOOT_BOT_AUTHGEAR_CLIENT_ID }}
+            AUTHGEAR_CLIENT_SECRET=${{ secrets.LOOT_BOT_AUTHGEAR_CLIENT_SECRET }}
+            LOOT_BOT_DATABASE_URL=${{ secrets.LOOT_BOT_DATABASE_URL }}
+            LOOT_BOT_TOKEN_ENCRYPTION_KEY=${{ secrets.LOOT_BOT_TOKEN_ENCRYPTION_KEY }}
+            LOOT_BOT_PUBLIC_BASE_URL=${{ vars.LOOT_BOT_PUBLIC_BASE_URL }}
+
+      - name: Verify the deployed revision is actually ready
+        run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/healthz"

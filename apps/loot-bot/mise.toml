@@ -1,0 +1,39 @@
+[tasks.dev]
+description = "Run the bot with autoreload"
+run = "pnpm exec tsx --env-file=.env watch src/index.ts"
+
+[tasks.lint]
+description = "Lockfile freshness + Biome check + typecheck"
+run = ["pnpm install --frozen-lockfile", "pnpm exec biome check .", "pnpm exec tsc --noEmit"]
+
+[tasks.format]
+description = "Biome autoformat"
+run = "pnpm exec biome check --write ."
+
+[tasks.test]
+description = "Run the test suite with coverage"
+run = "pnpm exec vitest run --coverage"
+
+[tasks.build]
+description = "Build the container image"
+# Context is the repo root, not this directory: this app is a pnpm workspace
+# member (ADR 0003/0029), not a standalone project, so the build needs the
+# shared root lockfile/workspace file too. `-f` itself still resolves
+# relative to this task's own cwd (apps/loot-bot).
+run = "docker build -f Dockerfile -t lorenzo-loot-bot ../.."
+
+[tasks.register-commands]
+description = "Register/update this bot's slash commands for DISCORD_GUILD_ID"
+run = "pnpm exec tsx --env-file=.env scripts/register-commands.ts"
+
+[tasks.generate-client]
+description = "Regenerate the typed Lorenzo API client from apps/api's OpenAPI schema"
+run = "pnpm exec openapi-typescript ../api/openapi.json -o src/lorenzo-schema.d.ts"
+
+[tasks.db-generate]
+description = "Generate a new Drizzle migration from schema changes"
+run = "pnpm exec drizzle-kit generate"
+
+[tasks.db-migrate]
+description = "Apply pending migrations (bootstraps the loot_bot role/schema on first run)"
+run = "pnpm exec tsx --env-file=.env src/migrate.ts"

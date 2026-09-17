@@ -1,4 +1,4 @@
-# CI/CD pipeline flowchart: apps/api
+# CI/CD pipeline flowchart
 
 ```mermaid
 flowchart TD
@@ -15,6 +15,8 @@ flowchart TD
 
     D --> E{"Touches apps/api/**?"}
     E -->|yes| F["deploy-api.yml triggers"]
+    D --> EL{"Touches apps/loot-bot/**?"}
+    EL -->|yes| FL["deploy-loot-bot.yml triggers"]
     D --> G["release.yml triggers<br/>(every push)"]
 
     G --> G1["release-please: open/update release PR"]
@@ -27,6 +29,15 @@ flowchart TD
     F5 --> F6{"curl /readyz"}
     F6 -->|200| H["Live"]
     F6 -->|non-200| I["Workflow fails -<br/>revision not confirmed healthy"]
+
+    FL --> FL1["verify: lint + test again"]
+    FL1 --> FL2["auth: same OIDC/WIF identity as deploy-api.yml"]
+    FL2 --> FL3["build and push image to lorenzo-loot-bot repo<br/>tagged by commit SHA"]
+    FL3 --> FL4["migrate: tsx src/migrate.ts against Neon's loot_bot schema"]
+    FL4 --> FL5["deploy: new Cloud Run revision"]
+    FL5 --> FL6{"curl /healthz"}
+    FL6 -->|200| H
+    FL6 -->|non-200| I
 ```
 
-Two independent triggers fire off the same push to `main`: `release.yml` (always, proposing/updating a version bump) and `deploy-api.yml` (only if the push touches `apps/api/**`). Neither depends on the other — a release PR being merged doesn't itself deploy anything, and a deploy doesn't wait for a release to be tagged. See [docs/operations/releasing.md](../../operations/releasing.md) and [docs/architecture/deployment.md](../deployment.md).
+Three independent triggers can fire off the same push to `main`: `release.yml` (always, proposing/updating a version bump), `deploy-api.yml` (only if the push touches `apps/api/**`), and `deploy-loot-bot.yml` (only if it touches `apps/loot-bot/**`, [ADR 0053](../../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)). None depend on each other — a release PR being merged doesn't itself deploy anything, and a deploy doesn't wait for a release to be tagged. See [docs/operations/releasing.md](../../operations/releasing.md) and [docs/architecture/deployment.md](../deployment.md).

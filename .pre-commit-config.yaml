@@ -85,5 +85,24 @@ repos:
             "**/*.md",
           ]
 
-# Further language-specific hooks (biome, etc.) get added here alongside
-# the next app that needs them - see docs/guides/adding-an-app.md.
+  # Same reasoning as the mypy-api hook above: Biome/tsc need this app's own
+  # node_modules (tsconfig path resolution, installed @types) on their path,
+  # which the official pre-commit mirrors don't give them without
+  # duplicating a package install here too.
+  - repo: local
+    hooks:
+      - id: biome-loot-bot
+        name: biome (apps/loot-bot)
+        entry: pnpm --dir apps/loot-bot exec biome check --write
+        language: system
+        files: ^apps/loot-bot/.*\.(ts|js|json)$
+        pass_filenames: false
+      - id: tsc-loot-bot
+        name: tsc --noEmit (apps/loot-bot)
+        entry: pnpm --dir apps/loot-bot exec tsc --noEmit
+        language: system
+        files: ^apps/loot-bot/.*\.ts$
+        pass_filenames: false
+
+# Further language-specific hooks get added here alongside the next app
+# that needs them - see docs/guides/adding-an-app.md.

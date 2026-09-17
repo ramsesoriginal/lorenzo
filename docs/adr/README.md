@@ -52,3 +52,7 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0047 - Item catalog search and container-capability convention](0047-item-catalog-search-and-container-convention.md)
 - [0048 - CORS configuration](0048-cors-configuration.md)
 - [0049 - `mine` filter on `GET /tenants/{tenant_id}/characters`](0049-list-characters-mine-filter.md)
+- [0050 - loot-bot: stack, account linking, and data isolation](0050-loot-bot-stack-linking-and-isolation.md) — originally numbered 0042 on `feat/loot-bot`, renumbered a second time on merge into `main`: `main` had independently claimed 0042-0049 for the apps/api additions above in the meantime. Picked the first number free of collision at merge time again, same precedent as the first renumbering.
+- [0051 - loot-bot: `/give`, the first write command (loot-splitting)](0051-loot-bot-give-command.md)
+- [0052 - loot-bot: loot drop, take, claim/unclaim, apply claims](0052-loot-bot-loot-drop-and-claims.md)
+- [0053 - loot-bot: HTTP interactions transport and Cloud Run deployment](0053-loot-bot-http-interactions-and-cloud-run-deploy.md)
