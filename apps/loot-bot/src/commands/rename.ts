@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
+import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import type { Command } from "./types.js";
 
@@ -61,7 +62,11 @@ export const renameCommand: Command = {
       // Fresh etag, not whatever autocomplete last showed - same
       // re-validate-before-writing discipline every other write command
       // in this bot already follows.
-      const { etag } = await client.getItemInstance(tenantId, itemEntityId, accessToken);
+      const { data: current, etag } = await client.getItemInstance(
+        tenantId,
+        itemEntityId,
+        accessToken,
+      );
       const renamed = await client.renameItemInstance(
         tenantId,
         itemEntityId,
@@ -69,6 +74,13 @@ export const renameCommand: Command = {
         accessToken,
         etag ?? undefined,
       );
+
+      await recordUndo(interaction.user.id, {
+        kind: "restore-name",
+        entityId: itemEntityId,
+        previousTitle: current.title,
+      });
+
       await interaction.editReply(`Renamed to ${renamed.title ?? "(untitled)"}.`);
     } catch (error) {
       if (error instanceof LorenzoApiError) {

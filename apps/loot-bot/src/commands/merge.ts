@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
+import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import type { Command } from "./types.js";
 
@@ -96,7 +97,11 @@ export const mergeCommand: Command = {
       // Fresh etag, not whatever autocomplete last showed - same
       // re-validate-before-writing discipline every other write command
       // in this bot already follows.
-      const { etag } = await client.getItemInstance(tenantId, itemEntityId, accessToken);
+      const { data: current, etag } = await client.getItemInstance(
+        tenantId,
+        itemEntityId,
+        accessToken,
+      );
       const merged = await client.mergeItemInstance(
         tenantId,
         itemEntityId,
@@ -104,6 +109,14 @@ export const mergeCommand: Command = {
         accessToken,
         etag ?? undefined,
       );
+
+      await recordUndo(interaction.user.id, {
+        kind: "undo-merge",
+        intoEntityId,
+        quantity: current.quantity ?? 1,
+        ownerCharacterId: current.owner_entity_id,
+      });
+
       await interaction.editReply(`Merged into ${merged.title ?? "(untitled)"}.`);
     } catch (error) {
       if (error instanceof LorenzoApiError) {

@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
+vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
+
 const { getMyItemInstances, getItemInstance, mergeItemInstance, createLorenzoApiClient } =
   vi.hoisted(() => ({
     getMyItemInstances: vi.fn(),
@@ -97,7 +100,10 @@ describe("mergeCommand.execute", () => {
 
   it("merges the source into the target and confirms with the survivor's title", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ data: { entity_id: "item-1" }, etag: "etag-1" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 3, owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
     mergeItemInstance.mockResolvedValue({ entity_id: "item-2", title: "Arrows" });
     const interaction = fakeInteraction();
 
@@ -111,6 +117,12 @@ describe("mergeCommand.execute", () => {
       "etag-1",
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Merged into Arrows.");
+    expect(recordUndo).toHaveBeenCalledWith("discord-user-1", {
+      kind: "undo-merge",
+      intoEntityId: "item-2",
+      quantity: 3,
+      ownerCharacterId: "char-1",
+    });
   });
 
   it.each([

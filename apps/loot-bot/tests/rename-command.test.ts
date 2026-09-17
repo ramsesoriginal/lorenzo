@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
+vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
+
 const { getMyItemInstances, getItemInstance, renameItemInstance, createLorenzoApiClient } =
   vi.hoisted(() => ({
     getMyItemInstances: vi.fn(),
@@ -77,7 +80,10 @@ describe("renameCommand.execute", () => {
 
   it("renames the item and confirms with its new title", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
-    getItemInstance.mockResolvedValue({ data: { entity_id: "item-1" }, etag: "etag-1" });
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Sword" },
+      etag: "etag-1",
+    });
     renameItemInstance.mockResolvedValue({ entity_id: "item-1", title: "Grandfather's Sword" });
     const interaction = fakeInteraction();
 
@@ -91,6 +97,11 @@ describe("renameCommand.execute", () => {
       "etag-1",
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Renamed to Grandfather's Sword.");
+    expect(recordUndo).toHaveBeenCalledWith("discord-user-1", {
+      kind: "restore-name",
+      entityId: "item-1",
+      previousTitle: "Sword",
+    });
   });
 
   it.each([

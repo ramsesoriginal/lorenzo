@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
+vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
+
 const {
   isCampaignGm,
   getGmCampaignIds,
@@ -113,7 +116,7 @@ describe("reassignCommand.execute", () => {
     getValidAccessToken.mockResolvedValue("gm-token");
     isCampaignGm.mockResolvedValue(true);
     getItemInstance.mockResolvedValue({
-      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
       etag: "etag-1",
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
@@ -130,6 +133,11 @@ describe("reassignCommand.execute", () => {
       "etag-1",
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Reassigned Torch to Sam.");
+    expect(recordUndo).toHaveBeenCalledWith("gm-1", {
+      kind: "restore-owner",
+      entityId: "item-1",
+      previousOwnerCharacterId: "char-1",
+    });
   });
 
   it("splits with the owner in one call for a partial reassign", async () => {

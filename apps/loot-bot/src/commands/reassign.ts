@@ -5,6 +5,7 @@ import {
   createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
+import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import { findGmControlledCharacters } from "./gm-roster.js";
 import { transferItem } from "./item-transfer.js";
@@ -113,6 +114,14 @@ export const reassignCommand: Command = {
           "That item isn't a stack — omit the quantity to reassign the whole thing.",
         );
         return;
+      }
+
+      if (current.owner_entity_id) {
+        await recordUndo(interaction.user.id, {
+          kind: "restore-owner",
+          entityId: result.given.entity_id,
+          previousOwnerCharacterId: current.owner_entity_id,
+        });
       }
 
       const targetName = await client
