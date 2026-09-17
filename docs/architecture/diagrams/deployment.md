@@ -32,8 +32,8 @@ C4Deployment
 
   Rel(localapi, localdb, "SQL", "asyncpg")
   Rel(deployjob, image, "docker push")
-  Rel(cr, image, "pulls")
-  Rel(deployjob, cr, "deploys new revision")
+  Rel(api, image, "pulls")
+  Rel(deployjob, api, "deploys new revision")
   Rel(deployjob, neondb, "alembic upgrade head", "before deploy")
   Rel(api, neondb, "SQL", "asyncpg, TLS")
 ```
@@ -71,8 +71,8 @@ C4Deployment
 
   Rel(discord, bot, "POST /interactions", "Ed25519-signed webhook")
   Rel(deployjob, image, "docker push")
-  Rel(cr, image, "pulls")
-  Rel(deployjob, cr, "deploys new revision")
+  Rel(bot, image, "pulls")
+  Rel(deployjob, bot, "deploys new revision")
   Rel(deployjob, neondb, "tsx src/migrate.ts", "before deploy")
   Rel(bot, neondb, "SQL", "pg, TLS")
 ```
