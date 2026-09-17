@@ -12,11 +12,7 @@ import Base from '../../layouts/Base.astro';
     <section id="characters">
       <h2>Your characters</h2>
       <p id="characters-loading">Loading characters&hellip;</p>
-      <p id="characters-empty" hidden>
-        You don't have a character in this tenant yet. <a id="seed-link" href="#"
-          >Debug: create a test character</a
-        >
-      </p>
+      <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
       <p id="characters-error" class="board-error" hidden></p>
       <ul id="character-strip" class="character-strip"></ul>
     </section>
@@ -46,11 +42,6 @@ import Base from '../../layouts/Base.astro';
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
-
-    const seedLink = document.getElementById('seed-link') as HTMLAnchorElement | null;
-    if (seedLink && tenantId) {
-      seedLink.href = `/debug/seed/?tenant=${tenantId}`;
-    }
 
     function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
       for (const el of characterStrip.querySelectorAll('button')) {
