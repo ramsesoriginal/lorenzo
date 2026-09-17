@@ -11,15 +11,18 @@ from fastapi_pagination import Params
 from jwt import PyJWKClient
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import can_access_campaign, is_tenant_participant
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import get_db_session
 from lorenzo_api.exceptions import (
+    AccountSuspendedError,
     CampaignNotFoundError,
     EntityNotFoundError,
     InvalidTokenError,
+    PlatformOperatorRoleRequiredError,
     TenantCreationForbiddenError,
     TenantNotFoundError,
 )
@@ -35,6 +38,7 @@ __all__ = [
     "get_jwks_client",
     "get_tenant_context",
     "get_tenant_or_404",
+    "require_platform_operator_role",
     "require_tenant_creator_role",
     "require_tenant_participant",
     "set_tenant_rls_context",
@@ -104,6 +108,56 @@ async def verify_token(
 TokenClaimsDep = Annotated[dict[str, Any], Depends(verify_token)]
 
 
+async def _sync_email_from_claims(
+    session: AsyncSession, *, user: User, claims: dict[str, Any]
+) -> None:
+    """See ADR 0054 - email is a read-only cache of Authgear's own verified
+    claim, never written anywhere else. Only a *verified* email is ever
+    trusted: an absent claim, or `email_verified` anything other than
+    literal `True`, leaves `user.email` untouched.
+
+    Runs in its own SAVEPOINT (`begin_nested`), not the outer transaction -
+    a collision with a different user's already-taken email (a genuinely
+    rare edge, e.g. Authgear letting an email move between identities) must
+    never fail the login itself. On conflict, the savepoint alone rolls
+    back and the whole `user` object is refreshed from the database - not
+    just `email` - because a failed flush leaves SQLAlchemy treating every
+    attribute on the instance as expired, and `get_current_user` still
+    needs a working `user.id` right after this returns (confirmed the hard
+    way: refreshing only `email` left `id` expired, and reading it
+    synchronously afterwards crashed with MissingGreenlet).
+
+    Commits on success, unlike every other helper in this module that
+    leaves committing to its caller - a bare `flush()` inside the savepoint
+    only makes the write visible within *this* transaction; without an
+    explicit commit here, the update is silently lost the moment the
+    request ends without anyone else committing this session, which a
+    second request would then wrongly see as never having happened (caught
+    by test_colliding_verified_email_does_not_fail_the_login: a second
+    subject's would-be-colliding email was accepted instead of conflicting,
+    because the first subject's own email was never actually persisted).
+    """
+    email = claims.get("email")
+    if not isinstance(email, str) or not email or claims.get("email_verified") is not True:
+        return
+    if user.email == email:
+        return
+    # Captured before the flush is even attempted: a failed flush leaves
+    # SQLAlchemy treating this instance's attributes as expired, so reading
+    # `user.id` afterwards (e.g. in the log call below) would attempt a
+    # synchronous reload and crash with MissingGreenlet outside of an
+    # `await` - confirmed the hard way, not assumed.
+    user_id = user.id
+    try:
+        async with session.begin_nested():
+            user.email = email
+            await session.flush()
+        await session.commit()
+    except IntegrityError:
+        await session.refresh(user)
+        logger.warning("email_sync_conflict", user_id=str(user_id), email=email)
+
+
 async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     """Maps the verified `sub` claim to an app_user row, auto-provisioning
     one on a subject's first-ever request. Atomic upsert, not
@@ -124,6 +178,15 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     by require_tenant_creator_role below. Defaults to an empty frozenset if
     the claim is absent entirely - no role granted, no access, the
     closed-by-default behavior this whole mechanism exists for.
+
+    Also syncs `user.email` from a verified `email` claim, via
+    `_sync_email_from_claims` (ADR 0054) - after the upsert's own commit,
+    same reasoning as app.user_id below: it needs its own settled
+    transaction to run its conflict-guarded SAVEPOINT in.
+
+    Also rejects a suspended account outright (ADR 0057), before anything
+    else below runs - a fresh auto-provisioned user is never suspended by
+    construction, so this can't interfere with first-login provisioning.
     """
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
@@ -140,6 +203,13 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     )
     user = (await session.scalars(stmt)).one()
     await session.commit()
+
+    if user.suspended_at is not None:
+        reason = f": {user.suspension_reason}" if user.suspension_reason else ""
+        raise AccountSuspendedError(detail=f"User {user.id} is suspended{reason}")
+
+    await _sync_email_from_claims(session, user=user, claims=claims)
+
     await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user.id)})
     roles = claims.get(_AUTHGEAR_ROLES_CLAIM)
     user.authgear_roles = frozenset(roles) if isinstance(roles, list) else frozenset()
@@ -165,6 +235,17 @@ async def require_tenant_creator_role(user: CurrentUser) -> None:
     """
     if get_settings().tenant_creator_role_key not in user.authgear_roles:
         raise TenantCreationForbiddenError(detail="Missing the platform's tenant-creator role")
+
+
+async def require_platform_operator_role(user: CurrentUser) -> None:
+    """Gates every /admin/* route (ADR 0057) - exact mirror of
+    require_tenant_creator_role above, a platform-wide capability
+    orthogonal to tenant membership entirely.
+    """
+    if get_settings().platform_operator_role_key not in user.authgear_roles:
+        raise PlatformOperatorRoleRequiredError(
+            detail="Missing the platform's platform-operator role"
+        )
 
 
 async def set_tenant_rls_context(session: AsyncSession, tenant_id: uuid.UUID) -> None:

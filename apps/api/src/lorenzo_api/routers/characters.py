@@ -12,7 +12,7 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     campaign_ids_for_players,
     can_manage_any_campaign_in_tenant,
-    can_manage_any_of_campaigns,
+    can_manage_character,
     can_manage_every_campaign,
 )
 from lorenzo_api.dependencies import (
@@ -28,6 +28,7 @@ from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
     CharacterManagementForbiddenError,
     CharacterNotFoundError,
+    InvalidUserError,
     PlayerNotFoundError,
     TenantNotFoundError,
 )
@@ -39,7 +40,9 @@ from lorenzo_api.models import (
     GroupMember,
     Membership,
     Player,
+    User,
 )
+from lorenzo_api.notifications import create_character_notification
 from lorenzo_api.schemas.characters import (
     CharacterCreate,
     CharacterOut,
@@ -48,6 +51,7 @@ from lorenzo_api.schemas.characters import (
     CharacterUpdate,
 )
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 from lorenzo_api.schemas.players import PlayerContextOut
 
 # CharacterOut.players: list[PlayerContextOut] is a forward reference
@@ -325,20 +329,13 @@ async def _authorize_roster_touch(
 async def _authorize_rename(
     session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, character_id: uuid.UUID
 ) -> None:
-    controlled = await controlled_character_entity_ids(
-        session, user_id=user.id, tenant_id=tenant_id
-    )
-    if character_id in controlled:
-        return
-    campaign_ids = await campaign_ids_for_character(
-        session, character_entity_id=character_id, tenant_id=tenant_id
-    )
-    if campaign_ids:
-        if await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
-            return
-    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+    """Thin wrapper over campaign_access.can_manage_character - promoted
+    there (ADR 0059) once group-scoped notifications needed the identical
+    "any one is enough" check for more than one character at a time.
+    """
+    if await can_manage_character(
+        session, user_id=user.id, tenant_id=tenant_id, character_entity_id=character_id
+    ):
         return
     raise CharacterManagementForbiddenError(
         detail=f"Not authorized to manage character {character_id}"
@@ -622,3 +619,40 @@ async def remove_character_player(
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _character_out(tenant_id, character_id, session)
+
+
+@router.post("/{character_id}/notifications", status_code=201)
+async def create_character_notification_route(
+    tenant_id: uuid.UUID,
+    character_id: uuid.UUID,
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="character" - see ADR 0058. Same authorization
+    `PATCH /{character_id}`'s rename path uses (`_authorize_rename`) - a
+    GM, or the character's own controlling player, can post an in-game
+    event about it. An omitted `recipient_user_id` broadcasts to every
+    player controlling this character via `CharacterPlayer` (roster reuse,
+    ADR 0025), so this can return more than one row.
+    """
+    await _get_character_or_404(tenant_id, character_id, session)
+    await _authorize_rename(session, tenant_id=tenant_id, user=user, character_id=character_id)
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_character_notification(
+        session,
+        tenant_id=tenant_id,
+        character_entity_id=character_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

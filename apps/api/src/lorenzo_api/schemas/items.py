@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
-from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.common import EntitySummary, ProblemOut
 
 __all__ = [
     "DescriptionOut",
@@ -277,19 +277,6 @@ class MergeItemInstanceRequest(BaseModel):
     """
 
     into_entity_id: uuid.UUID
-
-
-class ProblemOut(BaseModel):
-    """A plain-dict-shaped mirror of fastapi_problem.error.Problem.marshal()
-    - see ADR 0044. Used only inside BulkAssignResultItem, to embed what a
-    real single-item error response body would have looked like without
-    actually raising/catching it as this request's own top-level response.
-    """
-
-    type: str
-    title: str
-    status: int
-    detail: str | None = None
 
 
 class BulkAssignItem(BaseModel):

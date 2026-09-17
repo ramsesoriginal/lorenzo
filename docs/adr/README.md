@@ -56,3 +56,13 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0051 - loot-bot: `/give`, the first write command (loot-splitting)](0051-loot-bot-give-command.md)
 - [0052 - loot-bot: loot drop, take, claim/unclaim, apply claims](0052-loot-bot-loot-drop-and-claims.md)
 - [0053 - loot-bot: HTTP interactions transport and Cloud Run deployment](0053-loot-bot-http-interactions-and-cloud-run-deploy.md)
+- [0054 - User identity: Authgear-synced email + local nickname](0054-user-identity-email-and-nickname.md) — renumbered from 0050 on merge into `main`, same precedent as loot-bot's own renumbering above: `main` had independently claimed 0050-0053 for loot-bot in the meantime.
+- [0055 - Exact-match user lookup by email or nickname](0055-user-lookup-by-email-or-nickname.md)
+- [0056 - Profile pictures for User, Tenant, and Campaign](0056-profile-pictures.md)
+- [0057 - Platform operations: a platform-operator role, admin listing, and account suspension](0057-platform-operations.md)
+- [0058 - Notifications: platform/tenant/campaign/character scope, in-app inbox](0058-notifications.md)
+- [0059 - Group-scoped notifications](0059-group-scoped-notifications.md)
+- [0060 - User profile expansion](0060-user-profile-expansion.md)
+- [0061 - Notification sender read-receipts](0061-notification-sender-read-receipts.md)
+- [0062 - Bulk invite to tenant](0062-bulk-invite-to-tenant.md)
+- [0063 - Tenant activity log (first slice)](0063-tenant-activity-log.md)
