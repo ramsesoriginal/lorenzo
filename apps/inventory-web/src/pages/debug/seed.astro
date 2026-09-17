@@ -1,0 +1,74 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Debug: seed test data — Lorenzo">
+  <p><a href="/">&larr; Tenants</a></p>
+  <h1 class="display">Seed a test character</h1>
+  <p>
+    Creates "Siul min Pal-Vàz" with an <code>equipped</code> slot (holding a belt pouch and a sling bag)
+    and a treasure chest, stocked with coins, a book, and a sapphire. Each click makes a fresh copy -
+    don't click twice unless you want two of everything.
+  </p>
+  <button id="seed-button" type="button">Create test character</button>
+  <pre id="log"></pre>
+
+  <script>
+    import { seedDemoCharacter } from '../../lib/seed';
+
+    const log = document.getElementById('log')!;
+    const button = document.getElementById('seed-button') as HTMLButtonElement;
+    const tenantId = new URLSearchParams(window.location.search).get('tenant');
+
+    function append(message: string) {
+      log.textContent += `${message}\n`;
+    }
+
+    button.addEventListener('click', async () => {
+      if (!tenantId) {
+        append('No tenant selected - open this page as /debug/seed/?tenant=<id>.');
+        return;
+      }
+      button.disabled = true;
+      log.textContent = '';
+      try {
+        await seedDemoCharacter(tenantId, append);
+      } catch (e) {
+        append(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+
+  <style>
+    button {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      background: var(--action);
+      color: var(--lorenzo-paper);
+      border: none;
+      border-radius: var(--radius-control);
+      padding: var(--space-2) var(--space-3);
+      cursor: pointer;
+      margin-top: var(--space-3);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    pre {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--fill-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: var(--space-3);
+      margin-top: var(--space-3);
+      white-space: pre-wrap;
+      min-height: 40px;
+    }
+  </style>
+</Base>

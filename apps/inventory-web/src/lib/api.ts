@@ -25,7 +25,19 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     },
   });
   if (!response.ok) {
-    throw new ApiError(response.status, `${response.status} ${response.statusText}`);
+    const body = await response.text().catch(() => '');
+    throw new ApiError(
+      response.status,
+      `${response.status} ${response.statusText}${body ? `: ${body}` : ''}`,
+    );
   }
   return response.json() as Promise<T>;
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
