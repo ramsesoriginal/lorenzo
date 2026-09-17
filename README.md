@@ -22,15 +22,20 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](apps/api/Dockerfile)
 
+[![Node.js](https://img.shields.io/badge/node.js-22-339933?logo=node.js&logoColor=white)](apps/loot-bot/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](apps/loot-bot/tsconfig.json)
+[![discord.js](https://img.shields.io/badge/discord.js-5865F2?logo=discord&logoColor=white)](https://discord.js.org)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](apps/loot-bot/Dockerfile)
+
 Lorenzo tracks the things a game master or worldbuilder actually juggles: where something is — physically, in space, across parallel planes, timelines, or whole multiverses — who knows what about whom, which shared settings ("repositories") a given game draws on, and the text, stats, and secrets attached to every item, being, and place, split by who's allowed to see it.
 
-This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a full read/write REST API over it, and Authgear-backed auth. Everything else is still structure and tooling. See [Roadmap](#roadmap).
+This repository is the monorepo for the whole project. `apps/api` exists with its full domain model (entity/component core plus tenant/campaign/player/character — see [ADR 0012](docs/adr/0012-entity-table.md) onward), a full read/write REST API over it, and Authgear-backed auth. `apps/loot-bot`, a Discord bot, is built on top of it, with its deploy pipeline wired up (Google Cloud Run, [ADR 0053](docs/adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)) pending its one-time GCP setup. Everything else is still structure and tooling. See [Roadmap](#roadmap).
 
 | Component type | Role | Instances so far |
 | --- | --- | --- |
 | Backend API | Multi-tenant REST API, source of truth | [`apps/api`](apps/api) — domain model, full read/write REST API, Authgear auth |
 | Web frontend(s) | Static UI, POSH + minimal JS | none yet — can be more than one |
-| Discord bot(s) | Talks to the API | none yet — at least one is planned |
+| Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — Discord account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding (see [ADR 0050](docs/adr/0050-loot-bot-stack-linking-and-isolation.md)/[0051](docs/adr/0051-loot-bot-give-command.md)/[0052](docs/adr/0052-loot-bot-loot-drop-and-claims.md)), deployed on Google Cloud Run over Discord's HTTP Interactions Endpoint ([ADR 0053](docs/adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)) |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
 
 Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md).
@@ -51,7 +56,7 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md).
 
 ## Usage
 
-Not yet — `apps/api` has no UI of its own. See [Roadmap](#roadmap) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md) for how the next app (a frontend, bot, or mobile client) gets added.
+`apps/api` itself has no UI — it's the backend. [`apps/loot-bot`](apps/loot-bot) is the first real, user-facing way to use the project, from Discord (`/inventory`, `/give`, `/drop`, and more — see its own README for the full command list). See [Roadmap](#roadmap) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md) for how the next app (a frontend or mobile client) gets added.
 
 ## Configuration
 

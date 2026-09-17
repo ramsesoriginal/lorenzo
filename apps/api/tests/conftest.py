@@ -209,13 +209,14 @@ async def client(test_user_id: uuid.UUID) -> AsyncGenerator[AsyncClient]:
     verification is its own concern, tested directly in test_auth.py via
     `raw_client` instead. Every other test uses this fixture.
 
-    authgear_roles defaults to including "tenant-creator" (ADR 0033/RFC
-    0012) so tests unrelated to that role aren't newly blocked from
-    POST /tenants - the specific negative-case test for its 403 uses
+    authgear_roles defaults to including "tenant_creator" (ADR 0033/RFC
+    0012 - underscore, not hyphen, per that ADR's addendum) so tests
+    unrelated to that role aren't newly blocked from POST /tenants - the
+    specific negative-case test for its 403 uses
     `client_without_tenant_creator_role` below instead.
     """
     app.dependency_overrides[get_current_user] = _make_fake_current_user(
-        test_user_id, authgear_roles=frozenset({"tenant-creator"})
+        test_user_id, authgear_roles=frozenset({"tenant_creator"})
     )
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

@@ -56,7 +56,7 @@ async def test_milestone_scenario_end_to_end(
     oscar_headers = {
         "Authorization": "Bearer "
         + fake_jwks_server.issue_token(
-            f"authgear|oscar-{uuid.uuid4()}", **{_ROLES_CLAIM: ["tenant-creator"]}
+            f"authgear|oscar-{uuid.uuid4()}", **{_ROLES_CLAIM: ["tenant_creator"]}
         )
     }
     zorro_headers = {
@@ -354,7 +354,7 @@ async def test_milestone_scenario_end_to_end(
     uninvited_headers = {
         "Authorization": "Bearer "
         + fake_jwks_server.issue_token(
-            f"authgear|uninvited-{uuid.uuid4()}", **{_ROLES_CLAIM: ["tenant-creator"]}
+            f"authgear|uninvited-{uuid.uuid4()}", **{_ROLES_CLAIM: ["tenant_creator"]}
         )
     }
     uninvited_id = await _provision(raw_client, uninvited_headers)

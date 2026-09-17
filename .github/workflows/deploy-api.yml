@@ -103,21 +103,30 @@ jobs:
           # AUTHGEAR_*: Authgear Cloud, not self-hosted (ADR 0027) - public
           # OIDC metadata URLs, not credentials, so these come from
           # `vars` like GCP_REGION/GCP_PROJECT_ID above, not `secrets`.
-          # CORS_ALLOWED_ORIGINS (ADR 0048): a JSON array of origins, e.g.
-          # ["https://lorenzo.example.com"] - the `|| '[]'` fallback matters
-          # here specifically: Settings.cors_allowed_origins is a list[str],
-          # and pydantic-settings JSON-decodes whatever's actually in the
-          # env var rather than falling back to the field's own Python
-          # default once the var exists at all - an unset GitHub variable
-          # would otherwise deploy with CORS_ALLOWED_ORIGINS="" (empty
-          # string, not absent), which fails JSON parsing and crashes the
-          # app at startup.
+          # CORS_ALLOWED_ORIGINS (ADR 0048): space-separated exact origins,
+          # e.g. "https://a.example.com https://b.example.com" - deliberately
+          # not a JSON array. deploy-cloudrun's own `env_vars` joins
+          # KEY=VALUE pairs with `,`, and a JSON array of more than one
+          # origin has a literal `,` *inside* the value - that collided with
+          # the separator and crashed a real deploy (`SettingsError: error
+          # parsing value for field "cors_allowed_origins"`, the container
+          # only ever seeing a truncated, invalid-JSON fragment) even after
+          # trying to backslash-escape it, since gcloud's own list-argument
+          # parser doesn't actually support that (only its own `^DELIM^`
+          # alternate-delimiter syntax does, which this action doesn't
+          # expose control over). Switching the format to space-separated
+          # means no comma - and thus no collision - regardless of how many
+          # origins are listed. Settings.cors_allowed_origins parses this
+          # (config.py's `_parse_cors_origins`, NoDecode-annotated so
+          # pydantic-settings' own auto-JSON-decoding never runs first) -
+          # an unset GitHub variable arrives as "" and parses to `[]`, same
+          # fail-closed default as before.
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
             AUTHGEAR_JWKS_URL=${{ vars.AUTHGEAR_JWKS_URL }}
             AUTHGEAR_AUDIENCE=${{ vars.AUTHGEAR_AUDIENCE }}
-            CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS || '[]' }}
+            CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}
 
       - name: Verify the deployed revision is actually ready
         run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/readyz"
