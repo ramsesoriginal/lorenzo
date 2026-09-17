@@ -12,7 +12,7 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     campaign_ids_for_players,
     can_manage_any_campaign_in_tenant,
-    can_manage_any_of_campaigns,
+    can_manage_character,
     can_manage_every_campaign,
 )
 from lorenzo_api.dependencies import (
@@ -329,20 +329,13 @@ async def _authorize_roster_touch(
 async def _authorize_rename(
     session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, character_id: uuid.UUID
 ) -> None:
-    controlled = await controlled_character_entity_ids(
-        session, user_id=user.id, tenant_id=tenant_id
-    )
-    if character_id in controlled:
-        return
-    campaign_ids = await campaign_ids_for_character(
-        session, character_entity_id=character_id, tenant_id=tenant_id
-    )
-    if campaign_ids:
-        if await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
-            return
-    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+    """Thin wrapper over campaign_access.can_manage_character - promoted
+    there (ADR 0055) once group-scoped notifications needed the identical
+    "any one is enough" check for more than one character at a time.
+    """
+    if await can_manage_character(
+        session, user_id=user.id, tenant_id=tenant_id, character_entity_id=character_id
+    ):
         return
     raise CharacterManagementForbiddenError(
         detail=f"Not authorized to manage character {character_id}"

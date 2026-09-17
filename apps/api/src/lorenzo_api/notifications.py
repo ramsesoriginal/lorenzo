@@ -1,4 +1,4 @@
-"""Shared notification fan-out logic for the four scopes - see ADR 0054.
+"""Shared notification fan-out logic for the five scopes - see ADR 0054/0055.
 
 Every function here does core mechanics only - no auth, no commit
 (matching routers/item_instances.py's own `_perform_split` precedent) -
@@ -12,7 +12,14 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.models import CampaignGm, CharacterPlayer, Membership, Notification, Player
+from lorenzo_api.models import (
+    CampaignGm,
+    CharacterPlayer,
+    GroupMember,
+    Membership,
+    Notification,
+    Player,
+)
 
 
 def _build(
@@ -172,6 +179,56 @@ async def create_character_notification(
             tenant_id=tenant_id,
             scope="character",
             source_id=character_entity_id,
+            type=type,
+            title=title,
+            body=body,
+            created_by=created_by,
+        )
+        for user_id in recipient_ids
+    ]
+    session.add_all(notifications)
+    return notifications
+
+
+async def create_group_notification(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    group_entity_id: uuid.UUID,
+    recipient_user_id: uuid.UUID | None,
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> list[Notification]:
+    """scope="group" - see ADR 0055. A group's members are always
+    characters (`GroupMember.character_entity_id`, ADR 0028) - an omitted
+    `recipient_user_id` broadcasts to every player controlling *any*
+    member character via `CharacterPlayer` (the same roster-reuse join
+    `create_character_notification` uses for one character, extended to
+    every member at once).
+    """
+    if recipient_user_id is not None:
+        recipient_ids = {recipient_user_id}
+    else:
+        stmt = (
+            select(Player.user_id)
+            .join(CharacterPlayer, CharacterPlayer.player_id == Player.id)
+            .join(
+                GroupMember, GroupMember.character_entity_id == CharacterPlayer.character_entity_id
+            )
+            .where(
+                GroupMember.group_entity_id == group_entity_id, GroupMember.tenant_id == tenant_id
+            )
+        )
+        recipient_ids = set((await session.execute(stmt)).scalars())
+
+    notifications = [
+        _build(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            scope="group",
+            source_id=group_entity_id,
             type=type,
             title=title,
             body=body,
