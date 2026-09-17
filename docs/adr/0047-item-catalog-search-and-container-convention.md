@@ -1,6 +1,6 @@
 # 0047 - Item catalog search and container-capability convention
 
-Status: accepted
+Status: accepted — the container-capability half is partially superseded by [ADR 0066](0066-is-container-computed-field.md), which adds a computed `is_container` field mirroring the tag this ADR established; the underlying no-migration, tag-based storage convention below stands unchanged, only "surfaced through `tags` alone, no dedicated field" is revised. The catalog-search (`q`) half is unaffected.
 
 ## Context
 

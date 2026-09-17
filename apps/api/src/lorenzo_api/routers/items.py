@@ -46,7 +46,7 @@ router = APIRouter(
 
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption]:
+) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption, ORMOption]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
     `EntityViewMixin`'s six properties/methods (ADR 0019/0020), or they
@@ -60,6 +60,13 @@ def eager_load_options(
     `physical_stats`/`tags`/etc. read the former so they agree with
     `weight`/`hp`/`armor`/etc. instead of silently showing an entity's own
     direct stats only.
+
+    Also loads `Entity.contained_links` (ADR 0041's association-object
+    containment list, `parent_entity_id`-side) - not an `EntityViewMixin`
+    property, but `schemas/items.py`'s `_is_container_out` (ADR 0066)
+    reads it directly off `view.entity` for its own "does this actually
+    contain something" fallback, the identical `lazy="raise_on_sql"` trap
+    every other relationship here already has to be eager-loaded around.
     """
     return (
         selectinload(view_entity_attr)
@@ -77,6 +84,7 @@ def eager_load_options(
         .selectinload(Entity.effective_stats)
         .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
+        selectinload(view_entity_attr).selectinload(Entity.contained_links),
     )
 
 
