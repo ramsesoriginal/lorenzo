@@ -28,12 +28,16 @@ class Settings(BaseSettings):
     authgear_jwks_url: str = "http://localhost:4000/oauth2/jwks"
     authgear_audience: str = "http://localhost:4000"
 
-    # The Authgear-Portal-configured role name that gates POST /tenants -
+    # The Authgear-Portal-configured role key that gates POST /tenants -
     # see ADR 0033/RFC 0012. Not fixed by this codebase beyond this one
     # setting, mirroring authgear_issuer/authgear_jwks_url/authgear_audience's
     # own pattern for IdP-adjacent config: Authgear stays the single source
     # of truth for who holds it, this app just needs to know its name.
-    tenant_creator_role_key: str = "tenant-creator"
+    # Underscore, not hyphen: confirmed empirically against a real Authgear
+    # project that role *keys* can't contain "-" at all - the portal silently
+    # rewrites it to "_" on save, so a role named "tenant-creator" ends up
+    # with the key "tenant_creator" (see ADR 0033's addendum).
+    tenant_creator_role_key: str = "tenant_creator"
 
     # CORS (ADR 0048) - a JSON array of exact origins in the
     # CORS_ALLOWED_ORIGINS env var, e.g. ["https://lorenzo.example.com"].

@@ -7,10 +7,10 @@
 # Docker available there) - deployment itself is out of scope for this
 # slice (ADR 0029); smoke-test this before relying on it.
 
-FROM node:22-slim AS build
+FROM node:26-slim AS build
 WORKDIR /workspace
 
-COPY pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps ./apps
 RUN corepack enable && pnpm install --frozen-lockfile
 
@@ -22,18 +22,26 @@ RUN pnpm run build
 # image build, instead of hand-rolling a filtered install.
 RUN pnpm deploy --filter @lorenzo/loot-bot --prod /deploy
 
-FROM node:22-slim
+FROM node:26-slim
 WORKDIR /app
 
 COPY --from=build /deploy/node_modules ./node_modules
 COPY --from=build /deploy/package.json ./package.json
 COPY --from=build /workspace/apps/loot-bot/dist ./dist
 
-RUN useradd --create-home --uid 1000 appuser
-USER appuser
+# node:22-slim already ships a non-root `node` user (uid 1000) for exactly
+# this purpose - `useradd` here collided with it instead of adding a new one.
+USER node
 
 EXPOSE 8090
 # tsup mirrors each entry's source subdirectory under dist/ (src/index.ts ->
 # dist/src/index.js) since entries span both src/ and scripts/ - confirmed
 # against a real local build, not assumed.
-CMD ["node", "dist/src/index.js"]
+#
+# Shell form, not exec form: Cloud Run injects its own $PORT (8080, not this
+# image's 8090 default) and expects the container to listen on exactly that
+# - same fix apps/api's own Dockerfile already needed (see
+# docs/operations/deployment-setup.md's history note) for the same reason.
+# config.ts only ever reads LOOT_BOT_HTTP_PORT, never Cloud Run's PORT
+# directly, so it has to be forwarded here instead.
+CMD ["sh", "-c", "LOOT_BOT_HTTP_PORT=${PORT:-8090} exec node dist/src/index.js"]

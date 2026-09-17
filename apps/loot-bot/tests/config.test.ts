@@ -44,6 +44,29 @@ describe("loadConfig", () => {
     expect(config.authCallbackUrl).toBe("https://bot.example.com/auth/callback");
   });
 
+  it("defaults the public base url when it's an empty string, not just when it's absent", () => {
+    // GitHub Actions' `${{ vars.LOOT_BOT_PUBLIC_BASE_URL }}` substitutes to
+    // "" rather than omitting the line when that variable doesn't exist yet
+    // (the real state on loot-bot's very first deploy, before its own Cloud
+    // Run URL is known) - confirmed against a real failed deploy, not
+    // assumed. zod's `.default()` alone doesn't cover this: it only fires on
+    // `undefined`, and "" is a defined (if invalid) value.
+    const config = loadConfig({ ...validEnv, LOOT_BOT_PUBLIC_BASE_URL: "" });
+    expect(config.publicBaseUrl).toBe("http://127.0.0.1:8090");
+  });
+
+  it("loads successfully without LOOT_BOT_MIGRATIONS_DATABASE_URL - the deployed server's own real env", () => {
+    // deploy-loot-bot.yml's env_vars for the running container deliberately
+    // never set this (the privileged bootstrap/DDL role - only migrate.ts's
+    // one-shot process needs it, per its own docstring) - loadConfig() must
+    // not require it, or index.ts's every real deploy would crash on
+    // startup before ever binding to a port. Confirmed against a real
+    // failed deploy, not assumed.
+    const { LOOT_BOT_MIGRATIONS_DATABASE_URL: _omit, ...serverEnv } = validEnv;
+    const config = loadConfig(serverEnv);
+    expect(config.migrationsDatabaseUrl).toBeUndefined();
+  });
+
   it("throws with a readable message when required vars are missing", () => {
     const { DISCORD_BOT_TOKEN: _omit, ...incomplete } = validEnv;
     expect(() => loadConfig(incomplete)).toThrow(/DISCORD_BOT_TOKEN/);
