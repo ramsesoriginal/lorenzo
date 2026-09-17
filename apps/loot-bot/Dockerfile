@@ -37,4 +37,11 @@ EXPOSE 8090
 # tsup mirrors each entry's source subdirectory under dist/ (src/index.ts ->
 # dist/src/index.js) since entries span both src/ and scripts/ - confirmed
 # against a real local build, not assumed.
-CMD ["node", "dist/src/index.js"]
+#
+# Shell form, not exec form: Cloud Run injects its own $PORT (8080, not this
+# image's 8090 default) and expects the container to listen on exactly that
+# - same fix apps/api's own Dockerfile already needed (see
+# docs/operations/deployment-setup.md's history note) for the same reason.
+# config.ts only ever reads LOOT_BOT_HTTP_PORT, never Cloud Run's PORT
+# directly, so it has to be forwarded here instead.
+CMD ["sh", "-c", "LOOT_BOT_HTTP_PORT=${PORT:-8090} exec node dist/src/index.js"]
