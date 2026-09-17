@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
@@ -12,7 +12,7 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     campaign_ids_for_players,
     can_manage_any_campaign_in_tenant,
-    can_manage_any_of_campaigns,
+    can_manage_character,
     can_manage_every_campaign,
 )
 from lorenzo_api.dependencies import (
@@ -28,10 +28,21 @@ from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
     CharacterManagementForbiddenError,
     CharacterNotFoundError,
+    InvalidUserError,
     PlayerNotFoundError,
     TenantNotFoundError,
 )
-from lorenzo_api.models import Being, Character, CharacterPlayer, Entity, Membership, Player
+from lorenzo_api.models import (
+    Being,
+    Character,
+    CharacterPlayer,
+    Entity,
+    GroupMember,
+    Membership,
+    Player,
+    User,
+)
+from lorenzo_api.notifications import create_character_notification
 from lorenzo_api.schemas.characters import (
     CharacterCreate,
     CharacterOut,
@@ -39,16 +50,18 @@ from lorenzo_api.schemas.characters import (
     CharacterSummaryOut,
     CharacterUpdate,
 )
-from lorenzo_api.schemas.players import PlayerSummaryOut
+from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
+from lorenzo_api.schemas.players import PlayerContextOut
 
-# CharacterOut.players: list[PlayerSummaryOut] is a forward reference
+# CharacterOut.players: list[PlayerContextOut] is a forward reference
 # (schemas/characters.py only imports schemas/players.py under
 # TYPE_CHECKING, to avoid a real circular import - see that module's own
-# docstring). Resolving it needs PlayerSummaryOut in scope somewhere;
+# docstring). Resolving it needs PlayerContextOut in scope somewhere;
 # rebuilt explicitly here, at import time, rather than relying on whichever
 # module happens to import schemas/players.py first - this router needs
 # both anyway and is guaranteed to load once, at app startup.
-CharacterOut.model_rebuild(_types_namespace={"PlayerSummaryOut": PlayerSummaryOut})
+CharacterOut.model_rebuild(_types_namespace={"PlayerContextOut": PlayerContextOut})
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0036/RFC 0007,
 # mirroring routers/item_instances.py's identical ADR 0032/RFC 0005
@@ -93,19 +106,44 @@ async def _require_tenant_member(
 
 @router.get("")
 async def list_characters(
-    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser, params: ParamsDep
+    tenant_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    params: ParamsDep,
+    mine: Annotated[
+        bool,
+        Query(
+            description=(
+                "Only characters owned by the caller (owner_player_id resolves to "
+                "one of their own Player rows) - not the broader roster of "
+                "characters they merely co-pilot, see ADR 0049."
+            )
+        ),
+    ] = False,
 ) -> Page[CharacterSummaryOut]:
     """Specifically a roster of Character rows, not every Being - a bare
     being with no character row doesn't appear here at all (ADR 0031/RFC
     0004).
     """
     await _require_tenant_member(session, tenant_id=tenant_id, user=user)
-    stmt = (
-        select(Character)
-        .where(Character.tenant_id == tenant_id)
-        .options(_name_eager_load)
-        .order_by(Character.entity_id)
-    )
+    stmt = select(Character).where(Character.tenant_id == tenant_id)
+    if mine:
+        # Mirrors entity_access.py's own "resolve the caller's Player rows
+        # in this tenant first" idiom rather than an inline subquery - see
+        # ADR 0049.
+        player_ids = (
+            (
+                await session.execute(
+                    select(Player.id).where(
+                        Player.user_id == user.id, Player.tenant_id == tenant_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        stmt = stmt.where(Character.owner_player_id.in_(player_ids))
+    stmt = stmt.options(_name_eager_load).order_by(Character.entity_id)
 
     def _characters_out(characters: Sequence[Character]) -> list[CharacterSummaryOut]:
         return [CharacterSummaryOut.from_character(c) for c in characters]
@@ -124,6 +162,31 @@ async def get_character(
 ) -> CharacterOut:
     await _require_tenant_member(session, tenant_id=tenant_id, user=user)
     return await _character_out(tenant_id, character_id, session)
+
+
+@router.get("/{character_id}/groups")
+async def list_character_groups(
+    tenant_id: uuid.UUID, character_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> list[EntitySummary]:
+    """ADR 0045's nice-to-have: the reverse of GET /tenants/{tenant_id}/
+    groups/{group_entity_id}/members - which groups this character belongs
+    to, sparing a client from fetching every tenant group and
+    cross-referencing membership client-side. Gated the same way as this
+    router's other two pre-existing GET routes (_require_tenant_member),
+    not routers/groups.py's own broader is_tenant_participant - consistency
+    with this router's own neighbors, not with groups.py.
+    """
+    await _require_tenant_member(session, tenant_id=tenant_id, user=user)
+    await _get_character_or_404(tenant_id, character_id, session)
+
+    stmt = (
+        select(Entity)
+        .join(GroupMember, GroupMember.group_entity_id == Entity.id)
+        .where(GroupMember.character_entity_id == character_id, GroupMember.tenant_id == tenant_id)
+        .order_by(Entity.id)
+    )
+    groups = (await session.execute(stmt)).scalars().all()
+    return [EntitySummary.from_entity(group) for group in groups]
 
 
 async def _get_character_or_404(
@@ -266,20 +329,13 @@ async def _authorize_roster_touch(
 async def _authorize_rename(
     session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, character_id: uuid.UUID
 ) -> None:
-    controlled = await controlled_character_entity_ids(
-        session, user_id=user.id, tenant_id=tenant_id
-    )
-    if character_id in controlled:
-        return
-    campaign_ids = await campaign_ids_for_character(
-        session, character_entity_id=character_id, tenant_id=tenant_id
-    )
-    if campaign_ids:
-        if await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
-            return
-    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+    """Thin wrapper over campaign_access.can_manage_character - promoted
+    there (ADR 0059) once group-scoped notifications needed the identical
+    "any one is enough" check for more than one character at a time.
+    """
+    if await can_manage_character(
+        session, user_id=user.id, tenant_id=tenant_id, character_entity_id=character_id
+    ):
         return
     raise CharacterManagementForbiddenError(
         detail=f"Not authorized to manage character {character_id}"
@@ -563,3 +619,40 @@ async def remove_character_player(
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _character_out(tenant_id, character_id, session)
+
+
+@router.post("/{character_id}/notifications", status_code=201)
+async def create_character_notification_route(
+    tenant_id: uuid.UUID,
+    character_id: uuid.UUID,
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="character" - see ADR 0058. Same authorization
+    `PATCH /{character_id}`'s rename path uses (`_authorize_rename`) - a
+    GM, or the character's own controlling player, can post an in-game
+    event about it. An omitted `recipient_user_id` broadcasts to every
+    player controlling this character via `CharacterPlayer` (roster reuse,
+    ADR 0025), so this can return more than one row.
+    """
+    await _get_character_or_404(tenant_id, character_id, session)
+    await _authorize_rename(session, tenant_id=tenant_id, user=user, character_id=character_id)
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_character_notification(
+        session,
+        tenant_id=tenant_id,
+        character_entity_id=character_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

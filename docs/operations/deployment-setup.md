@@ -110,6 +110,15 @@ New Cloud Run services are private by default — every request needs a Google-s
 
 Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live on Authgear's own subdomain), 1-day log retention, and a "2 Applications" cap whose exact scope (client apps within a project, vs. a project-count ceiling) is worth confirming directly in their console rather than assuming.
 
+### Granting the `tenant-creator` role (ADR 0033)
+
+`POST /tenants` is gated by a platform-level Authgear role, not by anything in this app's own tables ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)) — bootstrapping the very first tenant is a manual, human step, not a cold API call:
+
+1. **Authgear Portal → your production project → Configuration → Roles** (create the role here first if it doesn't exist yet) **→ Users → the account that should be able to create tenants → assign the role.**
+2. **Role keys can't contain `-` at all** — the Portal accepts a display name like "tenant-creator," but silently rewrites the underlying *key* (the value that actually lands in the token's `https://authgear.com/claims/user/roles` claim) to `tenant_creator`. Confirmed empirically, not assumed from Authgear's docs — see [ADR 0033's addendum](../adr/0033-tenant-creation-and-update-api.md#addendum-role-keys-cant-contain-hyphens-only-underscores). `Settings.tenant_creator_role_key` already defaults to `tenant_creator` to match; only override `TENANT_CREATOR_ROLE_KEY` if you deliberately pick a different role key in the Portal.
+3. **Get a real access token for that account**: from `apps/api/`, `AUTHGEAR_DEV_CLIENT_ID=<client id> AUTHGEAR_DEV_CLIENT_SECRET=<client secret> mise run dev-token -- --issuer <production issuer>`, using the OIDC client registered in step 2 of the section above (needs `http://127.0.0.1:8765/callback` as an Authorized Redirect URI on that client). Opens a browser, logs in, prints the token.
+4. **Call `POST /tenants`** with that token — either the deployed API's own Swagger UI at `<base url>/docs` (Authorize, then try out `POST /tenants`), or `curl -X POST <base url>/tenants -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name": "..."}'`. The response's `id` is the tenant's UUID.
+
 ## Cloudflare Pages (apps/inventory-web)
 
 `apps/inventory-web` deploys as a plain static build (`astro build` → `dist/`) — no container, no database, per [ADR 0004](../adr/0004-static-astro-frontend.md) and `docs/guides/adding-an-app.md`'s warning against forcing apps/api's own deploy shape onto an app that deploys completely differently.
@@ -125,6 +134,7 @@ Create a `production` [Environment](https://docs.github.com/en/actions/deploymen
 
 - **Secrets**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`. `CLOUDFLARE_API_TOKEN` — from the Cloudflare Pages section above.
 - **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE` — the values from the Authgear Cloud section above. `CLOUDFLARE_ACCOUNT_ID` — from the Cloudflare Pages section above. None of these eight are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
+- **Variable, optional**: `CORS_ALLOWED_ORIGINS` — set this once a static frontend needs to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). **Space-separated** exact origins, e.g. `https://lorenzo.example.com https://other.example.com` — deliberately not a JSON array or comma-separated list (see ADR 0048's own addendum for why: a JSON array's internal commas collided with how the deploy workflow joins environment variables, and crashed a real deploy). Leave unset to keep CORS closed (the default, and what every deploy so far has run with) — an unset variable arrives as an empty string, which `Settings.cors_allowed_origins` parses to `[]` directly.
 
 Once the apps/api values exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`; once the Cloudflare values exist, `.github/workflows/deploy-inventory-web.yml` does the same for `apps/inventory-web/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger either — each workflow's own `paths:` filter won't fire, so trigger the relevant one manually once (Actions → pick the workflow → "Run workflow") to actually apply new environment variables/secrets to the live service.
 
@@ -137,3 +147,30 @@ Once the apps/api values exist, `.github/workflows/deploy-api.yml` runs automati
 3. **Update the `DATABASE_URL` secret's value** to a connection string using those new credentials (same host/port/dbname as before - just the user and password change).
 4. **Trigger a deploy** (push to `main` touching `apps/api/`, or re-run `deploy-api.yml` manually). Its migration step runs as the *privileged* role (`MIGRATIONS_DATABASE_URL`, from step 1) and creates the restricted role using the credentials named in `DATABASE_URL` (from step 3) - by the time the Cloud Run deploy step runs moments later in the same job, that role already exists and is grantable.
 5. **Verify**: the deploy's own `/readyz` smoke test passing confirms the new role can connect and query at all; it doesn't by itself prove RLS is enforced under it. Confirm that separately (e.g. the same live check `test_rls_isolates_tenants_for_a_non_superuser_role` does locally, run once by hand against Neon) before considering this actually closed.
+
+## `apps/loot-bot` (ADR 0053)
+
+Reuses the *same* GCP project, Workload Identity Pool/Provider, and service account as `apps/api` above - all three of that service account's roles (`roles/run.admin`, `roles/artifactregistry.writer`, `roles/iam.serviceAccountUser`) are already project-scoped, not scoped to the `lorenzo-api` Cloud Run service specifically, so a second service and a second Artifact Registry repo need no new IAM setup at all. Only new, loot-bot-specific pieces:
+
+1. **Artifact Registry**: a second repo, same region:
+
+   ```bash
+   gcloud artifacts repositories create lorenzo-loot-bot --repository-format=docker --location="$REGION"
+   ```
+
+2. **First deploy**: push to `main` touching `apps/loot-bot/**`, or trigger `deploy-loot-bot.yml` manually (Actions → "Deploy loot-bot" → "Run workflow"). This first run is expected to fail at its final `curl .../livez` step - `LOOT_BOT_PUBLIC_BASE_URL` isn't known yet (it's the Cloud Run URL itself, a real chicken-and-egg: the URL doesn't exist until the service is first deployed). The service and its revision are still created either way, same as `apps/api`'s own first deploy.
+3. **Make the service public**, once it exists (same reasoning as `apps/api`'s own step 7 above - new Cloud Run services are private by default):
+
+   ```bash
+   gcloud run services update lorenzo-loot-bot --region="$REGION" --no-invoker-iam-check
+   ```
+
+4. **Note the assigned URL** (`gcloud run services describe lorenzo-loot-bot --region="$REGION" --format='value(status.url)'`, or the Cloud Console). Set the `LOOT_BOT_PUBLIC_BASE_URL` GitHub variable (below) to it.
+5. **Discord Developer Portal**: set the application's **Interactions Endpoint URL** to `<that url>/interactions`. Discord immediately sends a `PING` to verify it - the first real end-to-end proof the deployed signature verification (`DISCORD_PUBLIC_KEY`) actually works against the real key, not just the placeholder `ci-placeholder-public-key` value `ci.yml`/`deploy-loot-bot.yml`'s own test job uses.
+6. **Authgear**: update this bot's *own* confidential OIDC client's Authorized Redirect URI to `<that url>/auth/callback` (see `apps/loot-bot/README.md`'s Setup section for registering that client in the first place - separate from `apps/api`'s own dev client, same Authgear project).
+7. **Re-run** `deploy-loot-bot.yml` (Actions → "Run workflow") once steps 3-6 are done, so the next deploy's `/livez` check actually passes.
+
+**GitHub setup**, same `production` Environment `apps/api` already uses:
+
+- **Secrets**: `DISCORD_BOT_TOKEN`, `LOOT_BOT_AUTHGEAR_CLIENT_SECRET`, `LOOT_BOT_DATABASE_URL`, `LOOT_BOT_MIGRATIONS_DATABASE_URL`, `LOOT_BOT_TOKEN_ENCRYPTION_KEY` (32 random bytes, base64-encoded, e.g. `openssl rand -base64 32`).
+- **Variables**: `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`, `DISCORD_PUBLIC_KEY` (all from the Discord Developer Portal), `LOOT_BOT_AUTHGEAR_CLIENT_ID` (this bot's own client, distinct from `apps/api`'s - which has none), `LORENZO_API_BASE_URL` (the deployed `apps/api` Cloud Run URL), `LORENZO_TENANT_ID`, `LOOT_BOT_PUBLIC_BASE_URL` (step 4 above - unset for the very first deploy, which is why that one run is expected to fail its final health check). `AUTHGEAR_ISSUER` is **not** duplicated - it's the same Authgear project as `apps/api`, so the variable of that name `apps/api`'s own setup already added is reused as-is.

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from lorenzo_api.models import Character
 
 if TYPE_CHECKING:
-    from lorenzo_api.schemas.players import PlayerSummaryOut
+    from lorenzo_api.schemas.players import PlayerContextOut
 
 __all__ = [
     "CharacterCreate",
@@ -86,14 +86,14 @@ class CharacterOut(BaseModel):
     underlying `being` (that's `entity.created_by`, a different, also
     meaningful fact - ADR 0029's own open question).
 
-    `players` reuses `PlayerSummaryOut` whole (RFC 0004's own accepted
+    `players` reuses `PlayerContextOut` whole (RFC 0004's own accepted
     minor redundancy: each returned player entry redundantly re-includes
     the very character being viewed, among any others that player
     controls - not worth a fourth schema variant to trim).
 
-    `PlayerSummaryOut` (schemas/players.py) needs `CharacterSummaryOut`
+    `PlayerContextOut` (schemas/players.py) needs `CharacterSummaryOut`
     right back - a genuine two-way schema reference, not an accident.
-    Broken here the standard way: `PlayerSummaryOut` only appears under
+    Broken here the standard way: `PlayerContextOut` only appears under
     `TYPE_CHECKING` (so this module never really imports players.py,
     which itself really imports this one for `CharacterSummaryOut` above
     - a real cycle either direction if both were real imports), and
@@ -107,20 +107,20 @@ class CharacterOut(BaseModel):
     name: str
     is_pc: bool
     owner_player_id: uuid.UUID | None
-    players: list[PlayerSummaryOut]
+    players: list[PlayerContextOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 
     @classmethod
     def from_character(cls, character: Character) -> Self:
-        from lorenzo_api.schemas.players import PlayerSummaryOut
+        from lorenzo_api.schemas.players import PlayerContextOut
 
         return cls(
             entity_id=character.entity_id,
             name=character.being.entity.name,
             is_pc=character.owner_player_id is not None,
             owner_player_id=character.owner_player_id,
-            players=[PlayerSummaryOut.from_player(link.player) for link in character.player_links],
+            players=[PlayerContextOut.from_player(link.player) for link in character.player_links],
             created_by=character.created_by,
             updated_by=character.updated_by,
         )

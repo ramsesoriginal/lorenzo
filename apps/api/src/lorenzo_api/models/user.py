@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+from sqlalchemy import ARRAY, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
@@ -16,8 +19,11 @@ if TYPE_CHECKING:
 class User(Base):
     """Global identity, not tenant-scoped - a link back to Authgear's
     verified subject id (ADR 0009), holding only what's actually
-    domain-relevant (ADR 0010/0022). No email, name, password, or OAuth
-    token lives here - those stay in Authgear.
+    domain-relevant (ADR 0010/0022). No password or OAuth token lives here -
+    those stay in Authgear. `email`/`nickname` (ADR 0054) are the one
+    deliberate exception: `email` is a read-only cache of Authgear's own
+    verified claim, `nickname` is genuinely local data with no Authgear
+    equivalent - see each field's own comment below.
 
     Table is `app_user`, not `user` - `user` is a reserved word in Postgres
     (confirmed empirically, not assumed - see ADR 0022).
@@ -33,6 +39,41 @@ class User(Base):
 
     id: Mapped[UuidPk]
     authgear_subject_id: Mapped[str] = mapped_column(unique=True)
+    # Both optional and globally unique (ADR 0054) - `unique=True` relies on
+    # Postgres already treating every NULL as distinct from every other NULL
+    # in a plain unique constraint (same reasoning ADR 0028 gives for
+    # `knowledge`'s own UniqueConstraints), matching the migration's actual
+    # partial unique indexes. `email` is synced read-only from Authgear's
+    # verified `email` claim (dependencies.get_current_user) - never written
+    # anywhere else. `nickname` has no Authgear equivalent and is set
+    # directly via `PATCH /me`.
+    email: Mapped[str | None] = mapped_column(unique=True)
+    nickname: Mapped[str | None] = mapped_column(unique=True)
+    # ADR 0057 - a suspended account is rejected on its very next request
+    # (dependencies.get_current_user), anywhere in the API. Nullable: most
+    # users are never suspended, and a fresh auto-provisioned user never is
+    # by construction. suspended_by is ON DELETE SET NULL, same reasoning
+    # created_by/updated_by already use (ADR 0029) - the suspending
+    # operator's own account disappearing doesn't lift the suspension.
+    suspended_at: Mapped[datetime | None]
+    suspended_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("app_user.id", ondelete="SET NULL"), index=True
+    )
+    suspension_reason: Mapped[str | None]
+    # ADR 0060 - a fuller profile. display_name is a friendly label,
+    # deliberately not unique (unlike nickname, ADR 0054/0055's own lookup
+    # handle) - two users can both be "Alex". locales is this codebase's
+    # first native Postgres array column: a short, homogeneous,
+    # order-not-load-bearing list of locale tags doesn't earn a join table
+    # the way a genuine many-to-many domain relationship does. user_color
+    # is validated as #RRGGBB at the schema boundary (schemas/users.py),
+    # not here - same "format-checking is an application concern" precedent
+    # PayloadDescription.locale (ADR 0017) already established.
+    display_name: Mapped[str | None]
+    pronouns: Mapped[str | None]
+    bio: Mapped[str | None]
+    locales: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
+    user_color: Mapped[str | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

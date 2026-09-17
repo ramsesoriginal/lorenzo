@@ -27,6 +27,7 @@ class VItemInstance(EntityViewMixin, Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[uuid.UUID]
     owner_entity_id: Mapped[uuid.UUID | None]
+    slug: Mapped[str | None]
     description_id: Mapped[uuid.UUID | None]
     title: Mapped[str | None]
     weight: Mapped[int | None]

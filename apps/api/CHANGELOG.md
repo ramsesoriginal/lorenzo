@@ -1,5 +1,80 @@
 # Changelog
 
+## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.4.0...api-v0.5.0) (2026-09-17)
+
+
+### Features
+
+* **api:** group-scoped notifications ([fd484a0](https://github.com/ramsesoriginal/lorenzo/commit/fd484a0bbc1fe14ff63a64b3f5e4375a9b6cd9ef))
+* **api:** platform operations and notifications ([2d12ab3](https://github.com/ramsesoriginal/lorenzo/commit/2d12ab3b182adf82e7805446e276fa259a77402f))
+* **api:** profile pictures for User, Tenant, and Campaign ([96e4c32](https://github.com/ramsesoriginal/lorenzo/commit/96e4c323e64c4ac31551e3d8139552bd50460077))
+* **api:** user identity via email/nickname, plus exact-match lookup ([68a1bd7](https://github.com/ramsesoriginal/lorenzo/commit/68a1bd7c33b571e9cbb2cf610442fef40aa51a4b))
+* **api:** user profile expansion, sender read-receipts, bulk invite, tenant activity log ([78a259d](https://github.com/ramsesoriginal/lorenzo/commit/78a259ded40d344aea7cc05cb5e42e31e9f1cd5c))
+
+
+### Bug Fixes
+
+* **api:** surface suspension_reason in the 403 detail ([1f70a8f](https://github.com/ramsesoriginal/lorenzo/commit/1f70a8f6189f06dfd7cf45ccc298e9f486fa8d7e))
+* **api:** switch CORS_ALLOWED_ORIGINS to space-separated, not a JSON array ([8bae318](https://github.com/ramsesoriginal/lorenzo/commit/8bae318ef1ecc065486a6c41a9cb143183d2978e))
+* **api:** switch CORS_ALLOWED_ORIGINS to space-separated, not a JSON array ([7de51b3](https://github.com/ramsesoriginal/lorenzo/commit/7de51b380d7393b2adee681775f57f090d214331))
+* **api:** the tenant-creator role key is tenant_creator, not tenant-creator ([02c8143](https://github.com/ramsesoriginal/lorenzo/commit/02c814316609019d7972a7e057264070938d16a8))
+* **api:** the tenant-creator role key is tenant_creator, not tenant-creator ([b1b4e0d](https://github.com/ramsesoriginal/lorenzo/commit/b1b4e0d852e498c16c0b2c55f41375bb3d521625))
+* **api:** use SHA256, not MD5, for the Gravatar lookup hash ([d3e923d](https://github.com/ramsesoriginal/lorenzo/commit/d3e923d93c41b1bf913665fc9b21a3b28c76f48c))
+* **api:** validate user_id before granting campaign GM ([5521ba7](https://github.com/ramsesoriginal/lorenzo/commit/5521ba7b5b16d1d9d76443e85f84b19aa6febd67))
+
+
+### Documentation
+
+* **adr:** renumber 0050-0059 to 0054-0063 to avoid main's loot-bot collision ([0219229](https://github.com/ramsesoriginal/lorenzo/commit/021922931a78fe5994b5387ab4c33cf57c43ad53))
+
+## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.3.0...api-v0.4.0) (2026-09-16)
+
+
+### Features
+
+* **api:** campaign CRUD API (ADR 0034) ([9a5198e](https://github.com/ramsesoriginal/lorenzo/commit/9a5198e14a3185d528c47fbcbdd523487d42e3a4))
+* **api:** campaign-scoped GM visibility (ADR 0035) ([18ab685](https://github.com/ramsesoriginal/lorenzo/commit/18ab6858cd449ec35c4b5e29602ab5343cf26667))
+* **api:** character table and read API (ADR 0031) ([0322a91](https://github.com/ramsesoriginal/lorenzo/commit/0322a910bd336291243422dfdba1e3f1b615ca53))
+* **api:** configure CORS ([5a6657e](https://github.com/ramsesoriginal/lorenzo/commit/5a6657ee3a6d6fc8b08360ebc6a05811e56165e1))
+* **api:** containment quantity and stacking (ADR 0041) ([9def50f](https://github.com/ramsesoriginal/lorenzo/commit/9def50f20828bc28907b058ba364f517fdacaebf))
+* **api:** effective stat resolution and stat CRUD (ADR 0037) ([b3a2844](https://github.com/ramsesoriginal/lorenzo/commit/b3a284470f2b652ae8fa9928d48172a035d84a3d))
+* **api:** expose a concurrency token on item/item-instance reads ([24e223e](https://github.com/ramsesoriginal/lorenzo/commit/24e223ef1a41368543a0504069df3825d112a114))
+* **api:** generalize stat resolution into v_effective_stat (ADR 0039) ([896aab3](https://github.com/ramsesoriginal/lorenzo/commit/896aab37c8d77695297c80c030a84f20d055d232))
+* **api:** information/payload/knowledge CRUD API (ADR 0038) ([3e8b8d2](https://github.com/ramsesoriginal/lorenzo/commit/3e8b8d24ce65e10bec5a7ec55139c34657d5afb2))
+* **api:** item and item-instance CRUD API (ADR 0032) ([6e43c87](https://github.com/ramsesoriginal/lorenzo/commit/6e43c878923b0668e64dc005daa510b10f9736be))
+* **api:** item catalog search by name ([14d611b](https://github.com/ramsesoriginal/lorenzo/commit/14d611ba71beb6ef75bd19adbd24cac7299ab284))
+* **api:** item-instance read visibility narrows to reachable owners ([2c4b1f5](https://github.com/ramsesoriginal/lorenzo/commit/2c4b1f57cf66ddf78c835b29e44788319cc2f877))
+* **api:** item-instance slug and by-slug lookup ([f120c8d](https://github.com/ramsesoriginal/lorenzo/commit/f120c8d1dbd2eb4107ad9224fd7791d1eff9b6d7))
+* **api:** loot-assignment, concurrency, CORS, and API cleanups ([d88ad4e](https://github.com/ramsesoriginal/lorenzo/commit/d88ad4e28d6c234c8adf369ff6b994f96dd2c85e))
+* **api:** mine filter on GET /tenants/{tenant_id}/characters ([18f5b37](https://github.com/ramsesoriginal/lorenzo/commit/18f5b37a1903ed3be7c1c640f0847b010bd19a15))
+* **api:** player join/leave and character CRUD (ADR 0036) ([135ad94](https://github.com/ramsesoriginal/lorenzo/commit/135ad945e4e9aa1711704602b5747fbb5ef15958))
+* **api:** read-only groups API ([e95487a](https://github.com/ramsesoriginal/lorenzo/commit/e95487a522697bb9dff8287b63d28ceb8c86ffb9))
+* **api:** REST API surface for milestone [#1](https://github.com/ramsesoriginal/lorenzo/issues/1) ([be288e5](https://github.com/ramsesoriginal/lorenzo/commit/be288e56fbbfccf87cb9227e282fbe5248520c1f))
+* **api:** split-with-owner, merge, and bulk-assign for item instances ([90535ac](https://github.com/ramsesoriginal/lorenzo/commit/90535ac272991885e938ae332ad9c32845dc394a))
+* **api:** sub-slice 1 -- entity.created_by/updated_by (ADR 0029) ([0435989](https://github.com/ramsesoriginal/lorenzo/commit/043598974f80b1768294bb7840d6d18cc2722329))
+* **api:** tenant creation and update API (ADR 0033) ([0b17175](https://github.com/ramsesoriginal/lorenzo/commit/0b171750e851671a9a842fd9b96600861c4d9926))
+* **api:** tenant/campaign read API (ADR 0030) ([f6f7426](https://github.com/ramsesoriginal/lorenzo/commit/f6f742679984d73a3ee9b8f152962b396ea4afd5))
+* **api:** user deletion and membership invite/role-change/revoke (ADR 0036) ([c1c3f4e](https://github.com/ramsesoriginal/lorenzo/commit/c1c3f4effccbb3865bb54e7f722b6c3bdfa5ab9d))
+* **api:** widen GM reachability to the party's surroundings ([caa4a52](https://github.com/ramsesoriginal/lorenzo/commit/caa4a522e4540c7ff0407c3bdf046b37d418c96e))
+
+
+### Bug Fixes
+
+* **api:** allow player/campaign_gm RLS self-access for GET /tenants ([515c4c3](https://github.com/ramsesoriginal/lorenzo/commit/515c4c32b88dacd3e2c4fa21b98e9cd9e918c30f))
+* **api:** clean up a leaked tenant membership in a pagination test ([8c259ed](https://github.com/ramsesoriginal/lorenzo/commit/8c259ed881ed68dd2912093704b52d22ec5c46a1))
+* **api:** populate EntityDetailOut.parent's own quantity ([08d6eae](https://github.com/ramsesoriginal/lorenzo/commit/08d6eae5b357f7809c8b7c227ab28329114dc8b9))
+* **api:** stop admin opt-out from locking its own holder out (ADR 0034) ([bfc8302](https://github.com/ramsesoriginal/lorenzo/commit/bfc8302d68c153279fb06be2eda1ca9d2d251ef6))
+* force get_current_user to resolve before get_tenant_or_404 sets RLS context ([03621b6](https://github.com/ramsesoriginal/lorenzo/commit/03621b6ae6bcdd1af367235d6d8f49a8da6af077))
+* merge diverged Alembic migration heads (ADR 0033 + ADR 0034) ([e949f99](https://github.com/ramsesoriginal/lorenzo/commit/e949f99a44fd4753c0f51b51d1e5141ce53a9b4d))
+* merge remaining diverged Alembic migration head (ADR 0037) ([53ccba1](https://github.com/ramsesoriginal/lorenzo/commit/53ccba19aefcbd705b138f9b18fbd43648000389))
+
+
+### Documentation
+
+* refresh README branding, badges, and stale docs ([ef3ee5e](https://github.com/ramsesoriginal/lorenzo/commit/ef3ee5e26da852426f4f8ff3c92797797ba0b891))
+* stop claiming knowledge/visibility is unbuilt (ADR 0028 shipped) ([b1e32ec](https://github.com/ramsesoriginal/lorenzo/commit/b1e32ec7ad09142d926fd92c187e26f2538ef858))
+* update architecture roadmap for ADR 0045 ([db5ce8d](https://github.com/ramsesoriginal/lorenzo/commit/db5ce8d5fe7b2a2c9e980b1b50db21667f3d3811))
+
 ## [0.3.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.2.0...api-v0.3.0) (2026-09-10)
 
 

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_tenant
@@ -197,9 +198,144 @@ async def test_get_item_returns_full_wrapped_shape(
     assert content_response.content == b"\x89PNG"
     assert body["physical_stats"] == [{"name": "weight", "value": 3}]
     assert body["tags"] == [{"name": "is_magical", "value": True}]
+    # ADR 0066: no is_container tag defined at all here - unset, not False,
+    # the same "no such stat resolved" meaning is_magical/is_cursed use.
+    assert body["is_container"] is None
     assert body["economic_stats"] == []
     assert body["destroyable_stats"] == []
     assert body["damaging_stats"] == []
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_surfaces_is_container_as_mirrored_field(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0047 established the underlying convention - a tenant marks an
+    item container-capable by defining a boolean stat_definition named
+    `is_container` in the `tags` stat_group; ADR 0066 adds a first-class
+    `is_container` field on top, mirroring whatever that tag resolves to -
+    the tag itself stays in `tags` too, unchanged, for any client still
+    reading it generically.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        entity = Entity(tenant_id=tenant_id, name="Chest")
+        session.add(entity)
+        await session.flush()
+        session.add(Item(entity_id=entity.id, tenant_id=tenant_id))
+
+        tags = StatGroup(tenant_id=tenant_id, name="tags")
+        session.add(tags)
+        await session.flush()
+        is_container_def = StatDefinition(
+            tenant_id=tenant_id,
+            stat_group_id=tags.id,
+            name="is_container",
+            value_type=StatValueType.BOOL,
+        )
+        session.add(is_container_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=entity.id,
+                stat_definition_id=is_container_def.id,
+                tenant_id=tenant_id,
+                value_bool=True,
+            )
+        )
+        await session.commit()
+        entity_id = entity.id
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tags"] == [{"name": "is_container", "value": True}]
+    assert body["is_container"] is True
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_infers_is_container_from_containment_when_untagged(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0066: no `is_container` tag defined at all, but the item
+    actually has something contained inside it right now - inferred
+    `True` rather than left `None`. The tag itself is still absent from
+    `tags` (there is no stat_definition to produce an entry from).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Chest")
+        coin = Entity(tenant_id=tenant_id, name="Coin")
+        session.add_all([chest, coin])
+        await session.flush()
+        session.add(Item(entity_id=chest.id, tenant_id=tenant_id))
+        session.add(Item(entity_id=coin.id, tenant_id=tenant_id))
+        session.add(
+            Containment(child_entity_id=coin.id, parent_entity_id=chest.id, tenant_id=tenant_id)
+        )
+        await session.commit()
+        chest_id = chest.id
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{chest_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tags"] == []
+    assert body["is_container"] is True
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_explicit_is_container_tag_overrides_containment(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0066: an explicit is_container=False tag wins even though the
+    item structurally contains something - authorial intent over
+    structural inference.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Decorative Chest")
+        coin = Entity(tenant_id=tenant_id, name="Glued-on Coin")
+        session.add_all([chest, coin])
+        await session.flush()
+        session.add(Item(entity_id=chest.id, tenant_id=tenant_id))
+        session.add(Item(entity_id=coin.id, tenant_id=tenant_id))
+        session.add(
+            Containment(child_entity_id=coin.id, parent_entity_id=chest.id, tenant_id=tenant_id)
+        )
+
+        tags = StatGroup(tenant_id=tenant_id, name="tags")
+        session.add(tags)
+        await session.flush()
+        is_container_def = StatDefinition(
+            tenant_id=tenant_id,
+            stat_group_id=tags.id,
+            name="is_container",
+            value_type=StatValueType.BOOL,
+        )
+        session.add(is_container_def)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=chest.id,
+                stat_definition_id=is_container_def.id,
+                tenant_id=tenant_id,
+                value_bool=False,
+            )
+        )
+        await session.commit()
+        chest_id = chest.id
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{chest_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["tags"] == [{"name": "is_container", "value": False}]
+    assert body["is_container"] is False
 
     await delete_tenant(tenant_id)
 
@@ -379,6 +515,27 @@ async def test_list_items_paginates_and_is_tenant_isolated(
     await delete_tenant(tenant_b)
 
 
+async def test_list_items_q_filters_by_name_case_insensitively(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0047: q matches Entity.name, not VItem.title - Shovel has no
+    description authored at all here, so its title falls back to its own
+    name (ADR 0067) rather than being null, but a title-based search would
+    still find nothing since there's no authored title text to match.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Flaming Sword")
+    await _make_bare_item(tenant_id, "Shovel")
+
+    response = await client.get(f"/tenants/{tenant_id}/items", params={"q": "sword"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert {item["entity_id"] for item in body["items"]} == {str(sword_id)}
+
+    await delete_tenant(tenant_id)
+
+
 async def test_list_items_404_for_unknown_tenant(client: AsyncClient) -> None:
     response = await client.get("/tenants/00000000-0000-0000-0000-000000000000/items")
     assert response.status_code == 404
@@ -391,7 +548,8 @@ async def test_create_item_without_prototypes(client: AsyncClient, test_user_id:
 
     assert response.status_code == 201
     body = response.json()
-    assert body["title"] is None  # title comes from a "description" Information row, not name
+    # No description authored - title falls back to entity.name (ADR 0067).
+    assert body["title"] == "Sword"
     assert body["created_by"] == str(test_user_id)
     assert body["updated_by"] == str(test_user_id)
     assert response.headers["location"].endswith(f"/tenants/{tenant_id}/items/{body['entity_id']}")
@@ -501,6 +659,36 @@ async def test_update_item_succeeds_with_correct_if_match(
     )
 
     assert response.status_code == 200
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_exposes_etag_and_updated_at_for_round_tripping(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0042: a client obtains its concurrency token purely from the HTTP
+    response (either the ETag header or the updated_at field) - no direct DB
+    access required, unlike test_update_item_succeeds_with_correct_if_match
+    above (which predates this ADR and still reaches into the DB for it).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+
+    get_response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
+    assert get_response.status_code == 200
+    body = get_response.json()
+    assert "updated_at" in body
+    assert get_response.headers["etag"] == etag_for(datetime.fromisoformat(body["updated_at"]))
+
+    patch_response = await client.patch(
+        f"/tenants/{tenant_id}/items/{entity_id}",
+        json={"name": "Magic Sword"},
+        headers={"If-Match": get_response.headers["etag"]},
+    )
+    assert patch_response.status_code == 200
+    # The response to the write itself also carries a fresh token.
+    assert "etag" in patch_response.headers
+    assert patch_response.json()["updated_at"] != body["updated_at"]
+
     await delete_tenant(tenant_id)
 
 

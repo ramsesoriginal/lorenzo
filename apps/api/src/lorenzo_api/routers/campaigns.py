@@ -1,12 +1,13 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, UploadFile
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import exists, select
 
-from lorenzo_api.campaign_access import can_manage_campaign, is_tenant_admin, is_tenant_participant
+from lorenzo_api.activity_log import record_activity
+from lorenzo_api.campaign_access import can_manage_campaign, is_tenant_admin
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -14,6 +15,7 @@ from lorenzo_api.dependencies import (
     get_campaign_context,
     get_tenant_context,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match
@@ -22,15 +24,22 @@ from lorenzo_api.exceptions import (
     CampaignManagementForbiddenError,
     CampaignNotEmptyError,
     CampaignNotFoundError,
-    TenantNotFoundError,
+    InvalidUserError,
 )
-from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut
+from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut, User
+from lorenzo_api.notifications import create_campaign_notification
+from lorenzo_api.profile_pictures import (
+    delete_campaign_profile_picture,
+    read_and_validate_upload,
+    upsert_campaign_profile_picture,
+)
 from lorenzo_api.schemas.campaigns import (
     CampaignCreate,
     CampaignOut,
     CampaignSummaryOut,
     CampaignUpdate,
 )
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0030/RFC 0003): an
 # ordinary participant with zero tenant-wide Membership rows must still be
@@ -48,16 +57,15 @@ router = APIRouter(
 async def list_campaigns(
     tenant_id: uuid.UUID, user: CurrentUser, session: SessionDep, params: ParamsDep
 ) -> Page[CampaignSummaryOut]:
-    """The tenant's campaign catalog - gated by is_tenant_participant (any
-    Membership/Player/CampaignGm row anywhere in the tenant), not
+    """The tenant's campaign catalog - gated by require_tenant_participant
+    (any Membership/Player/CampaignGm row anywhere in the tenant), not
     get_tenant_context, per ADR 0030/RFC 0003. Secret campaigns are then
     filtered per row: included only if the caller is that campaign's own GM
     or a tenant admin - a plain Player of a secret campaign they don't GM
     doesn't see it here either (they already know about it directly via
     their own `/me` response, RFC 0004).
     """
-    if not await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
 
     stmt = select(Campaign).where(Campaign.tenant_id == tenant_id)
     if not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
@@ -158,6 +166,16 @@ async def create_campaign(
         updated_by=user.id,
     )
     session.add(campaign)
+    await session.flush()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="campaign.created",
+        target_type="campaign",
+        target_id=campaign.id,
+        detail=campaign.name,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -190,11 +208,41 @@ async def update_campaign(
     return await _campaign_out(tenant_id, campaign_id, session)
 
 
+@router.put("/{campaign_id}/picture", status_code=204)
+async def upload_campaign_picture(
+    tenant_id: uuid.UUID,
+    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    session: SessionDep,
+    user: CurrentUser,
+    file: UploadFile,
+) -> None:
+    """Same gate `update_campaign` uses (ADR 0056)."""
+    await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    data, file_type = await read_and_validate_upload(file)
+    await upsert_campaign_profile_picture(
+        session, tenant_id=tenant_id, campaign_id=campaign_id, data=data, file_type=file_type
+    )
+    await session.commit()
+
+
+@router.delete("/{campaign_id}/picture", status_code=204)
+async def delete_campaign_picture(
+    tenant_id: uuid.UUID,
+    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    await delete_campaign_profile_picture(session, campaign_id=campaign_id)
+    await session.commit()
+
+
 @router.delete("/{campaign_id}", status_code=204)
 async def delete_campaign(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     campaign_id: uuid.UUID,
     session: SessionDep,
+    user: CurrentUser,
     force: Annotated[
         bool,
         Query(
@@ -245,10 +293,26 @@ async def delete_campaign(
                 )
             )
 
+    # The campaign_profile_picture link cascades away with campaign below,
+    # but nothing points the other way - the profile_picture row itself
+    # would otherwise be orphaned forever (ADR 0056). Must run before the
+    # campaign row (and its link) is actually gone.
+    await delete_campaign_profile_picture(session, campaign_id=campaign_id)
+
     entity_id = campaign.entity_id
+    campaign_name = campaign.name
     await session.delete(campaign)
     await session.flush()
     await session.delete(await session.get_one(Entity, entity_id))
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="campaign.deleted",
+        target_type="campaign",
+        target_id=campaign_id,
+        detail=campaign_name,
+    )
     await session.commit()
 
 
@@ -267,8 +331,15 @@ async def grant_campaign_gm(
     granter (the caller), not the grantee (user_id) - never touched again
     on a re-grant, since the row's existence alone is the fact being
     recorded.
+
+    Validates user_id is a real user first, same as create_membership/
+    create_player - without this, a nonexistent user_id would otherwise
+    hit CampaignGm.user_id's foreign key directly and surface as a raw,
+    unhandled IntegrityError (a bare 500) instead of a clean 422.
     """
     await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    if await session.get(User, user_id) is None:
+        raise InvalidUserError(detail=f"{user_id} is not an existing user")
 
     existing = await session.get(CampaignGm, (tenant_id, user_id, campaign_id))
     if existing is None:
@@ -276,6 +347,15 @@ async def grant_campaign_gm(
             CampaignGm(
                 tenant_id=tenant_id, user_id=user_id, campaign_id=campaign_id, created_by=user.id
             )
+        )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign_gm.granted",
+            target_type="campaign_gm",
+            target_id=user_id,
+            detail=f"campaign_id={campaign_id}",
         )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
@@ -305,6 +385,15 @@ async def revoke_campaign_gm(
     existing = await session.get(CampaignGm, (tenant_id, user_id, campaign_id))
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign_gm.revoked",
+            target_type="campaign_gm",
+            target_id=user_id,
+            detail=f"campaign_id={campaign_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
@@ -377,3 +466,36 @@ async def opt_back_in_to_campaign_admin_visibility(
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
+
+
+@router.post("/{campaign_id}/notifications", status_code=201)
+async def create_campaign_notification_route(
+    tenant_id: uuid.UUID,
+    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="campaign" - see ADR 0058. Same gate `update_campaign` uses.
+    An omitted `recipient_user_id` broadcasts to the campaign's Player +
+    CampaignGm rows, so this can return more than one row.
+    """
+    await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_campaign_notification(
+        session,
+        tenant_id=tenant_id,
+        campaign_id=campaign_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

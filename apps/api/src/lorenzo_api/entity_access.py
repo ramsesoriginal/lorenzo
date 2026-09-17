@@ -100,6 +100,51 @@ def recursive_descendants_cte(root_entity_ids: frozenset[uuid.UUID], tenant_id: 
     return cte.union_all(recursive_term)
 
 
+def _containing_ancestors_cte(entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID) -> CTE:
+    """Every entity that transitively CONTAINS any of entity_ids - the exact
+    mirror of recursive_descendants_cte's downward walk (child -> parent
+    here, instead of parent -> child), same cycle-safe path-array guard
+    technique, see ADR 0046.
+    """
+    base = select(
+        Containment.parent_entity_id.label("parent_entity_id"),
+        pg_array([Containment.child_entity_id, Containment.parent_entity_id]).label("path"),
+    ).where(
+        Containment.child_entity_id.in_(entity_ids),
+        Containment.tenant_id == tenant_id,
+    )
+    cte = base.cte("entity_access_containers", recursive=True)
+    recursive_term = (
+        select(
+            Containment.parent_entity_id.label("parent_entity_id"),
+            (cte.c.path.op("||")(Containment.parent_entity_id)).label("path"),
+        )
+        .select_from(cte.join(Containment, Containment.child_entity_id == cte.c.parent_entity_id))
+        .where(
+            Containment.tenant_id == tenant_id,
+            ~(Containment.parent_entity_id == any_(cte.c.path)),
+            func.array_length(cte.c.path, 1) < _MAX_CONTAINMENT_DEPTH,
+        )
+    )
+    return cte.union_all(recursive_term)
+
+
+async def containing_ancestors_ids(
+    session: AsyncSession, *, entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """Every entity that transitively contains any of entity_ids (ADR 0046)
+    - the room a character is standing in, the building that room is in,
+    and so on up the containment chain. Ancestors only, not entity_ids
+    themselves - matching reachable_entity_ids' own convention of taking
+    the "plus itself" step at the call site rather than inside the
+    traversal helper.
+    """
+    if not entity_ids:
+        return frozenset()
+    cte = _containing_ancestors_cte(entity_ids, tenant_id)
+    return frozenset((await session.execute(select(cte.c.parent_entity_id))).scalars().all())
+
+
 async def reachable_entity_ids(
     session: AsyncSession, *, root_entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
 ) -> frozenset[uuid.UUID]:

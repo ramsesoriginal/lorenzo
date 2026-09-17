@@ -4,4 +4,5 @@ One directory per deployable application, named by purpose, not type. There is n
 
 See [ADR 0007](../docs/adr/0007-apps-layout-and-multiplicity.md) for the reasoning and [docs/guides/adding-an-app.md](../docs/guides/adding-an-app.md) for how to add one.
 
-- [`api`](api) — backend REST API. Infrastructure, plus the full domain model, a read-only REST API, and Authgear-backed auth.
+- [`api`](api) — backend REST API. Infrastructure, plus the full domain model, a full read/write REST API, and Authgear-backed auth.
+- [`loot-bot`](loot-bot) — Discord bot. Account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding — see its own README for the full command list.

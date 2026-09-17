@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import uuid
-from typing import Self
+from datetime import datetime
+from typing import Any, Literal, Self
 
 from fastapi import Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
-from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.common import EntitySummary, ProblemOut
 
 __all__ = [
     "DescriptionOut",
@@ -26,6 +27,13 @@ __all__ = [
     "SetOwnerRequest",
     "SetContainerRequest",
     "SplitItemInstanceRequest",
+    "MergeItemInstanceRequest",
+    "ProblemOut",
+    "BulkAssignItem",
+    "BulkAssignResultItem",
+    "BulkMoveItem",
+    "BulkMoveContainerRequest",
+    "BulkMoveResultItem",
 ]
 
 
@@ -109,6 +117,45 @@ def _tags_out(pairs: list[tuple[str, bool | None]]) -> list[TagValueOut]:
     return [TagValueOut(name=name, value=value) for name, value in pairs]
 
 
+def _title_out(title: str | None, *, name: str) -> str:
+    """`title` (`VItem`/`VItemInstance`'s own description-payload-sourced
+    display field, ADR 0019 - `None` whenever there's no "description"
+    Information row at all) falls back to the entity's own always-set
+    `name` when empty, so a client always has *something* to display -
+    see ADR 0067. `or`, not `if title is not None`, so an authored but
+    literally empty-string title (`Information.title` is `NOT NULL`, not
+    non-empty) falls back too, the same "empty counts as unset" reading
+    `bool(...)` already gives everywhere else in this schema module.
+    """
+    return title or name
+
+
+def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool) -> bool | None:
+    """`is_container` as a first-class field, mirroring whatever `tags`
+    already carries for that name - see ADR 0066. Not a new stat_definition
+    lookup of its own and not a new `v_item`/`v_item_instance` SQL column
+    like `is_magical`/`is_cursed`'s hardcoded whitelist (ADR 0037/0039) -
+    purely a convenience read of the same already-resolved `tags` list
+    `_tags_out` above wraps unchanged, so a client reading the generic
+    `tags` array still sees the identical entry.
+
+    An explicit tag value (`True` or `False`) always wins - authorial
+    intent over structural inference. Only when no `is_container` entry is
+    present at all (the tenant never defined that stat_definition in the
+    `tags` stat group, or never set a value for this entity/instance) does
+    `has_children` (ADR 0066 - whether `Containment` currently has any row
+    naming this entity as `parent_entity_id`, i.e. something is actually
+    contained in it right now) get a say: `True` if so, otherwise still
+    `None` - a container that's merely empty right now is indistinguishable
+    from "we don't know" under this heuristic, so it stays unset rather
+    than being inferred `False`.
+    """
+    for name, value in tags:
+        if name == "is_container":
+            return value
+    return True if has_children else None
+
+
 class ItemCreate(BaseModel):
     """POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
     EntityPrototype row per id in prototype_ids, one transaction.
@@ -126,23 +173,71 @@ class ItemUpdate(BaseModel):
     name: str | None = None
 
 
+def _common_item_fields(
+    view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
+) -> dict[str, Any]:
+    """Every field ItemOut and ItemInstanceOut share - both views expose the
+    identical EntityViewMixin-backed surface (ADR 0019), differing only in
+    ItemInstanceOut's own extra owner_entity_id/slug. Extracted so the two
+    schemas' constructors can't drift apart the way they used to (every
+    field added here historically meant editing both from_v_item and
+    from_v_item_instance by hand, in lockstep).
+    """
+    return dict(
+        entity_id=view.entity_id,
+        title=_title_out(view.title, name=view.entity.name),
+        weight=view.weight,
+        height=view.height,
+        price=view.price,
+        rarity=view.rarity,
+        hp=view.hp,
+        armor=view.armor,
+        container_entity_id=view.container_entity_id,
+        quantity=view.quantity,
+        is_magical=view.is_magical,
+        is_cursed=view.is_cursed,
+        is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
+        descriptions=_descriptions_out(view.descriptions(visibility)),
+        pictures=_picture_refs(view.entity, request, visibility),
+        physical_stats=_stats_out(view.physical_stats),
+        economic_stats=_stats_out(view.economic_stats),
+        destroyable_stats=_stats_out(view.destroyable_stats),
+        damaging_stats=_stats_out(view.damaging_stats),
+        tags=_tags_out(view.tags),
+        created_by=view.entity.created_by,
+        updated_by=view.entity.updated_by,
+        updated_at=view.entity.updated_at,
+    )
+
+
 class ItemOut(BaseModel):
     """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
+    `title` is always populated - `VItem.title` itself is still nullable
+    (no "description" Information row authored at all), but `_title_out`
+    (ADR 0067) falls back to the entity's own `name` whenever it's empty,
+    so a client always has something to display without checking for
+    `None` first.
 
     Constructing this requires the source `VItem` to already have its
     entity->information->payloads->description/picture,
     entity->information->knowledge_links (ADR 0028 - `descriptions` is
-    visibility-gated, not a bare property anymore), and
-    entity->stats->stat_definition->stat_group eager-loaded (see
-    `routers.items.eager_load_options`, the exact recipe proven in
-    `tests/test_v_item.py`) - the six wrapped properties/methods raise
-    MissingGreenlet otherwise, they do not silently lazy-load.
+    visibility-gated, not a bare property anymore),
+    entity->stats->stat_definition->stat_group, and entity->contained_links
+    (ADR 0066 - `_is_container_out`'s own structural fallback) eager-loaded
+    (see `routers.items.eager_load_options`, the exact recipe proven in
+    `tests/test_v_item.py`) - the six wrapped properties/methods (plus
+    `contained_links` itself) raise MissingGreenlet otherwise, they do not
+    silently lazy-load.
+
+    `ItemInstanceOut` below extends this directly - identical fields plus
+    `owner_entity_id`/`slug` - rather than repeating the field list a
+    second time.
     """
 
     model_config = ConfigDict(from_attributes=True)
 
     entity_id: uuid.UUID
-    title: str | None
+    title: str
     weight: int | None
     height: int | None
     price: int | None
@@ -153,6 +248,7 @@ class ItemOut(BaseModel):
     quantity: int | None
     is_magical: bool | None
     is_cursed: bool | None
+    is_container: bool | None
     descriptions: list[DescriptionOut]
     pictures: list[PictureRefOut]
     physical_stats: list[StatValueOut]
@@ -162,34 +258,13 @@ class ItemOut(BaseModel):
     tags: list[TagValueOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
+    updated_at: datetime
 
     @classmethod
     def from_v_item(
         cls, view: VItem, request: Request, *, visibility: InformationVisibility
     ) -> Self:
-        return cls(
-            entity_id=view.entity_id,
-            title=view.title,
-            weight=view.weight,
-            height=view.height,
-            price=view.price,
-            rarity=view.rarity,
-            hp=view.hp,
-            armor=view.armor,
-            container_entity_id=view.container_entity_id,
-            quantity=view.quantity,
-            is_magical=view.is_magical,
-            is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions(visibility)),
-            pictures=_picture_refs(view.entity, request, visibility),
-            physical_stats=_stats_out(view.physical_stats),
-            economic_stats=_stats_out(view.economic_stats),
-            destroyable_stats=_stats_out(view.destroyable_stats),
-            damaging_stats=_stats_out(view.damaging_stats),
-            tags=_tags_out(view.tags),
-            created_by=view.entity.created_by,
-            updated_by=view.entity.updated_by,
-        )
+        return cls(**_common_item_fields(view, request, visibility=visibility))
 
 
 class ItemInstanceCreate(BaseModel):
@@ -198,13 +273,15 @@ class ItemInstanceCreate(BaseModel):
     One transaction creates Entity (name defaults to the prototype's own
     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
     row if owner_character_id is given and/or a Containment row if
-    container_entity_id is given.
+    container_entity_id is given. slug (ADR 0043) is optional, unique per
+    tenant when set, and resolvable later via GET .../by-slug/{slug}.
     """
 
     name: str | None = None
     prototype_id: uuid.UUID
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
+    slug: str | None = None
 
 
 class ItemInstanceUpdate(BaseModel):
@@ -230,74 +307,119 @@ class SetContainerRequest(BaseModel):
 
 
 class SplitItemInstanceRequest(BaseModel):
-    """POST /item-instances/{id}/split body - see ADR 0041. `quantity` is
-    how many units to split *off* into a new sibling instance; the source
-    must currently hold strictly more than this (splitting off "all of it"
-    is a container/owner reassignment of the whole stack, not a split).
+    """POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
+    is how many units to split *off* into a new sibling instance; the
+    source must currently hold strictly more than this (splitting off "all
+    of it" is a container/owner reassignment of the whole stack, not a
+    split). `owner_character_id` (ADR 0044) is optional - when given, the
+    new split-off instance is created with that owner instead of copying
+    the source's current owner (the behavior when omitted, unchanged from
+    ADR 0041).
     """
 
     quantity: int
+    owner_character_id: uuid.UUID | None = None
 
 
-class ItemInstanceOut(BaseModel):
-    """A specific, ownable item ("My Shovel"), from `VItemInstance` -
-    identical to `ItemOut` plus `owner_entity_id`. See ADR 0019/0020 and
-    `ItemOut`'s docstring for the eager-load requirement.
+class MergeItemInstanceRequest(BaseModel):
+    """POST /item-instances/{id}/merge body - see ADR 0044. into_entity_id
+    is the surviving stack; the path's own entity_id is fully consumed
+    into it and then deleted.
     """
 
-    model_config = ConfigDict(from_attributes=True)
+    into_entity_id: uuid.UUID
+
+
+class BulkAssignItem(BaseModel):
+    """POST /item-instances/bulk-assign - one input entry. See ADR 0044:
+    quantity given delegates to split-with-owner (creating a new instance);
+    omitted delegates to the plain owner-PUT path (reassigning entity_id
+    itself). if_match is optional, exactly like every other write in this
+    router - honored per item, a stale claim becomes that item's own
+    "error" entry rather than failing the whole batch.
+    """
 
     entity_id: uuid.UUID
+    owner_character_id: uuid.UUID
+    quantity: int | None = None
+    if_match: str | None = None
+
+
+class ItemInstanceOut(ItemOut):
+    """A specific, ownable item ("My Shovel"), from `VItemInstance` -
+    identical to `ItemOut` plus `owner_entity_id`/`slug`. See ADR 0019/0020
+    and `ItemOut`'s docstring for the eager-load requirement.
+    """
+
     owner_entity_id: uuid.UUID | None
-    title: str | None
-    weight: int | None
-    height: int | None
-    price: int | None
-    rarity: int | None
-    hp: int | None
-    armor: int | None
-    container_entity_id: uuid.UUID | None
-    quantity: int | None
-    is_magical: bool | None
-    is_cursed: bool | None
-    descriptions: list[DescriptionOut]
-    pictures: list[PictureRefOut]
-    physical_stats: list[StatValueOut]
-    economic_stats: list[StatValueOut]
-    destroyable_stats: list[StatValueOut]
-    damaging_stats: list[StatValueOut]
-    tags: list[TagValueOut]
-    created_by: uuid.UUID | None
-    updated_by: uuid.UUID | None
+    slug: str | None
 
     @classmethod
     def from_v_item_instance(
         cls, view: VItemInstance, request: Request, *, visibility: InformationVisibility
     ) -> Self:
         return cls(
-            entity_id=view.entity_id,
+            **_common_item_fields(view, request, visibility=visibility),
             owner_entity_id=view.owner_entity_id,
-            title=view.title,
-            weight=view.weight,
-            height=view.height,
-            price=view.price,
-            rarity=view.rarity,
-            hp=view.hp,
-            armor=view.armor,
-            container_entity_id=view.container_entity_id,
-            quantity=view.quantity,
-            is_magical=view.is_magical,
-            is_cursed=view.is_cursed,
-            descriptions=_descriptions_out(view.descriptions(visibility)),
-            pictures=_picture_refs(view.entity, request, visibility),
-            physical_stats=_stats_out(view.physical_stats),
-            economic_stats=_stats_out(view.economic_stats),
-            destroyable_stats=_stats_out(view.destroyable_stats),
-            damaging_stats=_stats_out(view.damaging_stats),
-            tags=_tags_out(view.tags),
-            created_by=view.entity.created_by,
-            updated_by=view.entity.updated_by,
+            slug=view.slug,
         )
+
+
+class BulkAssignResultItem(BaseModel):
+    """POST /item-instances/bulk-assign - one output entry, always present
+    for every input entry regardless of outcome (ADR 0044: never
+    all-or-nothing). Exactly one of item_instance/problem is set, matching
+    status.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item_instance: ItemInstanceOut | None = None
+    problem: ProblemOut | None = None
+
+
+class BulkMoveItem(BaseModel):
+    """POST /item-instances/bulk-move - one entry of the `items` mode. See
+    ADR 0065. `if_match` is optional, exactly like `BulkAssignItem`'s
+    identical field - honored per item, a stale claim becomes that item's
+    own "error" entry rather than failing the whole batch.
+    """
+
+    entity_id: uuid.UUID
+    if_match: str | None = None
+
+
+class BulkMoveContainerRequest(BaseModel):
+    """POST /item-instances/bulk-move body - see ADR 0065. Exactly one of
+    `from_container_entity_id` ("move everything directly inside this
+    container") or `items` ("move exactly this list") must be given -
+    a request-shape invariant, not a domain rule with a row to `CHECK`,
+    so it's validated here rather than via a typed `Problem`.
+    """
+
+    to_container_entity_id: uuid.UUID
+    from_container_entity_id: uuid.UUID | None = None
+    items: list[BulkMoveItem] | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> Self:
+        if (self.from_container_entity_id is None) == (self.items is None):
+            raise ValueError("Exactly one of from_container_entity_id/items must be given")
+        return self
+
+
+class BulkMoveResultItem(BaseModel):
+    """POST /item-instances/bulk-move - one output entry, always present
+    for every resolved item regardless of outcome (ADR 0065: never
+    all-or-nothing). Exactly one of item_instance/problem is set, matching
+    status - the identical shape `BulkAssignResultItem` already
+    established.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item_instance: ItemInstanceOut | None = None
+    problem: ProblemOut | None = None
 
 
 class OwnedGroupOut(BaseModel):

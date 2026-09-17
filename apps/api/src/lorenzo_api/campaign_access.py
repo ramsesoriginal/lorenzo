@@ -11,6 +11,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.entity_access import controlled_character_entity_ids
 from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
@@ -196,6 +197,35 @@ async def can_manage_any_of_campaigns(
             for campaign_id in campaign_ids
         ]
     )
+
+
+async def can_manage_character(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    character_entity_id: uuid.UUID,
+) -> bool:
+    """Self-control OR can-manage-any-one-of-its-campaigns OR (rostered
+    into no campaign at all) can-manage-any-campaign-in-tenant - the "any
+    one is enough" authorization shape routers/characters.py's own PATCH
+    rename path first established (ADR 0036/RFC 0007), promoted here so a
+    second call site (group-scoped notifications, ADR 0059) doesn't need
+    its own copy of the same three-way check.
+    """
+    controlled = await controlled_character_entity_ids(
+        session, user_id=user_id, tenant_id=tenant_id
+    )
+    if character_entity_id in controlled:
+        return True
+    campaign_ids = await campaign_ids_for_character(
+        session, character_entity_id=character_entity_id, tenant_id=tenant_id
+    )
+    if campaign_ids:
+        return await can_manage_any_of_campaigns(
+            session, user_id=user_id, campaign_ids=campaign_ids, tenant_id=tenant_id
+        )
+    return await can_manage_any_campaign_in_tenant(session, user_id=user_id, tenant_id=tenant_id)
 
 
 async def can_manage_every_campaign(

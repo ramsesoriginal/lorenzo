@@ -19,6 +19,7 @@ from fastapi_problem.error import (
 )
 
 __all__ = [
+    "AccountSuspendedError",
     "CampaignAdminOptOutRequiresAdminError",
     "CampaignManagementForbiddenError",
     "CampaignNotEmptyError",
@@ -27,33 +28,44 @@ __all__ = [
     "CharacterNotFoundError",
     "EntityNotFoundError",
     "EntityStatManagementForbiddenError",
+    "InvalidCharacterError",
+    "InvalidGroupMemberError",
     "InvalidItemPrototypeError",
+    "InvalidMergeError",
     "InformationAlreadyExistsError",
     "InformationManagementForbiddenError",
     "InformationNotFoundError",
     "InvalidSplitQuantityError",
     "InvalidStatGroupError",
+    "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
     "InvalidTokenError",
     "InvalidUserError",
     "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
+    "ItemInstanceSlugConflictError",
+    "ItemInstanceSlugNotFoundError",
     "ItemNotFoundError",
     "ItemPrototypeInUseError",
     "LastOwnerError",
     "MembershipAlreadyExistsError",
     "MembershipManagementForbiddenError",
     "MembershipNotFoundError",
+    "NicknameConflictError",
+    "NotificationNotFoundError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
+    "PlatformOperatorRoleRequiredError",
     "PlayerAlreadyExistsError",
     "PlayerNotFoundError",
     "PreconditionFailedError",
+    "ProfilePictureNotFoundError",
     "SlugConflictError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
     "TenantNotFoundError",
+    "UserNotFoundError",
 ]
 
 
@@ -93,6 +105,24 @@ class PlayerNotFoundError(NotFoundProblem):
     title = "Player not found"
 
 
+class UserNotFoundError(NotFoundProblem):
+    """GET /users/by-email/{email}, GET /users/by-nickname/{nickname} - no
+    user has that exact value. See ADR 0055.
+    """
+
+    title = "User not found"
+
+
+class NotificationNotFoundError(NotFoundProblem):
+    """POST /me/notifications/{id}/read - no such notification, or one that
+    exists but isn't the caller's own - collapsed indistinguishably, same
+    non-enumerable shape every other not-found condition in this codebase
+    already uses. See ADR 0058.
+    """
+
+    title = "Notification not found"
+
+
 class CharacterNotFoundError(NotFoundProblem):
     """Also covers "this is a being with no character row" - the same
     non-enumerable collapsing every other not-found condition in this
@@ -110,6 +140,15 @@ class ItemPrototypeInUseError(ConflictProblem):
     """
 
     title = "Item is still in use as a prototype"
+
+
+class InvalidProfilePictureError(UnprocessableProblem):
+    """PUT .../picture - the uploaded content-type isn't in the allow-list
+    (image/png, image/jpeg, image/webp, image/gif), or the body exceeds
+    `Settings.profile_picture_max_bytes`. See ADR 0056.
+    """
+
+    title = "Invalid profile picture"
 
 
 class InvalidItemPrototypeError(UnprocessableProblem):
@@ -131,6 +170,39 @@ class InvalidSplitQuantityError(UnprocessableProblem):
     """
 
     title = "Invalid split quantity"
+
+
+class ItemInstanceSlugConflictError(ConflictProblem):
+    """POST /item-instances - the given slug is already used by another item
+    instance in this tenant (the partial unique index on
+    (tenant_id, slug), ADR 0043). Pre-checked explicitly, matching
+    MembershipAlreadyExistsError/PlayerAlreadyExistsError/SlugConflictError's
+    own established precedent, rather than letting the constraint violation
+    surface as a bare 500.
+    """
+
+    title = "Item instance slug already in use"
+
+
+class ItemInstanceSlugNotFoundError(NotFoundProblem):
+    """GET .../item-instances/by-slug/{slug} - see ADR 0043. Non-enumerable,
+    same as ItemInstanceNotFoundError: "no such slug in this tenant" and
+    "the slug exists in a different tenant" both 404 identically.
+    """
+
+    title = "Item instance not found"
+
+
+class InvalidMergeError(UnprocessableProblem):
+    """POST /item-instances/{id}/merge - see ADR 0044. Covers every guard
+    that route enforces with one type (merging into itself, either side
+    missing a Containment row, the two sides having different containers,
+    the two sides having different current owners) - which guard failed is
+    a detail-string distinction, matching InvalidSplitQuantityError's own
+    precedent of one type per route rather than one per specific reason.
+    """
+
+    title = "Invalid merge"
 
 
 class ItemInstanceManagementForbiddenError(ForbiddenProblem):
@@ -228,6 +300,14 @@ class PreconditionFailedError(StatusProblem):
     title = "Precondition failed"
 
 
+class ProfilePictureNotFoundError(NotFoundProblem):
+    """GET .../picture - no uploaded picture and, for a user, no email to
+    fall back to a Gravatar with either. See ADR 0056.
+    """
+
+    title = "Profile picture not found"
+
+
 class TenantCreationForbiddenError(ForbiddenProblem):
     """POST /tenants - the caller lacks the platform-level tenant-creator
     Authgear role (ADR 0033/RFC 0012). 403, not 404: there's no
@@ -238,6 +318,26 @@ class TenantCreationForbiddenError(ForbiddenProblem):
     """
 
     title = "Missing the tenant-creator role"
+
+
+class PlatformOperatorRoleRequiredError(ForbiddenProblem):
+    """/admin/* - the caller lacks the platform-level platform-operator
+    Authgear role. See ADR 0057 - exact mirror of
+    TenantCreationForbiddenError's own reasoning: a platform-wide
+    capability, not tenant-scoped, so 403 not 404.
+    """
+
+    title = "Missing the platform-operator role"
+
+
+class AccountSuspendedError(ForbiddenProblem):
+    """Raised by dependencies.get_current_user, before anything else runs,
+    for any request from a suspended account - see ADR 0057. 403, not 401:
+    the token itself is genuinely valid, the account it names is simply
+    blocked from acting.
+    """
+
+    title = "This account has been suspended"
 
 
 class SlugConflictError(ConflictProblem):
@@ -297,6 +397,16 @@ class MembershipAlreadyExistsError(ConflictProblem):
     title = "This user already has a membership in this tenant"
 
 
+class NicknameConflictError(ConflictProblem):
+    """PATCH /me - the requested nickname is already taken by another user.
+    See ADR 0054. Nicknames are globally unique, not tenant-scoped - the
+    same "explicit choice, no silent auto-suffix" reasoning SlugConflictError
+    already gives for an explicitly-requested tenant slug.
+    """
+
+    title = "Nickname already in use"
+
+
 class PlayerAlreadyExistsError(ConflictProblem):
     """POST /tenants/{id}/campaigns/{id}/players - user_id already has a
     Player row in this campaign (player's own UniqueConstraint(campaign_id,
@@ -309,13 +419,15 @@ class PlayerAlreadyExistsError(ConflictProblem):
 
 
 class InvalidUserError(UnprocessableProblem):
-    """POST /tenants/{id}/memberships and POST .../players - user_id doesn't
-    resolve to an existing app_user row. Real, not hypothetical: RFC 0007's
-    "invite by user_id, not email" design ("Invitation, honestly") means an
+    """POST /tenants/{id}/memberships, POST .../players, and
+    PUT .../campaigns/{id}/gms/{user_id} - user_id doesn't resolve to an
+    existing app_user row. Real, not hypothetical: RFC 0007's "invite by
+    user_id, not email" design ("Invitation, honestly") means an
     owner/manager can only reference someone who has already signed in at
-    least once - this API has no email to look anyone up by (ADR 0009).
-    Mirrors InvalidItemPrototypeError/InvalidStatGroupError's own "body
-    references something that isn't there" shape.
+    least once - by-email/by-nickname lookup (ADR 0055) helps find that
+    user_id, but doesn't remove the underlying constraint. Mirrors
+    InvalidItemPrototypeError/InvalidStatGroupError's own "body references
+    something that isn't there" shape.
     """
 
     title = "User id does not reference an existing user"
@@ -371,3 +483,28 @@ class InformationManagementForbiddenError(ForbiddenProblem):
     """
 
     title = "Not authorized to manage this entity's information"
+
+
+class InvalidCharacterError(UnprocessableProblem):
+    """POST /groups, PUT .../groups/{id}/members/{character_entity_id},
+    POST .../groups/{id}/members/bulk - the given id doesn't resolve to a
+    real Character in this tenant. Mirrors InvalidUserError/
+    InvalidItemPrototypeError's own "body references something that isn't
+    there" shape - without this, GroupMember.character_entity_id's own FK
+    to character.entity_id would otherwise surface as a bare 500. See ADR
+    0064.
+    """
+
+    title = "Character id does not reference an existing character"
+
+
+class InvalidGroupMemberError(UnprocessableProblem):
+    """PUT .../groups/{group_entity_id}/members/{character_entity_id} and
+    its bulk/create-time equivalents - character_entity_id equals
+    group_entity_id. Pre-checked rather than left to surface as a raw
+    group_member_no_self_loop CHECK violation - a real, reachable case
+    since nothing stops an entity from independently acquiring both a
+    group role and a Character row (RFC 0001). See ADR 0064.
+    """
+
+    title = "An entity cannot be a member of its own group"
