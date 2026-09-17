@@ -1,5 +1,5 @@
-"""Notifications: platform/tenant/campaign/character scope, in-app inbox.
-See ADR 0054.
+"""Notifications: platform/tenant/campaign/character/group scope, in-app
+inbox. See ADR 0054/0055.
 """
 
 import uuid
@@ -9,7 +9,16 @@ from conftest import delete_tenant, make_campaign, make_character, make_player, 
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from lorenzo_api.models import CharacterPlayer, Notification, Player, Tenant, User
+from lorenzo_api.models import (
+    CampaignGm,
+    CharacterPlayer,
+    Entity,
+    GroupMember,
+    Notification,
+    Player,
+    Tenant,
+    User,
+)
 
 
 async def test_create_tenant_notification_single_recipient(
@@ -359,5 +368,183 @@ async def test_mark_notification_read_404_for_someone_elses_notification(
 
     async with admin_session_factory() as session:
         await session.delete(await session.get_one(User, other_id))
+        await session.commit()
+    await delete_tenant(tenant_id)
+
+
+# --- Group notifications (ADR 0055) ----------------------------------------
+
+
+async def test_create_group_notification_broadcasts_to_every_members_players(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+        player_a = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        player_b = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        character_a = await make_character(
+            session, tenant_id=tenant_id, name="A", owner_player_id=player_a.id
+        )
+        character_b = await make_character(
+            session, tenant_id=tenant_id, name="B", owner_player_id=player_b.id
+        )
+        group = Entity(tenant_id=tenant_id, name="The Party")
+        session.add(group)
+        await session.flush()
+        session.add_all(
+            [
+                CharacterPlayer(
+                    character_entity_id=character_a.entity_id,
+                    player_id=player_a.id,
+                    tenant_id=tenant_id,
+                ),
+                CharacterPlayer(
+                    character_entity_id=character_b.entity_id,
+                    player_id=player_b.id,
+                    tenant_id=tenant_id,
+                ),
+                GroupMember(
+                    group_entity_id=group.id,
+                    character_entity_id=character_a.entity_id,
+                    tenant_id=tenant_id,
+                ),
+                GroupMember(
+                    group_entity_id=group.id,
+                    character_entity_id=character_b.entity_id,
+                    tenant_id=tenant_id,
+                ),
+            ]
+        )
+        await session.commit()
+        group_id = group.id
+        player_a_user_id, player_b_user_id = player_a.user_id, player_b.user_id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/groups/{group_id}/notifications",
+        json={"type": "party_update", "title": "Party News", "body": "Loot found"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert len(body) == 2
+    assert {n["scope"] for n in body} == {"group"}
+    assert {n["source_id"] for n in body} == {str(group_id)}
+    recipient_ids = {n["id"] for n in body}
+    assert len(recipient_ids) == 2
+
+    async with admin_session_factory() as session:
+        for uid in (player_a_user_id, player_b_user_id):
+            rows = (
+                (await session.execute(select(Notification).where(Notification.user_id == uid)))
+                .scalars()
+                .all()
+            )
+            assert len(rows) == 1
+        await session.delete(await session.get_one(User, player_a_user_id))
+        await session.delete(await session.get_one(User, player_b_user_id))
+        await session.commit()
+
+    await delete_tenant(tenant_id)
+
+
+async def test_create_group_notification_404_for_unknown_group(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/groups/{uuid.uuid4()}/notifications",
+        json={"type": "x", "title": "x", "body": "x"},
+    )
+    assert response.status_code == 404
+
+    await delete_tenant(tenant_id)
+
+
+async def test_create_group_notification_200_empty_for_a_memberless_group(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        group = Entity(tenant_id=tenant_id, name="Empty Group")
+        session.add(group)
+        await session.commit()
+        group_id = group.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/groups/{group_id}/notifications",
+        json={"type": "x", "title": "x", "body": "x"},
+    )
+    assert response.status_code == 201
+    assert response.json() == []
+
+    await delete_tenant(tenant_id)
+
+
+async def test_create_group_notification_403_when_caller_cannot_manage_every_member(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Authorized over one member's campaign but not the other's - fail
+    closed, not a partial send (ADR 0055)."""
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+
+        campaign_a = await make_campaign(session, tenant_id=tenant_id, name="A")
+        campaign_b = await make_campaign(session, tenant_id=tenant_id, name="B")
+        await session.flush()
+        session.add(
+            CampaignGm(tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign_a.id)
+        )
+
+        player_a = await make_player(session, tenant_id=tenant_id, campaign_id=campaign_a.id)
+        player_b = await make_player(session, tenant_id=tenant_id, campaign_id=campaign_b.id)
+        character_a = await make_character(session, tenant_id=tenant_id, name="A")
+        character_b = await make_character(session, tenant_id=tenant_id, name="B")
+        group = Entity(tenant_id=tenant_id, name="Mixed Group")
+        session.add(group)
+        await session.flush()
+        session.add_all(
+            [
+                CharacterPlayer(
+                    character_entity_id=character_a.entity_id,
+                    player_id=player_a.id,
+                    tenant_id=tenant_id,
+                ),
+                CharacterPlayer(
+                    character_entity_id=character_b.entity_id,
+                    player_id=player_b.id,
+                    tenant_id=tenant_id,
+                ),
+                GroupMember(
+                    group_entity_id=group.id,
+                    character_entity_id=character_a.entity_id,
+                    tenant_id=tenant_id,
+                ),
+                GroupMember(
+                    group_entity_id=group.id,
+                    character_entity_id=character_b.entity_id,
+                    tenant_id=tenant_id,
+                ),
+            ]
+        )
+        await session.commit()
+        group_id = group.id
+        player_a_user_id, player_b_user_id = player_a.user_id, player_b.user_id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/groups/{group_id}/notifications",
+        json={"type": "x", "title": "x", "body": "x"},
+    )
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/problem+json"
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, player_a_user_id))
+        await session.delete(await session.get_one(User, player_b_user_id))
         await session.commit()
     await delete_tenant(tenant_id)
