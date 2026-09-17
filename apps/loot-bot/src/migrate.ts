@@ -39,6 +39,11 @@ const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url)
  */
 export async function runMigrations(): Promise<void> {
   const config = loadConfig();
+  // config.ts leaves this optional - only this function ever needs it, and
+  // the deployed server must never hold it (see config.ts's own note).
+  if (!config.migrationsDatabaseUrl) {
+    throw new Error("LOOT_BOT_MIGRATIONS_DATABASE_URL is required to run migrations");
+  }
   const pool = new Pool({ connectionString: config.migrationsDatabaseUrl });
   try {
     const { role, password } = parseRoleCredentials(config.databaseUrl);

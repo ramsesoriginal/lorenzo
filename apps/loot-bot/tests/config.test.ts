@@ -55,6 +55,18 @@ describe("loadConfig", () => {
     expect(config.publicBaseUrl).toBe("http://127.0.0.1:8090");
   });
 
+  it("loads successfully without LOOT_BOT_MIGRATIONS_DATABASE_URL - the deployed server's own real env", () => {
+    // deploy-loot-bot.yml's env_vars for the running container deliberately
+    // never set this (the privileged bootstrap/DDL role - only migrate.ts's
+    // one-shot process needs it, per its own docstring) - loadConfig() must
+    // not require it, or index.ts's every real deploy would crash on
+    // startup before ever binding to a port. Confirmed against a real
+    // failed deploy, not assumed.
+    const { LOOT_BOT_MIGRATIONS_DATABASE_URL: _omit, ...serverEnv } = validEnv;
+    const config = loadConfig(serverEnv);
+    expect(config.migrationsDatabaseUrl).toBeUndefined();
+  });
+
   it("throws with a readable message when required vars are missing", () => {
     const { DISCORD_BOT_TOKEN: _omit, ...incomplete } = validEnv;
     expect(() => loadConfig(incomplete)).toThrow(/DISCORD_BOT_TOKEN/);
