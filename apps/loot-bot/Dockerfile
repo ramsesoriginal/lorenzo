@@ -12,7 +12,12 @@ WORKDIR /workspace
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps ./apps
-RUN corepack enable && pnpm install --frozen-lockfile
+# Corepack stopped shipping with Node itself as of Node 25 (dependabot floats
+# this image's tag - confirmed against a real build that broke exactly this
+# way once it bumped past that line: "corepack: not found"). Installing it
+# explicitly works the same whether the base image still bundles it or not,
+# so this doesn't need to change again on the next major-version bump either.
+RUN npm install -g corepack@latest && corepack enable && pnpm install --frozen-lockfile
 
 WORKDIR /workspace/apps/loot-bot
 RUN pnpm run build
@@ -29,8 +34,10 @@ COPY --from=build /deploy/node_modules ./node_modules
 COPY --from=build /deploy/package.json ./package.json
 COPY --from=build /workspace/apps/loot-bot/dist ./dist
 
-# node:22-slim already ships a non-root `node` user (uid 1000) for exactly
-# this purpose - `useradd` here collided with it instead of adding a new one.
+# node:*-slim already ships a non-root `node` user (uid 1000) for exactly
+# this purpose, confirmed across major versions (22 and 26 both, directly
+# against nodejs/docker-node's own Dockerfiles) - `useradd` here collided
+# with it instead of adding a new one.
 USER node
 
 EXPOSE 8090
