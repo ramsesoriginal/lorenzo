@@ -55,6 +55,8 @@ from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.items import (
     BulkAssignItem,
     BulkAssignResultItem,
+    BulkMoveContainerRequest,
+    BulkMoveResultItem,
     ItemInstanceCreate,
     ItemInstanceOut,
     ItemInstanceUpdate,
@@ -713,6 +715,34 @@ async def clear_item_instance_owner(
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
+async def _perform_set_container(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    container_entity_id: uuid.UUID,
+) -> None:
+    """Core container-set mechanics only - no auth, no If-Match, no
+    response shaping, no commit - shared by the single-item PUT
+    .../container route and bulk-move's own per-item mutation (ADR 0065),
+    so the two can't drift, the same _perform_split/_perform_set_owner
+    extraction ADR 0044 already established. No cycle check - ADR 0016
+    deliberately allows containment cycles ("game worlds can be
+    legitimately non-Euclidean"), unchanged by this extraction.
+    """
+    existing = await session.get(Containment, entity_id)
+    if existing is not None:
+        existing.parent_entity_id = container_entity_id
+    else:
+        session.add(
+            Containment(
+                child_entity_id=entity_id,
+                parent_entity_id=container_entity_id,
+                tenant_id=tenant_id,
+            )
+        )
+
+
 @router.put("/{entity_id}/container")
 async def set_item_instance_container(
     tenant_id: uuid.UUID,
@@ -724,26 +754,16 @@ async def set_item_instance_container(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> ItemInstanceOut:
-    """No cycle check - ADR 0016 deliberately allows containment cycles
-    ("game worlds can be legitimately non-Euclidean"), and this API layer
-    doesn't second-guess that by rejecting what the schema was explicitly
-    built to allow.
-    """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
-    existing = await session.get(Containment, entity_id)
-    if existing is not None:
-        existing.parent_entity_id = body.container_entity_id
-    else:
-        session.add(
-            Containment(
-                child_entity_id=entity_id,
-                parent_entity_id=body.container_entity_id,
-                tenant_id=tenant_id,
-            )
-        )
+    await _perform_set_container(
+        session,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        container_entity_id=body.container_entity_id,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
@@ -1027,6 +1047,94 @@ async def bulk_assign_item_instances(
         results.append(
             BulkAssignResultItem(
                 entity_id=item.entity_id, status="ok", item_instance=item_instance, problem=None
+            )
+        )
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return results
+
+
+@router.post("/bulk-move")
+async def bulk_move_item_instances(
+    tenant_id: uuid.UUID,
+    body: BulkMoveContainerRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BulkMoveResultItem]:
+    """Moves several item instances into to_container_entity_id in one call
+    - see ADR 0065. to_container_entity_id is validated once, up front (a
+    404 if it isn't a real entity in this tenant) - it's the same
+    destination for every entry, doesn't vary per item, the identical
+    reasoning ADR 0062's own up-front check gives.
+
+    Two mutually exclusive input modes (enforced by
+    BulkMoveContainerRequest's own model_validator):
+    from_container_entity_id resolves to every item instance *directly*
+    contained there (that container's own existence is checked the same
+    way; resolving to zero item instances is not an error, just an empty
+    result) - no if_match is possible in this mode, there are no per-item
+    ids to attach one to ahead of time. items names an explicit list, each
+    with its own optional if_match, mirroring BulkAssignItem's identical
+    shape.
+
+    Never all-or-nothing, the same session.begin_nested()-per-item pattern
+    as bulk_assign_item_instances: a caught Problem becomes that item's own
+    "error" entry, everything else already applied proceeds to the one
+    shared commit. The actual mutation is _perform_set_container, shared
+    with the single-item PUT .../container route so the two can't drift -
+    including that route's own lack of any cycle/self-containment guard,
+    not tightened here either.
+    """
+    await get_entity_or_404(session, body.to_container_entity_id, tenant_id)
+
+    if body.from_container_entity_id is not None:
+        await get_entity_or_404(session, body.from_container_entity_id, tenant_id)
+        stmt = (
+            select(Containment.child_entity_id)
+            .join(ItemInstance, ItemInstance.entity_id == Containment.child_entity_id)
+            .where(
+                Containment.parent_entity_id == body.from_container_entity_id,
+                Containment.tenant_id == tenant_id,
+            )
+        )
+        entity_ids = list((await session.execute(stmt)).scalars().all())
+        if_match_by_id: dict[uuid.UUID, str | None] = dict.fromkeys(entity_ids)
+    else:
+        items = body.items or []
+        entity_ids = [item.entity_id for item in items]
+        if_match_by_id = {item.entity_id: item.if_match for item in items}
+
+    results: list[BulkMoveResultItem] = []
+    for entity_id in entity_ids:
+        try:
+            async with session.begin_nested():
+                entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
+                check_if_match(if_match_by_id[entity_id], updated_at=entity.updated_at)
+                await _authorize_instance_write(
+                    session, tenant_id=tenant_id, user=user, entity_id=entity_id
+                )
+                await _perform_set_container(
+                    session,
+                    tenant_id=tenant_id,
+                    entity_id=entity_id,
+                    container_entity_id=body.to_container_entity_id,
+                )
+        except Problem as exc:
+            results.append(
+                BulkMoveResultItem(
+                    entity_id=entity_id,
+                    status="error",
+                    item_instance=None,
+                    problem=ProblemOut(**exc.marshal()),
+                )
+            )
+            continue
+        item_instance = await _item_instance_out(tenant_id, entity_id, request, None, session, user)
+        results.append(
+            BulkMoveResultItem(
+                entity_id=entity_id, status="ok", item_instance=item_instance, problem=None
             )
         )
 
