@@ -83,7 +83,7 @@ export type NewLinkedAccountRow = typeof linkedAccount.$inferInsert;
  * many controlled characters (`GET /me`'s `players[].characters[]`) and
  * apps/api has no notion of "which one is active right now."
  *
- * Scoped per Discord channel (ADR 0064) - primary key
+ * Scoped per Discord channel (ADR 0068) - primary key
  * `(discordUserId, discordChannelId)` - a player active in more than one
  * channel (e.g. a "downtime" channel vs. the main table channel) can have a
  * different current character/container in each. `discordChannelId = ""`
@@ -158,7 +158,7 @@ export type NewLootDropRow = typeof lootDrop.$inferInsert;
  * updates this same row (an upsert) rather than stacking a second one;
  * unclaiming deletes it.
  *
- * `claimType` (ADR 0064) is a need/greed tier, plain `text` with a
+ * `claimType` (ADR 0068) is a need/greed tier, plain `text` with a
  * TypeScript-level union (`ClaimType`) - same not-a-Postgres-enum idiom
  * `loot_drop.status` already uses. Defaults `"greed"` so any row inserted
  * before this column existed reads the same as an explicit greed claim,
@@ -187,7 +187,7 @@ export type LootClaim = typeof lootClaim.$inferSelect;
 export type NewLootClaimRow = typeof lootClaim.$inferInsert;
 
 /**
- * The caller's own most recent undoable action (ADR 0064) - one row per
+ * The caller's own most recent undoable action (ADR 0068) - one row per
  * Discord user, overwritten by each new undoable write, not a history/stack.
  * `payload` is a plain JSON-encoded `text` column (matching this schema's
  * existing minimalism - no `jsonb` used anywhere else here either); its

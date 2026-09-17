@@ -678,7 +678,7 @@ describe("dropCommand.onButton — apply claims", () => {
     await dropCommand.onButton?.(interaction, { config, logger: {} as never });
 
     // Only one bulk-assign entry: the need claim wins the non-stack item
-    // even though the greed claim was made first (ADR 0064).
+    // even though the greed claim was made first (ADR 0068).
     expect(bulkAssignItemInstances).toHaveBeenCalledWith(
       "tenant-1",
       [{ entity_id: "item-1", owner_character_id: "char-need", if_match: "etag-1" }],

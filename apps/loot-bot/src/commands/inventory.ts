@@ -19,7 +19,7 @@ const MAX_EMBEDS_PER_REPLY = 10;
  * which isn't fully live in apps/api yet - a 404 from either call is
  * treated as "not available yet" rather than a generic failure.
  *
- * Optional `search` (ADR 0064) filters to items whose title contains it,
+ * Optional `search` (ADR 0068) filters to items whose title contains it,
  * case-insensitively - client-side, same "no server-side search endpoint,
  * so filter what's already fetched" convention `/award`'s catalog
  * autocomplete already established. Matters once a character's inventory

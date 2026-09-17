@@ -66,7 +66,7 @@ export async function transferItem(
 }
 
 /**
- * `/confiscate`'s own split-vs-whole decision (ADR 0064) - the same shape
+ * `/confiscate`'s own split-vs-whole decision (ADR 0068) - the same shape
  * as {@link transferItem} above, minus the owner-reassignment step: a
  * partial-stack confiscation splits the requested amount off into a new
  * sibling instance first, then deletes *that* split-off instance, leaving

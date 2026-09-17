@@ -5,7 +5,7 @@ import { applyPendingUndo } from "../undo-actions.js";
 import type { Command } from "./types.js";
 
 /**
- * `/undo` - reverses the caller's own last undoable write (ADR 0064):
+ * `/undo` - reverses the caller's own last undoable write (ADR 0068):
  * `/give`, `/reassign`, `/move`, `/rename`, or `/merge`. Not `/confiscate`
  * (a destroyed instance's id is gone - see `undo-actions.ts`'s own
  * docstring) and not older than a short TTL - this is "I just made a

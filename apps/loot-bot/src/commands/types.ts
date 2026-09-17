@@ -65,7 +65,7 @@ type BaseInteraction = InteractionGuards &
     user: Readonly<{ id: string }>;
     guildId: string | null;
     // Every raw interaction payload carries channel_id regardless of kind
-    // (ADR 0064) - interaction-adapter.ts sets this the same way for every
+    // (ADR 0068) - interaction-adapter.ts sets this the same way for every
     // kind, not just chat-input, so preferences.ts can scope "current
     // character"/"current container" per channel from any interaction.
     channelId: string;

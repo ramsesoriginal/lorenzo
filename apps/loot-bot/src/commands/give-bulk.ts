@@ -16,7 +16,7 @@ const MAX_SELECT_OPTIONS = 25;
 
 /**
  * `/give-bulk` - give several of the caller's own items to one character
- * in a single flow (ADR 0064). No API change: `POST .../item-instances/
+ * in a single flow (ADR 0068). No API change: `POST .../item-instances/
  * bulk-assign` already exists, is already self-or-managed authorized (a
  * player can already batch-reassign their own items), and is already used
  * server-side by `/drop`'s own apply-claims - just never exposed as an

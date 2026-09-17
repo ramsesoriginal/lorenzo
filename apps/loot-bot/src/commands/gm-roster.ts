@@ -2,7 +2,7 @@ import type { ControlledCharacter, LorenzoApiClient } from "../lorenzo-client.js
 
 /**
  * Every character in a campaign the caller GMs, deduplicated - extracted
- * from `/award`'s own original `findAwardTargets` (ADR 0064) once
+ * from `/award`'s own original `findAwardTargets` (ADR 0068) once
  * `/inspect`, `/confiscate`, and `/reassign` all needed the identical
  * lookup. `getGmCampaignIds` isn't tenant-scoped (see its own docstring),
  * so a campaign belonging to a different tenant just fails this

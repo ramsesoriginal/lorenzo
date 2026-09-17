@@ -8,7 +8,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/confiscate` - a GM takes an item away from a character, permanently
- * (ADR 0064). No new API capability: `DELETE .../item-instances/{id}`
+ * (ADR 0068). No new API capability: `DELETE .../item-instances/{id}`
  * already exists and is already GM-permissive (`_authorize_instance_write`),
  * just never wrapped or exposed by this bot before. Optional `quantity`
  * confiscates part of a stack instead of the whole instance, reusing

@@ -13,7 +13,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/reassign` - a GM moves an item from whichever character currently owns
- * it to another character (ADR 0064) - structurally `/give.ts` with both
+ * it to another character (ADR 0068) - structurally `/give.ts` with both
  * ends widened from "the caller's own stuff"/"the caller's own campaigns"
  * to "any character in a campaign I GM." No new API capability:
  * `PUT .../item-instances/{id}/owner` is the exact same GM-permissive write

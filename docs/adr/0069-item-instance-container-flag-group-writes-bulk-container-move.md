@@ -1,10 +1,14 @@
-# 0065 - apps/api additions requested by loot-bot: container flag, group-membership writes, bulk container move
+# 0069 - apps/api additions requested by loot-bot: container flag, group-membership writes, bulk container move
 
-Status: accepted (decision made, implementation deferred - owned outside this branch)
+Status: superseded by [ADR 0064](0064-group-write-api.md), [ADR 0065](0065-bulk-item-instance-container-move.md), and [ADR 0066](0066-is-container-computed-field.md)
+
+Numbered 0065 originally; renumbered to 0069 on merge into `main` alongside this file's own [ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md) - `main` had independently claimed 0064-0067 for the very additions requested below, in the meantime. Kept in place per this repo's own "superseded ADRs stay, pointing at the replacement" convention ([docs/adr/README.md](README.md)), not deleted, since it's a real record of what was asked for and why.
+
+All three requests landed for real, shaped somewhat differently than guessed here - see each linked ADR for the actual, adopted design (notably: group creation accepts initial members in one call and the write surface is much larger than the two primitives sketched below; the bulk-move endpoint is `POST .../item-instances/bulk-move` with a from-container-or-explicit-list choice, not `bulk-set-container`; `is_container` is a computed read-only field with a structural fallback, not a migrated, PATCH-able column). [ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md)'s own Addendum covers how loot-bot actually consumed them.
 
 ## Context
 
-Three loot-bot-requested features need real `apps/api` additions that either don't exist at all or were explicitly scoped out by an earlier ADR. Per the user's own direction, `apps/api` isn't touched in [ADR 0064](0064-loot-bot-inventory-and-gm-toolkit.md)'s branch - this ADR exists so the decision doesn't get re-made or re-litigated once someone picks it up (mirroring [ADR 0008](0008-deferred-taskiq-and-fastapi-limiter.md)'s own "accepted, implementation deferred" precedent), and so loot-bot's own side can be built immediately once each one lands.
+Three loot-bot-requested features need real `apps/api` additions that either don't exist at all or were explicitly scoped out by an earlier ADR. Per the user's own direction, `apps/api` isn't touched in [ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md)'s branch - this ADR exists so the decision doesn't get re-made or re-litigated once someone picks it up (mirroring [ADR 0008](0008-deferred-taskiq-and-fastapi-limiter.md)'s own "accepted, implementation deferred" precedent), and so loot-bot's own side can be built immediately once each one lands.
 
 ## Decision
 
@@ -35,4 +39,4 @@ Both requested loot-bot commands ("GM adds character X to group Y" and "GM adds 
 
 - Three independent, additive changes - none require touching the other two, and none change any existing endpoint's default behavior (all either add a new optional field, a new route, or a wholly new endpoint).
 - Each needs an Alembic migration (#1) or is migration-free (#2, #3 - no new tables, `group_member` already exists per ADR 0028).
-- loot-bot's own consuming code is fully specified in [ADR 0064](0064-loot-bot-inventory-and-gm-toolkit.md) and this file's own per-section notes, so picking any one of these up doesn't require re-deriving the client-side design.
+- loot-bot's own consuming code is fully specified in [ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md) and this file's own per-section notes, so picking any one of these up doesn't require re-deriving the client-side design.

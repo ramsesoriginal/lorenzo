@@ -7,7 +7,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/pending-claims` - every currently-open drop's outstanding claims,
- * across the whole server (ADR 0064). Deliberately not GM-gated, unlike
+ * across the whole server (ADR 0068). Deliberately not GM-gated, unlike
  * every other new drop affordance - a long-running drop's own message can
  * scroll out of view, and anyone should be able to check what's still
  * outstanding without asking a GM. Bot-local only (`loot_drop`/

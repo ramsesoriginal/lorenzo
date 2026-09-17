@@ -113,7 +113,7 @@ export function buildDropComponents(
 /** The quantity prompt shown after picking an item from either select
  * menu (ADR 0052) - `customId` bakes in which action and which item, so
  * the modal-submit handler needs no other state to know what to do. A
- * "claim" also asks for need-vs-greed (ADR 0064) - a second text field, not
+ * "claim" also asks for need-vs-greed (ADR 0068) - a second text field, not
  * a separate step: Discord modals only support text inputs, no
  * buttons/selects, so this is the only way to ask for it without adding a
  * whole extra interaction round-trip. */
@@ -169,7 +169,7 @@ export type PendingDropSummary = Readonly<{
   claims: readonly PendingDropClaim[];
 }>;
 
-/** `/pending-claims` (ADR 0064) - everyone's own cross-channel summary of
+/** `/pending-claims` (ADR 0068) - everyone's own cross-channel summary of
  * every currently-open drop, not just GMs (unlike every other new drop
  * affordance) - a long-running drop's own message can scroll out of view,
  * and checking what's still outstanding shouldn't require a GM. */

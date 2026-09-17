@@ -201,7 +201,7 @@ export async function deleteLinkedAccount(discordUserId: string): Promise<void> 
  * Looks up a Discord user's "current character"/"current default
  * container" preference for one channel, if any has ever been set for it -
  * falling back to the `GLOBAL_PREFERENCE_CHANNEL_ID` "global default" row
- * (ADR 0064) when no channel-specific one exists yet. Pass
+ * (ADR 0068) when no channel-specific one exists yet. Pass
  * `GLOBAL_PREFERENCE_CHANNEL_ID` itself to look up only the global default
  * (skips the redundant second query).
  */
@@ -237,7 +237,7 @@ export async function getPreference(
 /**
  * Upserts a Discord user's current-character/current-container preference
  * for one channel (or the `GLOBAL_PREFERENCE_CHANNEL_ID` global default -
- * ADR 0064). Only the fields actually given are touched on conflict -
+ * ADR 0068). Only the fields actually given are touched on conflict -
  * `/set-current` lets a caller set either or both in one call, and setting
  * just one (e.g. switching characters) deliberately leaves the other as it
  * was rather than implicitly clearing it (explicit-only, matching this
@@ -321,7 +321,7 @@ export async function getLootDrop(dropId: string): Promise<LootDrop | undefined>
 }
 
 /** Every drop still `"open"` (not yet applied) - `/pending-claims`'s own
- * source (ADR 0064), oldest first so a long-running server sees its
+ * source (ADR 0068), oldest first so a long-running server sees its
  * oldest-outstanding drops first. */
 export async function listOpenLootDrops(): Promise<readonly LootDrop[]> {
   return db.select().from(lootDrop).where(eq(lootDrop.status, "open")).orderBy(lootDrop.createdAt);
@@ -381,7 +381,7 @@ export async function listLootClaims(dropId: string): Promise<readonly LootClaim
 /** Upserts one player's claim on one item - claiming again (a new
  * quantity, or re-confirming the same one) replaces the existing row for
  * that `(dropId, itemEntityId, discordUserId)` rather than stacking a
- * second one, matching the table's own primary key. `claimType` (ADR 0064)
+ * second one, matching the table's own primary key. `claimType` (ADR 0068)
  * is re-set on every upsert too - re-claiming can change need-vs-greed,
  * not just quantity. */
 export async function upsertLootClaim(fields: {
@@ -430,7 +430,7 @@ export async function deleteLootClaimsForDrop(dropId: string): Promise<void> {
   await db.delete(lootClaim).where(eq(lootClaim.lootDropId, dropId));
 }
 
-/** The caller's own most recent undoable action, if any (ADR 0064) -
+/** The caller's own most recent undoable action, if any (ADR 0068) -
  * `/undo`'s own read; the caller decides what "too old" means (a TTL),
  * this just returns whatever's there. */
 export async function getPendingUndo(discordUserId: string): Promise<PendingUndo | undefined> {
@@ -443,7 +443,7 @@ export async function getPendingUndo(discordUserId: string): Promise<PendingUndo
 }
 
 /** Records (or overwrites) the caller's one undoable action - one row per
- * user by design (ADR 0064: a history/stack was explicitly not built),
+ * user by design (ADR 0068: a history/stack was explicitly not built),
  * so a second undoable write silently replaces whatever was there before. */
 export async function setPendingUndo(
   discordUserId: string,

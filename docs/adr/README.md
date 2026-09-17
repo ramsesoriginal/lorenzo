@@ -70,3 +70,5 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0065 - Bulk item-instance container move](0065-bulk-item-instance-container-move.md)
 - [0066 - `is_container` as a computed field, mirroring the tag](0066-is-container-computed-field.md)
 - [0067 - `title` falls back to `name` when empty](0067-item-title-falls-back-to-name.md)
+- [0068 - loot-bot: inventory hygiene, GM toolkit, claim tiers, per-channel preferences](0068-loot-bot-inventory-and-gm-toolkit.md) — originally numbered 0064 on `feat/loot-bot-inventory-and-gm-tools`, renumbered on merge into `main`: `main` had independently claimed 0064-0067 for the apps/api additions above in the meantime. Same renumbering precedent as ADR 0050/0054's own history.
+- [0069 - apps/api additions requested by loot-bot: container flag, group-membership writes, bulk container move](0069-item-instance-container-flag-group-writes-bulk-container-move.md) — originally numbered 0065, renumbered alongside ADR 0068 above; superseded by ADR 0064/0065/0066 once those landed for real.

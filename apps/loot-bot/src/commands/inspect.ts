@@ -8,7 +8,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/inspect` - a GM's read-only look at another character's inventory
- * (ADR 0064), the GM-facing counterpart to `/inventory`. Needs no new API
+ * (ADR 0068), the GM-facing counterpart to `/inventory`. Needs no new API
  * capability: `GET .../item-instances/owned-by/{id}` is already
  * GM-permissive (ADR 0040's `gm_reachable_entity_ids`), so this just points
  * the same `getItemInstancesOwnedBy`/`formatInventoryEmbed` pair `/inventory`

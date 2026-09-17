@@ -5,7 +5,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/my-groups` - lists which groups each of the caller's own characters
- * belongs to (ADR 0064). No new API capability: `GET .../characters/{id}/
+ * belongs to (ADR 0068). No new API capability: `GET .../characters/{id}/
  * groups` already exists (ADR 0045's own "reverse direction" addition),
  * just never wrapped or exposed by this bot before.
  */

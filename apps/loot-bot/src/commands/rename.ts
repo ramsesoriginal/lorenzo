@@ -7,7 +7,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/rename` - gives one of the caller's own item instances a custom name
- * (ADR 0064). No new API capability: `PATCH .../item-instances/{id}`
+ * (ADR 0068). No new API capability: `PATCH .../item-instances/{id}`
  * already accepts `name` (`ItemInstanceUpdate`), just never wrapped or
  * exposed by this bot before. Useful for telling apart two instances of
  * the same catalog item ("Longsword" -> "Grandfather's Longsword").

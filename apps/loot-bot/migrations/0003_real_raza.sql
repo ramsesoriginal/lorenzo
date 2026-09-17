@@ -7,7 +7,7 @@ CREATE TABLE "loot_bot"."pending_undo" (
 --> statement-breakpoint
 ALTER TABLE "loot_bot"."loot_claim" ADD COLUMN "claim_type" text DEFAULT 'greed' NOT NULL;
 --> statement-breakpoint
--- Backfilled to the reserved "" global-default channel (ADR 0064) for any
+-- Backfilled to the reserved "" global-default channel (ADR 0068) for any
 -- row that already existed - a pre-migration preference was, in effect,
 -- already global (there was no per-channel concept yet), so this is the
 -- correct value for existing rows, not just a placeholder.

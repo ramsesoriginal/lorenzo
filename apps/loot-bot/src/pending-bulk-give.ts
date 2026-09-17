@@ -1,5 +1,5 @@
 /**
- * In-process bookkeeping for an in-progress `/give-bulk` flow (ADR 0064) -
+ * In-process bookkeeping for an in-progress `/give-bulk` flow (ADR 0068) -
  * keyed by a short-lived random token, not the chosen item ids themselves:
  * Discord caps a customId at 100 characters, far too little to embed a
  * handful of full item-instance UUIDs directly (mirrors why `/link`'s own

@@ -1,4 +1,4 @@
-# 0064 - loot-bot: inventory hygiene, GM toolkit, claim tiers, per-channel preferences
+# 0068 - loot-bot: inventory hygiene, GM toolkit, claim tiers, per-channel preferences
 
 Status: accepted
 
@@ -6,7 +6,9 @@ Status: accepted
 
 A round of feature requests aimed at two things: giving a GM more day-to-day tools beyond `/award`/`/drop` (inspecting a player, taking an item away, reassigning between characters, clearing a stuck drop's claims), and closing everyday inventory-management gaps (merging stacks, renaming an instance, searching a long inventory, undoing your own mistake, a need-vs-greed claim tier, a bulk give, per-channel current-character/container instead of one global default).
 
-Investigated against the real, already-deployed `apps/api` surface before building anything: take-away (`DELETE /item-instances/{id}`), inspect (`GET .../owned-by/{id}`), GM reassign (`PUT .../owner`), merge (`POST .../merge`), rename (`PATCH .../item-instances/{id}`), bulk give (`POST .../bulk-assign`, already self-or-managed authorized), and "list my characters' groups" (`GET .../characters/{id}/groups`) all already exist server-side and are already permissive enough for every command below - none of this phase touches `apps/api`. Three separate, genuinely-missing API capabilities (an `is_container` flag, group-membership *writes* - ADR 0045 explicitly scoped those out, and a bulk container-move endpoint) are recorded separately in [ADR 0065](0065-item-instance-container-flag-group-writes-bulk-container-move.md) as accepted-but-deferred, owned outside this branch; nothing in this ADR depends on them.
+Investigated against the real, already-deployed `apps/api` surface before building anything: take-away (`DELETE /item-instances/{id}`), inspect (`GET .../owned-by/{id}`), GM reassign (`PUT .../owner`), merge (`POST .../merge`), rename (`PATCH .../item-instances/{id}`), bulk give (`POST .../bulk-assign`, already self-or-managed authorized), and "list my characters' groups" (`GET .../characters/{id}/groups`) all already exist server-side and are already permissive enough for every command below - none of this phase touches `apps/api`. Three separate, genuinely-missing API capabilities (an `is_container` flag, group-membership *writes* - ADR 0045 explicitly scoped those out, and a bulk container-move endpoint) were recorded separately in [ADR 0069](0069-item-instance-container-flag-group-writes-bulk-container-move.md) as accepted-but-deferred, owned outside this branch; nothing in this ADR's original scope depended on them - see this ADR's own Addendum for the follow-up once they landed.
+
+Numbered 0064-0065 originally; renumbered to 0068-0069 on merge into `main` - `main` had independently claimed 0064-0067 for the apps/api additions this ADR's own Addendum consumes, in the meantime. Same renumbering precedent as ADR 0050/0054's own history (see [docs/adr/README.md](README.md)).
 
 ## Decision
 
@@ -38,4 +40,4 @@ A new `pending_undo` table holds exactly one row per Discord user (overwritten b
 
 - `commands/types.ts`'s `BaseInteraction` gains `channelId`, populated by `interaction-adapter.ts` for every interaction kind, not just chat-input - a small, mechanical widening (the raw Discord payload already carries `channel_id` on everything).
 - Three tables gain columns/rows (`player_preference`'s new composite key, `loot_claim.claim_type`, the new `pending_undo` table) - one Drizzle migration.
-- Not built here (see ADR 0065 instead): marking an item as a container, GM group-membership management, bulk container moves.
+- Not built here (see ADR 0069, and this ADR's own Addendum, instead): marking an item as a container, GM group-membership management, bulk container moves.

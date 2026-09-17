@@ -170,7 +170,7 @@ export const dropCommand: Command = {
 
     if (action === "clear") {
       // No apply - just discard every outstanding claim and leave the drop
-      // open (ADR 0064), unlike "apply" below which also marks it resolved.
+      // open (ADR 0068), unlike "apply" below which also marks it resolved.
       await deleteLootClaimsForDrop(dropId);
       const drop = await getLootDrop(dropId);
       if (!drop) return;
@@ -346,7 +346,7 @@ async function handleClaimModalSubmit(
  * can't be found - a known, accepted edge case, not a crash.
  */
 /** The embed/components pair every drop-message rebuild needs (initial
- * post, every take/claim/unclaim refresh, and "clear claims" - ADR 0064) -
+ * post, every take/claim/unclaim refresh, and "clear claims" - ADR 0068) -
  * factored out once a third call site needed the identical sequence. */
 async function buildDropView(
   client: LorenzoApiClient,
@@ -402,7 +402,7 @@ type ItemSnapshot = Readonly<{ current: ItemInstanceOut; etag: string | null }>;
  * a real reduction in round-trips over the old one-`GET`-per-claim loop).
  *
  * Eligibility is decided need-before-greed, oldest-`created_at`-first
- * within each tier (ADR 0064 - need claims always get first crack at a
+ * within each tier (ADR 0068 - need claims always get first crack at a
  * stack's remaining quantity or a non-stack's ownership), client-side:
  * `bulk-assign`'s own server-side authorization has a documented gap (ADR
  * 0044's own Context section) where reassigning an already-owned instance

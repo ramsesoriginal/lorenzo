@@ -8,7 +8,7 @@ import { getPreference } from "./db.js";
  * caller decides what that means for its own command (usually "ask the
  * player to specify one, or run `/set-current` first").
  *
- * Scoped per Discord channel (ADR 0064) - `getPreference` itself falls back
+ * Scoped per Discord channel (ADR 0068) - `getPreference` itself falls back
  * to the caller's global default when no channel-specific preference has
  * been set yet.
  */

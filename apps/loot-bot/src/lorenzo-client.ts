@@ -390,7 +390,7 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /** DELETE .../item-instances/{entity_id} - a plain cascade delete
-     * (ADR 0064's `/confiscate`, GM-only in this bot even though the
+     * (ADR 0068's `/confiscate`, GM-only in this bot even though the
      * route itself is self-or-managed like every other write here - a
      * player destroying their own item isn't a scenario this bot exposes
      * a command for). `ifMatch`, if given, is sent as `If-Match`, same
@@ -415,7 +415,7 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /** PATCH .../item-instances/{entity_id} - renames an instance
-     * (ADR 0064's `/rename`; owner/container have their own dedicated
+     * (ADR 0068's `/rename`; owner/container have their own dedicated
      * sub-resource actions, per `ItemInstanceUpdate`'s own docstring, so
      * this is the only field this route ever actually changes today).
      * Same `ifMatch` treatment as every other write below. */
@@ -709,7 +709,7 @@ export function createLorenzoApiClient(baseUrl: string) {
 
     /** GET .../characters/{character_id}/groups (ADR 0045's "reverse
      * direction" addition) - every group a specific character belongs to.
-     * `/my-groups`'s own source (ADR 0064), one call per controlled
+     * `/my-groups`'s own source (ADR 0068), one call per controlled
      * character. Not paginated - bounded by one character's own
      * memberships, same convention as `getItemInstancesOwnedBy`. */
     async getCharacterGroups(

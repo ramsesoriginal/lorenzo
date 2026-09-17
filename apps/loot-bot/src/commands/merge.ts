@@ -7,7 +7,7 @@ import type { Command } from "./types.js";
 
 /**
  * `/merge` - combines two of the caller's own stacks of the same item into
- * one (ADR 0064). No new API capability: `POST .../item-instances/{id}/merge`
+ * one (ADR 0068). No new API capability: `POST .../item-instances/{id}/merge`
  * already exists (ADR 0044's split's own inverse), just never wrapped or
  * exposed by this bot before. `item` is the stack that gets consumed;
  * `into` is the surviving stack, which keeps its own existing container

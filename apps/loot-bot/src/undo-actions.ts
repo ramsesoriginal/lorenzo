@@ -2,7 +2,7 @@ import { deletePendingUndo, getPendingUndo, setPendingUndo } from "./db.js";
 import type { LorenzoApiClient } from "./lorenzo-client.js";
 
 /**
- * Self-service undo (ADR 0064) - one row per Discord user
+ * Self-service undo (ADR 0068) - one row per Discord user
  * (`pending_undo`, db-schema.ts), overwritten by each new undoable action,
  * not a history/stack. `give`/`reassign`/`move`/`rename`/`merge` each
  * record enough state here to reverse themselves after a successful
@@ -45,7 +45,7 @@ export type UndoOutcome =
  * instance's id is gone (the merge deleted it), so this recreates a new
  * split-off instance with the same quantity/owner rather than literally
  * restoring the original - an accepted, documented approximation (see
- * ADR 0064), not a perfect inverse.
+ * ADR 0068), not a perfect inverse.
  */
 export async function applyPendingUndo(
   client: LorenzoApiClient,

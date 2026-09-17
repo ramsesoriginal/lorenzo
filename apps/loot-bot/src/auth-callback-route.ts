@@ -141,7 +141,7 @@ export function createAuthCallbackRoute(config: Config, logger: Logger): RouteHa
 
 /**
  * If linking just resolved to exactly one controlled character, make it
- * the caller's current character right away (ADR 0064) - the common case
+ * the caller's current character right away (ADR 0068) - the common case
  * for a player with only one PC, who'd otherwise have to run
  * `/set-current` immediately after every `/link`. Stored under
  * `GLOBAL_PREFERENCE_CHANNEL_ID`, not a specific channel - this callback
