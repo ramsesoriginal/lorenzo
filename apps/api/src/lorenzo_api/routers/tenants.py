@@ -38,11 +38,13 @@ from lorenzo_api.models import (
     Tenant,
     User,
 )
+from lorenzo_api.notifications import create_tenant_notification
 from lorenzo_api.profile_pictures import (
     delete_tenant_profile_picture,
     read_and_validate_upload,
     upsert_tenant_profile_picture,
 )
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 from lorenzo_api.schemas.tenants import (
     GmRosterEntryOut,
     MembershipCreate,
@@ -425,8 +427,16 @@ async def create_membership(
     there is no single-resource GET .../memberships/{user_id} route to
     point one at (only the broadened roster list above); RFC 0007's own
     endpoint table doesn't add one either. Deliberately not making one up.
+
+    Also creates a `scope="tenant", type="tenant_invite"` notification for
+    the new member, in the same transaction (ADR 0054) - the one
+    system-triggered notification this pass wires in, proving the pattern
+    end to end rather than leaving it purely theoretical.
     """
     await _require_owner(session, tenant_id=tenant_id, user_id=user.id)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     if await session.get(User, body.user_id) is None:
         raise InvalidUserError(detail=f"{body.user_id} is not an existing user")
     if await session.get(Membership, (tenant_id, body.user_id)) is not None:
@@ -442,6 +452,15 @@ async def create_membership(
             created_by=user.id,
             updated_by=user.id,
         )
+    )
+    await create_tenant_notification(
+        session,
+        tenant_id=tenant_id,
+        recipient_user_id=body.user_id,
+        type="tenant_invite",
+        title=f"You were added to {tenant.name}",
+        body=f"You now have {body.role} access to {tenant.name}.",
+        created_by=user.id,
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -511,3 +530,34 @@ async def delete_membership(
 
     await session.delete(membership)
     await session.commit()
+
+
+@router.post("/{tenant_id}/notifications", status_code=201)
+async def create_tenant_notification_route(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="tenant" - see ADR 0054. Gated by `get_tenant_context`, same as
+    `update_tenant` - any tenant-wide member, not OWNER-only (unlike
+    membership management above). An omitted `recipient_user_id` broadcasts
+    to the tenant's full roster, so this can return more than one row.
+    """
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_tenant_notification(
+        session,
+        tenant_id=tenant_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

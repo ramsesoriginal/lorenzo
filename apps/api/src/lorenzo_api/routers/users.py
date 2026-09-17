@@ -1,11 +1,19 @@
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, UploadFile
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.dependencies import CurrentUser, SessionDep, set_tenant_rls_context
-from lorenzo_api.exceptions import LastOwnerError, NicknameConflictError, UserNotFoundError
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, set_tenant_rls_context
+from lorenzo_api.exceptions import (
+    LastOwnerError,
+    NicknameConflictError,
+    NotificationNotFoundError,
+    UserNotFoundError,
+)
 from lorenzo_api.models import (
     Being,
     CampaignGm,
@@ -13,6 +21,7 @@ from lorenzo_api.models import (
     CharacterPlayer,
     Membership,
     MembershipRole,
+    Notification,
     Player,
     User,
 )
@@ -21,6 +30,7 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_user_profile_picture,
 )
+from lorenzo_api.schemas.notifications import NotificationOut
 from lorenzo_api.schemas.users import MeOut, NicknameUpdate, UserRefOut
 
 router = APIRouter(tags=["users"])
@@ -155,6 +165,52 @@ async def delete_my_picture(user: CurrentUser, session: SessionDep) -> None:
     """
     await delete_user_profile_picture(session, user_id=user.id)
     await session.commit()
+
+
+@router.get("/me/notifications")
+async def list_my_notifications(
+    user: CurrentUser,
+    session: SessionDep,
+    params: ParamsDep,
+    unread_only: bool = False,
+) -> Page[NotificationOut]:
+    """See ADR 0054 - a single flat query, no per-tenant RLS-context
+    looping needed (unlike `_me_out`'s own Player/CampaignGm resolution):
+    `notification`'s RLS policy already admits a caller's own rows via
+    `app.user_id` regardless of `app.tenant_id` (the same self-access
+    shape `player`/`campaign_gm` have, ADR 0030's addendum), and every
+    field this response needs is already denormalized onto the row
+    itself - nothing here is joined from live, tenant-scoped data.
+    """
+    stmt = select(Notification).where(Notification.user_id == user.id)
+    if unread_only:
+        stmt = stmt.where(Notification.read_at.is_(None))
+    stmt = stmt.order_by(Notification.created_at.desc(), Notification.id)
+    page: Page[NotificationOut] = await apaginate(session, stmt, params)
+    return page
+
+
+@router.post("/me/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: uuid.UUID, user: CurrentUser, session: SessionDep
+) -> NotificationOut:
+    """Idempotent - re-marking an already-read notification is a no-op,
+    not an error, mirroring `grant_campaign_gm`'s own idempotent-PUT
+    precedent. Explicitly filtered by `user_id == caller.id`, not left to
+    RLS alone (defense in depth, ADR 0002) - an unknown or not-mine id
+    both 404, collapsed indistinguishably.
+    """
+    stmt = select(Notification).where(
+        Notification.id == notification_id, Notification.user_id == user.id
+    )
+    notification = (await session.execute(stmt)).scalar_one_or_none()
+    if notification is None:
+        raise NotificationNotFoundError(detail=f"No notification with id {notification_id}")
+
+    if notification.read_at is None:
+        notification.read_at = datetime.now(tz=UTC)
+        await session.commit()
+    return NotificationOut.model_validate(notification)
 
 
 @router.get("/users/by-email/{email}")

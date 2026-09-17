@@ -19,6 +19,7 @@ from fastapi_problem.error import (
 )
 
 __all__ = [
+    "AccountSuspendedError",
     "CampaignAdminOptOutRequiresAdminError",
     "CampaignManagementForbiddenError",
     "CampaignNotEmptyError",
@@ -49,8 +50,10 @@ __all__ = [
     "MembershipManagementForbiddenError",
     "MembershipNotFoundError",
     "NicknameConflictError",
+    "NotificationNotFoundError",
     "PayloadContentNotFoundError",
     "PayloadNotFoundError",
+    "PlatformOperatorRoleRequiredError",
     "PlayerAlreadyExistsError",
     "PlayerNotFoundError",
     "PreconditionFailedError",
@@ -106,6 +109,16 @@ class UserNotFoundError(NotFoundProblem):
     """
 
     title = "User not found"
+
+
+class NotificationNotFoundError(NotFoundProblem):
+    """POST /me/notifications/{id}/read - no such notification, or one that
+    exists but isn't the caller's own - collapsed indistinguishably, same
+    non-enumerable shape every other not-found condition in this codebase
+    already uses. See ADR 0054.
+    """
+
+    title = "Notification not found"
 
 
 class CharacterNotFoundError(NotFoundProblem):
@@ -303,6 +316,26 @@ class TenantCreationForbiddenError(ForbiddenProblem):
     """
 
     title = "Missing the tenant-creator role"
+
+
+class PlatformOperatorRoleRequiredError(ForbiddenProblem):
+    """/admin/* - the caller lacks the platform-level platform-operator
+    Authgear role. See ADR 0053 - exact mirror of
+    TenantCreationForbiddenError's own reasoning: a platform-wide
+    capability, not tenant-scoped, so 403 not 404.
+    """
+
+    title = "Missing the platform-operator role"
+
+
+class AccountSuspendedError(ForbiddenProblem):
+    """Raised by dependencies.get_current_user, before anything else runs,
+    for any request from a suspended account - see ADR 0053. 403, not 401:
+    the token itself is genuinely valid, the account it names is simply
+    blocked from acting.
+    """
+
+    title = "This account has been suspended"
 
 
 class SlugConflictError(ConflictProblem):

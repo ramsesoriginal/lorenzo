@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # of truth for who holds it, this app just needs to know its name.
     tenant_creator_role_key: str = "tenant-creator"
 
+    # Same mechanism, gating /admin/* instead (ADR 0053) - a platform-wide
+    # capability orthogonal to tenant membership, not assignable via this
+    # API, mirroring tenant_creator_role_key's own precedent.
+    platform_operator_role_key: str = "platform-operator"
+
     # CORS (ADR 0048) - a JSON array of exact origins in the
     # CORS_ALLOWED_ORIGINS env var, e.g. ["https://lorenzo.example.com"].
     # Defaults to empty (no cross-origin browser access at all), matching

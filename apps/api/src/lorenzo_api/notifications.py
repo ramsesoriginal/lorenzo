@@ -1,0 +1,201 @@
+"""Shared notification fan-out logic for the four scopes - see ADR 0054.
+
+Every function here does core mechanics only - no auth, no commit
+(matching routers/item_instances.py's own `_perform_split` precedent) -
+each POST .../notifications route calls one of these, then commits itself.
+Fanned out at creation (one row per recipient), never resolved at read
+time - see ADR 0054's own reasoning.
+"""
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from lorenzo_api.models import CampaignGm, CharacterPlayer, Membership, Notification, Player
+
+
+def _build(
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+    scope: str,
+    source_id: uuid.UUID | None,
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> Notification:
+    return Notification(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        scope=scope,
+        source_id=source_id,
+        type=type,
+        title=title,
+        body=body,
+        created_by=created_by,
+    )
+
+
+async def _tenant_roster_user_ids(session: AsyncSession, *, tenant_id: uuid.UUID) -> set[uuid.UUID]:
+    """The same Membership+Player+CampaignGm union `list_tenant_roster`
+    (routers/tenants.py) already computes - every user with any standing
+    in this tenant.
+    """
+    membership_ids = (
+        await session.execute(select(Membership.user_id).where(Membership.tenant_id == tenant_id))
+    ).scalars()
+    player_ids = (
+        await session.execute(select(Player.user_id).where(Player.tenant_id == tenant_id))
+    ).scalars()
+    gm_ids = (
+        await session.execute(select(CampaignGm.user_id).where(CampaignGm.tenant_id == tenant_id))
+    ).scalars()
+    return set(membership_ids) | set(player_ids) | set(gm_ids)
+
+
+async def create_tenant_notification(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    recipient_user_id: uuid.UUID | None,
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> list[Notification]:
+    """scope="tenant". An omitted `recipient_user_id` broadcasts to the
+    tenant's full roster.
+    """
+    recipient_ids = (
+        {recipient_user_id}
+        if recipient_user_id is not None
+        else await _tenant_roster_user_ids(session, tenant_id=tenant_id)
+    )
+    notifications = [
+        _build(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            scope="tenant",
+            source_id=None,
+            type=type,
+            title=title,
+            body=body,
+            created_by=created_by,
+        )
+        for user_id in recipient_ids
+    ]
+    session.add_all(notifications)
+    return notifications
+
+
+async def create_campaign_notification(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    campaign_id: uuid.UUID,
+    recipient_user_id: uuid.UUID | None,
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> list[Notification]:
+    """scope="campaign". An omitted `recipient_user_id` broadcasts to that
+    campaign's Player + CampaignGm rows.
+    """
+    if recipient_user_id is not None:
+        recipient_ids = {recipient_user_id}
+    else:
+        player_ids = (
+            await session.execute(
+                select(Player.user_id).where(
+                    Player.campaign_id == campaign_id, Player.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+        gm_ids = (
+            await session.execute(
+                select(CampaignGm.user_id).where(
+                    CampaignGm.campaign_id == campaign_id, CampaignGm.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+        recipient_ids = set(player_ids) | set(gm_ids)
+
+    notifications = [
+        _build(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            scope="campaign",
+            source_id=campaign_id,
+            type=type,
+            title=title,
+            body=body,
+            created_by=created_by,
+        )
+        for user_id in recipient_ids
+    ]
+    session.add_all(notifications)
+    return notifications
+
+
+async def create_character_notification(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    character_entity_id: uuid.UUID,
+    recipient_user_id: uuid.UUID | None,
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> list[Notification]:
+    """scope="character". An omitted `recipient_user_id` broadcasts to
+    every player controlling this character via `CharacterPlayer` (roster
+    reuse, ADR 0025) - a character rostered into two campaigns notifies
+    every player controlling it in either.
+    """
+    if recipient_user_id is not None:
+        recipient_ids = {recipient_user_id}
+    else:
+        stmt = (
+            select(Player.user_id)
+            .join(CharacterPlayer, CharacterPlayer.player_id == Player.id)
+            .where(CharacterPlayer.character_entity_id == character_entity_id)
+        )
+        recipient_ids = set((await session.execute(stmt)).scalars())
+
+    notifications = [
+        _build(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            scope="character",
+            source_id=character_entity_id,
+            type=type,
+            title=title,
+            body=body,
+            created_by=created_by,
+        )
+        for user_id in recipient_ids
+    ]
+    session.add_all(notifications)
+    return notifications
+
+
+def create_platform_notification(
+    *, recipient_user_id: uuid.UUID, type: str, title: str, body: str, created_by: uuid.UUID | None
+) -> Notification:
+    """scope="platform". Always single-recipient - see ADR 0054's own
+    named non-goal (no broadcast-to-every-user mechanism yet).
+    """
+    return _build(
+        user_id=recipient_user_id,
+        tenant_id=None,
+        scope="platform",
+        source_id=None,
+        type=type,
+        title=title,
+        body=body,
+        created_by=created_by,
+    )

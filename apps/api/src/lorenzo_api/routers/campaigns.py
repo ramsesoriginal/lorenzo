@@ -26,6 +26,7 @@ from lorenzo_api.exceptions import (
     InvalidUserError,
 )
 from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut, User
+from lorenzo_api.notifications import create_campaign_notification
 from lorenzo_api.profile_pictures import (
     delete_campaign_profile_picture,
     read_and_validate_upload,
@@ -37,6 +38,7 @@ from lorenzo_api.schemas.campaigns import (
     CampaignSummaryOut,
     CampaignUpdate,
 )
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0030/RFC 0003): an
 # ordinary participant with zero tenant-wide Membership rows must still be
@@ -424,3 +426,36 @@ async def opt_back_in_to_campaign_admin_visibility(
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
+
+
+@router.post("/{campaign_id}/notifications", status_code=201)
+async def create_campaign_notification_route(
+    tenant_id: uuid.UUID,
+    campaign_id: Annotated[uuid.UUID, Depends(get_campaign_context)],
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="campaign" - see ADR 0054. Same gate `update_campaign` uses.
+    An omitted `recipient_user_id` broadcasts to the campaign's Player +
+    CampaignGm rows, so this can return more than one row.
+    """
+    await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_campaign_notification(
+        session,
+        tenant_id=tenant_id,
+        campaign_id=campaign_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

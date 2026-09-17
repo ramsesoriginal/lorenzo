@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
@@ -46,6 +49,17 @@ class User(Base):
     # directly via `PATCH /me`.
     email: Mapped[str | None] = mapped_column(unique=True)
     nickname: Mapped[str | None] = mapped_column(unique=True)
+    # ADR 0053 - a suspended account is rejected on its very next request
+    # (dependencies.get_current_user), anywhere in the API. Nullable: most
+    # users are never suspended, and a fresh auto-provisioned user never is
+    # by construction. suspended_by is ON DELETE SET NULL, same reasoning
+    # created_by/updated_by already use (ADR 0029) - the suspending
+    # operator's own account disappearing doesn't lift the suspension.
+    suspended_at: Mapped[datetime | None]
+    suspended_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("app_user.id", ondelete="SET NULL"), index=True
+    )
+    suspension_reason: Mapped[str | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

@@ -28,6 +28,7 @@ from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
     CharacterManagementForbiddenError,
     CharacterNotFoundError,
+    InvalidUserError,
     PlayerNotFoundError,
     TenantNotFoundError,
 )
@@ -39,7 +40,9 @@ from lorenzo_api.models import (
     GroupMember,
     Membership,
     Player,
+    User,
 )
+from lorenzo_api.notifications import create_character_notification
 from lorenzo_api.schemas.characters import (
     CharacterCreate,
     CharacterOut,
@@ -48,6 +51,7 @@ from lorenzo_api.schemas.characters import (
     CharacterUpdate,
 )
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 from lorenzo_api.schemas.players import PlayerContextOut
 
 # CharacterOut.players: list[PlayerContextOut] is a forward reference
@@ -622,3 +626,40 @@ async def remove_character_player(
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _character_out(tenant_id, character_id, session)
+
+
+@router.post("/{character_id}/notifications", status_code=201)
+async def create_character_notification_route(
+    tenant_id: uuid.UUID,
+    character_id: uuid.UUID,
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="character" - see ADR 0054. Same authorization
+    `PATCH /{character_id}`'s rename path uses (`_authorize_rename`) - a
+    GM, or the character's own controlling player, can post an in-game
+    event about it. An omitted `recipient_user_id` broadcasts to every
+    player controlling this character via `CharacterPlayer` (roster reuse,
+    ADR 0025), so this can return more than one row.
+    """
+    await _get_character_or_404(tenant_id, character_id, session)
+    await _authorize_rename(session, tenant_id=tenant_id, user=user, character_id=character_id)
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_character_notification(
+        session,
+        tenant_id=tenant_id,
+        character_entity_id=character_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

@@ -18,9 +18,11 @@ from lorenzo_api.campaign_access import can_access_campaign, is_tenant_participa
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import get_db_session
 from lorenzo_api.exceptions import (
+    AccountSuspendedError,
     CampaignNotFoundError,
     EntityNotFoundError,
     InvalidTokenError,
+    PlatformOperatorRoleRequiredError,
     TenantCreationForbiddenError,
     TenantNotFoundError,
 )
@@ -36,6 +38,7 @@ __all__ = [
     "get_jwks_client",
     "get_tenant_context",
     "get_tenant_or_404",
+    "require_platform_operator_role",
     "require_tenant_creator_role",
     "require_tenant_participant",
     "set_tenant_rls_context",
@@ -180,6 +183,10 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     `_sync_email_from_claims` (ADR 0050) - after the upsert's own commit,
     same reasoning as app.user_id below: it needs its own settled
     transaction to run its conflict-guarded SAVEPOINT in.
+
+    Also rejects a suspended account outright (ADR 0053), before anything
+    else below runs - a fresh auto-provisioned user is never suspended by
+    construction, so this can't interfere with first-login provisioning.
     """
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
@@ -196,6 +203,9 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     )
     user = (await session.scalars(stmt)).one()
     await session.commit()
+
+    if user.suspended_at is not None:
+        raise AccountSuspendedError(detail=f"User {user.id} is suspended")
 
     await _sync_email_from_claims(session, user=user, claims=claims)
 
@@ -224,6 +234,17 @@ async def require_tenant_creator_role(user: CurrentUser) -> None:
     """
     if get_settings().tenant_creator_role_key not in user.authgear_roles:
         raise TenantCreationForbiddenError(detail="Missing the platform's tenant-creator role")
+
+
+async def require_platform_operator_role(user: CurrentUser) -> None:
+    """Gates every /admin/* route (ADR 0053) - exact mirror of
+    require_tenant_creator_role above, a platform-wide capability
+    orthogonal to tenant membership entirely.
+    """
+    if get_settings().platform_operator_role_key not in user.authgear_roles:
+        raise PlatformOperatorRoleRequiredError(
+            detail="Missing the platform's platform-operator role"
+        )
 
 
 async def set_tenant_rls_context(session: AsyncSession, tenant_id: uuid.UUID) -> None:

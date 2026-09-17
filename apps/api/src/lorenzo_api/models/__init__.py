@@ -15,6 +15,7 @@ from lorenzo_api.models.item import Item
 from lorenzo_api.models.item_instance import ItemInstance
 from lorenzo_api.models.knowledge import Knowledge
 from lorenzo_api.models.membership import Membership, MembershipRole
+from lorenzo_api.models.notification import Notification
 from lorenzo_api.models.ownership import Ownership
 from lorenzo_api.models.payload import Payload
 from lorenzo_api.models.payload_description import PayloadDescription
@@ -54,6 +55,7 @@ __all__ = [
     "Knowledge",
     "Membership",
     "MembershipRole",
+    "Notification",
     "Ownership",
     "Payload",
     "PayloadDescription",
