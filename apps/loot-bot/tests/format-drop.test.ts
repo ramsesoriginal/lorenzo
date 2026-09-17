@@ -52,12 +52,6 @@ describe("availableDropItems", () => {
 
     expect(availableDropItems(items).map((i) => i.entityId)).toEqual(["item-1"]);
   });
-
-  it("defaults a missing title to (untitled)", () => {
-    const items = [item({ title: null })];
-
-    expect(availableDropItems(items)[0]?.title).toBe("(untitled)");
-  });
 });
 
 describe("buildDropEmbed", () => {

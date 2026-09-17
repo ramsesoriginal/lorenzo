@@ -9,6 +9,8 @@ export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
 export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
 export type BulkAssignResultItem = components["schemas"]["BulkAssignResultItem"];
+export type GroupMemberResultItem = components["schemas"]["GroupMemberResultItem"];
+export type BulkMoveResultItem = components["schemas"]["BulkMoveResultItem"];
 
 /** A read paired with the `ETag` the server sent alongside it, if any -
  * `null` until every write route actually sends one back (tracked
@@ -724,6 +726,99 @@ export function createLorenzoApiClient(baseUrl: string) {
       );
       if (error !== undefined) throw toApiError(error, response.status);
       return data.map((group) => ({ entityId: group.id, name: group.name }));
+    },
+
+    /** POST /tenants/{tenant_id}/groups (ADR 0064) - creates a new group
+     * entity, optionally with its initial members in the same call.
+     * `/add-to-group`/`/add-channel-to-group`'s own "create it, if not yet
+     * present" path (ADR 0068). */
+    async createGroup(
+      tenantId: string,
+      name: string,
+      memberCharacterIds: readonly string[],
+      accessToken: string,
+    ): Promise<GroupSummary> {
+      const { data, error, response } = await client.POST("/tenants/{tenant_id}/groups", {
+        params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { name, member_character_ids: [...memberCharacterIds] },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return { entityId: data.id, name: data.name };
+    },
+
+    /** PUT .../groups/{group_entity_id}/members/{character_entity_id}
+     * (ADR 0064) - idempotent single-member add, returns the group's full
+     * updated member list. */
+    async addGroupMember(
+      tenantId: string,
+      groupEntityId: string,
+      characterEntityId: string,
+      accessToken: string,
+    ): Promise<readonly GroupSummary[]> {
+      const { data, error, response } = await client.PUT(
+        "/tenants/{tenant_id}/groups/{group_entity_id}/members/{character_entity_id}",
+        {
+          params: {
+            path: {
+              tenant_id: tenantId,
+              group_entity_id: groupEntityId,
+              character_entity_id: characterEntityId,
+            },
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.map((member) => ({ entityId: member.id, name: member.name }));
+    },
+
+    /** POST .../groups/{group_entity_id}/members/bulk (ADR 0064) - adds
+     * several characters to an existing group in one call, never
+     * all-or-nothing (one result per input id regardless of outcome). */
+    async bulkAddGroupMembers(
+      tenantId: string,
+      groupEntityId: string,
+      characterEntityIds: readonly string[],
+      accessToken: string,
+    ): Promise<readonly GroupMemberResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/groups/{group_entity_id}/members/bulk",
+        {
+          params: { path: { tenant_id: tenantId, group_entity_id: groupEntityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: [...characterEntityIds],
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/bulk-move (ADR 0065) - `/move-bulk`'s own
+     * write (ADR 0068): empties every item directly inside
+     * `fromContainerEntityId` into `toContainerEntityId` in one call, never
+     * all-or-nothing. The API also supports an explicit `items` list mode
+     * (mutually exclusive with `fromContainerEntityId`) - not used by this
+     * bot yet, no wrapper needed for it until something actually calls it. */
+    async bulkMoveItemInstancesFromContainer(
+      tenantId: string,
+      fromContainerEntityId: string,
+      toContainerEntityId: string,
+      accessToken: string,
+    ): Promise<readonly BulkMoveResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/bulk-move",
+        {
+          params: { path: { tenant_id: tenantId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            to_container_entity_id: toContainerEntityId,
+            from_container_entity_id: fromContainerEntityId,
+          },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
     },
   };
 }

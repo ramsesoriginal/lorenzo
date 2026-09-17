@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatInventoryEmbed } from "../src/format-inventory.js";
 import type { ItemInstanceOut, OwnedByResponse } from "../src/lorenzo-client.js";
 
-function item(title: string | null, quantity: number | null = null): ItemInstanceOut {
+function item(title: string, quantity: number | null = null): ItemInstanceOut {
   return {
     entity_id: crypto.randomUUID(),
     owner_entity_id: null,
@@ -17,6 +17,7 @@ function item(title: string | null, quantity: number | null = null): ItemInstanc
     quantity,
     is_magical: null,
     is_cursed: null,
+    is_container: null,
     created_by: null,
     updated_by: null,
     updated_at: "2026-01-01T00:00:00Z",
@@ -64,14 +65,6 @@ describe("formatInventoryEmbed", () => {
     };
     const embed = formatInventoryEmbed("Frodo", response).toJSON();
     expect(embed.description).toBe("No items.");
-  });
-
-  it("falls back to '(untitled)' for an item with no title", () => {
-    const response: OwnedByResponse = {
-      groups: [{ container: null, item_instances: [item(null)] }],
-    };
-    const embed = formatInventoryEmbed("Frodo", response).toJSON();
-    expect(embed.fields?.[0]?.value).toBe("• (untitled)");
   });
 
   it("shows a stack's quantity, but not for a lone item", () => {
