@@ -55,3 +55,5 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0050 - User identity: Authgear-synced email + local nickname](0050-user-identity-email-and-nickname.md)
 - [0051 - Exact-match user lookup by email or nickname](0051-user-lookup-by-email-or-nickname.md)
 - [0052 - Profile pictures for User, Tenant, and Campaign](0052-profile-pictures.md)
+- [0053 - Platform operations: a platform-operator role, admin listing, and account suspension](0053-platform-operations.md)
+- [0054 - Notifications: platform/tenant/campaign/character scope, in-app inbox](0054-notifications.md)
