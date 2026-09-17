@@ -240,6 +240,23 @@ async def client_without_tenant_creator_role(
 
 
 @pytest.fixture
+async def client_with_platform_operator_role(
+    test_user_id: uuid.UUID,
+) -> AsyncGenerator[AsyncClient]:
+    """Same as `client`, plus the platform-operator role (ADR 0053) - for
+    /admin/* routes' positive case. Keeps tenant-creator too, so a test
+    combining both concerns doesn't need a third fixture.
+    """
+    app.dependency_overrides[get_current_user] = _make_fake_current_user(
+        test_user_id, authgear_roles=frozenset({"tenant-creator", "platform-operator"})
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    del app.dependency_overrides[get_current_user]
+
+
+@pytest.fixture
 async def raw_client(fake_jwks_server: FakeJwksServer) -> AsyncGenerator[AsyncClient]:
     """Like `client`, but with real token verification (no get_current_user
     override) - only get_jwks_client is swapped, to point at the real
