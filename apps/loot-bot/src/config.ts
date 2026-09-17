@@ -18,7 +18,19 @@ const envSchema = z.object({
   LOOT_BOT_TOKEN_ENCRYPTION_KEY: z.string().min(1),
 
   LOOT_BOT_HTTP_PORT: z.coerce.number().int().positive().default(8090),
-  LOOT_BOT_PUBLIC_BASE_URL: z.string().url().default("http://127.0.0.1:8090"),
+  // The very first deploy can't know its own Cloud Run URL yet (a real
+  // chicken-and-egg - see docs/operations/deployment-setup.md's loot-bot
+  // section) and GitHub Actions' own `${{ vars.X }}` substitutes to an
+  // *empty string*, not an omitted line, when X doesn't exist yet - so this
+  // arrives as LOOT_BOT_PUBLIC_BASE_URL="", not unset. zod's `.default()`
+  // only fires on `undefined`, never on an empty string, so without this
+  // preprocess step that first deploy would fail `.url()` validation and
+  // crash before ever binding to a port - confirmed the hard way, not
+  // assumed.
+  LOOT_BOT_PUBLIC_BASE_URL: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().url().default("http://127.0.0.1:8090"),
+  ),
 });
 
 export type Config = Readonly<{
