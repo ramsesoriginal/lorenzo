@@ -6,7 +6,11 @@ import {
   resetAuthgearConfigurationForTests,
 } from "../src/authgear-client.js";
 import { type Config, loadConfig, resetConfigForTests } from "../src/config.js";
-import { AuthgearSubjectAlreadyLinkedError, upsertLinkedAccount } from "../src/db.js";
+import {
+  AuthgearSubjectAlreadyLinkedError,
+  setPreference,
+  upsertLinkedAccount,
+} from "../src/db.js";
 import { type HttpServer, type RouteHandler, createHttpServer } from "../src/http-server.js";
 import { logger } from "../src/logger.js";
 import { clearPendingLinksForTests, storePendingLink } from "../src/pending-links.js";
@@ -18,6 +22,8 @@ import { type FakeAuthgearServer, startFakeAuthgearServer } from "./fake-authgea
 // auth-callback-route.ts still work against instances built in this file.
 vi.mock("../src/db.js", () => ({
   upsertLinkedAccount: vi.fn(),
+  setPreference: vi.fn(),
+  GLOBAL_PREFERENCE_CHANNEL_ID: "",
   AuthgearSubjectAlreadyLinkedError: class AuthgearSubjectAlreadyLinkedError extends Error {
     constructor(public readonly authgearSubjectId: string) {
       super(`duplicate authgear_subject_id: ${authgearSubjectId}`);
@@ -26,7 +32,13 @@ vi.mock("../src/db.js", () => ({
   },
 }));
 
+const { getControlledCharacters } = vi.hoisted(() => ({ getControlledCharacters: vi.fn() }));
+vi.mock("../src/lorenzo-client.js", () => ({
+  createLorenzoApiClient: vi.fn().mockReturnValue({ getControlledCharacters }),
+}));
+
 const upsertLinkedAccountMock = vi.mocked(upsertLinkedAccount);
+const setPreferenceMock = vi.mocked(setPreference);
 
 const validEnv = {
   DISCORD_BOT_TOKEN: "token",
@@ -53,6 +65,8 @@ describe("/auth/callback link flow", () => {
     resetAuthgearConfigurationForTests();
     clearPendingLinksForTests();
     upsertLinkedAccountMock.mockReset();
+    setPreferenceMock.mockReset();
+    getControlledCharacters.mockReset().mockResolvedValue([]);
 
     fakeAuthgear = await startFakeAuthgearServer();
 
@@ -130,6 +144,46 @@ describe("/auth/callback link flow", () => {
     expect(row?.refreshTokenEncrypted).toBeInstanceOf(Buffer);
     expect(row?.accessTokenExpiresAt).toBeInstanceOf(Date);
     expect(row?.accessTokenExpiresAt?.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("auto-sets the caller's sole controlled character as current after linking", async () => {
+    upsertLinkedAccountMock.mockResolvedValueOnce(undefined);
+    getControlledCharacters.mockResolvedValue([{ entityId: "char-1", name: "Frodo" }]);
+    const callbackUrl = await setUpPendingLink("discord-user-sole", "authgear-subject-sole");
+
+    const response = await fetch(callbackUrl);
+
+    expect(response.status).toBe(200);
+    expect(setPreferenceMock).toHaveBeenCalledWith("discord-user-sole", "", {
+      characterEntityId: "char-1",
+    });
+  });
+
+  it("doesn't auto-set anything when the caller controls more than one character", async () => {
+    upsertLinkedAccountMock.mockResolvedValueOnce(undefined);
+    getControlledCharacters.mockResolvedValue([
+      { entityId: "char-1", name: "Frodo" },
+      { entityId: "char-2", name: "Sam" },
+    ]);
+    const callbackUrl = await setUpPendingLink("discord-user-multi", "authgear-subject-multi");
+
+    const response = await fetch(callbackUrl);
+
+    expect(response.status).toBe(200);
+    expect(setPreferenceMock).not.toHaveBeenCalled();
+  });
+
+  it("still succeeds even if looking up controlled characters fails", async () => {
+    upsertLinkedAccountMock.mockResolvedValueOnce(undefined);
+    getControlledCharacters.mockRejectedValue(new Error("api unreachable"));
+    const callbackUrl = await setUpPendingLink("discord-user-lookup-fail", "authgear-subject-fail");
+
+    const response = await fetch(callbackUrl);
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain("Linked");
+    expect(setPreferenceMock).not.toHaveBeenCalled();
   });
 
   it("shows an expired-link page when state is unknown, and does not touch the db", async () => {
