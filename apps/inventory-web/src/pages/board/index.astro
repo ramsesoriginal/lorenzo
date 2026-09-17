@@ -8,19 +8,82 @@ import Base from '../../layouts/Base.astro';
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
     <p id="tenant-slug" class="tenant-slug"></p>
-    <p class="next-up">Character picker and the inventory board itself come next.</p>
+
+    <section id="characters">
+      <h2>Your characters</h2>
+      <p id="characters-loading">Loading characters&hellip;</p>
+      <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
+      <p id="characters-error" class="board-error" hidden></p>
+      <ul id="character-strip" class="character-strip"></ul>
+    </section>
+
+    <p id="board-placeholder" class="next-up" hidden>
+      The inventory board for <strong id="selected-character-name"></strong> comes next.
+    </p>
   </div>
 
   <script>
     import { isAuthenticated } from '../../lib/auth';
+    import { listMyCharacters } from '../../lib/characters';
     import { getTenant } from '../../lib/tenants';
+    import type { CharacterSummary } from '../../lib/types';
 
     const status = document.getElementById('status')!;
     const board = document.getElementById('board')!;
     const tenantName = document.getElementById('tenant-name')!;
     const tenantSlug = document.getElementById('tenant-slug')!;
 
-    const tenantId = new URLSearchParams(window.location.search).get('tenant');
+    const charactersLoading = document.getElementById('characters-loading')!;
+    const charactersEmpty = document.getElementById('characters-empty')!;
+    const charactersError = document.getElementById('characters-error')!;
+    const characterStrip = document.getElementById('character-strip')!;
+    const boardPlaceholder = document.getElementById('board-placeholder')!;
+    const selectedCharacterName = document.getElementById('selected-character-name')!;
+
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant');
+
+    function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
+      for (const el of characterStrip.querySelectorAll('button')) {
+        el.setAttribute('aria-pressed', String(el === button));
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('character', character.entity_id);
+      window.history.replaceState({}, '', url);
+      selectedCharacterName.textContent = character.name;
+      boardPlaceholder.hidden = false;
+    }
+
+    async function loadCharacters(currentTenantId: string) {
+      try {
+        const page = await listMyCharacters(currentTenantId);
+        charactersLoading.hidden = true;
+        if (page.items.length === 0) {
+          charactersEmpty.hidden = false;
+          return;
+        }
+        const selectedId = params.get('character');
+        for (const character of page.items) {
+          const item = document.createElement('li');
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'character-pill';
+          button.textContent = character.name;
+          button.setAttribute('aria-pressed', String(character.entity_id === selectedId));
+          button.addEventListener('click', () => selectCharacter(character, button));
+          item.append(button);
+          characterStrip.append(item);
+
+          if (character.entity_id === selectedId) {
+            selectCharacter(character, button);
+          }
+        }
+      } catch (e) {
+        charactersLoading.hidden = true;
+        charactersError.hidden = false;
+        charactersError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
 
     if (!(await isAuthenticated())) {
       status.textContent = 'Not logged in. Go back and log in first.';
@@ -33,6 +96,7 @@ import Base from '../../layouts/Base.astro';
         tenantName.textContent = tenant.name;
         tenantSlug.textContent = tenant.slug;
         board.hidden = false;
+        await loadCharacters(tenantId);
       } catch (e) {
         status.textContent = e instanceof Error ? e.message : String(e);
       }
@@ -48,6 +112,41 @@ import Base from '../../layouts/Base.astro';
 
     .next-up {
       color: var(--fg-secondary);
+      margin-top: var(--space-5);
+    }
+
+    .board-error {
+      color: var(--lorenzo-burgundy);
+    }
+
+    #characters {
+      margin-top: var(--space-5);
+    }
+
+    .character-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      list-style: none;
+      margin: var(--space-3) 0 0;
+      padding: 0;
+    }
+
+    .character-pill {
+      font-family: var(--font-ui);
+      font-size: 14px;
+      background: var(--fill-soft);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+      padding: var(--space-1) var(--space-3);
+      cursor: pointer;
+    }
+
+    .character-pill[aria-pressed='true'] {
+      background: var(--action);
+      border-color: var(--action);
+      color: var(--lorenzo-paper);
     }
   </style>
 </Base>

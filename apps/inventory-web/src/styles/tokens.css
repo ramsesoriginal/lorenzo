@@ -70,6 +70,9 @@
   --radius-control: 8px;
   --radius-card: 10px;
   --radius-surface: 16px;
+  /* identity.md §8.3: "pills only where the component is genuinely a tag,
+     filter, or status token" - not part of the general scale above. */
+  --radius-pill: 999px;
 }
 
 *,

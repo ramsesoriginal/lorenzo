@@ -27,3 +27,9 @@ export interface Tenant {
   created_by: string | null;
   updated_by: string | null;
 }
+
+export interface CharacterSummary {
+  entity_id: string;
+  name: string;
+  is_pc: boolean;
+}
