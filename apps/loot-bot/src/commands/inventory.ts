@@ -1,6 +1,10 @@
 import { SlashCommandBuilder } from "discord.js";
 import { formatInventoryEmbed } from "../format-inventory.js";
-import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
+import {
+  LorenzoApiError,
+  type OwnedByResponse,
+  createLorenzoApiClient,
+} from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import type { Command } from "./types.js";
 
@@ -14,11 +18,24 @@ const MAX_EMBEDS_PER_REPLY = 10;
  * (`getControlledCharacters`/`getItemInstancesOwnedBy` in lorenzo-client.ts)
  * which isn't fully live in apps/api yet - a 404 from either call is
  * treated as "not available yet" rather than a generic failure.
+ *
+ * Optional `search` (ADR 0064) filters to items whose title contains it,
+ * case-insensitively - client-side, same "no server-side search endpoint,
+ * so filter what's already fetched" convention `/award`'s catalog
+ * autocomplete already established. Matters once a character's inventory
+ * outgrows a single embed's fields (format-inventory.ts's own accepted
+ * truncation).
  */
 export const inventoryCommand: Command = {
   definition: new SlashCommandBuilder()
     .setName("inventory")
-    .setDescription("List the item instances your characters own."),
+    .setDescription("List the item instances your characters own.")
+    .addStringOption((opt) =>
+      opt
+        .setName("search")
+        .setDescription("Only show items whose name contains this")
+        .setRequired(false),
+    ),
   async execute(interaction, ctx) {
     await interaction.deferReply({ ephemeral: true });
 
@@ -28,6 +45,7 @@ export const inventoryCommand: Command = {
       return;
     }
 
+    const search = interaction.options.getString("search")?.toLowerCase();
     const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
     const tenantId = ctx.config.lorenzoTenantId;
 
@@ -48,7 +66,10 @@ export const inventoryCommand: Command = {
           character.entityId,
           accessToken,
         );
-        return formatInventoryEmbed(character.name, response);
+        return formatInventoryEmbed(
+          character.name,
+          search ? filterByTitle(response, search) : response,
+        );
       }),
     );
 
@@ -63,6 +84,21 @@ export const inventoryCommand: Command = {
     });
   },
 };
+
+/** Narrows an owned-by response to items whose title contains `search`
+ * (already lowercased by the caller), case-insensitively - groups stay
+ * present even if they end up empty, matching `formatInventoryEmbed`'s
+ * own existing "filter out empty groups" behavior. */
+function filterByTitle(response: OwnedByResponse, search: string): OwnedByResponse {
+  return {
+    groups: response.groups.map((group) => ({
+      ...group,
+      item_instances: group.item_instances.filter((item) =>
+        (item.title ?? "").toLowerCase().includes(search),
+      ),
+    })),
+  };
+}
 
 /**
  * Runs `fn`, and if it throws a 404 `LorenzoApiError`, replies with a

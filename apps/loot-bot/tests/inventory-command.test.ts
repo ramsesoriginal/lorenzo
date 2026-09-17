@@ -34,9 +34,11 @@ const config = {
 function fakeInteraction(userId = "discord-user-1") {
   return {
     user: { id: userId },
+    options: { getString: vi.fn(() => null) },
     deferReply: vi.fn(async () => undefined),
     editReply: vi.fn(async () => undefined),
   } as unknown as ChatInputCommandInteraction & {
+    options: { getString: ReturnType<typeof vi.fn> };
     deferReply: ReturnType<typeof vi.fn>;
     editReply: ReturnType<typeof vi.fn>;
   };
@@ -107,6 +109,30 @@ describe("inventoryCommand", () => {
     const call = interaction.editReply.mock.calls[0]?.[0];
     expect(call.embeds).toHaveLength(10);
     expect(call.content).toContain("Showing 10 of 12 characters");
+  });
+
+  it("filters to items whose title contains the search term, case-insensitively", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getControlledCharacters.mockResolvedValue([{ entityId: "char-1", name: "Frodo" }]);
+    getItemInstancesOwnedBy.mockResolvedValue({
+      groups: [
+        {
+          container: null,
+          item_instances: [
+            { entity_id: "item-1", title: "Torch" },
+            { entity_id: "item-2", title: "Sword" },
+          ],
+        },
+      ],
+    });
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockReturnValue("TOR");
+
+    await inventoryCommand.execute(interaction, { config, logger: {} as never });
+
+    const call = interaction.editReply.mock.calls[0]?.[0];
+    expect(call.embeds[0].data.fields?.[0]?.value).toContain("Torch");
+    expect(call.embeds[0].data.fields?.[0]?.value).not.toContain("Sword");
   });
 
   it("gives a specific message when the backend contract 404s (not yet shipped)", async () => {
