@@ -55,6 +55,14 @@ describe("whoamiCommand", () => {
   it("fetches the profile for this bot's own tenant and replies with one embed", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getMyProfile.mockResolvedValue({
+      email: "frodo@shire.example",
+      nickname: "frodo",
+      displayName: "Frodo Baggins",
+      pronouns: "he/him",
+      bio: null,
+      locales: [],
+      color: null,
+      pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
       membershipRole: "owner",
       characters: [{ entityId: "char-1", name: "Frodo" }],
       gmCampaignCount: 0,

@@ -32,18 +32,32 @@ export type MyPlayer = Readonly<{
 }>;
 
 /**
- * Everything `/whoami` shows, out of one `GET /me` call - `membershipRole`
- * and `characters` are filtered to this bot's own tenant the same way
- * {@link getMyPlayers}/{@link getControlledCharacters} already do (flat,
- * not grouped by campaign like `MyPlayer` - `PlayerContextOut` carries a
- * campaign *id*, not its name, and a raw UUID wouldn't read as "presented
- * nicely"; character names alone are enough for an identity check).
- * `gmCampaignCount` deliberately isn't tenant-filtered - `/me`'s
- * `campaign_gm_grants` carries no `tenant_id` at all, the same cross-tenant
- * imprecision {@link isCampaignGm}'s own doc comment already flags, so
- * this is honestly a global count, not a per-tenant one.
+ * Everything `/whoami` (and `/introduce`'s curated subset of it) shows,
+ * out of one `GET /me` call. `email`/`nickname`/`displayName`/`pronouns`/
+ * `bio`/`locales`/`color`/`pictureUrl` are ADR 0060's profile fields,
+ * carried straight through - none of them are tenant-scoped, unlike the
+ * three below:
+ *
+ * `membershipRole` and `characters` are filtered to this bot's own tenant
+ * the same way {@link getMyPlayers}/{@link getControlledCharacters}
+ * already do (flat, not grouped by campaign like `MyPlayer` -
+ * `PlayerContextOut` carries a campaign *id*, not its name, and a raw
+ * UUID wouldn't read as "presented nicely"; character names alone are
+ * enough for an identity check). `gmCampaignCount` deliberately isn't
+ * tenant-filtered - `/me`'s `campaign_gm_grants` carries no `tenant_id` at
+ * all, the same cross-tenant imprecision {@link isCampaignGm}'s own doc
+ * comment already flags, so this is honestly a global count, not a
+ * per-tenant one.
  */
 export type MyProfile = Readonly<{
+  email: string | null;
+  nickname: string | null;
+  displayName: string | null;
+  pronouns: string | null;
+  bio: string | null;
+  locales: readonly string[];
+  color: string | null;
+  pictureUrl: string;
   membershipRole: string | null;
   characters: readonly ControlledCharacter[];
   gmCampaignCount: number;
@@ -206,6 +220,14 @@ export function createLorenzoApiClient(baseUrl: string) {
       if (error !== undefined) throw toApiError(error, response.status);
 
       return {
+        email: data.email,
+        nickname: data.nickname,
+        displayName: data.display_name,
+        pronouns: data.pronouns,
+        bio: data.bio,
+        locales: data.locales,
+        color: data.user_color,
+        pictureUrl: data.picture_url,
         membershipRole: data.memberships.find((m) => m.tenant_id === tenantId)?.role ?? null,
         characters: data.players
           .filter((player) => player.tenant_id === tenantId)
