@@ -50,17 +50,21 @@ import Base from '../../layouts/Base.astro';
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
 
-    // A prototype-level flag (the "is_container" tag a GM sets on the item
-    // type), not a fact about current occupancy - an empty belt pouch is
-    // still a container and should still show the affordance.
-    function isContainer(item: ItemInstance): boolean {
-      return item.tags.some((tag) => tag.name === 'is_container' && tag.value === true);
+    // Two signals, either is enough: the "is_container" tag (a prototype-
+    // level flag, catches an empty container too) OR this entity actually
+    // holding something elsewhere in the response (catches a container
+    // whose tag isn't set yet). Combined rather than tag-only until the
+    // tag is confirmed reliably present on every container prototype.
+    function isContainer(item: ItemInstance, groups: OwnedGroup[]): boolean {
+      const tagged = item.tags.some((tag) => tag.name === 'is_container' && tag.value === true);
+      const holdsSomething = groups.some((g) => g.container?.id === item.entity_id);
+      return tagged || holdsSomething;
     }
 
-    function renderCard(item: ItemInstance): HTMLLIElement {
+    function renderCard(item: ItemInstance, groups: OwnedGroup[]): HTMLLIElement {
       const li = document.createElement('li');
       li.className = 'item-card';
-      if (isContainer(item)) {
+      if (isContainer(item, groups)) {
         li.classList.add('item-card--container');
       }
 
@@ -79,7 +83,7 @@ import Base from '../../layouts/Base.astro';
       return li;
     }
 
-    function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
+    function renderColumn(group: OwnedGroup, rootTitle: string, groups: OwnedGroup[]): HTMLElement {
       const section = document.createElement('section');
       section.className = 'board-column';
 
@@ -96,7 +100,7 @@ import Base from '../../layouts/Base.astro';
         list.append(empty);
       } else {
         for (const item of group.item_instances) {
-          list.append(renderCard(item));
+          list.append(renderCard(item, groups));
         }
       }
       section.append(list);
@@ -124,7 +128,7 @@ import Base from '../../layouts/Base.astro';
           a.container === null ? -1 : b.container === null ? 1 : 0,
         );
         for (const group of ordered) {
-          boardColumns.append(renderColumn(group, characterName));
+          boardColumns.append(renderColumn(group, characterName, response.groups));
         }
       } catch (e) {
         inventoryLoading.hidden = true;
