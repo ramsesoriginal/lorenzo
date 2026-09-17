@@ -1,6 +1,8 @@
 import { awardCommand } from "./award.js";
+import { confiscateCommand } from "./confiscate.js";
 import { dropCommand } from "./drop.js";
 import { giveCommand } from "./give.js";
+import { inspectCommand } from "./inspect.js";
 import { introduceCommand } from "./introduce.js";
 import { inventoryCommand } from "./inventory.js";
 import { itemCommand } from "./item.js";
@@ -8,6 +10,7 @@ import { linkCommand } from "./link.js";
 import { moveCommand } from "./move.js";
 import { noteCommand } from "./note.js";
 import { pingCommand } from "./ping.js";
+import { reassignCommand } from "./reassign.js";
 import { setCurrentCommand } from "./set-current.js";
 import type { AnyInteraction, Command, CommandContext } from "./types.js";
 import { unlinkCommand } from "./unlink.js";
@@ -32,6 +35,9 @@ const commands: readonly Command[] = [
   unlinkCommand,
   whoamiCommand,
   introduceCommand,
+  inspectCommand,
+  confiscateCommand,
+  reassignCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());

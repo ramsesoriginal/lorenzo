@@ -387,6 +387,88 @@ export function createLorenzoApiClient(baseUrl: string) {
       return data;
     },
 
+    /** DELETE .../item-instances/{entity_id} - a plain cascade delete
+     * (ADR 0064's `/confiscate`, GM-only in this bot even though the
+     * route itself is self-or-managed like every other write here - a
+     * player destroying their own item isn't a scenario this bot exposes
+     * a command for). `ifMatch`, if given, is sent as `If-Match`, same
+     * treatment as every other write below. */
+    async deleteItemInstance(
+      tenantId: string,
+      entityId: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<void> {
+      const { error, response } = await client.DELETE(
+        "/tenants/{tenant_id}/item-instances/{entity_id}",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+    },
+
+    /** PATCH .../item-instances/{entity_id} - renames an instance
+     * (ADR 0064's `/rename`; owner/container have their own dedicated
+     * sub-resource actions, per `ItemInstanceUpdate`'s own docstring, so
+     * this is the only field this route ever actually changes today).
+     * Same `ifMatch` treatment as every other write below. */
+    async renameItemInstance(
+      tenantId: string,
+      entityId: string,
+      name: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.PATCH(
+        "/tenants/{tenant_id}/item-instances/{entity_id}",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { name },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/{entity_id}/merge - consumes `entityId`'s
+     * whole current stack into `intoEntityId`'s, then deletes `entityId`
+     * (ADR 0044/0064's `/merge`). Returns the *surviving* instance
+     * (`intoEntityId`'s new shape) - it keeps its own existing container
+     * untouched, which is what already satisfies "a merge has to end up
+     * in a container," not a separate mechanism. `ifMatch`, if given,
+     * guards the *source* (`entityId`) only, mirroring split's own
+     * single-sided precondition. */
+    async mergeItemInstance(
+      tenantId: string,
+      entityId: string,
+      intoEntityId: string,
+      accessToken: string,
+      ifMatch?: string,
+    ): Promise<ItemInstanceOut> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/merge",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: entityId },
+            ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { into_entity_id: intoEntityId },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
     /** PUT .../item-instances/{entity_id}/container - moves an item to a
      * new container, `/move`'s own write. Same `ifMatch` treatment as
      * {@link setItemInstanceOwner}. */
@@ -621,6 +703,27 @@ export function createLorenzoApiClient(baseUrl: string) {
       });
       if (error !== undefined) throw toApiError(error, response.status);
       return data.items.map((group) => ({ entityId: group.id, name: group.name }));
+    },
+
+    /** GET .../characters/{character_id}/groups (ADR 0045's "reverse
+     * direction" addition) - every group a specific character belongs to.
+     * `/my-groups`'s own source (ADR 0064), one call per controlled
+     * character. Not paginated - bounded by one character's own
+     * memberships, same convention as `getItemInstancesOwnedBy`. */
+    async getCharacterGroups(
+      tenantId: string,
+      characterEntityId: string,
+      accessToken: string,
+    ): Promise<readonly GroupSummary[]> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/characters/{character_id}/groups",
+        {
+          params: { path: { tenant_id: tenantId, character_id: characterEntityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.map((group) => ({ entityId: group.id, name: group.name }));
     },
   };
 }
