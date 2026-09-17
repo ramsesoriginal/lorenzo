@@ -29,8 +29,9 @@ COPY --from=build /deploy/node_modules ./node_modules
 COPY --from=build /deploy/package.json ./package.json
 COPY --from=build /workspace/apps/loot-bot/dist ./dist
 
-RUN useradd --create-home --uid 1000 appuser
-USER appuser
+# node:22-slim already ships a non-root `node` user (uid 1000) for exactly
+# this purpose - `useradd` here collided with it instead of adding a new one.
+USER node
 
 EXPOSE 8090
 # tsup mirrors each entry's source subdirectory under dist/ (src/index.ts ->
