@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Debug: GET /me — Lorenzo">
+  <h1 class="display">
+    <code>GET /me</code>
+  </h1>
+  <p><a href="/">&larr; Back</a></p>
+  <pre id="result">Loading&hellip;</pre>
+
+  <script>
+    import { apiFetch } from '../../lib/api';
+    import { isAuthenticated } from '../../lib/auth';
+
+    const result = document.getElementById('result')!;
+
+    if (!(await isAuthenticated())) {
+      result.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        const me = await apiFetch('/me');
+        result.textContent = JSON.stringify(me, null, 2);
+      } catch (e) {
+        result.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+
+  <style>
+    pre {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--fill-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: var(--space-3);
+      overflow-x: auto;
+    }
+  </style>
+</Base>

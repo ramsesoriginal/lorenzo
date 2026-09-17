@@ -5,4 +5,87 @@ import Base from '../layouts/Base.astro';
 <Base>
   <h1 class="display">Keep track of worlds.</h1>
   <p>The inventory board is still being built.</p>
+
+  <section class="account">
+    <p id="account-loading">Checking your session&hellip;</p>
+    <p id="account-error" class="account-error" hidden></p>
+    <div id="account-signed-out" hidden>
+      <button id="login-button" type="button">Log in</button>
+    </div>
+    <div id="account-signed-in" hidden>
+      <p>Signed in as <strong id="account-email"></strong>.</p>
+      <button id="logout-button" type="button">Log out</button>
+      <a href="/debug/me">Debug: <code>GET /me</code></a>
+    </div>
+  </section>
+
+  <script>
+    import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
+
+    const loading = document.getElementById('account-loading')!;
+    const errorEl = document.getElementById('account-error')!;
+    const signedOut = document.getElementById('account-signed-out')!;
+    const signedIn = document.getElementById('account-signed-in')!;
+    const emailEl = document.getElementById('account-email')!;
+
+    document.getElementById('login-button')?.addEventListener('click', () => {
+      void login();
+    });
+    document.getElementById('logout-button')?.addEventListener('click', () => {
+      void logout();
+    });
+
+    function showError(message: string) {
+      loading.hidden = true;
+      errorEl.hidden = false;
+      errorEl.textContent = message;
+    }
+
+    if (!isAuthConfigured()) {
+      showError('Authgear is not configured for this app yet.');
+    } else {
+      try {
+        const authed = await isAuthenticated();
+        loading.hidden = true;
+        if (authed) {
+          const info = await getUserInfo();
+          emailEl.textContent = info.email ?? info.sub;
+          signedIn.hidden = false;
+        } else {
+          signedOut.hidden = false;
+        }
+      } catch (e) {
+        showError(e instanceof Error ? e.message : String(e));
+      }
+    }
+  </script>
+
+  <style>
+    .account {
+      margin-top: var(--space-5);
+    }
+
+    .account-error {
+      color: var(--lorenzo-burgundy);
+    }
+
+    button,
+    .account a {
+      font-family: var(--font-ui);
+      font-size: 14px;
+    }
+
+    button {
+      background: var(--action);
+      color: var(--lorenzo-paper);
+      border: none;
+      border-radius: var(--radius-control);
+      padding: var(--space-2) var(--space-3);
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+  </style>
 </Base>

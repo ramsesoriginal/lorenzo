@@ -8,6 +8,9 @@ importers:
 
   apps/inventory-web:
     dependencies:
+      '@authgear/web':
+        specifier: ^6.0.0
+        version: 6.0.0
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
@@ -150,6 +153,9 @@ packages:
 
   '@astrojs/yaml2ts@0.2.4':
     resolution: {integrity: sha512-8oddpOae35pJsXPQXhTkM0ypfKPskVsh2bCxRtbf7e+/Epw2nReakFYpLKjZMEr75CsoF203PMnCocpfz0s69A==}
+
+  '@authgear/web@6.0.0':
+    resolution: {integrity: sha512-yDDTa+Oh5Brrm8JFWvoAqFnOLS0pb31Q4+YgDeqrrcFVCSJ+ijTat0lmPQS3ek843XU75Ds7paFX6yMqvmHlww==}
 
   '@babel/helper-string-parser@7.29.7':
     resolution: {integrity: sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==}
@@ -2306,6 +2312,8 @@ snapshots:
   '@astrojs/yaml2ts@0.2.4':
     dependencies:
       yaml: 2.9.1
+
+  '@authgear/web@6.0.0': {}
 
   '@babel/helper-string-parser@7.29.7': {}
 
