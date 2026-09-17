@@ -3,6 +3,7 @@ import uuid
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_character, make_player, make_tenant
 from httpx import AsyncClient
+from sqlalchemy import select
 
 from lorenzo_api.etag import etag_for
 from lorenzo_api.models import (
@@ -633,6 +634,31 @@ async def test_grant_campaign_gm_creates_row_with_granter_as_created_by(
         # created_by is the granter (test_user_id, the caller), not the
         # grantee (new_gm_id).
         assert gm.created_by == test_user_id
+
+    await delete_tenant(tenant_id)
+
+
+async def test_grant_campaign_gm_422_for_a_nonexistent_user(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Without this check, a nonexistent user_id would hit
+    CampaignGm.user_id's foreign key directly and surface as a raw,
+    unhandled IntegrityError instead of a clean 422 - same InvalidUserError
+    shape create_membership/create_player already use.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.commit()
+        campaign_id = campaign.id
+
+    response = await client.put(f"/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{uuid.uuid4()}")
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    async with admin_session_factory() as session:
+        stmt = select(CampaignGm).where(CampaignGm.campaign_id == campaign_id)
+        assert (await session.execute(stmt)).first() is None
 
     await delete_tenant(tenant_id)
 

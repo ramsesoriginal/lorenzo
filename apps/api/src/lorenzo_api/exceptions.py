@@ -384,13 +384,15 @@ class PlayerAlreadyExistsError(ConflictProblem):
 
 
 class InvalidUserError(UnprocessableProblem):
-    """POST /tenants/{id}/memberships and POST .../players - user_id doesn't
-    resolve to an existing app_user row. Real, not hypothetical: RFC 0007's
-    "invite by user_id, not email" design ("Invitation, honestly") means an
+    """POST /tenants/{id}/memberships, POST .../players, and
+    PUT .../campaigns/{id}/gms/{user_id} - user_id doesn't resolve to an
+    existing app_user row. Real, not hypothetical: RFC 0007's "invite by
+    user_id, not email" design ("Invitation, honestly") means an
     owner/manager can only reference someone who has already signed in at
-    least once - this API has no email to look anyone up by (ADR 0009).
-    Mirrors InvalidItemPrototypeError/InvalidStatGroupError's own "body
-    references something that isn't there" shape.
+    least once - by-email/by-nickname lookup (ADR 0051) helps find that
+    user_id, but doesn't remove the underlying constraint. Mirrors
+    InvalidItemPrototypeError/InvalidStatGroupError's own "body references
+    something that isn't there" shape.
     """
 
     title = "User id does not reference an existing user"

@@ -23,8 +23,9 @@ from lorenzo_api.exceptions import (
     CampaignManagementForbiddenError,
     CampaignNotEmptyError,
     CampaignNotFoundError,
+    InvalidUserError,
 )
-from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut
+from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut, User
 from lorenzo_api.profile_pictures import (
     delete_campaign_profile_picture,
     read_and_validate_upload,
@@ -306,8 +307,15 @@ async def grant_campaign_gm(
     granter (the caller), not the grantee (user_id) - never touched again
     on a re-grant, since the row's existence alone is the fact being
     recorded.
+
+    Validates user_id is a real user first, same as create_membership/
+    create_player - without this, a nonexistent user_id would otherwise
+    hit CampaignGm.user_id's foreign key directly and surface as a raw,
+    unhandled IntegrityError (a bare 500) instead of a clean 422.
     """
     await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
+    if await session.get(User, user_id) is None:
+        raise InvalidUserError(detail=f"{user_id} is not an existing user")
 
     existing = await session.get(CampaignGm, (tenant_id, user_id, campaign_id))
     if existing is None:
