@@ -104,7 +104,7 @@ async def test_user_picture_redirects_to_gravatar_when_no_upload_but_has_email(
     response = await raw_client.get(f"/users/{user_id}/picture", follow_redirects=False)
 
     assert response.status_code == 302
-    expected_hash = hashlib.md5(email.strip().lower().encode()).hexdigest()
+    expected_hash = hashlib.sha256(email.strip().lower().encode()).hexdigest()
     assert (
         response.headers["location"]
         == f"https://www.gravatar.com/avatar/{expected_hash}?d=mp&s=200"

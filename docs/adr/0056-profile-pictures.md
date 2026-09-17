@@ -38,7 +38,7 @@ Because `routers/campaigns.py`'s router applies `Depends(get_tenant_or_404)` at 
 
 ### Gravatar default (user only)
 
-When a user has no uploaded picture: if `email` is set, 302-redirect (not 301 - so a later custom upload isn't cached past) to `https://www.gravatar.com/avatar/{md5(email.strip().lower())}?d=mp&s=200`. `d=mp` ("mystery person") means this always resolves to *something*, even for an email that never registered with Gravatar - so the only real 404 is a user with no email at all and no upload. No resizing or proxying of the Gravatar image itself - the redirect target is Gravatar's own problem, not this API's.
+When a user has no uploaded picture: if `email` is set, 302-redirect (not 301 - so a later custom upload isn't cached past) to `https://www.gravatar.com/avatar/{sha256(email.strip().lower())}?d=mp&s=200` - Gravatar accepts either MD5 or SHA256 of the email as its lookup key; SHA256 is used so this doesn't rely on a broken hash even for a non-cryptographic lookup. `d=mp` ("mystery person") means this always resolves to *something*, even for an email that never registered with Gravatar - so the only real 404 is a user with no email at all and no upload. No resizing or proxying of the Gravatar image itself - the redirect target is Gravatar's own problem, not this API's.
 
 ## Not in scope
 

@@ -129,7 +129,8 @@ def gravatar_url(email: str, *, size: int = 200) -> str:
     to *something* even for an email that never registered with Gravatar -
     the only real fallback failure is a user with no email at all.
     """
-    # MD5 here is Gravatar's own documented hashing scheme, not a security
-    # use - it's just the key their API looks avatars up by.
-    email_hash = hashlib.md5(email.strip().lower().encode()).hexdigest()
+    # Gravatar's lookup key, not a security use - their API accepts either
+    # MD5 or SHA256 of the trimmed, lowercased email; SHA256 avoids relying
+    # on a broken hash even for a non-cryptographic lookup.
+    email_hash = hashlib.sha256(email.strip().lower().encode()).hexdigest()
     return f"https://www.gravatar.com/avatar/{email_hash}?d=mp&s={size}"
