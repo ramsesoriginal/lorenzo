@@ -14,10 +14,11 @@ import type { Command } from "./types.js";
  * updates the container, leaving whichever character was already current
  * untouched (`setPreference`'s own "only touch fields given" behavior).
  *
- * `container` has no dedicated "is this a container" signal to filter
- * autocomplete by (nothing in the real API exposes one) - it suggests
- * every item instance the resolved character owns, container-capable or
- * not, and trusts the player to pick something sensible.
+ * `container` narrows to `isContainer === true` (ADR 0068, consuming
+ * main's own `is_container` computed field, ADR 0066) instead of
+ * suggesting every item instance the resolved character owns regardless
+ * of container-capability. Still just a suggestion - free-typing any
+ * owned entity id still works.
  */
 export const setCurrentCommand: Command = {
   definition: new SlashCommandBuilder()
@@ -69,10 +70,12 @@ export const setCurrentCommand: Command = {
         return;
       }
       const items = await findOwnedItems(client, tenantId, characterId, accessToken);
-      const choices = items.map((item) => ({
-        name: formatItemChoiceName(item.title, item.quantity),
-        value: item.entityId,
-      }));
+      const choices = items
+        .filter((item) => item.isContainer)
+        .map((item) => ({
+          name: formatItemChoiceName(item.title, item.quantity),
+          value: item.entityId,
+        }));
       await interaction.respond(filterChoices(choices, focused.value));
     }
   },
@@ -148,13 +151,21 @@ async function findOwnedItems(
   tenantId: string,
   characterEntityId: string,
   accessToken: string,
-): Promise<readonly { entityId: string; title: string; quantity: number | null }[]> {
+): Promise<
+  readonly {
+    entityId: string;
+    title: string;
+    quantity: number | null;
+    isContainer: boolean | null;
+  }[]
+> {
   const response = await client.getItemInstancesOwnedBy(tenantId, characterEntityId, accessToken);
   return response.groups.flatMap((group) =>
     group.item_instances.map((item) => ({
       entityId: item.entity_id,
       title: item.title ?? "(untitled)",
       quantity: item.quantity,
+      isContainer: item.is_container,
     })),
   );
 }

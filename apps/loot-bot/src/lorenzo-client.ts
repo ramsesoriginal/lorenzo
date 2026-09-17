@@ -68,7 +68,17 @@ export type MyProfile = Readonly<{
 /** One item instance the caller owns, flattened out of whichever
  * character/container it's actually grouped under - `/give`'s and
  * `/item`'s own "item" autocomplete both just want a flat pickable list. */
-export type OwnedItem = Readonly<{ entityId: string; title: string; quantity: number | null }>;
+export type OwnedItem = Readonly<{
+  entityId: string;
+  title: string;
+  quantity: number | null;
+  /** ADR 0066 (main's) computed field - `true`/`false` when explicitly
+   * tagged, `true` when unset but the instance currently holds something,
+   * else `null` ("unknown"). `/move`'s and `/set-current`'s own container
+   * autocomplete (ADR 0068) narrow to `isContainer === true` instead of
+   * "everything you own." */
+  isContainer: boolean | null;
+}>;
 
 /** One group entity (ADR 0028/0045) - a bare `entity` with no dedicated
  * table, defined purely by having members; `/note`'s `visibility:group`
@@ -270,6 +280,7 @@ export function createLorenzoApiClient(baseUrl: string) {
               entityId: item.entity_id,
               title: item.title ?? "(untitled)",
               quantity: item.quantity,
+              isContainer: item.is_container,
             })),
           );
         }),
