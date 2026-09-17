@@ -11,10 +11,10 @@ static Astro app) and [docs/guides/adding-an-app.md](../../docs/guides/adding-an
 Run from this directory, or via `mise run //apps/inventory-web:<task>` from the
 repo root:
 
-| Command          | Action                                    |
-| ---------------- | ------------------------------------------ |
-| `mise run dev`    | Start the dev server at `localhost:4321`   |
-| `mise run lint`   | Biome + `astro check` + Prettier (`.astro`) |
-| `mise run format` | Autoformat                                 |
-| `mise run test`   | Run the test suite                         |
-| `mise run build`  | Build the static site to `dist/`           |
+| Command | Action |
+| --- | --- |
+| `mise run dev` | Start the dev server at `localhost:4321` |
+| `mise run lint` | Biome + `astro check` + Prettier (`.astro`) |
+| `mise run format` | Autoformat |
+| `mise run test` | Run the test suite |
+| `mise run build` | Build the static site to `dist/` |
