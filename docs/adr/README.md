@@ -58,3 +58,7 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0053 - Platform operations: a platform-operator role, admin listing, and account suspension](0053-platform-operations.md)
 - [0054 - Notifications: platform/tenant/campaign/character scope, in-app inbox](0054-notifications.md)
 - [0055 - Group-scoped notifications](0055-group-scoped-notifications.md)
+- [0056 - User profile expansion](0056-user-profile-expansion.md)
+- [0057 - Notification sender read-receipts](0057-notification-sender-read-receipts.md)
+- [0058 - Bulk invite to tenant](0058-bulk-invite-to-tenant.md)
+- [0059 - Tenant activity log (first slice)](0059-tenant-activity-log.md)
