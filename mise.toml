@@ -6,14 +6,6 @@ config_roots = ["apps/api", "apps/inventory-web"]
 [tools]
 node = "22"
 uv = "0.12.3"
-# mise doesn't enable corepack by default (no [hooks] postinstall wired up
-# for it), so a plain `packageManager` field in apps/inventory-web's
-# package.json wouldn't actually get honored in CI - managing pnpm
-# directly here is the reliable option, and keeps every toolchain pin in
-# the one place this repo already looks for them. Same version pinned in
-# apps/inventory-web/package.json's own `packageManager` field, for tools
-# (editors, `corepack` itself) that only look there.
-pnpm = "12.4.2"
 
 # Python itself is deliberately not listed here - it's controlled by uv
 # (see apps/api/.python-version), not mise. mise still provides uv itself.
