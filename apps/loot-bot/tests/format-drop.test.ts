@@ -6,6 +6,7 @@ import {
   buildDropComponents,
   buildDropEmbed,
   buildQuantityModal,
+  formatPendingDropsEmbed,
   parseClaimType,
 } from "../src/format-drop.js";
 import type { ItemInstanceOut } from "../src/lorenzo-client.js";
@@ -176,6 +177,49 @@ describe("buildQuantityModal", () => {
 
     expect(claimModal.components).toHaveLength(2);
     expect(takeModal.components).toHaveLength(1);
+  });
+});
+
+describe("formatPendingDropsEmbed", () => {
+  it("shows a friendly message when there are no pending drops", () => {
+    const embed = formatPendingDropsEmbed("guild-1", []);
+
+    expect(embed.data.description).toContain("No pending drops");
+  });
+
+  it("shows a channel mention, jump link, and each outstanding claim", () => {
+    const embed = formatPendingDropsEmbed("guild-1", [
+      {
+        discordChannelId: "channel-1",
+        discordMessageId: "message-1",
+        containerTitle: "Treasure Chest",
+        claims: [
+          { discordUserId: "user-1", itemTitle: "Torch", quantity: 2, claimType: "greed" },
+          { discordUserId: "user-2", itemTitle: "Sword", quantity: null, claimType: "need" },
+        ],
+      },
+    ]);
+
+    const field = embed.data.fields?.[0];
+    expect(field?.name).toBe("Treasure Chest");
+    expect(field?.value).toContain("<#channel-1>");
+    expect(field?.value).toContain("https://discord.com/channels/guild-1/channel-1/message-1");
+    expect(field?.value).toContain("<@user-1> wants 2 of **Torch**");
+    expect(field?.value).toContain("<@user-2> wants **Sword** (need)");
+  });
+
+  it("omits the jump link when the drop has no message id yet", () => {
+    const embed = formatPendingDropsEmbed("guild-1", [
+      {
+        discordChannelId: "channel-1",
+        discordMessageId: null,
+        containerTitle: "Treasure Chest",
+        claims: [],
+      },
+    ]);
+
+    expect(embed.data.fields?.[0]?.value).not.toContain("discord.com");
+    expect(embed.data.fields?.[0]?.value).toContain("Nothing claimed yet");
   });
 });
 

@@ -155,6 +155,57 @@ export function parseClaimType(raw: string): ClaimType {
   return raw.trim().toLowerCase() === "need" ? "need" : "greed";
 }
 
+export type PendingDropClaim = Readonly<{
+  discordUserId: string;
+  itemTitle: string;
+  quantity: number | null;
+  claimType: string;
+}>;
+
+export type PendingDropSummary = Readonly<{
+  discordChannelId: string;
+  discordMessageId: string | null;
+  containerTitle: string;
+  claims: readonly PendingDropClaim[];
+}>;
+
+/** `/pending-claims` (ADR 0064) - everyone's own cross-channel summary of
+ * every currently-open drop, not just GMs (unlike every other new drop
+ * affordance) - a long-running drop's own message can scroll out of view,
+ * and checking what's still outstanding shouldn't require a GM. */
+export function formatPendingDropsEmbed(
+  guildId: string,
+  drops: readonly PendingDropSummary[],
+): EmbedBuilder {
+  const embed = new EmbedBuilder().setTitle("Pending loot drops").setColor(0xc9a227);
+
+  if (drops.length === 0) {
+    return embed.setDescription("No pending drops.");
+  }
+
+  for (const drop of drops) {
+    const jumpLink = drop.discordMessageId
+      ? `https://discord.com/channels/${guildId}/${drop.discordChannelId}/${drop.discordMessageId}`
+      : undefined;
+    const header = `<#${drop.discordChannelId}>${jumpLink ? ` — [jump to message](${jumpLink})` : ""}`;
+
+    const claimLines =
+      drop.claims.length > 0
+        ? drop.claims
+            .map((claim) => {
+              const amount = claim.quantity !== null ? `${claim.quantity} of ` : "";
+              const tier = claim.claimType === "need" ? " (need)" : "";
+              return `<@${claim.discordUserId}> wants ${amount}**${claim.itemTitle}**${tier}`;
+            })
+            .join("\n")
+        : "Nothing claimed yet.";
+
+    embed.addFields({ name: drop.containerTitle, value: `${header}\n${claimLines}` });
+  }
+
+  return embed;
+}
+
 export type ClaimOutcome = Readonly<{
   discordUserId: string;
   itemTitle: string;

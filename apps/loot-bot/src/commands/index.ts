@@ -9,6 +9,7 @@ import { itemCommand } from "./item.js";
 import { linkCommand } from "./link.js";
 import { moveCommand } from "./move.js";
 import { noteCommand } from "./note.js";
+import { pendingClaimsCommand } from "./pending-claims.js";
 import { pingCommand } from "./ping.js";
 import { reassignCommand } from "./reassign.js";
 import { setCurrentCommand } from "./set-current.js";
@@ -38,6 +39,7 @@ const commands: readonly Command[] = [
   inspectCommand,
   confiscateCommand,
   reassignCommand,
+  pendingClaimsCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
