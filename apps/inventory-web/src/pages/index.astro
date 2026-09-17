@@ -114,7 +114,11 @@ import Base from '../layouts/Base.astro';
     }
   </script>
 
-  <style>
+  <style is:global>
+    /* Astro only auto-scopes elements present in the static template - the
+       tenant cards below are built client-side via document.createElement,
+       so scoped styles would silently never match them (see the matching
+       note in board/index.astro). */
     .account {
       margin-top: var(--space-5);
     }

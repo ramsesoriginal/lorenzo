@@ -189,7 +189,13 @@ import Base from '../../layouts/Base.astro';
     }
   </script>
 
-  <style>
+  <style is:global>
+    /* Astro only auto-scopes elements present in the static template - the
+       character pills, board columns, and item cards below are all built
+       client-side via document.createElement, so scoped styles would
+       silently never match them. See ADR 0004: plain scripts are the
+       intended "island" shape here, not a component framework, so :global
+       is the right escape hatch rather than reaching for one. */
     .tenant-slug {
       font-family: var(--font-mono);
       color: var(--fg-tertiary);
