@@ -1,6 +1,6 @@
 import { createAuthCallbackRoute } from "./auth-callback-route.js";
 import { loadConfig } from "./config.js";
-import { createHttpServer, healthzRoute } from "./http-server.js";
+import { createHttpServer, livezRoute } from "./http-server.js";
 import { createInteractionsRoute } from "./interactions-route.js";
 import { logger } from "./logger.js";
 
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   // rather than auto-migrating on startup.
   const httpServer = createHttpServer(
     new Map([
-      ["/healthz", healthzRoute],
+      ["/livez", livezRoute],
       ["/auth/callback", createAuthCallbackRoute(config, logger)],
       // Discord's HTTP Interactions Endpoint (ADR 0053) - replaces the
       // Gateway `Client`/`.login()` this process used to run: every slash

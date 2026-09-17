@@ -51,7 +51,7 @@ The `ssl=require` row is doing real work: Neon's connection strings default to l
 
 ### Local development
 
-- **App**: runs directly on the host — `pnpm exec tsx --env-file=.env watch src/index.ts` (via `mise run //apps/loot-bot:dev`). A plain HTTP service (`/healthz`, `/auth/callback`, `/interactions`) — no Gateway connection, no `discord.js` `Client` ([ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)). Listens on `LOOT_BOT_HTTP_PORT` (default `8090`).
+- **App**: runs directly on the host — `pnpm exec tsx --env-file=.env watch src/index.ts` (via `mise run //apps/loot-bot:dev`). A plain HTTP service (`/livez`, `/auth/callback`, `/interactions`) — no Gateway connection, no `discord.js` `Client` ([ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)). Listens on `LOOT_BOT_HTTP_PORT` (default `8090`).
 - **Database**: the same Postgres instance `apps/api` uses (`infra/docker-compose.yml`), a separate role/schema (`loot_bot`/`loot_bot`, [ADR 0050](../adr/0050-loot-bot-stack-linking-and-isolation.md)) — never `apps/api`'s own `lorenzo_app`/`lorenzo`.
 - **Exercising `/interactions` locally** needs a real Discord signature, which needs a real request from Discord itself - there's no local Discord dev server. In practice this means pointing the Discord application's Interactions Endpoint URL at a public tunnel (e.g. an `ngrok`-style tunnel to `LOOT_BOT_HTTP_PORT`) for local testing, the same real-external-dependency shape `/auth/callback`'s Authgear redirect already has.
 

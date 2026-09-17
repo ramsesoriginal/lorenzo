@@ -154,4 +154,7 @@ jobs:
             LOOT_BOT_PUBLIC_BASE_URL=${{ vars.LOOT_BOT_PUBLIC_BASE_URL }}
 
       - name: Verify the deployed revision is actually ready
-        run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/healthz"
+        # /livez, not /healthz - Google Front End reserves the literal path
+        # /healthz on every *.run.app host and 404s it before the request
+        # ever reaches the container, confirmed against this exact service.
+        run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/livez"

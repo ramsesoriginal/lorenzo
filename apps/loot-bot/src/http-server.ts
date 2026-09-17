@@ -15,7 +15,7 @@ export type HttpServer = Readonly<{
 
 /**
  * A bare node:http server, deliberately not a framework (Fastify/Express) -
- * this only ever needs a couple of routes (/healthz, /auth/callback), and a
+ * this only ever needs a couple of routes (/livez, /auth/callback), and a
  * framework's real value-adds (schema validation, plugin ecosystem) don't
  * engage at that scale. Mirrors apps/api/scripts/get_dev_token.py's own
  * precedent of using the plainest possible HTTP listener for a small OAuth
@@ -68,6 +68,15 @@ async function handleRequest(
   }
 }
 
-export const healthzRoute: RouteHandler = (_req, res) => {
+/**
+ * Named `/livez`, not `/healthz` - Google Front End intercepts the literal
+ * path `/healthz` on every `*.run.app` host and answers it with its own
+ * generic 404 page *before* the request ever reaches this container
+ * (confirmed empirically against the real deployed service, and a known,
+ * documented Cloud Run gotcha - sibling paths like `/livez`/`/readyz` are
+ * unaffected). Matches Kubernetes' own modern liveness-probe convention,
+ * for the same reason Kubernetes moved past the `/healthz` name too.
+ */
+export const livezRoute: RouteHandler = (_req, res) => {
   res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ status: "ok" }));
 };

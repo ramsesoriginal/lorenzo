@@ -35,7 +35,7 @@ flowchart TD
     FL2 --> FL3["build and push image to lorenzo-loot-bot repo<br/>tagged by commit SHA"]
     FL3 --> FL4["migrate: tsx src/migrate.ts against Neon's loot_bot schema"]
     FL4 --> FL5["deploy: new Cloud Run revision"]
-    FL5 --> FL6{"curl /healthz"}
+    FL5 --> FL6{"curl /livez"}
     FL6 -->|200| H
     FL6 -->|non-200| I
 ```

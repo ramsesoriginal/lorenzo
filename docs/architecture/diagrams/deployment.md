@@ -47,7 +47,7 @@ C4Deployment
   title Lorenzo loot-bot deployment (local dev + production)
 
   Deployment_Node(dev, "Developer machine", "Local dev environment"){
-    Container(localbot, "apps/loot-bot", "tsx --env-file=.env watch", "Autoreload, port 8090 - /healthz /auth/callback /interactions")
+    Container(localbot, "apps/loot-bot", "tsx --env-file=.env watch", "Autoreload, port 8090 - /livez /auth/callback /interactions")
   }
 
   Deployment_Node(gha, "GitHub Actions", "ubuntu-latest runner"){
@@ -59,7 +59,7 @@ C4Deployment
       Container(image, "loot-bot image", "container image", "Tagged by commit SHA")
     }
     Deployment_Node(cr, "Cloud Run", "scale-to-zero, public"){
-      Container(bot, "lorenzo-loot-bot service", "HTTP service, no Gateway Client", "Serves healthz, auth/callback, interactions")
+      Container(bot, "lorenzo-loot-bot service", "HTTP service, no Gateway Client", "Serves livez, auth/callback, interactions")
     }
   }
 
