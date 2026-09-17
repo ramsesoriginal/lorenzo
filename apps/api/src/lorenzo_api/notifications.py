@@ -1,10 +1,10 @@
-"""Shared notification fan-out logic for the five scopes - see ADR 0054/0055.
+"""Shared notification fan-out logic for the five scopes - see ADR 0058/0059.
 
 Every function here does core mechanics only - no auth, no commit
 (matching routers/item_instances.py's own `_perform_split` precedent) -
 each POST .../notifications route calls one of these, then commits itself.
 Fanned out at creation (one row per recipient), never resolved at read
-time - see ADR 0054's own reasoning.
+time - see ADR 0058's own reasoning.
 """
 
 import uuid
@@ -75,7 +75,7 @@ async def create_tenant_notification(
     created_by: uuid.UUID | None,
 ) -> list[Notification]:
     """scope="tenant". An omitted `recipient_user_id` broadcasts to the
-    tenant's full roster. Every row shares one `batch_id` (ADR 0057), so
+    tenant's full roster. Every row shares one `batch_id` (ADR 0061), so
     the sender can later pull the whole broadcast's read state in one
     query (`GET /me/notifications/sent?batch_id=...`).
     """
@@ -211,7 +211,7 @@ async def create_group_notification(
     body: str,
     created_by: uuid.UUID | None,
 ) -> list[Notification]:
-    """scope="group" - see ADR 0055. A group's members are always
+    """scope="group" - see ADR 0059. A group's members are always
     characters (`GroupMember.character_entity_id`, ADR 0028) - an omitted
     `recipient_user_id` broadcasts to every player controlling *any*
     member character via `CharacterPlayer` (the same roster-reuse join
@@ -255,9 +255,9 @@ async def create_group_notification(
 def create_platform_notification(
     *, recipient_user_id: uuid.UUID, type: str, title: str, body: str, created_by: uuid.UUID | None
 ) -> Notification:
-    """scope="platform". Always single-recipient - see ADR 0054's own
+    """scope="platform". Always single-recipient - see ADR 0058's own
     named non-goal (no broadcast-to-every-user mechanism yet). Still gets
-    its own `batch_id` (ADR 0057), for consistency with the other four
+    its own `batch_id` (ADR 0061), for consistency with the other four
     scopes even though it's always a batch of one.
     """
     return _build(

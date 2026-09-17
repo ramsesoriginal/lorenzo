@@ -271,7 +271,7 @@ async def upload_tenant_picture(
     session: SessionDep,
     file: UploadFile,
 ) -> None:
-    """Same gate `update_tenant` uses (ADR 0052) - ORGA+, not OWNER-only:
+    """Same gate `update_tenant` uses (ADR 0056) - ORGA+, not OWNER-only:
     a tenant's picture is day-to-day tenant administration, not a
     membership-management decision.
     """
@@ -338,10 +338,10 @@ async def list_tenant_roster(
     )
 
     # One extra query for every user_id appearing above, not a join per
-    # row/table (ADR 0050) - keeps each of the three source queries
+    # row/table (ADR 0054) - keeps each of the three source queries
     # unchanged and matches this function's own "combined in Python, not a
     # SQL UNION" precedent already given below. Widened to display_name/
-    # user_color (ADR 0056) in the same query - no new round trip.
+    # user_color (ADR 0060) in the same query - no new round trip.
     user_ids = (
         {m.user_id for m in memberships}
         | {p.user_id for p in players}
@@ -455,14 +455,14 @@ async def _create_membership_core(
     user: CurrentUser,
 ) -> None:
     """Core mechanics only - no auth-gate check (the caller already ran
-    `_require_owner` once, up front - see ADR 0058 for why that's correct
+    `_require_owner` once, up front - see ADR 0062 for why that's correct
     here, unlike `bulk_assign_item_instances`'s own per-item re-check), no
     commit. Shared by `create_membership` and `bulk_create_memberships` so
     the two can't drift - the same `_perform_split`/`_perform_set_owner`
     shape (`routers/item_instances.py`, ADR 0044).
 
     Also creates a `scope="tenant", type="tenant_invite"` notification for
-    the new member (ADR 0054) and an activity-log entry (ADR 0059), both
+    the new member (ADR 0058) and an activity-log entry (ADR 0063), both
     in the same transaction.
     """
     if await session.get(User, body.user_id) is None:
@@ -531,7 +531,7 @@ async def bulk_create_memberships(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[BulkMembershipResultItem]:
-    """Invites several people into a tenant in one call (ADR 0058). Gated
+    """Invites several people into a tenant in one call (ADR 0062). Gated
     by `_require_owner` **once**, up front - unlike `bulk_assign_item_
     instances`'s per-item re-check (item-instance ownership varies per
     item; "is the caller OWNER of this tenant" doesn't, it's the same fact
@@ -670,7 +670,7 @@ async def create_tenant_notification_route(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[NotificationOut]:
-    """scope="tenant" - see ADR 0054. Gated by `get_tenant_context`, same as
+    """scope="tenant" - see ADR 0058. Gated by `get_tenant_context`, same as
     `update_tenant` - any tenant-wide member, not OWNER-only (unlike
     membership management above). An omitted `recipient_user_id` broadcasts
     to the tenant's full roster, so this can return more than one row.

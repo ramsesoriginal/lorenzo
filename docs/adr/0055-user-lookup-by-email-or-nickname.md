@@ -1,10 +1,10 @@
-# 0051 - Exact-match user lookup by email or nickname
+# 0055 - Exact-match user lookup by email or nickname
 
 Status: accepted
 
 ## Context
 
-[ADR 0050](0050-user-identity-email-and-nickname.md) gives every user a unique email and (optionally) a unique nickname, so an OWNER/GM can now plausibly know *who* they want to invite. But every invite-shaped endpoint that already exists - `POST /tenants/{tenant_id}/memberships`, player creation - takes a raw `user_id` UUID, which nobody but that user can already see (it's not printed anywhere, and shouldn't be guessable). Something has to resolve "the person whose email is X" to that UUID before those endpoints are reachable at all.
+[ADR 0054](0054-user-identity-email-and-nickname.md) gives every user a unique email and (optionally) a unique nickname, so an OWNER/GM can now plausibly know *who* they want to invite. But every invite-shaped endpoint that already exists - `POST /tenants/{tenant_id}/memberships`, player creation - takes a raw `user_id` UUID, which nobody but that user can already see (it's not printed anywhere, and shouldn't be guessable). Something has to resolve "the person whose email is X" to that UUID before those endpoints are reachable at all.
 
 ## Decision
 

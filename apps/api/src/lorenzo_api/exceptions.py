@@ -105,7 +105,7 @@ class PlayerNotFoundError(NotFoundProblem):
 
 class UserNotFoundError(NotFoundProblem):
     """GET /users/by-email/{email}, GET /users/by-nickname/{nickname} - no
-    user has that exact value. See ADR 0051.
+    user has that exact value. See ADR 0055.
     """
 
     title = "User not found"
@@ -115,7 +115,7 @@ class NotificationNotFoundError(NotFoundProblem):
     """POST /me/notifications/{id}/read - no such notification, or one that
     exists but isn't the caller's own - collapsed indistinguishably, same
     non-enumerable shape every other not-found condition in this codebase
-    already uses. See ADR 0054.
+    already uses. See ADR 0058.
     """
 
     title = "Notification not found"
@@ -143,7 +143,7 @@ class ItemPrototypeInUseError(ConflictProblem):
 class InvalidProfilePictureError(UnprocessableProblem):
     """PUT .../picture - the uploaded content-type isn't in the allow-list
     (image/png, image/jpeg, image/webp, image/gif), or the body exceeds
-    `Settings.profile_picture_max_bytes`. See ADR 0052.
+    `Settings.profile_picture_max_bytes`. See ADR 0056.
     """
 
     title = "Invalid profile picture"
@@ -300,7 +300,7 @@ class PreconditionFailedError(StatusProblem):
 
 class ProfilePictureNotFoundError(NotFoundProblem):
     """GET .../picture - no uploaded picture and, for a user, no email to
-    fall back to a Gravatar with either. See ADR 0052.
+    fall back to a Gravatar with either. See ADR 0056.
     """
 
     title = "Profile picture not found"
@@ -320,7 +320,7 @@ class TenantCreationForbiddenError(ForbiddenProblem):
 
 class PlatformOperatorRoleRequiredError(ForbiddenProblem):
     """/admin/* - the caller lacks the platform-level platform-operator
-    Authgear role. See ADR 0053 - exact mirror of
+    Authgear role. See ADR 0057 - exact mirror of
     TenantCreationForbiddenError's own reasoning: a platform-wide
     capability, not tenant-scoped, so 403 not 404.
     """
@@ -330,7 +330,7 @@ class PlatformOperatorRoleRequiredError(ForbiddenProblem):
 
 class AccountSuspendedError(ForbiddenProblem):
     """Raised by dependencies.get_current_user, before anything else runs,
-    for any request from a suspended account - see ADR 0053. 403, not 401:
+    for any request from a suspended account - see ADR 0057. 403, not 401:
     the token itself is genuinely valid, the account it names is simply
     blocked from acting.
     """
@@ -397,7 +397,7 @@ class MembershipAlreadyExistsError(ConflictProblem):
 
 class NicknameConflictError(ConflictProblem):
     """PATCH /me - the requested nickname is already taken by another user.
-    See ADR 0050. Nicknames are globally unique, not tenant-scoped - the
+    See ADR 0054. Nicknames are globally unique, not tenant-scoped - the
     same "explicit choice, no silent auto-suffix" reasoning SlugConflictError
     already gives for an explicitly-requested tenant slug.
     """
@@ -422,7 +422,7 @@ class InvalidUserError(UnprocessableProblem):
     existing app_user row. Real, not hypothetical: RFC 0007's "invite by
     user_id, not email" design ("Invitation, honestly") means an
     owner/manager can only reference someone who has already signed in at
-    least once - by-email/by-nickname lookup (ADR 0051) helps find that
+    least once - by-email/by-nickname lookup (ADR 0055) helps find that
     user_id, but doesn't remove the underlying constraint. Mirrors
     InvalidItemPrototypeError/InvalidStatGroupError's own "body references
     something that isn't there" shape.

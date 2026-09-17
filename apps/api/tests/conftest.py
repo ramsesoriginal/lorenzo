@@ -243,7 +243,7 @@ async def client_without_tenant_creator_role(
 async def client_with_platform_operator_role(
     test_user_id: uuid.UUID,
 ) -> AsyncGenerator[AsyncClient]:
-    """Same as `client`, plus the platform-operator role (ADR 0053) - for
+    """Same as `client`, plus the platform-operator role (ADR 0057) - for
     /admin/* routes' positive case. Keeps tenant-creator too, so a test
     combining both concerns doesn't need a third fixture.
     """

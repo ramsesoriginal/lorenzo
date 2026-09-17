@@ -8,7 +8,7 @@ from lorenzo_api.models import Entity
 class ProblemOut(BaseModel):
     """A plain-dict-shaped mirror of `fastapi_problem.error.Problem.
     marshal()` - see ADR 0044. Used inside a bulk operation's per-item
-    result (`BulkAssignResultItem`, `BulkMembershipResultItem`, ADR 0058)
+    result (`BulkAssignResultItem`, `BulkMembershipResultItem`, ADR 0062)
     to embed what a real single-item error response body would have
     looked like without actually raising/catching it as this request's own
     top-level response. Lives here, not in `schemas/items.py` (its

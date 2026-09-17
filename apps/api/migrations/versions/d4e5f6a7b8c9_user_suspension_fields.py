@@ -18,7 +18,7 @@ depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # ADR 0053: nullable - most users are never suspended, and a fresh
+    # ADR 0057: nullable - most users are never suspended, and a fresh
     # auto-provisioned user is never suspended by construction. suspended_by
     # is ON DELETE SET NULL, same reasoning created_by/updated_by already
     # use elsewhere (ADR 0029) - the suspending operator's own account

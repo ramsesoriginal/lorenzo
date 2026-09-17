@@ -38,7 +38,7 @@ async def _restore_test_user_id(test_user_id: uuid.UUID) -> AsyncGenerator[None]
             await session.commit()
 
 
-# --- PATCH /me, GET /users/by-email|by-nickname (ADR 0050/0051) ----------
+# --- PATCH /me, GET /users/by-email|by-nickname (ADR 0054/0055) ----------
 
 
 @pytest.fixture
@@ -106,7 +106,7 @@ async def test_patch_me_409_on_duplicate_nickname(
 @pytest.fixture
 async def _restore_test_user_profile(test_user_id: uuid.UUID) -> AsyncGenerator[None]:
     """Same leakage concern as _restore_test_user_nickname above, but for
-    every ADR 0056 profile field a test below might set.
+    every ADR 0060 profile field a test below might set.
     """
     yield
     async with admin_session_factory() as session:
@@ -153,7 +153,7 @@ async def test_patch_me_sets_full_profile(
 async def test_patch_me_partial_update_leaves_other_fields_untouched(
     client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_profile: None
 ) -> None:
-    """exclude_unset semantics (ADR 0056) - an omitted field is left alone,
+    """exclude_unset semantics (ADR 0060) - an omitted field is left alone,
     unlike an explicit `null`, which still clears it.
     """
     first = await client.patch("/me", json={"display_name": "First", "bio": "Original bio"})
@@ -216,7 +216,7 @@ async def test_get_user_by_nickname_exact_match_only(client: AsyncClient) -> Non
     assert found.json() == {"id": str(target_id), "nickname": nickname, "display_name": None}
 
     # A substring of a real nickname must not match - exact match only,
-    # no partial/fuzzy search surface (ADR 0051).
+    # no partial/fuzzy search surface (ADR 0055).
     substring_response = await client.get(f"/users/by-nickname/{nickname[:-1]}")
     assert substring_response.status_code == 404
 

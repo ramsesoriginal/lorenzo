@@ -21,7 +21,7 @@ def upgrade() -> None:
     op.create_table(
         "audit_log",
         sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
-        # Not nullable for this first slice (ADR 0059) - platform-scope
+        # Not nullable for this first slice (ADR 0063) - platform-scope
         # events (e.g. suspension) are explicitly out of scope, not a NULL
         # case to design around yet.
         sa.Column("tenant_id", sa.UUID(), nullable=False),
@@ -39,7 +39,7 @@ def upgrade() -> None:
     op.create_index(op.f("ix_audit_log_actor_id"), "audit_log", ["actor_id"], unique=False)
 
     # Plain tenant_id-scoped RLS - the ordinary shape, no self-access clause
-    # needed unlike `notification` (ADR 0054/0057): this is inherently a
+    # needed unlike `notification` (ADR 0058/0061): this is inherently a
     # per-tenant admin view, not a cross-tenant personal inbox.
     op.execute("ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE audit_log FORCE ROW LEVEL SECURITY")

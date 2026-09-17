@@ -330,7 +330,7 @@ async def _authorize_rename(
     session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, character_id: uuid.UUID
 ) -> None:
     """Thin wrapper over campaign_access.can_manage_character - promoted
-    there (ADR 0055) once group-scoped notifications needed the identical
+    there (ADR 0059) once group-scoped notifications needed the identical
     "any one is enough" check for more than one character at a time.
     """
     if await can_manage_character(
@@ -629,7 +629,7 @@ async def create_character_notification_route(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[NotificationOut]:
-    """scope="character" - see ADR 0054. Same authorization
+    """scope="character" - see ADR 0058. Same authorization
     `PATCH /{character_id}`'s rename path uses (`_authorize_rename`) - a
     GM, or the character's own controlling player, can post an in-game
     event about it. An omitted `recipient_user_id` broadcasts to every

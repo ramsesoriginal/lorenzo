@@ -7,7 +7,7 @@ __all__ = ["AuditLogEntryOut"]
 
 
 class AuditLogEntryOut(BaseModel):
-    """GET /tenants/{tenant_id}/activity-log - see ADR 0059. A plain ORM
+    """GET /tenants/{tenant_id}/activity-log - see ADR 0063. A plain ORM
     passthrough, same shape `NotificationOut` already uses for the same
     reason: every field is copied onto the row directly at creation time,
     nothing derived at read time.

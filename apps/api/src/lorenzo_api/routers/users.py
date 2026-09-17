@@ -44,7 +44,7 @@ _character_eager_load = (
 
 
 async def _me_out(user_id: uuid.UUID, request: Request, session: SessionDep) -> MeOut:
-    """Shared by GET /me and PATCH /me (ADR 0050) - the caller's own
+    """Shared by GET /me and PATCH /me (ADR 0054) - the caller's own
     identity, tenant-wide memberships, campaign memberships, and GM grants.
 
     Re-fetched with memberships eager-loaded rather than reusing whatever
@@ -118,7 +118,7 @@ async def update_me(
     user: CurrentUser, body: ProfileUpdate, request: Request, session: SessionDep
 ) -> MeOut:
     """Sets any of the caller's own self-editable profile fields (ADR
-    0050/0056) - `email` isn't settable here at all, it's a read-only
+    0054/0060) - `email` isn't settable here at all, it's a read-only
     Authgear-derived cache (dependencies.get_current_user), and everything
     else on MeOut is derived, not directly editable.
 
@@ -130,7 +130,7 @@ async def update_me(
     caught off the partial unique index's own conflict - matches this
     codebase's existing slug-conflict precedent (routers/tenants.py's
     `_resolve_create_slug`/`_check_slug_available_for_update`). No
-    `If-Match`: see ADR 0050 for why self-editable fields on your own
+    `If-Match`: see ADR 0054 for why self-editable fields on your own
     record aren't a meaningful concurrent-write risk.
 
     Re-fetched via `session.get_one`, not mutated directly on `user` - the
@@ -160,7 +160,7 @@ async def update_me(
 
 @router.put("/me/picture", status_code=204)
 async def upload_my_picture(user: CurrentUser, session: SessionDep, file: UploadFile) -> None:
-    """Uploads or replaces the caller's own profile picture - see ADR 0052.
+    """Uploads or replaces the caller's own profile picture - see ADR 0056.
     No `If-Match`, same reasoning as `PATCH /me`: a single self-editable
     resource on your own record isn't a meaningful concurrent-write risk.
     """
@@ -185,7 +185,7 @@ async def list_my_notifications(
     params: ParamsDep,
     unread_only: bool = False,
 ) -> Page[NotificationOut]:
-    """See ADR 0054 - a single flat query, no per-tenant RLS-context
+    """See ADR 0058 - a single flat query, no per-tenant RLS-context
     looping needed (unlike `_me_out`'s own Player/CampaignGm resolution):
     `notification`'s RLS policy already admits a caller's own rows via
     `app.user_id` regardless of `app.tenant_id` (the same self-access
@@ -208,10 +208,10 @@ async def list_my_sent_notifications(
     params: ParamsDep,
     batch_id: uuid.UUID | None = None,
 ) -> Page[NotificationOut]:
-    """See ADR 0057 - the sender's side of read receipts: did anyone
+    """See ADR 0061 - the sender's side of read receipts: did anyone
     actually read what I sent? `WHERE created_by = caller.id`, not
     `user_id` - works today with no RLS change, since the
-    `created_by = app.user_id` clause ADR 0054 already added (for the
+    `created_by = app.user_id` clause ADR 0058 already added (for the
     `INSERT ... RETURNING` fix) already permits exactly this read.
     Optional `batch_id` pulls just one broadcast's full recipient list -
     every row a single creation call fanned out shares one.
@@ -249,7 +249,7 @@ async def mark_notification_read(
 
 @router.get("/users/by-email/{email}")
 async def get_user_by_email(email: str, user: CurrentUser, session: SessionDep) -> UserRefOut:
-    """Exact match only, open to any authenticated user - see ADR 0051.
+    """Exact match only, open to any authenticated user - see ADR 0055.
     `user` isn't otherwise used - CurrentUser's own token verification is
     the entire gate here, no tenant/role check on top of it.
     """
@@ -261,7 +261,7 @@ async def get_user_by_email(email: str, user: CurrentUser, session: SessionDep) 
 
 @router.get("/users/by-nickname/{nickname}")
 async def get_user_by_nickname(nickname: str, user: CurrentUser, session: SessionDep) -> UserRefOut:
-    """Exact match only, open to any authenticated user - see ADR 0051."""
+    """Exact match only, open to any authenticated user - see ADR 0055."""
     found = (
         await session.execute(select(User).where(User.nickname == nickname))
     ).scalar_one_or_none()
@@ -328,7 +328,7 @@ async def delete_me(user: CurrentUser, session: SessionDep) -> None:
 
     # The user_profile_picture link cascades away with the User row below,
     # but nothing points the other way - the profile_picture row itself
-    # would otherwise be orphaned forever (ADR 0052).
+    # would otherwise be orphaned forever (ADR 0056).
     await delete_user_profile_picture(session, user_id=user.id)
     await session.delete(await session.get_one(User, user.id))
     await session.commit()

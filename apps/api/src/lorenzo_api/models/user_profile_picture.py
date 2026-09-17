@@ -9,7 +9,7 @@ from lorenzo_api.db import Base
 
 
 class UserProfilePicture(Base):
-    """Links a User to their one ProfilePicture - see ADR 0052. No
+    """Links a User to their one ProfilePicture - see ADR 0056. No
     `tenant_id`/RLS, matching `app_user`'s own global-identity precedent
     (ADR 0022). No relationships declared - both directions are always
     reached by a plain `session.get`/`session.get_one` on a known id, not

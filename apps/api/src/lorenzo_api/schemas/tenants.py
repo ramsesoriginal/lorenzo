@@ -258,7 +258,7 @@ TenantRosterEntryOut = Annotated[
 
 class BulkMembershipResultItem(BaseModel):
     """POST /tenants/{id}/memberships/bulk - one output entry, always
-    present for every input entry regardless of outcome (ADR 0058: never
+    present for every input entry regardless of outcome (ADR 0062: never
     all-or-nothing). Exactly one of membership/problem is set, matching
     status - the identical shape `BulkAssignResultItem` (ADR 0044,
     `schemas/items.py`) already established for the same pattern.

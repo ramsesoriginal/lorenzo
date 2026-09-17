@@ -1,5 +1,5 @@
 """Platform operations - a platform-operator role, admin listing, and
-account suspension. See ADR 0053.
+account suspension. See ADR 0057.
 """
 
 import uuid
@@ -184,7 +184,7 @@ async def test_admin_suspend_404_for_unknown_user(
 async def test_suspended_account_is_rejected_on_its_very_next_request(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
-    """The actual proof of ADR 0053's central claim: suspension is
+    """The actual proof of ADR 0057's central claim: suspension is
     enforced in dependencies.get_current_user itself, not scattered per
     router - a real, logged-in user's *next* request to any route (not
     just future logins) is rejected the moment they're suspended.

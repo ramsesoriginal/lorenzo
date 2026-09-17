@@ -7,7 +7,7 @@ from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
 
 class ProfilePicture(Base):
     """The actual bytes behind a user/tenant/campaign profile picture - see
-    ADR 0052. No `tenant_id`, no RLS: a row here can belong to a `User`
+    ADR 0056. No `tenant_id`, no RLS: a row here can belong to a `User`
     (global, no tenant) or a `Tenant`/`Campaign` (tenant-scoped), and there
     is no single RLS predicate that correctly covers both - the same reason
     `app_user` itself carries no RLS (ADR 0022). Real tenant isolation lives

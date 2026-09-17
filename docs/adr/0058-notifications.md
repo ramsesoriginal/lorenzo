@@ -1,4 +1,4 @@
-# 0054 - Notifications: platform/tenant/campaign/character scope, in-app inbox
+# 0058 - Notifications: platform/tenant/campaign/character scope, in-app inbox
 
 Status: accepted
 
@@ -24,7 +24,7 @@ RLS is baked in at table creation (not a follow-up `ALTER POLICY`, since the nee
 
 **Creation**, one endpoint per scope rather than a single generic polymorphic route, each reusing that scope's own existing management authorization:
 
-- `POST /admin/notifications` ([ADR 0053](0053-platform-operations.md)'s new role) - `recipient_user_id` **required**. No broadcast-to-every-user mechanism yet - a deliberately smaller, safer slice than a mass-mailing feature.
+- `POST /admin/notifications` ([ADR 0057](0057-platform-operations.md)'s new role) - `recipient_user_id` **required**. No broadcast-to-every-user mechanism yet - a deliberately smaller, safer slice than a mass-mailing feature.
 - `POST /tenants/{id}/notifications` - gated by `get_tenant_context` (any tenant-wide member, matching `update_tenant`). Omitted recipient broadcasts to the tenant's full roster (the same Membership+Player+CampaignGm union `list_tenant_roster` already computes).
 - `POST .../campaigns/{id}/notifications` - gated by `can_manage_campaign` (matching `update_campaign`). Omitted recipient broadcasts to that campaign's Player + CampaignGm rows.
 - `POST /tenants/{id}/characters/{id}/notifications` - gated by the same authorization `PATCH /characters/{id}`'s rename path already uses. Omitted recipient broadcasts to every player controlling that character via `CharacterPlayer` (roster reuse, ADR 0025 - a character rostered into two campaigns notifies every player controlling it in either).

@@ -111,7 +111,7 @@ TokenClaimsDep = Annotated[dict[str, Any], Depends(verify_token)]
 async def _sync_email_from_claims(
     session: AsyncSession, *, user: User, claims: dict[str, Any]
 ) -> None:
-    """See ADR 0050 - email is a read-only cache of Authgear's own verified
+    """See ADR 0054 - email is a read-only cache of Authgear's own verified
     claim, never written anywhere else. Only a *verified* email is ever
     trusted: an absent claim, or `email_verified` anything other than
     literal `True`, leaves `user.email` untouched.
@@ -180,11 +180,11 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     closed-by-default behavior this whole mechanism exists for.
 
     Also syncs `user.email` from a verified `email` claim, via
-    `_sync_email_from_claims` (ADR 0050) - after the upsert's own commit,
+    `_sync_email_from_claims` (ADR 0054) - after the upsert's own commit,
     same reasoning as app.user_id below: it needs its own settled
     transaction to run its conflict-guarded SAVEPOINT in.
 
-    Also rejects a suspended account outright (ADR 0053), before anything
+    Also rejects a suspended account outright (ADR 0057), before anything
     else below runs - a fresh auto-provisioned user is never suspended by
     construction, so this can't interfere with first-login provisioning.
     """
@@ -238,7 +238,7 @@ async def require_tenant_creator_role(user: CurrentUser) -> None:
 
 
 async def require_platform_operator_role(user: CurrentUser) -> None:
-    """Gates every /admin/* route (ADR 0053) - exact mirror of
+    """Gates every /admin/* route (ADR 0057) - exact mirror of
     require_tenant_creator_role above, a platform-wide capability
     orthogonal to tenant membership entirely.
     """

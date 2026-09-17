@@ -1,10 +1,10 @@
-# 0052 - Profile pictures for User, Tenant, and Campaign
+# 0056 - Profile pictures for User, Tenant, and Campaign
 
 Status: accepted
 
 ## Context
 
-Users, tenants, and campaigns all want an uploadable profile picture; a user without one falls back to a computed Gravatar (based on their verified email, [ADR 0050](0050-user-identity-email-and-nickname.md)) - tenants and campaigns have no email to fall back to, so they simply have no picture until one is uploaded.
+Users, tenants, and campaigns all want an uploadable profile picture; a user without one falls back to a computed Gravatar (based on their verified email, [ADR 0054](0054-user-identity-email-and-nickname.md)) - tenants and campaigns have no email to fall back to, so they simply have no picture until one is uploaded.
 
 There is no upload endpoint anywhere in this API yet: `payload_picture`/`payload_document` ([ADR 0017](0017-information-and-payloads.md)) are read-only - nothing has ever accepted binary content over HTTP. Routing this through that existing system was considered and rejected: `Tenant` has no `entity_id` at all (it's the RLS boundary, not a member of the entity graph it contains), and `Campaign`'s own `entity_id` would pull a profile picture through `information`'s knowledge/visibility machinery ([ADR 0028](0028-knowledge-and-group-membership.md)/[ADR 0035](0035-campaign-scoped-gm-visibility.md)) - built for GM secrets, the wrong fit for something that should simply always be visible to anyone who can see the tenant/campaign at all.
 

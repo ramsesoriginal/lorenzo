@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # of truth for who holds it, this app just needs to know its name.
     tenant_creator_role_key: str = "tenant-creator"
 
-    # Same mechanism, gating /admin/* instead (ADR 0053) - a platform-wide
+    # Same mechanism, gating /admin/* instead (ADR 0057) - a platform-wide
     # capability orthogonal to tenant membership, not assignable via this
     # API, mirroring tenant_creator_role_key's own precedent.
     platform_operator_role_key: str = "platform-operator"
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # are unaffected either way, CORS only ever restricts browser JS.
     cors_allowed_origins: list[str] = []
 
-    # Profile pictures (ADR 0052) - bytes are stored directly in Postgres
+    # Profile pictures (ADR 0056) - bytes are stored directly in Postgres
     # (matching payload_picture's own precedent, ADR 0017), so this caps
     # both the request body size and the row size, not a bucket quota.
     profile_picture_max_bytes: int = 2_000_000

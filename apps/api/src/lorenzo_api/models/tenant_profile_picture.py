@@ -9,7 +9,7 @@ from lorenzo_api.db import Base
 
 
 class TenantProfilePicture(Base):
-    """Links a Tenant to its one ProfilePicture - see ADR 0052. RLS'd on
+    """Links a Tenant to its one ProfilePicture - see ADR 0056. RLS'd on
     `tenant_id` (its own primary key here), same `tenant_isolation` policy
     shape every RLS'd table in this schema already uses.
     """

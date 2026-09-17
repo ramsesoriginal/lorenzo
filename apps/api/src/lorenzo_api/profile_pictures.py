@@ -1,5 +1,5 @@
 """Shared upload-validation, upsert/delete, and Gravatar-URL logic for
-User/Tenant/Campaign profile pictures - see ADR 0052.
+User/Tenant/Campaign profile pictures - see ADR 0056.
 
 Every function here does core mechanics only - no auth, no response
 shaping, no commit (matching routers/item_instances.py's own
@@ -125,7 +125,7 @@ async def delete_campaign_profile_picture(session: AsyncSession, *, campaign_id:
 
 
 def gravatar_url(email: str, *, size: int = 200) -> str:
-    """See ADR 0052. `d=mp` ("mystery person") means this always resolves
+    """See ADR 0056. `d=mp` ("mystery person") means this always resolves
     to *something* even for an email that never registered with Gravatar -
     the only real fallback failure is a user with no email at all.
     """

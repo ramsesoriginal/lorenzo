@@ -18,8 +18,8 @@ depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # ADR 0056: display_name is a friendly label, deliberately not unique -
-    # nickname stays the unique lookup handle (ADR 0050/0051).
+    # ADR 0060: display_name is a friendly label, deliberately not unique -
+    # nickname stays the unique lookup handle (ADR 0054/0055).
     op.add_column("app_user", sa.Column("display_name", sa.Text(), nullable=True))
     op.add_column("app_user", sa.Column("pronouns", sa.Text(), nullable=True))
     op.add_column("app_user", sa.Column("bio", sa.Text(), nullable=True))

@@ -1,5 +1,5 @@
 """Notifications: platform/tenant/campaign/character/group scope, in-app
-inbox. See ADR 0054/0055.
+inbox. See ADR 0058/0059.
 """
 
 import uuid
@@ -279,7 +279,7 @@ async def test_create_platform_notification_single_recipient(
 async def test_list_my_notifications_across_multiple_tenants(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """The actual proof of the RLS design (ADR 0054): one call, no
+    """The actual proof of the RLS design (ADR 0058): one call, no
     explicit tenant context, returns notifications from every tenant.
     """
     tenant_a = await make_tenant(test_user_id)
@@ -324,7 +324,7 @@ async def test_list_my_notifications_unread_only_filter(
 async def test_list_my_sent_notifications_shows_batch_and_recipients(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """ADR 0057 - the sender's side of read receipts. test_user_id is both
+    """ADR 0061 - the sender's side of read receipts. test_user_id is both
     the caller (created_by) and, as tenant OWNER, one of the two recipients
     a full-roster broadcast fans out to - both rows share one batch_id.
     """
@@ -467,7 +467,7 @@ async def test_mark_notification_read_404_for_someone_elses_notification(
     await delete_tenant(tenant_id)
 
 
-# --- Group notifications (ADR 0055) ----------------------------------------
+# --- Group notifications (ADR 0059) ----------------------------------------
 
 
 async def test_create_group_notification_broadcasts_to_every_members_players(
@@ -582,7 +582,7 @@ async def test_create_group_notification_403_when_caller_cannot_manage_every_mem
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     """Authorized over one member's campaign but not the other's - fail
-    closed, not a partial send (ADR 0055)."""
+    closed, not a partial send (ADR 0059)."""
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)

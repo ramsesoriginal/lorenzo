@@ -169,7 +169,7 @@ async def test_list_tenant_roster_includes_membership_player_and_gm_kinds(
 async def test_list_tenant_roster_includes_nicknames(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """ADR 0050: the roster is readable without a lookup per row - a user
+    """ADR 0054: the roster is readable without a lookup per row - a user
     with a nickname shows it, a user without one reports `None`.
     """
     async with admin_session_factory() as session:
@@ -209,7 +209,7 @@ async def test_list_tenant_roster_includes_nicknames(
 async def test_list_tenant_roster_includes_display_name_and_user_color(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """ADR 0056 - display_name/user_color join nickname on the roster,
+    """ADR 0060 - display_name/user_color join nickname on the roster,
     since the user's own stated rationale for user_color ("UI highlights")
     only makes sense if other tenant members can actually see it.
     """
@@ -589,7 +589,7 @@ async def test_create_membership_409_when_already_a_member(
 async def test_bulk_create_memberships_reports_mixed_outcomes_without_failing_the_batch(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """ADR 0058: never all-or-nothing, mirroring bulk_assign_item_
+    """ADR 0062: never all-or-nothing, mirroring bulk_assign_item_
     instances's own established shape (ADR 0044) - a nonexistent user and
     an already-existing membership don't stop the other, valid invite in
     the same batch from applying.

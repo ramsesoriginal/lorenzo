@@ -19,7 +19,7 @@ async def list_activity_log(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[AuditLogEntryOut]:
-    """See ADR 0059 - a first, deliberately narrow slice: only membership
+    """See ADR 0063 - a first, deliberately narrow slice: only membership
     and campaign/GM lifecycle events are logged (`lorenzo_api.
     activity_log.record_activity`'s own call sites), not an exhaustive
     record of every mutation in the API. Gated by `get_tenant_context`,

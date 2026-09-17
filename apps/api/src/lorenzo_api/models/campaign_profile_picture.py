@@ -9,7 +9,7 @@ from lorenzo_api.db import Base, TenantFk
 
 
 class CampaignProfilePicture(Base):
-    """Links a Campaign to its one ProfilePicture - see ADR 0052. `tenant_id`
+    """Links a Campaign to its one ProfilePicture - see ADR 0056. `tenant_id`
     is a denormalized copy of `campaign.tenant_id` (RLS only), same pattern
     `player`/`campaign_gm` already use for their own tenant_id column - no
     `tenant` relationship, matching those tables' own precedent for a

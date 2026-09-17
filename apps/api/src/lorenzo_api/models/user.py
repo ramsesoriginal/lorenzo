@@ -20,7 +20,7 @@ class User(Base):
     """Global identity, not tenant-scoped - a link back to Authgear's
     verified subject id (ADR 0009), holding only what's actually
     domain-relevant (ADR 0010/0022). No password or OAuth token lives here -
-    those stay in Authgear. `email`/`nickname` (ADR 0050) are the one
+    those stay in Authgear. `email`/`nickname` (ADR 0054) are the one
     deliberate exception: `email` is a read-only cache of Authgear's own
     verified claim, `nickname` is genuinely local data with no Authgear
     equivalent - see each field's own comment below.
@@ -39,7 +39,7 @@ class User(Base):
 
     id: Mapped[UuidPk]
     authgear_subject_id: Mapped[str] = mapped_column(unique=True)
-    # Both optional and globally unique (ADR 0050) - `unique=True` relies on
+    # Both optional and globally unique (ADR 0054) - `unique=True` relies on
     # Postgres already treating every NULL as distinct from every other NULL
     # in a plain unique constraint (same reasoning ADR 0028 gives for
     # `knowledge`'s own UniqueConstraints), matching the migration's actual
@@ -49,7 +49,7 @@ class User(Base):
     # directly via `PATCH /me`.
     email: Mapped[str | None] = mapped_column(unique=True)
     nickname: Mapped[str | None] = mapped_column(unique=True)
-    # ADR 0053 - a suspended account is rejected on its very next request
+    # ADR 0057 - a suspended account is rejected on its very next request
     # (dependencies.get_current_user), anywhere in the API. Nullable: most
     # users are never suspended, and a fresh auto-provisioned user never is
     # by construction. suspended_by is ON DELETE SET NULL, same reasoning
@@ -60,8 +60,8 @@ class User(Base):
         ForeignKey("app_user.id", ondelete="SET NULL"), index=True
     )
     suspension_reason: Mapped[str | None]
-    # ADR 0056 - a fuller profile. display_name is a friendly label,
-    # deliberately not unique (unlike nickname, ADR 0050/0051's own lookup
+    # ADR 0060 - a fuller profile. display_name is a friendly label,
+    # deliberately not unique (unlike nickname, ADR 0054/0055's own lookup
     # handle) - two users can both be "Alex". locales is this codebase's
     # first native Postgres array column: a short, homogeneous,
     # order-not-load-bearing list of locale tags doesn't earn a join table

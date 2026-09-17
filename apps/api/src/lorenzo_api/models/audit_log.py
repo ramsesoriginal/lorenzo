@@ -9,20 +9,20 @@ from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk
 
 
 class AuditLog(Base):
-    """One tenant-admin-relevant event - see ADR 0059. A first,
+    """One tenant-admin-relevant event - see ADR 0063. A first,
     deliberately narrow slice: only membership and campaign/GM lifecycle
     events are logged (see `lorenzo_api.activity_log` for exactly which),
     not an exhaustive record of every mutation in the API.
 
     `tenant_id` is **not nullable** - platform-scope events (e.g. account
-    suspension, ADR 0053) are explicitly out of scope for this slice, not
+    suspension, ADR 0057) are explicitly out of scope for this slice, not
     a NULL case to design around yet. Plain `tenant_id = app.tenant_id`
-    RLS, the ordinary shape - unlike `notification` (ADR 0054/0057), this
+    RLS, the ordinary shape - unlike `notification` (ADR 0058/0061), this
     is inherently a per-tenant admin view, not a cross-tenant personal
     inbox, so no self-access clause is needed.
 
     `action`/`target_type` are free text, not native enums - same
-    `Information.type`/`Notification.type` precedent ADR 0017/0054 already
+    `Information.type`/`Notification.type` precedent ADR 0017/0058 already
     established: caller-chosen categorization, not a fixed schema-level
     discriminant. `actor_id` is `ON DELETE SET NULL`, matching
     `created_by` everywhere else (ADR 0029).

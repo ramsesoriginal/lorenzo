@@ -27,7 +27,7 @@ def _enable_rls(table: str) -> None:
 
 
 def upgrade() -> None:
-    # No tenant_id, no RLS (ADR 0052) - a row here can belong to a User
+    # No tenant_id, no RLS (ADR 0056) - a row here can belong to a User
     # (global, no tenant) or a Tenant/Campaign (tenant-scoped), and there is
     # no single RLS predicate that correctly covers both. Real isolation
     # lives on the three link tables below.

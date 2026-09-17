@@ -18,7 +18,7 @@ depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # ADR 0057 - one value shared by every row a single POST .../
+    # ADR 0061 - one value shared by every row a single POST .../
     # notifications call fans out, so a sender can pull "everyone I sent
     # this to" in one query instead of correlating by title/timestamp.
     # server_default backfills any pre-existing row (none in practice, this

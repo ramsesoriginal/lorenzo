@@ -216,7 +216,7 @@ async def upload_campaign_picture(
     user: CurrentUser,
     file: UploadFile,
 ) -> None:
-    """Same gate `update_campaign` uses (ADR 0052)."""
+    """Same gate `update_campaign` uses (ADR 0056)."""
     await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
     data, file_type = await read_and_validate_upload(file)
     await upsert_campaign_profile_picture(
@@ -295,7 +295,7 @@ async def delete_campaign(
 
     # The campaign_profile_picture link cascades away with campaign below,
     # but nothing points the other way - the profile_picture row itself
-    # would otherwise be orphaned forever (ADR 0052). Must run before the
+    # would otherwise be orphaned forever (ADR 0056). Must run before the
     # campaign row (and its link) is actually gone.
     await delete_campaign_profile_picture(session, campaign_id=campaign_id)
 
@@ -476,7 +476,7 @@ async def create_campaign_notification_route(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[NotificationOut]:
-    """scope="campaign" - see ADR 0054. Same gate `update_campaign` uses.
+    """scope="campaign" - see ADR 0058. Same gate `update_campaign` uses.
     An omitted `recipient_user_id` broadcasts to the campaign's Player +
     CampaignGm rows, so this can return more than one row.
     """

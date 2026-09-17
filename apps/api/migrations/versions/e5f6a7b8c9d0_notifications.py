@@ -43,7 +43,7 @@ def upgrade() -> None:
         op.f("ix_notification_created_by"), "notification", ["created_by"], unique=False
     )
 
-    # ADR 0054: split by command, unlike every other RLS'd table so far.
+    # ADR 0058: split by command, unlike every other RLS'd table so far.
     #
     # SELECT/UPDATE extend the self-access-OR-tenant-scoped shape
     # migrations/versions/a22dc991a926_*.py already proved out for

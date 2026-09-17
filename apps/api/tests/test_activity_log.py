@@ -1,4 +1,4 @@
-"""GET /tenants/{tenant_id}/activity-log - see ADR 0059. A first,
+"""GET /tenants/{tenant_id}/activity-log - see ADR 0063. A first,
 deliberately narrow slice: only the seven named mutation points below are
 logged, not an exhaustive audit trail.
 """

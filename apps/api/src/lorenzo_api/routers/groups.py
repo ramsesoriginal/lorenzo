@@ -96,7 +96,7 @@ async def _require_can_manage_group(
     """Every member of the group must be one the caller can manage
     (campaign_access.can_manage_character) - fail-closed, not a partial
     send: being authorized to message *some* but not all of a group's
-    members doesn't authorize messaging the group as a whole (ADR 0055).
+    members doesn't authorize messaging the group as a whole (ADR 0059).
     An empty group trivially passes - there is nothing to be unauthorized
     for, matching list_group_members' own "empty, not a secret" stance.
     """
@@ -124,7 +124,7 @@ async def create_group_notification_route(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[NotificationOut]:
-    """scope="group" - see ADR 0055. An omitted `recipient_user_id`
+    """scope="group" - see ADR 0059. An omitted `recipient_user_id`
     broadcasts to every player controlling any member character (roster
     reuse across every member at once, ADR 0025), so this can return more
     than one row.

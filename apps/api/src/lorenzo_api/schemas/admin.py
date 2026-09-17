@@ -11,8 +11,8 @@ __all__ = ["AdminUserOut", "SuspendUserRequest"]
 
 class AdminUserOut(BaseModel):
     """GET /admin/users, PUT/DELETE /admin/users/{id}/suspend - see ADR
-    0053. Deliberately more than `UserRefOut` exposes (email, suspension
-    state, the full ADR 0056 profile) - admin-only, unlike that public
+    0057. Deliberately more than `UserRefOut` exposes (email, suspension
+    state, the full ADR 0060 profile) - admin-only, unlike that public
     exact-match lookup.
     """
 
@@ -46,6 +46,6 @@ class AdminUserOut(BaseModel):
 
 
 class SuspendUserRequest(BaseModel):
-    """PUT /admin/users/{id}/suspend body - see ADR 0053."""
+    """PUT /admin/users/{id}/suspend body - see ADR 0057."""
 
     reason: str | None = None

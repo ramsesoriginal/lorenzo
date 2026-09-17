@@ -35,7 +35,7 @@ class MeOut(BaseModel):
     authgear_subject_id: str
     email: str | None
     nickname: str | None
-    # ADR 0056 - a fuller profile.
+    # ADR 0060 - a fuller profile.
     display_name: str | None
     pronouns: str | None
     bio: str | None
@@ -44,7 +44,7 @@ class MeOut(BaseModel):
     # Always a constructed URL, not conditional on a picture actually
     # existing - the same "hand back the URL, let the resource itself
     # 404/redirect" precedent PayloadPictureOut.url already established
-    # (ADR 0020) - GET /users/{id}/picture (ADR 0052) resolves to the
+    # (ADR 0020) - GET /users/{id}/picture (ADR 0056) resolves to the
     # uploaded picture, a Gravatar redirect, or 404, entirely on its own.
     picture_url: str
     memberships: list[MembershipOut]
@@ -87,12 +87,12 @@ class MeOut(BaseModel):
 
 
 class UserRefOut(BaseModel):
-    """A minimal, deliberately-thin reference to a user - see ADR 0051.
+    """A minimal, deliberately-thin reference to a user - see ADR 0055.
     Returned by the by-email/by-nickname lookup routes so a client can
     resolve an identifier it already knows into the user_id the existing
     invite-shaped endpoints (POST .../memberships, player creation) still
     take. Never echoes email back - the caller already supplied it.
-    `display_name` (ADR 0056) is included as a friendlier label while
+    `display_name` (ADR 0060) is included as a friendlier label while
     resolving who you're about to invite - not `user_color`, which is for
     shared UI rendering, not a lookup result.
     """
@@ -107,20 +107,20 @@ class UserRefOut(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    """PATCH /me - see ADR 0050/0056. Replaces the narrower NicknameUpdate:
+    """PATCH /me - see ADR 0054/0060. Replaces the narrower NicknameUpdate:
     every field is optional and independently omittable (`exclude_unset`
     semantics, matching `TenantUpdate`/`CampaignUpdate`'s own established
     PATCH convention) - a client updating just `bio` no longer has to
     resend every other field to avoid wiping them. An explicitly-sent
     `null` still clears a field (`nickname`'s own pre-existing behavior,
-    ADR 0050); omitting the key entirely leaves it untouched.
+    ADR 0054); omitting the key entirely leaves it untouched.
 
     `nickname`, given, must be non-empty (`min_length=1`) - an empty
     string would still pass the column's own partial unique index (it
     only excludes NULL), letting the *first* user to "clear" it this way
     silently block everyone else from ever doing the same. `user_color`,
     given, must be a `#RRGGBB` hex string - format-checked here, not
-    enforced as meaningful beyond that shape (ADR 0056).
+    enforced as meaningful beyond that shape (ADR 0060).
     """
 
     nickname: Annotated[str, Field(min_length=1)] | None = None

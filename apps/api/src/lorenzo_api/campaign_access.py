@@ -210,7 +210,7 @@ async def can_manage_character(
     into no campaign at all) can-manage-any-campaign-in-tenant - the "any
     one is enough" authorization shape routers/characters.py's own PATCH
     rename path first established (ADR 0036/RFC 0007), promoted here so a
-    second call site (group-scoped notifications, ADR 0055) doesn't need
+    second call site (group-scoped notifications, ADR 0059) doesn't need
     its own copy of the same three-way check.
     """
     controlled = await controlled_character_entity_ids(

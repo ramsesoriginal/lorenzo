@@ -1,4 +1,4 @@
-"""Profile pictures for User/Tenant/Campaign - see ADR 0052."""
+"""Profile pictures for User/Tenant/Campaign - see ADR 0056."""
 
 import hashlib
 import uuid
@@ -24,7 +24,7 @@ from lorenzo_api.models import (
 _PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"fake-png-content"
 
 
-# --- User picture (ADR 0050/0052) -----------------------------------------
+# --- User picture (ADR 0054/0056) -----------------------------------------
 
 
 async def test_upload_and_serve_my_picture(
@@ -148,7 +148,7 @@ async def test_delete_me_cleans_up_the_orphaned_picture_row(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     """No cascade points from profile_picture back to its link - delete_me
-    must clean it up explicitly, or it leaks forever (ADR 0052)."""
+    must clean it up explicitly, or it leaks forever (ADR 0056)."""
     await client.put("/me/picture", files={"file": ("a.png", _PNG_BYTES, "image/png")})
     async with admin_session_factory() as session:
         picture_id = (await session.get_one(UserProfilePicture, test_user_id)).profile_picture_id
@@ -162,7 +162,7 @@ async def test_delete_me_cleans_up_the_orphaned_picture_row(
         await session.commit()
 
 
-# --- Tenant picture (ADR 0052) ---------------------------------------------
+# --- Tenant picture (ADR 0056) ---------------------------------------------
 
 
 async def test_upload_and_serve_tenant_picture(
@@ -228,7 +228,7 @@ async def test_delete_tenant_picture(client: AsyncClient, test_user_id: uuid.UUI
     await delete_tenant(tenant_id)
 
 
-# --- Campaign picture (ADR 0052) -------------------------------------------
+# --- Campaign picture (ADR 0056) -------------------------------------------
 
 
 async def test_upload_and_serve_campaign_picture(

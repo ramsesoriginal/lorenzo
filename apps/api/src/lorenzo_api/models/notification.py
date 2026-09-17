@@ -10,7 +10,7 @@ from lorenzo_api.db import Base, CreatedAt, UuidPk
 
 
 class Notification(Base):
-    """One in-app notification for one recipient - see ADR 0054. Fanned out
+    """One in-app notification for one recipient - see ADR 0058. Fanned out
     at creation, not resolved at read time: a broadcast (e.g. every player
     in a campaign) writes one row per recipient, each fully self-contained
     (`title`/`body` copied in, not joined from live Campaign/Character data
@@ -19,7 +19,7 @@ class Notification(Base):
 
     No `tenant`/`user` relationships declared - both directions are always
     reached by a plain query on a known id, not ORM navigation, matching
-    the lean shape the profile-picture link tables (ADR 0052) already use.
+    the lean shape the profile-picture link tables (ADR 0056) already use.
 
     RLS baked in at table creation (not a follow-up `ALTER POLICY`), split
     by command - the first RLS'd table where the writer and the row's own
@@ -39,7 +39,7 @@ class Notification(Base):
     __tablename__ = "notification"
 
     id: Mapped[UuidPk]
-    # ADR 0057 - one value shared by every row a single creation call fans
+    # ADR 0061 - one value shared by every row a single creation call fans
     # out, so a sender can pull "everyone I sent this to" (GET /me/
     # notifications/sent?batch_id=...) in one query instead of correlating
     # by title/timestamp. Always set explicitly by lorenzo_api.notifications

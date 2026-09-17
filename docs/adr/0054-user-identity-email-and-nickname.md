@@ -1,4 +1,4 @@
-# 0050 - User identity: Authgear-synced email + local nickname
+# 0054 - User identity: Authgear-synced email + local nickname
 
 Status: accepted
 
@@ -28,4 +28,4 @@ It stops being enough once a tenant OWNER/GM needs to invite someone they don't 
 
 - New Alembic migration adding the two columns and their partial unique indexes.
 - `models/user.py`, `dependencies.py` (`get_current_user`), `exceptions.py` (`NicknameConflictError`), `schemas/users.py` (`MeOut`), `schemas/tenants.py` (three roster-entry schemas), `routers/users.py` (new `PATCH /me`), `routers/tenants.py` (`list_tenant_roster` now joins `User` for nickname).
-- A user can be identified by nickname or email going forward, which [ADR 0051](0051-user-lookup-by-email-or-nickname.md) turns into an actual invite-time lookup.
+- A user can be identified by nickname or email going forward, which [ADR 0055](0055-user-lookup-by-email-or-nickname.md) turns into an actual invite-time lookup.

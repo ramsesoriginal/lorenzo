@@ -1,4 +1,4 @@
-"""Shared activity-log recording - see ADR 0059.
+"""Shared activity-log recording - see ADR 0063.
 
 Core mechanics only - no auth, no commit (matching lorenzo_api.
 notifications' own shape) - each mutation route calls `record_activity`

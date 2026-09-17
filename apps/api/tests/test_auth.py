@@ -50,7 +50,7 @@ async def test_valid_token_grants_access_and_auto_provisions_user(
 async def test_verified_email_claim_is_synced_to_the_user(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
-    """See ADR 0050 - only a *verified* email claim is ever trusted."""
+    """See ADR 0054 - only a *verified* email claim is ever trusted."""
     subject = f"authgear|{uuid.uuid4()}"
     email = f"{uuid.uuid4()}@example.com"
     token = fake_jwks_server.issue_token(subject, email=email, email_verified=True)
@@ -105,7 +105,7 @@ async def test_colliding_verified_email_does_not_fail_the_login(
     """A verified email claim that's already taken by a different user (a
     genuinely rare edge, e.g. Authgear letting an email move between
     identities) must not crash the second subject's login - it's logged
-    and skipped, leaving the second user's own email unset. See ADR 0050.
+    and skipped, leaving the second user's own email unset. See ADR 0054.
     """
     shared_email = f"{uuid.uuid4()}@example.com"
     first_subject = f"authgear|{uuid.uuid4()}"

@@ -1,12 +1,12 @@
-# 0055 - Group-scoped notifications
+# 0059 - Group-scoped notifications
 
 Status: accepted
 
 ## Context
 
-[ADR 0054](0054-notifications.md) covers four scopes - platform, tenant, campaign, character - but not the existing `group` concept ([ADR 0028](0028-knowledge-and-group-membership.md)/[ADR 0045](0045-read-only-groups-api.md)): a bare `Entity` referenced by one or more `GroupMember` rows, originally built for knowledge-visibility ("known to this group"), read-only until now. A group's members are always characters (`GroupMember.character_entity_id` FKs to `character.entity_id` specifically), never arbitrary entities.
+[ADR 0058](0058-notifications.md) covers four scopes - platform, tenant, campaign, character - but not the existing `group` concept ([ADR 0028](0028-knowledge-and-group-membership.md)/[ADR 0045](0045-read-only-groups-api.md)): a bare `Entity` referenced by one or more `GroupMember` rows, originally built for knowledge-visibility ("known to this group"), read-only until now. A group's members are always characters (`GroupMember.character_entity_id` FKs to `character.entity_id` specifically), never arbitrary entities.
 
-The one real design question: **who may send a notification to a group?** Groups have no owner and aren't tied to a single campaign - the existing read gate (`is_tenant_participant`, ADR 0045) is deliberately wide open ("browsing groups to pick a knowledge-visibility target"), too permissive for a broadcast write. Every other scope in ADR 0054 reuses that scope's own existing management authorization (tenant admin, campaign GM, character rename); groups have no equivalent concept to reuse directly, but their members do.
+The one real design question: **who may send a notification to a group?** Groups have no owner and aren't tied to a single campaign - the existing read gate (`is_tenant_participant`, ADR 0045) is deliberately wide open ("browsing groups to pick a knowledge-visibility target"), too permissive for a broadcast write. Every other scope in ADR 0058 reuses that scope's own existing management authorization (tenant admin, campaign GM, character rename); groups have no equivalent concept to reuse directly, but their members do.
 
 ## Decision
 
