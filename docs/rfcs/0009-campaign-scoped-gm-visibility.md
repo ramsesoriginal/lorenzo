@@ -1,6 +1,6 @@
 # RFC: Campaign-scoped GM visibility
 
-Status: proposed — revises `information_visibility.py`'s only current blanket-visibility bypass ([ADR 0028](../adr/0028-knowledge-and-group-membership.md)); builds on [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s GM read surface
+Status: accepted — landed in [ADR 0035](../adr/0035-campaign-scoped-gm-visibility.md); revises `information_visibility.py`'s ORGA-only bypass so a campaign's own GM sees GM-only secrets without needing tenant-wide Membership, reusing ADR 0032's `entity_access.reachable_entity_ids`
 
 ## Context
 

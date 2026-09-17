@@ -6,14 +6,15 @@ Orientation for AI coding agents (and humans in a hurry) working in this repo.
 
 Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain/README.md) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
 
-**`apps/api` has infrastructure plus the full domain model and auth** (health/readiness/metrics, DB connectivity; the entity/component core plus tenant/user/membership, campaign/player, character/ownership, campaign GM/orga per [ADR 0012](docs/adr/0012-entity-table.md) onward; Authgear Cloud-backed bearer-token auth per [ADR 0023](docs/adr/0023-authgear-token-verification.md)/[ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)). Everything else under `apps/` is still unbuilt, per [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). The domain model was built as a series of small, tested sub-slices (see [RFC 0001](docs/rfcs/0001-core-domain-data-model.md), [RFC 0002](docs/rfcs/0002-campaign-player-character-model.md), both accepted) — keep using that same process for anything new: don't jump ahead to a later sub-slice, and don't add application code speculatively; anything beyond the current sub-slice gets built only once it's explicitly scoped in conversation with the user.
+**`apps/api` has infrastructure plus the full domain model, a full read/write REST API, and auth** (health/readiness/metrics, DB connectivity; the entity/component core plus tenant/user/membership, campaign/player, character/ownership, campaign GM/orga per [ADR 0012](docs/adr/0012-entity-table.md) onward; Authgear Cloud-backed bearer-token auth per [ADR 0023](docs/adr/0023-authgear-token-verification.md)/[ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)). **`apps/loot-bot`**, a Discord bot, is built on top of it — account linking, self-service inventory, loot-splitting, GM loot drops with claims, and item awarding, deployed to Cloud Run over Discord's HTTP Interactions Endpoint ([ADR 0050](docs/adr/0050-loot-bot-stack-linking-and-isolation.md) onward). Everything else under `apps/` (further web frontends, mobile apps, or bots) is still unbuilt, per [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). The domain model and API were built as a series of small, tested sub-slices (see [RFC 0001](docs/rfcs/0001-core-domain-data-model.md) through [RFC 0012](docs/rfcs/0012-tenant-creation-and-update-api.md)) — keep using that same process for anything new: don't jump ahead to a later sub-slice, and don't add application code speculatively; anything beyond the current sub-slice gets built only once it's explicitly scoped in conversation with the user.
 
 ## Map
 
 | Path | Purpose |
 | --- | --- |
-| `apps/api` | Backend REST API — full domain model, read-only REST API, Authgear auth |
-| `apps/*` (other) | One directory per deployable app, named by purpose (not type) — none exist yet |
+| `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth |
+| `apps/loot-bot` | Discord bot — talks to `apps/api`; account linking, inventory, loot-splitting, GM drops/claims |
+| `apps/*` (further) | One directory per deployable app, named by purpose (not type) — next one not yet started |
 | `packages/*` | Extracted generic libraries, each its own small, independently versioned package — none exist yet |
 | `docs/adr` | Why things are the way they are — read before proposing an architectural change |
 
@@ -23,12 +24,12 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 mise install                                        # toolchains
 docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
 mise run //apps/api:dev                              # apps/api, with autoreload
-mise run lint                                          # fans out to every app (currently just apps/api)
+mise run lint                                          # fans out to every app (apps/api, apps/loot-bot)
 mise run test                                           # ditto
 mise run check                                          # lint + test - the full pre-PR gate
 ```
 
-`apps/api` already owns `dev`/`lint`/`test`/`build` tasks in its own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
+`apps/api` and `apps/loot-bot` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
 
 ## Conventions
 

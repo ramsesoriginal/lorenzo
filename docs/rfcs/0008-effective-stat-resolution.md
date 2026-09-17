@@ -1,6 +1,6 @@
 # RFC: Effective stat resolution over the prototype graph
 
-Status: proposed — deliberately short; now covers stat *writing* as an equally unfinished part, not just resolution; expand both together, in a second pass, once actually picked up
+Status: accepted — landed in [ADR 0037](../adr/0037-effective-stat-resolution.md); resolves the mechanism (a recursive CTE in `v_item`/`v_item_instance`) and the `stat_group.priority` tie-break's own precise meaning, neither pinned down by this RFC's text
 
 ## Context
 

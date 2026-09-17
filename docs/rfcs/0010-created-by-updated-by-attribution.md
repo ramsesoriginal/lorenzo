@@ -1,6 +1,6 @@
 # RFC: Attribution — `created_by`/`updated_by`
 
-Status: proposed — cross-cutting schema addition, needed now that RFC 0005/0006/0007 introduce this codebase's first write paths; needs a migration
+Status: accepted — landed in [ADR 0029](../adr/0029-attribution-created-by-updated-by.md); `entity`'s pair is built, the rest land incrementally with each table's own CRUD slice per that ADR's phased-implementation table
 
 ## Context
 

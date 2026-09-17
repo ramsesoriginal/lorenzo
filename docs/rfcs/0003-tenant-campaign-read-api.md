@@ -1,6 +1,6 @@
 # RFC: Tenant and campaign read REST API
 
-Status: proposed — extends the domain model itself (new columns on `tenant`/`campaign`, a revised `campaign_access.can_access_campaign`), not just its REST surface; needs a migration and an ER diagram update, unlike this RFC's first draft
+Status: accepted — landed in [ADR 0030](../adr/0030-tenant-campaign-read-api.md)
 
 ## Context
 

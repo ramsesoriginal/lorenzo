@@ -1,6 +1,6 @@
 # RFC: User, player, and character CRUD API
 
-Status: proposed — builds on [RFC 0004](0004-user-membership-player-character-gm-read-api.md)'s read schemas and character table, and [RFC 0005](0005-item-and-item-instance-crud-api.md)'s write-API conventions; no schema changes of this RFC's own, but depends on RFC 0004's migration (the `character` table, `owner_player_id`'s move, `character_player`/`group_member`'s retargeted FKs) and [RFC 0010](0010-created-by-updated-by-attribution.md)'s (`created_by`/`updated_by` on `entity`/`membership`/`player`/`character`) having landed first
+Status: accepted — landed in [ADR 0036](../adr/0036-user-player-character-crud-api.md); resolves ADR 0010's invitation-flow question with a known limitation; `DELETE /characters/{id}` demotes rather than destroys, `PUT /characters/{id}` promotes an existing being the other way; character authorization's "managed" tier split three ways (roster-link changes, plain edits, demote), consuming a new `campaign_access.can_manage_every_campaign` for both the roster-link and every-campaign tiers
 
 ## Context
 

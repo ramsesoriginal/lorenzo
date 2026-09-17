@@ -1,6 +1,6 @@
 # RFC: Information, payload, and knowledge CRUD API
 
-Status: proposed — deliberately unfinished, the same way [RFC 0008](0008-effective-stat-resolution.md) is; sketches the gap and its shape, doesn't resolve it
+Status: accepted — landed in [ADR 0038](../adr/0038-information-payload-knowledge-crud-api.md); scoped to description payloads and self-or-managed authorization uniformly across every visibility tier - the finer per-tier model this RFC named but didn't resolve stays open
 
 ## Context
 

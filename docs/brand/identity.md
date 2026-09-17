@@ -1210,6 +1210,6 @@ The second mascot, Catileo, is described in [the catileo character bible](catile
 
 ---
 
-## 22. One-line summary
+## 20. One-line summary
 
 **Lorenzo is a modern system for keeping track of worlds, expressed through scholarly typography, calm information design, blue interaction, restrained gold punctuation, a distinctive four-point spark, and the human warmth of Lorenzo and Catileo.**

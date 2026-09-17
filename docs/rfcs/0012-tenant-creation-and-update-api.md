@@ -1,6 +1,6 @@
 # RFC: Tenant creation and update API
 
-Status: proposed — builds on [RFC 0003](0003-tenant-campaign-read-api.md)'s tenant schema and [RFC 0005](0005-item-and-item-instance-crud-api.md)'s write-API conventions; resolves RFC 0003's own deferred slug/collision open question; gates creation on an Authgear role, revised from this RFC's own first "any authenticated user" draft
+Status: accepted — landed in [ADR 0033](../adr/0033-tenant-creation-and-update-api.md); gated by an Authgear-assigned `tenant-creator` role (not "any authenticated user" — revised), picking up ADR 0010's anticipated platform-admin need; resolves RFC 0003's deferred slug-generation/collision question; deletion explicitly excluded pending ADR 0018's own flagged cascade concern
 
 ## Context
 
