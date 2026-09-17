@@ -19,14 +19,30 @@ import Base from '../layouts/Base.astro';
     </div>
   </section>
 
+  <section id="tenants" class="tenants" hidden>
+    <h2>Your tenants</h2>
+    <p id="tenants-loading">Loading tenants&hellip;</p>
+    <p id="tenants-empty" hidden>You don't belong to any tenant yet.</p>
+    <p id="tenants-error" class="account-error" hidden></p>
+    <ul id="tenants-list" class="tenant-grid"></ul>
+  </section>
+
   <script>
     import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
+    import { listTenants } from '../lib/tenants';
+    import type { TenantSummary } from '../lib/types';
 
     const loading = document.getElementById('account-loading')!;
     const errorEl = document.getElementById('account-error')!;
     const signedOut = document.getElementById('account-signed-out')!;
     const signedIn = document.getElementById('account-signed-in')!;
     const emailEl = document.getElementById('account-email')!;
+
+    const tenantsSection = document.getElementById('tenants')!;
+    const tenantsLoading = document.getElementById('tenants-loading')!;
+    const tenantsEmpty = document.getElementById('tenants-empty')!;
+    const tenantsError = document.getElementById('tenants-error')!;
+    const tenantsList = document.getElementById('tenants-list')!;
 
     document.getElementById('login-button')?.addEventListener('click', () => {
       void login();
@@ -41,6 +57,43 @@ import Base from '../layouts/Base.astro';
       errorEl.textContent = message;
     }
 
+    function renderTenantCard(tenant: TenantSummary): HTMLLIElement {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.className = 'tenant-card';
+      link.href = `/board/?tenant=${tenant.id}`;
+
+      const name = document.createElement('strong');
+      name.textContent = tenant.name;
+
+      const meta = document.createElement('span');
+      meta.className = 'tenant-card-meta';
+      meta.textContent = `${tenant.slug} · ${tenant.role}`;
+
+      link.append(name, meta);
+      item.append(link);
+      return item;
+    }
+
+    async function loadTenants() {
+      tenantsSection.hidden = false;
+      try {
+        const page = await listTenants();
+        tenantsLoading.hidden = true;
+        if (page.items.length === 0) {
+          tenantsEmpty.hidden = false;
+          return;
+        }
+        for (const tenant of page.items) {
+          tenantsList.append(renderTenantCard(tenant));
+        }
+      } catch (e) {
+        tenantsLoading.hidden = true;
+        tenantsError.hidden = false;
+        tenantsError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
     if (!isAuthConfigured()) {
       showError('Authgear is not configured for this app yet.');
     } else {
@@ -51,6 +104,7 @@ import Base from '../layouts/Base.astro';
           const info = await getUserInfo();
           emailEl.textContent = info.email ?? info.sub;
           signedIn.hidden = false;
+          await loadTenants();
         } else {
           signedOut.hidden = false;
         }
@@ -67,6 +121,40 @@ import Base from '../layouts/Base.astro';
 
     .account-error {
       color: var(--lorenzo-burgundy);
+    }
+
+    .tenants {
+      margin-top: var(--space-6);
+    }
+
+    .tenant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-3);
+      list-style: none;
+      margin: var(--space-3) 0 0;
+      padding: 0;
+    }
+
+    .tenant-card {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-card);
+      padding: var(--space-3);
+      text-decoration: none;
+      color: var(--fg);
+      font-family: var(--font-ui);
+    }
+
+    .tenant-card:hover {
+      border-color: var(--action);
+    }
+
+    .tenant-card-meta {
+      font-size: 13px;
+      color: var(--fg-tertiary);
     }
 
     button,

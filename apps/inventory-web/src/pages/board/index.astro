@@ -1,0 +1,53 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Board — Lorenzo">
+  <p><a href="/">&larr; Tenants</a></p>
+  <p id="status">Loading&hellip;</p>
+  <div id="board" hidden>
+    <h1 class="display" id="tenant-name"></h1>
+    <p id="tenant-slug" class="tenant-slug"></p>
+    <p class="next-up">Character picker and the inventory board itself come next.</p>
+  </div>
+
+  <script>
+    import { isAuthenticated } from '../../lib/auth';
+    import { getTenant } from '../../lib/tenants';
+
+    const status = document.getElementById('status')!;
+    const board = document.getElementById('board')!;
+    const tenantName = document.getElementById('tenant-name')!;
+    const tenantSlug = document.getElementById('tenant-slug')!;
+
+    const tenantId = new URLSearchParams(window.location.search).get('tenant');
+
+    if (!(await isAuthenticated())) {
+      status.textContent = 'Not logged in. Go back and log in first.';
+    } else if (!tenantId) {
+      status.textContent = 'No tenant selected. Go back and pick one.';
+    } else {
+      try {
+        const tenant = await getTenant(tenantId);
+        status.hidden = true;
+        tenantName.textContent = tenant.name;
+        tenantSlug.textContent = tenant.slug;
+        board.hidden = false;
+      } catch (e) {
+        status.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+
+  <style>
+    .tenant-slug {
+      font-family: var(--font-mono);
+      color: var(--fg-tertiary);
+      font-size: 13px;
+    }
+
+    .next-up {
+      color: var(--fg-secondary);
+    }
+  </style>
+</Base>
