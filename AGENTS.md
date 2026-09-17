@@ -39,6 +39,21 @@ mise run check                                          # lint + test - the full
 - Any table that stores tenant data needs a `tenant_id` column and an RLS policy with `FORCE ROW LEVEL SECURITY` (see [ADR 0002](docs/adr/0002-multi-tenancy-shared-schema-rls.md); every table since [ADR 0012](docs/adr/0012-entity-table.md) follows this). Never rely on application-level filtering alone. The app's own DB role used to be a superuser, which bypasses RLS unconditionally regardless of policy correctness — fixed by a restricted, non-superuser role ([ADR 0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)), rotated and confirmed in production too, not just deployed (see [docs/operations/deployment-setup.md](docs/operations/deployment-setup.md)) — if you're working against an older checkout and not sure whether it has this fix, check for a `lorenzo_app` role and a `migrations_database_url` split in `config.py`.
 - Formatting/linting is enforced by pre-commit + CI, not by convention.
 
+## Planning: RFC/ADR, Issues, and Milestones
+
+`gh` (GitHub CLI) is available and usable non-interactively — use it. See [ADR 0070](docs/adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md) for the full rationale; this is the day-to-day summary.
+
+Four layers, each with one job — don't blur them:
+
+- **RFC** (`docs/rfcs/`) — a proposal, before it's decided. Becomes one or more ADRs once decided, or gets dropped.
+- **ADR** (`docs/adr/`) — the decision itself, with rationale and consequences, recorded once made.
+- **Issue/Milestone** (GitHub) — live execution tracking of an *already-decided* RFC/ADR slice. One milestone per ADR (or per RFC, if it's tracked as one slice across several ADRs). An issue references the RFC/ADR number it comes from, its body is a checklist, and it carries no design content of its own — if it needs design debate, it isn't ready to be an issue yet. Close via `Closes #N` in the PR description (works fine under this repo's merge-commit-only rule — the keyword lives in the PR body, not the commit).
+- **`ROADMAP.md`** — deliberately doesn't exist yet. Don't add one speculatively; see ADR 0070 for the named trigger and the exact (link-only, no independent prose) shape it gets built in when that trigger fires.
+
+At the start of a session, `gh issue list --state open --milestone <N>` (or unscoped) is the live "what's actually in flight" query — prefer it over re-deriving status from memory or from `docs/architecture/overview.md`'s roadmap section, which is an append-only historical chronicle, not a live status board.
+
+**Claim RFC/ADR numbers early, to avoid collisions.** This project's ADR numbering has already collided twice across long-lived parallel branches (see the renumbering notes on ADR 0050/0054), and a third near-collision was only caught by checking open PRs before writing ADR 0070. When starting a new RFC or ADR: put it on its own small branch (or an early, separable commit within a bigger feature branch — see [Worktrees](#worktrees) below), and merge *the document itself* — number, title, Context, Decision — into `main` (or the parent feature branch) as soon as the decision is actually settled, before the rest of the implementation is done. Open the tracking Issue/Milestone at the same time — the issue is visible instantly to any other branch or agent that queries it, no fetch/merge required, and the merged doc is the durable canonical record once it lands. This shrinks the collision window; it doesn't eliminate it — if two branches still land on the same number, renumber the later one with a documented history note, same as the existing precedent.
+
 ## Worktrees
 
 Bigger changes — a big feature, a full-app refactor, a new app, or anything the user explicitly asks for by name — get their own [git worktree](https://git-scm.com/docs/git-worktree) rather than switching branches in place, so more than one line of work can sit checked out at once. Small changes (a doc fix, a one-line bugfix, a chore like this one) stay in the main checkout as before.
