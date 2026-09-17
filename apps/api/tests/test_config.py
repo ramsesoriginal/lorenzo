@@ -44,9 +44,7 @@ def test_cors_origins_legacy_json_array_still_works(monkeypatch: pytest.MonkeyPa
     """Backward compatible with the original ADR 0048 format - an existing
     .env still using it keeps working unchanged.
     """
-    monkeypatch.setenv(
-        "CORS_ALLOWED_ORIGINS", '["https://a.example.com","https://b.example.com"]'
-    )
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", '["https://a.example.com","https://b.example.com"]')
     settings = Settings(_env_file=None)
     assert settings.cors_allowed_origins == ["https://a.example.com", "https://b.example.com"]
 
