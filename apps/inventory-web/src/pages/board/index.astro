@@ -70,17 +70,6 @@ import Base from '../../layouts/Base.astro';
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
 
-    // Two signals, either is enough: the "is_container" tag (a prototype-
-    // level flag, catches an empty container too) OR this entity actually
-    // holding something elsewhere in the response (catches a container
-    // whose tag isn't set yet). Combined rather than tag-only until the
-    // tag is confirmed reliably present on every container prototype.
-    function isContainer(item: ItemInstance, groups: OwnedGroup[]): boolean {
-      const tagged = item.tags.some((tag) => tag.name === 'is_container' && tag.value === true);
-      const holdsSomething = groups.some((g) => g.container?.id === item.entity_id);
-      return tagged || holdsSomething;
-    }
-
     // Same-document View Transition when the browser supports it and the
     // user hasn't asked for reduced motion; a plain DOM mutation otherwise.
     function withReflow(mutate: () => void) {
@@ -95,7 +84,7 @@ import Base from '../../layouts/Base.astro';
     let openCard: HTMLElement | null = null;
 
     function populateDetail(item: ItemInstance) {
-      detailTitle.textContent = item.title ?? '(unnamed item)';
+      detailTitle.textContent = item.title;
 
       const showQty = Boolean(item.quantity && item.quantity > 1);
       detailQty.hidden = !showQty;
@@ -262,13 +251,13 @@ import Base from '../../layouts/Base.astro';
       });
     }
 
-    function renderCard(item: ItemInstance, groups: OwnedGroup[]): HTMLLIElement {
+    function renderCard(item: ItemInstance): HTMLLIElement {
       const li = document.createElement('li');
       li.className = 'item-card';
       li.draggable = true;
       li.dataset.entityId = item.entity_id;
       li.style.viewTransitionName = `item-${item.entity_id}`;
-      if (isContainer(item, groups)) {
+      if (item.is_container) {
         li.classList.add('item-card--container');
       }
 
@@ -283,7 +272,7 @@ import Base from '../../layouts/Base.astro';
 
       const title = document.createElement('span');
       title.className = 'item-card-title';
-      title.textContent = item.title ?? '(unnamed item)';
+      title.textContent = item.title;
       li.append(title);
 
       if (item.quantity && item.quantity > 1) {
@@ -296,7 +285,7 @@ import Base from '../../layouts/Base.astro';
       return li;
     }
 
-    function renderColumn(group: OwnedGroup, rootTitle: string, groups: OwnedGroup[]): HTMLElement {
+    function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
       const section = document.createElement('section');
       section.className = 'board-column';
 
@@ -310,7 +299,7 @@ import Base from '../../layouts/Base.astro';
         ensurePlaceholder(list);
       } else {
         for (const item of group.item_instances) {
-          list.append(renderCard(item, groups));
+          list.append(renderCard(item));
         }
       }
       section.append(list);
@@ -341,7 +330,7 @@ import Base from '../../layouts/Base.astro';
           a.container === null ? -1 : b.container === null ? 1 : 0,
         );
         for (const group of ordered) {
-          boardColumns.append(renderColumn(group, characterName, response.groups));
+          boardColumns.append(renderColumn(group, characterName));
         }
       } catch (e) {
         inventoryLoading.hidden = true;

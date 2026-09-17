@@ -46,7 +46,9 @@ export interface Description {
 
 export interface ItemInstance {
   entity_id: string;
-  title: string | null;
+  // Always a non-empty display string - falls back to the entity's own
+  // name server-side when no description exists (ADR 0067).
+  title: string;
   quantity: number | null;
   container_entity_id: string | null;
   owner_entity_id: string | null;
@@ -59,6 +61,10 @@ export interface ItemInstance {
   armor: number | null;
   is_magical: boolean | null;
   is_cursed: boolean | null;
+  // Computed server-side: an explicit "is_container" tag wins, else true
+  // if the entity currently holds anything, else null - never inferred
+  // false from mere emptiness (ADR 0066).
+  is_container: boolean | null;
   descriptions: Description[];
 }
 
