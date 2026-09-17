@@ -205,7 +205,8 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     await session.commit()
 
     if user.suspended_at is not None:
-        raise AccountSuspendedError(detail=f"User {user.id} is suspended")
+        reason = f": {user.suspension_reason}" if user.suspension_reason else ""
+        raise AccountSuspendedError(detail=f"User {user.id} is suspended{reason}")
 
     await _sync_email_from_claims(session, user=user, claims=claims)
 

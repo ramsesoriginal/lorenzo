@@ -220,6 +220,7 @@ async def test_suspended_account_is_rejected_on_its_very_next_request(
     rejected_response = await raw_client.get("/me", headers=target_headers)
     assert rejected_response.status_code == 403
     assert rejected_response.headers["content-type"] == "application/problem+json"
+    assert "under review" in rejected_response.json()["detail"]
 
     async with admin_session_factory() as session:
         operator_id = uuid.UUID(
