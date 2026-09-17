@@ -1,5 +1,5 @@
 ---
-import '../styles/tokens.css';
+import '../styles/global.css';
 
 interface Props {
   title?: string;
@@ -40,43 +40,5 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
     <main>
       <slot />
     </main>
-    <style>
-      .site-header {
-        display: flex;
-        align-items: center;
-        padding: var(--space-3) var(--space-4);
-        border-bottom: 1px solid var(--border);
-      }
-
-      .brand {
-        display: inline-flex;
-        align-items: center;
-      }
-
-      .brand-mark {
-        display: block;
-        /* identity.md §4.7: horizontal lockup minimum width is 220px. */
-        width: 220px;
-        height: auto;
-      }
-
-      .brand-mark--dark {
-        display: none;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        .brand-mark--light {
-          display: none;
-        }
-
-        .brand-mark--dark {
-          display: block;
-        }
-      }
-
-      main {
-        padding: var(--space-4);
-      }
-    </style>
   </body>
 </html>

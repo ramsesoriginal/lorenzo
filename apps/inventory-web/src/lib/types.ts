@@ -34,12 +34,18 @@ export interface CharacterSummary {
   is_pc: boolean;
 }
 
+export interface TagValue {
+  name: string;
+  value: boolean | null;
+}
+
 export interface ItemInstance {
   entity_id: string;
   title: string | null;
   quantity: number | null;
   container_entity_id: string | null;
   owner_entity_id: string | null;
+  tags: TagValue[];
 }
 
 export interface EntitySummary {

@@ -9,18 +9,18 @@ import Base from '../../layouts/Base.astro';
     <h1 class="display" id="tenant-name"></h1>
     <p id="tenant-slug" class="tenant-slug"></p>
 
-    <section id="characters">
+    <section id="characters" class="section">
       <h2>Your characters</h2>
       <p id="characters-loading">Loading characters&hellip;</p>
       <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
-      <p id="characters-error" class="board-error" hidden></p>
+      <p id="characters-error" class="error-text" hidden></p>
       <ul id="character-strip" class="character-strip"></ul>
     </section>
 
-    <section id="inventory">
+    <section id="inventory" class="section">
       <p id="inventory-loading" hidden>Loading inventory&hellip;</p>
       <p id="inventory-empty" class="next-up" hidden></p>
-      <p id="inventory-error" class="board-error" hidden></p>
+      <p id="inventory-error" class="error-text" hidden></p>
       <div id="board-columns" class="board-columns"></div>
     </section>
   </div>
@@ -50,14 +50,17 @@ import Base from '../../layouts/Base.astro';
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
 
-    function isContainerElsewhere(entityId: string, groups: OwnedGroup[]): boolean {
-      return groups.some((g) => g.container?.id === entityId);
+    // A prototype-level flag (the "is_container" tag a GM sets on the item
+    // type), not a fact about current occupancy - an empty belt pouch is
+    // still a container and should still show the affordance.
+    function isContainer(item: ItemInstance): boolean {
+      return item.tags.some((tag) => tag.name === 'is_container' && tag.value === true);
     }
 
-    function renderCard(item: ItemInstance, groups: OwnedGroup[]): HTMLLIElement {
+    function renderCard(item: ItemInstance): HTMLLIElement {
       const li = document.createElement('li');
       li.className = 'item-card';
-      if (isContainerElsewhere(item.entity_id, groups)) {
+      if (isContainer(item)) {
         li.classList.add('item-card--container');
       }
 
@@ -76,7 +79,7 @@ import Base from '../../layouts/Base.astro';
       return li;
     }
 
-    function renderColumn(group: OwnedGroup, rootTitle: string, groups: OwnedGroup[]): HTMLElement {
+    function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
       const section = document.createElement('section');
       section.className = 'board-column';
 
@@ -93,7 +96,7 @@ import Base from '../../layouts/Base.astro';
         list.append(empty);
       } else {
         for (const item of group.item_instances) {
-          list.append(renderCard(item, groups));
+          list.append(renderCard(item));
         }
       }
       section.append(list);
@@ -121,7 +124,7 @@ import Base from '../../layouts/Base.astro';
           a.container === null ? -1 : b.container === null ? 1 : 0,
         );
         for (const group of ordered) {
-          boardColumns.append(renderColumn(group, characterName, response.groups));
+          boardColumns.append(renderColumn(group, characterName));
         }
       } catch (e) {
         inventoryLoading.hidden = true;
@@ -188,173 +191,4 @@ import Base from '../../layouts/Base.astro';
       }
     }
   </script>
-
-  <style is:global>
-    /* Astro only auto-scopes elements present in the static template - the
-       character pills, board columns, and item cards below are all built
-       client-side via document.createElement, so scoped styles would
-       silently never match them. See ADR 0004: plain scripts are the
-       intended "island" shape here, not a component framework, so :global
-       is the right escape hatch rather than reaching for one. */
-    .tenant-slug {
-      font-family: var(--font-mono);
-      color: var(--fg-tertiary);
-      font-size: 13px;
-    }
-
-    .next-up {
-      color: var(--fg-secondary);
-      margin-top: var(--space-5);
-    }
-
-    .board-error {
-      color: var(--lorenzo-burgundy);
-    }
-
-    #characters {
-      margin-top: var(--space-5);
-    }
-
-    .character-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-2);
-      list-style: none;
-      margin: var(--space-3) 0 0;
-      padding: 0;
-    }
-
-    .character-pill {
-      font-family: var(--font-ui);
-      font-size: 14px;
-      background: var(--fill-soft);
-      color: var(--fg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-pill);
-      padding: var(--space-1) var(--space-3);
-      cursor: pointer;
-    }
-
-    .character-pill[aria-pressed='true'] {
-      background: var(--action);
-      border-color: var(--action);
-      color: var(--lorenzo-paper);
-    }
-
-    #inventory {
-      margin-top: var(--space-5);
-    }
-
-    .board-columns {
-      display: grid;
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(240px, 300px);
-      gap: var(--space-3);
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      padding-bottom: var(--space-2);
-    }
-
-    .board-column {
-      container-type: inline-size;
-      scroll-snap-align: start;
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      background: var(--fill-soft);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-surface);
-      padding: var(--space-3);
-    }
-
-    .board-column h3 {
-      margin: 0;
-      font-family: var(--font-ui);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--fg-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-
-    .column-cards {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
-
-    .column-empty {
-      color: var(--fg-tertiary);
-      font-size: 13px;
-      font-style: italic;
-    }
-
-    /* --item-accent is typed (@property, tokens.css) specifically so this
-       can transition smoothly instead of snapping between colors. */
-    .item-card {
-      --item-accent: var(--border);
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--space-2);
-      background: var(--bg);
-      border: 1px solid var(--item-accent);
-      border-radius: var(--radius-card);
-      padding: var(--space-2) var(--space-3);
-      transition: --item-accent 150ms ease;
-    }
-
-    .item-card:hover {
-      --item-accent: var(--action);
-    }
-
-    @media (prefers-reduced-motion: no-preference) {
-      .item-card {
-        transition:
-          --item-accent 150ms ease,
-          transform 150ms ease;
-      }
-
-      .item-card:hover {
-        transform: translateY(-1px);
-      }
-    }
-
-    .item-card-title {
-      font-size: 14px;
-    }
-
-    .item-card-qty {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--fg-tertiary);
-    }
-
-    /* A container-card gets a small gold mark - the same affordance a
-       future click-to-drill-in interaction (v1.1) will hang off of. */
-    .item-card--container::after {
-      content: '';
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 6px;
-      height: 6px;
-      border-radius: var(--radius-pill);
-      background: var(--lorenzo-gold);
-    }
-
-    @container (max-width: 220px) {
-      .item-card {
-        padding: var(--space-1) var(--space-2);
-      }
-
-      .item-card-title {
-        font-size: 13px;
-      }
-    }
-  </style>
 </Base>

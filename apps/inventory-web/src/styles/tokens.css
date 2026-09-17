@@ -9,6 +9,8 @@
  * own CSS starter uses [data-theme="dark"], but that's for a manual toggle
  * this app doesn't have yet; light-dark() covers the same ground with less
  * moving parts until a toggle is actually built).
+ *
+ * Pure tokens only - no applied styles. Those live in base.css and up.
  */
 
 @import "@fontsource-variable/geist";
@@ -75,41 +77,12 @@
   --radius-pill: 999px;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
 /* Typed custom property so it's animatable (a plain --custom var can't be
    transitioned - the browser has no idea it's a color until it's told).
-   Board cards (src/pages/board/index.astro) use this for a smooth
+   Board cards (components.css .item-card) use this for a smooth
    hover/selection accent instead of snapping. */
 @property --item-accent {
   syntax: "<color>";
   inherits: false;
   initial-value: transparent;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-h1,
-h2,
-.display {
-  font-family: var(--font-display);
-  font-weight: 400;
-}
-
-code,
-pre,
-.mono {
-  font-family: var(--font-mono);
 }

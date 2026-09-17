@@ -6,9 +6,9 @@ import Base from '../layouts/Base.astro';
   <h1 class="display">Keep track of worlds.</h1>
   <p>The inventory board is still being built.</p>
 
-  <section class="account">
+  <section class="account section">
     <p id="account-loading">Checking your session&hellip;</p>
-    <p id="account-error" class="account-error" hidden></p>
+    <p id="account-error" class="error-text" hidden></p>
     <div id="account-signed-out" hidden>
       <button id="login-button" type="button">Log in</button>
     </div>
@@ -19,11 +19,11 @@ import Base from '../layouts/Base.astro';
     </div>
   </section>
 
-  <section id="tenants" class="tenants" hidden>
+  <section id="tenants" class="section-lg" hidden>
     <h2>Your tenants</h2>
     <p id="tenants-loading">Loading tenants&hellip;</p>
     <p id="tenants-empty" hidden>You don't belong to any tenant yet.</p>
-    <p id="tenants-error" class="account-error" hidden></p>
+    <p id="tenants-error" class="error-text" hidden></p>
     <ul id="tenants-list" class="tenant-grid"></ul>
   </section>
 
@@ -113,71 +113,4 @@ import Base from '../layouts/Base.astro';
       }
     }
   </script>
-
-  <style is:global>
-    /* Astro only auto-scopes elements present in the static template - the
-       tenant cards below are built client-side via document.createElement,
-       so scoped styles would silently never match them (see the matching
-       note in board/index.astro). */
-    .account {
-      margin-top: var(--space-5);
-    }
-
-    .account-error {
-      color: var(--lorenzo-burgundy);
-    }
-
-    .tenants {
-      margin-top: var(--space-6);
-    }
-
-    .tenant-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: var(--space-3);
-      list-style: none;
-      margin: var(--space-3) 0 0;
-      padding: 0;
-    }
-
-    .tenant-card {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-1);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-card);
-      padding: var(--space-3);
-      text-decoration: none;
-      color: var(--fg);
-      font-family: var(--font-ui);
-    }
-
-    .tenant-card:hover {
-      border-color: var(--action);
-    }
-
-    .tenant-card-meta {
-      font-size: 13px;
-      color: var(--fg-tertiary);
-    }
-
-    button,
-    .account a {
-      font-family: var(--font-ui);
-      font-size: 14px;
-    }
-
-    button {
-      background: var(--action);
-      color: var(--lorenzo-paper);
-      border: none;
-      border-radius: var(--radius-control);
-      padding: var(--space-2) var(--space-3);
-      cursor: pointer;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-  </style>
 </Base>
