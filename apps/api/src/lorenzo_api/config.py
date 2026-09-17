@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # with the key "tenant_creator" (see ADR 0033's addendum).
     tenant_creator_role_key: str = "tenant_creator"
 
+    # Same mechanism, gating /admin/* instead (ADR 0057) - a platform-wide
+    # capability orthogonal to tenant membership, not assignable via this
+    # API, mirroring tenant_creator_role_key's own precedent.
+    platform_operator_role_key: str = "platform-operator"
+
     # CORS (ADR 0048) - space-separated exact origins in the
     # CORS_ALLOWED_ORIGINS env var, e.g. "https://a.example.com
     # https://b.example.com". Defaults to empty (no cross-origin browser
@@ -81,6 +86,11 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return json.loads(v)
         return v
+
+    # Profile pictures (ADR 0056) - bytes are stored directly in Postgres
+    # (matching payload_picture's own precedent, ADR 0017), so this caps
+    # both the request body size and the row size, not a bucket quota.
+    profile_picture_max_bytes: int = 2_000_000
 
     @field_validator("database_url", "migrations_database_url")
     @classmethod

@@ -9,6 +9,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
+from lorenzo_api.campaign_access import can_manage_character
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -17,8 +18,11 @@ from lorenzo_api.dependencies import (
     get_tenant_or_404,
     require_tenant_participant,
 )
-from lorenzo_api.models import Entity, GroupMember
+from lorenzo_api.exceptions import CharacterManagementForbiddenError, InvalidUserError
+from lorenzo_api.models import Entity, GroupMember, User
+from lorenzo_api.notifications import create_group_notification
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 
 # get_tenant_or_404 here, not get_tenant_context - mirrors routers/
 # item_instances.py's identical ADR 0032/RFC 0005 precedent: browsing
@@ -84,3 +88,66 @@ async def list_group_members(
     )
     members = (await session.execute(stmt)).scalars().all()
     return [EntitySummary.from_entity(member) for member in members]
+
+
+async def _require_can_manage_group(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, group_entity_id: uuid.UUID
+) -> None:
+    """Every member of the group must be one the caller can manage
+    (campaign_access.can_manage_character) - fail-closed, not a partial
+    send: being authorized to message *some* but not all of a group's
+    members doesn't authorize messaging the group as a whole (ADR 0059).
+    An empty group trivially passes - there is nothing to be unauthorized
+    for, matching list_group_members' own "empty, not a secret" stance.
+    """
+    member_ids = (
+        await session.execute(
+            select(GroupMember.character_entity_id).where(
+                GroupMember.group_entity_id == group_entity_id, GroupMember.tenant_id == tenant_id
+            )
+        )
+    ).scalars()
+    for character_entity_id in member_ids:
+        if not await can_manage_character(
+            session, user_id=user.id, tenant_id=tenant_id, character_entity_id=character_entity_id
+        ):
+            raise CharacterManagementForbiddenError(
+                detail=f"Not authorized to manage group {group_entity_id}"
+            )
+
+
+@router.post("/{group_entity_id}/notifications", status_code=201)
+async def create_group_notification_route(
+    tenant_id: uuid.UUID,
+    group_entity_id: uuid.UUID,
+    body: NotificationCreate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[NotificationOut]:
+    """scope="group" - see ADR 0059. An omitted `recipient_user_id`
+    broadcasts to every player controlling any member character (roster
+    reuse across every member at once, ADR 0025), so this can return more
+    than one row.
+    """
+    await get_entity_or_404(session, group_entity_id, tenant_id)
+    await _require_can_manage_group(
+        session, tenant_id=tenant_id, user=user, group_entity_id=group_entity_id
+    )
+    if (
+        body.recipient_user_id is not None
+        and await session.get(User, body.recipient_user_id) is None
+    ):
+        raise InvalidUserError(detail=f"{body.recipient_user_id} is not an existing user")
+
+    notifications = await create_group_notification(
+        session,
+        tenant_id=tenant_id,
+        group_entity_id=group_entity_id,
+        recipient_user_id=body.recipient_user_id,
+        type=body.type,
+        title=body.title,
+        body=body.body,
+        created_by=user.id,
+    )
+    await session.commit()
+    return [NotificationOut.model_validate(n) for n in notifications]

@@ -166,6 +166,74 @@ async def test_list_tenant_roster_includes_membership_player_and_gm_kinds(
         await session.commit()
 
 
+async def test_list_tenant_roster_includes_nicknames(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0054: the roster is readable without a lookup per row - a user
+    with a nickname shows it, a user without one reports `None`.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(
+            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
+        )
+
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        nicknamed_player = User(
+            authgear_subject_id=f"authgear|nicknamed-{uuid.uuid4()}", nickname="Roster Nickname"
+        )
+        session.add(nicknamed_player)
+        await session.flush()
+        session.add(
+            Player(user_id=nicknamed_player.id, campaign_id=campaign.id, tenant_id=tenant_id)
+        )
+        await session.commit()
+        nicknamed_player_id = nicknamed_player.id
+
+    response = await client.get(f"/tenants/{tenant_id}/memberships")
+    assert response.status_code == 200
+    entries_by_user = {item["user_id"]: item for item in response.json()["items"]}
+
+    assert entries_by_user[str(nicknamed_player_id)]["nickname"] == "Roster Nickname"
+    assert entries_by_user[str(test_user_id)]["nickname"] is None
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, nicknamed_player_id))
+        await session.commit()
+
+
+async def test_list_tenant_roster_includes_display_name_and_user_color(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0060 - display_name/user_color join nickname on the roster,
+    since the user's own stated rationale for user_color ("UI highlights")
+    only makes sense if other tenant members can actually see it.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        user = await session.get_one(User, test_user_id)
+        user.display_name = "Roster Display Name"
+        user.user_color = "#ABCDEF"
+        await session.commit()
+
+    response = await client.get(f"/tenants/{tenant_id}/memberships")
+    assert response.status_code == 200
+    entry = next(item for item in response.json()["items"] if item["user_id"] == str(test_user_id))
+    assert entry["display_name"] == "Roster Display Name"
+    assert entry["user_color"] == "#ABCDEF"
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        user = await session.get_one(User, test_user_id)
+        user.display_name = None
+        user.user_color = None
+        await session.commit()
+
+
 async def test_list_tenant_roster_404_for_non_member(client: AsyncClient) -> None:
     async with admin_session_factory() as session:
         tenant = Tenant()
@@ -515,6 +583,70 @@ async def test_create_membership_409_when_already_a_member(
     )
 
     assert response.status_code == 409
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_create_memberships_reports_mixed_outcomes_without_failing_the_batch(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0062: never all-or-nothing, mirroring bulk_assign_item_
+    instances's own established shape (ADR 0044) - a nonexistent user and
+    an already-existing membership don't stop the other, valid invite in
+    the same batch from applying.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        invitee = User(authgear_subject_id=f"authgear|bulk-invitee-{uuid.uuid4()}")
+        session.add(invitee)
+        await session.commit()
+        invitee_id = invitee.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/memberships/bulk",
+        json=[
+            {"user_id": str(invitee_id), "role": "orga"},
+            {"user_id": str(uuid.uuid4()), "role": "orga"},
+            {"user_id": str(test_user_id), "role": "orga"},
+        ],
+    )
+
+    assert response.status_code == 201
+    results = response.json()
+    assert len(results) == 3
+    assert results[0]["status"] == "ok"
+    assert results[0]["membership"]["user_id"] == str(invitee_id)
+    assert results[1]["status"] == "error"
+    assert results[1]["problem"]["status"] == 422
+    assert results[2]["status"] == "error"
+    assert results[2]["problem"]["status"] == 409
+
+    roster_response = await client.get(f"/tenants/{tenant_id}/memberships")
+    roster_user_ids = {item["user_id"] for item in roster_response.json()["items"]}
+    assert str(invitee_id) in roster_user_ids
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, invitee_id))
+        await session.commit()
+
+
+async def test_bulk_create_memberships_403_for_an_orga_caller(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        tenant_id = tenant.id
+        session.add(Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.ORGA))
+        await session.commit()
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/memberships/bulk",
+        json=[{"user_id": str(uuid.uuid4()), "role": "orga"}],
+    )
+
+    assert response.status_code == 403
     await delete_tenant(tenant_id)
 
 

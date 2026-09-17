@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.4.0...api-v0.5.0) (2026-09-17)
+
+
+### Features
+
+* **api:** group-scoped notifications ([fd484a0](https://github.com/ramsesoriginal/lorenzo/commit/fd484a0bbc1fe14ff63a64b3f5e4375a9b6cd9ef))
+* **api:** platform operations and notifications ([2d12ab3](https://github.com/ramsesoriginal/lorenzo/commit/2d12ab3b182adf82e7805446e276fa259a77402f))
+* **api:** profile pictures for User, Tenant, and Campaign ([96e4c32](https://github.com/ramsesoriginal/lorenzo/commit/96e4c323e64c4ac31551e3d8139552bd50460077))
+* **api:** user identity via email/nickname, plus exact-match lookup ([68a1bd7](https://github.com/ramsesoriginal/lorenzo/commit/68a1bd7c33b571e9cbb2cf610442fef40aa51a4b))
+* **api:** user profile expansion, sender read-receipts, bulk invite, tenant activity log ([78a259d](https://github.com/ramsesoriginal/lorenzo/commit/78a259ded40d344aea7cc05cb5e42e31e9f1cd5c))
+
+
+### Bug Fixes
+
+* **api:** surface suspension_reason in the 403 detail ([1f70a8f](https://github.com/ramsesoriginal/lorenzo/commit/1f70a8f6189f06dfd7cf45ccc298e9f486fa8d7e))
+* **api:** switch CORS_ALLOWED_ORIGINS to space-separated, not a JSON array ([8bae318](https://github.com/ramsesoriginal/lorenzo/commit/8bae318ef1ecc065486a6c41a9cb143183d2978e))
+* **api:** switch CORS_ALLOWED_ORIGINS to space-separated, not a JSON array ([7de51b3](https://github.com/ramsesoriginal/lorenzo/commit/7de51b380d7393b2adee681775f57f090d214331))
+* **api:** the tenant-creator role key is tenant_creator, not tenant-creator ([02c8143](https://github.com/ramsesoriginal/lorenzo/commit/02c814316609019d7972a7e057264070938d16a8))
+* **api:** the tenant-creator role key is tenant_creator, not tenant-creator ([b1b4e0d](https://github.com/ramsesoriginal/lorenzo/commit/b1b4e0d852e498c16c0b2c55f41375bb3d521625))
+* **api:** use SHA256, not MD5, for the Gravatar lookup hash ([d3e923d](https://github.com/ramsesoriginal/lorenzo/commit/d3e923d93c41b1bf913665fc9b21a3b28c76f48c))
+* **api:** validate user_id before granting campaign GM ([5521ba7](https://github.com/ramsesoriginal/lorenzo/commit/5521ba7b5b16d1d9d76443e85f84b19aa6febd67))
+
+
+### Documentation
+
+* **adr:** renumber 0050-0059 to 0054-0063 to avoid main's loot-bot collision ([0219229](https://github.com/ramsesoriginal/lorenzo/commit/021922931a78fe5994b5387ab4c33cf57c43ad53))
+
 ## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.3.0...api-v0.4.0) (2026-09-16)
 
 
