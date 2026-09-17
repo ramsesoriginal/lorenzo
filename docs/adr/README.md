@@ -54,3 +54,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0049 - `mine` filter on `GET /tenants/{tenant_id}/characters`](0049-list-characters-mine-filter.md)
 - [0050 - User identity: Authgear-synced email + local nickname](0050-user-identity-email-and-nickname.md)
 - [0051 - Exact-match user lookup by email or nickname](0051-user-lookup-by-email-or-nickname.md)
+- [0052 - Profile pictures for User, Tenant, and Campaign](0052-profile-pictures.md)
