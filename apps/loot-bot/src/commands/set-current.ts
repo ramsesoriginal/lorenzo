@@ -62,6 +62,7 @@ export const setCurrentCommand: Command = {
       const characterId = await resolveAutocompleteCharacter(
         interaction.options.getString("character"),
         interaction.user.id,
+        interaction.channelId,
       );
       if (!characterId) {
         await interaction.respond([]);
@@ -93,7 +94,7 @@ export const setCurrentCommand: Command = {
       return;
     }
 
-    await setPreference(interaction.user.id, {
+    await setPreference(interaction.user.id, interaction.channelId, {
       ...(characterEntityId !== undefined ? { characterEntityId } : {}),
       ...(containerEntityId !== undefined ? { containerEntityId } : {}),
     });
@@ -135,9 +136,10 @@ export const setCurrentCommand: Command = {
 async function resolveAutocompleteCharacter(
   chosenInThisInteraction: string | null,
   discordUserId: string,
+  channelId: string,
 ): Promise<string | undefined> {
   if (chosenInThisInteraction) return chosenInThisInteraction;
-  const preference = await getPreference(discordUserId);
+  const preference = await getPreference(discordUserId, channelId);
   return preference?.currentCharacterEntityId ?? undefined;
 }
 

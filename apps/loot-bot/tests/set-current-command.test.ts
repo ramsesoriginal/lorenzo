@@ -46,6 +46,7 @@ const config = {
 function fakeInteraction(userId = "discord-user-1") {
   return {
     user: { id: userId },
+    channelId: "channel-1",
     options: { getString: vi.fn(() => null) },
     deferReply: vi.fn(async () => undefined),
     editReply: vi.fn(async () => undefined),
@@ -63,6 +64,7 @@ function fakeAutocomplete(
 ) {
   return {
     user: { id: "discord-user-1" },
+    channelId: "channel-1",
     options: {
       getFocused: vi.fn(() => ({ name: focusedName, value: focusedValue })),
       getString: vi.fn((name: string) => (name === "character" ? characterValue : null)),
@@ -110,7 +112,9 @@ describe("setCurrentCommand.execute", () => {
 
     await setCurrentCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(setPreference).toHaveBeenCalledWith("discord-user-1", { characterEntityId: "char-1" });
+    expect(setPreference).toHaveBeenCalledWith("discord-user-1", "channel-1", {
+      characterEntityId: "char-1",
+    });
     expect(interaction.editReply).toHaveBeenCalledWith("Set your current character: Frodo.");
   });
 
@@ -125,7 +129,7 @@ describe("setCurrentCommand.execute", () => {
 
     await setCurrentCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(setPreference).toHaveBeenCalledWith("discord-user-1", {
+    expect(setPreference).toHaveBeenCalledWith("discord-user-1", "channel-1", {
       characterEntityId: "char-1",
       containerEntityId: "container-1",
     });

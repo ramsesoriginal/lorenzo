@@ -64,6 +64,11 @@ type BaseInteraction = InteractionGuards &
   Readonly<{
     user: Readonly<{ id: string }>;
     guildId: string | null;
+    // Every raw interaction payload carries channel_id regardless of kind
+    // (ADR 0064) - interaction-adapter.ts sets this the same way for every
+    // kind, not just chat-input, so preferences.ts can scope "current
+    // character"/"current container" per channel from any interaction.
+    channelId: string;
   }>;
 
 /** Every kind that can answer Discord's original webhook POST at all -
@@ -82,7 +87,6 @@ type RepliableInteraction = BaseInteraction &
 export type ChatInputCommandInteraction = RepliableInteraction &
   Readonly<{
     commandName: string;
-    channelId: string;
     options: OptionsReader;
     deferReply(opts?: Readonly<{ ephemeral?: boolean }>): Promise<void>;
     editReply(opts: MessagePayload): Promise<SentMessage>;

@@ -253,62 +253,86 @@ describe.skipIf(!canRunDbTests)("linked_account (real Postgres)", () => {
 
 describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
   const DISCORD_ID = "db-test-preference-user";
+  const CHANNEL_ID = "db-test-channel";
 
   afterEach(async () => {
-    await db.deletePreference(DISCORD_ID);
+    await db.deletePreference(DISCORD_ID, CHANNEL_ID);
   });
 
   it("returns undefined for a discord user with no preference set", async () => {
-    await expect(db.getPreference(DISCORD_ID)).resolves.toBeUndefined();
+    await expect(db.getPreference(DISCORD_ID, CHANNEL_ID)).resolves.toBeUndefined();
   });
 
   it("sets a character on first use, leaving container unset", async () => {
-    await db.setPreference(DISCORD_ID, { characterEntityId: "char-1" });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-1" });
 
-    const row = await db.getPreference(DISCORD_ID);
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
     expect(row?.currentCharacterEntityId).toBe("char-1");
     expect(row?.currentContainerEntityId).toBeNull();
   });
 
   it("sets both character and container in one call", async () => {
-    await db.setPreference(DISCORD_ID, {
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, {
       characterEntityId: "char-1",
       containerEntityId: "container-1",
     });
 
-    const row = await db.getPreference(DISCORD_ID);
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
     expect(row?.currentCharacterEntityId).toBe("char-1");
     expect(row?.currentContainerEntityId).toBe("container-1");
   });
 
   it("updating just the container leaves the existing character untouched", async () => {
-    await db.setPreference(DISCORD_ID, {
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, {
       characterEntityId: "char-1",
       containerEntityId: "container-1",
     });
 
-    await db.setPreference(DISCORD_ID, { containerEntityId: "container-2" });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { containerEntityId: "container-2" });
 
-    const row = await db.getPreference(DISCORD_ID);
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
     expect(row?.currentCharacterEntityId).toBe("char-1");
     expect(row?.currentContainerEntityId).toBe("container-2");
   });
 
   it("updating just the character leaves the existing container untouched", async () => {
-    await db.setPreference(DISCORD_ID, {
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, {
       characterEntityId: "char-1",
       containerEntityId: "container-1",
     });
 
-    await db.setPreference(DISCORD_ID, { characterEntityId: "char-2" });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-2" });
 
-    const row = await db.getPreference(DISCORD_ID);
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
     expect(row?.currentCharacterEntityId).toBe("char-2");
     expect(row?.currentContainerEntityId).toBe("container-1");
   });
 
   it("is idempotent when deleting a preference that was never set", async () => {
-    await expect(db.deletePreference("never-set-user")).resolves.toBeUndefined();
+    await expect(db.deletePreference("never-set-user", CHANNEL_ID)).resolves.toBeUndefined();
+  });
+
+  it("falls back to the global-default row when no channel-specific one exists", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-global");
+
+    await db.deletePreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
+  });
+
+  it("prefers a channel-specific row over the global default once one exists", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-channel");
+
+    await db.deletePreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
   });
 });
 
@@ -380,6 +404,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: 3,
+      claimType: "greed",
     });
 
     const row = await db.getLootClaim(id, "item-1", DISCORD_ID_A);
@@ -396,6 +421,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: 3,
+      claimType: "greed",
     });
     await db.upsertLootClaim({
       lootDropId: id,
@@ -403,6 +429,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: 5,
+      claimType: "greed",
     });
 
     const claims = await db.listLootClaims(id);
@@ -419,6 +446,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: null,
+      claimType: "greed",
     });
     await db.upsertLootClaim({
       lootDropId: id,
@@ -426,6 +454,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_B,
       characterEntityId: "char-2",
       quantity: null,
+      claimType: "greed",
     });
 
     const claims = await db.listLootClaims(id);
@@ -440,6 +469,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: null,
+      claimType: "greed",
     });
     await db.upsertLootClaim({
       lootDropId: id,
@@ -447,6 +477,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_B,
       characterEntityId: "char-2",
       quantity: null,
+      claimType: "greed",
     });
 
     await db.deleteLootClaim(id, "item-1", DISCORD_ID_A);
@@ -469,6 +500,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: null,
+      claimType: "greed",
     });
     await db.upsertLootClaim({
       lootDropId: id,
@@ -476,6 +508,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: null,
+      claimType: "greed",
     });
 
     await db.deleteLootClaimsForDrop(id);
@@ -491,6 +524,7 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
       discordUserId: DISCORD_ID_A,
       characterEntityId: "char-1",
       quantity: null,
+      claimType: "greed",
     });
 
     await db.deleteLootDrop(id);

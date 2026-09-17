@@ -182,8 +182,8 @@ function buildChatInputInteraction(
     ...interactionGuards("chat-input"),
     user: { id: getInvokingUserId(payload) },
     guildId: payload.guild_id ?? null,
-    commandName: payload.data?.name ?? "",
     channelId: payload.channel_id ?? "",
+    commandName: payload.data?.name ?? "",
     options: makeOptionsReader(payload.data?.options),
     get deferred() {
       return deferred;
@@ -233,6 +233,7 @@ function buildAutocompleteInteraction(
     ...interactionGuards("autocomplete"),
     user: { id: getInvokingUserId(payload) },
     guildId: payload.guild_id ?? null,
+    channelId: payload.channel_id ?? "",
     commandName: payload.data?.name ?? "",
     options: makeOptionsReader(payload.data?.options),
     get responded() {
@@ -258,6 +259,7 @@ function buildSelectMenuInteraction(
     ...interactionGuards("select-menu"),
     user: { id: getInvokingUserId(payload) },
     guildId: payload.guild_id ?? null,
+    channelId: payload.channel_id ?? "",
     customId: payload.data?.custom_id ?? "",
     values: payload.data?.values ?? [],
     get deferred() {
@@ -305,6 +307,7 @@ function buildButtonInteraction(
     ...interactionGuards("button"),
     user: { id: getInvokingUserId(payload) },
     guildId: payload.guild_id ?? null,
+    channelId: payload.channel_id ?? "",
     customId: payload.data?.custom_id ?? "",
     get deferred() {
       return deferred;
@@ -369,6 +372,7 @@ function buildModalSubmitInteraction(
     },
     user: { id: getInvokingUserId(payload) },
     guildId: payload.guild_id ?? null,
+    channelId: payload.channel_id ?? "",
     customId: payload.data?.custom_id ?? "",
     fields: {
       getTextInputValue(customId: string) {
