@@ -57,3 +57,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0052 - Profile pictures for User, Tenant, and Campaign](0052-profile-pictures.md)
 - [0053 - Platform operations: a platform-operator role, admin listing, and account suspension](0053-platform-operations.md)
 - [0054 - Notifications: platform/tenant/campaign/character scope, in-app inbox](0054-notifications.md)
+- [0055 - Group-scoped notifications](0055-group-scoped-notifications.md)
