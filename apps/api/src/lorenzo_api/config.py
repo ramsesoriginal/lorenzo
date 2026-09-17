@@ -1,7 +1,9 @@
+import json
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
 
@@ -39,12 +41,46 @@ class Settings(BaseSettings):
     # with the key "tenant_creator" (see ADR 0033's addendum).
     tenant_creator_role_key: str = "tenant_creator"
 
-    # CORS (ADR 0048) - a JSON array of exact origins in the
-    # CORS_ALLOWED_ORIGINS env var, e.g. ["https://lorenzo.example.com"].
-    # Defaults to empty (no cross-origin browser access at all), matching
-    # this app's other fail-closed defaults - curl/server-to-server callers
-    # are unaffected either way, CORS only ever restricts browser JS.
-    cors_allowed_origins: list[str] = []
+    # CORS (ADR 0048) - space-separated exact origins in the
+    # CORS_ALLOWED_ORIGINS env var, e.g. "https://a.example.com
+    # https://b.example.com". Defaults to empty (no cross-origin browser
+    # access at all), matching this app's other fail-closed defaults - curl/
+    # server-to-server callers are unaffected either way, CORS only ever
+    # restricts browser JS.
+    # `NoDecode`: without it, pydantic-settings JSON-decodes this field's raw
+    # env string itself, in its own env-source layer, *before* any
+    # field_validator below ever runs - confirmed the hard way, not assumed
+    # (a `mode="before"` validator alone did nothing; the crash traced back
+    # into pydantic_settings' own EnvSettingsSource, never reaching this
+    # class at all). NoDecode defers all decoding to _parse_cors_origins.
+    cors_allowed_origins: Annotated[list[str], NoDecode] = []
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: object) -> object:
+        # Originally a JSON array (`["https://a", "https://b"]`), like every
+        # other list[str] setting pydantic-settings JSON-decodes from an env
+        # var. Real production use surfaced a real problem with that: more
+        # than one origin means a literal `,` *inside* the value, and
+        # google-github-actions/deploy-cloudrun's `env_vars` joins entries
+        # with `,` too - the comma inside the value collided with the comma
+        # between entries, and gcloud silently split the value at the wrong
+        # place. The container received a truncated, invalid-JSON fragment
+        # and crashed at Settings() construction, before ever binding to a
+        # port - confirmed against a real failed deploy, not assumed. A
+        # value with no comma at all sidesteps the collision entirely rather
+        # than needing every layer between here and there (this action, its
+        # own gcloud invocation, and gcloud's own list-argument parsing) to
+        # agree on some escaping convention. Still accepts the original JSON
+        # form (any existing `.env` using it keeps working) - only a plain
+        # string that isn't JSON gets split on whitespace instead.
+        if isinstance(v, str) and v.strip() == "":
+            return []
+        if isinstance(v, str) and not v.strip().startswith("["):
+            return v.split()
+        if isinstance(v, str):
+            return json.loads(v)
+        return v
 
     @field_validator("database_url", "migrations_database_url")
     @classmethod
