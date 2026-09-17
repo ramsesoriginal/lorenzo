@@ -43,6 +43,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/item` | Displays an item's description, stats, and notes in the channel |
 | `/move` | Moves one of your items into another container you own |
 | `/note` | Adds a public, private, GM-private, or group-visible note to an item |
+| `/whoami` | Shows which Lorenzo identity you're linked to, your tenant role, and your characters here |
 | `/ping` | Liveness check |
 
 ## Architecture

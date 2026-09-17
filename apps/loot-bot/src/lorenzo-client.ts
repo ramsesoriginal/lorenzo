@@ -31,6 +31,24 @@ export type MyPlayer = Readonly<{
   characters: readonly ControlledCharacter[];
 }>;
 
+/**
+ * Everything `/whoami` shows, out of one `GET /me` call - `membershipRole`
+ * and `characters` are filtered to this bot's own tenant the same way
+ * {@link getMyPlayers}/{@link getControlledCharacters} already do (flat,
+ * not grouped by campaign like `MyPlayer` - `PlayerContextOut` carries a
+ * campaign *id*, not its name, and a raw UUID wouldn't read as "presented
+ * nicely"; character names alone are enough for an identity check).
+ * `gmCampaignCount` deliberately isn't tenant-filtered - `/me`'s
+ * `campaign_gm_grants` carries no `tenant_id` at all, the same cross-tenant
+ * imprecision {@link isCampaignGm}'s own doc comment already flags, so
+ * this is honestly a global count, not a per-tenant one.
+ */
+export type MyProfile = Readonly<{
+  membershipRole: string | null;
+  characters: readonly ControlledCharacter[];
+  gmCampaignCount: number;
+}>;
+
 /** One item instance the caller owns, flattened out of whichever
  * character/container it's actually grouped under - `/give`'s and
  * `/item`'s own "item" autocomplete both just want a flat pickable list. */
@@ -173,6 +191,29 @@ export function createLorenzoApiClient(baseUrl: string) {
           campaignId: player.campaign_id,
           characters: player.characters.map((c) => ({ entityId: c.entity_id, name: c.name })),
         }));
+    },
+
+    /**
+     * `/whoami` (ADR 0050) - one `GET /me` call rather than composing
+     * getMyPlayers/isCampaignGm separately, which would hit this same
+     * endpoint two or three times for what's really one screen of
+     * information.
+     */
+    async getMyProfile(tenantId: string, accessToken: string): Promise<MyProfile> {
+      const { data, error, response } = await client.GET("/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+
+      return {
+        membershipRole: data.memberships.find((m) => m.tenant_id === tenantId)?.role ?? null,
+        characters: data.players
+          .filter((player) => player.tenant_id === tenantId)
+          .flatMap((player) =>
+            player.characters.map((c) => ({ entityId: c.entity_id, name: c.name })),
+          ),
+        gmCampaignCount: data.campaign_gm_grants.length,
+      };
     },
 
     /**

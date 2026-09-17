@@ -10,6 +10,7 @@ import { pingCommand } from "./ping.js";
 import { setCurrentCommand } from "./set-current.js";
 import type { AnyInteraction, Command, CommandContext } from "./types.js";
 import { unlinkCommand } from "./unlink.js";
+import { whoamiCommand } from "./whoami.js";
 
 export type { AnyInteraction, Command, CommandContext } from "./types.js";
 
@@ -28,6 +29,7 @@ const commands: readonly Command[] = [
   moveCommand,
   noteCommand,
   unlinkCommand,
+  whoamiCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
