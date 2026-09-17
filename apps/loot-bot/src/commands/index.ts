@@ -1,6 +1,7 @@
 import { awardCommand } from "./award.js";
 import { confiscateCommand } from "./confiscate.js";
 import { dropCommand } from "./drop.js";
+import { giveBulkCommand } from "./give-bulk.js";
 import { giveCommand } from "./give.js";
 import { inspectCommand } from "./inspect.js";
 import { introduceCommand } from "./introduce.js";
@@ -44,6 +45,7 @@ const commands: readonly Command[] = [
   pendingClaimsCommand,
   mergeCommand,
   renameCommand,
+  giveBulkCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());
