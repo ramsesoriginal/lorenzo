@@ -28,6 +28,8 @@ __all__ = [
     "CharacterNotFoundError",
     "EntityNotFoundError",
     "EntityStatManagementForbiddenError",
+    "InvalidCharacterError",
+    "InvalidGroupMemberError",
     "InvalidItemPrototypeError",
     "InvalidMergeError",
     "InformationAlreadyExistsError",
@@ -481,3 +483,28 @@ class InformationManagementForbiddenError(ForbiddenProblem):
     """
 
     title = "Not authorized to manage this entity's information"
+
+
+class InvalidCharacterError(UnprocessableProblem):
+    """POST /groups, PUT .../groups/{id}/members/{character_entity_id},
+    POST .../groups/{id}/members/bulk - the given id doesn't resolve to a
+    real Character in this tenant. Mirrors InvalidUserError/
+    InvalidItemPrototypeError's own "body references something that isn't
+    there" shape - without this, GroupMember.character_entity_id's own FK
+    to character.entity_id would otherwise surface as a bare 500. See ADR
+    0064.
+    """
+
+    title = "Character id does not reference an existing character"
+
+
+class InvalidGroupMemberError(UnprocessableProblem):
+    """PUT .../groups/{group_entity_id}/members/{character_entity_id} and
+    its bulk/create-time equivalents - character_entity_id equals
+    group_entity_id. Pre-checked rather than left to surface as a raw
+    group_member_no_self_loop CHECK violation - a real, reachable case
+    since nothing stops an entity from independently acquiring both a
+    group role and a Character row (RFC 0001). See ADR 0064.
+    """
+
+    title = "An entity cannot be a member of its own group"

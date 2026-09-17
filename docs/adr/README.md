@@ -66,3 +66,7 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0061 - Notification sender read-receipts](0061-notification-sender-read-receipts.md)
 - [0062 - Bulk invite to tenant](0062-bulk-invite-to-tenant.md)
 - [0063 - Tenant activity log (first slice)](0063-tenant-activity-log.md)
+- [0064 - Group write API: create/rename/delete, membership, bulk add, duplicate](0064-group-write-api.md)
+- [0065 - Bulk item-instance container move](0065-bulk-item-instance-container-move.md)
+- [0066 - `is_container` as a computed field, mirroring the tag](0066-is-container-computed-field.md)
+- [0067 - `title` falls back to `name` when empty](0067-item-title-falls-back-to-name.md)

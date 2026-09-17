@@ -1114,7 +1114,10 @@ async def test_update_item_instance_self_service_rename(
     )
 
     assert response.status_code == 200
-    assert response.json()["title"] is None  # rename only touches entity.name, not title
+    # No description authored - title falls back to entity.name (ADR 0067),
+    # so it reflects the rename too even though rename only ever touches
+    # entity.name, never a description payload's own title.
+    assert response.json()["title"] == "Renamed Ashfang"
     async with admin_session_factory() as session:
         updated_entity = await session.get_one(Entity, entity_id)
         assert updated_entity.name == "Renamed Ashfang"
@@ -1991,4 +1994,252 @@ async def test_bulk_assign_without_quantity_reassigns_whole_instance(
     assert results[0]["item_instance"]["entity_id"] == str(entity_id)
     assert results[0]["item_instance"]["owner_entity_id"] == str(recipient_id)
 
+    await delete_tenant(tenant_id)
+
+
+async def _make_two_stacked_instances_in_same_container(
+    tenant_id: uuid.UUID, *, test_user_id: uuid.UUID
+) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+    """Two owned item instances contained in the *same* backpack - what
+    bulk-move's from_container_entity_id mode needs to move more than one
+    at once. Returns (backpack_id, entity_id_1, entity_id_2).
+    """
+    prototype_id = await _make_item(tenant_id, "Coin")
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+        character = await _make_own_character(
+            session, tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id
+        )
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        entity_1 = Entity(tenant_id=tenant_id, name="Coin A")
+        entity_2 = Entity(tenant_id=tenant_id, name="Coin B")
+        session.add_all([backpack, entity_1, entity_2])
+        await session.flush()
+        session.add_all(
+            [
+                ItemInstance(entity_id=entity_1.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=entity_2.id, tenant_id=tenant_id),
+            ]
+        )
+        session.add_all(
+            [
+                EntityPrototype(
+                    entity_id=entity_1.id, prototype_id=prototype_id, tenant_id=tenant_id
+                ),
+                EntityPrototype(
+                    entity_id=entity_2.id, prototype_id=prototype_id, tenant_id=tenant_id
+                ),
+            ]
+        )
+        session.add_all(
+            [
+                Ownership(
+                    owned_entity_id=entity_1.id,
+                    owner_character_id=character.entity_id,
+                    tenant_id=tenant_id,
+                ),
+                Ownership(
+                    owned_entity_id=entity_2.id,
+                    owner_character_id=character.entity_id,
+                    tenant_id=tenant_id,
+                ),
+            ]
+        )
+        session.add_all(
+            [
+                Containment(
+                    child_entity_id=entity_1.id, parent_entity_id=backpack.id, tenant_id=tenant_id
+                ),
+                Containment(
+                    child_entity_id=entity_2.id, parent_entity_id=backpack.id, tenant_id=tenant_id
+                ),
+            ]
+        )
+        await session.commit()
+        return backpack.id, entity_1.id, entity_2.id
+
+
+async def test_bulk_move_from_container_moves_every_direct_child(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0065: from_container_entity_id resolves to every item instance
+    directly contained there, moving each into to_container_entity_id in
+    one call.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    backpack_id, entity_1, entity_2 = await _make_two_stacked_instances_in_same_container(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Chest")
+        session.add(chest)
+        await session.commit()
+        chest_id = chest.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={
+            "to_container_entity_id": str(chest_id),
+            "from_container_entity_id": str(backpack_id),
+        },
+    )
+
+    assert response.status_code == 200
+    results = {r["entity_id"]: r for r in response.json()}
+    assert len(results) == 2
+    for entity_id in (str(entity_1), str(entity_2)):
+        assert results[entity_id]["status"] == "ok"
+        assert results[entity_id]["item_instance"]["container_entity_id"] == str(chest_id)
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_move_with_explicit_items_list(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0065: the items mode moves exactly the given list, quantity
+    riding along untouched (a move isn't a split, ADR 0041).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    entity_id, _, _ = await _make_stacked_instance(tenant_id, test_user_id=test_user_id, quantity=3)
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Chest")
+        session.add(chest)
+        await session.commit()
+        chest_id = chest.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={"to_container_entity_id": str(chest_id), "items": [{"entity_id": str(entity_id)}]},
+    )
+
+    assert response.status_code == 200
+    results = response.json()
+    assert len(results) == 1
+    assert results[0]["status"] == "ok"
+    assert results[0]["item_instance"]["container_entity_id"] == str(chest_id)
+    assert results[0]["item_instance"]["quantity"] == 3
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_move_reports_mixed_outcomes_without_failing_the_batch(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0065: never all-or-nothing - an unrelated player's item with no
+    standing doesn't stop the rest of the batch, mirroring bulk-assign's
+    identical mixed-outcome precedent (ADR 0044).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    ok_entity_id, _, _ = await _make_stacked_instance(
+        tenant_id, test_user_id=test_user_id, quantity=1
+    )
+    _, _, _, bob_item_id, _, bob_user_id = await _make_cross_owner_fixture(
+        tenant_id, test_user_id=test_user_id
+    )
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Chest")
+        session.add(chest)
+        # Downgrade test_user_id away from make_tenant's default tenant
+        # OWNER role - can_manage_campaign's own bypass would otherwise let
+        # bob_item_id succeed too and defeat this test's whole point,
+        # mirroring test_bulk_assign_reports_mixed_outcomes_without_
+        # failing_the_batch's identical setup.
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        await session.delete(membership)
+        await session.commit()
+        chest_id = chest.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={
+            "to_container_entity_id": str(chest_id),
+            "items": [{"entity_id": str(ok_entity_id)}, {"entity_id": str(bob_item_id)}],
+        },
+    )
+
+    assert response.status_code == 200
+    results = response.json()
+    assert len(results) == 2
+    assert results[0]["status"] == "ok"
+    assert results[0]["item_instance"]["container_entity_id"] == str(chest_id)
+    assert results[1]["status"] == "error"
+    assert results[1]["problem"]["status"] == 403
+
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, bob_user_id))
+        await session.commit()
+
+
+async def test_bulk_move_requires_exactly_one_source_mode(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0065: from_container_entity_id/items is a request-shape
+    invariant (Pydantic's own model_validator, not a typed Problem) -
+    neither given, or both given, is a plain 422.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Chest")
+        session.add(chest)
+        await session.commit()
+        chest_id = chest.id
+
+    neither = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={"to_container_entity_id": str(chest_id)},
+    )
+    assert neither.status_code == 422
+
+    both = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={
+            "to_container_entity_id": str(chest_id),
+            "from_container_entity_id": str(chest_id),
+            "items": [],
+        },
+    )
+    assert both.status_code == 422
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_move_404_for_unknown_destination_container(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={
+            "to_container_entity_id": "00000000-0000-0000-0000-000000000000",
+            "items": [],
+        },
+    )
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_move_404_for_unknown_source_container(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        chest = Entity(tenant_id=tenant_id, name="Chest")
+        session.add(chest)
+        await session.commit()
+        chest_id = chest.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances/bulk-move",
+        json={
+            "to_container_entity_id": str(chest_id),
+            "from_container_entity_id": "00000000-0000-0000-0000-000000000000",
+        },
+    )
+
+    assert response.status_code == 404
     await delete_tenant(tenant_id)
