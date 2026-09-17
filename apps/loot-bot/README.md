@@ -48,7 +48,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 ## Architecture
 
 - `src/config.ts` — env loading/validation (zod).
-- `src/http-server.ts` — a bare `node:http` server (`/healthz`, `/auth/callback`, `/interactions`) — no framework; see ADR 0050 for why.
+- `src/http-server.ts` — a bare `node:http` server (`/livez`, `/auth/callback`, `/interactions`) — no framework; see ADR 0050 for why.
 - `src/interactions-route.ts` — the `/interactions` route: verifies each webhook's Ed25519 signature (`src/discord-signature.ts`), builds this bot's adapter interaction (`src/interaction-adapter.ts`), and answers Discord's original request with whatever a command's first reply/deferReply/deferUpdate/update/showModal/respond call resolves — no `discord.js` Gateway `Client` involved ([ADR 0053](../../docs/adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)).
 - `src/discord-rest.ts` — the small set of outbound Discord HTTP calls a deferred response needs (`editReply`/`followUp`), authenticated by the interaction's own token, not a bot token.
 - `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts` (chat-input, autocomplete, and — since `/drop`, ADR 0052 — select-menu/button/modal interactions too, routed by a `customId` namespace convention). Every command file is written against `src/commands/types.ts`'s own transport-agnostic interaction types, not `discord.js`'s Gateway-only classes.
