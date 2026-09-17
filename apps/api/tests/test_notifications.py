@@ -321,6 +321,100 @@ async def test_list_my_notifications_unread_only_filter(
     await delete_tenant(tenant_id)
 
 
+async def test_list_my_sent_notifications_shows_batch_and_recipients(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0057 - the sender's side of read receipts. test_user_id is both
+    the caller (created_by) and, as tenant OWNER, one of the two recipients
+    a full-roster broadcast fans out to - both rows share one batch_id.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        await session.flush()
+        player = await make_player(session, tenant_id=tenant_id, campaign_id=campaign.id)
+        await session.commit()
+        player_user_id = player.user_id
+
+    create_response = await client.post(
+        f"/tenants/{tenant_id}/notifications",
+        json={"type": "announcement", "title": "Everyone", "body": "News"},
+    )
+    assert create_response.status_code == 201
+    created = create_response.json()
+    batch_ids = {n["batch_id"] for n in created}
+    assert len(batch_ids) == 1
+
+    response = await client.get("/me/notifications/sent")
+    assert response.status_code == 200
+    sent_by_recipient = {item["user_id"]: item for item in response.json()["items"]}
+    test_user_id_str = str(test_user_id)
+    assert {test_user_id_str, str(player_user_id)} <= sent_by_recipient.keys()
+    assert sent_by_recipient[test_user_id_str]["batch_id"] == next(iter(batch_ids))
+    assert sent_by_recipient[str(player_user_id)]["batch_id"] == next(iter(batch_ids))
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, player_user_id))
+        await session.commit()
+    await delete_tenant(tenant_id)
+
+
+async def test_list_my_sent_notifications_filters_by_batch_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    first = await client.post(
+        f"/tenants/{tenant_id}/notifications", json={"type": "a", "title": "First", "body": "a"}
+    )
+    second = await client.post(
+        f"/tenants/{tenant_id}/notifications", json={"type": "b", "title": "Second", "body": "b"}
+    )
+    first_batch_id = first.json()[0]["batch_id"]
+    second_batch_id = second.json()[0]["batch_id"]
+    assert first_batch_id != second_batch_id
+
+    response = await client.get("/me/notifications/sent", params={"batch_id": first_batch_id})
+    assert response.status_code == 200
+    titles = {item["title"] for item in response.json()["items"]}
+    assert titles == {"First"}
+
+    await delete_tenant(tenant_id)
+
+
+async def test_list_my_sent_notifications_excludes_notifications_created_by_others(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        other = User(authgear_subject_id=f"authgear|other-sender-{uuid.uuid4()}")
+        session.add(other)
+        await session.flush()
+        notification = Notification(
+            batch_id=uuid.uuid4(),
+            user_id=test_user_id,
+            tenant_id=tenant_id,
+            scope="tenant",
+            source_id=None,
+            type="x",
+            title="Not mine to claim credit for",
+            body="x",
+            created_by=other.id,
+        )
+        session.add(notification)
+        await session.commit()
+        other_id = other.id
+
+    response = await client.get("/me/notifications/sent")
+    assert response.status_code == 200
+    titles = {item["title"] for item in response.json()["items"]}
+    assert "Not mine to claim credit for" not in titles
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, other_id))
+        await session.commit()
+    await delete_tenant(tenant_id)
+
+
 async def test_mark_notification_read_is_idempotent(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
@@ -351,6 +445,7 @@ async def test_mark_notification_read_404_for_someone_elses_notification(
         session.add(other)
         await session.flush()
         notification = Notification(
+            batch_id=uuid.uuid4(),
             user_id=other.id,
             tenant_id=tenant_id,
             scope="tenant",

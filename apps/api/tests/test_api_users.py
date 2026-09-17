@@ -103,6 +103,86 @@ async def test_patch_me_409_on_duplicate_nickname(
         await session.commit()
 
 
+@pytest.fixture
+async def _restore_test_user_profile(test_user_id: uuid.UUID) -> AsyncGenerator[None]:
+    """Same leakage concern as _restore_test_user_nickname above, but for
+    every ADR 0056 profile field a test below might set.
+    """
+    yield
+    async with admin_session_factory() as session:
+        user = await session.get(User, test_user_id)
+        if user is not None:
+            user.display_name = None
+            user.pronouns = None
+            user.bio = None
+            user.locales = []
+            user.user_color = None
+            await session.commit()
+
+
+async def test_patch_me_sets_full_profile(
+    client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_profile: None
+) -> None:
+    response = await client.patch(
+        "/me",
+        json={
+            "display_name": "Display Name",
+            "pronouns": "they/them",
+            "bio": "A short bio.",
+            "locales": ["en-US", "de-DE"],
+            "user_color": "#1A2B3C",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["display_name"] == "Display Name"
+    assert body["pronouns"] == "they/them"
+    assert body["bio"] == "A short bio."
+    assert body["locales"] == ["en-US", "de-DE"]
+    assert body["user_color"] == "#1A2B3C"
+
+    async with admin_session_factory() as session:
+        user = await session.get_one(User, test_user_id)
+        assert user.display_name == "Display Name"
+        assert user.pronouns == "they/them"
+        assert user.bio == "A short bio."
+        assert user.locales == ["en-US", "de-DE"]
+        assert user.user_color == "#1A2B3C"
+
+
+async def test_patch_me_partial_update_leaves_other_fields_untouched(
+    client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_profile: None
+) -> None:
+    """exclude_unset semantics (ADR 0056) - an omitted field is left alone,
+    unlike an explicit `null`, which still clears it.
+    """
+    first = await client.patch("/me", json={"display_name": "First", "bio": "Original bio"})
+    assert first.status_code == 200
+
+    second = await client.patch("/me", json={"bio": "Updated bio"})
+    assert second.status_code == 200
+    body = second.json()
+    assert body["display_name"] == "First"
+    assert body["bio"] == "Updated bio"
+
+
+async def test_patch_me_rejects_invalid_user_color(
+    client: AsyncClient, test_user_id: uuid.UUID, _restore_test_user_profile: None
+) -> None:
+    response = await client.patch("/me", json={"user_color": "not-a-color"})
+    assert response.status_code == 422
+
+    async with admin_session_factory() as session:
+        assert (await session.get_one(User, test_user_id)).user_color is None
+
+
+async def test_get_me_includes_picture_url(client: AsyncClient, test_user_id: uuid.UUID) -> None:
+    response = await client.get("/me")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["picture_url"].endswith(f"/users/{test_user_id}/picture")
+
+
 async def test_get_user_by_email_exact_match(client: AsyncClient) -> None:
     email = f"{uuid.uuid4()}@example.com"
     async with admin_session_factory() as session:
@@ -113,7 +193,7 @@ async def test_get_user_by_email_exact_match(client: AsyncClient) -> None:
 
     found = await client.get(f"/users/by-email/{email}")
     assert found.status_code == 200
-    assert found.json() == {"id": str(target_id), "nickname": None}
+    assert found.json() == {"id": str(target_id), "nickname": None, "display_name": None}
 
     not_found = await client.get(f"/users/by-email/does-not-exist-{uuid.uuid4()}@example.com")
     assert not_found.status_code == 404
@@ -133,7 +213,7 @@ async def test_get_user_by_nickname_exact_match_only(client: AsyncClient) -> Non
 
     found = await client.get(f"/users/by-nickname/{nickname}")
     assert found.status_code == 200
-    assert found.json() == {"id": str(target_id), "nickname": nickname}
+    assert found.json() == {"id": str(target_id), "nickname": nickname, "display_name": None}
 
     # A substring of a real nickname must not match - exact match only,
     # no partial/fuzzy search surface (ADR 0051).
