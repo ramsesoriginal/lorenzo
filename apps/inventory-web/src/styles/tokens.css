@@ -1,0 +1,102 @@
+/*
+ * Design tokens translated from docs/brand/identity.md:
+ * - §6 (color), §6.4 (neutral system), §6.6 (design-token starter)
+ * - §5 (typography)
+ * - §8.1 (spacing), §8.3 (radius)
+ *
+ * `light-dark()` + `color-scheme` pick the right side from the system
+ * preference automatically — no [data-theme] toggle needed for v1 (identity.md's
+ * own CSS starter uses [data-theme="dark"], but that's for a manual toggle
+ * this app doesn't have yet; light-dark() covers the same ground with less
+ * moving parts until a toggle is actually built).
+ */
+
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource/instrument-serif";
+
+:root {
+  color-scheme: light dark;
+
+  /* Core palette (identity.md §6.1) */
+  --lorenzo-ink: #08131f;
+  --lorenzo-archive-blue: #1769c2;
+  --lorenzo-astral-blue: #3b91e8;
+  --lorenzo-gold: #b88a3b;
+  --lorenzo-parchment: #f4efe5;
+  --lorenzo-paper: #fbfaf7;
+  --lorenzo-burgundy: #7b2638;
+
+  /* Semantic roles (identity.md §6.2/§6.6) */
+  --bg: light-dark(var(--lorenzo-paper), var(--lorenzo-ink));
+  --surface: light-dark(var(--lorenzo-paper), var(--lorenzo-ink));
+  --fg: light-dark(var(--lorenzo-ink), var(--lorenzo-paper));
+  --action: light-dark(var(--lorenzo-archive-blue), var(--lorenzo-astral-blue));
+  --brand-accent: var(--lorenzo-gold);
+
+  /* Neutral system derived from Ink/Paper through opacity (identity.md §6.4) */
+  --fg-secondary: light-dark(
+    color-mix(in srgb, var(--lorenzo-ink) 70%, transparent),
+    color-mix(in srgb, var(--lorenzo-paper) 75%, transparent)
+  );
+  --fg-tertiary: light-dark(
+    color-mix(in srgb, var(--lorenzo-ink) 52%, transparent),
+    color-mix(in srgb, var(--lorenzo-paper) 55%, transparent)
+  );
+  --border: light-dark(
+    color-mix(in srgb, var(--lorenzo-ink) 16%, transparent),
+    color-mix(in srgb, var(--lorenzo-paper) 16%, transparent)
+  );
+  --fill-soft: light-dark(
+    color-mix(in srgb, var(--lorenzo-ink) 6%, transparent),
+    color-mix(in srgb, var(--lorenzo-paper) 7%, transparent)
+  );
+
+  /* Typography (identity.md §5.2) */
+  --font-ui: "Geist Variable", Geist, Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Spacing scale — 8px rhythm with a 4px half-step (identity.md §8.1) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 64px;
+
+  /* Radius scale (identity.md §8.3) */
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-surface: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}

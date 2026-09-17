@@ -35,3 +35,14 @@ updates:
       docker:
         patterns:
           - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/apps/inventory-web"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm:
+        patterns:
+          - "*"

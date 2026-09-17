@@ -85,5 +85,12 @@ repos:
             "**/*.md",
           ]
 
-# Further language-specific hooks (biome, etc.) get added here alongside
-# the next app that needs them - see docs/guides/adding-an-app.md.
+  # Biome covers ts/js/json/css in apps/inventory-web. .astro files are
+  # Prettier's job instead (ADR 0004 - Biome's .astro support is still
+  # experimental), so this hook is scoped past them.
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v2.5.13
+    hooks:
+      - id: biome-check
+        files: ^apps/inventory-web/
+        exclude: \.astro$

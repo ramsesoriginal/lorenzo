@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  width="512"
+  height="512"
+  role="img"
+  aria-labelledby="lorenzo-mark-title lorenzo-mark-desc"
+  style="color:#B88A3B"
+>
+  <title id="lorenzo-mark-title">Lorenzo brand mark</title>
+  <desc id="lorenzo-mark-desc">
+    A bespoke four-point sparkle and compass mark with a matching negative-space center.
+    The symbol represents orientation across worlds, discovery, and connected knowledge.
+  </desc>
+
+  <!--
+    LORENZO / BRAND MARK
+    ====================
+    Master artwork. Single-color by design.
+
+    Geometry:
+    - 512 × 512 square coordinate system
+    - vertically biased four-point sparkle for a more editorial silhouette
+    - smooth concave transitions avoid a heraldic / compass-rose feel
+    - self-similar center knockout creates the recognizable “spark within spark” gesture
+
+    Usage:
+    - inherits from `currentColor`; change the root `color` or parent CSS color
+    - recommended brand colors:
+        Medici Gold  #B88A3B
+        Lorenzo Ink  #08131F
+        Paper        #FBFAF7
+        Archive Blue #1769C2
+    - no strokes, filters, masks, gradients, or transforms: robust at favicon scale
+  -->
+
+  <g id="lorenzo-brand-mark" fill="currentColor">
+    <path
+      id="spark-compass"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="
+        M 256 20
+        C 268 126, 282 193, 309 217
+        C 333 239, 394 250, 492 256
+        C 394 262, 333 273, 309 295
+        C 282 319, 268 386, 256 492
+        C 244 386, 230 319, 203 295
+        C 179 273, 118 262, 20 256
+        C 118 250, 179 239, 203 217
+        C 230 193, 244 126, 256 20
+        Z
+
+        M 256 218
+        C 261 232, 280 251, 294 256
+        C 280 261, 261 280, 256 294
+        C 251 280, 232 261, 218 256
+        C 232 251, 251 232, 256 218
+        Z
+      "
+    />
+  </g>
+</svg>
