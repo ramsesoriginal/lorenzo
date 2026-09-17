@@ -88,6 +88,14 @@ button:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius-surface);
   padding: var(--space-3);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.board-column--drop-target {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 10%, var(--fill-soft));
 }
 
 .board-column h3 {
@@ -130,6 +138,14 @@ button:hover {
 
 .item-card:hover {
   --item-accent: var(--action);
+}
+
+.item-card[draggable="true"] {
+  cursor: grab;
+}
+
+.item-card[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 @media (prefers-reduced-motion: no-preference) {

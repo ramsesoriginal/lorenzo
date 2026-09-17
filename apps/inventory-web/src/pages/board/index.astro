@@ -28,7 +28,7 @@ import Base from '../../layouts/Base.astro';
   <script>
     import { isAuthenticated } from '../../lib/auth';
     import { listMyCharacters } from '../../lib/characters';
-    import { getOwnedItemInstances } from '../../lib/items';
+    import { clearContainer, getOwnedItemInstances, setContainer } from '../../lib/items';
     import { getTenant } from '../../lib/tenants';
     import type { CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
 
@@ -61,12 +61,121 @@ import Base from '../../layouts/Base.astro';
       return tagged || holdsSomething;
     }
 
+    // Same-document View Transition when the browser supports it and the
+    // user hasn't asked for reduced motion; a plain DOM mutation otherwise.
+    function withReflow(mutate: () => void) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduceMotion && document.startViewTransition) {
+        document.startViewTransition(mutate);
+      } else {
+        mutate();
+      }
+    }
+
+    function ensurePlaceholder(list: HTMLUListElement) {
+      if (list.children.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'column-empty';
+        empty.textContent = 'This container is empty.';
+        list.append(empty);
+      }
+    }
+
+    function removePlaceholder(list: HTMLUListElement) {
+      list.querySelector('.column-empty')?.remove();
+    }
+
+    function showTransientError(message: string) {
+      inventoryError.hidden = false;
+      inventoryError.textContent = message;
+      window.setTimeout(() => {
+        inventoryError.hidden = true;
+      }, 5000);
+    }
+
+    // dragenter/dragleave both fire while crossing child elements (a card
+    // moving within its own column), so a plain "leave clears the
+    // highlight" handler flickers - a per-column counter fixes that.
+    const dragDepth = new WeakMap<HTMLElement, number>();
+
+    function bindDropZone(
+      column: HTMLElement,
+      list: HTMLUListElement,
+      containerEntityId: string | null,
+    ) {
+      column.addEventListener('dragenter', (event) => {
+        event.preventDefault();
+        dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
+        column.classList.add('board-column--drop-target');
+      });
+
+      column.addEventListener('dragleave', () => {
+        const depth = (dragDepth.get(column) ?? 1) - 1;
+        dragDepth.set(column, depth);
+        if (depth <= 0) {
+          column.classList.remove('board-column--drop-target');
+        }
+      });
+
+      column.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+      });
+
+      column.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dragDepth.set(column, 0);
+        column.classList.remove('board-column--drop-target');
+
+        const entityId = event.dataTransfer?.getData('text/plain');
+        if (!entityId) return;
+        const card = boardColumns.querySelector<HTMLLIElement>(
+          `.item-card[data-entity-id="${entityId}"]`,
+        );
+        if (!card) return;
+
+        const sourceList = card.parentElement as HTMLUListElement;
+        if (sourceList === list) return;
+
+        withReflow(() => {
+          removePlaceholder(list);
+          list.append(card);
+          ensurePlaceholder(sourceList);
+        });
+
+        const request = containerEntityId
+          ? setContainer(tenantId as string, entityId, containerEntityId)
+          : clearContainer(tenantId as string, entityId);
+
+        request.catch((e) => {
+          withReflow(() => {
+            removePlaceholder(sourceList);
+            sourceList.append(card);
+            ensurePlaceholder(list);
+          });
+          showTransientError(e instanceof Error ? e.message : String(e));
+        });
+      });
+    }
+
     function renderCard(item: ItemInstance, groups: OwnedGroup[]): HTMLLIElement {
       const li = document.createElement('li');
       li.className = 'item-card';
+      li.draggable = true;
+      li.dataset.entityId = item.entity_id;
+      li.style.viewTransitionName = `item-${item.entity_id}`;
       if (isContainer(item, groups)) {
         li.classList.add('item-card--container');
       }
+
+      li.addEventListener('dragstart', (event) => {
+        event.dataTransfer?.setData('text/plain', item.entity_id);
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+        }
+      });
 
       const title = document.createElement('span');
       title.className = 'item-card-title';
@@ -94,16 +203,16 @@ import Base from '../../layouts/Base.astro';
       const list = document.createElement('ul');
       list.className = 'column-cards';
       if (group.item_instances.length === 0) {
-        const empty = document.createElement('li');
-        empty.className = 'column-empty';
-        empty.textContent = 'This container is empty.';
-        list.append(empty);
+        ensurePlaceholder(list);
       } else {
         for (const item of group.item_instances) {
           list.append(renderCard(item, groups));
         }
       }
       section.append(list);
+
+      bindDropZone(section, list, group.container?.id ?? null);
+
       return section;
     }
 
