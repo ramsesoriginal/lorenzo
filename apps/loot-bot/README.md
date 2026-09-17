@@ -58,6 +58,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |
+| `/help` | Lists every command, grouped by what it's for, or (with `command`) one command's full options |
 
 ## Architecture
 
@@ -65,7 +66,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 - `src/http-server.ts` — a bare `node:http` server (`/livez`, `/auth/callback`, `/interactions`) — no framework; see ADR 0050 for why.
 - `src/interactions-route.ts` — the `/interactions` route: verifies each webhook's Ed25519 signature (`src/discord-signature.ts`), builds this bot's adapter interaction (`src/interaction-adapter.ts`), and answers Discord's original request with whatever a command's first reply/deferReply/deferUpdate/update/showModal/respond call resolves — no `discord.js` Gateway `Client` involved ([ADR 0053](../../docs/adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)).
 - `src/discord-rest.ts` — the small set of outbound Discord HTTP calls a deferred response needs (`editReply`/`followUp`), authenticated by the interaction's own token, not a bot token — plus one bot-token-authenticated exception, `getRecentChannelAuthorIds` (`/add-channel-to-group`'s own "who's been active here" source, a plain REST read of channel message history needing no Gateway connection).
-- `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts` (chat-input, autocomplete, and — since `/drop`, ADR 0052 — select-menu/button/modal interactions too, routed by a `customId` namespace convention). Every command file is written against `src/commands/types.ts`'s own transport-agnostic interaction types, not `discord.js`'s Gateway-only classes.
+- `src/commands/` — one file per slash command, dispatched by `src/commands/index.ts` (chat-input, autocomplete, and — since `/drop`, ADR 0052 — select-menu/button/modal interactions too, routed by a `customId` namespace convention). Every command file is written against `src/commands/types.ts`'s own transport-agnostic interaction types, not `discord.js`'s Gateway-only classes. `dispatchInteraction` also injects the full command list into `ctx.commands` before running any command - `/help`'s own source of truth (ADR 0068), not a second hand-maintained list.
 - `src/commands/item-transfer.ts` — the split-vs-whole-transfer decision `/give`/`/reassign`/`/drop`'s take/apply-claims share (`transferItem`), and its destroy-side counterpart `/confiscate` uses (`destroyItem`).
 - `src/commands/gm-roster.ts` — `findGmControlledCharacters`: every character in a campaign the caller GMs, shared by `/award`/`/inspect`/`/confiscate`/`/reassign`.
 - `src/token-provider.ts` — `getValidAccessToken(discordUserId)`: the seam between commands and the account-linking/refresh machinery.
