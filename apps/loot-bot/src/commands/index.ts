@@ -1,3 +1,5 @@
+import { addChannelToGroupCommand } from "./add-channel-to-group.js";
+import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
 import { confiscateCommand } from "./confiscate.js";
 import { dropCommand } from "./drop.js";
@@ -9,6 +11,7 @@ import { inventoryCommand } from "./inventory.js";
 import { itemCommand } from "./item.js";
 import { linkCommand } from "./link.js";
 import { mergeCommand } from "./merge.js";
+import { moveBulkCommand } from "./move-bulk.js";
 import { moveCommand } from "./move.js";
 import { myGroupsCommand } from "./my-groups.js";
 import { noteCommand } from "./note.js";
@@ -50,6 +53,9 @@ const commands: readonly Command[] = [
   giveBulkCommand,
   undoCommand,
   myGroupsCommand,
+  moveBulkCommand,
+  addToGroupCommand,
+  addChannelToGroupCommand,
 ];
 
 export const commandDefinitions = commands.map((c) => c.definition.toJSON());

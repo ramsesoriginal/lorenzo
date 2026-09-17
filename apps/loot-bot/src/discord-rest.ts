@@ -85,3 +85,36 @@ export async function sendInteractionFollowUp(
   );
   return (await res.json()) as { id: string };
 }
+
+type RawMessage = Readonly<{ author: Readonly<{ id: string; bot?: boolean }> }>;
+
+/**
+ * `/add-channel-to-group`'s own "who's been active here" source (ADR
+ * 0068) - the first bot-token-authenticated call in this file (every
+ * other function here is interaction-token-authenticated, tied to one
+ * specific triggering interaction's own reply chain). This bot has no
+ * persistent Gateway connection to observe channel activity live (ADR
+ * 0053), but a plain REST read of recent message history needs no
+ * Gateway at all - the bot just needs `DISCORD_BOT_TOKEN` and the
+ * `Read Message History` permission in that channel.
+ *
+ * Bot authors are excluded (a loot-bot command posting to the channel
+ * shouldn't count as "someone was here"). Deduplicated, but not resolved
+ * to Lorenzo identities here - that's the caller's own job, since it
+ * needs each author's own linked-account token, not this one.
+ */
+export async function getRecentChannelAuthorIds(
+  botToken: string,
+  channelId: string,
+  limit = 100,
+): Promise<readonly string[]> {
+  const res = await discordFetch(
+    `${DISCORD_API_BASE}/channels/${channelId}/messages?limit=${limit}`,
+    { headers: { authorization: `Bot ${botToken}` } },
+  );
+  const messages = (await res.json()) as readonly RawMessage[];
+  const authorIds = new Set(
+    messages.filter((message) => !message.author.bot).map((message) => message.author.id),
+  );
+  return [...authorIds];
+}
