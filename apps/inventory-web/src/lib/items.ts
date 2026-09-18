@@ -1,5 +1,5 @@
-import { apiDelete, apiFetch, apiPost, apiPut } from './api';
-import type { CatalogItem, ItemInstance, OwnedByResponse, Page } from './types';
+import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
+import type { CatalogItem, EntitySummary, ItemInstance, OwnedByResponse, Page } from './types';
 
 // Grouped by *direct* container only (ADR 0020's task brief) - a null
 // group for items with no container, one group per occupied container.
@@ -59,6 +59,44 @@ export async function createCatalogItem(
     name,
     prototype_ids: prototypeIds,
   });
+}
+
+// PATCH /tenants/{t}/items/{id} - only `name` is mutable through this
+// endpoint (apps/api's own ItemUpdate docstring: "nothing else on a bare
+// Item row exists to update"). Prototypes are a separate sub-resource
+// (setItemPrototypes below, ADR 0072).
+export async function updateCatalogItem(
+  tenantId: string,
+  entityId: string,
+  name: string,
+): Promise<CatalogItem> {
+  return apiPatch<CatalogItem>(`/tenants/${tenantId}/items/${entityId}`, { name });
+}
+
+// PUT /tenants/{t}/items/{id}/prototypes (ADR 0072) - full replacement,
+// same shape as ItemCreate.prototype_ids: the given list becomes the
+// item's complete new set of direct prototypes.
+export async function setItemPrototypes(
+  tenantId: string,
+  entityId: string,
+  prototypeIds: string[],
+): Promise<CatalogItem> {
+  return apiPut<CatalogItem>(`/tenants/${tenantId}/items/${entityId}/prototypes`, {
+    prototype_ids: prototypeIds,
+  });
+}
+
+// GET /tenants/{t}/entities/{id} - only used here for its `prototypes`
+// field (EntityDetailOut, with names), since ItemOut.prototype_ids is
+// id-only - this is what fills the edit panel's initial chips.
+export async function getItemPrototypes(
+  tenantId: string,
+  entityId: string,
+): Promise<EntitySummary[]> {
+  const entity = await apiFetch<{ prototypes: EntitySummary[] }>(
+    `/tenants/${tenantId}/entities/${entityId}`,
+  );
+  return entity.prototypes;
 }
 
 // POST /tenants/{t}/item-instances - instantiates a new item instance from

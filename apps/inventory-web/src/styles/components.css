@@ -316,13 +316,21 @@ pre {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .catalog-row-title {
   font-size: 15px;
 }
 
-.character-picker-panel {
+.catalog-row-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.character-picker-panel,
+.edit-item-panel {
   max-width: 320px;
 }
 
@@ -330,6 +338,12 @@ pre {
   margin-top: var(--space-2);
   font-size: 13px;
   color: var(--fg-secondary);
+}
+
+.field-note {
+  font-size: 13px;
+  color: var(--fg-tertiary);
+  margin: 0;
 }
 
 .item-form {

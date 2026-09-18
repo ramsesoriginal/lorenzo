@@ -11,34 +11,7 @@ import Base from '../../layouts/Base.astro';
 
     <section class="section-lg">
       <h2>New item</h2>
-      <form id="create-item-form" class="item-form">
-        <label class="field">
-          <span class="field-label">Name</span>
-          <input type="text" id="new-item-name" class="text-input" required />
-        </label>
-
-        <div class="field">
-          <span class="field-label" id="parents-label">Parents</span>
-          <div class="combobox" id="parent-combobox">
-            <input
-              type="text"
-              id="parent-search"
-              class="text-input"
-              placeholder="Search items to inherit from&hellip;"
-              autocomplete="off"
-              role="combobox"
-              aria-expanded="false"
-              aria-controls="parent-suggestions"
-              aria-labelledby="parents-label"
-            />
-            <ul id="parent-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
-          </div>
-          <ul id="parent-chips" class="chip-list"></ul>
-        </div>
-
-        <p id="create-item-error" class="error-text" hidden></p>
-        <button type="submit">Create item</button>
-      </form>
+      <div id="create-item-mount"></div>
     </section>
 
     <section class="section-lg">
@@ -48,7 +21,7 @@ import Base from '../../layouts/Base.astro';
           type="search"
           id="catalog-search"
           class="text-input"
-          placeholder="Search the item catalog&hellip;"
+          placeholder="Search the item catalog…"
           aria-label="Search the item catalog"
         />
       </div>
@@ -68,7 +41,7 @@ import Base from '../../layouts/Base.astro';
             type="text"
             id="browse-search"
             class="text-input"
-            placeholder="Search characters&hellip;"
+            placeholder="Search characters…"
             autocomplete="off"
             role="combobox"
             aria-expanded="false"
@@ -92,13 +65,22 @@ import Base from '../../layouts/Base.astro';
     import {
       createCatalogItem,
       createItemInstance,
+      getItemPrototypes,
       getOwnedItemInstances,
       listCatalogItems,
+      setItemPrototypes,
       setOwner,
+      updateCatalogItem,
     } from '../../lib/items';
     import { isCampaignGm } from '../../lib/me';
     import { getTenant } from '../../lib/tenants';
-    import type { CatalogItem, CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
+    import type {
+      CatalogItem,
+      CharacterSummary,
+      EntitySummary,
+      ItemInstance,
+      OwnedGroup,
+    } from '../../lib/types';
 
     const status = document.getElementById('status')!;
     const page = document.getElementById('page')!;
@@ -110,12 +92,7 @@ import Base from '../../layouts/Base.astro';
     const catalogError = document.getElementById('catalog-error')!;
     const catalogList = document.getElementById('catalog-list') as HTMLUListElement;
 
-    const createForm = document.getElementById('create-item-form') as HTMLFormElement;
-    const newItemName = document.getElementById('new-item-name') as HTMLInputElement;
-    const parentSearch = document.getElementById('parent-search') as HTMLInputElement;
-    const parentSuggestions = document.getElementById('parent-suggestions') as HTMLUListElement;
-    const parentChips = document.getElementById('parent-chips') as HTMLUListElement;
-    const createItemError = document.getElementById('create-item-error')!;
+    const createItemMount = document.getElementById('create-item-mount')!;
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
@@ -220,6 +197,205 @@ import Base from '../../layouts/Base.astro';
       return panel;
     }
 
+    // --- Reusable item form: shared by "New item" (create) and each catalog
+    // row's "Edit" panel. A field is just { element, ... } - adding another
+    // one later (stats, tags, whatever the API grows next) means writing one
+    // more field builder and listing it, not touching the form shell.
+
+    function createNameField(initialValue: string): {
+      element: HTMLElement;
+      input: HTMLInputElement;
+    } {
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.className = 'field-label';
+      label.textContent = 'Name';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'text-input';
+      input.required = true;
+      input.value = initialValue;
+      field.append(label, input);
+      return { element: field, input };
+    }
+
+    function createParentsField(options: {
+      initialParents: Map<string, string>;
+      editable: boolean;
+    }): { element: HTMLElement; getSelectedIds: () => string[] } {
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.className = 'field-label';
+      label.textContent = 'Parents';
+      field.append(label);
+
+      const selected = new Map(options.initialParents);
+
+      const chips = document.createElement('ul');
+      chips.className = 'chip-list';
+
+      function renderFieldChips() {
+        chips.replaceChildren();
+        for (const [entityId, title] of selected) {
+          const li = document.createElement('li');
+          li.className = 'chip';
+          const span = document.createElement('span');
+          span.textContent = title;
+          li.append(span);
+          if (options.editable) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'chip-remove';
+            remove.setAttribute('aria-label', `Remove ${title}`);
+            remove.textContent = '×';
+            remove.addEventListener('click', () => {
+              selected.delete(entityId);
+              renderFieldChips();
+            });
+            li.append(remove);
+          }
+          chips.append(li);
+        }
+      }
+      renderFieldChips();
+
+      if (options.editable) {
+        const combobox = document.createElement('div');
+        combobox.className = 'combobox';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'text-input';
+        input.placeholder = 'Search items to inherit from…';
+        input.autocomplete = 'off';
+        const suggestions = document.createElement('ul');
+        suggestions.className = 'combobox-suggestions';
+        suggestions.setAttribute('role', 'listbox');
+        suggestions.hidden = true;
+        combobox.append(input, suggestions);
+        field.append(combobox);
+
+        function closeSuggestions() {
+          suggestions.hidden = true;
+          suggestions.replaceChildren();
+        }
+
+        let debounce: ReturnType<typeof setTimeout> | undefined;
+        input.addEventListener('input', () => {
+          clearTimeout(debounce);
+          const query = input.value.trim();
+          if (!query) {
+            closeSuggestions();
+            return;
+          }
+          debounce = setTimeout(async () => {
+            try {
+              const result = await listCatalogItems(tenantId as string, query);
+              const candidates = result.items.filter((c) => !selected.has(c.entity_id));
+              if (candidates.length === 0) {
+                closeSuggestions();
+                return;
+              }
+              suggestions.replaceChildren();
+              for (const candidate of candidates) {
+                const li = document.createElement('li');
+                li.className = 'combobox-suggestion';
+                li.setAttribute('role', 'option');
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = candidate.title;
+                button.addEventListener('click', () => {
+                  selected.set(candidate.entity_id, candidate.title);
+                  renderFieldChips();
+                  input.value = '';
+                  closeSuggestions();
+                  input.focus();
+                });
+                li.append(button);
+                suggestions.append(li);
+              }
+              suggestions.hidden = false;
+            } catch {
+              closeSuggestions();
+            }
+          }, 250);
+        });
+
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeSuggestions();
+        });
+
+        document.addEventListener('click', (event) => {
+          if (!combobox.contains(event.target as Node)) closeSuggestions();
+        });
+      }
+
+      field.append(chips);
+
+      if (!options.editable) {
+        const note = document.createElement('p');
+        note.className = 'field-note';
+        note.textContent = 'Read-only.';
+        field.append(note);
+      }
+
+      return { element: field, getSelectedIds: () => [...selected.keys()] };
+    }
+
+    function renderItemForm(options: {
+      fields: HTMLElement[];
+      submitLabel: string;
+      onSubmit: () => Promise<void>;
+    }): HTMLFormElement {
+      const form = document.createElement('form');
+      form.className = 'item-form';
+      form.append(...options.fields);
+
+      const errorEl = document.createElement('p');
+      errorEl.className = 'error-text';
+      errorEl.hidden = true;
+      form.append(errorEl);
+
+      const submitButton = document.createElement('button');
+      submitButton.type = 'submit';
+      submitButton.textContent = options.submitLabel;
+      form.append(submitButton);
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorEl.hidden = true;
+        submitButton.disabled = true;
+        try {
+          await options.onSubmit();
+        } catch (e) {
+          errorEl.hidden = false;
+          errorEl.textContent = e instanceof Error ? e.message : String(e);
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+
+      return form;
+    }
+
+    function mountCreateItemForm() {
+      const nameField = createNameField('');
+      const parentsField = createParentsField({ initialParents: new Map(), editable: true });
+      const form = renderItemForm({
+        fields: [nameField.element, parentsField.element],
+        submitLabel: 'Create item',
+        onSubmit: async () => {
+          const name = nameField.input.value.trim();
+          if (!name) throw new Error('Name is required.');
+          await createCatalogItem(tenantId as string, name, parentsField.getSelectedIds());
+          await loadCatalog(search.value);
+          mountCreateItemForm(); // fresh, empty form after a successful create
+        },
+      });
+      createItemMount.replaceChildren(form);
+    }
+
     function renderCatalogItem(item: CatalogItem): HTMLLIElement {
       const li = document.createElement('li');
       li.className = 'catalog-row';
@@ -229,29 +405,80 @@ import Base from '../../layouts/Base.astro';
       const title = document.createElement('span');
       title.className = 'catalog-row-title';
       title.textContent = item.title;
+
+      const actions = document.createElement('div');
+      actions.className = 'catalog-row-actions';
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.textContent = 'Edit';
       const instantiateButton = document.createElement('button');
       instantiateButton.type = 'button';
       instantiateButton.textContent = 'Instantiate';
-      header.append(title, instantiateButton);
+      actions.append(editButton, instantiateButton);
+
+      header.append(title, actions);
       li.append(header);
 
-      instantiateButton.addEventListener('click', () => {
-        const existingPanel = li.querySelector('.character-picker-panel');
-        if (existingPanel) {
-          existingPanel.remove();
-          instantiateButton.textContent = 'Instantiate';
-          return;
+      function closePanels() {
+        li.querySelector('.character-picker-panel')?.remove();
+        li.querySelector('.edit-item-panel')?.remove();
+        instantiateButton.textContent = 'Instantiate';
+        editButton.textContent = 'Edit';
+      }
+
+      editButton.addEventListener('click', async () => {
+        const wasOpen = editButton.textContent === 'Cancel';
+        closePanels();
+        if (wasOpen) return;
+
+        editButton.textContent = 'Cancel';
+        const panel = document.createElement('div');
+        panel.className = 'edit-item-panel';
+        panel.textContent = 'Loading…';
+        li.append(panel);
+
+        try {
+          const prototypes = await getItemPrototypes(tenantId as string, item.entity_id);
+          const initialParents = new Map(prototypes.map((p: EntitySummary) => [p.id, p.name]));
+          const nameField = createNameField(item.title);
+          const parentsField = createParentsField({ initialParents, editable: true });
+          const form = renderItemForm({
+            fields: [nameField.element, parentsField.element],
+            submitLabel: 'Save',
+            onSubmit: async () => {
+              const name = nameField.input.value.trim();
+              if (!name) throw new Error('Name is required.');
+              await Promise.all([
+                updateCatalogItem(tenantId as string, item.entity_id, name),
+                setItemPrototypes(
+                  tenantId as string,
+                  item.entity_id,
+                  parentsField.getSelectedIds(),
+                ),
+              ]);
+              item.title = name;
+              title.textContent = name;
+              closePanels();
+            },
+          });
+          panel.replaceChildren(form);
+        } catch (e) {
+          panel.textContent = e instanceof Error ? e.message : String(e);
         }
+      });
+
+      instantiateButton.addEventListener('click', () => {
+        const wasOpen = instantiateButton.textContent === 'Cancel';
+        closePanels();
+        if (wasOpen) return;
+
         instantiateButton.textContent = 'Cancel';
         const panel = renderCharacterActionPanel(
           async (character) => {
             await createItemInstance(tenantId as string, item.entity_id, character.entity_id);
             return `Assigned to ${character.name}.`;
           },
-          () => {
-            panel.remove();
-            instantiateButton.textContent = 'Instantiate';
-          },
+          () => closePanels(),
         );
         li.append(panel);
       });
@@ -398,9 +625,7 @@ import Base from '../../layouts/Base.astro';
       const query = browseSearch.value.trim().toLowerCase();
       browseDebounce = setTimeout(async () => {
         const roster = await loadRoster();
-        const matches = query
-          ? roster.filter((c) => c.name.toLowerCase().includes(query))
-          : roster;
+        const matches = query ? roster.filter((c) => c.name.toLowerCase().includes(query)) : roster;
         renderCharacterSuggestions(browseSuggestions, matches, (character) => {
           browseSearch.value = character.name;
           browseSuggestions.hidden = true;
@@ -422,116 +647,6 @@ import Base from '../../layouts/Base.astro';
       }
     });
 
-    // Selected parents for the item being created - insertion order preserved,
-    // keyed by entity id so re-picking the same suggestion twice is a no-op.
-    const selectedParents = new Map<string, string>();
-
-    function closeSuggestions() {
-      parentSuggestions.hidden = true;
-      parentSuggestions.replaceChildren();
-      parentSearch.setAttribute('aria-expanded', 'false');
-    }
-
-    function renderChips() {
-      parentChips.replaceChildren();
-      for (const [entityId, title] of selectedParents) {
-        const li = document.createElement('li');
-        li.className = 'chip';
-        const label = document.createElement('span');
-        label.textContent = title;
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'chip-remove';
-        remove.setAttribute('aria-label', `Remove ${title}`);
-        remove.textContent = '×';
-        remove.addEventListener('click', () => {
-          selectedParents.delete(entityId);
-          renderChips();
-        });
-        li.append(label, remove);
-        parentChips.append(li);
-      }
-    }
-
-    function renderSuggestions(items: CatalogItem[]) {
-      const candidates = items.filter((item) => !selectedParents.has(item.entity_id));
-      if (candidates.length === 0) {
-        closeSuggestions();
-        return;
-      }
-      parentSuggestions.replaceChildren();
-      for (const item of candidates) {
-        const li = document.createElement('li');
-        li.className = 'combobox-suggestion';
-        li.setAttribute('role', 'option');
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = item.title;
-        button.addEventListener('click', () => {
-          selectedParents.set(item.entity_id, item.title);
-          renderChips();
-          parentSearch.value = '';
-          closeSuggestions();
-          parentSearch.focus();
-        });
-        li.append(button);
-        parentSuggestions.append(li);
-      }
-      parentSuggestions.hidden = false;
-      parentSearch.setAttribute('aria-expanded', 'true');
-    }
-
-    let parentSearchDebounce: ReturnType<typeof setTimeout> | undefined;
-    parentSearch.addEventListener('input', () => {
-      clearTimeout(parentSearchDebounce);
-      const query = parentSearch.value.trim();
-      if (!query) {
-        closeSuggestions();
-        return;
-      }
-      parentSearchDebounce = setTimeout(async () => {
-        try {
-          const result = await listCatalogItems(tenantId as string, query);
-          renderSuggestions(result.items);
-        } catch {
-          closeSuggestions();
-        }
-      }, 250);
-    });
-
-    parentSearch.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeSuggestions();
-    });
-
-    document.addEventListener('click', (event) => {
-      const combobox = document.getElementById('parent-combobox')!;
-      if (!combobox.contains(event.target as Node)) closeSuggestions();
-    });
-
-    createForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      createItemError.hidden = true;
-      const name = newItemName.value.trim();
-      if (!name) return;
-
-      const submitButton = createForm.querySelector('button[type="submit"]') as HTMLButtonElement;
-      submitButton.disabled = true;
-      try {
-        await createCatalogItem(tenantId as string, name, [...selectedParents.keys()]);
-        newItemName.value = '';
-        selectedParents.clear();
-        renderChips();
-        parentSearch.value = '';
-        closeSuggestions();
-        await loadCatalog(search.value);
-      } catch (e) {
-        createItemError.hidden = false;
-        createItemError.textContent = e instanceof Error ? e.message : String(e);
-      } finally {
-        submitButton.disabled = false;
-      }
-    });
-
     if (!(await isAuthenticated())) {
       status.textContent = 'Not logged in. Go back and log in first.';
     } else if (!tenantId) {
@@ -544,6 +659,7 @@ import Base from '../../layouts/Base.astro';
         status.hidden = true;
         tenantName.textContent = tenant.name;
         page.hidden = false;
+        mountCreateItemForm();
         await loadCatalog('');
       } catch (e) {
         status.textContent = e instanceof Error ? e.message : String(e);
