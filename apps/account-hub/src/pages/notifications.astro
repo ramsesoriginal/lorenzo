@@ -16,10 +16,20 @@ import Base from '../layouts/Base.astro';
 
     <p id="empty-state" hidden>No notifications.</p>
     <ul id="notifications-list"></ul>
+
+    <button id="show-sent-button" type="button">Show notifications I've sent</button>
+    <div id="sent-view" hidden>
+      <p id="sent-empty-state" hidden>You haven't sent any notifications.</p>
+      <ul id="sent-list"></ul>
+    </div>
   </div>
 
   <script>
-    import { listNotifications, markNotificationRead } from '../lib/notifications';
+    import {
+      listNotifications,
+      listSentNotifications,
+      markNotificationRead,
+    } from '../lib/notifications';
     import { countUnread } from '../lib/format';
     import type { Notification } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
@@ -96,6 +106,74 @@ import Base from '../layouts/Base.astro';
 
     document.getElementById('refresh-button')?.addEventListener('click', () => void refresh());
     unreadOnlyCheckbox.addEventListener('change', () => void refresh());
+
+    // RFC 0017 (h) - the sender's side of read receipts: did anyone
+    // actually read what I sent? Grouped by batch_id, since every row a
+    // single creation call fanned out shares one (ADR 0061).
+    const sentView = document.getElementById('sent-view')!;
+    const sentEmptyState = document.getElementById('sent-empty-state')!;
+    const sentList = document.getElementById('sent-list')!;
+    const showSentButton = document.getElementById('show-sent-button') as HTMLButtonElement;
+
+    function renderSentBatch(recipients: Notification[]): HTMLLIElement {
+      const item = document.createElement('li');
+      const first = recipients[0]!;
+      const title = document.createElement('strong');
+      title.textContent = first.title;
+      const meta = document.createElement('span');
+      meta.className = 'notification-meta';
+      const readCount = recipients.filter((n) => n.read_at !== null).length;
+      meta.textContent = ` ${first.scope}/${first.type} · ${formatTimestamp(first.created_at)} · ${readCount}/${recipients.length} read`;
+      const body = document.createElement('p');
+      body.textContent = first.body;
+      item.append(title, meta, body);
+
+      const recipientList = document.createElement('ul');
+      recipientList.className = 'roster-list';
+      for (const recipient of recipients) {
+        const recipientItem = document.createElement('li');
+        recipientItem.textContent = recipient.read_at
+          ? `${recipient.user_id} · read ${formatTimestamp(recipient.read_at)}`
+          : `${recipient.user_id} · unread`;
+        recipientList.append(recipientItem);
+      }
+      item.append(recipientList);
+      return item;
+    }
+
+    async function loadSent() {
+      const page = await listSentNotifications();
+      const batches = new Map<string, Notification[]>();
+      for (const notification of page.items) {
+        const group = batches.get(notification.batch_id) ?? [];
+        group.push(notification);
+        batches.set(notification.batch_id, group);
+      }
+      sentList.replaceChildren(
+        ...[...batches.values()].map((recipients) => renderSentBatch(recipients)),
+      );
+      sentEmptyState.hidden = batches.size > 0;
+    }
+
+    showSentButton.addEventListener('click', async () => {
+      const showing = !sentView.hidden;
+      if (showing) {
+        sentView.hidden = true;
+        showSentButton.textContent = "Show notifications I've sent";
+        return;
+      }
+      showSentButton.disabled = true;
+      try {
+        await loadSent();
+        sentView.hidden = false;
+        showSentButton.textContent = 'Hide sent notifications';
+      } catch (e) {
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      } finally {
+        showSentButton.disabled = false;
+      }
+    });
 
     function startPolling() {
       stopPolling();

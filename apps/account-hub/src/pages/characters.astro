@@ -17,7 +17,7 @@ import Base from '../layouts/Base.astro';
     import { createStatusSpan, renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { reusableCharactersFor } from '../lib/format';
     import { getMe } from '../lib/me';
-    import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import { leaveCampaign, listMyTenants, listTenantCampaigns } from '../lib/tenants';
     import type {
       CampaignSummaryOut,
       CharacterSummaryOut,
@@ -135,7 +135,39 @@ import Base from '../layouts/Base.astro';
         }
       }
 
+      section.append(renderLeaveButton(player, campaign, onChanged));
+
       return section;
+    }
+
+    // RFC 0017 (c) - removes this specific player row (and every
+    // character link it grants); other players' own roster-reuse links to
+    // this campaign are unaffected.
+    function renderLeaveButton(
+      player: PlayerContextOut,
+      campaign: CampaignSummaryOut,
+      onLeft: () => void,
+    ): HTMLElement {
+      const container = document.createElement('div');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Leave this campaign';
+      const status = createStatusSpan();
+      button.addEventListener('click', async () => {
+        const confirmed = window.confirm(
+          `Leave "${campaign.name}"? This removes every character link this grants you here - it can't be undone from this page.`,
+        );
+        if (!confirmed) return;
+        status.textContent = 'Leaving…';
+        try {
+          await leaveCampaign(player.tenant_id, campaign.id, player.id);
+          onLeft();
+        } catch (e) {
+          status.textContent = e instanceof Error ? e.message : String(e);
+        }
+      });
+      container.append(button, status);
+      return container;
     }
 
     async function renderTenantSection(

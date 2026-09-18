@@ -15,3 +15,11 @@ export async function listNotifications(unreadOnly = false): Promise<Page<Notifi
 export async function markNotificationRead(id: string): Promise<Notification> {
   return apiPost<Notification>(`/me/notifications/${id}/read`, undefined);
 }
+
+// RFC 0017 (h) - the sender's side of read receipts (ADR 0061). Optional
+// batchId pulls just one broadcast's full recipient list and read state.
+export async function listSentNotifications(batchId?: string): Promise<Page<Notification>> {
+  const params = new URLSearchParams({ page: '1', size: String(PAGE_SIZE) });
+  if (batchId) params.set('batch_id', batchId);
+  return apiFetch<Page<Notification>>(`/me/notifications/sent?${params.toString()}`);
+}

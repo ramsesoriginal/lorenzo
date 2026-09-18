@@ -2,17 +2,19 @@
 // ADR 0080. Like userPicker.ts (ADR 0074), this is a lib/*.ts module that
 // builds and returns DOM, not just an API wrapper.
 
+import { resolveDisplayName } from './format';
 import { grantCampaignGm, invitePlayer, revokeCampaignGm } from './tenants';
-import type { CampaignSummaryOut, TenantSummaryOut } from './types';
+import type { CampaignSummaryOut, RosterEntry, TenantSummaryOut } from './types';
 import { mountUserPicker } from './userPicker';
 
-// GmOut has no display name and there's no reverse user-lookup endpoint
-// anywhere in this API (ADR 0076) - a raw user_id is all a client can show
-// per GM.
+// GmOut itself has no display name (ADR 0076) - roster is the tenant's
+// full GET /tenants/{id}/memberships fetch (RFC 0017 (a)), a materially
+// better name source resolved by matching user_id.
 export function renderGmManagement(
   tenant: TenantSummaryOut,
   campaign: CampaignSummaryOut,
   gms: string[],
+  roster: RosterEntry[],
   onChanged: () => void,
 ): HTMLElement {
   const section = document.createElement('div');
@@ -24,8 +26,8 @@ export function renderGmManagement(
   list.className = 'roster-list';
   for (const userId of gms) {
     const item = document.createElement('li');
-    const idEl = document.createElement('code');
-    idEl.textContent = userId;
+    const idEl = document.createElement('span');
+    idEl.textContent = resolveDisplayName(roster, userId);
     const revokeButton = document.createElement('button');
     revokeButton.type = 'button';
     revokeButton.textContent = 'Revoke';

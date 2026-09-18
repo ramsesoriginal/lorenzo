@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   campaignRoleFor,
   countUnread,
+  displayNameFor,
   localesToText,
+  resolveDisplayName,
   reusableCharactersFor,
   textOrNull,
   textToLocales,
@@ -12,6 +14,7 @@ import type {
   MeOut,
   Notification,
   PlayerContextOut,
+  RosterEntry,
 } from '../../src/lib/types';
 
 function character(overrides: Partial<CharacterSummaryOut> = {}): CharacterSummaryOut {
@@ -195,5 +198,47 @@ describe('reusableCharactersFor', () => {
       ],
     });
     expect(reusableCharactersFor(caller, tenantId, targetCampaignId)).toEqual([cael]);
+  });
+});
+
+describe('displayNameFor', () => {
+  const userId = crypto.randomUUID();
+
+  it('prefers display_name', () => {
+    expect(displayNameFor({ display_name: 'Cael', nickname: 'caelbot', user_id: userId })).toEqual(
+      'Cael',
+    );
+  });
+
+  it('falls back to nickname when display_name is unset', () => {
+    expect(displayNameFor({ display_name: null, nickname: 'caelbot', user_id: userId })).toEqual(
+      'caelbot',
+    );
+  });
+
+  it('falls back to the raw user_id when neither is set', () => {
+    expect(displayNameFor({ display_name: null, nickname: null, user_id: userId })).toEqual(userId);
+  });
+});
+
+describe('resolveDisplayName', () => {
+  it('resolves a name from a matching roster entry of any kind', () => {
+    const userId = crypto.randomUUID();
+    const roster: RosterEntry[] = [
+      {
+        kind: 'gm',
+        user_id: userId,
+        nickname: 'caelbot',
+        display_name: 'Cael',
+        user_color: null,
+        campaign_id: crypto.randomUUID(),
+      },
+    ];
+    expect(resolveDisplayName(roster, userId)).toEqual('Cael');
+  });
+
+  it('falls back to the raw user_id when no roster entry matches', () => {
+    const userId = crypto.randomUUID();
+    expect(resolveDisplayName([], userId)).toEqual(userId);
   });
 });

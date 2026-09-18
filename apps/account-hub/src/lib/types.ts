@@ -192,3 +192,105 @@ export interface CampaignUpdate {
 export interface GmOut {
   user_id: string;
 }
+
+// POST /tenants - see ADR 0033/RFC 0012. Gated server-side by a
+// platform-level Authgear role invisible to this client (RFC 0017 (d)) -
+// there's no field anywhere to check before showing this form.
+export interface TenantCreate {
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+}
+
+// GET /tenants/{id}/memberships - see RFC 0017 (a). A discriminated union
+// (kind) covering every relationship a user has in a tenant - materially
+// richer than GmOut/PlayerSummaryOut's bare user_id, since every row
+// carries real nickname/display_name/user_color.
+export interface MembershipRosterEntryOut {
+  kind: 'membership';
+  user_id: string;
+  nickname: string | null;
+  display_name: string | null;
+  user_color: string | null;
+  role: string;
+  created_by: string | null;
+  updated_by: string | null;
+}
+
+export interface PlayerRosterEntryOut {
+  kind: 'player';
+  user_id: string;
+  nickname: string | null;
+  display_name: string | null;
+  user_color: string | null;
+  campaign_id: string;
+  characters: CharacterSummaryOut[];
+  created_by: string | null;
+  updated_by: string | null;
+}
+
+export interface GmRosterEntryOut {
+  kind: 'gm';
+  user_id: string;
+  nickname: string | null;
+  display_name: string | null;
+  user_color: string | null;
+  campaign_id: string;
+}
+
+export type RosterEntry = MembershipRosterEntryOut | PlayerRosterEntryOut | GmRosterEntryOut;
+
+// POST /tenants/{id}/memberships - see ADR 0036/RFC 0007. user_id must
+// already be a real app_user row - no email-invite exists (ADR 0009).
+export interface MembershipCreate {
+  user_id: string;
+  role: 'owner' | 'orga';
+}
+
+// PATCH /tenants/{id}/memberships/{user_id} - just the one field.
+export interface MembershipUpdate {
+  role: 'owner' | 'orga';
+}
+
+// A plain-dict mirror of fastapi_problem.error.Problem.marshal() - used
+// inside a bulk operation's per-item result to embed what a real
+// single-item error response would have looked like.
+export interface ProblemOut {
+  type: string;
+  title: string;
+  status: number;
+  detail: string | null;
+}
+
+// POST /tenants/{id}/memberships/bulk - one output entry per input entry,
+// regardless of outcome (ADR 0062: never all-or-nothing). Exactly one of
+// membership/problem is set, matching status.
+export interface BulkMembershipResultItem {
+  user_id: string;
+  status: 'ok' | 'error';
+  membership: MembershipRosterEntryOut | null;
+  problem: ProblemOut | null;
+}
+
+// GET /tenants/{id}/activity-log - see ADR 0063. actor_id/target_id are
+// raw UUIDs with no guaranteed cross-reference (RFC 0017 (f)) - shown
+// as-is, not enriched.
+export interface AuditLogEntryOut {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  detail: string | null;
+  created_at: string;
+}
+
+// POST .../notifications body, shared by the tenant/campaign scope routes
+// - see ADR 0058/RFC 0017 (g). An omitted recipient_user_id broadcasts to
+// that scope's own roster.
+export interface NotificationCreate {
+  recipient_user_id?: string | null;
+  type: string;
+  title: string;
+  body: string;
+}

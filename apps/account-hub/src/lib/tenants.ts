@@ -1,13 +1,21 @@
 import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
 import type {
+  AuditLogEntryOut,
+  BulkMembershipResultItem,
   CampaignCreate,
   CampaignOut,
   CampaignSummaryOut,
   CampaignUpdate,
   GmOut,
+  MembershipCreate,
+  MembershipUpdate,
+  Notification,
+  NotificationCreate,
   Page,
   PlayerCreate,
   PlayerSummaryOut,
+  RosterEntry,
+  TenantCreate,
   TenantSummaryOut,
 } from './types';
 
@@ -80,5 +88,88 @@ export async function listCampaignPlayers(
 ): Promise<Page<PlayerSummaryOut>> {
   return apiFetch<Page<PlayerSummaryOut>>(
     `/tenants/${tenantId}/campaigns/${campaignId}/players?page=1&size=${PAGE_SIZE}`,
+  );
+}
+
+// RFC 0017 (c) - self-service leave. Removes this specific player row
+// (and every character link it grants) - other players' own roster-reuse
+// links are unaffected.
+export async function leaveCampaign(
+  tenantId: string,
+  campaignId: string,
+  playerId: string,
+): Promise<void> {
+  await apiDelete<void>(`/tenants/${tenantId}/campaigns/${campaignId}/players/${playerId}`);
+}
+
+// RFC 0017 (d) - gated server-side by a platform-level Authgear role with
+// no client-visible signal; always shown, 403 surfaced like any other
+// authorization failure.
+export async function createTenant(body: TenantCreate): Promise<TenantSummaryOut> {
+  return apiPost<TenantSummaryOut>('/tenants', body);
+}
+
+// RFC 0017 (a)/(e)/(f) - the tenant's full roster, one row per
+// relationship (a user who is ORGA, GMs one campaign, and plays in
+// another appears three times). Unpaginated here to match how this app
+// already treats GmOut/PlayerSummaryOut - bounded by how many people are
+// involved in one world, not by total traffic.
+export async function listTenantRoster(tenantId: string): Promise<Page<RosterEntry>> {
+  return apiFetch<Page<RosterEntry>>(`/tenants/${tenantId}/memberships?page=1&size=${PAGE_SIZE}`);
+}
+
+// RFC 0017 (e) - tenant-wide owner/orga role grants, distinct from
+// campaign-level GM/player management above.
+export async function createMembership(
+  tenantId: string,
+  body: MembershipCreate,
+): Promise<RosterEntry> {
+  return apiPost<RosterEntry>(`/tenants/${tenantId}/memberships`, body);
+}
+
+export async function updateMembership(
+  tenantId: string,
+  userId: string,
+  body: MembershipUpdate,
+): Promise<RosterEntry> {
+  return apiPatch<RosterEntry>(`/tenants/${tenantId}/memberships/${userId}`, body);
+}
+
+export async function deleteMembership(tenantId: string, userId: string): Promise<void> {
+  await apiDelete<void>(`/tenants/${tenantId}/memberships/${userId}`);
+}
+
+// Never all-or-nothing (ADR 0062) - one result per input, regardless of
+// outcome.
+export async function bulkInviteMembers(
+  tenantId: string,
+  members: MembershipCreate[],
+): Promise<BulkMembershipResultItem[]> {
+  return apiPost<BulkMembershipResultItem[]>(`/tenants/${tenantId}/memberships/bulk`, members);
+}
+
+export async function listActivityLog(tenantId: string): Promise<Page<AuditLogEntryOut>> {
+  return apiFetch<Page<AuditLogEntryOut>>(
+    `/tenants/${tenantId}/activity-log?page=1&size=${PAGE_SIZE}`,
+  );
+}
+
+// RFC 0017 (g) - an omitted recipient_user_id broadcasts to the scope's
+// whole roster, so this can return more than one row.
+export async function createTenantNotification(
+  tenantId: string,
+  body: NotificationCreate,
+): Promise<Notification[]> {
+  return apiPost<Notification[]>(`/tenants/${tenantId}/notifications`, body);
+}
+
+export async function createCampaignNotification(
+  tenantId: string,
+  campaignId: string,
+  body: NotificationCreate,
+): Promise<Notification[]> {
+  return apiPost<Notification[]>(
+    `/tenants/${tenantId}/campaigns/${campaignId}/notifications`,
+    body,
   );
 }

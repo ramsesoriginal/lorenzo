@@ -24,13 +24,14 @@ import Base from '../layouts/Base.astro';
       updateCharacter,
     } from '../lib/characters';
     import { renderCreateForm, renderRenameableItem } from '../lib/dom';
-    import { campaignRoleFor } from '../lib/format';
+    import { campaignRoleFor, resolveDisplayName } from '../lib/format';
     import { getMe } from '../lib/me';
     import {
       invitePlayer,
       listCampaignPlayers,
       listMyTenants,
       listTenantCampaigns,
+      listTenantRoster,
     } from '../lib/tenants';
     import { mountUserPicker } from '../lib/userPicker';
     import type { BeingSummaryOut, CampaignSummaryOut, TenantSummaryOut } from '../lib/types';
@@ -95,13 +96,16 @@ import Base from '../layouts/Base.astro';
           Object.assign(document.createElement('p'), { textContent: 'Loading players…' }),
         );
         try {
-          const existing = await listCampaignPlayers(tenantId, campaignId);
+          const [existing, roster] = await Promise.all([
+            listCampaignPlayers(tenantId, campaignId),
+            listTenantRoster(tenantId),
+          ]);
           const list = document.createElement('ul');
           list.className = 'roster-list';
           for (const player of existing.items) {
             const item = document.createElement('li');
-            const idEl = document.createElement('code');
-            idEl.textContent = player.user_id;
+            const idEl = document.createElement('span');
+            idEl.textContent = resolveDisplayName(roster.items, player.user_id);
             const useButton = document.createElement('button');
             useButton.type = 'button';
             useButton.textContent = 'Use this player';
@@ -161,6 +165,8 @@ import Base from '../layouts/Base.astro';
       return item;
     }
 
+    const SEARCH_DEBOUNCE_MS = 300;
+
     // Beings are tenant-scoped, but handoff needs a specific campaign
     // context - only campaigns the caller GMs in this tenant are offered.
     async function renderTenantSection(
@@ -174,20 +180,42 @@ import Base from '../layouts/Base.astro';
       heading.textContent = tenant.name;
       section.append(heading);
 
-      const beingsPage = await listBeings(tenant.id);
+      const searchInput = document.createElement('input');
+      searchInput.type = 'search';
+      searchInput.placeholder = 'Search beings by name…';
+      section.append(searchInput);
 
-      if (beingsPage.items.length === 0) {
-        const none = document.createElement('p');
-        none.textContent = 'No beings yet.';
-        section.append(none);
-      } else {
+      const results = document.createElement('div');
+      section.append(results);
+
+      // listBeings(tenantId, q) already accepts q (ADR 0079) - this is
+      // purely a missing input element (RFC 0017 (b)).
+      async function renderResults(q?: string) {
+        const beingsPage = await listBeings(tenant.id, q);
+        if (beingsPage.items.length === 0) {
+          const none = document.createElement('p');
+          none.textContent = q ? 'No beings match.' : 'No beings yet.';
+          results.replaceChildren(none);
+          return;
+        }
         const list = document.createElement('ul');
         list.className = 'roster-list';
         for (const being of beingsPage.items) {
           list.append(renderBeingItem(being, tenant.id, gmCampaigns, onChanged));
         }
-        section.append(list);
+        results.replaceChildren(list);
       }
+
+      let debounceHandle: ReturnType<typeof setTimeout> | undefined;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(debounceHandle);
+        debounceHandle = setTimeout(
+          () => void renderResults(searchInput.value.trim()),
+          SEARCH_DEBOUNCE_MS,
+        );
+      });
+
+      await renderResults();
 
       section.append(
         renderCreateForm('New being name', 'Create being', (name) =>

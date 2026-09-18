@@ -8,21 +8,44 @@ import Base from '../layouts/Base.astro';
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
+
+  <div id="create-tenant-container"></div>
+
   <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
 
   <ul id="tenant-list"></ul>
 
   <script>
+    import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
+    import { renderCampaignRoster } from '../lib/campaignRosterUi';
+    import { createStatusSpan } from '../lib/dom';
     import { campaignRoleFor, type CampaignRole } from '../lib/format';
     import { renderGmManagement, renderInvitePlayer } from '../lib/gmAndPlayerUi';
     import { getMe } from '../lib/me';
-    import { listCampaignGms, listMyTenants, listTenantCampaigns } from '../lib/tenants';
-    import type { CampaignSummaryOut, MeOut, TenantSummaryOut } from '../lib/types';
+    import { renderMembershipAdmin } from '../lib/membershipAdminUi';
+    import { renderNotificationComposer } from '../lib/notificationComposerUi';
+    import {
+      createCampaignNotification,
+      createTenant,
+      createTenantNotification,
+      listCampaignGms,
+      listMyTenants,
+      listTenantCampaigns,
+      listTenantRoster,
+    } from '../lib/tenants';
+    import type {
+      CampaignSummaryOut,
+      MeOut,
+      MembershipRosterEntryOut,
+      RosterEntry,
+      TenantSummaryOut,
+    } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
 
     const loading = document.getElementById('loading')!;
     const loadError = document.getElementById('load-error')!;
+    const createTenantContainer = document.getElementById('create-tenant-container')!;
     const emptyState = document.getElementById('empty-state')!;
     const tenantList = document.getElementById('tenant-list')!;
 
@@ -41,12 +64,57 @@ import Base from '../layouts/Base.astro';
       return tenant.role === 'owner' || tenant.role === 'orga';
     }
 
-    async function renderCampaign(
+    // RFC 0017 (d) - require_tenant_creator_role is a platform-level
+    // Authgear role with no client-visible signal anywhere in MeOut - this
+    // form is always shown, and a 403 is surfaced like any other
+    // authorization failure, rather than trying to approximate a check
+    // that has no data to approximate it with.
+    function renderCreateTenantForm(onCreated: () => void): HTMLElement {
+      const form = document.createElement('form');
+      const heading = document.createElement('h2');
+      heading.textContent = 'Create a tenant';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = 'Name';
+      nameInput.required = true;
+      const slugInput = document.createElement('input');
+      slugInput.type = 'text';
+      slugInput.placeholder = 'Slug (optional, derived from name)';
+      const descriptionInput = document.createElement('textarea');
+      descriptionInput.placeholder = 'Description (optional)';
+      const button = document.createElement('button');
+      button.type = 'submit';
+      button.textContent = 'Create tenant';
+      const status = createStatusSpan();
+
+      form.append(heading, nameInput, slugInput, descriptionInput, button, status);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        status.textContent = 'Creating…';
+        try {
+          await createTenant({
+            name: nameInput.value.trim(),
+            slug: slugInput.value.trim() || null,
+            description: descriptionInput.value.trim() || null,
+          });
+          form.reset();
+          status.textContent = '';
+          onCreated();
+        } catch (e) {
+          status.textContent = e instanceof Error ? e.message : String(e);
+        }
+      });
+      return form;
+    }
+
+    function renderCampaign(
       tenant: TenantSummaryOut,
       campaign: CampaignSummaryOut,
       me: MeOut,
+      roster: RosterEntry[],
+      gmsByCampaign: Map<string, string[]>,
       onChanged: () => void,
-    ): Promise<HTMLLIElement> {
+    ): HTMLLIElement {
       const item = document.createElement('li');
       const name = document.createElement('strong');
       name.textContent = campaign.name;
@@ -56,15 +124,20 @@ import Base from '../layouts/Base.astro';
       meta.textContent = ` ${campaign.game_system} · ${roleLabel(role)}${campaign.secret ? ' · secret' : ''}`;
       item.append(name, meta);
 
+      // RFC 0017 (a) - visible to every tenant-wide member, not just an
+      // admin or this campaign's own GM (get_tenant_context's own gate on
+      // the underlying roster fetch).
+      item.append(renderCampaignRoster(campaign, roster));
+
       const admin = isTenantAdmin(tenant);
       if (admin) {
         item.append(renderEditToggle(tenant, campaign, onChanged));
-        const gms = await listCampaignGms(tenant.id, campaign.id);
         item.append(
           renderGmManagement(
             tenant,
             campaign,
-            gms.map((g) => g.user_id),
+            gmsByCampaign.get(campaign.id) ?? [],
+            roster,
             onChanged,
           ),
         );
@@ -73,6 +146,11 @@ import Base from '../layouts/Base.astro';
       // specific campaign's own GM (RFC 0014) - not just one branch of it.
       if (admin || role === 'gm') {
         item.append(renderInvitePlayer(tenant, campaign));
+        item.append(
+          renderNotificationComposer((body) =>
+            createCampaignNotification(tenant.id, campaign.id, body),
+          ),
+        );
       }
 
       return item;
@@ -93,22 +171,49 @@ import Base from '../layouts/Base.astro';
       heading.append(roleBadge);
       item.append(heading);
 
+      const admin = isTenantAdmin(tenant);
+      const roster = await listTenantRoster(tenant.id);
+
       if (campaigns.length === 0) {
         const none = document.createElement('p');
         none.textContent = 'No campaigns visible to you here yet.';
         item.append(none);
       } else {
+        const gmLists = admin
+          ? await Promise.all(campaigns.map((c) => listCampaignGms(tenant.id, c.id)))
+          : [];
+        const gmsByCampaign = new Map(
+          campaigns.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)]),
+        );
+
         const list = document.createElement('ul');
         list.className = 'roster-list';
         for (const campaign of campaigns) {
-          list.append(await renderCampaign(tenant, campaign, me, onChanged));
+          list.append(renderCampaign(tenant, campaign, me, roster.items, gmsByCampaign, onChanged));
         }
         item.append(list);
       }
 
-      if (isTenantAdmin(tenant)) {
+      if (admin) {
         item.append(renderCreateCampaignForm(tenant, onChanged));
       }
+
+      // RFC 0017 (e) - bulk invite is confirmed _require_owner-gated; the
+      // single-item actions here are gated identically for consistency
+      // rather than assumed looser (showing nothing to an orga who might
+      // technically have single-item rights is the safe direction of a
+      // wrong guess).
+      if (tenant.role === 'owner') {
+        const memberships = roster.items.filter(
+          (r): r is MembershipRosterEntryOut => r.kind === 'membership',
+        );
+        item.append(renderMembershipAdmin(tenant, memberships, onChanged));
+      }
+
+      // RFC 0017 (f)/(g) - gated the same as list_tenant_roster/
+      // update_tenant themselves: any tenant-wide member, not owner-only.
+      item.append(await renderActivityLog(tenant));
+      item.append(renderNotificationComposer((body) => createTenantNotification(tenant.id, body)));
 
       return item;
     }
@@ -140,6 +245,7 @@ import Base from '../layouts/Base.astro';
       loadError.textContent = 'Not logged in. Go back and log in first.';
     } else {
       try {
+        createTenantContainer.append(renderCreateTenantForm(() => void load()));
         await load();
         loading.hidden = true;
       } catch (e) {
