@@ -46,12 +46,8 @@ import Base from '../layouts/Base.astro';
   </form>
 
   <script>
-    import {
-      deleteProfilePicture,
-      getProfile,
-      updateProfile,
-      uploadProfilePicture,
-    } from '../lib/profile';
+    import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
+    import { getMe } from '../lib/me';
     import { localesToText, textOrNull, textToLocales } from '../lib/format';
     import type { MeOut, ProfileUpdate } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
@@ -99,7 +95,7 @@ import Base from '../layouts/Base.astro';
       pictureStatus.textContent = 'Removing&hellip;';
       try {
         await deleteProfilePicture();
-        const me = await getProfile();
+        const me = await getMe();
         initial = me;
         populate(me);
         pictureStatus.textContent = 'Removed.';
@@ -114,7 +110,7 @@ import Base from '../layouts/Base.astro';
       pictureStatus.textContent = 'Uploading&hellip;';
       try {
         await uploadProfilePicture(file);
-        const me = await getProfile();
+        const me = await getMe();
         initial = me;
         populate(me);
         pictureStatus.textContent = 'Updated.';
@@ -174,7 +170,7 @@ import Base from '../layouts/Base.astro';
       loadError.textContent = 'Not logged in. Go back and log in first.';
     } else {
       try {
-        const me = await getProfile();
+        const me = await getMe();
         initial = me;
         populate(me);
         loading.hidden = true;

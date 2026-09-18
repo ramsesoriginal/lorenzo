@@ -9,14 +9,31 @@ export interface MembershipOut {
   role: TenantRole;
 }
 
+export interface CharacterSummaryOut {
+  entity_id: string;
+  name: string;
+}
+
 export interface PlayerContextOut {
+  id: string;
+  tenant_id: string;
   campaign_id: string;
-  characters: { entity_id: string; name: string }[];
+  characters: CharacterSummaryOut[];
 }
 
 export interface CampaignSummaryOut {
   id: string;
+  slug: string;
   name: string;
+  game_system: string;
+  secret: boolean;
+}
+
+export interface TenantSummaryOut {
+  id: string;
+  slug: string;
+  name: string;
+  role: TenantRole;
 }
 
 export interface MeOut {

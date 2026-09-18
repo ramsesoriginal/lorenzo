@@ -1,0 +1,110 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Your tenants and campaigns — Lorenzo">
+  <h1 class="display">Your tenants and campaigns</h1>
+  <p><a href="/">&larr; Back</a></p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
+
+  <ul id="tenant-list"></ul>
+
+  <script>
+    import { campaignRoleFor, type CampaignRole } from '../lib/format';
+    import { getMe } from '../lib/me';
+    import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import type { CampaignSummaryOut, MeOut, TenantSummaryOut } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const tenantList = document.getElementById('tenant-list')!;
+
+    function roleLabel(role: CampaignRole): string {
+      switch (role) {
+        case 'gm':
+          return 'GM';
+        case 'player':
+          return 'Player';
+        case 'visible':
+          return 'Visible';
+      }
+    }
+
+    function renderCampaign(campaign: CampaignSummaryOut, me: MeOut): HTMLLIElement {
+      const item = document.createElement('li');
+      const name = document.createElement('strong');
+      name.textContent = campaign.name;
+      const meta = document.createElement('span');
+      meta.className = 'campaign-meta';
+      meta.textContent = ` ${campaign.game_system} · ${roleLabel(campaignRoleFor(campaign.id, me))}${campaign.secret ? ' · secret' : ''}`;
+      item.append(name, meta);
+      return item;
+    }
+
+    function renderTenant(
+      tenant: TenantSummaryOut,
+      campaigns: CampaignSummaryOut[],
+      me: MeOut,
+    ): HTMLLIElement {
+      const item = document.createElement('li');
+      const heading = document.createElement('h2');
+      heading.textContent = `${tenant.name} `;
+      const roleBadge = document.createElement('span');
+      roleBadge.className = 'tenant-role';
+      roleBadge.textContent = tenant.role;
+      heading.append(roleBadge);
+      item.append(heading);
+
+      if (campaigns.length === 0) {
+        const none = document.createElement('p');
+        none.textContent = 'No campaigns visible to you here yet.';
+        item.append(none);
+      } else {
+        const list = document.createElement('ul');
+        for (const campaign of campaigns) {
+          list.append(renderCampaign(campaign, me));
+        }
+        item.append(list);
+      }
+      return item;
+    }
+
+    async function load() {
+      const me = await getMe();
+      const tenantsPage = await listMyTenants();
+      if (tenantsPage.items.length === 0) {
+        emptyState.hidden = false;
+        return;
+      }
+      const withCampaigns = await Promise.all(
+        tenantsPage.items.map(async (tenant) => ({
+          tenant,
+          campaigns: (await listTenantCampaigns(tenant.id)).items,
+        })),
+      );
+      tenantList.replaceChildren(
+        ...withCampaigns.map(({ tenant, campaigns }) => renderTenant(tenant, campaigns, me)),
+      );
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

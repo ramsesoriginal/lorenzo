@@ -2,7 +2,7 @@
 // import chain, which pulls in @authgear/web's browser-only side effects
 // on import and would break these under a plain Vitest/Node environment
 // for no real reason.
-import type { Notification } from './types';
+import type { MeOut, Notification } from './types';
 
 export function localesToText(locales: string[]): string {
   return locales.join(', ');
@@ -24,4 +24,17 @@ export function textOrNull(value: string): string | null {
 
 export function countUnread(notifications: Notification[]): number {
   return notifications.filter((n) => n.read_at === null).length;
+}
+
+export type CampaignRole = 'gm' | 'player' | 'visible';
+
+// A campaign appearing in a tenant's GET /campaigns list doesn't mean the
+// caller personally plays or GMs it - a tenant orga (or a fellow
+// participant, for non-secret campaigns) sees the whole catalog. This
+// cross-references MeOut's own player/GM grants to say which is which,
+// rather than the server repeating "your role here" on every campaign row.
+export function campaignRoleFor(campaignId: string, me: MeOut): CampaignRole {
+  if (me.campaign_gm_grants.some((c) => c.id === campaignId)) return 'gm';
+  if (me.players.some((p) => p.campaign_id === campaignId)) return 'player';
+  return 'visible';
 }
