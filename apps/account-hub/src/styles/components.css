@@ -30,6 +30,69 @@ button:hover {
   color: var(--lorenzo-burgundy);
 }
 
+/* Small, muted status/progress text next to a button or form (ADR 0080's
+   createStatusSpan) - "Saving…", an inline error, or nothing at all. */
+.status-text {
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+/* A small role/kind badge next to a name - tenant role today, reused
+   wherever else a short, non-interactive tag is needed. */
+.tenant-role {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--fg-tertiary);
+  background: var(--fill-soft);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
+}
+
+/* Secondary metadata line under a campaign or notification title - game
+   system/role/secret, or scope/timestamp. */
+.campaign-meta,
+.notification-meta {
+  display: block;
+  font-size: 13px;
+  color: var(--fg-tertiary);
+}
+
+/* A roster/list of items with inline actions (characters, beings, GMs,
+   players) - one bordered row per entry, per identity.md §8.2's "clean
+   information records, not parchment panels." */
+.roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roster-list > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+
+/* A single-line create/invite form (text input + submit + status). */
+.inline-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 .next-up {
   color: var(--fg-secondary);
 }

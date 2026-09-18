@@ -14,6 +14,7 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../lib/characters';
+    import { createStatusSpan, renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { reusableCharactersFor } from '../lib/format';
     import { getMe } from '../lib/me';
     import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
@@ -30,88 +31,6 @@ import Base from '../layouts/Base.astro';
     const loadError = document.getElementById('load-error')!;
     const emptyState = document.getElementById('empty-state')!;
     const tenantList = document.getElementById('tenant-list')!;
-
-    function renderCharacterItem(
-      character: CharacterSummaryOut,
-      player: PlayerContextOut,
-      onRenamed: () => void,
-    ): HTMLLIElement {
-      const item = document.createElement('li');
-      const nameEl = document.createElement('span');
-      nameEl.textContent = character.name;
-
-      const renameButton = document.createElement('button');
-      renameButton.type = 'button';
-      renameButton.textContent = 'Rename';
-
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-
-      renameButton.addEventListener('click', () => {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = character.name;
-        const saveButton = document.createElement('button');
-        saveButton.type = 'button';
-        saveButton.textContent = 'Save';
-        const cancelButton = document.createElement('button');
-        cancelButton.type = 'button';
-        cancelButton.textContent = 'Cancel';
-
-        item.replaceChildren(input, saveButton, cancelButton, status);
-
-        cancelButton.addEventListener('click', () => {
-          item.replaceChildren(nameEl, renameButton, status);
-        });
-        saveButton.addEventListener('click', async () => {
-          const name = input.value.trim();
-          if (name === '' || name === character.name) {
-            item.replaceChildren(nameEl, renameButton, status);
-            return;
-          }
-          status.textContent = 'Saving&hellip;';
-          try {
-            await updateCharacter(player.tenant_id, character.entity_id, { name });
-            onRenamed();
-          } catch (e) {
-            status.textContent = e instanceof Error ? e.message : String(e);
-          }
-        });
-      });
-
-      item.append(nameEl, renameButton, status);
-      return item;
-    }
-
-    function renderCreateForm(player: PlayerContextOut, onCreated: () => void): HTMLFormElement {
-      const form = document.createElement('form');
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.placeholder = 'New character name';
-      input.required = true;
-      const button = document.createElement('button');
-      button.type = 'submit';
-      button.textContent = 'Create character';
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-
-      form.append(input, button, status);
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const name = input.value.trim();
-        if (name === '') return;
-        status.textContent = 'Creating&hellip;';
-        try {
-          await createCharacter(player.tenant_id, { name, owner_player_id: player.id });
-          input.value = '';
-          status.textContent = '';
-          onCreated();
-        } catch (e) {
-          status.textContent = e instanceof Error ? e.message : String(e);
-        }
-      });
-      return form;
-    }
 
     function findPlayerFor(
       me: MeOut,
@@ -136,6 +55,7 @@ import Base from '../layouts/Base.astro';
       container.append(label);
 
       const list = document.createElement('ul');
+      list.className = 'roster-list';
       for (const character of reusable) {
         const item = document.createElement('li');
         const nameEl = document.createElement('span');
@@ -143,10 +63,9 @@ import Base from '../layouts/Base.astro';
         const useButton = document.createElement('button');
         useButton.type = 'button';
         useButton.textContent = 'Use this character';
-        const status = document.createElement('span');
-        status.setAttribute('role', 'status');
+        const status = createStatusSpan();
         useButton.addEventListener('click', async () => {
-          status.textContent = 'Linking&hellip;';
+          status.textContent = 'Linking…';
           try {
             await linkCharacterToPlayer(player.tenant_id, character.entity_id, player.id);
             onLinked();
@@ -190,13 +109,24 @@ import Base from '../layouts/Base.astro';
         section.append(none);
       } else {
         const list = document.createElement('ul');
+        list.className = 'roster-list';
         for (const character of player.characters) {
-          list.append(renderCharacterItem(character, player, onChanged));
+          list.append(
+            renderRenameableItem(character.name, (newName) =>
+              updateCharacter(player.tenant_id, character.entity_id, { name: newName }).then(
+                onChanged,
+              ),
+            ),
+          );
         }
         section.append(list);
       }
 
-      section.append(renderCreateForm(player, onChanged));
+      section.append(
+        renderCreateForm('New character name', 'Create character', (name) =>
+          createCharacter(player.tenant_id, { name, owner_player_id: player.id }).then(onChanged),
+        ),
+      );
 
       if (player.characters.length === 0) {
         const reusable = reusableCharactersFor(me, player.tenant_id, campaign.id);

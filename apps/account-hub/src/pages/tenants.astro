@@ -13,27 +13,12 @@ import Base from '../layouts/Base.astro';
   <ul id="tenant-list"></ul>
 
   <script>
+    import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
     import { campaignRoleFor, type CampaignRole } from '../lib/format';
+    import { renderGmManagement, renderInvitePlayer } from '../lib/gmAndPlayerUi';
     import { getMe } from '../lib/me';
-    import {
-      createCampaign,
-      getCampaign,
-      grantCampaignGm,
-      invitePlayer,
-      listCampaignGms,
-      listMyTenants,
-      listTenantCampaigns,
-      revokeCampaignGm,
-      updateCampaign,
-    } from '../lib/tenants';
-    import { mountUserPicker } from '../lib/userPicker';
-    import type {
-      CampaignOut,
-      CampaignSummaryOut,
-      CampaignUpdate,
-      MeOut,
-      TenantSummaryOut,
-    } from '../lib/types';
+    import { listCampaignGms, listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import type { CampaignSummaryOut, MeOut, TenantSummaryOut } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
 
     const loading = document.getElementById('loading')!;
@@ -54,192 +39,6 @@ import Base from '../layouts/Base.astro';
 
     function isTenantAdmin(tenant: TenantSummaryOut): boolean {
       return tenant.role === 'owner' || tenant.role === 'orga';
-    }
-
-    // GmOut has no display name and there's no reverse user-lookup
-    // endpoint anywhere in this API (ADR 0076) - a raw user_id is all a
-    // client can show per GM.
-    function renderGmManagement(
-      tenant: TenantSummaryOut,
-      campaign: CampaignSummaryOut,
-      gms: string[],
-      onChanged: () => void,
-    ): HTMLElement {
-      const section = document.createElement('div');
-      const heading = document.createElement('p');
-      heading.textContent = 'GMs:';
-      section.append(heading);
-
-      const list = document.createElement('ul');
-      for (const userId of gms) {
-        const item = document.createElement('li');
-        const idEl = document.createElement('code');
-        idEl.textContent = userId;
-        const revokeButton = document.createElement('button');
-        revokeButton.type = 'button';
-        revokeButton.textContent = 'Revoke';
-        const status = document.createElement('span');
-        status.setAttribute('role', 'status');
-        revokeButton.addEventListener('click', async () => {
-          status.textContent = 'Revoking&hellip;';
-          try {
-            await revokeCampaignGm(tenant.id, campaign.id, userId);
-            onChanged();
-          } catch (e) {
-            status.textContent = e instanceof Error ? e.message : String(e);
-          }
-        });
-        item.append(idEl, revokeButton, status);
-        list.append(item);
-      }
-      section.append(list);
-
-      const pickerContainer = document.createElement('div');
-      const pickerLabel = document.createElement('p');
-      pickerLabel.textContent = 'Assign a new GM:';
-      pickerContainer.append(pickerLabel);
-      mountUserPicker(pickerContainer, async (user) => {
-        try {
-          await grantCampaignGm(tenant.id, campaign.id, user.id);
-          onChanged();
-        } catch (e) {
-          pickerContainer.append(
-            Object.assign(document.createElement('p'), {
-              textContent: e instanceof Error ? e.message : String(e),
-            }),
-          );
-        }
-      });
-      section.append(pickerContainer);
-
-      return section;
-    }
-
-    function renderInvitePlayer(
-      tenant: TenantSummaryOut,
-      campaign: CampaignSummaryOut,
-    ): HTMLElement {
-      const section = document.createElement('div');
-      const label = document.createElement('p');
-      label.textContent = 'Invite a player:';
-      section.append(label);
-      mountUserPicker(section, async (user) => {
-        try {
-          await invitePlayer(tenant.id, campaign.id, { user_id: user.id });
-        } catch (e) {
-          section.append(
-            Object.assign(document.createElement('p'), {
-              textContent: e instanceof Error ? e.message : String(e),
-            }),
-          );
-        }
-      });
-      return section;
-    }
-
-    // The list view's CampaignSummaryOut has no description, so editing
-    // needs the one extra GET .../campaigns/{id} fetch (CampaignOut) -
-    // only when Edit is actually clicked, not on every page load.
-    function renderEditCampaignForm(
-      tenant: TenantSummaryOut,
-      campaign: CampaignOut,
-      onDone: () => void,
-    ): HTMLFormElement {
-      const form = document.createElement('form');
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.value = campaign.name;
-      const slugInput = document.createElement('input');
-      slugInput.type = 'text';
-      slugInput.value = campaign.slug;
-      const gameSystemInput = document.createElement('input');
-      gameSystemInput.type = 'text';
-      gameSystemInput.value = campaign.game_system;
-      const descriptionInput = document.createElement('textarea');
-      descriptionInput.value = campaign.description;
-      const secretLabel = document.createElement('label');
-      const secretInput = document.createElement('input');
-      secretInput.type = 'checkbox';
-      secretInput.checked = campaign.secret;
-      secretLabel.append(secretInput, 'Secret');
-      const saveButton = document.createElement('button');
-      saveButton.type = 'submit';
-      saveButton.textContent = 'Save';
-      const cancelButton = document.createElement('button');
-      cancelButton.type = 'button';
-      cancelButton.textContent = 'Cancel';
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-
-      form.append(
-        nameInput,
-        slugInput,
-        gameSystemInput,
-        descriptionInput,
-        secretLabel,
-        saveButton,
-        cancelButton,
-        status,
-      );
-
-      cancelButton.addEventListener('click', onDone);
-
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const patch: CampaignUpdate = {};
-        if (nameInput.value.trim() !== campaign.name) patch.name = nameInput.value.trim();
-        if (slugInput.value.trim() !== campaign.slug) patch.slug = slugInput.value.trim();
-        if (gameSystemInput.value.trim() !== campaign.game_system) {
-          patch.game_system = gameSystemInput.value.trim();
-        }
-        if (descriptionInput.value.trim() !== campaign.description) {
-          patch.description = descriptionInput.value.trim();
-        }
-        if (secretInput.checked !== campaign.secret) patch.secret = secretInput.checked;
-
-        if (Object.keys(patch).length === 0) {
-          onDone();
-          return;
-        }
-        status.textContent = 'Saving&hellip;';
-        try {
-          await updateCampaign(tenant.id, campaign.id, patch);
-          onDone();
-        } catch (e) {
-          status.textContent = e instanceof Error ? e.message : String(e);
-        }
-      });
-
-      return form;
-    }
-
-    function renderEditToggle(
-      tenant: TenantSummaryOut,
-      campaign: CampaignSummaryOut,
-      onChanged: () => void,
-    ): HTMLElement {
-      const container = document.createElement('span');
-      const editButton = document.createElement('button');
-      editButton.type = 'button';
-      editButton.textContent = 'Edit';
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-      container.append(editButton, status);
-
-      editButton.addEventListener('click', async () => {
-        editButton.disabled = true;
-        status.textContent = 'Loading&hellip;';
-        try {
-          const full = await getCampaign(tenant.id, campaign.id);
-          status.textContent = '';
-          container.replaceChildren(renderEditCampaignForm(tenant, full, onChanged));
-        } catch (e) {
-          editButton.disabled = false;
-          status.textContent = e instanceof Error ? e.message : String(e);
-        }
-      });
-
-      return container;
     }
 
     async function renderCampaign(
@@ -279,69 +78,6 @@ import Base from '../layouts/Base.astro';
       return item;
     }
 
-    function renderCreateCampaignForm(
-      tenant: TenantSummaryOut,
-      onCreated: () => void,
-    ): HTMLElement {
-      const form = document.createElement('form');
-      const heading = document.createElement('h3');
-      heading.textContent = 'Create a campaign';
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Name';
-      nameInput.required = true;
-      const slugInput = document.createElement('input');
-      slugInput.type = 'text';
-      slugInput.placeholder = 'Slug';
-      slugInput.required = true;
-      const gameSystemInput = document.createElement('input');
-      gameSystemInput.type = 'text';
-      gameSystemInput.placeholder = 'Game system';
-      gameSystemInput.required = true;
-      const descriptionInput = document.createElement('textarea');
-      descriptionInput.placeholder = 'Description';
-      descriptionInput.required = true;
-      const secretLabel = document.createElement('label');
-      const secretInput = document.createElement('input');
-      secretInput.type = 'checkbox';
-      secretLabel.append(secretInput, 'Secret');
-      const button = document.createElement('button');
-      button.type = 'submit';
-      button.textContent = 'Create campaign';
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-
-      form.append(
-        heading,
-        nameInput,
-        slugInput,
-        gameSystemInput,
-        descriptionInput,
-        secretLabel,
-        button,
-        status,
-      );
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        status.textContent = 'Creating&hellip;';
-        try {
-          await createCampaign(tenant.id, {
-            name: nameInput.value.trim(),
-            slug: slugInput.value.trim(),
-            game_system: gameSystemInput.value.trim(),
-            description: descriptionInput.value.trim(),
-            secret: secretInput.checked,
-          });
-          form.reset();
-          status.textContent = '';
-          onCreated();
-        } catch (e) {
-          status.textContent = e instanceof Error ? e.message : String(e);
-        }
-      });
-      return form;
-    }
-
     async function renderTenant(
       tenant: TenantSummaryOut,
       campaigns: CampaignSummaryOut[],
@@ -363,6 +99,7 @@ import Base from '../layouts/Base.astro';
         item.append(none);
       } else {
         const list = document.createElement('ul');
+        list.className = 'roster-list';
         for (const campaign of campaigns) {
           list.append(await renderCampaign(tenant, campaign, me, onChanged));
         }

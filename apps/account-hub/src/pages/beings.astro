@@ -23,6 +23,7 @@ import Base from '../layouts/Base.astro';
       listBeings,
       updateCharacter,
     } from '../lib/characters';
+    import { renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { campaignRoleFor } from '../lib/format';
     import { getMe } from '../lib/me';
     import {
@@ -96,6 +97,7 @@ import Base from '../layouts/Base.astro';
         try {
           const existing = await listCampaignPlayers(tenantId, campaignId);
           const list = document.createElement('ul');
+          list.className = 'roster-list';
           for (const player of existing.items) {
             const item = document.createElement('li');
             const idEl = document.createElement('code');
@@ -144,48 +146,9 @@ import Base from '../layouts/Base.astro';
       gmCampaigns: CampaignSummaryOut[],
       onChanged: () => void,
     ): HTMLLIElement {
-      const item = document.createElement('li');
-      const nameEl = document.createElement('span');
-      nameEl.textContent = being.name;
-
-      const renameButton = document.createElement('button');
-      renameButton.type = 'button';
-      renameButton.textContent = 'Rename';
-
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-
-      renameButton.addEventListener('click', () => {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = being.name;
-        const saveButton = document.createElement('button');
-        saveButton.type = 'button';
-        saveButton.textContent = 'Save';
-        const cancelButton = document.createElement('button');
-        cancelButton.type = 'button';
-        cancelButton.textContent = 'Cancel';
-
-        item.replaceChildren(input, saveButton, cancelButton, status);
-
-        cancelButton.addEventListener('click', () => {
-          item.replaceChildren(nameEl, renameButton, status);
-        });
-        saveButton.addEventListener('click', async () => {
-          const name = input.value.trim();
-          if (name === '' || name === being.name) {
-            item.replaceChildren(nameEl, renameButton, status);
-            return;
-          }
-          status.textContent = 'Saving&hellip;';
-          try {
-            await updateCharacter(tenantId, being.entity_id, { name });
-            onChanged();
-          } catch (e) {
-            status.textContent = e instanceof Error ? e.message : String(e);
-          }
-        });
-      });
+      const item = renderRenameableItem(being.name, (newName) =>
+        updateCharacter(tenantId, being.entity_id, { name: newName }).then(onChanged),
+      );
 
       const handoffButton = document.createElement('button');
       handoffButton.type = 'button';
@@ -193,41 +156,9 @@ import Base from '../layouts/Base.astro';
       handoffButton.addEventListener('click', () => {
         handoffButton.replaceWith(renderHandoffPanel(being, tenantId, gmCampaigns, onChanged));
       });
+      item.append(handoffButton);
 
-      item.append(nameEl, renameButton, status, handoffButton);
       return item;
-    }
-
-    function renderCreateForm(tenantId: string, onCreated: () => void): HTMLFormElement {
-      const form = document.createElement('form');
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.placeholder = 'New being name';
-      input.required = true;
-      const button = document.createElement('button');
-      button.type = 'submit';
-      button.textContent = 'Create being';
-      const status = document.createElement('span');
-      status.setAttribute('role', 'status');
-
-      form.append(input, button, status);
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const name = input.value.trim();
-        if (name === '') return;
-        status.textContent = 'Creating&hellip;';
-        try {
-          // No owner_player_id - that's exactly what makes this a being
-          // (is_pc: false) rather than a player character.
-          await createCharacter(tenantId, { name });
-          input.value = '';
-          status.textContent = '';
-          onCreated();
-        } catch (e) {
-          status.textContent = e instanceof Error ? e.message : String(e);
-        }
-      });
-      return form;
     }
 
     // Beings are tenant-scoped, but handoff needs a specific campaign
@@ -251,13 +182,20 @@ import Base from '../layouts/Base.astro';
         section.append(none);
       } else {
         const list = document.createElement('ul');
+        list.className = 'roster-list';
         for (const being of beingsPage.items) {
           list.append(renderBeingItem(being, tenant.id, gmCampaigns, onChanged));
         }
         section.append(list);
       }
 
-      section.append(renderCreateForm(tenant.id, onChanged));
+      section.append(
+        renderCreateForm('New being name', 'Create being', (name) =>
+          // No owner_player_id - that's exactly what makes this a being
+          // (is_pc: false) rather than a player character.
+          createCharacter(tenant.id, { name }).then(onChanged),
+        ),
+      );
       return section;
     }
 
