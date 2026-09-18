@@ -506,6 +506,99 @@ async def test_owned_by_404_for_unknown_tenant(client: AsyncClient) -> None:
     assert response.status_code == 404
 
 
+# --- Unowned item instances (ADR 0077/issue #95) ----------------------------
+
+
+async def test_unowned_groups_by_container_and_excludes_owned_instances(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Mirrors test_owned_by_groups_multiple_owners_multiple_containers_and_
+    uncontained's own shape, but for the unowned counterpart - grouped by
+    direct container, a None group for uncontained instances, and an
+    owned instance must never leak in.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        owner = Entity(tenant_id=tenant_id, name="Owner")
+        container = Entity(tenant_id=tenant_id, name="Chest")
+        session.add_all([owner, container])
+        await session.flush()
+
+        owned = Entity(tenant_id=tenant_id, name="Owned Sword")
+        unowned_contained = Entity(tenant_id=tenant_id, name="Unowned Shield")
+        unowned_loose = Entity(tenant_id=tenant_id, name="Unowned Coin")
+        session.add_all([owned, unowned_contained, unowned_loose])
+        await session.flush()
+
+        session.add_all(
+            [
+                ItemInstance(entity_id=owned.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=unowned_contained.id, tenant_id=tenant_id),
+                ItemInstance(entity_id=unowned_loose.id, tenant_id=tenant_id),
+            ]
+        )
+        session.add(
+            Ownership(owned_entity_id=owned.id, owner_character_id=owner.id, tenant_id=tenant_id)
+        )
+        session.add_all(
+            [
+                Containment(
+                    child_entity_id=owned.id, parent_entity_id=container.id, tenant_id=tenant_id
+                ),
+                Containment(
+                    child_entity_id=unowned_contained.id,
+                    parent_entity_id=container.id,
+                    tenant_id=tenant_id,
+                ),
+                # unowned_loose is deliberately left uncontained.
+            ]
+        )
+        await session.commit()
+        container_id = container.id
+        unowned_contained_id, unowned_loose_id = unowned_contained.id, unowned_loose.id
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/unowned")
+
+    assert response.status_code == 200
+    groups_by_container = {
+        (g["container"]["id"] if g["container"] is not None else None): {
+            i["entity_id"] for i in g["item_instances"]
+        }
+        for g in response.json()["groups"]
+    }
+    assert groups_by_container == {
+        str(container_id): {str(unowned_contained_id)},
+        None: {str(unowned_loose_id)},
+    }
+
+    await delete_tenant(tenant_id)
+
+
+async def test_unowned_route_is_not_shadowed_by_the_detail_route(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """/unowned is registered before the generic /{entity_id} precisely so
+    this doesn't happen - confirmed here, not just reasoned through,
+    mirroring test_owned_by_route_is_not_shadowed_by_the_detail_route's
+    own identical concern.
+    """
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.get(f"/tenants/{tenant_id}/item-instances/unowned")
+
+    assert response.status_code == 200
+    assert response.json() == {"groups": []}
+
+    await delete_tenant(tenant_id)
+
+
+async def test_unowned_404_for_unknown_tenant(client: AsyncClient) -> None:
+    response = await client.get(
+        "/tenants/00000000-0000-0000-0000-000000000000/item-instances/unowned"
+    )
+    assert response.status_code == 404
+
+
 async def test_container_filter_direct_children_non_recursive(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:

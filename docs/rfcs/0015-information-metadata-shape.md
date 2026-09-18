@@ -2,6 +2,8 @@
 
 Status: proposed
 
+*Originally numbered 0014 on this branch; renumbered to 0015 on merge into `main`, which had independently claimed 0014 for [RFC 0014](0014-account-hub-tenant-admin-and-roster-management.md) (account-hub's own tenant/campaign-admin RFC) in the meantime — the same renumbering precedent already established for ADR 0050/0054/0068/0069.*
+
 ## Context
 
 [ADR 0017](../adr/0017-information-and-payloads.md) deliberately narrowed `information`/`payload` to a proof-of-concept slice: `entity_id`+`title`+free-text `type`, four fixed payload kinds, no ordering, no `is_public`. [ADR 0028](../adr/0028-knowledge-and-group-membership.md) added `knowledge`/`is_public`. [ADR 0038](../adr/0038-information-payload-knowledge-crud-api.md) built exactly enough write surface for GitHub milestone #1's three-observer scenario: create a description, grant/revoke an entity-knower. Both ADRs named what they left out in their own "Not in scope" sections as deliberate narrowings, not oversights — this RFC is the point several of those named gaps get picked back up, because real usage (and a broader brainstorm of what the container is actually meant to hold) has now outgrown the original slice.
