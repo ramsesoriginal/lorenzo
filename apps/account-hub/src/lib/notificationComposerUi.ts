@@ -14,6 +14,7 @@ export function renderNotificationComposer(
   send: (body: NotificationCreate) => Promise<Notification[]>,
 ): HTMLElement {
   const container = document.createElement('div');
+  container.className = 'panel';
   const heading = document.createElement('p');
   heading.textContent = 'Send a notification:';
   container.append(heading);

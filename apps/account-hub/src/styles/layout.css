@@ -60,6 +60,16 @@ main {
   border-left: 2px solid var(--border);
 }
 
+/* A self-contained admin/composer block within a tenant or campaign row
+   (membership admin, activity log, notification composer) - same
+   subdivision-not-peer-surface treatment as .campaign-subsection, reused
+   wherever RFC 0017's admin features land (ADR 0080's stated policy). */
+.panel {
+  margin-top: var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+}
+
 .tenant-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

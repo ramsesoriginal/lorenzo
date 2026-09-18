@@ -176,6 +176,7 @@ export function renderMembershipAdmin(
   onChanged: () => void,
 ): HTMLElement {
   const section = document.createElement('div');
+  section.className = 'panel';
   const heading = document.createElement('h3');
   heading.textContent = 'Tenant admins';
   section.append(heading);

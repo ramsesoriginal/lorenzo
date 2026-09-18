@@ -9,6 +9,7 @@ import type { TenantSummaryOut } from './types';
 
 export async function renderActivityLog(tenant: TenantSummaryOut): Promise<HTMLElement> {
   const section = document.createElement('div');
+  section.className = 'panel';
   const heading = document.createElement('h3');
   heading.textContent = 'Activity log';
   section.append(heading);

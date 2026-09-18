@@ -10,6 +10,7 @@ export function renderCampaignRoster(
   roster: RosterEntry[],
 ): HTMLElement {
   const section = document.createElement('div');
+  section.className = 'panel';
   const heading = document.createElement('p');
   heading.textContent = 'Roster:';
   section.append(heading);
