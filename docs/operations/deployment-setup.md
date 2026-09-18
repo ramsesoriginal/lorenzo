@@ -119,15 +119,24 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Get a real access token for that account**: from `apps/api/`, `AUTHGEAR_DEV_CLIENT_ID=<client id> AUTHGEAR_DEV_CLIENT_SECRET=<client secret> mise run dev-token -- --issuer <production issuer>`, using the OIDC client registered in step 2 of the section above (needs `http://127.0.0.1:8765/callback` as an Authorized Redirect URI on that client). Opens a browser, logs in, prints the token.
 4. **Call `POST /tenants`** with that token — either the deployed API's own Swagger UI at `<base url>/docs` (Authorize, then try out `POST /tenants`), or `curl -X POST <base url>/tenants -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name": "..."}'`. The response's `id` is the tenant's UUID.
 
+## Cloudflare Pages (apps/inventory-web)
+
+`apps/inventory-web` deploys as a plain static build (`astro build` → `dist/`) — no container, no database, per [ADR 0004](../adr/0004-static-astro-frontend.md) and `docs/guides/adding-an-app.md`'s warning against forcing apps/api's own deploy shape onto an app that deploys completely differently.
+
+1. Sign up at [cloudflare.com](https://cloudflare.com) (free tier) if you haven't already.
+2. **Find your Account ID** — dashboard right sidebar on any site's Overview page, or `npx wrangler whoami` once logged in locally. This becomes `CLOUDFLARE_ACCOUNT_ID` below.
+3. **Create the Pages project once, manually**, rather than relying on the first CI deploy to create it (behavior here isn't guaranteed, and a one-time manual step matches this doc's own pattern for apps/api): dashboard → **Workers & Pages → Create → Pages → Upload assets**, name it exactly `lorenzo-inventory-web` (matches `--project-name` in `deploy-inventory-web.yml`) — a placeholder upload is fine, the first real deploy replaces it.
+4. **Create an API token**: dashboard → profile icon → **My Profile → API Tokens → Create Token → Custom Token**. Under **Permissions**, add `Account` / `Cloudflare Pages` / `Edit`, scope it to this one account (not "All accounts"), skip any zone permissions — this token should only be able to deploy Pages on this account, nothing else. This becomes `CLOUDFLARE_API_TOKEN` below (shown once at creation — copy it immediately).
+
 ## GitHub setup
 
 Create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments), and add:
 
-- **Secret**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`.
-- **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE` — the values from the Authgear Cloud section above. None of these seven are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
+- **Secrets**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`. `CLOUDFLARE_API_TOKEN` — from the Cloudflare Pages section above.
+- **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE` — the values from the Authgear Cloud section above. `CLOUDFLARE_ACCOUNT_ID` — from the Cloudflare Pages section above. None of these eight are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
 - **Variable, optional**: `CORS_ALLOWED_ORIGINS` — set this once a static frontend needs to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). **Space-separated** exact origins, e.g. `https://lorenzo.example.com https://other.example.com` — deliberately not a JSON array or comma-separated list (see ADR 0048's own addendum for why: a JSON array's internal commas collided with how the deploy workflow joins environment variables, and crashed a real deploy). Leave unset to keep CORS closed (the default, and what every deploy so far has run with) — an unset variable arrives as an empty string, which `Settings.cors_allowed_origins` parses to `[]` directly.
 
-Once these exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger it — the workflow's own `paths: apps/api/**` filter won't fire, so trigger it manually once (Actions → "Deploy API" → "Run workflow") to actually apply new environment variables to the live service.
+Once the apps/api values exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`; once the Cloudflare values exist, `.github/workflows/deploy-inventory-web.yml` does the same for `apps/inventory-web/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger either — each workflow's own `paths:` filter won't fire, so trigger the relevant one manually once (Actions → pick the workflow → "Run workflow") to actually apply new environment variables/secrets to the live service.
 
 ## Rotating to the restricted app role (ADR 0021)
 

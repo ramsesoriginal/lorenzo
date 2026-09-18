@@ -37,6 +37,17 @@ updates:
           - "*"
 
   - package-ecosystem: "npm"
+    directory: "/apps/inventory-web"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
     directory: "/apps/loot-bot"
     schedule:
       interval: "weekly"

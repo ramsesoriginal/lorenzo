@@ -2,3 +2,15 @@ packages:
   - apps/*
   # Add "packages/*" here once the first JS/TS package under packages/
   # exists — see docs/guides/adding-a-package.md.
+
+# pnpm 10+ ignores dependency postinstall/build scripts by default; esbuild
+# (an Astro/Vite build dependency) needs its native-binary postinstall step
+# to actually work.
+allowBuilds:
+  esbuild: true
+
+# astro@7.3.3 is intentionally bleeding-edge — younger than pnpm's default
+# minimum-release-age security window, so it needs an explicit exclude to
+# install at all.
+minimumReleaseAgeExclude:
+  - astro@7.3.3

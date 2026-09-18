@@ -1,0 +1,36 @@
+/*
+ * Minimal modern reset - only the box-model, spacing, and list/media
+ * defaults that would otherwise get re-fought in every component. No
+ * project-specific decisions here; those live in base.css/tokens.css.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}

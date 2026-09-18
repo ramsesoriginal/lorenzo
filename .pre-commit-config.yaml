@@ -85,12 +85,31 @@ repos:
             "**/*.md",
           ]
 
-  # Same reasoning as the mypy-api hook above: Biome/tsc need this app's own
-  # node_modules (tsconfig path resolution, installed @types) on their path,
-  # which the official pre-commit mirrors don't give them without
-  # duplicating a package install here too.
+  # Same reasoning as the mypy-api hook above: Biome/astro check/prettier
+  # need this app's own node_modules (tsconfig path resolution, the astro
+  # language service, installed plugins) on their path, which the official
+  # pre-commit mirrors don't give them without duplicating a package
+  # install here too.
   - repo: local
     hooks:
+      - id: biome-inventory-web
+        name: biome (apps/inventory-web)
+        entry: pnpm --dir apps/inventory-web exec biome check --write
+        language: system
+        files: ^apps/inventory-web/.*\.(ts|js|json|css)$
+        pass_filenames: false
+      - id: astro-check-inventory-web
+        name: astro check (apps/inventory-web)
+        entry: pnpm --dir apps/inventory-web exec astro check
+        language: system
+        files: ^apps/inventory-web/.*\.(astro|ts)$
+        pass_filenames: false
+      - id: prettier-inventory-web
+        name: prettier --write (apps/inventory-web, .astro)
+        entry: pnpm --dir apps/inventory-web exec prettier --write
+        language: system
+        files: ^apps/inventory-web/.*\.astro$
+        pass_filenames: false
       - id: biome-loot-bot
         name: biome (apps/loot-bot)
         entry: pnpm --dir apps/loot-bot exec biome check --write

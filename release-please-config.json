@@ -5,6 +5,10 @@
       "release-type": "python",
       "component": "api"
     },
+    "apps/inventory-web": {
+      "release-type": "node",
+      "component": "inventory-web"
+    },
     "apps/loot-bot": {
       "release-type": "node",
       "component": "loot-bot"

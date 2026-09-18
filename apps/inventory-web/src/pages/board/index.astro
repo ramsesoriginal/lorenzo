@@ -1,0 +1,400 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Board — Lorenzo">
+  <p><a href="/">&larr; Tenants</a></p>
+  <p id="status">Loading&hellip;</p>
+  <div id="board" hidden>
+    <h1 class="display" id="tenant-name"></h1>
+    <p id="tenant-slug" class="tenant-slug"></p>
+
+    <section id="characters" class="section">
+      <h2>Your characters</h2>
+      <p id="characters-loading">Loading characters&hellip;</p>
+      <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
+      <p id="characters-error" class="error-text" hidden></p>
+      <ul id="character-strip" class="character-strip"></ul>
+    </section>
+
+    <section id="inventory" class="section">
+      <p id="inventory-loading" hidden>Loading inventory&hellip;</p>
+      <p id="inventory-empty" class="next-up" hidden></p>
+      <p id="inventory-error" class="error-text" hidden></p>
+      <div id="board-columns" class="board-columns"></div>
+    </section>
+  </div>
+
+  <dialog id="item-detail" class="item-detail">
+    <div class="item-detail-content">
+      <button type="button" id="item-detail-close" class="item-detail-close" aria-label="Close"
+        >&times;</button
+      >
+      <h2 id="item-detail-title" class="display"></h2>
+      <p id="item-detail-qty" class="item-detail-qty" hidden></p>
+      <dl id="item-detail-stats" class="item-detail-stats"></dl>
+      <p id="item-detail-flags" class="item-detail-flags" hidden></p>
+      <div id="item-detail-descriptions" class="item-detail-descriptions"></div>
+    </div>
+  </dialog>
+
+  <script>
+    import { isAuthenticated } from '../../lib/auth';
+    import { listMyCharacters } from '../../lib/characters';
+    import { clearContainer, getOwnedItemInstances, setContainer } from '../../lib/items';
+    import { getTenant } from '../../lib/tenants';
+    import type { CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
+
+    const status = document.getElementById('status')!;
+    const board = document.getElementById('board')!;
+    const tenantName = document.getElementById('tenant-name')!;
+    const tenantSlug = document.getElementById('tenant-slug')!;
+
+    const charactersLoading = document.getElementById('characters-loading')!;
+    const charactersEmpty = document.getElementById('characters-empty')!;
+    const charactersError = document.getElementById('characters-error')!;
+    const characterStrip = document.getElementById('character-strip')!;
+
+    const inventoryLoading = document.getElementById('inventory-loading')!;
+    const inventoryEmpty = document.getElementById('inventory-empty')!;
+    const inventoryError = document.getElementById('inventory-error')!;
+    const boardColumns = document.getElementById('board-columns')!;
+
+    const detailDialog = document.getElementById('item-detail') as HTMLDialogElement;
+    const detailTitle = document.getElementById('item-detail-title')!;
+    const detailQty = document.getElementById('item-detail-qty')!;
+    const detailStats = document.getElementById('item-detail-stats')!;
+    const detailFlags = document.getElementById('item-detail-flags')!;
+    const detailDescriptions = document.getElementById('item-detail-descriptions')!;
+
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant');
+
+    // Same-document View Transition when the browser supports it and the
+    // user hasn't asked for reduced motion; a plain DOM mutation otherwise.
+    function withReflow(mutate: () => void) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduceMotion && document.startViewTransition) {
+        document.startViewTransition(mutate);
+      } else {
+        mutate();
+      }
+    }
+
+    let openCard: HTMLElement | null = null;
+
+    function populateDetail(item: ItemInstance) {
+      detailTitle.textContent = item.title;
+
+      const showQty = Boolean(item.quantity && item.quantity > 1);
+      detailQty.hidden = !showQty;
+      detailQty.textContent = showQty ? `×${item.quantity}` : '';
+
+      detailStats.replaceChildren();
+      const stats: [string, number | null][] = [
+        ['Weight', item.weight],
+        ['Height', item.height],
+        ['Price', item.price],
+        ['Rarity', item.rarity],
+        ['HP', item.hp],
+        ['Armor', item.armor],
+      ];
+      for (const [label, value] of stats) {
+        if (value === null) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.textContent = String(value);
+        detailStats.append(dt, dd);
+      }
+
+      const flags = [item.is_magical && 'Magical', item.is_cursed && 'Cursed'].filter(Boolean);
+      detailFlags.hidden = flags.length === 0;
+      detailFlags.textContent = flags.join(' · ');
+
+      detailDescriptions.replaceChildren();
+      for (const description of item.descriptions) {
+        const p = document.createElement('p');
+        p.textContent = description.content;
+        detailDescriptions.append(p);
+      }
+    }
+
+    // The dialog borrows the clicked card's view-transition-name for the
+    // duration it's open (and gives it back on close) - two different
+    // elements sharing one name, one at a time, is what makes the browser
+    // morph between them instead of just cross-fading.
+    function openDetail(item: ItemInstance, card: HTMLElement) {
+      openCard = card;
+      withReflow(() => {
+        card.style.viewTransitionName = '';
+        detailDialog.style.viewTransitionName = `item-${item.entity_id}`;
+        populateDetail(item);
+        detailDialog.showModal();
+      });
+    }
+
+    function closeDetail() {
+      const card = openCard;
+      openCard = null;
+      withReflow(() => {
+        detailDialog.close();
+        detailDialog.style.viewTransitionName = '';
+        if (card?.dataset.entityId) {
+          card.style.viewTransitionName = `item-${card.dataset.entityId}`;
+        }
+      });
+    }
+
+    document.getElementById('item-detail-close')?.addEventListener('click', () => closeDetail());
+
+    // Escape fires 'cancel' first (cancelable) - intercept it so Escape
+    // also gets the animated close instead of an instant native one.
+    detailDialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeDetail();
+    });
+
+    // A click that lands on the <dialog> element itself (not a descendant)
+    // is a backdrop click - the standard click-outside-to-close idiom.
+    detailDialog.addEventListener('click', (event) => {
+      if (event.target === detailDialog) {
+        closeDetail();
+      }
+    });
+
+    function ensurePlaceholder(list: HTMLUListElement) {
+      if (list.children.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'column-empty';
+        empty.textContent = 'This container is empty.';
+        list.append(empty);
+      }
+    }
+
+    function removePlaceholder(list: HTMLUListElement) {
+      list.querySelector('.column-empty')?.remove();
+    }
+
+    function showTransientError(message: string) {
+      inventoryError.hidden = false;
+      inventoryError.textContent = message;
+      window.setTimeout(() => {
+        inventoryError.hidden = true;
+      }, 5000);
+    }
+
+    // dragenter/dragleave both fire while crossing child elements (a card
+    // moving within its own column), so a plain "leave clears the
+    // highlight" handler flickers - a per-column counter fixes that.
+    const dragDepth = new WeakMap<HTMLElement, number>();
+
+    function bindDropZone(
+      column: HTMLElement,
+      list: HTMLUListElement,
+      containerEntityId: string | null,
+    ) {
+      column.addEventListener('dragenter', (event) => {
+        event.preventDefault();
+        dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
+        column.classList.add('board-column--drop-target');
+      });
+
+      column.addEventListener('dragleave', () => {
+        const depth = (dragDepth.get(column) ?? 1) - 1;
+        dragDepth.set(column, depth);
+        if (depth <= 0) {
+          column.classList.remove('board-column--drop-target');
+        }
+      });
+
+      column.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'move';
+        }
+      });
+
+      column.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dragDepth.set(column, 0);
+        column.classList.remove('board-column--drop-target');
+
+        const entityId = event.dataTransfer?.getData('text/plain');
+        if (!entityId) return;
+        const card = boardColumns.querySelector<HTMLLIElement>(
+          `.item-card[data-entity-id="${entityId}"]`,
+        );
+        if (!card) return;
+
+        const sourceList = card.parentElement as HTMLUListElement;
+        if (sourceList === list) return;
+
+        withReflow(() => {
+          removePlaceholder(list);
+          list.append(card);
+          ensurePlaceholder(sourceList);
+        });
+
+        const request = containerEntityId
+          ? setContainer(tenantId as string, entityId, containerEntityId)
+          : clearContainer(tenantId as string, entityId);
+
+        request.catch((e) => {
+          withReflow(() => {
+            removePlaceholder(sourceList);
+            sourceList.append(card);
+            ensurePlaceholder(list);
+          });
+          showTransientError(e instanceof Error ? e.message : String(e));
+        });
+      });
+    }
+
+    function renderCard(item: ItemInstance): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'item-card';
+      li.draggable = true;
+      li.dataset.entityId = item.entity_id;
+      li.style.viewTransitionName = `item-${item.entity_id}`;
+      if (item.is_container) {
+        li.classList.add('item-card--container');
+      }
+
+      li.addEventListener('dragstart', (event) => {
+        event.dataTransfer?.setData('text/plain', item.entity_id);
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+        }
+      });
+
+      li.addEventListener('click', () => openDetail(item, li));
+
+      const title = document.createElement('span');
+      title.className = 'item-card-title';
+      title.textContent = item.title;
+      li.append(title);
+
+      if (item.quantity && item.quantity > 1) {
+        const qty = document.createElement('span');
+        qty.className = 'item-card-qty';
+        qty.textContent = `×${item.quantity}`;
+        li.append(qty);
+      }
+
+      return li;
+    }
+
+    function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
+      const section = document.createElement('section');
+      section.className = 'board-column';
+
+      const heading = document.createElement('h3');
+      heading.textContent = group.container?.name ?? rootTitle;
+      section.append(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'column-cards';
+      if (group.item_instances.length === 0) {
+        ensurePlaceholder(list);
+      } else {
+        for (const item of group.item_instances) {
+          list.append(renderCard(item));
+        }
+      }
+      section.append(list);
+
+      bindDropZone(section, list, group.container?.id ?? null);
+
+      return section;
+    }
+
+    async function loadBoard(characterEntityId: string, characterName: string) {
+      boardColumns.replaceChildren();
+      inventoryEmpty.hidden = true;
+      inventoryError.hidden = true;
+      inventoryLoading.hidden = false;
+      try {
+        const response = await getOwnedItemInstances(tenantId as string, characterEntityId);
+        inventoryLoading.hidden = true;
+        const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
+        if (!hasAnything) {
+          inventoryEmpty.hidden = false;
+          inventoryEmpty.textContent = `${characterName} isn't carrying anything yet.`;
+          return;
+        }
+        // The null-container group (things with no container, including
+        // top-level containers themselves) reads first - everything else
+        // keeps the order the API returned.
+        const ordered = [...response.groups].sort((a, b) =>
+          a.container === null ? -1 : b.container === null ? 1 : 0,
+        );
+        for (const group of ordered) {
+          boardColumns.append(renderColumn(group, characterName));
+        }
+      } catch (e) {
+        inventoryLoading.hidden = true;
+        inventoryError.hidden = false;
+        inventoryError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
+      for (const el of characterStrip.querySelectorAll('button')) {
+        el.setAttribute('aria-pressed', String(el === button));
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('character', character.entity_id);
+      window.history.replaceState({}, '', url);
+      void loadBoard(character.entity_id, character.name);
+    }
+
+    async function loadCharacters(currentTenantId: string) {
+      try {
+        const page = await listMyCharacters(currentTenantId);
+        charactersLoading.hidden = true;
+        if (page.items.length === 0) {
+          charactersEmpty.hidden = false;
+          return;
+        }
+        const selectedId = params.get('character');
+        for (const character of page.items) {
+          const item = document.createElement('li');
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'character-pill';
+          button.textContent = character.name;
+          button.setAttribute('aria-pressed', String(character.entity_id === selectedId));
+          button.addEventListener('click', () => selectCharacter(character, button));
+          item.append(button);
+          characterStrip.append(item);
+
+          if (character.entity_id === selectedId) {
+            selectCharacter(character, button);
+          }
+        }
+      } catch (e) {
+        charactersLoading.hidden = true;
+        charactersError.hidden = false;
+        charactersError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    if (!(await isAuthenticated())) {
+      status.textContent = 'Not logged in. Go back and log in first.';
+    } else if (!tenantId) {
+      status.textContent = 'No tenant selected. Go back and pick one.';
+    } else {
+      try {
+        const tenant = await getTenant(tenantId);
+        status.hidden = true;
+        tenantName.textContent = tenant.name;
+        tenantSlug.textContent = tenant.slug;
+        board.hidden = false;
+        await loadCharacters(tenantId);
+      } catch (e) {
+        status.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>
