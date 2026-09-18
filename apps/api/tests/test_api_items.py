@@ -924,3 +924,591 @@ async def test_replace_item_prototypes_stamps_updated_by_and_bumps_updated_at(
     assert body["updated_at"] != original_updated_at
 
     await delete_tenant(tenant_id)
+
+
+async def _link_prototype(
+    entity_id: uuid.UUID, prototype_id: uuid.UUID, tenant_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        session.add(
+            EntityPrototype(entity_id=entity_id, prototype_id=prototype_id, tenant_id=tenant_id)
+        )
+        await session.commit()
+
+
+# --- ADR 0073: reverse lookup (?prototype_id=&recursive=) ------------------
+
+
+async def test_list_items_filters_by_prototype_id_direct_only(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    dagger_id = await _make_bare_item(tenant_id, "Dagger")
+    longsword_id = await _make_bare_item(tenant_id, "Longsword")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+    await _link_prototype(dagger_id, weapon_id, tenant_id)
+    await _link_prototype(longsword_id, sword_id, tenant_id)
+
+    response = await client.get(
+        f"/tenants/{tenant_id}/items", params={"prototype_id": str(weapon_id)}
+    )
+
+    assert response.status_code == 200
+    ids = {item["entity_id"] for item in response.json()["items"]}
+    assert ids == {str(sword_id), str(dagger_id)}
+
+    await delete_tenant(tenant_id)
+
+
+async def test_list_items_filters_by_prototype_id_recursive(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    dagger_id = await _make_bare_item(tenant_id, "Dagger")
+    longsword_id = await _make_bare_item(tenant_id, "Longsword")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+    await _link_prototype(dagger_id, weapon_id, tenant_id)
+    await _link_prototype(longsword_id, sword_id, tenant_id)
+
+    response = await client.get(
+        f"/tenants/{tenant_id}/items",
+        params={"prototype_id": str(weapon_id), "recursive": "true"},
+    )
+
+    assert response.status_code == 200
+    ids = {item["entity_id"] for item in response.json()["items"]}
+    assert ids == {str(sword_id), str(dagger_id), str(longsword_id)}
+
+    await delete_tenant(tenant_id)
+
+
+async def test_list_items_recursive_without_prototype_id_is_noop(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    await _make_bare_item(tenant_id, "Sword")
+    await _make_bare_item(tenant_id, "Shield")
+
+    response = await client.get(f"/tenants/{tenant_id}/items", params={"recursive": "true"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+
+    await delete_tenant(tenant_id)
+
+
+async def test_list_items_prototype_id_404_for_unknown_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.get(
+        f"/tenants/{tenant_id}/items",
+        params={"prototype_id": "00000000-0000-0000-0000-000000000000"},
+    )
+
+    assert response.status_code == 404
+
+    await delete_tenant(tenant_id)
+
+
+# --- ADR 0073: full ancestry chain ------------------------------------------
+
+
+async def test_get_item_prototype_ancestry_returns_full_chain(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    longsword_id = await _make_bare_item(tenant_id, "Longsword")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+    await _link_prototype(longsword_id, sword_id, tenant_id)
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{longsword_id}/prototypes/ancestry")
+
+    assert response.status_code == 200
+    ancestors = {a["entity_id"]: a for a in response.json()}
+    assert set(ancestors) == {str(sword_id), str(weapon_id)}
+    assert ancestors[str(sword_id)]["prototype_ids"] == [str(weapon_id)]
+    assert ancestors[str(sword_id)]["name"] == "Sword"
+    assert ancestors[str(weapon_id)]["prototype_ids"] == []
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_prototype_ancestry_dedupes_diamond_inheritance(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """D inherits from both B and C, which both inherit from A - A must
+    appear exactly once in D's ancestry, proving the UNION-based CTE
+    de-duplicates rather than returning it twice (ADR 0073).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    a_id = await _make_bare_item(tenant_id, "A")
+    b_id = await _make_bare_item(tenant_id, "B")
+    c_id = await _make_bare_item(tenant_id, "C")
+    d_id = await _make_bare_item(tenant_id, "D")
+    await _link_prototype(b_id, a_id, tenant_id)
+    await _link_prototype(c_id, a_id, tenant_id)
+    await _link_prototype(d_id, b_id, tenant_id)
+    await _link_prototype(d_id, c_id, tenant_id)
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{d_id}/prototypes/ancestry")
+
+    assert response.status_code == 200
+    body = response.json()
+    ids = [a["entity_id"] for a in body]
+    assert sorted(ids) == sorted([str(a_id), str(b_id), str(c_id)])
+    assert len(ids) == len(set(ids))
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_prototype_ancestry_empty_for_no_prototypes(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}/prototypes/ancestry")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+    await delete_tenant(tenant_id)
+
+
+async def test_get_item_prototype_ancestry_404_for_unknown_item(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.get(
+        f"/tenants/{tenant_id}/items/00000000-0000-0000-0000-000000000000/prototypes/ancestry"
+    )
+
+    assert response.status_code == 404
+
+    await delete_tenant(tenant_id)
+
+
+# --- ADR 0073: bulk-reparent-prototype --------------------------------------
+
+
+async def test_bulk_reparent_prototype_moves_every_matching_item_when_item_ids_omitted(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    melee_id = await _make_bare_item(tenant_id, "MeleeWeapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    dagger_id = await _make_bare_item(tenant_id, "Dagger")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+    await _link_prototype(dagger_id, weapon_id, tenant_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={"from_prototype_id": str(weapon_id), "to_prototype_id": str(melee_id)},
+    )
+
+    assert response.status_code == 200
+    results = {r["entity_id"]: r for r in response.json()}
+    assert set(results) == {str(sword_id), str(dagger_id)}
+    assert all(r["status"] == "ok" for r in results.values())
+    assert results[str(sword_id)]["item"]["prototype_ids"] == [str(melee_id)]
+    assert results[str(dagger_id)]["item"]["prototype_ids"] == [str(melee_id)]
+    async with admin_session_factory() as session:
+        assert await session.get(EntityPrototype, (sword_id, weapon_id)) is None
+        assert await session.get(EntityPrototype, (sword_id, melee_id)) is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_scoped_to_explicit_item_ids(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    melee_id = await _make_bare_item(tenant_id, "MeleeWeapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    dagger_id = await _make_bare_item(tenant_id, "Dagger")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+    await _link_prototype(dagger_id, weapon_id, tenant_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={
+            "from_prototype_id": str(weapon_id),
+            "to_prototype_id": str(melee_id),
+            "item_ids": [str(sword_id)],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["entity_id"] == str(sword_id)
+    async with admin_session_factory() as session:
+        # Dagger untouched - not in the explicit item_ids list.
+        assert await session.get(EntityPrototype, (dagger_id, weapon_id)) is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_noop_when_item_lacks_from_prototype(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    melee_id = await _make_bare_item(tenant_id, "MeleeWeapon")
+    shovel_id = await _make_bare_item(tenant_id, "Shovel")  # no prototypes at all
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={
+            "from_prototype_id": str(weapon_id),
+            "to_prototype_id": str(melee_id),
+            "item_ids": [str(shovel_id)],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["status"] == "ok"
+    assert body[0]["item"]["prototype_ids"] == []
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_422_when_from_and_to_are_equal(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={"from_prototype_id": str(weapon_id), "to_prototype_id": str(weapon_id)},
+    )
+
+    assert response.status_code == 422
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_422_for_unknown_from_or_to_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={
+            "from_prototype_id": str(weapon_id),
+            "to_prototype_id": "00000000-0000-0000-0000-000000000000",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_error_entry_for_unknown_item_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    melee_id = await _make_bare_item(tenant_id, "MeleeWeapon")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={
+            "from_prototype_id": str(weapon_id),
+            "to_prototype_id": str(melee_id),
+            "item_ids": ["00000000-0000-0000-0000-000000000000"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["status"] == "error"
+    assert body[0]["problem"]["status"] == 404
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_error_entry_for_self_loop(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={
+            "from_prototype_id": str(weapon_id),
+            "to_prototype_id": str(sword_id),
+            "item_ids": [str(sword_id)],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["status"] == "error"
+    assert body[0]["problem"]["status"] == 422
+    async with admin_session_factory() as session:
+        # Rejected - Sword must still have its original Weapon prototype.
+        assert await session.get(EntityPrototype, (sword_id, weapon_id)) is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_reparent_prototype_cycle_in_one_item_does_not_sink_the_batch(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Sword and Dagger both prototype Weapon; MeleeWeapon already
+    prototypes Sword. Re-parenting Sword onto MeleeWeapon would close a
+    loop (Sword -> MeleeWeapon -> Sword) and must fail as that item's own
+    error entry - Dagger's own re-parent onto MeleeWeapon has no such cycle
+    and must still succeed in the same batch (ADR 0073: never
+    all-or-nothing).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    melee_id = await _make_bare_item(tenant_id, "MeleeWeapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    dagger_id = await _make_bare_item(tenant_id, "Dagger")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+    await _link_prototype(dagger_id, weapon_id, tenant_id)
+    await _link_prototype(melee_id, sword_id, tenant_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-reparent-prototype",
+        json={
+            "from_prototype_id": str(weapon_id),
+            "to_prototype_id": str(melee_id),
+            "item_ids": [str(sword_id), str(dagger_id)],
+        },
+    )
+
+    assert response.status_code == 200
+    results = {r["entity_id"]: r for r in response.json()}
+    assert results[str(sword_id)]["status"] == "error"
+    assert results[str(sword_id)]["problem"]["status"] == 422
+    assert results[str(dagger_id)]["status"] == "ok"
+    async with admin_session_factory() as session:
+        assert await session.get(EntityPrototype, (sword_id, weapon_id)) is not None
+        assert await session.get(EntityPrototype, (dagger_id, melee_id)) is not None
+
+    await delete_tenant(tenant_id)
+
+
+# --- ADR 0073: bulk-add-prototype / bulk-remove-prototype -------------------
+
+
+async def test_bulk_add_item_prototype_adds_to_each_item(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    cursed_id = await _make_bare_item(tenant_id, "Cursed")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    axe_id = await _make_bare_item(tenant_id, "Axe")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-add-prototype",
+        json={"prototype_id": str(cursed_id), "item_ids": [str(sword_id), str(axe_id)]},
+    )
+
+    assert response.status_code == 200
+    results = {r["entity_id"]: r for r in response.json()}
+    assert all(r["status"] == "ok" for r in results.values())
+    assert results[str(sword_id)]["item"]["prototype_ids"] == [str(cursed_id)]
+    assert results[str(sword_id)]["item"]["updated_by"] == str(test_user_id)
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_add_item_prototype_noop_if_already_present(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    cursed_id = await _make_bare_item(tenant_id, "Cursed")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    await _link_prototype(sword_id, cursed_id, tenant_id)
+    get_response = await client.get(f"/tenants/{tenant_id}/items/{sword_id}")
+    original_updated_at = get_response.json()["updated_at"]
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-add-prototype",
+        json={"prototype_id": str(cursed_id), "item_ids": [str(sword_id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert body["status"] == "ok"
+    # Already present - a tolerated no-op, so attribution is untouched.
+    assert body["item"]["updated_at"] == original_updated_at
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_add_item_prototype_422_for_unknown_prototype_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-add-prototype",
+        json={
+            "prototype_id": "00000000-0000-0000-0000-000000000000",
+            "item_ids": [str(sword_id)],
+        },
+    )
+
+    assert response.status_code == 422
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_add_item_prototype_error_entry_for_self_loop(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-add-prototype",
+        json={"prototype_id": str(sword_id), "item_ids": [str(sword_id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert body["status"] == "error"
+    assert body["problem"]["status"] == 422
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_add_item_prototype_error_entry_for_transitive_cycle(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    await _link_prototype(sword_id, weapon_id, tenant_id)
+
+    # Weapon already transitively inherits from Sword? No - add the reverse:
+    # try to make Weapon also prototype Sword, which already prototypes
+    # Weapon - a direct 2-cycle.
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-add-prototype",
+        json={"prototype_id": str(sword_id), "item_ids": [str(weapon_id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert body["status"] == "error"
+    assert body["problem"]["status"] == 422
+    async with admin_session_factory() as session:
+        assert await session.get(EntityPrototype, (weapon_id, sword_id)) is None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_remove_item_prototype_removes_from_each_item(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    cursed_id = await _make_bare_item(tenant_id, "Cursed")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    axe_id = await _make_bare_item(tenant_id, "Axe")
+    await _link_prototype(sword_id, cursed_id, tenant_id)
+    await _link_prototype(axe_id, cursed_id, tenant_id)
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-remove-prototype",
+        json={"prototype_id": str(cursed_id), "item_ids": [str(sword_id), str(axe_id)]},
+    )
+
+    assert response.status_code == 200
+    results = {r["entity_id"]: r for r in response.json()}
+    assert all(r["status"] == "ok" for r in results.values())
+    assert results[str(sword_id)]["item"]["prototype_ids"] == []
+    async with admin_session_factory() as session:
+        assert await session.get(EntityPrototype, (sword_id, cursed_id)) is None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_remove_item_prototype_noop_if_absent(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    cursed_id = await _make_bare_item(tenant_id, "Cursed")
+    sword_id = await _make_bare_item(tenant_id, "Sword")  # never linked to cursed_id
+    get_response = await client.get(f"/tenants/{tenant_id}/items/{sword_id}")
+    original_updated_at = get_response.json()["updated_at"]
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-remove-prototype",
+        json={"prototype_id": str(cursed_id), "item_ids": [str(sword_id)]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert body["status"] == "ok"
+    assert body["item"]["updated_at"] == original_updated_at
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_remove_item_prototype_422_for_unknown_prototype_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-remove-prototype",
+        json={
+            "prototype_id": "00000000-0000-0000-0000-000000000000",
+            "item_ids": [str(sword_id)],
+        },
+    )
+
+    assert response.status_code == 422
+
+    await delete_tenant(tenant_id)
+
+
+async def test_bulk_remove_item_prototype_error_entry_for_unknown_item_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    cursed_id = await _make_bare_item(tenant_id, "Cursed")
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/items/bulk-remove-prototype",
+        json={
+            "prototype_id": str(cursed_id),
+            "item_ids": ["00000000-0000-0000-0000-000000000000"],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert body["status"] == "error"
+    assert body["problem"]["status"] == 404
+
+    await delete_tenant(tenant_id)

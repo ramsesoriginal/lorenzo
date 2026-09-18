@@ -7,7 +7,8 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import delete, select
+from fastapi_problem.error import Problem
+from sqlalchemy import CTE, delete, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
@@ -16,6 +17,7 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_entity_or_404,
     get_tenant_context,
     set_tenant_rls_context,
 )
@@ -38,7 +40,20 @@ from lorenzo_api.models import (
     VEffectiveStat,
     VItem,
 )
-from lorenzo_api.schemas.items import ItemCreate, ItemOut, ItemUpdate, SetPrototypesRequest
+from lorenzo_api.schemas.items import (
+    BulkAddPrototypeRequest,
+    BulkAddPrototypeResultItem,
+    BulkRemovePrototypeRequest,
+    BulkRemovePrototypeResultItem,
+    BulkReparentPrototypeRequest,
+    BulkReparentResultItem,
+    ItemCreate,
+    ItemOut,
+    ItemUpdate,
+    ProblemOut,
+    PrototypeAncestorOut,
+    SetPrototypesRequest,
+)
 
 # get_tenant_context here, not per-route (ADR 0020's revised guidance) -
 # every route on this router needs it and none read its return value, the
@@ -96,6 +111,50 @@ def eager_load_options(
     )
 
 
+def _prototype_descendants_cte(prototype_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
+    """Every entity that transitively depends on prototype_id (has it as a
+    direct or indirect prototype) - see ADR 0073. Plain UNION, not UNION
+    ALL: entity_prototype allows multiple inheritance, so the same
+    descendant can be reached via more than one path, and UNION's own
+    de-duplication is what makes "keep walking until nothing new appears"
+    correct here - the exact technique entity_prototype's own BEFORE INSERT
+    cycle-check trigger (ADR 0015, migration 8fd1b287598a) already uses for
+    its ancestor walk, mirrored in the opposite direction. No path-array
+    cycle guard the way entity_access.py's containment walk needs one -
+    that graph can legitimately cycle (ADR 0016), this one cannot (the
+    trigger already guarantees it), so plain UNION alone is sufficient and
+    always terminates.
+    """
+    base = select(EntityPrototype.entity_id.label("descendant_id")).where(
+        EntityPrototype.prototype_id == prototype_id, EntityPrototype.tenant_id == tenant_id
+    )
+    cte = base.cte("item_prototype_descendants", recursive=True)
+    recursive_term = (
+        select(EntityPrototype.entity_id.label("descendant_id"))
+        .select_from(cte.join(EntityPrototype, EntityPrototype.prototype_id == cte.c.descendant_id))
+        .where(EntityPrototype.tenant_id == tenant_id)
+    )
+    return cte.union(recursive_term)
+
+
+def _prototype_ancestors_cte(entity_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
+    """Every one of entity_id's own transitive ancestors (direct and
+    indirect prototypes) - the exact mirror of _prototype_descendants_cte's
+    downward walk. See that function's own docstring for why plain UNION
+    (no path-array guard) is correct here.
+    """
+    base = select(EntityPrototype.prototype_id.label("ancestor_id")).where(
+        EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
+    )
+    cte = base.cte("item_prototype_ancestors", recursive=True)
+    recursive_term = (
+        select(EntityPrototype.prototype_id.label("ancestor_id"))
+        .select_from(cte.join(EntityPrototype, EntityPrototype.entity_id == cte.c.ancestor_id))
+        .where(EntityPrototype.tenant_id == tenant_id)
+    )
+    return cte.union(recursive_term)
+
+
 @router.get("")
 async def list_items(
     tenant_id: uuid.UUID,
@@ -107,6 +166,19 @@ async def list_items(
         str | None,
         Query(description="Case-insensitive substring match against the item's name."),
     ] = None,
+    prototype_id: Annotated[
+        uuid.UUID | None,
+        Query(description="Only return items that have this entity as a prototype."),
+    ] = None,
+    recursive: Annotated[
+        bool,
+        Query(
+            description=(
+                "With prototype_id, also include items that inherit from it transitively, "
+                "not just directly."
+            )
+        ),
+    ] = False,
 ) -> Page[ItemOut]:
     """Every base item type for this tenant - see ADR 0019/0020. Explicit
     tenant_id filter as defense in depth alongside RLS, not a replacement
@@ -115,6 +187,13 @@ async def list_items(
     q (ADR 0047) matches against Entity.name, not VItem.title - title is a
     nullable, description-payload-sourced display field, name is the
     item's own stable, always-set identifier and the right search target.
+
+    prototype_id/recursive (ADR 0073) - the reverse-lookup filter: "what's
+    built on top of X." recursive defaults to false (direct prototypes
+    only), the same default/opt-in shape GET /item-instances?container_id=
+    already established for containment (ADR 0065); recursive without
+    prototype_id is a no-op, not an error, matching that same route's own
+    treatment of recursive without container_id.
     """
     stmt = (
         select(VItem)
@@ -125,6 +204,19 @@ async def list_items(
     )
     if q is not None:
         stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
+    if prototype_id is not None:
+        # Validate up front, before anything else - a cross-tenant probe
+        # must 404 exactly like an unknown id, the same treatment
+        # container_id already gets on the item-instances list route.
+        await get_entity_or_404(session, prototype_id, tenant_id)
+        if recursive:
+            descendants_cte = _prototype_descendants_cte(prototype_id, tenant_id)
+            stmt = stmt.where(VItem.entity_id.in_(select(descendants_cte.c.descendant_id)))
+        else:
+            stmt = stmt.join(EntityPrototype, EntityPrototype.entity_id == VItem.entity_id).where(
+                EntityPrototype.prototype_id == prototype_id,
+                EntityPrototype.tenant_id == tenant_id,
+            )
     # Resolved once per request, not once per row - reused by every item on
     # the page (ADR 0028's addendum).
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
@@ -189,13 +281,19 @@ async def _item_out(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
-    response: Response,
+    response: Response | None,
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemOut:
+    """response is None only for the ADR 0073 bulk routes' per-item results
+    - a batch response representing N resources has no single ETag of its
+    own to set, mirroring routers/item_instances.py's identical
+    _item_instance_out parameter.
+    """
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    response.headers["ETag"] = etag_for(view.entity.updated_at)
+    if response is not None:
+        response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemOut.from_v_item(view, request, visibility=visibility)
 
 
@@ -324,6 +422,45 @@ async def replace_item_prototypes(
     return await _item_out(tenant_id, entity_id, request, response, session, user)
 
 
+@router.get("/{entity_id}/prototypes/ancestry")
+async def get_item_prototype_ancestry(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+) -> list[PrototypeAncestorOut]:
+    """Every transitive ancestor of entity_id (direct and indirect
+    prototypes), not just the direct set ItemOut.prototype_ids already
+    exposes. See ADR 0073. Not paginated - prototype graphs are shallow by
+    construction (ADR 0015), the same "bounded, no pagination needed"
+    reasoning OwnedByResponse already uses.
+    """
+    await _get_item_entity_or_404(tenant_id, entity_id, session)
+
+    cte = _prototype_ancestors_cte(entity_id, tenant_id)
+    ancestor_ids = (await session.execute(select(cte.c.ancestor_id))).scalars().all()
+    if not ancestor_ids:
+        return []
+
+    stmt = (
+        select(Entity)
+        .where(Entity.id.in_(ancestor_ids), Entity.tenant_id == tenant_id)
+        .options(selectinload(Entity.prototype_links))
+        .order_by(Entity.name, Entity.id)
+    )
+    ancestors = (await session.execute(stmt)).scalars().all()
+    return [
+        PrototypeAncestorOut(
+            entity_id=ancestor.id,
+            name=ancestor.name,
+            # Always a subset of the returned ancestor set itself (a direct
+            # prototype of an ancestor is transitively an ancestor too), so
+            # no filtering against ancestor_ids is needed here.
+            prototype_ids=sorted((link.prototype_id for link in ancestor.prototype_links), key=str),
+        )
+        for ancestor in ancestors
+    ]
+
+
 @router.delete("/{entity_id}", status_code=204)
 async def delete_item(
     tenant_id: uuid.UUID,
@@ -354,3 +491,234 @@ async def delete_item(
 
     await session.delete(entity)
     await session.commit()
+
+
+async def _validate_prototype_ids_exist(
+    session: SessionDep, prototype_ids: set[uuid.UUID], tenant_id: uuid.UUID
+) -> None:
+    """Shared up-front existence check for the ADR 0073 bulk routes below -
+    each validates the prototype id(s) its own body names once, before the
+    per-item loop, the same "doesn't vary per item" reasoning ADR 0062/0065
+    already established for their own shared destination checks.
+    """
+    found_ids = set(
+        (
+            await session.execute(
+                select(Entity.id).where(Entity.id.in_(prototype_ids), Entity.tenant_id == tenant_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    missing_ids = prototype_ids - found_ids
+    if missing_ids:
+        raise InvalidPrototypeError(
+            detail=(
+                f"Prototype id(s) {sorted(str(i) for i in missing_ids)} do not exist "
+                f"in tenant {tenant_id}"
+            )
+        )
+
+
+@router.post("/bulk-reparent-prototype")
+async def bulk_reparent_item_prototype(
+    tenant_id: uuid.UUID,
+    body: BulkReparentPrototypeRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BulkReparentResultItem]:
+    """Replaces from_prototype_id with to_prototype_id across many items in
+    one call - ADR 0073's "push a prototype up the chain." item_ids omitted
+    resolves to every Item currently having from_prototype_id as a direct
+    prototype; given explicitly, an item that doesn't currently have it is
+    a tolerated no-op, not an error.
+
+    Never all-or-nothing, the same session.begin_nested()-per-item pattern
+    as bulk_assign_item_instances/bulk_move_item_instances: a caught
+    Problem becomes that item's own "error" entry, everything else already
+    applied proceeds to the one shared commit.
+    """
+    await _validate_prototype_ids_exist(
+        session, {body.from_prototype_id, body.to_prototype_id}, tenant_id
+    )
+
+    if body.item_ids is not None:
+        entity_ids: Sequence[uuid.UUID] = body.item_ids
+    else:
+        stmt = (
+            select(EntityPrototype.entity_id)
+            .join(Item, Item.entity_id == EntityPrototype.entity_id)
+            .where(
+                EntityPrototype.prototype_id == body.from_prototype_id,
+                EntityPrototype.tenant_id == tenant_id,
+            )
+        )
+        entity_ids = (await session.execute(stmt)).scalars().all()
+
+    results: list[BulkReparentResultItem] = []
+    for entity_id in entity_ids:
+        try:
+            async with session.begin_nested():
+                entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
+                existing_link = await session.get(
+                    EntityPrototype, (entity_id, body.from_prototype_id)
+                )
+                if existing_link is not None:
+                    if entity_id == body.to_prototype_id:
+                        raise EntityPrototypeCycleError(
+                            detail=f"Item {entity_id} cannot be its own prototype"
+                        )
+                    await session.delete(existing_link)
+                    if (
+                        await session.get(EntityPrototype, (entity_id, body.to_prototype_id))
+                        is None
+                    ):
+                        session.add(
+                            EntityPrototype(
+                                entity_id=entity_id,
+                                prototype_id=body.to_prototype_id,
+                                tenant_id=tenant_id,
+                            )
+                        )
+                    entity.updated_by = user.id
+                    try:
+                        await session.flush()
+                    except DBAPIError as exc:
+                        raise EntityPrototypeCycleError(
+                            detail=(
+                                f"Re-parenting item {entity_id} onto {body.to_prototype_id} "
+                                "would create an inheritance cycle"
+                            )
+                        ) from exc
+        except Problem as exc:
+            results.append(
+                BulkReparentResultItem(
+                    entity_id=entity_id,
+                    status="error",
+                    item=None,
+                    problem=ProblemOut(**exc.marshal()),
+                )
+            )
+            continue
+        item_out = await _item_out(tenant_id, entity_id, request, None, session, user)
+        results.append(
+            BulkReparentResultItem(entity_id=entity_id, status="ok", item=item_out, problem=None)
+        )
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return results
+
+
+@router.post("/bulk-add-prototype")
+async def bulk_add_item_prototype(
+    tenant_id: uuid.UUID,
+    body: BulkAddPrototypeRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BulkAddPrototypeResultItem]:
+    """Adds prototype_id to every listed item's direct prototype set - ADR
+    0073. An item that already has it is a tolerated no-op; attribution
+    (updated_by/updated_at) is only stamped when the edge actually changed,
+    unlike PUT .../prototypes' own unconditional bump (ADR 0072) - this is
+    an idempotent "ensure present" check-then-act, not a declarative
+    replace.
+    """
+    await _validate_prototype_ids_exist(session, {body.prototype_id}, tenant_id)
+
+    results: list[BulkAddPrototypeResultItem] = []
+    for entity_id in body.item_ids:
+        try:
+            async with session.begin_nested():
+                entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
+                if entity_id == body.prototype_id:
+                    raise EntityPrototypeCycleError(
+                        detail=f"Item {entity_id} cannot be its own prototype"
+                    )
+                if await session.get(EntityPrototype, (entity_id, body.prototype_id)) is None:
+                    session.add(
+                        EntityPrototype(
+                            entity_id=entity_id,
+                            prototype_id=body.prototype_id,
+                            tenant_id=tenant_id,
+                        )
+                    )
+                    entity.updated_by = user.id
+                    try:
+                        await session.flush()
+                    except DBAPIError as exc:
+                        raise EntityPrototypeCycleError(
+                            detail=(
+                                f"Adding prototype {body.prototype_id} to item {entity_id} "
+                                "would create an inheritance cycle"
+                            )
+                        ) from exc
+        except Problem as exc:
+            results.append(
+                BulkAddPrototypeResultItem(
+                    entity_id=entity_id,
+                    status="error",
+                    item=None,
+                    problem=ProblemOut(**exc.marshal()),
+                )
+            )
+            continue
+        item_out = await _item_out(tenant_id, entity_id, request, None, session, user)
+        results.append(
+            BulkAddPrototypeResultItem(
+                entity_id=entity_id, status="ok", item=item_out, problem=None
+            )
+        )
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return results
+
+
+@router.post("/bulk-remove-prototype")
+async def bulk_remove_item_prototype(
+    tenant_id: uuid.UUID,
+    body: BulkRemovePrototypeRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[BulkRemovePrototypeResultItem]:
+    """Removes prototype_id from every listed item's direct prototype set -
+    ADR 0073. An item that doesn't have it is a tolerated no-op. No cycle
+    risk - removing an edge can never create one - so no DBAPIError
+    translation is needed here, unlike bulk_add_item_prototype.
+    """
+    await _validate_prototype_ids_exist(session, {body.prototype_id}, tenant_id)
+
+    results: list[BulkRemovePrototypeResultItem] = []
+    for entity_id in body.item_ids:
+        try:
+            async with session.begin_nested():
+                entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
+                existing = await session.get(EntityPrototype, (entity_id, body.prototype_id))
+                if existing is not None:
+                    await session.delete(existing)
+                    entity.updated_by = user.id
+                    await session.flush()
+        except Problem as exc:
+            results.append(
+                BulkRemovePrototypeResultItem(
+                    entity_id=entity_id,
+                    status="error",
+                    item=None,
+                    problem=ProblemOut(**exc.marshal()),
+                )
+            )
+            continue
+        item_out = await _item_out(tenant_id, entity_id, request, None, session, user)
+        results.append(
+            BulkRemovePrototypeResultItem(
+                entity_id=entity_id, status="ok", item=item_out, problem=None
+            )
+        )
+
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return results

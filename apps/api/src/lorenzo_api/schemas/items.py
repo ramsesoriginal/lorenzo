@@ -35,6 +35,13 @@ __all__ = [
     "BulkMoveItem",
     "BulkMoveContainerRequest",
     "BulkMoveResultItem",
+    "PrototypeAncestorOut",
+    "BulkReparentPrototypeRequest",
+    "BulkReparentResultItem",
+    "BulkAddPrototypeRequest",
+    "BulkAddPrototypeResultItem",
+    "BulkRemovePrototypeRequest",
+    "BulkRemovePrototypeResultItem",
 ]
 
 
@@ -441,6 +448,100 @@ class BulkMoveResultItem(BaseModel):
     entity_id: uuid.UUID
     status: Literal["ok", "error"]
     item_instance: ItemInstanceOut | None = None
+    problem: ProblemOut | None = None
+
+
+class PrototypeAncestorOut(BaseModel):
+    """GET /items/{id}/prototypes/ancestry - one entry. See ADR 0073.
+    `prototype_ids` is this ancestor's own *direct* prototypes (always a
+    subset of the full returned ancestor set) - a flat list of nodes with
+    their own edges, not a pre-built tree, since multiple inheritance means
+    the real shape can be a DAG rather than a clean chain; the client
+    renders whatever structure actually exists from these edges rather than
+    this endpoint forcing a linear breadcrumb that would lie about
+    branching cases.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    entity_id: uuid.UUID
+    name: str
+    prototype_ids: list[uuid.UUID]
+
+
+class BulkReparentPrototypeRequest(BaseModel):
+    """POST /items/bulk-reparent-prototype body - see ADR 0073. For every
+    affected item currently having from_prototype_id as a direct prototype,
+    replaces that edge with to_prototype_id. item_ids omitted means "every
+    item with from_prototype_id as a direct prototype"; given explicitly, an
+    item that doesn't currently have from_prototype_id is a tolerated no-op,
+    not an error.
+    """
+
+    from_prototype_id: uuid.UUID
+    to_prototype_id: uuid.UUID
+    item_ids: list[uuid.UUID] | None = None
+
+    @model_validator(mode="after")
+    def _from_and_to_differ(self) -> Self:
+        if self.from_prototype_id == self.to_prototype_id:
+            raise ValueError("from_prototype_id and to_prototype_id must differ")
+        return self
+
+
+class BulkReparentResultItem(BaseModel):
+    """POST /items/bulk-reparent-prototype - one output entry, always
+    present for every resolved item regardless of outcome (ADR 0073: never
+    all-or-nothing). Exactly one of item/problem is set, matching status -
+    the same shape BulkMoveResultItem/BulkAssignResultItem already
+    established, just wrapping ItemOut instead of ItemInstanceOut.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item: ItemOut | None = None
+    problem: ProblemOut | None = None
+
+
+class BulkAddPrototypeRequest(BaseModel):
+    """POST /items/bulk-add-prototype body - see ADR 0073. Adds
+    prototype_id to every listed item's direct prototype set; an item that
+    already has it is a tolerated no-op.
+    """
+
+    prototype_id: uuid.UUID
+    item_ids: list[uuid.UUID]
+
+
+class BulkAddPrototypeResultItem(BaseModel):
+    """POST /items/bulk-add-prototype - one output entry per item. See
+    BulkReparentResultItem's own docstring for the shared shape/reasoning.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item: ItemOut | None = None
+    problem: ProblemOut | None = None
+
+
+class BulkRemovePrototypeRequest(BaseModel):
+    """POST /items/bulk-remove-prototype body - see ADR 0073. Removes
+    prototype_id from every listed item's direct prototype set; an item
+    that doesn't have it is a tolerated no-op.
+    """
+
+    prototype_id: uuid.UUID
+    item_ids: list[uuid.UUID]
+
+
+class BulkRemovePrototypeResultItem(BaseModel):
+    """POST /items/bulk-remove-prototype - one output entry per item. See
+    BulkReparentResultItem's own docstring for the shared shape/reasoning.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item: ItemOut | None = None
     problem: ProblemOut | None = None
 
 
