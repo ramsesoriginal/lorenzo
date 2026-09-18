@@ -91,7 +91,7 @@ See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulner
 
 ## Roadmap
 
-Tracked as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and milestones. `apps/api`'s full domain model, auth, and REST write surface (item/item-instance, tenant, campaign, user/player/character, and information/payload/knowledge CRUD, plus effective stat resolution, campaign-scoped GM visibility, and production Authgear Cloud wiring) are built and merged to `main` — [GitHub milestone #1](https://github.com/ramsesoriginal/lorenzo/milestone/1)'s own end-to-end scenario passes against the real HTTP API. Further inventory-management and loot-handling gaps (concurrency tokens, stacking/splitting/merging, CORS, and more) are in progress on top of that. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for the detailed, ADR-by-ADR history.
+Tracked live as [GitHub issues](https://github.com/ramsesoriginal/lorenzo/issues) and [milestones](https://github.com/ramsesoriginal/lorenzo/milestones) — see [ADR 0070](docs/adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md) for how those relate to the RFC/ADR process below. `apps/api`'s full domain model, auth, and REST write surface (item/item-instance, tenant, campaign, user/player/character, and information/payload/knowledge CRUD, plus effective stat resolution, campaign-scoped GM visibility, and production Authgear Cloud wiring) are built and merged to `main`, proven end to end against the real HTTP API. See [docs/architecture/overview.md](docs/architecture/overview.md#roadmap) for the detailed, ADR-by-ADR history, and its [What's next](docs/architecture/overview.md#whats-next) pointer for what's currently in flight.
 
 ## License
 

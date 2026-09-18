@@ -41,7 +41,7 @@ See this as diagrams: [deployment topology](diagrams/deployment.md), [CI/CD pipe
 | App process | Runs on the host directly, autoreload | Containerized, immutable image per commit SHA |
 | Port | Fixed `8000` | Cloud Run's `$PORT` (currently `8080`), read at container start |
 | Database | Docker Compose Postgres, plain connection | Neon, TLS required (`ssl=require`) |
-| Migrations | Run by hand (`alembic upgrade head`) against the full domain model, 16 migrations and counting | Applied automatically, pre-deploy, every push |
+| Migrations | Run by hand (`alembic upgrade head`) against the full domain model, dozens of migrations and counting | Applied automatically, pre-deploy, every push |
 | Access | Whatever's on your machine | Network access is public/unauthenticated by design (`--no-invoker-iam-check`, Cloud Run's own IAM layer) — app-level auth (Authgear bearer tokens, [ADR 0009](../adr/0009-identity-provider-authgear.md)/[ADR 0023](../adr/0023-authgear-token-verification.md)) is required by every tenant-scoped route regardless |
 | Tracing/metrics | Console only; nothing scrapes `/metrics` | Same code path — console output lands in Cloud Logging; still nothing scrapes `/metrics` — see [observability](observability.md) |
 

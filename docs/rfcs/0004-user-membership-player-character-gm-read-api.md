@@ -1,6 +1,6 @@
 # RFC: User, membership, player, character, and GM read REST API
 
-Status: proposed — builds on [RFC 0003](0003-tenant-campaign-read-api.md)'s `get_campaign_context`; now needs a migration (a new `character` table layered under `being`, plus retargeted FKs) and an ER diagram update, unlike this RFC's first draft
+Status: accepted — landed in [ADR 0031](../adr/0031-character-table-and-read-api.md)
 
 ## Context
 

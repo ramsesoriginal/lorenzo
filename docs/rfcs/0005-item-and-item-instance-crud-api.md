@@ -1,6 +1,6 @@
 # RFC: Item and item-instance CRUD API
 
-Status: proposed — the first write surface in this codebase; defines cross-cutting write-API conventions reused by [RFC 0006](0006-campaign-crud-api.md)/[RFC 0007](0007-user-player-character-crud-api.md); no schema changes of its own, but depends on [RFC 0010](0010-created-by-updated-by-attribution.md)'s migration (`entity.created_by`/`updated_by`) having landed first
+Status: accepted — landed in [ADR 0032](../adr/0032-item-and-item-instance-crud-api.md); also introduces the shared `entity_access.py` reachability walk (for RFC 0009) and pulls `campaign_access.can_manage_campaign` forward from RFC 0006; revises item-instance *read* authorization to `is_tenant_participant` too, a gap this RFC's text didn't itself cover but the milestone required
 
 ## Context
 

@@ -1,0 +1,33 @@
+name: RFC/ADR tracking
+description: Track one already-decided, already-scoped execution unit from an accepted RFC or ADR
+labels: ["tracking"]
+body:
+  - type: input
+    id: related
+    attributes:
+      label: Related RFC/ADR
+      description: The decision this issue executes, e.g. "ADR 0068" or "RFC 0003". Design debate belongs there, not here.
+      placeholder: "ADR 00NN"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scoped task
+      description: What, specifically, does closing this issue require? A checklist is fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Backend API
+        - Web frontend
+        - Discord bot
+        - Mobile app
+        - Tooling / CI
+        - Documentation
+        - Cross-cutting / not sure
+    validations:
+      required: true

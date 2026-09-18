@@ -6,14 +6,15 @@ Orientation for AI coding agents (and humans in a hurry) working in this repo.
 
 Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mobile app(s) for tabletop/worldbuilding campaign management. See [README.md](README.md) for the pitch, [docs/domain](docs/domain/README.md) for what the system actually models (not technical), and [docs/architecture/overview.md](docs/architecture/overview.md) for the system shape.
 
-**`apps/api` has infrastructure plus the full domain model and auth** (health/readiness/metrics, DB connectivity; the entity/component core plus tenant/user/membership, campaign/player, character/ownership, campaign GM/orga per [ADR 0012](docs/adr/0012-entity-table.md) onward; Authgear Cloud-backed bearer-token auth per [ADR 0023](docs/adr/0023-authgear-token-verification.md)/[ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)). Everything else under `apps/` is still unbuilt, per [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). The domain model was built as a series of small, tested sub-slices (see [RFC 0001](docs/rfcs/0001-core-domain-data-model.md), [RFC 0002](docs/rfcs/0002-campaign-player-character-model.md), both accepted) — keep using that same process for anything new: don't jump ahead to a later sub-slice, and don't add application code speculatively; anything beyond the current sub-slice gets built only once it's explicitly scoped in conversation with the user.
+**`apps/api` has infrastructure plus the full domain model, a full read/write REST API, and auth** (health/readiness/metrics, DB connectivity; the entity/component core plus tenant/user/membership, campaign/player, character/ownership, campaign GM/orga per [ADR 0012](docs/adr/0012-entity-table.md) onward; Authgear Cloud-backed bearer-token auth per [ADR 0023](docs/adr/0023-authgear-token-verification.md)/[ADR 0027](docs/adr/0027-authgear-cloud-not-self-hosted.md)). **`apps/loot-bot`**, a Discord bot, is built on top of it — account linking, self-service inventory, loot-splitting, GM loot drops with claims, and item awarding, deployed to Cloud Run over Discord's HTTP Interactions Endpoint ([ADR 0050](docs/adr/0050-loot-bot-stack-linking-and-isolation.md) onward). Everything else under `apps/` (further web frontends, mobile apps, or bots) is still unbuilt, per [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). The domain model and API were built as a series of small, tested sub-slices (see [RFC 0001](docs/rfcs/0001-core-domain-data-model.md) through [RFC 0012](docs/rfcs/0012-tenant-creation-and-update-api.md)) — keep using that same process for anything new: don't jump ahead to a later sub-slice, and don't add application code speculatively; anything beyond the current sub-slice gets built only once it's explicitly scoped in conversation with the user.
 
 ## Map
 
 | Path | Purpose |
 | --- | --- |
-| `apps/api` | Backend REST API — full domain model, read-only REST API, Authgear auth |
-| `apps/*` (other) | One directory per deployable app, named by purpose (not type) — none exist yet |
+| `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth |
+| `apps/loot-bot` | Discord bot — talks to `apps/api`; account linking, inventory, loot-splitting, GM drops/claims |
+| `apps/*` (further) | One directory per deployable app, named by purpose (not type) — next one not yet started |
 | `packages/*` | Extracted generic libraries, each its own small, independently versioned package — none exist yet |
 | `docs/adr` | Why things are the way they are — read before proposing an architectural change |
 
@@ -23,12 +24,12 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 mise install                                        # toolchains
 docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
 mise run //apps/api:dev                              # apps/api, with autoreload
-mise run lint                                          # fans out to every app (currently just apps/api)
+mise run lint                                          # fans out to every app (apps/api, apps/loot-bot)
 mise run test                                           # ditto
 mise run check                                          # lint + test - the full pre-PR gate
 ```
 
-`apps/api` already owns `dev`/`lint`/`test`/`build` tasks in its own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
+`apps/api` and `apps/loot-bot` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
 
 ## Conventions
 
@@ -37,6 +38,21 @@ mise run check                                          # lint + test - the full
 - No `utils`/misc grab-bags — generic code becomes its own package under `packages/`.
 - Any table that stores tenant data needs a `tenant_id` column and an RLS policy with `FORCE ROW LEVEL SECURITY` (see [ADR 0002](docs/adr/0002-multi-tenancy-shared-schema-rls.md); every table since [ADR 0012](docs/adr/0012-entity-table.md) follows this). Never rely on application-level filtering alone. The app's own DB role used to be a superuser, which bypasses RLS unconditionally regardless of policy correctness — fixed by a restricted, non-superuser role ([ADR 0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)), rotated and confirmed in production too, not just deployed (see [docs/operations/deployment-setup.md](docs/operations/deployment-setup.md)) — if you're working against an older checkout and not sure whether it has this fix, check for a `lorenzo_app` role and a `migrations_database_url` split in `config.py`.
 - Formatting/linting is enforced by pre-commit + CI, not by convention.
+
+## Planning: RFC/ADR, Issues, and Milestones
+
+`gh` (GitHub CLI) is available and usable non-interactively — use it. See [ADR 0070](docs/adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md) for the full rationale; this is the day-to-day summary.
+
+Four layers, each with one job — don't blur them:
+
+- **RFC** (`docs/rfcs/`) — a proposal, before it's decided. Becomes one or more ADRs once decided, or gets dropped.
+- **ADR** (`docs/adr/`) — the decision itself, with rationale and consequences, recorded once made.
+- **Issue/Milestone** (GitHub) — live execution tracking of an *already-decided* RFC/ADR slice. One milestone per ADR (or per RFC, if it's tracked as one slice across several ADRs). An issue references the RFC/ADR number it comes from, its body is a checklist, and it carries no design content of its own — if it needs design debate, it isn't ready to be an issue yet. Close via `Closes #N` in the PR description (works fine under this repo's merge-commit-only rule — the keyword lives in the PR body, not the commit).
+- **`ROADMAP.md`** — deliberately doesn't exist yet. Don't add one speculatively; see ADR 0070 for the named trigger and the exact (link-only, no independent prose) shape it gets built in when that trigger fires.
+
+At the start of a session, `gh issue list --state open --milestone <N>` (or unscoped) is the live "what's actually in flight" query — prefer it over re-deriving status from memory or from `docs/architecture/overview.md`'s roadmap section, which is an append-only historical chronicle, not a live status board.
+
+**Claim RFC/ADR numbers early, to avoid collisions.** This project's ADR numbering has already collided twice across long-lived parallel branches (see the renumbering notes on ADR 0050/0054), and a third near-collision was only caught by checking open PRs before writing ADR 0070. When starting a new RFC or ADR: put it on its own small branch (or an early, separable commit within a bigger feature branch — see [Worktrees](#worktrees) below), and merge *the document itself* — number, title, Context, Decision — into `main` (or the parent feature branch) as soon as the decision is actually settled, before the rest of the implementation is done. Open the tracking Issue/Milestone at the same time — the issue is visible instantly to any other branch or agent that queries it, no fetch/merge required, and the merged doc is the durable canonical record once it lands. This shrinks the collision window; it doesn't eliminate it — if two branches still land on the same number, renumber the later one with a documented history note, same as the existing precedent.
 
 ## Worktrees
 
