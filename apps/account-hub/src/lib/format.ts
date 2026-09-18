@@ -2,7 +2,7 @@
 // import chain, which pulls in @authgear/web's browser-only side effects
 // on import and would break these under a plain Vitest/Node environment
 // for no real reason.
-import type { MeOut, Notification } from './types';
+import type { CharacterSummaryOut, MeOut, Notification } from './types';
 
 export function localesToText(locales: string[]): string {
   return locales.join(', ');
@@ -37,4 +37,24 @@ export function campaignRoleFor(campaignId: string, me: MeOut): CampaignRole {
   if (me.campaign_gm_grants.some((c) => c.id === campaignId)) return 'gm';
   if (me.players.some((p) => p.campaign_id === campaignId)) return 'player';
   return 'visible';
+}
+
+// RFC 0014's roster-reuse sub-slice: which of the caller's own characters,
+// already played in some *other* campaign in this same tenant, could be
+// brought into the given campaign instead of creating a new one. A
+// character can appear under more than one PlayerContextOut (roster reuse
+// is already a thing, ADR 0025) - deduped by entity_id.
+export function reusableCharactersFor(
+  me: MeOut,
+  tenantId: string,
+  excludeCampaignId: string,
+): CharacterSummaryOut[] {
+  const byId = new Map<string, CharacterSummaryOut>();
+  for (const player of me.players) {
+    if (player.tenant_id !== tenantId || player.campaign_id === excludeCampaignId) continue;
+    for (const character of player.characters) {
+      byId.set(character.entity_id, character);
+    }
+  }
+  return [...byId.values()];
 }

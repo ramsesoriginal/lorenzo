@@ -22,6 +22,17 @@ export interface PlayerContextOut {
   characters: CharacterSummaryOut[];
 }
 
+// GET /tenants/{id}/beings - see ADR 0078. A superset of
+// CharacterSummaryOut: every Being, not just ones with a Character row.
+// is_pc is genuinely three-valued here: null means no Character row
+// exists at all, distinct from false (a Character row exists, but
+// owner_player_id is unset).
+export interface BeingSummaryOut {
+  entity_id: string;
+  name: string;
+  is_pc: boolean | null;
+}
+
 export interface CampaignSummaryOut {
   id: string;
   slug: string;
@@ -140,6 +151,17 @@ export interface UserRefOut {
 // the endpoint validates it's a real user itself.
 export interface PlayerCreate {
   user_id: string;
+}
+
+// GET/POST /tenants/{id}/campaigns/{id}/players - a campaign's roster.
+// No display name (same GmOut limitation, ADR 0076) - only a raw user_id
+// per player.
+export interface PlayerSummaryOut {
+  id: string;
+  user_id: string;
+  characters: CharacterSummaryOut[];
+  created_by: string | null;
+  updated_by: string | null;
 }
 
 // POST /tenants/{id}/campaigns - see ADR 0034/RFC 0006. No defaults except

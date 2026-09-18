@@ -13,7 +13,8 @@ import Base from '../layouts/Base.astro';
   <div id="tenant-list"></div>
 
   <script>
-    import { createCharacter, updateCharacter } from '../lib/characters';
+    import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../lib/characters';
+    import { reusableCharactersFor } from '../lib/format';
     import { getMe } from '../lib/me';
     import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
     import type {
@@ -120,6 +121,46 @@ import Base from '../layouts/Base.astro';
       return me.players.find((p) => p.tenant_id === tenantId && p.campaign_id === campaignId);
     }
 
+    // RFC 0014's roster-reuse sub-slice: bring an existing character from
+    // another campaign in the same tenant into this one, instead of
+    // creating a new one - only meaningful before the player has any
+    // character here yet.
+    function renderReuseForm(
+      player: PlayerContextOut,
+      reusable: CharacterSummaryOut[],
+      onLinked: () => void,
+    ): HTMLElement {
+      const container = document.createElement('div');
+      const label = document.createElement('p');
+      label.textContent = 'Or use one of your existing characters in this tenant:';
+      container.append(label);
+
+      const list = document.createElement('ul');
+      for (const character of reusable) {
+        const item = document.createElement('li');
+        const nameEl = document.createElement('span');
+        nameEl.textContent = character.name;
+        const useButton = document.createElement('button');
+        useButton.type = 'button';
+        useButton.textContent = 'Use this character';
+        const status = document.createElement('span');
+        status.setAttribute('role', 'status');
+        useButton.addEventListener('click', async () => {
+          status.textContent = 'Linking&hellip;';
+          try {
+            await linkCharacterToPlayer(player.tenant_id, character.entity_id, player.id);
+            onLinked();
+          } catch (e) {
+            status.textContent = e instanceof Error ? e.message : String(e);
+          }
+        });
+        item.append(nameEl, useButton, status);
+        list.append(item);
+      }
+      container.append(list);
+      return container;
+    }
+
     // No self-service join exists (RFC 0014 - POST .../players is
     // can_manage_campaign-gated, never a plain player's own action), so a
     // campaign with no player context here is read-only context, not a
@@ -127,6 +168,7 @@ import Base from '../layouts/Base.astro';
     function renderCampaignSection(
       campaign: CampaignSummaryOut,
       player: PlayerContextOut | undefined,
+      me: MeOut,
       onChanged: () => void,
     ): HTMLElement {
       const section = document.createElement('section');
@@ -155,6 +197,14 @@ import Base from '../layouts/Base.astro';
       }
 
       section.append(renderCreateForm(player, onChanged));
+
+      if (player.characters.length === 0) {
+        const reusable = reusableCharactersFor(me, player.tenant_id, campaign.id);
+        if (reusable.length > 0) {
+          section.append(renderReuseForm(player, reusable, onChanged));
+        }
+      }
+
       return section;
     }
 
@@ -172,7 +222,7 @@ import Base from '../layouts/Base.astro';
       const campaigns = await listTenantCampaigns(tenant.id);
       for (const campaign of campaigns.items) {
         const player = findPlayerFor(me, tenant.id, campaign.id);
-        section.append(renderCampaignSection(campaign, player, onChanged));
+        section.append(renderCampaignSection(campaign, player, me, onChanged));
       }
       return section;
     }

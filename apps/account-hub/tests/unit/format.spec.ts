@@ -3,10 +3,30 @@ import {
   campaignRoleFor,
   countUnread,
   localesToText,
+  reusableCharactersFor,
   textOrNull,
   textToLocales,
 } from '../../src/lib/format';
-import type { MeOut, Notification } from '../../src/lib/types';
+import type {
+  CharacterSummaryOut,
+  MeOut,
+  Notification,
+  PlayerContextOut,
+} from '../../src/lib/types';
+
+function character(overrides: Partial<CharacterSummaryOut> = {}): CharacterSummaryOut {
+  return { entity_id: crypto.randomUUID(), name: 'Cael', is_pc: true, ...overrides };
+}
+
+function player(overrides: Partial<PlayerContextOut> = {}): PlayerContextOut {
+  return {
+    id: crypto.randomUUID(),
+    tenant_id: crypto.randomUUID(),
+    campaign_id: crypto.randomUUID(),
+    characters: [],
+    ...overrides,
+  };
+}
 
 function notification(read_at: string | null): Notification {
   return {
@@ -135,5 +155,45 @@ describe('campaignRoleFor', () => {
       ],
     });
     expect(campaignRoleFor(campaignId, caller)).toBe('gm');
+  });
+});
+
+describe('reusableCharactersFor', () => {
+  const tenantId = crypto.randomUUID();
+  const targetCampaignId = crypto.randomUUID();
+
+  it('returns characters from other campaigns in the same tenant', () => {
+    const cael = character({ name: 'Cael' });
+    const caller = me({
+      players: [player({ tenant_id: tenantId, characters: [cael] })],
+    });
+    expect(reusableCharactersFor(caller, tenantId, targetCampaignId)).toEqual([cael]);
+  });
+
+  it('excludes characters already in the target campaign', () => {
+    const cael = character({ name: 'Cael' });
+    const caller = me({
+      players: [player({ tenant_id: tenantId, campaign_id: targetCampaignId, characters: [cael] })],
+    });
+    expect(reusableCharactersFor(caller, tenantId, targetCampaignId)).toEqual([]);
+  });
+
+  it('excludes characters from a different tenant', () => {
+    const cael = character({ name: 'Cael' });
+    const caller = me({
+      players: [player({ tenant_id: crypto.randomUUID(), characters: [cael] })],
+    });
+    expect(reusableCharactersFor(caller, tenantId, targetCampaignId)).toEqual([]);
+  });
+
+  it('dedupes a character rostered across multiple campaigns', () => {
+    const cael = character({ name: 'Cael' });
+    const caller = me({
+      players: [
+        player({ tenant_id: tenantId, characters: [cael] }),
+        player({ tenant_id: tenantId, characters: [cael] }),
+      ],
+    });
+    expect(reusableCharactersFor(caller, tenantId, targetCampaignId)).toEqual([cael]);
   });
 });

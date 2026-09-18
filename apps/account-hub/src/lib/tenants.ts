@@ -7,6 +7,7 @@ import type {
   GmOut,
   Page,
   PlayerCreate,
+  PlayerSummaryOut,
   TenantSummaryOut,
 } from './types';
 
@@ -62,10 +63,22 @@ export async function revokeCampaignGm(
   await apiDelete<void>(`/tenants/${tenantId}/campaigns/${campaignId}/gms/${userId}`);
 }
 
+// Returns the created player (201, PlayerSummaryOut) - RFC 0014's
+// being-handoff flow needs the new player's id immediately to link a
+// character to it, not just a success signal.
 export async function invitePlayer(
   tenantId: string,
   campaignId: string,
   body: PlayerCreate,
-): Promise<void> {
-  await apiPost<void>(`/tenants/${tenantId}/campaigns/${campaignId}/players`, body);
+): Promise<PlayerSummaryOut> {
+  return apiPost<PlayerSummaryOut>(`/tenants/${tenantId}/campaigns/${campaignId}/players`, body);
+}
+
+export async function listCampaignPlayers(
+  tenantId: string,
+  campaignId: string,
+): Promise<Page<PlayerSummaryOut>> {
+  return apiFetch<Page<PlayerSummaryOut>>(
+    `/tenants/${tenantId}/campaigns/${campaignId}/players?page=1&size=${PAGE_SIZE}`,
+  );
 }
