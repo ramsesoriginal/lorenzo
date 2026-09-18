@@ -12,7 +12,7 @@ Use a **separate Authgear Cloud project from production** - free-tier accounts s
 
 3. The application's own page lists everything needed under different names than "issuer"/"JWKS URL":
    - **JSON Web Key (JWK) Set** - this is `AUTHGEAR_JWKS_URL` directly.
-   - **OpenID Configuration Endpoint** - fetch this URL; the returned JSON's `"issuer"` field is `AUTHGEAR_ISSUER` (and also `AUTHGEAR_AUDIENCE` - see the gotcha below).
+   - **OpenID Configuration Endpoint** - fetch this URL; the returned JSON's `"issuer"` field is `AUTHGEAR_ISSUER` (and also `AUTHGEAR_AUDIENCE` - see the gotcha below), and its `"userinfo_endpoint"` field is `AUTHGEAR_USERINFO_URL` (ADR 0075 - this is what actually populates `User.email`, since the access token itself never carries an `email` claim).
 
 4. Set `apps/api`'s `.env`:
 
@@ -20,6 +20,7 @@ Use a **separate Authgear Cloud project from production** - free-tier accounts s
    AUTHGEAR_ISSUER=<issuer from step 3>
    AUTHGEAR_JWKS_URL=<JWK Set URL from step 3>
    AUTHGEAR_AUDIENCE=<issuer from step 3>  # same as issuer for access tokens - see ADR 0023
+   AUTHGEAR_USERINFO_URL=<userinfo_endpoint from step 3>
    ```
 
 5. Get a real access token with `mise run //apps/api:dev-token` (needs `AUTHGEAR_DEV_CLIENT_ID`/`AUTHGEAR_DEV_CLIENT_SECRET` set in your shell first, from step 2 - deliberately not read from `.env`, since they identify a login-flow client, not something `apps/api` itself needs to run). Opens your browser, logs you in, and prints a ready-to-use token - no manual URL-building or curl required. Call `GET /me` with it as a `Bearer` token - a fresh subject auto-provisions an `app_user` row on first call (ADR 0023).
