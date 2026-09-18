@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-Every route in `apps/api` was `GET` until now - [ADR 0020](0020-rest-api-tenant-scoping-and-schemas.md) scoped itself explicitly to read-only, and nothing had picked up "a fuller CRUD REST surface" since. [GitHub milestone #1](https://github.com/ramsesoriginal/lorenzo/milestone/1)'s scenario needs actual writes: a generic Sword, a Flaming Sword prototyping it, a concrete instance ("Ashfang") owned by a character and moved between containers over the wire. This ADR accepts [RFC 0005](../rfcs/0005-item-and-item-instance-crud-api.md), close to verbatim - see it for the full reasoning trail behind each convention below. It's also the first write surface in this codebase, so several of its decisions are cross-cutting, reused by every CRUD RFC after it rather than re-decided per RFC.
+Every route in `apps/api` was `GET` until now - [ADR 0020](0020-rest-api-tenant-scoping-and-schemas.md) scoped itself explicitly to read-only, and nothing had picked up "a fuller CRUD REST surface" since. GitHub milestone #1's scenario needs actual writes: a generic Sword, a Flaming Sword prototyping it, a concrete instance ("Ashfang") owned by a character and moved between containers over the wire. This ADR accepts [RFC 0005](../rfcs/0005-item-and-item-instance-crud-api.md), close to verbatim - see it for the full reasoning trail behind each convention below. It's also the first write surface in this codebase, so several of its decisions are cross-cutting, reused by every CRUD RFC after it rather than re-decided per RFC.
 
 ## Decision
 
