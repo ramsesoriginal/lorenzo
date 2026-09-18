@@ -4,7 +4,7 @@ import Base from '../layouts/Base.astro';
 
 <Base>
   <h1 class="display">Keep track of worlds.</h1>
-  <p>Your notifications, tenants, and campaigns are still being built.</p>
+  <p>Your tenants and campaigns are still being built.</p>
 
   <section class="account section">
     <p id="account-loading">Checking your session&hellip;</p>
@@ -16,6 +16,7 @@ import Base from '../layouts/Base.astro';
       <p>Signed in as <strong id="account-email"></strong>.</p>
       <button id="logout-button" type="button">Log out</button>
       <a href="/profile">Your profile</a>
+      <a href="/notifications">Notifications</a>
       <a href="/debug/me">Debug: <code>GET /me</code></a>
     </div>
   </section>

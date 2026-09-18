@@ -47,3 +47,25 @@ export interface ProfileUpdate {
   locales?: string[] | null;
   user_color?: string | null;
 }
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+export interface Notification {
+  id: string;
+  batch_id: string;
+  user_id: string;
+  scope: string;
+  type: string;
+  tenant_id: string | null;
+  source_id: string | null;
+  title: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+}
