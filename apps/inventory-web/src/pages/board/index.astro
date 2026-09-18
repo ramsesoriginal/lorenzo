@@ -8,6 +8,7 @@ import Base from '../../layouts/Base.astro';
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
     <p id="tenant-slug" class="tenant-slug"></p>
+    <p id="gm-tools" hidden><a id="manage-items-link" href="">Manage items (GM)</a></p>
 
     <section id="characters" class="section">
       <h2>Your characters</h2>
@@ -42,6 +43,7 @@ import Base from '../../layouts/Base.astro';
     import { isAuthenticated } from '../../lib/auth';
     import { listMyCharacters } from '../../lib/characters';
     import { clearContainer, getOwnedItemInstances, setContainer } from '../../lib/items';
+    import { isCampaignGm } from '../../lib/me';
     import { getTenant } from '../../lib/tenants';
     import type { CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
 
@@ -392,6 +394,13 @@ import Base from '../../layouts/Base.astro';
         tenantSlug.textContent = tenant.slug;
         board.hidden = false;
         await loadCharacters(tenantId);
+
+        if (await isCampaignGm()) {
+          const gmTools = document.getElementById('gm-tools')!;
+          const manageItemsLink = document.getElementById('manage-items-link') as HTMLAnchorElement;
+          manageItemsLink.href = `/items/?tenant=${tenantId}`;
+          gmTools.hidden = false;
+        }
       } catch (e) {
         status.textContent = e instanceof Error ? e.message : String(e);
       }

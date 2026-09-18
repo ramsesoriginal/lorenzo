@@ -82,3 +82,22 @@ export interface OwnedGroup {
 export interface OwnedByResponse {
   groups: OwnedGroup[];
 }
+
+// A catalog item (prototype) - GET/POST /tenants/{t}/items. Lean on purpose:
+// only what the catalog browser and multi-parent picker need, same
+// ItemOut source as ItemInstance above, extend as more of it is consumed.
+export interface CatalogItem {
+  entity_id: string;
+  title: string;
+}
+
+export interface CampaignSummary {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+// GET /me - only the fields this app actually reads so far.
+export interface MeSummary {
+  campaign_gm_grants: CampaignSummary[];
+}

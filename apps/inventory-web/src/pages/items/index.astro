@@ -1,0 +1,553 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Manage items — Lorenzo">
+  <p><a href="/">&larr; Tenants</a></p>
+  <p id="status">Loading&hellip;</p>
+
+  <div id="page" hidden>
+    <h1 class="display" id="tenant-name"></h1>
+
+    <section class="section-lg">
+      <h2>New item</h2>
+      <form id="create-item-form" class="item-form">
+        <label class="field">
+          <span class="field-label">Name</span>
+          <input type="text" id="new-item-name" class="text-input" required />
+        </label>
+
+        <div class="field">
+          <span class="field-label" id="parents-label">Parents</span>
+          <div class="combobox" id="parent-combobox">
+            <input
+              type="text"
+              id="parent-search"
+              class="text-input"
+              placeholder="Search items to inherit from&hellip;"
+              autocomplete="off"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="parent-suggestions"
+              aria-labelledby="parents-label"
+            />
+            <ul id="parent-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+          </div>
+          <ul id="parent-chips" class="chip-list"></ul>
+        </div>
+
+        <p id="create-item-error" class="error-text" hidden></p>
+        <button type="submit">Create item</button>
+      </form>
+    </section>
+
+    <section class="section-lg">
+      <h2>Catalog</h2>
+      <div class="catalog-toolbar">
+        <input
+          type="search"
+          id="catalog-search"
+          class="text-input"
+          placeholder="Search the item catalog&hellip;"
+          aria-label="Search the item catalog"
+        />
+      </div>
+
+      <p id="catalog-loading">Loading catalog&hellip;</p>
+      <p id="catalog-empty" hidden>No items match.</p>
+      <p id="catalog-error" class="error-text" hidden></p>
+      <ul id="catalog-list" class="catalog-list" hidden></ul>
+    </section>
+
+    <section class="section-lg">
+      <h2>Instances</h2>
+      <div class="field">
+        <span class="field-label" id="browse-label">View a character's inventory</span>
+        <div class="combobox" id="browse-combobox">
+          <input
+            type="text"
+            id="browse-search"
+            class="text-input"
+            placeholder="Search characters&hellip;"
+            autocomplete="off"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="browse-suggestions"
+            aria-labelledby="browse-label"
+          />
+          <ul id="browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+        </div>
+      </div>
+
+      <p id="instances-viewing" class="next-up" hidden></p>
+      <p id="instances-empty" hidden></p>
+      <p id="instances-error" class="error-text" hidden></p>
+      <div id="instances-groups"></div>
+    </section>
+  </div>
+
+  <script>
+    import { isAuthenticated } from '../../lib/auth';
+    import { listCharacters } from '../../lib/characters';
+    import {
+      createCatalogItem,
+      createItemInstance,
+      getOwnedItemInstances,
+      listCatalogItems,
+      setOwner,
+    } from '../../lib/items';
+    import { isCampaignGm } from '../../lib/me';
+    import { getTenant } from '../../lib/tenants';
+    import type { CatalogItem, CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
+
+    const status = document.getElementById('status')!;
+    const page = document.getElementById('page')!;
+    const tenantName = document.getElementById('tenant-name')!;
+
+    const search = document.getElementById('catalog-search') as HTMLInputElement;
+    const catalogLoading = document.getElementById('catalog-loading')!;
+    const catalogEmpty = document.getElementById('catalog-empty')!;
+    const catalogError = document.getElementById('catalog-error')!;
+    const catalogList = document.getElementById('catalog-list') as HTMLUListElement;
+
+    const createForm = document.getElementById('create-item-form') as HTMLFormElement;
+    const newItemName = document.getElementById('new-item-name') as HTMLInputElement;
+    const parentSearch = document.getElementById('parent-search') as HTMLInputElement;
+    const parentSuggestions = document.getElementById('parent-suggestions') as HTMLUListElement;
+    const parentChips = document.getElementById('parent-chips') as HTMLUListElement;
+    const createItemError = document.getElementById('create-item-error')!;
+
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant');
+
+    // Cached after first use - the roster an "instantiate" panel searches
+    // against, shared by every catalog row rather than refetched per click.
+    let rosterPromise: Promise<CharacterSummary[]> | null = null;
+    function loadRoster(): Promise<CharacterSummary[]> {
+      if (!rosterPromise) {
+        rosterPromise = listCharacters(tenantId as string).then((page) => page.items);
+      }
+      return rosterPromise;
+    }
+
+    function renderCharacterSuggestions(
+      list: HTMLUListElement,
+      characters: CharacterSummary[],
+      onPick: (character: CharacterSummary) => void,
+    ) {
+      if (characters.length === 0) {
+        list.hidden = true;
+        list.replaceChildren();
+        return;
+      }
+      list.replaceChildren();
+      for (const character of characters) {
+        const li = document.createElement('li');
+        li.className = 'combobox-suggestion';
+        li.setAttribute('role', 'option');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = character.is_pc ? character.name : `${character.name} (NPC)`;
+        button.addEventListener('click', () => onPick(character));
+        li.append(button);
+        list.append(li);
+      }
+      list.hidden = false;
+    }
+
+    // Generic "search characters, act on the one picked" panel - shared by
+    // the catalog's "Instantiate" (create+assign) and an instance's
+    // "Reassign" (owner-PUT), which differ only in what performAction does.
+    function renderCharacterActionPanel(
+      performAction: (character: CharacterSummary) => Promise<string>,
+      onDone: () => void,
+    ): HTMLElement {
+      const panel = document.createElement('div');
+      panel.className = 'character-picker-panel';
+
+      const combobox = document.createElement('div');
+      combobox.className = 'combobox';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'text-input';
+      input.placeholder = 'Search characters…';
+      input.autocomplete = 'off';
+      const suggestions = document.createElement('ul');
+      suggestions.className = 'combobox-suggestions';
+      suggestions.setAttribute('role', 'listbox');
+      suggestions.hidden = true;
+      combobox.append(input, suggestions);
+
+      const statusEl = document.createElement('p');
+      statusEl.className = 'picker-status';
+      statusEl.hidden = true;
+
+      panel.append(combobox, statusEl);
+
+      let debounce: ReturnType<typeof setTimeout> | undefined;
+      input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const query = input.value.trim().toLowerCase();
+        debounce = setTimeout(async () => {
+          const roster = await loadRoster();
+          const matches = query
+            ? roster.filter((c) => c.name.toLowerCase().includes(query))
+            : roster;
+          renderCharacterSuggestions(suggestions, matches, async (character) => {
+            input.disabled = true;
+            suggestions.hidden = true;
+            try {
+              const message = await performAction(character);
+              statusEl.hidden = false;
+              statusEl.classList.remove('error-text');
+              statusEl.textContent = message;
+              window.setTimeout(onDone, 1200);
+            } catch (e) {
+              statusEl.hidden = false;
+              statusEl.classList.add('error-text');
+              statusEl.textContent = e instanceof Error ? e.message : String(e);
+              input.disabled = false;
+            }
+          });
+        }, 200);
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') onDone();
+      });
+
+      window.setTimeout(() => input.focus(), 0);
+      return panel;
+    }
+
+    function renderCatalogItem(item: CatalogItem): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'catalog-row';
+
+      const header = document.createElement('div');
+      header.className = 'catalog-row-header';
+      const title = document.createElement('span');
+      title.className = 'catalog-row-title';
+      title.textContent = item.title;
+      const instantiateButton = document.createElement('button');
+      instantiateButton.type = 'button';
+      instantiateButton.textContent = 'Instantiate';
+      header.append(title, instantiateButton);
+      li.append(header);
+
+      instantiateButton.addEventListener('click', () => {
+        const existingPanel = li.querySelector('.character-picker-panel');
+        if (existingPanel) {
+          existingPanel.remove();
+          instantiateButton.textContent = 'Instantiate';
+          return;
+        }
+        instantiateButton.textContent = 'Cancel';
+        const panel = renderCharacterActionPanel(
+          async (character) => {
+            await createItemInstance(tenantId as string, item.entity_id, character.entity_id);
+            return `Assigned to ${character.name}.`;
+          },
+          () => {
+            panel.remove();
+            instantiateButton.textContent = 'Instantiate';
+          },
+        );
+        li.append(panel);
+      });
+
+      return li;
+    }
+
+    let requestId = 0;
+
+    async function loadCatalog(query: string) {
+      const thisRequest = ++requestId;
+      catalogEmpty.hidden = true;
+      catalogError.hidden = true;
+      catalogLoading.hidden = false;
+      catalogList.hidden = true;
+      try {
+        const result = await listCatalogItems(tenantId as string, query);
+        if (thisRequest !== requestId) return; // a newer search superseded this one
+        catalogLoading.hidden = true;
+        if (result.items.length === 0) {
+          catalogEmpty.hidden = false;
+          return;
+        }
+        catalogList.replaceChildren(...result.items.map(renderCatalogItem));
+        catalogList.hidden = false;
+      } catch (e) {
+        if (thisRequest !== requestId) return;
+        catalogLoading.hidden = true;
+        catalogError.hidden = false;
+        catalogError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+    search.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => void loadCatalog(search.value), 300);
+    });
+
+    // --- Instances: browse a character's inventory and reassign owners ---
+
+    const browseSearch = document.getElementById('browse-search') as HTMLInputElement;
+    const browseSuggestions = document.getElementById('browse-suggestions') as HTMLUListElement;
+    const instancesViewing = document.getElementById('instances-viewing')!;
+    const instancesEmpty = document.getElementById('instances-empty')!;
+    const instancesError = document.getElementById('instances-error')!;
+    const instancesGroups = document.getElementById('instances-groups')!;
+
+    let currentCharacter: CharacterSummary | null = null;
+    let instancesRequestId = 0;
+
+    function renderInstanceRow(instance: ItemInstance): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'catalog-row';
+
+      const header = document.createElement('div');
+      header.className = 'catalog-row-header';
+      const title = document.createElement('span');
+      title.className = 'catalog-row-title';
+      title.textContent =
+        instance.quantity && instance.quantity > 1
+          ? `${instance.title} ×${instance.quantity}`
+          : instance.title;
+      const reassignButton = document.createElement('button');
+      reassignButton.type = 'button';
+      reassignButton.textContent = 'Reassign';
+      header.append(title, reassignButton);
+      li.append(header);
+
+      reassignButton.addEventListener('click', () => {
+        const existingPanel = li.querySelector('.character-picker-panel');
+        if (existingPanel) {
+          existingPanel.remove();
+          reassignButton.textContent = 'Reassign';
+          return;
+        }
+        reassignButton.textContent = 'Cancel';
+        const panel = renderCharacterActionPanel(
+          async (character) => {
+            await setOwner(tenantId as string, instance.entity_id, character.entity_id);
+            return `Reassigned to ${character.name}.`;
+          },
+          () => {
+            panel.remove();
+            reassignButton.textContent = 'Reassign';
+            // The item likely just left this character - refresh the view.
+            if (currentCharacter) void loadInstancesFor(currentCharacter);
+          },
+        );
+        li.append(panel);
+      });
+
+      return li;
+    }
+
+    function renderInstanceGroup(group: OwnedGroup, rootTitle: string): HTMLElement {
+      const section = document.createElement('div');
+      section.className = 'section';
+      const heading = document.createElement('h3');
+      heading.textContent = group.container?.name ?? rootTitle;
+      section.append(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'catalog-list';
+      for (const instance of group.item_instances) {
+        list.append(renderInstanceRow(instance));
+      }
+      section.append(list);
+      return section;
+    }
+
+    async function loadInstancesFor(character: CharacterSummary) {
+      currentCharacter = character;
+      const thisRequest = ++instancesRequestId;
+      instancesViewing.hidden = false;
+      instancesViewing.textContent = `Viewing ${character.name}'s inventory.`;
+      instancesEmpty.hidden = true;
+      instancesError.hidden = true;
+      instancesGroups.replaceChildren();
+      try {
+        const response = await getOwnedItemInstances(tenantId as string, character.entity_id);
+        if (thisRequest !== instancesRequestId) return;
+        const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
+        if (!hasAnything) {
+          instancesEmpty.hidden = false;
+          instancesEmpty.textContent = `${character.name} isn't carrying anything.`;
+          return;
+        }
+        for (const group of response.groups) {
+          if (group.item_instances.length > 0) {
+            instancesGroups.append(renderInstanceGroup(group, character.name));
+          }
+        }
+      } catch (e) {
+        if (thisRequest !== instancesRequestId) return;
+        instancesError.hidden = false;
+        instancesError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    let browseDebounce: ReturnType<typeof setTimeout> | undefined;
+    browseSearch.addEventListener('input', () => {
+      clearTimeout(browseDebounce);
+      const query = browseSearch.value.trim().toLowerCase();
+      browseDebounce = setTimeout(async () => {
+        const roster = await loadRoster();
+        const matches = query
+          ? roster.filter((c) => c.name.toLowerCase().includes(query))
+          : roster;
+        renderCharacterSuggestions(browseSuggestions, matches, (character) => {
+          browseSearch.value = character.name;
+          browseSuggestions.hidden = true;
+          void loadInstancesFor(character);
+        });
+      }, 200);
+    });
+
+    browseSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        browseSuggestions.hidden = true;
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const combobox = document.getElementById('browse-combobox')!;
+      if (!combobox.contains(event.target as Node)) {
+        browseSuggestions.hidden = true;
+      }
+    });
+
+    // Selected parents for the item being created - insertion order preserved,
+    // keyed by entity id so re-picking the same suggestion twice is a no-op.
+    const selectedParents = new Map<string, string>();
+
+    function closeSuggestions() {
+      parentSuggestions.hidden = true;
+      parentSuggestions.replaceChildren();
+      parentSearch.setAttribute('aria-expanded', 'false');
+    }
+
+    function renderChips() {
+      parentChips.replaceChildren();
+      for (const [entityId, title] of selectedParents) {
+        const li = document.createElement('li');
+        li.className = 'chip';
+        const label = document.createElement('span');
+        label.textContent = title;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'chip-remove';
+        remove.setAttribute('aria-label', `Remove ${title}`);
+        remove.textContent = '×';
+        remove.addEventListener('click', () => {
+          selectedParents.delete(entityId);
+          renderChips();
+        });
+        li.append(label, remove);
+        parentChips.append(li);
+      }
+    }
+
+    function renderSuggestions(items: CatalogItem[]) {
+      const candidates = items.filter((item) => !selectedParents.has(item.entity_id));
+      if (candidates.length === 0) {
+        closeSuggestions();
+        return;
+      }
+      parentSuggestions.replaceChildren();
+      for (const item of candidates) {
+        const li = document.createElement('li');
+        li.className = 'combobox-suggestion';
+        li.setAttribute('role', 'option');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = item.title;
+        button.addEventListener('click', () => {
+          selectedParents.set(item.entity_id, item.title);
+          renderChips();
+          parentSearch.value = '';
+          closeSuggestions();
+          parentSearch.focus();
+        });
+        li.append(button);
+        parentSuggestions.append(li);
+      }
+      parentSuggestions.hidden = false;
+      parentSearch.setAttribute('aria-expanded', 'true');
+    }
+
+    let parentSearchDebounce: ReturnType<typeof setTimeout> | undefined;
+    parentSearch.addEventListener('input', () => {
+      clearTimeout(parentSearchDebounce);
+      const query = parentSearch.value.trim();
+      if (!query) {
+        closeSuggestions();
+        return;
+      }
+      parentSearchDebounce = setTimeout(async () => {
+        try {
+          const result = await listCatalogItems(tenantId as string, query);
+          renderSuggestions(result.items);
+        } catch {
+          closeSuggestions();
+        }
+      }, 250);
+    });
+
+    parentSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeSuggestions();
+    });
+
+    document.addEventListener('click', (event) => {
+      const combobox = document.getElementById('parent-combobox')!;
+      if (!combobox.contains(event.target as Node)) closeSuggestions();
+    });
+
+    createForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      createItemError.hidden = true;
+      const name = newItemName.value.trim();
+      if (!name) return;
+
+      const submitButton = createForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+      submitButton.disabled = true;
+      try {
+        await createCatalogItem(tenantId as string, name, [...selectedParents.keys()]);
+        newItemName.value = '';
+        selectedParents.clear();
+        renderChips();
+        parentSearch.value = '';
+        closeSuggestions();
+        await loadCatalog(search.value);
+      } catch (e) {
+        createItemError.hidden = false;
+        createItemError.textContent = e instanceof Error ? e.message : String(e);
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    if (!(await isAuthenticated())) {
+      status.textContent = 'Not logged in. Go back and log in first.';
+    } else if (!tenantId) {
+      status.textContent = 'No tenant selected. Go back and pick one.';
+    } else if (!(await isCampaignGm())) {
+      status.textContent = "This page is for GMs only. You don't hold a GM grant in any campaign.";
+    } else {
+      try {
+        const tenant = await getTenant(tenantId);
+        status.hidden = true;
+        tenantName.textContent = tenant.name;
+        page.hidden = false;
+        await loadCatalog('');
+      } catch (e) {
+        status.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

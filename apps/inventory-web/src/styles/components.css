@@ -274,3 +274,166 @@ pre {
   font-size: 14px;
   line-height: 1.6;
 }
+
+.text-input {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+}
+
+.text-input:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 1px;
+}
+
+.catalog-toolbar {
+  max-width: 360px;
+}
+
+.catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.catalog-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.catalog-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.catalog-row-title {
+  font-size: 15px;
+}
+
+.character-picker-panel {
+  max-width: 320px;
+}
+
+.picker-status {
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+.item-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 480px;
+  margin-top: var(--space-3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+.combobox {
+  position: relative;
+}
+
+.combobox-suggestions {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--lorenzo-ink) 20%, transparent);
+}
+
+/* Anchor positioning (progressive enhancement): once the browser supports
+   it, the suggestion panel detaches into the top layer's positioning
+   context via its own anchor reference rather than the .combobox wrapper's
+   `position: relative` - same visual result, but no longer clipped by any
+   ancestor's overflow/stacking context (a real fix, not just a flourish,
+   for when this combobox eventually sits inside a scrolling dialog). */
+@supports (anchor-name: --parent-search) {
+  #parent-search {
+    anchor-name: --parent-search;
+  }
+
+  #parent-suggestions {
+    position: fixed;
+    inset-block-start: anchor(--parent-search bottom);
+    inset-inline-start: anchor(--parent-search left);
+    width: anchor-size(--parent-search width);
+    margin-block-start: var(--space-1);
+  }
+}
+
+.combobox-suggestion button {
+  display: block;
+  width: 100%;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+  font-size: 14px;
+  border-radius: 0;
+  padding: var(--space-2) var(--space-3);
+}
+
+.combobox-suggestion button:hover {
+  background: var(--fill-soft);
+  opacity: 1;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--fill-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  font-size: 13px;
+}
+
+.chip-remove {
+  background: none;
+  color: var(--fg-tertiary);
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+  border-radius: 50%;
+}
+
+.chip-remove:hover {
+  background: var(--border);
+  opacity: 1;
+}
