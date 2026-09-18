@@ -151,3 +151,11 @@ export interface CampaignCreate {
   description: string;
   secret?: boolean;
 }
+
+// GET /tenants/{id}/campaigns/{id}/gms - see ADR 0031/RFC 0004. Bare
+// user_id, no display name - tenant_id/campaign_id are already in the URL,
+// no need to repeat them per row. There's no reverse user-lookup endpoint
+// anywhere in this API, so this is all a client can show per GM (ADR 0076).
+export interface GmOut {
+  user_id: string;
+}
