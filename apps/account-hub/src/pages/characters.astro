@@ -1,0 +1,167 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Your characters — Lorenzo">
+  <h1 class="display">Your characters</h1>
+  <p><a href="/">&larr; Back</a></p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>You're not a player in any campaign yet.</p>
+
+  <div id="campaign-list"></div>
+
+  <script>
+    import { createCharacter, getCampaign, updateCharacter } from '../lib/characters';
+    import { getMe } from '../lib/me';
+    import type { CharacterSummaryOut, PlayerContextOut } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const campaignList = document.getElementById('campaign-list')!;
+
+    function renderCharacterItem(
+      character: CharacterSummaryOut,
+      player: PlayerContextOut,
+      onRenamed: () => void,
+    ): HTMLLIElement {
+      const item = document.createElement('li');
+      const nameEl = document.createElement('span');
+      nameEl.textContent = character.name;
+
+      const renameButton = document.createElement('button');
+      renameButton.type = 'button';
+      renameButton.textContent = 'Rename';
+
+      const status = document.createElement('span');
+      status.setAttribute('role', 'status');
+
+      renameButton.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = character.name;
+        const saveButton = document.createElement('button');
+        saveButton.type = 'button';
+        saveButton.textContent = 'Save';
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.textContent = 'Cancel';
+
+        item.replaceChildren(input, saveButton, cancelButton, status);
+
+        cancelButton.addEventListener('click', () => {
+          item.replaceChildren(nameEl, renameButton, status);
+        });
+        saveButton.addEventListener('click', async () => {
+          const name = input.value.trim();
+          if (name === '' || name === character.name) {
+            item.replaceChildren(nameEl, renameButton, status);
+            return;
+          }
+          status.textContent = 'Saving&hellip;';
+          try {
+            await updateCharacter(player.tenant_id, character.entity_id, { name });
+            onRenamed();
+          } catch (e) {
+            status.textContent = e instanceof Error ? e.message : String(e);
+          }
+        });
+      });
+
+      item.append(nameEl, renameButton, status);
+      return item;
+    }
+
+    function renderCreateForm(player: PlayerContextOut, onCreated: () => void): HTMLFormElement {
+      const form = document.createElement('form');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'New character name';
+      input.required = true;
+      const button = document.createElement('button');
+      button.type = 'submit';
+      button.textContent = 'Create character';
+      const status = document.createElement('span');
+      status.setAttribute('role', 'status');
+
+      form.append(input, button, status);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = input.value.trim();
+        if (name === '') return;
+        status.textContent = 'Creating&hellip;';
+        try {
+          await createCharacter(player.tenant_id, { name, owner_player_id: player.id });
+          input.value = '';
+          status.textContent = '';
+          onCreated();
+        } catch (e) {
+          status.textContent = e instanceof Error ? e.message : String(e);
+        }
+      });
+      return form;
+    }
+
+    function renderCampaignSection(
+      player: PlayerContextOut,
+      campaignName: string,
+      onChanged: () => void,
+    ): HTMLElement {
+      const section = document.createElement('section');
+      section.className = 'section';
+      const heading = document.createElement('h2');
+      heading.textContent = campaignName;
+      section.append(heading);
+
+      if (player.characters.length === 0) {
+        const none = document.createElement('p');
+        none.textContent = "You don't have a character here yet.";
+        section.append(none);
+      } else {
+        const list = document.createElement('ul');
+        for (const character of player.characters) {
+          list.append(renderCharacterItem(character, player, onChanged));
+        }
+        section.append(list);
+      }
+
+      section.append(renderCreateForm(player, onChanged));
+      return section;
+    }
+
+    async function load() {
+      const me = await getMe();
+      if (me.players.length === 0) {
+        emptyState.hidden = false;
+        campaignList.replaceChildren();
+        return;
+      }
+      emptyState.hidden = true;
+      const sections = await Promise.all(
+        me.players.map(async (player) => {
+          const campaign = await getCampaign(player.tenant_id, player.campaign_id);
+          return renderCampaignSection(player, campaign.name, () => void load());
+        }),
+      );
+      campaignList.replaceChildren(...sections);
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

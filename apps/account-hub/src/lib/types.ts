@@ -12,6 +12,7 @@ export interface MembershipOut {
 export interface CharacterSummaryOut {
   entity_id: string;
   name: string;
+  is_pc: boolean;
 }
 
 export interface PlayerContextOut {
@@ -85,4 +86,43 @@ export interface Notification {
   body: string;
   read_at: string | null;
   created_at: string;
+}
+
+export interface CampaignOut {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  name: string;
+  description: string;
+  game_system: string;
+  secret: boolean;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// POST /tenants/{id}/characters - owner_player_id is a caller's own
+// PlayerContextOut.id (a Player row, itself already campaign-scoped) -
+// there's no separate campaign_id on a character at all, it's implied by
+// whichever player row owns/pilots it.
+export interface CharacterCreate {
+  name: string;
+  owner_player_id?: string | null;
+  player_ids?: string[];
+}
+
+export interface CharacterUpdate {
+  name?: string | null;
+  owner_player_id?: string | null;
+}
+
+export interface CharacterOut {
+  entity_id: string;
+  name: string;
+  is_pc: boolean;
+  owner_player_id: string | null;
+  players: PlayerContextOut[];
+  created_by: string | null;
+  updated_by: string | null;
 }
