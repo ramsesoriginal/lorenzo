@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-[GitHub milestone #1](https://github.com/ramsesoriginal/lorenzo/milestone/1)'s own central claim - that the same item can mean something different to Alice, Bob, and the GM - had nothing behind it to actually author: `information`, its four `payload` kinds, and `knowledge` had a fully-built read side ([ADR 0028](0028-knowledge-and-group-membership.md), [ADR 0035](0035-campaign-scoped-gm-visibility.md)) but no write path at all. This ADR accepts [RFC 0011](../rfcs/0011-information-payload-knowledge-crud-api.md), which is deliberately unfinished - it sketches the shape but explicitly leaves "the actual authorization model" and "binary payload upload mechanics" undesigned. This ADR resolves both, scoped to exactly what the milestone needs, the same way [ADR 0037](0037-effective-stat-resolution.md) picked up RFC 0008's identically unfinished state.
+GitHub milestone #1's own central claim - that the same item can mean something different to Alice, Bob, and the GM - had nothing behind it to actually author: `information`, its four `payload` kinds, and `knowledge` had a fully-built read side ([ADR 0028](0028-knowledge-and-group-membership.md), [ADR 0035](0035-campaign-scoped-gm-visibility.md)) but no write path at all. This ADR accepts [RFC 0011](../rfcs/0011-information-payload-knowledge-crud-api.md), which is deliberately unfinished - it sketches the shape but explicitly leaves "the actual authorization model" and "binary payload upload mechanics" undesigned. This ADR resolves both, scoped to exactly what the milestone needs, the same way [ADR 0037](0037-effective-stat-resolution.md) picked up RFC 0008's identically unfinished state.
 
 ## Decision
 
@@ -41,6 +41,6 @@ Everything RFC 0011 itself excludes: binary payload upload mechanics, editing/re
 ## Consequences
 
 - No migration - `information`, `payload` (+ its four extensions), `knowledge`, `group_member` all already exist exactly as this needs them, per RFC 0011's own text.
-- [GitHub milestone #1](https://github.com/ramsesoriginal/lorenzo/milestone/1)'s scenario is now fully authorable and provable end to end through the real API - the last remaining piece after [ADR 0032](0032-item-and-item-instance-crud-api.md)-[0037](0037-effective-stat-resolution.md).
+- GitHub milestone #1's scenario is now fully authorable and provable end to end through the real API - the last remaining piece after [ADR 0032](0032-item-and-item-instance-crud-api.md)-[0037](0037-effective-stat-resolution.md).
 - `dependencies.get_tenant_or_404`'s fix is a real, if narrow, behavior change for every router that uses it - re-verified via the full existing suite (unaffected) plus the new regression test above.
 - `routers/entities.py.authorize_entity_write` is now the third copy of the self-or-managed-over-any-entity shape (after `item_instances.py`'s instance-specific version and `entity_stats.py`'s own). A shared `entity_access.can_manage_entity` is a reasonable follow-up once a fourth consumer shows up - not extracted speculatively here.

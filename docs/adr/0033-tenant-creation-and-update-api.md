@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-Every CRUD RFC so far ([RFC 0005](../rfcs/0005-item-and-item-instance-crud-api.md), and every RFC after it) has assumed a tenant already exists to create things *inside* - but nothing actually creates the first one. [RFC 0003](../rfcs/0003-tenant-campaign-read-api.md) explicitly deferred this: "A future create-tenant flow will need to populate `slug`/`description`/`name` and provision the initial `OWNER` `Membership` together; not designed here." Checked against [GitHub milestone #1](https://github.com/ramsesoriginal/lorenzo/milestone/1): Oscar's tenant, "The Shattered Realms," has to come from somewhere before the rest of that scenario can happen at all. This ADR accepts [RFC 0012](../rfcs/0012-tenant-creation-and-update-api.md), close to verbatim - see it for the full reasoning trail, including the revision from its own first "any authenticated user" draft.
+Every CRUD RFC so far ([RFC 0005](../rfcs/0005-item-and-item-instance-crud-api.md), and every RFC after it) has assumed a tenant already exists to create things *inside* - but nothing actually creates the first one. [RFC 0003](../rfcs/0003-tenant-campaign-read-api.md) explicitly deferred this: "A future create-tenant flow will need to populate `slug`/`description`/`name` and provision the initial `OWNER` `Membership` together; not designed here." Checked against GitHub milestone #1: Oscar's tenant, "The Shattered Realms," has to come from somewhere before the rest of that scenario can happen at all. This ADR accepts [RFC 0012](../rfcs/0012-tenant-creation-and-update-api.md), close to verbatim - see it for the full reasoning trail, including the revision from its own first "any authenticated user" draft.
 
 ## Decision
 

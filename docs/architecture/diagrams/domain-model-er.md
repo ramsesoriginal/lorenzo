@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-The merged, up-to-date picture of every table built so far across `feat/inventory-management` (sub-slices 1-7) and `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
+The merged, up-to-date picture of every table built so far: `feat/inventory-management` (sub-slices 1-7), `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+), the REST API surface built on top (ADR 0030-0049), and the tenant/user-management and notifications work since (profile pictures - ADR 0056, platform operations/activity log - ADR 0057/0063, notifications - ADR 0058-0061). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`, `user_profile_picture`, `tenant_profile_picture`, `campaign_profile_picture`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `audit_log` and `notification` are the one exception worth calling out explicitly: both are append-only logs, so they carry `created_at` but deliberately no `updated_at` - a row is never mutated after creation. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
 
 ```mermaid
 erDiagram
@@ -38,6 +38,17 @@ erDiagram
     ENTITY ||--o{ KNOWLEDGE : has
     PLAYER ||--o{ KNOWLEDGE : has
     INFORMATION ||--o{ KNOWLEDGE : has
+    APP_USER ||--o{ NOTIFICATION : receives
+    APP_USER ||--o{ NOTIFICATION : sends
+    TENANT ||--o{ NOTIFICATION : scopes
+    TENANT ||--o{ AUDIT_LOG : scopes
+    APP_USER ||--o{ AUDIT_LOG : "acts as"
+    APP_USER ||--o| USER_PROFILE_PICTURE : has
+    TENANT ||--o| TENANT_PROFILE_PICTURE : has
+    CAMPAIGN ||--o| CAMPAIGN_PROFILE_PICTURE : has
+    USER_PROFILE_PICTURE ||--|| PROFILE_PICTURE : is
+    TENANT_PROFILE_PICTURE ||--|| PROFILE_PICTURE : is
+    CAMPAIGN_PROFILE_PICTURE ||--|| PROFILE_PICTURE : is
 
     APP_USER {
         uuid id PK
@@ -172,6 +183,46 @@ erDiagram
         uuid knower_player_id FK "nullable - campaign-scoped player; exactly one of knower_entity_id/knower_player_id set"
         uuid information_id FK
     }
+    NOTIFICATION {
+        uuid id PK
+        uuid batch_id "shared by every row one fan-out call creates"
+        uuid user_id FK "recipient"
+        uuid tenant_id FK "nullable - null for platform scope"
+        string scope "platform | tenant | campaign | character | group, by convention"
+        uuid source_id "nullable - campaign/character id, for deep-linking"
+        string type "free-form, e.g. tenant_invite"
+        string title
+        string body
+        datetime read_at "nullable"
+        uuid created_by FK "nullable - sender"
+    }
+    AUDIT_LOG {
+        uuid id PK
+        uuid tenant_id FK "not nullable - platform-scope events out of scope for this slice"
+        uuid actor_id FK "nullable, ON DELETE SET NULL"
+        string action
+        string target_type
+        uuid target_id "nullable"
+        string detail "nullable"
+    }
+    PROFILE_PICTURE {
+        uuid id PK
+        bytea data
+        string file_type
+    }
+    USER_PROFILE_PICTURE {
+        uuid user_id PK,FK
+        uuid profile_picture_id FK "unique"
+    }
+    TENANT_PROFILE_PICTURE {
+        uuid tenant_id PK,FK
+        uuid profile_picture_id FK "unique"
+    }
+    CAMPAIGN_PROFILE_PICTURE {
+        uuid campaign_id PK,FK
+        uuid tenant_id FK "denormalized copy of campaign.tenant_id"
+        uuid profile_picture_id FK "unique"
+    }
 ```
 
 A few things this single view makes clearer than any one sub-slice's diagram could:
@@ -189,4 +240,4 @@ A few things this single view makes clearer than any one sub-slice's diagram cou
 - **`information.is_public` plus `knowledge` complete RFC 0001's four knower cases** ([ADR 0028](../../adr/0028-knowledge-and-group-membership.md)): character or group (`knowledge.knower_entity_id`), player (`knowledge.knower_player_id`), everyone (`is_public = true`, no `knowledge` row needed), or GM-only (the absence of both, the default). `group_member` reuses `character_player`'s bipartite shape (`group_entity_id -> entity.id`, `character_entity_id -> character.entity_id`, retargeted from `being.entity_id` by [ADR 0031](../../adr/0031-character-table-and-read-api.md)) - drawn as a plain `ENTITY }o--o{ CHARACTER` line, not a self-loop, and needs no box of its own for the same reason `entity_stat_group` doesn't.
 - **`knowledge` is the one join table that needed a surrogate `id` and two explicit `UNIQUE` constraints** rather than relying on a composite PK - its two knower columns are mutually exclusive and always one-null (`CHECK(num_nonnulls(...) = 1)`, same shape as `entity_stat`'s four value columns), and Postgres can't put a nullable column in a composite PK at all.
 
-Not shown: `UNIQUE(entity_id, type)` on `information`, `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)` on `app_user`, `UNIQUE(campaign_id, user_id)` on `player`, `UNIQUE(tenant_id, slug)` on `campaign`, `UNIQUE` (global) on `tenant.slug`, and on `knowledge`, `UNIQUE(knower_entity_id, information_id)`/`UNIQUE(knower_player_id, information_id)` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0024](../../adr/0024-campaign-and-player.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md)/[0031](../../adr/0031-character-table-and-read-api.md) being/character/character_player/ownership, [0026](../../adr/0026-campaign-gm-orga-and-access-rule.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign_gm/tenant_admin_campaign_opt_out, [0028](../../adr/0028-knowledge-and-group-membership.md)/[0031](../../adr/0031-character-table-and-read-api.md) knowledge/group_member/information.is_public, [0029](../../adr/0029-attribution-created-by-updated-by.md) created_by/updated_by.
+Not shown: `UNIQUE(entity_id, type)` on `information`, `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)` on `app_user`, `UNIQUE(campaign_id, user_id)` on `player`, `UNIQUE(tenant_id, slug)` on `campaign`, `UNIQUE` (global) on `tenant.slug`, and on `knowledge`, `UNIQUE(knower_entity_id, information_id)`/`UNIQUE(knower_player_id, information_id)` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0024](../../adr/0024-campaign-and-player.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md)/[0031](../../adr/0031-character-table-and-read-api.md) being/character/character_player/ownership, [0026](../../adr/0026-campaign-gm-orga-and-access-rule.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign_gm/tenant_admin_campaign_opt_out, [0028](../../adr/0028-knowledge-and-group-membership.md)/[0031](../../adr/0031-character-table-and-read-api.md) knowledge/group_member/information.is_public, [0029](../../adr/0029-attribution-created-by-updated-by.md) created_by/updated_by, [0056](../../adr/0056-profile-pictures.md) profile_picture/user_profile_picture/tenant_profile_picture/campaign_profile_picture, [0057](../../adr/0057-platform-operations.md)/[0063](../../adr/0063-tenant-activity-log.md) audit_log, [0058](../../adr/0058-notifications.md)-[0061](../../adr/0061-notification-sender-read-receipts.md) notification.

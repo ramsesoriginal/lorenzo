@@ -1,6 +1,6 @@
 ## What & why
 
-<!-- One or two sentences. Link an issue if there is one. -->
+<!-- One or two sentences. `Closes #N` here if this finishes a tracked issue - see ADR 0070. -->
 
 ## Checklist
 

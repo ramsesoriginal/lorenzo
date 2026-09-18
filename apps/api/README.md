@@ -24,22 +24,7 @@ mise run //apps/api:test
 
 ## Endpoints
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| GET | `/healthz` | liveness — no dependencies checked |
-| GET | `/readyz` | readiness — checks the database |
-| GET | `/metrics` | Prometheus |
-| GET | `/me` | current authenticated user + their tenant memberships |
-| GET | `/tenants/{tenant_id}/entities` | paginated |
-| GET | `/tenants/{tenant_id}/entities/{entity_id}` | detail: stats, information, prototypes, parent/children |
-| GET | `/tenants/{tenant_id}/items` | paginated |
-| GET | `/tenants/{tenant_id}/items/{entity_id}` | detail |
-| GET | `/tenants/{tenant_id}/item-instances` | paginated; `container_id`/`recursive` filters |
-| GET | `/tenants/{tenant_id}/item-instances/{entity_id}` | detail |
-| GET | `/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}` | grouped by direct container |
-| GET | `/tenants/{tenant_id}/payloads/{payload_id}/content` | binary content, correct `Content-Type`/`Content-Disposition` |
-
-All read-only (`GET`) so far — see [ADR 0020](../../docs/adr/0020-rest-api-tenant-scoping-and-schemas.md). Full interactive docs at `/docs` once running.
+Full read/write REST API, tenant-scoped under `/tenants/{tenant_id}/...` — see [ADR 0020](../../docs/adr/0020-rest-api-tenant-scoping-and-schemas.md) for the scoping/schema conventions. Routers under `src/lorenzo_api/routers/`: `entities`, `items`/`item_instances`, `payloads`/`information`, `stats`/`entity_stats`, `campaigns`, `players`, `characters`, `groups`, `tenants`, `users`, `activity_log`, plus `admin` (platform-operator only) and `pictures`. `/me` (current user + memberships) and `/healthz`/`/readyz`/`/metrics` sit outside tenant scoping. This list is deliberately not an exhaustive endpoint table — that duplicates and drifts from the generated source of truth; see [docs/reference/README.md](../../docs/reference/README.md) for the live `/docs` and the static `openapi.json` export, and [docs/adr/README.md](../../docs/adr/README.md) for the ADR-by-ADR history of how each surface landed.
 
 ## Auth
 
@@ -51,7 +36,7 @@ The full domain model from [RFC 0001](../../docs/rfcs/0001-core-domain-data-mode
 
 Every tenant-scoped table has row-level security, and — as of [ADR 0021](../../docs/adr/0021-restricted-app-role-for-rls-enforcement.md) — the app's own DB role is a properly restricted, non-superuser role that RLS actually applies to (a real, previously-live gap, not just a hardening exercise), in production too — the live Neon role rotation is done and confirmed directly against production, not just deployed; see [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md).
 
-`campaign_access.can_access_campaign()` implements RFC 0002's campaign-visibility rule directly (a `player` row, a `campaign_gm` row, or tenant-`orga` without an opt-out) — not yet wired into a route, since no campaign-scoped endpoint exists yet.
+`campaign_access.can_access_campaign()` implements RFC 0002's campaign-visibility rule directly (a `player` row, a `campaign_gm` row, or tenant-`orga` without an opt-out) — wired into `routers/campaigns.py`'s campaign-scoped routes ([ADR 0034](../../docs/adr/0034-campaign-crud-api.md)/[0035](../../docs/adr/0035-campaign-scoped-gm-visibility.md)).
 
 ## Errors
 

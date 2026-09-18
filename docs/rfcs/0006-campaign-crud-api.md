@@ -1,6 +1,6 @@
 # RFC: Campaign CRUD API
 
-Status: proposed — builds on [RFC 0003](0003-tenant-campaign-read-api.md)'s `get_campaign_context`, schema additions, and `is_tenant_admin`, plus [RFC 0005](0005-item-and-item-instance-crud-api.md)'s write-API conventions; no schema changes of this RFC's own, but depends on RFC 0003's migration having landed first
+Status: accepted — landed in [ADR 0034](../adr/0034-campaign-crud-api.md); consumes `campaign_access.can_manage_campaign` and its siblings exactly as RFC 0005/ADR 0032 pulled them forward, rather than defining them
 
 ## Context
 

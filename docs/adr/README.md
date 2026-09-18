@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Numbered sequentially, never renumbered. Superseded ADRs stay in place with a status update pointing at the replacement — see [0001](0001-record-architecture-decisions.md).
+Numbered sequentially, never renumbered. Superseded ADRs stay in place with a status update pointing at the replacement — see [0001](0001-record-architecture-decisions.md). Numbers have already collided twice across long-lived parallel branches (see the renumbering notes on 0050 and 0054 below) — to shrink that window, put a new RFC/ADR on its own small branch and merge the document itself as soon as the decision is settled, before the rest of the implementation lands; see [ADR 0070](0070-planning-milestones-issues-and-a-deferred-roadmap.md).
 
 - [0000 - Template](0000-template.md)
 - [0001 - Record architecture decisions as ADRs](0001-record-architecture-decisions.md)
@@ -72,3 +72,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0067 - `title` falls back to `name` when empty](0067-item-title-falls-back-to-name.md)
 - [0068 - loot-bot: inventory hygiene, GM toolkit, claim tiers, per-channel preferences](0068-loot-bot-inventory-and-gm-toolkit.md) — originally numbered 0064 on `feat/loot-bot-inventory-and-gm-tools`, renumbered on merge into `main`: `main` had independently claimed 0064-0067 for the apps/api additions above in the meantime. Same renumbering precedent as ADR 0050/0054's own history.
 - [0069 - apps/api additions requested by loot-bot: container flag, group-membership writes, bulk container move](0069-item-instance-container-flag-group-writes-bulk-container-move.md) — originally numbered 0065, renumbered alongside ADR 0068 above; superseded by ADR 0064/0065/0066 once those landed for real.
+- [0070 - Planning: Milestones/Issues alongside RFC/ADR, early RFC/ADR merges, and a deferred roadmap](0070-planning-milestones-issues-and-a-deferred-roadmap.md) — numbered past 0068/0069, already claimed by a *different* branch's open, unmerged PR at the time this was written (that branch's own copies of 0068/0069 are now stale duplicates of the real ones above, and will need their own renumbering pass when it merges — a live fourth example of exactly the collision this ADR addresses); see its own Context section
