@@ -1,6 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "packages": {
+    "apps/account-hub": {
+      "release-type": "node",
+      "component": "account-hub"
+    },
     "apps/api": {
       "release-type": "python",
       "component": "api"

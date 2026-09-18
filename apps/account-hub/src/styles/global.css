@@ -1,0 +1,11 @@
+/*
+ * Single entry point, imported once from Base.astro. Order matters
+ * (ITCSS-style): reset -> tokens -> base element defaults -> structural
+ * layout -> reusable components.
+ */
+
+@import "./normalize.css";
+@import "./tokens.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./components.css";
