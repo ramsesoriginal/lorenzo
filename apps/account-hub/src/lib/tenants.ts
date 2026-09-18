@@ -1,8 +1,9 @@
-import { apiDelete, apiFetch, apiPost, apiPut } from './api';
+import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
 import type {
   CampaignCreate,
   CampaignOut,
   CampaignSummaryOut,
+  CampaignUpdate,
   GmOut,
   Page,
   PlayerCreate,
@@ -23,8 +24,20 @@ export async function listTenantCampaigns(tenantId: string): Promise<Page<Campai
   );
 }
 
+export async function getCampaign(tenantId: string, campaignId: string): Promise<CampaignOut> {
+  return apiFetch<CampaignOut>(`/tenants/${tenantId}/campaigns/${campaignId}`);
+}
+
 export async function createCampaign(tenantId: string, body: CampaignCreate): Promise<CampaignOut> {
   return apiPost<CampaignOut>(`/tenants/${tenantId}/campaigns`, body);
+}
+
+export async function updateCampaign(
+  tenantId: string,
+  campaignId: string,
+  body: CampaignUpdate,
+): Promise<CampaignOut> {
+  return apiPatch<CampaignOut>(`/tenants/${tenantId}/campaigns/${campaignId}`, body);
 }
 
 // Unpaginated - GmOut's own docstring calls this "inherently small and

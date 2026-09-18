@@ -152,6 +152,17 @@ export interface CampaignCreate {
   secret?: boolean;
 }
 
+// PATCH /tenants/{id}/campaigns/{id} - exclude_unset semantics, matching
+// ProfileUpdate/CharacterUpdate's own established pattern. Every field
+// optional; only send keys that actually changed.
+export interface CampaignUpdate {
+  name?: string;
+  game_system?: string;
+  slug?: string;
+  description?: string;
+  secret?: boolean;
+}
+
 // GET /tenants/{id}/campaigns/{id}/gms - see ADR 0031/RFC 0004. Bare
 // user_id, no display name - tenant_id/campaign_id are already in the URL,
 // no need to repeat them per row. There's no reverse user-lookup endpoint

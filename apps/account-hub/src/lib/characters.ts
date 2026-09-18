@@ -1,6 +1,5 @@
 import { apiFetch, apiPatch, apiPost } from './api';
 import type {
-  CampaignOut,
   CharacterCreate,
   CharacterOut,
   CharacterSummaryOut,
@@ -10,10 +9,6 @@ import type {
 
 // No pager UI yet (matches notifications.ts/tenants.ts's own precedent).
 const PAGE_SIZE = 50;
-
-export async function getCampaign(tenantId: string, campaignId: string): Promise<CampaignOut> {
-  return apiFetch<CampaignOut>(`/tenants/${tenantId}/campaigns/${campaignId}`);
-}
 
 // The tenant's whole Character roster - PCs and beings (is_pc: false)
 // alike. Used by the Beings page to find existing beings, since there's no
