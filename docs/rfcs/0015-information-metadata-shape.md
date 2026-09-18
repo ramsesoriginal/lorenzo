@@ -24,10 +24,12 @@ This RFC is [RFC 0011](0011-information-payload-knowledge-crud-api.md)'s sequel:
 
 1. **`information_type(name, is_singleton, category)`** — a small, global (not tenant-scoped) catalog, covering only the fixed, code-dependent subset of `type` values the application itself behaves differently for. `category` is `technical` or `gm_authored`, so a client can filter a notes/lore editor down to the types a human actually authors, hiding system-managed ones. Seeded with exactly two rows for this slice: `description` and `main_picture`, both `is_singleton=true`, `technical`. GM-authored types (`note`, `handout`, anything a GM invents on the fly) get **no** catalog row — free text stays free text; registering them here would defeat the point of them being free-form.
 2. **A partial unique index replaces the current blanket `UNIQUE(entity_id, type)`**:
+
    ```sql
    CREATE UNIQUE INDEX information_singleton_type ON information (entity_id, type)
      WHERE type IN ('description', 'main_picture');
    ```
+
    Every other `type` value can now repeat on the same entity — `note`, `handout`, `vendor_price`, and anything not yet invented. This list and `information_type.is_singleton` are **two independently-maintained facts, not one derived from the other** — a Postgres partial index predicate can't reference another table via subquery, so the catalog documents the singleton set for clients, it doesn't drive the constraint. Any future migration that adds or removes a technical/singleton type has to touch both by hand.
 3. **`order` (integer) on `information`** (`UNIQUE(entity_id, order)`) **and `payload`** (`UNIQUE(information_id, order)`) — picks up ADR 0017's own explicitly-deferred "payload ordering within a bundle." Both stay strictly unique per parent, as asked; exact assignment-on-create and renumbering-on-reorder mechanics are deferred (see below).
 4. **`payload_entity(payload_id, tenant_id, target_entity_id)`** — a fifth concrete payload kind, `target_entity_id` FK to `entity.id`. **Documented as narrative/informational references only** — "this NPC's spouse is [link]," not a mechanical relation. It is never a substitute for `containment`/`entity_prototype`/`ownership`/`group_member`, which stay the only *structurally* enforced entity-to-entity relations in this schema; this is a convention note in the ADR that implements this, not something the schema itself can enforce, the same class of accepted, unenforced invariant ADR 0017 already carries for "exactly one concrete payload row per `payload_id`."
