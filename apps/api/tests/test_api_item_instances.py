@@ -901,6 +901,9 @@ async def test_create_item_instance_self_service_with_owner_and_container(
     body = response.json()
     assert body["owner_entity_id"] == str(character_id)
     assert body["container_entity_id"] == str(backpack_id)
+    # ADR 0072: ItemInstanceOut inherits ItemOut's prototype_ids field for
+    # free - purely informational here, this endpoint doesn't let it change.
+    assert body["prototype_ids"] == [str(prototype_id)]
     assert response.headers["location"].endswith(
         f"/tenants/{tenant_id}/item-instances/{body['entity_id']}"
     )

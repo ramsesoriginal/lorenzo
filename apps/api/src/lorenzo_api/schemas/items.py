@@ -26,6 +26,7 @@ __all__ = [
     "OwnedByResponse",
     "SetOwnerRequest",
     "SetContainerRequest",
+    "SetPrototypesRequest",
     "SplitItemInstanceRequest",
     "MergeItemInstanceRequest",
     "ProblemOut",
@@ -34,6 +35,13 @@ __all__ = [
     "BulkMoveItem",
     "BulkMoveContainerRequest",
     "BulkMoveResultItem",
+    "PrototypeAncestorOut",
+    "BulkReparentPrototypeRequest",
+    "BulkReparentResultItem",
+    "BulkAddPrototypeRequest",
+    "BulkAddPrototypeResultItem",
+    "BulkRemovePrototypeRequest",
+    "BulkRemovePrototypeResultItem",
 ]
 
 
@@ -173,6 +181,15 @@ class ItemUpdate(BaseModel):
     name: str | None = None
 
 
+def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
+    """entity.prototype_links (ADR 0015) - this entity's own direct
+    prototypes, as bare ids. Sorted for a deterministic response; the
+    underlying edges are an unordered set (entity_prototype carries no
+    ordering column of its own).
+    """
+    return sorted((link.prototype_id for link in entity.prototype_links), key=str)
+
+
 def _common_item_fields(
     view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
 ) -> dict[str, Any]:
@@ -194,6 +211,7 @@ def _common_item_fields(
         armor=view.armor,
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
+        prototype_ids=_prototype_ids_out(view.entity),
         is_magical=view.is_magical,
         is_cursed=view.is_cursed,
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
@@ -222,12 +240,13 @@ class ItemOut(BaseModel):
     entity->information->payloads->description/picture,
     entity->information->knowledge_links (ADR 0028 - `descriptions` is
     visibility-gated, not a bare property anymore),
-    entity->stats->stat_definition->stat_group, and entity->contained_links
-    (ADR 0066 - `_is_container_out`'s own structural fallback) eager-loaded
-    (see `routers.items.eager_load_options`, the exact recipe proven in
+    entity->stats->stat_definition->stat_group, entity->contained_links
+    (ADR 0066 - `_is_container_out`'s own structural fallback), and
+    entity->prototype_links (ADR 0072 - `prototype_ids`) eager-loaded (see
+    `routers.items.eager_load_options`, the exact recipe proven in
     `tests/test_v_item.py`) - the six wrapped properties/methods (plus
-    `contained_links` itself) raise MissingGreenlet otherwise, they do not
-    silently lazy-load.
+    `contained_links`/`prototype_links` themselves) raise MissingGreenlet
+    otherwise, they do not silently lazy-load.
 
     `ItemInstanceOut` below extends this directly - identical fields plus
     `owner_entity_id`/`slug` - rather than repeating the field list a
@@ -246,6 +265,7 @@ class ItemOut(BaseModel):
     armor: int | None
     container_entity_id: uuid.UUID | None
     quantity: int | None
+    prototype_ids: list[uuid.UUID]
     is_magical: bool | None
     is_cursed: bool | None
     is_container: bool | None
@@ -304,6 +324,15 @@ class SetContainerRequest(BaseModel):
     """PUT /item-instances/{id}/container body."""
 
     container_entity_id: uuid.UUID
+
+
+class SetPrototypesRequest(BaseModel):
+    """PUT /items/{id}/prototypes body - see ADR 0072. Full replacement,
+    same shape as ItemCreate.prototype_ids - the given list becomes the
+    item's complete new set of direct prototypes.
+    """
+
+    prototype_ids: list[uuid.UUID] = []
 
 
 class SplitItemInstanceRequest(BaseModel):
@@ -419,6 +448,100 @@ class BulkMoveResultItem(BaseModel):
     entity_id: uuid.UUID
     status: Literal["ok", "error"]
     item_instance: ItemInstanceOut | None = None
+    problem: ProblemOut | None = None
+
+
+class PrototypeAncestorOut(BaseModel):
+    """GET /items/{id}/prototypes/ancestry - one entry. See ADR 0073.
+    `prototype_ids` is this ancestor's own *direct* prototypes (always a
+    subset of the full returned ancestor set) - a flat list of nodes with
+    their own edges, not a pre-built tree, since multiple inheritance means
+    the real shape can be a DAG rather than a clean chain; the client
+    renders whatever structure actually exists from these edges rather than
+    this endpoint forcing a linear breadcrumb that would lie about
+    branching cases.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    entity_id: uuid.UUID
+    name: str
+    prototype_ids: list[uuid.UUID]
+
+
+class BulkReparentPrototypeRequest(BaseModel):
+    """POST /items/bulk-reparent-prototype body - see ADR 0073. For every
+    affected item currently having from_prototype_id as a direct prototype,
+    replaces that edge with to_prototype_id. item_ids omitted means "every
+    item with from_prototype_id as a direct prototype"; given explicitly, an
+    item that doesn't currently have from_prototype_id is a tolerated no-op,
+    not an error.
+    """
+
+    from_prototype_id: uuid.UUID
+    to_prototype_id: uuid.UUID
+    item_ids: list[uuid.UUID] | None = None
+
+    @model_validator(mode="after")
+    def _from_and_to_differ(self) -> Self:
+        if self.from_prototype_id == self.to_prototype_id:
+            raise ValueError("from_prototype_id and to_prototype_id must differ")
+        return self
+
+
+class BulkReparentResultItem(BaseModel):
+    """POST /items/bulk-reparent-prototype - one output entry, always
+    present for every resolved item regardless of outcome (ADR 0073: never
+    all-or-nothing). Exactly one of item/problem is set, matching status -
+    the same shape BulkMoveResultItem/BulkAssignResultItem already
+    established, just wrapping ItemOut instead of ItemInstanceOut.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item: ItemOut | None = None
+    problem: ProblemOut | None = None
+
+
+class BulkAddPrototypeRequest(BaseModel):
+    """POST /items/bulk-add-prototype body - see ADR 0073. Adds
+    prototype_id to every listed item's direct prototype set; an item that
+    already has it is a tolerated no-op.
+    """
+
+    prototype_id: uuid.UUID
+    item_ids: list[uuid.UUID]
+
+
+class BulkAddPrototypeResultItem(BaseModel):
+    """POST /items/bulk-add-prototype - one output entry per item. See
+    BulkReparentResultItem's own docstring for the shared shape/reasoning.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item: ItemOut | None = None
+    problem: ProblemOut | None = None
+
+
+class BulkRemovePrototypeRequest(BaseModel):
+    """POST /items/bulk-remove-prototype body - see ADR 0073. Removes
+    prototype_id from every listed item's direct prototype set; an item
+    that doesn't have it is a tolerated no-op.
+    """
+
+    prototype_id: uuid.UUID
+    item_ids: list[uuid.UUID]
+
+
+class BulkRemovePrototypeResultItem(BaseModel):
+    """POST /items/bulk-remove-prototype - one output entry per item. See
+    BulkReparentResultItem's own docstring for the shared shape/reasoning.
+    """
+
+    entity_id: uuid.UUID
+    status: Literal["ok", "error"]
+    item: ItemOut | None = None
     problem: ProblemOut | None = None
 
 

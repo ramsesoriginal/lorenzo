@@ -27,11 +27,13 @@ __all__ = [
     "CharacterManagementForbiddenError",
     "CharacterNotFoundError",
     "EntityNotFoundError",
+    "EntityPrototypeCycleError",
     "EntityStatManagementForbiddenError",
     "InvalidCharacterError",
     "InvalidGroupMemberError",
     "InvalidItemPrototypeError",
     "InvalidMergeError",
+    "InvalidPrototypeError",
     "InformationAlreadyExistsError",
     "InformationManagementForbiddenError",
     "InformationNotFoundError",
@@ -159,6 +161,28 @@ class InvalidItemPrototypeError(UnprocessableProblem):
     """
 
     title = "Prototype id is not a base item"
+
+
+class InvalidPrototypeError(UnprocessableProblem):
+    """PUT /items/{id}/prototypes - a given prototype_ids entry doesn't
+    resolve to an existing entity in this tenant. See ADR 0072. Deliberately
+    not InvalidItemPrototypeError - that one requires resolving to a base
+    Item specifically (ItemInstanceCreate's own invariant); a catalog item's
+    own prototypes are a generic entity_prototype edge (ADR 0015), with no
+    such restriction, matching POST /items's own existing (unvalidated)
+    prototype_ids handling.
+    """
+
+    title = "Prototype id does not reference an existing entity in this tenant"
+
+
+class EntityPrototypeCycleError(UnprocessableProblem):
+    """PUT /items/{id}/prototypes - the given prototype set would create an
+    inheritance cycle, direct (entity_id naming itself) or transitive
+    (entity_prototype's own BEFORE INSERT trigger, ADR 0015). See ADR 0072.
+    """
+
+    title = "Prototype set would create an inheritance cycle"
 
 
 class InvalidSplitQuantityError(UnprocessableProblem):
