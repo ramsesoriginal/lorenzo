@@ -16,6 +16,7 @@ from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
 from lorenzo_api.routers.activity_log import router as activity_log_router
 from lorenzo_api.routers.admin import router as admin_router
+from lorenzo_api.routers.beings import router as beings_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.entities import router as entities_router
@@ -79,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(campaigns_router)
     app.include_router(players_router)
     app.include_router(characters_router)
+    app.include_router(beings_router)
     app.include_router(payloads_router)
     app.include_router(pictures_router)
     app.include_router(entities_router)

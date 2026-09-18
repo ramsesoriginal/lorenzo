@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import ColumnElement, Select, or_, select, true
+from sqlalchemy import ColumnElement, Select, and_, or_, select, true
 
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
@@ -234,38 +234,25 @@ async def list_item_instances(
     )
 
 
-@router.get("/owned-by/{owner_entity_id}")
-async def list_item_instances_owned_by(
-    tenant_id: uuid.UUID,
-    owner_entity_id: uuid.UUID,
-    request: Request,
+async def _grouped_by_container_response(
     session: SessionDep,
-    user: CurrentUser,
+    request: Request,
+    *,
+    tenant_id: uuid.UUID,
+    owner_predicate: ColumnElement[bool],
+    visibility: InformationVisibility,
 ) -> OwnedByResponse:
-    """Every item instance owned by owner_entity_id, grouped by *direct*
-    container only (a None group for uncontained instances) - a one-level
-    grouping, not a recursive container-tree walk. Deliberately not
-    paginated - bounded by one owner's inventory (ADR 0020 / task brief).
+    """Shared grouped-by-direct-container response builder for both
+    GET .../owned-by/{owner_entity_id} and GET .../unowned (ADR 0077) - the
+    only difference between the two is which condition `owner_predicate`
+    puts on VItemInstance.owner_entity_id (plus, for owned-by, ADR 0040's
+    own reachability narrowing); the container-grouping mechanics below
+    live in one place rather than two copies that could drift.
     """
-    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    # ADR 0040: an owner_entity_id the caller can't reach (not one of their
-    # own characters, not GM-reachable, not is_orga) contributes zero rows
-    # below - the response comes back as an empty groups list, identical in
-    # shape to "this character owns nothing." No separate existence check
-    # needed, and no way to distinguish "doesn't exist" from "hidden from
-    # you" from the response alone.
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    predicate = await _visible_owner_predicate(
-        session, tenant_id=tenant_id, user=user, visibility=visibility
-    )
     stmt = (
         select(VItemInstance, Containment.parent_entity_id)
         .outerjoin(Containment, Containment.child_entity_id == VItemInstance.entity_id)
-        .where(
-            VItemInstance.owner_entity_id == owner_entity_id,
-            VItemInstance.tenant_id == tenant_id,
-        )
-        .where(predicate)
+        .where(owner_predicate, VItemInstance.tenant_id == tenant_id)
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(Containment.parent_entity_id, VItemInstance.entity_id)
     )
@@ -299,6 +286,73 @@ async def list_item_instances_owned_by(
             )
             for container_id, instances in groups.items()
         ]
+    )
+
+
+@router.get("/owned-by/{owner_entity_id}")
+async def list_item_instances_owned_by(
+    tenant_id: uuid.UUID,
+    owner_entity_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> OwnedByResponse:
+    """Every item instance owned by owner_entity_id, grouped by *direct*
+    container only (a None group for uncontained instances) - a one-level
+    grouping, not a recursive container-tree walk. Deliberately not
+    paginated - bounded by one owner's inventory (ADR 0020 / task brief).
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    # ADR 0040: an owner_entity_id the caller can't reach (not one of their
+    # own characters, not GM-reachable, not is_orga) contributes zero rows
+    # below - the response comes back as an empty groups list, identical in
+    # shape to "this character owns nothing." No separate existence check
+    # needed, and no way to distinguish "doesn't exist" from "hidden from
+    # you" from the response alone.
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    predicate = await _visible_owner_predicate(
+        session, tenant_id=tenant_id, user=user, visibility=visibility
+    )
+    return await _grouped_by_container_response(
+        session,
+        request,
+        tenant_id=tenant_id,
+        owner_predicate=and_(VItemInstance.owner_entity_id == owner_entity_id, predicate),
+        visibility=visibility,
+    )
+
+
+@router.get("/unowned")
+async def list_unowned_item_instances(
+    tenant_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> OwnedByResponse:
+    """Item instances with no owner at all, grouped by direct container the
+    same way owned-by/{owner_entity_id} is - the unowned counterpart a GM
+    needs to browse unclaimed loot before assigning it (ADR 0077/issue
+    #95), returning the identical OwnedByResponse shape so
+    apps/inventory-web's existing owner-board rendering works unmodified
+    for this case too, with zero client-side reshaping.
+
+    No ADR 0040 predicate needed: ownerless instances are unconditionally
+    visible to any tenant participant already (_visible_owner_predicate's
+    own first OR-branch) - there's no owner to reach or hide behind.
+    Deliberately not paginated, matching owned-by's own precedent.
+
+    Registered after /owned-by/{owner_entity_id} and /by-slug/{slug}, and
+    before /{entity_id} below, for the identical wildcard-shadowing reason
+    those routes are already ordered that way.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return await _grouped_by_container_response(
+        session,
+        request,
+        tenant_id=tenant_id,
+        owner_predicate=VItemInstance.owner_entity_id.is_(None),
+        visibility=visibility,
     )
 
 
