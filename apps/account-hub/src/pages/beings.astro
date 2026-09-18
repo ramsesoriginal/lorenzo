@@ -1,0 +1,189 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Beings — Lorenzo">
+  <h1 class="display">Beings</h1>
+  <p><a href="/">&larr; Back</a></p>
+  <p>
+    NPCs and other non-player entities. A being belongs to the tenant (the shared world), not to one
+    specific campaign - see RFC 0013.
+  </p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>You don't GM any campaigns yet.</p>
+
+  <div id="tenant-list"></div>
+
+  <script>
+    import { createCharacter, listCharacters, updateCharacter } from '../lib/characters';
+    import { campaignRoleFor } from '../lib/format';
+    import { getMe } from '../lib/me';
+    import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import type { CharacterSummaryOut, MeOut, TenantSummaryOut } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const tenantList = document.getElementById('tenant-list')!;
+
+    function renderBeingItem(
+      being: CharacterSummaryOut,
+      tenantId: string,
+      onRenamed: () => void,
+    ): HTMLLIElement {
+      const item = document.createElement('li');
+      const nameEl = document.createElement('span');
+      nameEl.textContent = being.name;
+
+      const renameButton = document.createElement('button');
+      renameButton.type = 'button';
+      renameButton.textContent = 'Rename';
+
+      const status = document.createElement('span');
+      status.setAttribute('role', 'status');
+
+      renameButton.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = being.name;
+        const saveButton = document.createElement('button');
+        saveButton.type = 'button';
+        saveButton.textContent = 'Save';
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.textContent = 'Cancel';
+
+        item.replaceChildren(input, saveButton, cancelButton, status);
+
+        cancelButton.addEventListener('click', () => {
+          item.replaceChildren(nameEl, renameButton, status);
+        });
+        saveButton.addEventListener('click', async () => {
+          const name = input.value.trim();
+          if (name === '' || name === being.name) {
+            item.replaceChildren(nameEl, renameButton, status);
+            return;
+          }
+          status.textContent = 'Saving&hellip;';
+          try {
+            await updateCharacter(tenantId, being.entity_id, { name });
+            onRenamed();
+          } catch (e) {
+            status.textContent = e instanceof Error ? e.message : String(e);
+          }
+        });
+      });
+
+      item.append(nameEl, renameButton, status);
+      return item;
+    }
+
+    function renderCreateForm(tenantId: string, onCreated: () => void): HTMLFormElement {
+      const form = document.createElement('form');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'New being name';
+      input.required = true;
+      const button = document.createElement('button');
+      button.type = 'submit';
+      button.textContent = 'Create being';
+      const status = document.createElement('span');
+      status.setAttribute('role', 'status');
+
+      form.append(input, button, status);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = input.value.trim();
+        if (name === '') return;
+        status.textContent = 'Creating&hellip;';
+        try {
+          // No owner_player_id - that's exactly what makes this a being
+          // (is_pc: false) rather than a player character.
+          await createCharacter(tenantId, { name });
+          input.value = '';
+          status.textContent = '';
+          onCreated();
+        } catch (e) {
+          status.textContent = e instanceof Error ? e.message : String(e);
+        }
+      });
+      return form;
+    }
+
+    async function renderTenantSection(
+      tenant: TenantSummaryOut,
+      onChanged: () => void,
+    ): Promise<HTMLElement> {
+      const section = document.createElement('section');
+      section.className = 'section';
+      const heading = document.createElement('h2');
+      heading.textContent = tenant.name;
+      section.append(heading);
+
+      const beingsPage = await listCharacters(tenant.id);
+      const beings = beingsPage.items.filter((c) => !c.is_pc);
+
+      if (beings.length === 0) {
+        const none = document.createElement('p');
+        none.textContent = 'No beings yet.';
+        section.append(none);
+      } else {
+        const list = document.createElement('ul');
+        for (const being of beings) {
+          list.append(renderBeingItem(being, tenant.id, onChanged));
+        }
+        section.append(list);
+      }
+
+      section.append(renderCreateForm(tenant.id, onChanged));
+      return section;
+    }
+
+    async function gmTenantsOf(
+      me: MeOut,
+      tenants: TenantSummaryOut[],
+    ): Promise<TenantSummaryOut[]> {
+      const flags = await Promise.all(
+        tenants.map(async (tenant) => {
+          const campaigns = await listTenantCampaigns(tenant.id);
+          return campaigns.items.some((c) => campaignRoleFor(c.id, me) === 'gm');
+        }),
+      );
+      return tenants.filter((_, i) => flags[i]);
+    }
+
+    async function load() {
+      const me = await getMe();
+      const tenantsPage = await listMyTenants();
+      const gmTenants = await gmTenantsOf(me, tenantsPage.items);
+      if (gmTenants.length === 0) {
+        emptyState.hidden = false;
+        tenantList.replaceChildren();
+        return;
+      }
+      emptyState.hidden = true;
+      const sections = await Promise.all(
+        gmTenants.map((tenant) => renderTenantSection(tenant, () => void load())),
+      );
+      tenantList.replaceChildren(...sections);
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>
