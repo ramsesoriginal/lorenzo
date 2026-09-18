@@ -26,6 +26,7 @@ __all__ = [
     "OwnedByResponse",
     "SetOwnerRequest",
     "SetContainerRequest",
+    "SetPrototypesRequest",
     "SplitItemInstanceRequest",
     "MergeItemInstanceRequest",
     "ProblemOut",
@@ -173,6 +174,15 @@ class ItemUpdate(BaseModel):
     name: str | None = None
 
 
+def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
+    """entity.prototype_links (ADR 0015) - this entity's own direct
+    prototypes, as bare ids. Sorted for a deterministic response; the
+    underlying edges are an unordered set (entity_prototype carries no
+    ordering column of its own).
+    """
+    return sorted((link.prototype_id for link in entity.prototype_links), key=str)
+
+
 def _common_item_fields(
     view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
 ) -> dict[str, Any]:
@@ -194,6 +204,7 @@ def _common_item_fields(
         armor=view.armor,
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
+        prototype_ids=_prototype_ids_out(view.entity),
         is_magical=view.is_magical,
         is_cursed=view.is_cursed,
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
@@ -222,12 +233,13 @@ class ItemOut(BaseModel):
     entity->information->payloads->description/picture,
     entity->information->knowledge_links (ADR 0028 - `descriptions` is
     visibility-gated, not a bare property anymore),
-    entity->stats->stat_definition->stat_group, and entity->contained_links
-    (ADR 0066 - `_is_container_out`'s own structural fallback) eager-loaded
-    (see `routers.items.eager_load_options`, the exact recipe proven in
+    entity->stats->stat_definition->stat_group, entity->contained_links
+    (ADR 0066 - `_is_container_out`'s own structural fallback), and
+    entity->prototype_links (ADR 0072 - `prototype_ids`) eager-loaded (see
+    `routers.items.eager_load_options`, the exact recipe proven in
     `tests/test_v_item.py`) - the six wrapped properties/methods (plus
-    `contained_links` itself) raise MissingGreenlet otherwise, they do not
-    silently lazy-load.
+    `contained_links`/`prototype_links` themselves) raise MissingGreenlet
+    otherwise, they do not silently lazy-load.
 
     `ItemInstanceOut` below extends this directly - identical fields plus
     `owner_entity_id`/`slug` - rather than repeating the field list a
@@ -246,6 +258,7 @@ class ItemOut(BaseModel):
     armor: int | None
     container_entity_id: uuid.UUID | None
     quantity: int | None
+    prototype_ids: list[uuid.UUID]
     is_magical: bool | None
     is_cursed: bool | None
     is_container: bool | None
@@ -304,6 +317,15 @@ class SetContainerRequest(BaseModel):
     """PUT /item-instances/{id}/container body."""
 
     container_entity_id: uuid.UUID
+
+
+class SetPrototypesRequest(BaseModel):
+    """PUT /items/{id}/prototypes body - see ADR 0072. Full replacement,
+    same shape as ItemCreate.prototype_ids - the given list becomes the
+    item's complete new set of direct prototypes.
+    """
+
+    prototype_ids: list[uuid.UUID] = []
 
 
 class SplitItemInstanceRequest(BaseModel):

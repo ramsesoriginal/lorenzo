@@ -204,6 +204,7 @@ async def test_get_item_returns_full_wrapped_shape(
     assert body["economic_stats"] == []
     assert body["destroyable_stats"] == []
     assert body["damaging_stats"] == []
+    assert body["prototype_ids"] == []
 
     await delete_tenant(tenant_id)
 
@@ -570,7 +571,9 @@ async def test_create_item_with_prototypes_links_entity_prototype(
     )
 
     assert response.status_code == 201
-    flaming_sword_id = response.json()["entity_id"]
+    body = response.json()
+    flaming_sword_id = body["entity_id"]
+    assert body["prototype_ids"] == [sword_id]
     async with admin_session_factory() as session:
         link = await session.get(
             EntityPrototype, (uuid.UUID(flaming_sword_id), uuid.UUID(sword_id))
@@ -727,5 +730,197 @@ async def test_delete_item_409_when_used_as_direct_prototype(
     assert response.status_code == 409
     async with admin_session_factory() as session:
         assert await session.get(Entity, sword_id) is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_sets_new_set(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": [str(weapon_id)]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["prototype_ids"] == [str(weapon_id)]
+    async with admin_session_factory() as session:
+        link = await session.get(EntityPrototype, (sword_id, weapon_id))
+        assert link is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_replaces_rather_than_adds(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """A second PUT with a different set drops the old edge entirely - full
+    replacement, not a delta/add.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    tool_id = await _make_bare_item(tenant_id, "Tool")
+    shovel_id = await _make_bare_item(tenant_id, "Shovel")
+    await client.put(
+        f"/tenants/{tenant_id}/items/{shovel_id}/prototypes",
+        json={"prototype_ids": [str(weapon_id)]},
+    )
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{shovel_id}/prototypes",
+        json={"prototype_ids": [str(tool_id)]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["prototype_ids"] == [str(tool_id)]
+    async with admin_session_factory() as session:
+        assert await session.get(EntityPrototype, (shovel_id, weapon_id)) is None
+        assert await session.get(EntityPrototype, (shovel_id, tool_id)) is not None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_empty_list_clears(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": [str(weapon_id)]},
+    )
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes", json={"prototype_ids": []}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["prototype_ids"] == []
+    async with admin_session_factory() as session:
+        assert await session.get(EntityPrototype, (sword_id, weapon_id)) is None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_404_for_unknown_item(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/00000000-0000-0000-0000-000000000000/prototypes",
+        json={"prototype_ids": []},
+    )
+
+    assert response.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_422_for_unknown_prototype_id(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": ["00000000-0000-0000-0000-000000000000"]},
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_422_for_self_loop(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": [str(sword_id)]},
+    )
+
+    assert response.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_422_for_transitive_cycle(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """weapon has no prototypes yet; sword already prototypes weapon.
+    Setting weapon's own prototypes to [sword] would close a loop
+    (weapon -> sword -> weapon) - entity_prototype's own BEFORE INSERT
+    trigger (ADR 0015) rejects it, translated to a 422 here (ADR 0072).
+    """
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": [str(weapon_id)]},
+    )
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{weapon_id}/prototypes",
+        json={"prototype_ids": [str(sword_id)]},
+    )
+
+    assert response.status_code == 422
+    async with admin_session_factory() as session:
+        # Rejected atomically - weapon must still have no prototypes at all,
+        # not a partially-applied set.
+        assert await session.get(EntityPrototype, (weapon_id, sword_id)) is None
+
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_precondition_failed_with_stale_if_match(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": []},
+        headers={"If-Match": 'W/"stale"'},
+    )
+
+    assert response.status_code == 412
+    await delete_tenant(tenant_id)
+
+
+async def test_replace_item_prototypes_stamps_updated_by_and_bumps_updated_at(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Unlike owner/container (ADR 0032), replacing prototypes does touch
+    entity.updated_by/updated_at (ADR 0072) - a prototype set is part of
+    what the item is, not where it's placed.
+    """
+    tenant_id = await make_tenant(test_user_id)
+    weapon_id = await _make_bare_item(tenant_id, "Weapon")
+    sword_id = await _make_bare_item(tenant_id, "Sword")
+    get_response = await client.get(f"/tenants/{tenant_id}/items/{sword_id}")
+    original_updated_at = get_response.json()["updated_at"]
+
+    response = await client.put(
+        f"/tenants/{tenant_id}/items/{sword_id}/prototypes",
+        json={"prototype_ids": [str(weapon_id)]},
+        headers={"If-Match": get_response.headers["etag"]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["updated_by"] == str(test_user_id)
+    assert body["updated_at"] != original_updated_at
 
     await delete_tenant(tenant_id)

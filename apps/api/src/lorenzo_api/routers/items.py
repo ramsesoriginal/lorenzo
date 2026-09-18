@@ -7,7 +7,8 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import select
+from sqlalchemy import delete, select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
@@ -19,7 +20,12 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match, etag_for
-from lorenzo_api.exceptions import ItemNotFoundError, ItemPrototypeInUseError
+from lorenzo_api.exceptions import (
+    EntityPrototypeCycleError,
+    InvalidPrototypeError,
+    ItemNotFoundError,
+    ItemPrototypeInUseError,
+)
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Entity,
@@ -32,7 +38,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     VItem,
 )
-from lorenzo_api.schemas.items import ItemCreate, ItemOut, ItemUpdate
+from lorenzo_api.schemas.items import ItemCreate, ItemOut, ItemUpdate, SetPrototypesRequest
 
 # get_tenant_context here, not per-route (ADR 0020's revised guidance) -
 # every route on this router needs it and none read its return value, the
@@ -46,7 +52,7 @@ router = APIRouter(
 
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption, ORMOption]:
+) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption, ORMOption, ORMOption]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
     `EntityViewMixin`'s six properties/methods (ADR 0019/0020), or they
@@ -65,8 +71,9 @@ def eager_load_options(
     containment list, `parent_entity_id`-side) - not an `EntityViewMixin`
     property, but `schemas/items.py`'s `_is_container_out` (ADR 0066)
     reads it directly off `view.entity` for its own "does this actually
-    contain something" fallback, the identical `lazy="raise_on_sql"` trap
-    every other relationship here already has to be eager-loaded around.
+    contain something" fallback - and `Entity.prototype_links` (ADR 0072's
+    `prototype_ids`) - the identical `lazy="raise_on_sql"` trap every other
+    relationship here already has to be eager-loaded around.
     """
     return (
         selectinload(view_entity_attr)
@@ -85,6 +92,7 @@ def eager_load_options(
         .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
         selectinload(view_entity_attr).selectinload(Entity.contained_links),
+        selectinload(view_entity_attr).selectinload(Entity.prototype_links),
     )
 
 
@@ -237,6 +245,80 @@ async def update_item(
     if "name" in update:
         entity.name = update["name"]
         entity.updated_by = user.id
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await _item_out(tenant_id, entity_id, request, response, session, user)
+
+
+@router.put("/{entity_id}/prototypes")
+async def replace_item_prototypes(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: SetPrototypesRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> ItemOut:
+    """Prototypes as a set sub-resource - PUT fully replaces entity_id's own
+    direct EntityPrototype edges, the same "PUT replaces the relationship"
+    convention ADR 0032/RFC 0005 already established for owner/container,
+    just over a set rather than a single value. See ADR 0072.
+
+    An empty list clears every prototype - there's no separate DELETE
+    action, unlike owner/container: those are singular values with no
+    "empty" representation of their own, so clearing needs a row delete; a
+    set's own empty state is already expressible as an ordinary PUT body.
+
+    Unlike owner/container, this does touch entity.updated_by/updated_at -
+    a prototype set is part of what the item *is* (it changes the item's
+    own resolved stats, ADR 0037/0039), not where it's placed.
+    """
+    entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
+    check_if_match(if_match, updated_at=entity.updated_at)
+
+    prototype_ids = set(body.prototype_ids)
+    if entity_id in prototype_ids:
+        raise EntityPrototypeCycleError(detail=f"Item {entity_id} cannot be its own prototype")
+
+    if prototype_ids:
+        found_stmt = select(Entity.id).where(
+            Entity.id.in_(prototype_ids), Entity.tenant_id == tenant_id
+        )
+        found_ids = set((await session.execute(found_stmt)).scalars().all())
+        missing_ids = prototype_ids - found_ids
+        if missing_ids:
+            raise InvalidPrototypeError(
+                detail=(
+                    f"Prototype id(s) {sorted(str(i) for i in missing_ids)} do not exist "
+                    f"in tenant {tenant_id}"
+                )
+            )
+
+    await session.execute(
+        delete(EntityPrototype).where(
+            EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
+        )
+    )
+    for prototype_id in prototype_ids:
+        session.add(
+            EntityPrototype(entity_id=entity_id, prototype_id=prototype_id, tenant_id=tenant_id)
+        )
+    entity.updated_by = user.id
+
+    try:
+        await session.flush()
+    except DBAPIError as exc:
+        # entity_prototype's own BEFORE INSERT trigger (ADR 0015) - the
+        # first write path able to actually reach it through client input,
+        # since every prototype id up to now only ever appeared on a
+        # brand-new entity (POST /items/POST /item-instances), which can't
+        # yet be anyone's ancestor. Translated rather than left as a 500.
+        raise EntityPrototypeCycleError(
+            detail=f"Replacing item {entity_id}'s prototypes would create an inheritance cycle"
+        ) from exc
+
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_out(tenant_id, entity_id, request, response, session, user)
