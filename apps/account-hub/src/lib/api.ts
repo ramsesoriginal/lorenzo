@@ -31,6 +31,12 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       `${response.status} ${response.statusText}${body ? `: ${body}` : ''}`,
     );
   }
+  // 204 (e.g. PUT/DELETE /me/picture) has no body - response.json() would
+  // throw on the empty string. Callers expecting no content type this as
+  // apiFetch<void>(...) and get undefined back.
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 
@@ -60,4 +66,13 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
 
 export async function apiDelete<T>(path: string): Promise<T> {
   return apiFetch<T>(path, { method: 'DELETE' });
+}
+
+// No Content-Type header here, deliberately - the browser sets
+// multipart/form-data with the correct boundary itself; overriding it
+// breaks the boundary the server needs to parse the body.
+export async function apiUpload<T>(path: string, field: string, file: File): Promise<T> {
+  const formData = new FormData();
+  formData.append(field, file);
+  return apiFetch<T>(path, { method: 'PUT', body: formData });
 }
