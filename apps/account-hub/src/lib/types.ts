@@ -126,3 +126,28 @@ export interface CharacterOut {
   created_by: string | null;
   updated_by: string | null;
 }
+
+// GET /users/by-email/{email}, GET /users/by-nickname/{nickname} - see ADR
+// 0055. Deliberately thin - just enough to resolve an identifier a caller
+// already knows into the user_id the invite/GM-assign endpoints take.
+export interface UserRefOut {
+  id: string;
+  nickname: string | null;
+  display_name: string | null;
+}
+
+// POST /tenants/{id}/campaigns/{id}/players - see RFC 0014. Bare user_id;
+// the endpoint validates it's a real user itself.
+export interface PlayerCreate {
+  user_id: string;
+}
+
+// POST /tenants/{id}/campaigns - see ADR 0034/RFC 0006. No defaults except
+// secret; name/game_system/slug/description are all required.
+export interface CampaignCreate {
+  name: string;
+  game_system: string;
+  slug: string;
+  description: string;
+  secret?: boolean;
+}

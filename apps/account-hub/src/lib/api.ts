@@ -1,15 +1,8 @@
+import { ApiError } from './apiError';
 import { getAccessToken } from './auth';
 import { API_BASE_URL } from './config';
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
-}
+export { ApiError } from './apiError';
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const accessToken = await getAccessToken();

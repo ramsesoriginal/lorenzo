@@ -8,20 +8,27 @@ import Base from '../layouts/Base.astro';
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
-  <p id="empty-state" hidden>You're not a player in any campaign yet.</p>
+  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
 
-  <div id="campaign-list"></div>
+  <div id="tenant-list"></div>
 
   <script>
-    import { createCharacter, getCampaign, updateCharacter } from '../lib/characters';
+    import { createCharacter, updateCharacter } from '../lib/characters';
     import { getMe } from '../lib/me';
-    import type { CharacterSummaryOut, PlayerContextOut } from '../lib/types';
+    import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import type {
+      CampaignSummaryOut,
+      CharacterSummaryOut,
+      MeOut,
+      PlayerContextOut,
+      TenantSummaryOut,
+    } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
 
     const loading = document.getElementById('loading')!;
     const loadError = document.getElementById('load-error')!;
     const emptyState = document.getElementById('empty-state')!;
-    const campaignList = document.getElementById('campaign-list')!;
+    const tenantList = document.getElementById('tenant-list')!;
 
     function renderCharacterItem(
       character: CharacterSummaryOut,
@@ -105,16 +112,35 @@ import Base from '../layouts/Base.astro';
       return form;
     }
 
+    function findPlayerFor(
+      me: MeOut,
+      tenantId: string,
+      campaignId: string,
+    ): PlayerContextOut | undefined {
+      return me.players.find((p) => p.tenant_id === tenantId && p.campaign_id === campaignId);
+    }
+
+    // No self-service join exists (RFC 0014 - POST .../players is
+    // can_manage_campaign-gated, never a plain player's own action), so a
+    // campaign with no player context here is read-only context, not a
+    // dead button.
     function renderCampaignSection(
-      player: PlayerContextOut,
-      campaignName: string,
+      campaign: CampaignSummaryOut,
+      player: PlayerContextOut | undefined,
       onChanged: () => void,
     ): HTMLElement {
       const section = document.createElement('section');
-      section.className = 'section';
-      const heading = document.createElement('h2');
-      heading.textContent = campaignName;
+      section.className = 'campaign-subsection';
+      const heading = document.createElement('h3');
+      heading.textContent = campaign.name;
       section.append(heading);
+
+      if (!player) {
+        const none = document.createElement('p');
+        none.textContent = "You don't play in this campaign yet.";
+        section.append(none);
+        return section;
+      }
 
       if (player.characters.length === 0) {
         const none = document.createElement('p');
@@ -132,21 +158,38 @@ import Base from '../layouts/Base.astro';
       return section;
     }
 
+    async function renderTenantSection(
+      tenant: TenantSummaryOut,
+      me: MeOut,
+      onChanged: () => void,
+    ): Promise<HTMLElement> {
+      const section = document.createElement('section');
+      section.className = 'section';
+      const heading = document.createElement('h2');
+      heading.textContent = tenant.name;
+      section.append(heading);
+
+      const campaigns = await listTenantCampaigns(tenant.id);
+      for (const campaign of campaigns.items) {
+        const player = findPlayerFor(me, tenant.id, campaign.id);
+        section.append(renderCampaignSection(campaign, player, onChanged));
+      }
+      return section;
+    }
+
     async function load() {
       const me = await getMe();
-      if (me.players.length === 0) {
+      const tenantsPage = await listMyTenants();
+      if (tenantsPage.items.length === 0) {
         emptyState.hidden = false;
-        campaignList.replaceChildren();
+        tenantList.replaceChildren();
         return;
       }
       emptyState.hidden = true;
       const sections = await Promise.all(
-        me.players.map(async (player) => {
-          const campaign = await getCampaign(player.tenant_id, player.campaign_id);
-          return renderCampaignSection(player, campaign.name, () => void load());
-        }),
+        tenantsPage.items.map((tenant) => renderTenantSection(tenant, me, () => void load())),
       );
-      campaignList.replaceChildren(...sections);
+      tenantList.replaceChildren(...sections);
     }
 
     if (!(await isAuthenticated())) {
