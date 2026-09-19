@@ -31,6 +31,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       `${response.status} ${response.statusText}${body ? `: ${body}` : ''}`,
     );
   }
+  // 204 No Content (e.g. DELETE /items/{id}) has no body to parse.
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 

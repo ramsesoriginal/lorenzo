@@ -21,6 +21,33 @@ button:hover {
   opacity: 0.9;
 }
 
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.action-link {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--action);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action-link:hover {
+  background: var(--fill-soft);
+}
+
+.button-danger {
+  background: var(--lorenzo-burgundy);
+}
+
 .account a {
   font-family: var(--font-ui);
   font-size: 14px;
@@ -34,7 +61,8 @@ button:hover {
   color: var(--fg-secondary);
 }
 
-.tenant-slug {
+.tenant-slug,
+.item-detail-slug {
   font-family: var(--font-mono);
   color: var(--fg-tertiary);
   font-size: 13px;
@@ -59,6 +87,36 @@ button:hover {
 .tenant-card-meta {
   font-size: 13px;
   color: var(--fg-tertiary);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-3);
+}
+
+.tab {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  background: none;
+  color: var(--fg-secondary);
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--fg);
+  opacity: 1;
+}
+
+.tab[aria-selected="true"] {
+  color: var(--fg);
+  font-weight: 600;
+  border-bottom-color: var(--action);
 }
 
 .character-pill {
@@ -170,6 +228,77 @@ button:hover {
   color: var(--fg-tertiary);
 }
 
+.item-card--selected {
+  --item-accent: var(--lorenzo-gold);
+  background: color-mix(in srgb, var(--lorenzo-gold) 10%, var(--bg));
+}
+
+/* Skeleton placeholders (catalog rows, board cards) shown while their real
+   content loads - a static filled block by default, upgraded to a pulse
+   only when motion is welcome (matches this file's own convention of
+   opting animation *in* under no-preference, e.g. .item-card:hover above,
+   rather than opting it back out under reduce). */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.skeleton {
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+.item-card.skeleton {
+  background: var(--fill-soft);
+  border-color: transparent;
+}
+
+.catalog-row.skeleton {
+  background: var(--fill-soft);
+  border-color: transparent;
+  height: 44px;
+}
+
+.board-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--fg-secondary);
+}
+
+.item-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.merge-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 /* A container-card gets a small gold mark - the same affordance a future
    click-to-drill-in interaction (v1.1) will hang off of. */
 .item-card--container::after {
@@ -269,6 +398,42 @@ pre {
   font-weight: 600;
 }
 
+.item-detail-ancestry h3 {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--fg-secondary);
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.item-detail-ancestry ul {
+  font-size: 13px;
+  color: var(--fg-tertiary);
+}
+
+/* The root <li> is the instance's own direct prototype - set apart from
+   its ancestors, which nest below as their own indented <ul>s. A DAG, not
+   always a clean chain (ADR 0073): an ancestor reachable through two
+   different parents (diamond inheritance) genuinely appears twice, once
+   per real path, rather than being flattened into one misleading line. */
+.item-detail-ancestry > ul > li {
+  color: var(--fg-secondary);
+  font-weight: 600;
+}
+
+.item-detail-ancestry ul ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-4);
+  margin-top: var(--space-1);
+  font-weight: 400;
+}
+
+.item-detail-ancestry ul ul li::before {
+  content: "↳ ";
+  color: var(--fg-tertiary);
+}
+
 .item-detail-descriptions p {
   color: var(--fg-secondary);
   font-size: 14px;
@@ -293,6 +458,10 @@ pre {
 
 .catalog-toolbar {
   max-width: 360px;
+}
+
+.board-toolbar .text-input {
+  max-width: 280px;
 }
 
 .catalog-list {
@@ -323,6 +492,12 @@ pre {
   font-size: 15px;
 }
 
+.catalog-row-slug {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-tertiary);
+}
+
 .catalog-row-actions {
   display: flex;
   gap: var(--space-2);
@@ -338,6 +513,16 @@ pre {
   margin-top: var(--space-2);
   font-size: 13px;
   color: var(--fg-secondary);
+}
+
+.being-id-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.being-id-row .text-input {
+  flex: 1;
 }
 
 .field-note {

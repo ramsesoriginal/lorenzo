@@ -1,5 +1,13 @@
 import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
-import type { CatalogItem, EntitySummary, ItemInstance, OwnedByResponse, Page } from './types';
+import type {
+  BulkResultItem,
+  CatalogItem,
+  EntitySummary,
+  ItemInstance,
+  OwnedByResponse,
+  Page,
+  PrototypeAncestor,
+} from './types';
 
 // Grouped by *direct* container only (ADR 0020's task brief) - a null
 // group for items with no container, one group per occupied container.
@@ -10,6 +18,14 @@ export async function getOwnedItemInstances(
   ownerEntityId: string,
 ): Promise<OwnedByResponse> {
   return apiFetch<OwnedByResponse>(`/tenants/${tenantId}/item-instances/owned-by/${ownerEntityId}`);
+}
+
+// GET /tenants/{t}/item-instances/unowned (ADR 0077) - item instances with
+// no owner at all, grouped by direct container the same way owned-by/{id}
+// is - the identical OwnedByResponse shape, so the board's rendering works
+// unmodified for "browse unclaimed loot" too.
+export async function getUnownedItemInstances(tenantId: string): Promise<OwnedByResponse> {
+  return apiFetch<OwnedByResponse>(`/tenants/${tenantId}/item-instances/unowned`);
 }
 
 export async function setContainer(
@@ -39,11 +55,32 @@ export async function setOwner(
   });
 }
 
+// DELETE /item-instances/{id}/owner - clears ownership; an instance
+// doesn't have to have one (ItemInstanceCreate.owner_character_id is
+// optional too - see createItemInstance below).
+export async function unsetOwner(tenantId: string, entityId: string): Promise<void> {
+  await apiDelete(`/tenants/${tenantId}/item-instances/${entityId}/owner`);
+}
+
 // The item catalog (prototypes), not instances - GET /tenants/{t}/items,
 // with an optional server-side search (`q`) for the parent-item picker.
 export async function listCatalogItems(tenantId: string, query = ''): Promise<Page<CatalogItem>> {
   const qs = query ? `?q=${encodeURIComponent(query)}` : '';
   return apiFetch<Page<CatalogItem>>(`/tenants/${tenantId}/items${qs}`);
+}
+
+// GET /tenants/{t}/items?prototype_id=&recursive= (ADR 0073) - the reverse
+// lookup: "what's built on top of X." recursive=true (unlike this
+// endpoint's own default) since this is the edit panel's "used as a
+// prototype by" complement to the board's own exhaustive ancestry view -
+// both show the full picture, not just the direct edge.
+export async function listItemsUsingPrototype(
+  tenantId: string,
+  prototypeId: string,
+): Promise<Page<CatalogItem>> {
+  return apiFetch<Page<CatalogItem>>(
+    `/tenants/${tenantId}/items?prototype_id=${prototypeId}&recursive=true`,
+  );
 }
 
 // POST /tenants/{t}/items - creates a catalog item (prototype), with zero
@@ -99,17 +136,135 @@ export async function getItemPrototypes(
   return entity.prototypes;
 }
 
+// DELETE /tenants/{t}/items/{id} - 204 No Content on success.
+export async function deleteCatalogItem(tenantId: string, entityId: string): Promise<void> {
+  await apiDelete(`/tenants/${tenantId}/items/${entityId}`);
+}
+
+// DELETE /tenants/{t}/item-instances/{id} - 204 No Content on success.
+export async function deleteItemInstance(tenantId: string, entityId: string): Promise<void> {
+  await apiDelete(`/tenants/${tenantId}/item-instances/${entityId}`);
+}
+
+// GET /tenants/{t}/items/{id} - a single catalog item by id, used to look
+// up a display name for an item-instance's direct prototype (the board's
+// ancestry view knows only the id, from ItemInstanceOut.prototype_ids).
+export async function getCatalogItem(tenantId: string, entityId: string): Promise<CatalogItem> {
+  return apiFetch<CatalogItem>(`/tenants/${tenantId}/items/${entityId}`);
+}
+
+// GET /tenants/{t}/item-instances/{id} - a single item instance by id, for
+// the standalone shareable item page (which doesn't know in advance
+// whether a given id is a catalog item or an instance).
+export async function getItemInstance(tenantId: string, entityId: string): Promise<ItemInstance> {
+  return apiFetch<ItemInstance>(`/tenants/${tenantId}/item-instances/${entityId}`);
+}
+
+// GET /tenants/{t}/items/{id}/prototypes/ancestry (ADR 0073) - every
+// transitive ancestor of a *catalog item*, not an instance (ancestry is
+// scoped to Item entities - an ItemInstance's own direct prototype has to
+// be resolved first, then this walks that catalog item's own chain).
+export async function getItemAncestry(
+  tenantId: string,
+  itemEntityId: string,
+): Promise<PrototypeAncestor[]> {
+  return apiFetch<PrototypeAncestor[]>(
+    `/tenants/${tenantId}/items/${itemEntityId}/prototypes/ancestry`,
+  );
+}
+
 // POST /tenants/{t}/item-instances - instantiates a new item instance from
 // a single catalog prototype (one prototype per instance, unlike catalog
-// items themselves) and assigns it straight to a character in the same
-// call, mirroring apps/loot-bot's /award.
+// items themselves), optionally assigning it straight to a character in
+// the same call (mirroring apps/loot-bot's /award) and/or giving it a
+// slug (ADR 0043) - both optional, an instance doesn't have to have an
+// owner, and slug can only be set here, at creation (ItemInstanceUpdate
+// doesn't include it).
 export async function createItemInstance(
   tenantId: string,
   prototypeId: string,
-  ownerCharacterId: string,
+  ownerCharacterId?: string,
+  slug?: string,
 ): Promise<ItemInstance> {
   return apiPost<ItemInstance>(`/tenants/${tenantId}/item-instances`, {
     prototype_id: prototypeId,
-    owner_character_id: ownerCharacterId,
+    ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
+    ...(slug ? { slug } : {}),
+  });
+}
+
+// GET /tenants/{t}/item-instances/by-slug/{slug} (ADR 0043) - resolves a
+// slug straight to its instance, for the standalone item page's nicer,
+// more memorable alternative to a raw entity id.
+export async function getItemInstanceBySlug(tenantId: string, slug: string): Promise<ItemInstance> {
+  return apiFetch<ItemInstance>(
+    `/tenants/${tenantId}/item-instances/by-slug/${encodeURIComponent(slug)}`,
+  );
+}
+
+// POST /item-instances/{id}/split (ADR 0041/0044) - splits `quantity`
+// units *off* into a new sibling instance; the source must currently hold
+// strictly more than that. ownerCharacterId is optional - given, the new
+// split-off instance gets that owner instead of copying the source's
+// current one (ADR 0044); omitted keeps ADR 0041's original behavior.
+export async function splitItemInstance(
+  tenantId: string,
+  entityId: string,
+  quantity: number,
+  ownerCharacterId?: string,
+): Promise<ItemInstance> {
+  return apiPost<ItemInstance>(`/tenants/${tenantId}/item-instances/${entityId}/split`, {
+    quantity,
+    ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
+  });
+}
+
+// POST /item-instances/{id}/merge (ADR 0044) - entityId is fully consumed
+// into intoEntityId (the surviving stack) and then deleted.
+export async function mergeItemInstance(
+  tenantId: string,
+  entityId: string,
+  intoEntityId: string,
+): Promise<ItemInstance> {
+  return apiPost<ItemInstance>(`/tenants/${tenantId}/item-instances/${entityId}/merge`, {
+    into_entity_id: intoEntityId,
+  });
+}
+
+// POST /item-instances/bulk-assign (ADR 0044) - never all-or-nothing, one
+// BulkResultItem per input entry regardless of outcome. quantity given
+// (per entry) delegates server-side to split-with-owner instead of
+// reassigning the whole stack - lets a single call give part of one
+// player's stack away while the rest stays put.
+export async function bulkAssignItemInstances(
+  tenantId: string,
+  items: { entityId: string; ownerCharacterId: string; quantity?: number }[],
+): Promise<BulkResultItem[]> {
+  return apiPost<BulkResultItem[]>(
+    `/tenants/${tenantId}/item-instances/bulk-assign`,
+    items.map((item) => ({
+      entity_id: item.entityId,
+      owner_character_id: item.ownerCharacterId,
+      ...(item.quantity ? { quantity: item.quantity } : {}),
+    })),
+  );
+}
+
+// POST /item-instances/bulk-move (ADR 0065) - the `items` mode (move
+// exactly this list), not the `from_container_entity_id` mode (move
+// everything in a source container) - a multi-select drag-and-drop always
+// knows exactly which items it's moving. Never all-or-nothing, same
+// per-entry BulkResultItem shape as bulk-assign. No "move to no
+// container" mode - to_container_entity_id is required server-side;
+// clearing several items' containers at once still needs one
+// clearContainer call per item.
+export async function bulkMoveItemInstances(
+  tenantId: string,
+  toContainerEntityId: string,
+  entityIds: string[],
+): Promise<BulkResultItem[]> {
+  return apiPost<BulkResultItem[]>(`/tenants/${tenantId}/item-instances/bulk-move`, {
+    to_container_entity_id: toContainerEntityId,
+    items: entityIds.map((entityId) => ({ entity_id: entityId })),
   });
 }

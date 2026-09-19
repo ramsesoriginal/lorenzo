@@ -34,3 +34,14 @@ select {
   font: inherit;
   color: inherit;
 }
+
+/* The `hidden` attribute's UA-stylesheet `display: none` has the same
+   specificity as any author class selector (e.g. `.item-card { display:
+   flex }`), and author rules win ties regardless of source order - so
+   toggling `.hidden = true` on an element whose own class sets a non-none
+   `display` silently does nothing without this. Scoped to `!important`
+   deliberately: "hidden" should always mean "not rendered," full stop,
+   the same guarantee frameworks' own preflight resets give it. */
+[hidden] {
+  display: none !important;
+}
