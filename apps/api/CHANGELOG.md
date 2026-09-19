@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.6.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.5.0...api-v0.6.0) (2026-09-19)
+
+
+### Features
+
+* **api:** add group write API (ADR 0064) ([71c8186](https://github.com/ramsesoriginal/lorenzo/commit/71c8186f23bfe627281bdef6bdde37b4ad6ea559))
+* **api:** GET .../item-instances/unowned (ADR 0077) ([b1b332a](https://github.com/ramsesoriginal/lorenzo/commit/b1b332af8c9f5f966db12453cc535ba12280442d))
+* **api:** GET /tenants/{id}/beings (ADR 0078) ([062c078](https://github.com/ramsesoriginal/lorenzo/commit/062c078fc2d0965fa8c569c46f67fe4f12031fd5))
+* **api:** group write API, bulk container move, computed item fields ([80a6820](https://github.com/ramsesoriginal/lorenzo/commit/80a682080cc79927e3a316524c2849050021d119))
+* **api:** item catalog prototype-set editing, inspection, and bulk editing ([2697666](https://github.com/ramsesoriginal/lorenzo/commit/2697666bffc78416a36d5498be3f7220b8f7d84e))
+* **api:** item/item-instance read and write additions (ADR 0065/0066/0067) ([a40cc65](https://github.com/ramsesoriginal/lorenzo/commit/a40cc652a1c21ae5a60e93f896287aa926b8a518))
+* **api:** prototype-graph reverse lookup, ancestry, and bulk editing ([3f580c7](https://github.com/ramsesoriginal/lorenzo/commit/3f580c7e74c8866e2948634995ae258f944236b2))
+* **api:** PUT /items/{id}/prototypes to replace a catalog item's prototype set ([3d645f7](https://github.com/ramsesoriginal/lorenzo/commit/3d645f7edc3498a2d49d3db300d8e9511cb4b116))
+* **api:** unowned item instances + being listing (ADR 0077/0078) ([e581042](https://github.com/ramsesoriginal/lorenzo/commit/e5810423a575d8895036753b3d2d6e19b3d1363c))
+
+
+### Bug Fixes
+
+* **api:** sync user email from Authgear's UserInfo endpoint (ADR 0075) ([9d7decb](https://github.com/ramsesoriginal/lorenzo/commit/9d7decbc0ec24c40277f5204801f08e2481ed996))
+* **api:** sync user email from Authgear's UserInfo endpoint (ADR 0075) ([52005e2](https://github.com/ramsesoriginal/lorenzo/commit/52005e2588bda958f7ef56357778051d3bfef389))
+
+
+### Documentation
+
+* correct stale and inaccurate claims found in a full documentation audit ([49ed4dc](https://github.com/ramsesoriginal/lorenzo/commit/49ed4dc6bd0f901ffa707e36f689b431e0ab1471))
+* fix stale docs, broken diagrams, and adopt Milestones/Issues alongside RFC/ADR ([76f0f0d](https://github.com/ramsesoriginal/lorenzo/commit/76f0f0d6a42d942f897d407e8414c0bedcc5fe98))
+* **rfc:** renumber RFC 0014 -&gt; 0015 - main independently claimed 0014 ([c18cde4](https://github.com/ramsesoriginal/lorenzo/commit/c18cde41882155a0320226dc66381a1d1ff04142))
+
 ## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.4.0...api-v0.5.0) (2026-09-17)
 
 
