@@ -1,7 +1,18 @@
 import authgear, { SessionState } from '@authgear/web';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
 
-const REDIRECT_PATH = '/auth/redirect';
+// Trailing slash is deliberate, not cosmetic: Cloudflare Pages 308-redirects
+// any extensionless path to add one (confirmed against apps/account-hub's
+// own identical bug - this happens regardless of whether the deploy has a
+// `foo/index.html` directory or a flat `foo.html` file; it's a fixed
+// platform behavior, not derived from build output shape). If this app
+// requested the no-slash form, the browser would still end up at the slash
+// form before this page's JS ever runs, and @authgear/web's
+// finishAuthentication() reconstructs the token exchange's redirect_uri
+// from that (now slash-suffixed) window.location - which then no longer
+// exact-matches a no-slash Authorized Redirect URI. Requesting the slash
+// form ourselves from the start keeps every step consistent.
+const REDIRECT_PATH = '/auth/redirect/';
 
 let configured: Promise<void> | null = null;
 
