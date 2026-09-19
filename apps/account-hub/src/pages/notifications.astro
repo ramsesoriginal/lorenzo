@@ -1,0 +1,213 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Notifications — Lorenzo">
+  <h1 class="display">Notifications</h1>
+  <p><a href="/">&larr; Back</a></p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <div id="notifications-view" hidden>
+    <p id="unread-summary" role="status"></p>
+    <label><input id="unread-only" type="checkbox" /> Unread only</label>
+    <button id="refresh-button" type="button">Refresh</button>
+
+    <p id="empty-state" hidden>No notifications.</p>
+    <ul id="notifications-list"></ul>
+
+    <button id="show-sent-button" type="button">Show notifications I've sent</button>
+    <div id="sent-view" hidden>
+      <p id="sent-empty-state" hidden>You haven't sent any notifications.</p>
+      <ul id="sent-list"></ul>
+    </div>
+  </div>
+
+  <script>
+    import {
+      listNotifications,
+      listSentNotifications,
+      markNotificationRead,
+    } from '../lib/notifications';
+    import { countUnread } from '../lib/format';
+    import type { Notification } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    // No server push exists yet (see ADR 0071/RFC 0013) - this is a
+    // deliberately simple, honest "pull" on an interval, paused while the
+    // tab isn't visible so it doesn't poll a backgrounded page forever.
+    const POLL_INTERVAL_MS = 30_000;
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const view = document.getElementById('notifications-view')!;
+    const unreadSummary = document.getElementById('unread-summary')!;
+    const unreadOnlyCheckbox = document.getElementById('unread-only') as HTMLInputElement;
+    const emptyState = document.getElementById('empty-state')!;
+    const list = document.getElementById('notifications-list')!;
+
+    let pollHandle: ReturnType<typeof setInterval> | undefined;
+
+    function formatTimestamp(iso: string): string {
+      return new Date(iso).toLocaleString();
+    }
+
+    function renderItem(notification: Notification): HTMLLIElement {
+      const item = document.createElement('li');
+      item.className = notification.read_at ? 'notification-read' : 'notification-unread';
+
+      const title = document.createElement('strong');
+      title.textContent = notification.title;
+
+      const meta = document.createElement('span');
+      meta.className = 'notification-meta';
+      meta.textContent = ` ${notification.scope}/${notification.type} · ${formatTimestamp(notification.created_at)}`;
+
+      const body = document.createElement('p');
+      body.textContent = notification.body;
+
+      item.append(title, meta, body);
+
+      if (!notification.read_at) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = 'Mark read';
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          try {
+            await markNotificationRead(notification.id);
+            await refresh();
+          } catch (e) {
+            button.disabled = false;
+            button.textContent = e instanceof Error ? e.message : String(e);
+          }
+        });
+        item.append(button);
+      }
+
+      return item;
+    }
+
+    async function refresh() {
+      try {
+        const page = await listNotifications(unreadOnlyCheckbox.checked);
+        list.replaceChildren(...page.items.map(renderItem));
+        emptyState.hidden = page.items.length > 0;
+        const unread = countUnread(page.items);
+        unreadSummary.textContent = unreadOnlyCheckbox.checked
+          ? `${page.items.length} unread`
+          : `${unread} unread of ${page.items.length} shown`;
+      } catch (e) {
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    document.getElementById('refresh-button')?.addEventListener('click', () => void refresh());
+    unreadOnlyCheckbox.addEventListener('change', () => void refresh());
+
+    // RFC 0017 (h) - the sender's side of read receipts: did anyone
+    // actually read what I sent? Grouped by batch_id, since every row a
+    // single creation call fanned out shares one (ADR 0061).
+    const sentView = document.getElementById('sent-view')!;
+    const sentEmptyState = document.getElementById('sent-empty-state')!;
+    const sentList = document.getElementById('sent-list')!;
+    const showSentButton = document.getElementById('show-sent-button') as HTMLButtonElement;
+
+    function renderSentBatch(recipients: Notification[]): HTMLLIElement {
+      const item = document.createElement('li');
+      const first = recipients[0]!;
+      const title = document.createElement('strong');
+      title.textContent = first.title;
+      const meta = document.createElement('span');
+      meta.className = 'notification-meta';
+      const readCount = recipients.filter((n) => n.read_at !== null).length;
+      meta.textContent = ` ${first.scope}/${first.type} · ${formatTimestamp(first.created_at)} · ${readCount}/${recipients.length} read`;
+      const body = document.createElement('p');
+      body.textContent = first.body;
+      item.append(title, meta, body);
+
+      const recipientList = document.createElement('ul');
+      recipientList.className = 'roster-list';
+      for (const recipient of recipients) {
+        const recipientItem = document.createElement('li');
+        recipientItem.textContent = recipient.read_at
+          ? `${recipient.user_id} · read ${formatTimestamp(recipient.read_at)}`
+          : `${recipient.user_id} · unread`;
+        recipientList.append(recipientItem);
+      }
+      item.append(recipientList);
+      return item;
+    }
+
+    async function loadSent() {
+      const page = await listSentNotifications();
+      const batches = new Map<string, Notification[]>();
+      for (const notification of page.items) {
+        const group = batches.get(notification.batch_id) ?? [];
+        group.push(notification);
+        batches.set(notification.batch_id, group);
+      }
+      sentList.replaceChildren(
+        ...[...batches.values()].map((recipients) => renderSentBatch(recipients)),
+      );
+      sentEmptyState.hidden = batches.size > 0;
+    }
+
+    showSentButton.addEventListener('click', async () => {
+      const showing = !sentView.hidden;
+      if (showing) {
+        sentView.hidden = true;
+        showSentButton.textContent = "Show notifications I've sent";
+        return;
+      }
+      showSentButton.disabled = true;
+      try {
+        await loadSent();
+        sentView.hidden = false;
+        showSentButton.textContent = 'Hide sent notifications';
+      } catch (e) {
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      } finally {
+        showSentButton.disabled = false;
+      }
+    });
+
+    function startPolling() {
+      stopPolling();
+      pollHandle = setInterval(() => void refresh(), POLL_INTERVAL_MS);
+    }
+    function stopPolling() {
+      if (pollHandle !== undefined) clearInterval(pollHandle);
+      pollHandle = undefined;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        void refresh();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    });
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await refresh();
+        loading.hidden = true;
+        view.hidden = false;
+        startPolling();
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

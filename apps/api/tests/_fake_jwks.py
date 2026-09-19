@@ -4,6 +4,11 @@ real local HTTP listener (a background daemon thread - PyJWKClient itself
 is synchronous, stdlib urllib, no injectable transport, so a real listener
 is the only practical way to exercise its real fetch-and-verify code path).
 Only the issuer is fake here, not the verification mechanism.
+
+Also serves `/userinfo` (ADR 0075) - a real, minimal stand-in for
+Authgear's own UserInfo endpoint, gated per-token via `register_userinfo`
+so a test controls exactly what a given access token resolves to, the same
+way `issue_token`'s own `**extra_claims` controls a token's JWT claims.
 """
 
 from __future__ import annotations
@@ -26,20 +31,36 @@ _KEY_ID = "fake-jwks-test-key"
 class FakeJwksServer:
     def __init__(self) -> None:
         self._private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self._userinfo_responses: dict[str, dict[str, object]] = {}
 
         jwk = RSAAlgorithm.to_jwk(self._private_key.public_key(), as_dict=True)
         jwk["kid"] = _KEY_ID
         jwk["use"] = "sig"
         jwk["alg"] = "RS256"
         jwks_body = json.dumps({"keys": [jwk]}).encode()
+        userinfo_responses = self._userinfo_responses
 
         class _Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802 - required name, stdlib's own API
-                self.send_response(200)
+                if self.path == "/userinfo":
+                    self._serve_userinfo()
+                else:
+                    self._respond(200, jwks_body)
+
+            def _serve_userinfo(self) -> None:
+                token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+                body = userinfo_responses.get(token)
+                if body is None:
+                    self._respond(401, b'{"error": "invalid_token"}')
+                else:
+                    self._respond(200, json.dumps(body).encode())
+
+            def _respond(self, status: int, body: bytes) -> None:
+                self.send_response(status)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(jwks_body)))
+                self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(jwks_body)
+                self.wfile.write(body)
 
             def log_message(self, format: str, *args: Any) -> None:
                 pass  # keep pytest output quiet - this is a test double, not a real service
@@ -55,6 +76,19 @@ class FakeJwksServer:
     def jwks_url(self) -> str:
         host, port = self._server.server_address[0], self._server.server_address[1]
         return f"http://{host}:{port}/jwks"
+
+    @property
+    def userinfo_url(self) -> str:
+        host, port = self._server.server_address[0], self._server.server_address[1]
+        return f"http://{host}:{port}/userinfo"
+
+    def register_userinfo(self, token: str, **fields: object) -> None:
+        """Makes `/userinfo` return `fields` as JSON when called with
+        `token` as the Bearer credential - see ADR 0075. An unregistered
+        token gets a 401, matching a real UserInfo endpoint rejecting a
+        token it doesn't recognize.
+        """
+        self._userinfo_responses[token] = dict(fields)
 
     def issue_token(
         self,

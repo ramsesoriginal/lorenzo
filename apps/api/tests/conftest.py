@@ -12,7 +12,12 @@ from jwt import PyJWKClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.dependencies import SessionDep, get_current_user, get_jwks_client
+from lorenzo_api.dependencies import (
+    SessionDep,
+    get_current_user,
+    get_jwks_client,
+    get_userinfo_url,
+)
 from lorenzo_api.main import app
 from lorenzo_api.models import (
     Being,
@@ -260,13 +265,16 @@ async def client_with_platform_operator_role(
 @pytest.fixture
 async def raw_client(fake_jwks_server: FakeJwksServer) -> AsyncGenerator[AsyncClient]:
     """Like `client`, but with real token verification (no get_current_user
-    override) - only get_jwks_client is swapped, to point at the real
-    fake-JWKS server instead of a real Authgear instance. For tests that
-    specifically need to exercise the real pipeline end to end - see
-    test_auth.py. Every other test uses `client` instead.
+    override) - get_jwks_client and get_userinfo_url are both swapped to
+    point at the same fake server instead of a real Authgear instance (ADR
+    0023/0075). For tests that specifically need to exercise the real
+    pipeline end to end - see test_auth.py. Every other test uses `client`
+    instead.
     """
     app.dependency_overrides[get_jwks_client] = lambda: PyJWKClient(fake_jwks_server.jwks_url)
+    app.dependency_overrides[get_userinfo_url] = lambda: fake_jwks_server.userinfo_url
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     del app.dependency_overrides[get_jwks_client]
+    del app.dependency_overrides[get_userinfo_url]

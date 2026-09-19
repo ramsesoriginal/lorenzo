@@ -2,6 +2,7 @@ import uuid
 from functools import lru_cache
 from typing import Annotated, Any
 
+import httpx
 import jwt
 import structlog
 from fastapi import Depends
@@ -38,6 +39,7 @@ __all__ = [
     "get_jwks_client",
     "get_tenant_context",
     "get_tenant_or_404",
+    "get_userinfo_url",
     "require_platform_operator_role",
     "require_tenant_creator_role",
     "require_tenant_participant",
@@ -78,6 +80,18 @@ def get_jwks_client() -> PyJWKClient:
 JwksClientDep = Annotated[PyJWKClient, Depends(get_jwks_client)]
 
 
+def get_userinfo_url() -> str:
+    """Authgear's UserInfo endpoint (ADR 0075) - its own dependency, not a
+    bare Settings read, specifically so tests can point it at a fake server
+    via app.dependency_overrides, the same pattern get_jwks_client already
+    established.
+    """
+    return get_settings().authgear_userinfo_url
+
+
+UserinfoUrlDep = Annotated[str, Depends(get_userinfo_url)]
+
+
 async def verify_token(
     credentials: BearerCredentialsDep, jwks_client: JwksClientDep
 ) -> dict[str, Any]:
@@ -108,13 +122,52 @@ async def verify_token(
 TokenClaimsDep = Annotated[dict[str, Any], Depends(verify_token)]
 
 
+async def _fetch_userinfo_email(userinfo_url: str, access_token: str) -> tuple[str | None, object]:
+    """Calls Authgear's UserInfo endpoint with the caller's own access
+    token as Bearer credential - see ADR 0075. The access token this app
+    verifies carries no email claim by default (confirmed against
+    Authgear's own docs; only a project-console JWT-hook config would add
+    one), so this is the actual source `_sync_email_from_claims` needs.
+    Any failure (network error, non-2xx, unexpected body) is treated
+    exactly like an absent claim - returned as `(None, None)`, never
+    raised, matching this module's existing "never fail the login over an
+    email-sync hiccup" posture.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as http_client:
+            response = await http_client.get(
+                userinfo_url, headers={"Authorization": f"Bearer {access_token}"}
+            )
+            response.raise_for_status()
+            body = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.info("userinfo_fetch_failed", error=str(exc))
+        return None, None
+    email = body.get("email") if isinstance(body, dict) else None
+    return (email if isinstance(email, str) else None), (
+        body.get("email_verified") if isinstance(body, dict) else None
+    )
+
+
 async def _sync_email_from_claims(
-    session: AsyncSession, *, user: User, claims: dict[str, Any]
+    session: AsyncSession,
+    *,
+    user: User,
+    claims: dict[str, Any],
+    userinfo_url: str,
+    access_token: str,
 ) -> None:
-    """See ADR 0054 - email is a read-only cache of Authgear's own verified
-    claim, never written anywhere else. Only a *verified* email is ever
-    trusted: an absent claim, or `email_verified` anything other than
+    """See ADR 0054/0075 - email is a read-only cache of Authgear's own
+    verified claim, never written anywhere else. Only a *verified* email is
+    ever trusted: an absent claim, or `email_verified` anything other than
     literal `True`, leaves `user.email` untouched.
+
+    Checks the decoded access token's own claims first (forward-compatible
+    with a future Authgear JWT-hook config that puts `email` there
+    directly, and what every existing test already exercises), falling
+    through to a UserInfo call (ADR 0075) only when those are missing and
+    `user.email` isn't already set - so this real network round-trip
+    happens at most once per user, not on every request.
 
     Runs in its own SAVEPOINT (`begin_nested`), not the outer transaction -
     a collision with a different user's already-taken email (a genuinely
@@ -138,7 +191,12 @@ async def _sync_email_from_claims(
     because the first subject's own email was never actually persisted).
     """
     email = claims.get("email")
-    if not isinstance(email, str) or not email or claims.get("email_verified") is not True:
+    email_verified = claims.get("email_verified")
+    if (
+        not isinstance(email, str) or not email or email_verified is not True
+    ) and user.email is None:
+        email, email_verified = await _fetch_userinfo_email(userinfo_url, access_token)
+    if not isinstance(email, str) or not email or email_verified is not True:
         return
     if user.email == email:
         return
@@ -158,7 +216,12 @@ async def _sync_email_from_claims(
         logger.warning("email_sync_conflict", user_id=str(user_id), email=email)
 
 
-async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
+async def get_current_user(
+    claims: TokenClaimsDep,
+    session: SessionDep,
+    credentials: BearerCredentialsDep,
+    userinfo_url: UserinfoUrlDep,
+) -> User:
     """Maps the verified `sub` claim to an app_user row, auto-provisioning
     one on a subject's first-ever request. Atomic upsert, not
     check-then-insert - two concurrent first-requests from a brand-new
@@ -179,10 +242,12 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
     the claim is absent entirely - no role granted, no access, the
     closed-by-default behavior this whole mechanism exists for.
 
-    Also syncs `user.email` from a verified `email` claim, via
-    `_sync_email_from_claims` (ADR 0054) - after the upsert's own commit,
-    same reasoning as app.user_id below: it needs its own settled
-    transaction to run its conflict-guarded SAVEPOINT in.
+    Also syncs `user.email` from a verified `email` claim - or, since the
+    access token itself never actually carries one (ADR 0075), from
+    Authgear's UserInfo endpoint instead - via `_sync_email_from_claims`
+    (ADR 0054/0075) - after the upsert's own commit, same reasoning as
+    app.user_id below: it needs its own settled transaction to run its
+    conflict-guarded SAVEPOINT in.
 
     Also rejects a suspended account outright (ADR 0057), before anything
     else below runs - a fresh auto-provisioned user is never suspended by
@@ -208,7 +273,13 @@ async def get_current_user(claims: TokenClaimsDep, session: SessionDep) -> User:
         reason = f": {user.suspension_reason}" if user.suspension_reason else ""
         raise AccountSuspendedError(detail=f"User {user.id} is suspended{reason}")
 
-    await _sync_email_from_claims(session, user=user, claims=claims)
+    await _sync_email_from_claims(
+        session,
+        user=user,
+        claims=claims,
+        userinfo_url=userinfo_url,
+        access_token=credentials.credentials,
+    )
 
     await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user.id)})
     roles = claims.get(_AUTHGEAR_ROLES_CLAIM)

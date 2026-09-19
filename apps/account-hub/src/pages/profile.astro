@@ -1,0 +1,185 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Your profile — Lorenzo">
+  <h1 class="display">Your profile</h1>
+  <p><a href="/">&larr; Back</a></p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <form id="profile-form" hidden>
+    <section class="section">
+      <img id="picture-preview" alt="Your profile picture" width="96" height="96" />
+      <div>
+        <label for="picture-input">Change picture</label>
+        <input id="picture-input" type="file" accept="image/*" />
+        <button id="picture-remove" type="button">Remove picture</button>
+      </div>
+      <p id="picture-status" role="status"></p>
+    </section>
+
+    <section class="section">
+      <label for="nickname">Nickname</label>
+      <input id="nickname" name="nickname" type="text" />
+
+      <label for="display_name">Display name</label>
+      <input id="display_name" name="display_name" type="text" />
+
+      <label for="pronouns">Pronouns</label>
+      <input id="pronouns" name="pronouns" type="text" />
+
+      <label for="bio">Bio</label>
+      <textarea id="bio" name="bio" rows="4"></textarea>
+
+      <label for="locales">Locales (comma-separated, e.g. "en, de")</label>
+      <input id="locales" name="locales" type="text" />
+
+      <label for="user_color">Color</label>
+      <input id="user_color" name="user_color" type="color" />
+      <button id="color-clear" type="button">Clear color</button>
+    </section>
+
+    <button id="save-button" type="submit">Save</button>
+    <p id="save-status" role="status"></p>
+  </form>
+
+  <script>
+    import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
+    import { getMe } from '../lib/me';
+    import { localesToText, textOrNull, textToLocales } from '../lib/format';
+    import type { MeOut, ProfileUpdate } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const form = document.getElementById('profile-form') as HTMLFormElement;
+    const saveStatus = document.getElementById('save-status')!;
+    const picturePreview = document.getElementById('picture-preview') as HTMLImageElement;
+    const pictureInput = document.getElementById('picture-input') as HTMLInputElement;
+    const pictureStatus = document.getElementById('picture-status')!;
+
+    const nicknameEl = document.getElementById('nickname') as HTMLInputElement;
+    const displayNameEl = document.getElementById('display_name') as HTMLInputElement;
+    const pronounsEl = document.getElementById('pronouns') as HTMLInputElement;
+    const bioEl = document.getElementById('bio') as HTMLTextAreaElement;
+    const localesEl = document.getElementById('locales') as HTMLInputElement;
+    const colorEl = document.getElementById('user_color') as HTMLInputElement;
+
+    let initial: MeOut | null = null;
+    // The color input can't itself represent "no color set" (it always
+    // holds a valid hex value) - track intent to clear separately from
+    // "user picked this exact color".
+    let colorCleared = false;
+
+    function populate(me: MeOut) {
+      nicknameEl.value = me.nickname ?? '';
+      displayNameEl.value = me.display_name ?? '';
+      pronounsEl.value = me.pronouns ?? '';
+      bioEl.value = me.bio ?? '';
+      localesEl.value = localesToText(me.locales);
+      colorEl.value = me.user_color ?? '#000000';
+      picturePreview.src = me.picture_url;
+    }
+
+    document.getElementById('color-clear')?.addEventListener('click', () => {
+      colorCleared = true;
+      colorEl.value = '#000000';
+    });
+    colorEl.addEventListener('input', () => {
+      colorCleared = false;
+    });
+
+    document.getElementById('picture-remove')?.addEventListener('click', async () => {
+      pictureStatus.textContent = 'Removing&hellip;';
+      try {
+        await deleteProfilePicture();
+        const me = await getMe();
+        initial = me;
+        populate(me);
+        pictureStatus.textContent = 'Removed.';
+      } catch (e) {
+        pictureStatus.textContent = e instanceof Error ? e.message : String(e);
+      }
+    });
+
+    pictureInput.addEventListener('change', async () => {
+      const file = pictureInput.files?.[0];
+      if (!file) return;
+      pictureStatus.textContent = 'Uploading&hellip;';
+      try {
+        await uploadProfilePicture(file);
+        const me = await getMe();
+        initial = me;
+        populate(me);
+        pictureStatus.textContent = 'Updated.';
+      } catch (e) {
+        pictureStatus.textContent = e instanceof Error ? e.message : String(e);
+      } finally {
+        pictureInput.value = '';
+      }
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!initial) return;
+      const patch: ProfileUpdate = {};
+
+      const nickname = textOrNull(nicknameEl.value);
+      if (nickname !== (initial.nickname ?? null)) patch.nickname = nickname;
+
+      const displayName = textOrNull(displayNameEl.value);
+      if (displayName !== (initial.display_name ?? null)) patch.display_name = displayName;
+
+      const pronouns = textOrNull(pronounsEl.value);
+      if (pronouns !== (initial.pronouns ?? null)) patch.pronouns = pronouns;
+
+      const bio = textOrNull(bioEl.value);
+      if (bio !== (initial.bio ?? null)) patch.bio = bio;
+
+      const locales = textToLocales(localesEl.value);
+      if (JSON.stringify(locales) !== JSON.stringify(initial.locales)) patch.locales = locales;
+
+      if (colorCleared) {
+        if (initial.user_color !== null) patch.user_color = null;
+      } else if (colorEl.value !== (initial.user_color ?? '#000000')) {
+        patch.user_color = colorEl.value;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        saveStatus.textContent = 'Nothing to save.';
+        return;
+      }
+
+      saveStatus.textContent = 'Saving&hellip;';
+      try {
+        const me = await updateProfile(patch);
+        initial = me;
+        colorCleared = false;
+        populate(me);
+        saveStatus.textContent = 'Saved.';
+      } catch (e) {
+        saveStatus.textContent = e instanceof Error ? e.message : String(e);
+      }
+    });
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        const me = await getMe();
+        initial = me;
+        populate(me);
+        loading.hidden = true;
+        form.hidden = false;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

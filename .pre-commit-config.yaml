@@ -92,6 +92,24 @@ repos:
   # install here too.
   - repo: local
     hooks:
+      - id: biome-account-hub
+        name: biome (apps/account-hub)
+        entry: pnpm --dir apps/account-hub exec biome check --write
+        language: system
+        files: ^apps/account-hub/.*\.(ts|js|json|css)$
+        pass_filenames: false
+      - id: astro-check-account-hub
+        name: astro check (apps/account-hub)
+        entry: pnpm --dir apps/account-hub exec astro check
+        language: system
+        files: ^apps/account-hub/.*\.(astro|ts)$
+        pass_filenames: false
+      - id: prettier-account-hub
+        name: prettier --write (apps/account-hub, .astro)
+        entry: pnpm --dir apps/account-hub exec prettier --write
+        language: system
+        files: ^apps/account-hub/.*\.astro$
+        pass_filenames: false
       - id: biome-inventory-web
         name: biome (apps/inventory-web)
         entry: pnpm --dir apps/inventory-web exec biome check --write

@@ -99,6 +99,58 @@ async def test_absent_email_claim_is_not_synced(
         await session.commit()
 
 
+async def test_email_absent_from_token_is_synced_via_userinfo(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """The actual bug ADR 0075 fixes: a real Authgear access token never
+    carries an `email` claim at all (confirmed against Authgear's own
+    docs), unlike every other test above, which hand-embeds one directly
+    in the JWT. This is the one case that proves the UserInfo fallback
+    itself, not just the sync logic downstream of it.
+    """
+    subject = f"authgear|{uuid.uuid4()}"
+    email = f"{uuid.uuid4()}@example.com"
+    token = fake_jwks_server.issue_token(subject)  # no email claim on the token itself
+    fake_jwks_server.register_userinfo(token, email=email, email_verified=True)
+
+    response = await raw_client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["email"] == email
+    user_id = uuid.UUID(response.json()["id"])
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
+
+
+async def test_userinfo_is_not_called_again_once_email_is_synced(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """Once `user.email` is set, a second request with a token the fake
+    UserInfo endpoint has no registration for must still succeed and keep
+    the already-synced email - proving the UserInfo call is gated on
+    `user.email is None`, not repeated on every request (ADR 0075).
+    """
+    subject = f"authgear|{uuid.uuid4()}"
+    email = f"{uuid.uuid4()}@example.com"
+    first_token = fake_jwks_server.issue_token(subject)
+    fake_jwks_server.register_userinfo(first_token, email=email, email_verified=True)
+    first_response = await raw_client.get("/me", headers={"Authorization": f"Bearer {first_token}"})
+    assert first_response.json()["email"] == email
+    user_id = uuid.UUID(first_response.json()["id"])
+
+    second_token = fake_jwks_server.issue_token(subject)  # deliberately not registered
+    second_response = await raw_client.get(
+        "/me", headers={"Authorization": f"Bearer {second_token}"}
+    )
+    assert second_response.status_code == 200
+    assert second_response.json()["email"] == email
+
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(User, user_id))
+        await session.commit()
+
+
 async def test_colliding_verified_email_does_not_fail_the_login(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:

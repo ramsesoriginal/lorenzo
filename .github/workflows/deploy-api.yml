@@ -126,6 +126,7 @@ jobs:
             AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
             AUTHGEAR_JWKS_URL=${{ vars.AUTHGEAR_JWKS_URL }}
             AUTHGEAR_AUDIENCE=${{ vars.AUTHGEAR_AUDIENCE }}
+            AUTHGEAR_USERINFO_URL=${{ vars.AUTHGEAR_USERINFO_URL }}
             CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}
 
       - name: Verify the deployed revision is actually ready

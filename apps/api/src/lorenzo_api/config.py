@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     authgear_jwks_url: str = "http://localhost:4000/oauth2/jwks"
     authgear_audience: str = "http://localhost:4000"
 
+    # UserInfo endpoint (ADR 0075) - the access token this app verifies
+    # carries no email claim by default (only Authgear's own hook mechanism
+    # can add one), so email is instead fetched here, using the caller's own
+    # access token as the Bearer credential, once per user.
+    authgear_userinfo_url: str = "http://localhost:4000/oauth2/userinfo"
+
     # The Authgear-Portal-configured role key that gates POST /tenants -
     # see ADR 0033/RFC 0012. Not fixed by this codebase beyond this one
     # setting, mirroring authgear_issuer/authgear_jwks_url/authgear_audience's

@@ -11,7 +11,7 @@ importers:
 
   .: {}
 
-  apps/inventory-web:
+  apps/account-hub:
     dependencies:
       '@authgear/web':
         specifier: ^6.0.0
@@ -32,6 +32,46 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.4
         version: 0.9.10(@emnapi/runtime@1.11.1)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@playwright/test':
+        specifier: ^1.55.0
+        version: 1.63.0
+      prettier:
+        specifier: ^3.6.0
+        version: 3.9.8
+      prettier-plugin-astro:
+        specifier: ^0.14.1
+        version: 0.14.1
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.3)(@vitest/coverage-v8@4.1.11)(msw@2.15.0(@types/node@22.20.3)(typescript@5.9.3))(vite@8.3.0(@types/node@22.20.3)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1))
+
+  apps/inventory-web:
+    dependencies:
+      '@authgear/web':
+        specifier: ^6.0.0
+        version: 6.0.0
+      '@fontsource-variable/geist':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/geist-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/instrument-serif':
+        specifier: ^5.3.0
+        version: 5.3.0
+      astro:
+        specifier: ^7.3.3
+        version: 7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)
+    devDependencies:
+      '@astrojs/check':
+        specifier: ^0.9.4
+        version: 0.9.10(@emnapi/runtime@1.11.3)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
       '@biomejs/biome':
         specifier: ^2.3.0
         version: 2.5.14
@@ -891,6 +931,11 @@ packages:
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
+
+  '@playwright/test@1.63.0':
+    resolution: {integrity: sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@redocly/ajv@8.11.2':
     resolution: {integrity: sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==}
@@ -2228,6 +2273,16 @@ packages:
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
 
+  playwright-core@1.63.0:
+    resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.63.0:
+    resolution: {integrity: sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -3020,9 +3075,28 @@ snapshots:
     transitivePeerDependencies:
       - '@emnapi/runtime'
 
+  '@astrojs/astro2tsx@0.1.0(@emnapi/runtime@1.11.3)':
+    dependencies:
+      '@emnapi/core': 1.11.3
+      '@napi-rs/wasm-runtime': 1.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+    transitivePeerDependencies:
+      - '@emnapi/runtime'
+
   '@astrojs/check@0.9.10(@emnapi/runtime@1.11.1)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)':
     dependencies:
       '@astrojs/language-server': 2.17.0(@emnapi/runtime@1.11.1)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
+      chokidar: 4.0.3
+      kleur: 4.1.5
+      typescript: 5.9.3
+      yargs: 18.1.0
+    transitivePeerDependencies:
+      - '@emnapi/runtime'
+      - prettier
+      - prettier-plugin-astro
+
+  '@astrojs/check@0.9.10(@emnapi/runtime@1.11.3)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)':
+    dependencies:
+      '@astrojs/language-server': 2.17.0(@emnapi/runtime@1.11.3)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
       chokidar: 4.0.3
       kleur: 4.1.5
       typescript: 5.9.3
@@ -3061,6 +3135,14 @@ snapshots:
       - '@emnapi/runtime'
     optional: true
 
+  '@astrojs/compiler-binding-wasm32-wasi@0.4.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
+    dependencies:
+      '@napi-rs/wasm-runtime': 1.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+    optional: true
+
   '@astrojs/compiler-binding-win32-arm64-msvc@0.4.1':
     optional: true
 
@@ -3083,9 +3165,32 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
+  '@astrojs/compiler-binding@0.4.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
+    optionalDependencies:
+      '@astrojs/compiler-binding-android-arm64': 0.4.1
+      '@astrojs/compiler-binding-darwin-arm64': 0.4.1
+      '@astrojs/compiler-binding-darwin-x64': 0.4.1
+      '@astrojs/compiler-binding-linux-arm64-gnu': 0.4.1
+      '@astrojs/compiler-binding-linux-arm64-musl': 0.4.1
+      '@astrojs/compiler-binding-linux-x64-gnu': 0.4.1
+      '@astrojs/compiler-binding-linux-x64-musl': 0.4.1
+      '@astrojs/compiler-binding-wasm32-wasi': 0.4.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
+      '@astrojs/compiler-binding-win32-arm64-msvc': 0.4.1
+      '@astrojs/compiler-binding-win32-x64-msvc': 0.4.1
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+
   '@astrojs/compiler-rs@0.4.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:
       '@astrojs/compiler-binding': 0.4.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+
+  '@astrojs/compiler-rs@0.4.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
+    dependencies:
+      '@astrojs/compiler-binding': 0.4.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -3106,6 +3211,32 @@ snapshots:
   '@astrojs/language-server@2.17.0(@emnapi/runtime@1.11.1)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)':
     dependencies:
       '@astrojs/astro2tsx': 0.1.0(@emnapi/runtime@1.11.1)
+      '@astrojs/yaml2ts': 0.2.4
+      '@volar/kit': 2.4.28(typescript@5.9.3)
+      '@volar/language-core': 2.4.28
+      '@volar/language-server': 2.4.28
+      '@volar/language-service': 2.4.28
+      muggle-string: 0.4.1
+      tinyglobby: 0.2.17
+      volar-service-css: 0.0.71(@volar/language-service@2.4.28)
+      volar-service-emmet: 0.0.71(@volar/language-service@2.4.28)
+      volar-service-html: 0.0.71(@volar/language-service@2.4.28)
+      volar-service-prettier: 0.0.71(@volar/language-service@2.4.28)(prettier@3.9.8)
+      volar-service-typescript: 0.0.71(@volar/language-service@2.4.28)
+      volar-service-typescript-twoslash-queries: 0.0.71(@volar/language-service@2.4.28)
+      volar-service-yaml: 0.0.71(@volar/language-service@2.4.28)
+      vscode-html-languageservice: 5.6.2
+      vscode-uri: 3.2.0
+    optionalDependencies:
+      prettier: 3.9.8
+      prettier-plugin-astro: 0.14.1
+    transitivePeerDependencies:
+      - '@emnapi/runtime'
+      - typescript
+
+  '@astrojs/language-server@2.17.0(@emnapi/runtime@1.11.3)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)':
+    dependencies:
+      '@astrojs/astro2tsx': 0.1.0(@emnapi/runtime@1.11.3)
       '@astrojs/yaml2ts': 0.2.4
       '@volar/kit': 2.4.28(typescript@5.9.3)
       '@volar/language-core': 2.4.28
@@ -3383,7 +3514,6 @@ snapshots:
   '@emnapi/runtime@1.11.3':
     dependencies:
       tslib: 2.8.1
-    optional: true
 
   '@emnapi/wasi-threads@1.2.2':
     dependencies:
@@ -3661,6 +3791,12 @@ snapshots:
       '@emnapi/runtime': 1.11.1
       '@tybys/wasm-util': 0.10.4
 
+  '@napi-rs/wasm-runtime@1.2.4(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)':
+    dependencies:
+      '@emnapi/core': 1.11.3
+      '@emnapi/runtime': 1.11.3
+      '@tybys/wasm-util': 0.10.4
+
   '@open-draft/deferred-promise@2.2.0': {}
 
   '@open-draft/deferred-promise@3.0.0': {}
@@ -3677,6 +3813,10 @@ snapshots:
   '@oxc-project/types@0.150.0': {}
 
   '@pinojs/redact@0.4.0': {}
+
+  '@playwright/test@1.63.0':
+    dependencies:
+      playwright: 1.63.0
 
   '@redocly/ajv@8.11.2':
     dependencies:
@@ -4092,6 +4232,97 @@ snapshots:
   astro@7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1):
     dependencies:
       '@astrojs/compiler-rs': 0.4.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
+      '@astrojs/internal-helpers': 0.11.0
+      '@astrojs/markdown-satteri': 0.4.1
+      '@astrojs/telemetry': 3.3.3
+      '@capsizecss/unpack': 4.0.1
+      '@clack/prompts': 1.8.1
+      '@oslojs/encoding': 1.1.0
+      am-i-vibing: 0.4.0
+      aria-query: 5.3.2
+      axobject-query: 4.1.0
+      ci-info: 4.4.0
+      clsx: 2.1.1
+      common-ancestor-path: 2.0.0
+      cookie: 2.0.1
+      devalue: 5.9.2
+      diff: 9.0.0
+      dset: 3.1.4
+      es-module-lexer: 2.3.2
+      esbuild: 0.28.2
+      find-proc: 0.2.0
+      flattie: 1.1.1
+      fontace: 0.4.1
+      get-tsconfig: 5.0.0-beta.4
+      github-slugger: 2.0.0
+      html-escaper: 3.0.3
+      http-cache-semantics: 4.2.0
+      js-yaml: 4.3.2
+      jsonc-parser: 3.3.1
+      magic-string: 1.4.1
+      magicast: 0.5.5
+      mrmime: 2.0.1
+      neotraverse: 1.0.1
+      obug: 2.2.1
+      p-limit: 7.3.2
+      p-queue: 9.3.3
+      package-manager-detector: 1.8.0
+      piccolore: 0.1.3
+      picomatch: 4.0.7
+      shiki: 4.4.3
+      smol-toml: 1.8.0
+      svgo: 4.1.0
+      tinyclip: 0.1.15
+      tinyexec: 1.3.1
+      tinyglobby: 0.2.17
+      ultrahtml: 1.7.0
+      unifont: 0.7.5
+      unstorage: 1.17.5
+      verkit: 0.4.0
+      vite: 8.3.0(@types/node@22.20.3)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1)
+      vitefu: 1.1.3(vite@8.3.0(@types/node@22.20.3)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1))
+      xxhash-wasm: 1.1.0
+      yargs-parser: 22.0.0
+      zod: 4.6.5
+    optionalDependencies:
+      sharp: 0.35.4(@types/node@22.20.3)
+    transitivePeerDependencies:
+      - '@azure/app-configuration'
+      - '@azure/cosmos'
+      - '@azure/data-tables'
+      - '@azure/identity'
+      - '@azure/keyvault-secrets'
+      - '@azure/storage-blob'
+      - '@capacitor/preferences'
+      - '@deno/kv'
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+      - '@netlify/blobs'
+      - '@planetscale/database'
+      - '@types/node'
+      - '@upstash/redis'
+      - '@vercel/blob'
+      - '@vercel/functions'
+      - '@vercel/kv'
+      - '@vitejs/devtools'
+      - aws4fetch
+      - db0
+      - idb-keyval
+      - ioredis
+      - jiti
+      - less
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - uploadthing
+      - yaml
+
+  astro@7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1):
+    dependencies:
+      '@astrojs/compiler-rs': 0.4.1(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)
       '@astrojs/internal-helpers': 0.11.0
       '@astrojs/markdown-satteri': 0.4.1
       '@astrojs/telemetry': 3.3.3
@@ -4944,6 +5175,12 @@ snapshots:
       confbox: 0.1.8
       mlly: 1.8.2
       pathe: 2.0.3
+
+  playwright-core@1.63.0: {}
+
+  playwright@1.63.0:
+    dependencies:
+      playwright-core: 1.63.0
 
   pluralize@8.0.0: {}
 

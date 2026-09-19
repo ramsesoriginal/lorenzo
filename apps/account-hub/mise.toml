@@ -1,0 +1,42 @@
+# CI (ci.yml's `test` job) only runs `mise run lint`/`test` per discovered
+# app, with no separate install step — unlike apps/api's `uv run`, plain
+# `pnpm run` doesn't auto-sync node_modules, so every task depends on this
+# one to stay self-sufficient the same way.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.dev]
+description = "Run the Astro dev server"
+depends = ["install"]
+run = "pnpm run dev"
+
+[tasks.lint]
+description = "Biome (ts/js/json/css) + astro check + Prettier check (.astro) — see ADR 0004"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome autoformat + Prettier autoformat (.astro)"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run the unit test suite (Vitest)"
+depends = ["install"]
+run = "pnpm run test"
+
+# Not part of `check`/CI's default gate yet — needs a running apps/api and a
+# real (or fake) Authgear session to be meaningful; see ADR 0071. Run
+# locally once the Foundation slice's dev environment is set up.
+[tasks.test-e2e]
+description = "Run the e2e test suite (Playwright) — see ADR 0071"
+depends = ["install"]
+run = "pnpm run test:e2e"
+hide = true
+
+[tasks.build]
+description = "Build the static site to dist/"
+depends = ["install"]
+run = "pnpm run build"

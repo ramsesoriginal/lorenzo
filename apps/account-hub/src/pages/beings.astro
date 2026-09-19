@@ -1,0 +1,270 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Beings — Lorenzo">
+  <h1 class="display">Beings</h1>
+  <p><a href="/">&larr; Back</a></p>
+  <p>
+    NPCs and other non-player entities. A being belongs to the tenant (the shared world), not to one
+    specific campaign - see RFC 0013.
+  </p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>You don't GM any campaigns yet.</p>
+
+  <div id="tenant-list"></div>
+
+  <script>
+    import {
+      createCharacter,
+      linkCharacterToPlayer,
+      listBeings,
+      updateCharacter,
+    } from '../lib/characters';
+    import { renderCreateForm, renderRenameableItem } from '../lib/dom';
+    import { campaignRoleFor, resolveDisplayName } from '../lib/format';
+    import { getMe } from '../lib/me';
+    import {
+      invitePlayer,
+      listCampaignPlayers,
+      listMyTenants,
+      listTenantCampaigns,
+      listTenantRoster,
+    } from '../lib/tenants';
+    import { mountUserPicker } from '../lib/userPicker';
+    import type { BeingSummaryOut, CampaignSummaryOut, TenantSummaryOut } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const tenantList = document.getElementById('tenant-list')!;
+
+    // RFC 0014's GM-handoff sub-slice: hand this being to a player as a
+    // real, lasting character - roster-link then set owner_player_id, in
+    // that order (see ADR 0079's partial-failure reasoning: a
+    // linked-but-not-yet-owned being is recoverable, the reverse isn't).
+    function renderHandoffPanel(
+      being: BeingSummaryOut,
+      tenantId: string,
+      gmCampaigns: CampaignSummaryOut[],
+      onDone: () => void,
+    ): HTMLElement {
+      const container = document.createElement('div');
+      const select = document.createElement('select');
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose a campaign…';
+      select.append(placeholder);
+      for (const campaign of gmCampaigns) {
+        const option = document.createElement('option');
+        option.value = campaign.id;
+        option.textContent = campaign.name;
+        select.append(option);
+      }
+      container.append(select);
+
+      const playersArea = document.createElement('div');
+      container.append(playersArea);
+
+      async function handOffTo(playerId: string) {
+        playersArea.append(
+          Object.assign(document.createElement('p'), { textContent: 'Handing off…' }),
+        );
+        try {
+          await linkCharacterToPlayer(tenantId, being.entity_id, playerId);
+          await updateCharacter(tenantId, being.entity_id, { owner_player_id: playerId });
+          onDone();
+        } catch (e) {
+          playersArea.append(
+            Object.assign(document.createElement('p'), {
+              textContent: e instanceof Error ? e.message : String(e),
+            }),
+          );
+        }
+      }
+
+      select.addEventListener('change', async () => {
+        const campaignId = select.value;
+        if (campaignId === '') {
+          playersArea.replaceChildren();
+          return;
+        }
+        playersArea.replaceChildren(
+          Object.assign(document.createElement('p'), { textContent: 'Loading players…' }),
+        );
+        try {
+          const [existing, roster] = await Promise.all([
+            listCampaignPlayers(tenantId, campaignId),
+            listTenantRoster(tenantId),
+          ]);
+          const list = document.createElement('ul');
+          list.className = 'roster-list';
+          for (const player of existing.items) {
+            const item = document.createElement('li');
+            const idEl = document.createElement('span');
+            idEl.textContent = resolveDisplayName(roster.items, player.user_id);
+            const useButton = document.createElement('button');
+            useButton.type = 'button';
+            useButton.textContent = 'Use this player';
+            useButton.addEventListener('click', () => void handOffTo(player.id));
+            item.append(idEl, useButton);
+            list.append(item);
+          }
+
+          const inviteContainer = document.createElement('div');
+          const inviteLabel = document.createElement('p');
+          inviteLabel.textContent = 'Or invite a new player:';
+          inviteContainer.append(inviteLabel);
+          mountUserPicker(inviteContainer, async (user) => {
+            try {
+              const newPlayer = await invitePlayer(tenantId, campaignId, { user_id: user.id });
+              await handOffTo(newPlayer.id);
+            } catch (e) {
+              inviteContainer.append(
+                Object.assign(document.createElement('p'), {
+                  textContent: e instanceof Error ? e.message : String(e),
+                }),
+              );
+            }
+          });
+
+          playersArea.replaceChildren(list, inviteContainer);
+        } catch (e) {
+          playersArea.replaceChildren(
+            Object.assign(document.createElement('p'), {
+              textContent: e instanceof Error ? e.message : String(e),
+            }),
+          );
+        }
+      });
+
+      return container;
+    }
+
+    function renderBeingItem(
+      being: BeingSummaryOut,
+      tenantId: string,
+      gmCampaigns: CampaignSummaryOut[],
+      onChanged: () => void,
+    ): HTMLLIElement {
+      const item = renderRenameableItem(being.name, (newName) =>
+        updateCharacter(tenantId, being.entity_id, { name: newName }).then(onChanged),
+      );
+
+      const handoffButton = document.createElement('button');
+      handoffButton.type = 'button';
+      handoffButton.textContent = 'Use as a played character';
+      handoffButton.addEventListener('click', () => {
+        handoffButton.replaceWith(renderHandoffPanel(being, tenantId, gmCampaigns, onChanged));
+      });
+      item.append(handoffButton);
+
+      return item;
+    }
+
+    const SEARCH_DEBOUNCE_MS = 300;
+
+    // Beings are tenant-scoped, but handoff needs a specific campaign
+    // context - only campaigns the caller GMs in this tenant are offered.
+    async function renderTenantSection(
+      tenant: TenantSummaryOut,
+      gmCampaigns: CampaignSummaryOut[],
+      onChanged: () => void,
+    ): Promise<HTMLElement> {
+      const section = document.createElement('section');
+      section.className = 'section';
+      const heading = document.createElement('h2');
+      heading.textContent = tenant.name;
+      section.append(heading);
+
+      const searchInput = document.createElement('input');
+      searchInput.type = 'search';
+      searchInput.placeholder = 'Search beings by name…';
+      section.append(searchInput);
+
+      const results = document.createElement('div');
+      section.append(results);
+
+      // listBeings(tenantId, q) already accepts q (ADR 0079) - this is
+      // purely a missing input element (RFC 0017 (b)).
+      async function renderResults(q?: string) {
+        const beingsPage = await listBeings(tenant.id, q);
+        if (beingsPage.items.length === 0) {
+          const none = document.createElement('p');
+          none.textContent = q ? 'No beings match.' : 'No beings yet.';
+          results.replaceChildren(none);
+          return;
+        }
+        const list = document.createElement('ul');
+        list.className = 'roster-list';
+        for (const being of beingsPage.items) {
+          list.append(renderBeingItem(being, tenant.id, gmCampaigns, onChanged));
+        }
+        results.replaceChildren(list);
+      }
+
+      let debounceHandle: ReturnType<typeof setTimeout> | undefined;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(debounceHandle);
+        debounceHandle = setTimeout(
+          () => void renderResults(searchInput.value.trim()),
+          SEARCH_DEBOUNCE_MS,
+        );
+      });
+
+      await renderResults();
+
+      section.append(
+        renderCreateForm('New being name', 'Create being', (name) =>
+          // No owner_player_id - that's exactly what makes this a being
+          // (is_pc: false) rather than a player character.
+          createCharacter(tenant.id, { name }).then(onChanged),
+        ),
+      );
+      return section;
+    }
+
+    async function load() {
+      const me = await getMe();
+      const tenantsPage = await listMyTenants();
+      const withGmCampaigns = await Promise.all(
+        tenantsPage.items.map(async (tenant) => {
+          const campaigns = await listTenantCampaigns(tenant.id);
+          const gmCampaigns = campaigns.items.filter((c) => campaignRoleFor(c.id, me) === 'gm');
+          return { tenant, gmCampaigns };
+        }),
+      );
+      const eligible = withGmCampaigns.filter(({ gmCampaigns }) => gmCampaigns.length > 0);
+      if (eligible.length === 0) {
+        emptyState.hidden = false;
+        tenantList.replaceChildren();
+        return;
+      }
+      emptyState.hidden = true;
+      const sections = await Promise.all(
+        eligible.map(({ tenant, gmCampaigns }) =>
+          renderTenantSection(tenant, gmCampaigns, () => void load()),
+        ),
+      );
+      tenantList.replaceChildren(...sections);
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>
