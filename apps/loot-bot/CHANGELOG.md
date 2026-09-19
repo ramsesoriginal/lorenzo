@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.2.0...loot-bot-v0.3.0) (2026-09-19)
+
+
+### Features
+
+* **loot-bot:** /give-bulk - give several items at once, no API change ([3ed9a23](https://github.com/ramsesoriginal/lorenzo/commit/3ed9a23d13853be650428bc2c83d2f3fcb0a8c88))
+* **loot-bot:** /help - list every command, or one command's full options ([3d2158f](https://github.com/ramsesoriginal/lorenzo/commit/3d2158f3283393311550bfe82e92776975c94bdb))
+* **loot-bot:** /inventory gains an optional search filter ([e8be6af](https://github.com/ramsesoriginal/lorenzo/commit/e8be6afd9433ed0130e71b871cfbec631712b1ae))
+* **loot-bot:** /merge and /rename - inventory hygiene, no API change ([84e0311](https://github.com/ramsesoriginal/lorenzo/commit/84e0311b81e009ad9bd9c5647b1044979fdf6e12))
+* **loot-bot:** /move and /set-current narrow container suggestions to is_container ([bfc6a4d](https://github.com/ramsesoriginal/lorenzo/commit/bfc6a4d0e8c023fee289ae0797fb835e820908d8))
+* **loot-bot:** /move-bulk, /add-to-group, /add-channel-to-group ([4ad3944](https://github.com/ramsesoriginal/lorenzo/commit/4ad3944963d77e49aa41960bfd8b98e52ecb3b3c))
+* **loot-bot:** /my-groups - list which groups your characters belong to ([83443a3](https://github.com/ramsesoriginal/lorenzo/commit/83443a3cac536a185269484d27002c2f1e342e3f))
+* **loot-bot:** /pending-claims - server-wide outstanding-claims summary ([b2cb372](https://github.com/ramsesoriginal/lorenzo/commit/b2cb372b3ba73e00d9042a2e2e4d4989673f1a8c))
+* **loot-bot:** /undo - self-service undo for give/reassign/move/rename/merge ([6d9bfa3](https://github.com/ramsesoriginal/lorenzo/commit/6d9bfa3b939e9564856b2ab8201423f921af22d0))
+* **loot-bot:** add /whoami and /introduce, integrating apps/api's profile expansion ([3046a11](https://github.com/ramsesoriginal/lorenzo/commit/3046a11eb7dd4bfe138d48db3c77ca51cb4a11a2))
+* **loot-bot:** auto-set a player's sole character as current on link ([a09b270](https://github.com/ramsesoriginal/lorenzo/commit/a09b2706f1d19b6a9e878f8ff53ace95169a37a4))
+* **loot-bot:** GM toolkit - /inspect, /confiscate, /reassign ([f0f2811](https://github.com/ramsesoriginal/lorenzo/commit/f0f28117f1c989ad0aa8622e82e98bb9ac2ff7a6))
+* **loot-bot:** GM toolkit, inventory hygiene, groups, and /help ([04521f4](https://github.com/ramsesoriginal/lorenzo/commit/04521f44e2165cdf35bd0de7e806d57d78c77b72))
+* **loot-bot:** integrate ADR 0060's profile fields into /whoami, add /introduce ([49d378b](https://github.com/ramsesoriginal/lorenzo/commit/49d378bf06d422a9744012a48c24dcb47de4d21a))
+* **loot-bot:** per-channel preferences, drop clear-claims, need/greed claims ([c27713f](https://github.com/ramsesoriginal/lorenzo/commit/c27713f834624df543b88df1f4255c2d6004ea00))
+
 ## [0.2.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.1.0...loot-bot-v0.2.0) (2026-09-17)
 
 
