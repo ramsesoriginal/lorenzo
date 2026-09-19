@@ -10,7 +10,7 @@ The log exists to answer one question for a tenant OWNER: **"who did this?"** - 
 
 Two adjacent gaps surfaced while auditing it:
 
-- `delete_membership` already records `membership.deleted` (ADR 0063), but with `detail=None` - it cannot say whether the member was removed by an owner or left of their own accord, or what role they held. And nothing tells the removed person. Removal already safely orphans rather than destroys a departing member's characters and items ([ADR 0025](0025-character-being-and-ownership.md)'s `SET NULL`), so from their side the tenant simply vanishes.
+- `delete_membership` already records `membership.deleted` (ADR 0063), but with `detail=None` - it cannot say whether the member was removed by an owner or left of their own accord, or what role they held. And nothing tells the removed person. Removal ends only the tenant-wide `Membership` row: `Player` and `CampaignGm` rows reference `app_user`, not membership, so a removed member keeps any campaign seats they hold and their characters stay owned (ADR 0025's `SET NULL` only applies when a `Player` row itself is deleted, which membership removal does not do). From their side, the tenant-wide access simply disappears with no explanation.
 - Once GM and player actions are in the log, its read gate matters. ADR 0063 gated it by `get_tenant_context` (any tenant-wide member) - fine for membership events, wrong for a timeline that attributes every GM action to a named person.
 
 ## Decision
@@ -48,7 +48,7 @@ Deliberately **not** logged, and now documented as deliberate rather than accide
 ### Member removal
 
 - The existing `membership.deleted` entry gains a `detail`: `"removed"` vs `"left"` (actor is the target or not) plus the role held.
-- **Notify the removed person, always** - including on self-service leave, per the owner's request that every departure produce a confirmation. One `scope="tenant"`, `type="tenant_membership_removed"` notification to the removed user, written by the existing notifications core helper in the same transaction as the delete. Its title/body are self-contained text (ADR 0058's rule), naming the tenant and stating plainly that their characters and items remain in the tenant, unowned, rather than deleted. The user can still read it after losing membership: `notification`'s RLS admits `user_id = app.user_id` regardless of tenant.
+- **Notify the removed person, always** - including on self-service leave, per the owner's request that every departure produce a confirmation. One `scope="tenant"`, `type="tenant_membership_removed"` notification to the removed user, written by the existing notifications core helper in the same transaction as the delete. Its title/body are self-contained text (ADR 0058's rule), naming the tenant and stating plainly what changed and what did not: their tenant-wide membership ended, nothing they created was deleted, and any campaign seats (as player or GM) they hold there are unchanged. The user can still read it after losing membership: `notification`'s RLS admits `user_id = app.user_id` regardless of tenant.
 
 ## Not in scope
 
