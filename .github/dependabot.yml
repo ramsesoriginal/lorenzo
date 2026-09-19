@@ -37,6 +37,17 @@ updates:
           - "*"
 
   - package-ecosystem: "npm"
+    directory: "/apps/account-hub"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
     directory: "/apps/inventory-web"
     schedule:
       interval: "weekly"

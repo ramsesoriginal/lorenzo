@@ -1,0 +1,222 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Your characters — Lorenzo">
+  <h1 class="display">Your characters</h1>
+  <p><a href="/">&larr; Back</a></p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
+
+  <div id="tenant-list"></div>
+
+  <script>
+    import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../lib/characters';
+    import { createStatusSpan, renderCreateForm, renderRenameableItem } from '../lib/dom';
+    import { reusableCharactersFor } from '../lib/format';
+    import { getMe } from '../lib/me';
+    import { leaveCampaign, listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import type {
+      CampaignSummaryOut,
+      CharacterSummaryOut,
+      MeOut,
+      PlayerContextOut,
+      TenantSummaryOut,
+    } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const tenantList = document.getElementById('tenant-list')!;
+
+    function findPlayerFor(
+      me: MeOut,
+      tenantId: string,
+      campaignId: string,
+    ): PlayerContextOut | undefined {
+      return me.players.find((p) => p.tenant_id === tenantId && p.campaign_id === campaignId);
+    }
+
+    // RFC 0014's roster-reuse sub-slice: bring an existing character from
+    // another campaign in the same tenant into this one, instead of
+    // creating a new one - only meaningful before the player has any
+    // character here yet.
+    function renderReuseForm(
+      player: PlayerContextOut,
+      reusable: CharacterSummaryOut[],
+      onLinked: () => void,
+    ): HTMLElement {
+      const container = document.createElement('div');
+      const label = document.createElement('p');
+      label.textContent = 'Or use one of your existing characters in this tenant:';
+      container.append(label);
+
+      const list = document.createElement('ul');
+      list.className = 'roster-list';
+      for (const character of reusable) {
+        const item = document.createElement('li');
+        const nameEl = document.createElement('span');
+        nameEl.textContent = character.name;
+        const useButton = document.createElement('button');
+        useButton.type = 'button';
+        useButton.textContent = 'Use this character';
+        const status = createStatusSpan();
+        useButton.addEventListener('click', async () => {
+          status.textContent = 'Linking…';
+          try {
+            await linkCharacterToPlayer(player.tenant_id, character.entity_id, player.id);
+            onLinked();
+          } catch (e) {
+            status.textContent = e instanceof Error ? e.message : String(e);
+          }
+        });
+        item.append(nameEl, useButton, status);
+        list.append(item);
+      }
+      container.append(list);
+      return container;
+    }
+
+    // No self-service join exists (RFC 0014 - POST .../players is
+    // can_manage_campaign-gated, never a plain player's own action), so a
+    // campaign with no player context here is read-only context, not a
+    // dead button.
+    function renderCampaignSection(
+      campaign: CampaignSummaryOut,
+      player: PlayerContextOut | undefined,
+      me: MeOut,
+      onChanged: () => void,
+    ): HTMLElement {
+      const section = document.createElement('section');
+      section.className = 'campaign-subsection';
+      const heading = document.createElement('h3');
+      heading.textContent = campaign.name;
+      section.append(heading);
+
+      if (!player) {
+        const none = document.createElement('p');
+        none.textContent = "You don't play in this campaign yet.";
+        section.append(none);
+        return section;
+      }
+
+      if (player.characters.length === 0) {
+        const none = document.createElement('p');
+        none.textContent = "You don't have a character here yet.";
+        section.append(none);
+      } else {
+        const list = document.createElement('ul');
+        list.className = 'roster-list';
+        for (const character of player.characters) {
+          list.append(
+            renderRenameableItem(character.name, (newName) =>
+              updateCharacter(player.tenant_id, character.entity_id, { name: newName }).then(
+                onChanged,
+              ),
+            ),
+          );
+        }
+        section.append(list);
+      }
+
+      section.append(
+        renderCreateForm('New character name', 'Create character', (name) =>
+          createCharacter(player.tenant_id, { name, owner_player_id: player.id }).then(onChanged),
+        ),
+      );
+
+      if (player.characters.length === 0) {
+        const reusable = reusableCharactersFor(me, player.tenant_id, campaign.id);
+        if (reusable.length > 0) {
+          section.append(renderReuseForm(player, reusable, onChanged));
+        }
+      }
+
+      section.append(renderLeaveButton(player, campaign, onChanged));
+
+      return section;
+    }
+
+    // RFC 0017 (c) - removes this specific player row (and every
+    // character link it grants); other players' own roster-reuse links to
+    // this campaign are unaffected.
+    function renderLeaveButton(
+      player: PlayerContextOut,
+      campaign: CampaignSummaryOut,
+      onLeft: () => void,
+    ): HTMLElement {
+      const container = document.createElement('div');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Leave this campaign';
+      const status = createStatusSpan();
+      button.addEventListener('click', async () => {
+        const confirmed = window.confirm(
+          `Leave "${campaign.name}"? This removes every character link this grants you here - it can't be undone from this page.`,
+        );
+        if (!confirmed) return;
+        status.textContent = 'Leaving…';
+        try {
+          await leaveCampaign(player.tenant_id, campaign.id, player.id);
+          onLeft();
+        } catch (e) {
+          status.textContent = e instanceof Error ? e.message : String(e);
+        }
+      });
+      container.append(button, status);
+      return container;
+    }
+
+    async function renderTenantSection(
+      tenant: TenantSummaryOut,
+      me: MeOut,
+      onChanged: () => void,
+    ): Promise<HTMLElement> {
+      const section = document.createElement('section');
+      section.className = 'section';
+      const heading = document.createElement('h2');
+      heading.textContent = tenant.name;
+      section.append(heading);
+
+      const campaigns = await listTenantCampaigns(tenant.id);
+      for (const campaign of campaigns.items) {
+        const player = findPlayerFor(me, tenant.id, campaign.id);
+        section.append(renderCampaignSection(campaign, player, me, onChanged));
+      }
+      return section;
+    }
+
+    async function load() {
+      const me = await getMe();
+      const tenantsPage = await listMyTenants();
+      if (tenantsPage.items.length === 0) {
+        emptyState.hidden = false;
+        tenantList.replaceChildren();
+        return;
+      }
+      emptyState.hidden = true;
+      const sections = await Promise.all(
+        tenantsPage.items.map((tenant) => renderTenantSection(tenant, me, () => void load())),
+      );
+      tenantList.replaceChildren(...sections);
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>
