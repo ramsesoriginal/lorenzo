@@ -20,3 +20,9 @@ repo root:
 | `mise run test` | Run the unit test suite (Vitest) |
 | `mise run test-e2e` | Run the e2e test suite (Playwright) — needs a running `apps/api` and a configured Authgear session, see ADR 0071 |
 | `mise run build` | Build the static site to `dist/` |
+
+## Deploy
+
+Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
+[docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsaccount-hub)
+for the one-time setup.
