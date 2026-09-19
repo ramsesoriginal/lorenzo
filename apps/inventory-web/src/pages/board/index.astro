@@ -161,6 +161,14 @@ import Base from '../../layouts/Base.astro';
     import { isAuthenticated } from '../../lib/auth';
     import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
     import { listBeings } from '../../lib/beings';
+    import {
+      createUndoController,
+      failedEntityIds,
+      findMergeCandidates,
+      planGive,
+      summarizeBulkResults,
+      type UndoPayload,
+    } from '../../lib/boardLogic';
     import { listMyCharacters } from '../../lib/characters';
     import {
       bulkAssignItemInstances,
@@ -316,74 +324,32 @@ import Base from '../../layouts/Base.astro';
     // stack - this is "I just made a mistake," not a history browser.
     // Bulk actions and deletes are deliberately not undoable here - a
     // multi-item reversal needs per-item previous state, and a deleted
-    // instance's id is simply gone.
-    const UNDO_TTL_MS = 5 * 60 * 1000;
-    type UndoPayload =
-      | { kind: 'restore-owner'; entityId: string; previousOwnerId: string | null }
-      | { kind: 'restore-container'; entityId: string; previousContainerId: string | null }
-      | {
-          kind: 'undo-merge';
-          intoEntityId: string;
-          quantity: number;
-          previousOwnerId: string | null;
-        }
-      | { kind: 'undo-split'; splitOffEntityId: string; intoEntityId: string };
-    let pendingUndo: UndoPayload | null = null;
-    let undoTimeoutId: ReturnType<typeof setTimeout> | undefined;
+    // instance's id is simply gone. The state machine itself (what's
+    // pending, its expiry, and which API call reverses it) lives in
+    // lib/boardLogic.ts so it's unit-testable without a DOM; this page
+    // only wires it to the undo banner and the board reload.
+    const undoController = createUndoController(tenantId as string, {
+      setOwner,
+      unsetOwner,
+      setContainer,
+      clearContainer,
+      splitItemInstance,
+      mergeItemInstance,
+    });
 
     function recordUndo(payload: UndoPayload, description: string) {
-      pendingUndo = payload;
       undoMessage.textContent = description;
       undoBanner.hidden = false;
-      clearTimeout(undoTimeoutId);
-      undoTimeoutId = setTimeout(() => {
-        pendingUndo = null;
+      undoController.record(payload, () => {
         undoBanner.hidden = true;
-      }, UNDO_TTL_MS);
+      });
     }
 
     async function applyUndo() {
-      if (!pendingUndo) return;
-      const payload = pendingUndo;
-      pendingUndo = null;
-      clearTimeout(undoTimeoutId);
+      if (!undoController.getPending()) return;
       undoBanner.hidden = true;
       try {
-        switch (payload.kind) {
-          case 'restore-owner':
-            if (payload.previousOwnerId) {
-              await setOwner(tenantId as string, payload.entityId, payload.previousOwnerId);
-            } else {
-              await unsetOwner(tenantId as string, payload.entityId);
-            }
-            break;
-          case 'restore-container':
-            if (payload.previousContainerId) {
-              await setContainer(tenantId as string, payload.entityId, payload.previousContainerId);
-            } else {
-              await clearContainer(tenantId as string, payload.entityId);
-            }
-            break;
-          case 'undo-merge':
-            // The merged-away instance's id is gone - this recreates an
-            // equivalent split-off stack rather than literally restoring
-            // the original, an accepted approximation (same one
-            // apps/loot-bot's own undo-merge documents).
-            await splitItemInstance(
-              tenantId as string,
-              payload.intoEntityId,
-              payload.quantity,
-              payload.previousOwnerId ?? undefined,
-            );
-            break;
-          case 'undo-split':
-            await mergeItemInstance(
-              tenantId as string,
-              payload.splitOffEntityId,
-              payload.intoEntityId,
-            );
-            break;
-        }
+        await undoController.apply();
         reloadCurrentView?.();
       } catch (e) {
         showTransientError(e instanceof Error ? e.message : String(e));
@@ -565,10 +531,15 @@ import Base from '../../layouts/Base.astro';
         tenantId as string,
         async (being) => {
           const rawQuantity = quantityInput.value.trim();
-          const quantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
-          if (quantity && item.quantity && quantity < item.quantity) {
+          const requestedQuantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
+          const plan = planGive(item, requestedQuantity);
+          if (plan.mode === 'partial') {
             const [result] = await bulkAssignItemInstances(tenantId as string, [
-              { entityId: item.entity_id, ownerCharacterId: being.entity_id, quantity },
+              {
+                entityId: item.entity_id,
+                ownerCharacterId: being.entity_id,
+                quantity: plan.quantity,
+              },
             ]);
             if (result.status === 'error' || !result.item_instance) {
               throw new Error(result.problem?.title ?? 'Could not give that.');
@@ -582,7 +553,7 @@ import Base from '../../layouts/Base.astro';
                 splitOffEntityId: result.item_instance.entity_id,
                 intoEntityId: item.entity_id,
               },
-              `Gave ${quantity} ${item.title} to ${being.name}.`,
+              `Gave ${plan.quantity} ${item.title} to ${being.name}.`,
             );
           } else {
             await setOwner(tenantId as string, item.entity_id, being.entity_id);
@@ -669,23 +640,13 @@ import Base from '../../layouts/Base.astro';
       detailActionPanel.append(panel);
     });
 
-    // Two instances are the "same kind of item" for merge purposes if they
-    // share the same set of direct prototypes - title alone isn't reliable,
-    // since ADR 0067's title-fallback-to-entity-name means two entirely
-    // unrelated catalog items can display the same text. The merge endpoint
-    // itself only checks same-container/same-owner (see apps/api's
-    // item_instances.merge_item_instance), not item identity, so this
-    // filter is the only thing standing between a title collision and
-    // silently combining two different items' quantities.
-    function samePrototypes(a: string[], b: string[]): boolean {
-      if (a.length !== b.length) return false;
-      const bIds = new Set(b);
-      return a.every((id) => bIds.has(id));
-    }
-
     // Merge into… - candidates are other stacks of the same item already
     // visible on the current board (a same-tenant, same-view lookup off
-    // data already in hand, not a new search endpoint).
+    // data already in hand, not a new search endpoint). The "same kind of
+    // item" test itself (samePrototypes/findMergeCandidates) lives in
+    // lib/boardLogic.ts and is unit-tested there - it's the only thing
+    // standing between a title collision (ADR 0067's title-fallback-to-
+    // name) and silently combining two different items' quantities.
     detailMergeButton.addEventListener('click', () => {
       const wasOpen = detailMergeButton.textContent === 'Cancel';
       closeDetailActionPanels();
@@ -696,12 +657,7 @@ import Base from '../../layouts/Base.astro';
       const panel = document.createElement('div');
       panel.className = 'character-picker-panel';
 
-      const candidates = [...boardItems.values()].filter(
-        (other) =>
-          other.entity_id !== item.entity_id &&
-          other.title === item.title &&
-          samePrototypes(other.prototype_ids, item.prototype_ids),
-      );
+      const candidates = findMergeCandidates(boardItems.values(), item);
 
       if (candidates.length === 0) {
         const note = document.createElement('p');
@@ -831,22 +787,23 @@ import Base from '../../layouts/Base.astro';
             tenantId as string,
             ids.map((entityId) => ({ entityId, ownerCharacterId: being.entity_id })),
           );
-          const failed = results.filter((r) => r.status === 'error');
           // bulk-assign is never all-or-nothing (ADR 0044) - a total
           // failure means nothing changed, so it's safe to just throw
           // (leaves the panel open for retry, no reload needed). A
           // partial failure already reassigned some items server-side,
           // so it still has to fall through to onDone/reload below rather
           // than throwing - otherwise the board silently drifts from
-          // what actually happened.
-          if (failed.length === results.length) {
+          // what actually happened. The summarizing logic itself lives in
+          // lib/boardLogic.ts and is unit-tested there.
+          const outcome = summarizeBulkResults(results);
+          if (outcome.allFailed) {
             throw new Error(`Couldn't give any of the ${ids.length} selected item(s).`);
           }
-          if (failed.length > 0) {
-            showTransientError(`${failed.length} of ${ids.length} couldn't be given.`);
+          if (outcome.failedCount > 0) {
+            showTransientError(`${outcome.failedCount} of ${ids.length} couldn't be given.`);
           }
-          return failed.length > 0
-            ? `Gave ${ids.length - failed.length} of ${ids.length} item(s) to ${being.name}.`
+          return outcome.failedCount > 0
+            ? `Gave ${outcome.succeededCount} of ${ids.length} item(s) to ${being.name}.`
             : `Gave ${ids.length} item(s) to ${being.name}.`;
         },
         () => {
@@ -940,11 +897,7 @@ import Base from '../../layouts/Base.astro';
         let request: Promise<{ failedIds: Set<string> } | undefined>;
         if (isBulk && containerEntityId) {
           request = bulkMoveItemInstances(tenantId as string, containerEntityId, idsToMove).then(
-            (results) => ({
-              failedIds: new Set(
-                results.filter((r) => r.status === 'error').map((r) => r.entity_id),
-              ),
-            }),
+            (results) => ({ failedIds: failedEntityIds(results) }),
           );
         } else if (isBulk) {
           // bulk-move has no "no container" mode - to_container_entity_id
