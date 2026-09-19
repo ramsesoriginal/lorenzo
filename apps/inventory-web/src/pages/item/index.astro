@@ -1,0 +1,199 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Item — Lorenzo">
+  <p><a href="/">&larr; Tenants</a></p>
+  <p id="status">Loading&hellip;</p>
+
+  <div id="page" hidden>
+    <div class="item-detail-content">
+      <h1 class="display" id="item-title"></h1>
+      <p id="item-slug" class="item-detail-slug" hidden></p>
+      <p id="item-qty" class="item-detail-qty" hidden></p>
+      <button type="button" id="copy-link-button">Copy link</button>
+
+      <dl id="item-stats" class="item-detail-stats"></dl>
+      <p id="item-flags" class="item-detail-flags" hidden></p>
+
+      <div id="item-ancestry" class="item-detail-ancestry" hidden>
+        <h2>Ancestry</h2>
+        <ul id="item-ancestry-list"></ul>
+      </div>
+
+      <div id="item-descriptions" class="item-detail-descriptions"></div>
+
+      <section id="item-used-by" class="section" hidden>
+        <h2>Used as a prototype by</h2>
+        <ul id="item-used-by-list" class="chip-list"></ul>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    import { fetchAncestryTree } from '../../lib/ancestryTree';
+    import { ApiError } from '../../lib/api';
+    import { isAuthenticated } from '../../lib/auth';
+    import {
+      getCatalogItem,
+      getItemInstance,
+      getItemInstanceBySlug,
+      listItemsUsingPrototype,
+    } from '../../lib/items';
+    import type { ItemBase } from '../../lib/types';
+
+    const status = document.getElementById('status')!;
+    const page = document.getElementById('page')!;
+    const itemTitle = document.getElementById('item-title')!;
+    const itemSlug = document.getElementById('item-slug')!;
+    const itemQty = document.getElementById('item-qty')!;
+    const copyLinkButton = document.getElementById('copy-link-button') as HTMLButtonElement;
+    const itemStats = document.getElementById('item-stats')!;
+    const itemFlags = document.getElementById('item-flags')!;
+    const itemAncestry = document.getElementById('item-ancestry')!;
+    const itemAncestryList = document.getElementById('item-ancestry-list') as HTMLUListElement;
+    const itemDescriptions = document.getElementById('item-descriptions')!;
+    const itemUsedBy = document.getElementById('item-used-by')!;
+    const itemUsedByList = document.getElementById('item-used-by-list') as HTMLUListElement;
+
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant');
+    const itemId = params.get('id');
+    const itemSlugParam = params.get('slug');
+
+    copyLinkButton.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        copyLinkButton.textContent = 'Copied!';
+      } catch {
+        copyLinkButton.textContent = "Couldn't copy";
+      } finally {
+        window.setTimeout(() => {
+          copyLinkButton.textContent = 'Copy link';
+        }, 1500);
+      }
+    });
+
+    function populate(item: ItemBase, slug: string | null, quantity: number | null) {
+      document.title = `${item.title} — Lorenzo`;
+      itemTitle.textContent = item.title;
+
+      itemSlug.hidden = !slug;
+      itemSlug.textContent = slug ?? '';
+
+      const showQty = Boolean(quantity && quantity > 1);
+      itemQty.hidden = !showQty;
+      itemQty.textContent = showQty ? `×${quantity}` : '';
+
+      itemStats.replaceChildren();
+      const stats: [string, number | null][] = [
+        ['Weight', item.weight],
+        ['Height', item.height],
+        ['Price', item.price],
+        ['Rarity', item.rarity],
+        ['HP', item.hp],
+        ['Armor', item.armor],
+      ];
+      for (const [label, value] of stats) {
+        if (value === null) continue;
+        const dt = document.createElement('dt');
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.textContent = String(value);
+        itemStats.append(dt, dd);
+      }
+
+      const flags = [item.is_magical && 'Magical', item.is_cursed && 'Cursed'].filter(Boolean);
+      itemFlags.hidden = flags.length === 0;
+      itemFlags.textContent = flags.join(' · ');
+
+      itemDescriptions.replaceChildren();
+      for (const description of item.descriptions) {
+        const p = document.createElement('p');
+        p.textContent = description.content;
+        itemDescriptions.append(p);
+      }
+    }
+
+    async function loadAncestry(directPrototypeId: string) {
+      itemAncestry.hidden = false;
+      const loading = document.createElement('li');
+      loading.textContent = 'Loading…';
+      itemAncestryList.replaceChildren(loading);
+      try {
+        const rootLi = await fetchAncestryTree(tenantId as string, directPrototypeId);
+        itemAncestryList.replaceChildren(rootLi);
+      } catch {
+        itemAncestry.hidden = true;
+      }
+    }
+
+    async function loadUsedBy(entityId: string) {
+      itemUsedBy.hidden = false;
+      try {
+        const result = await listItemsUsingPrototype(tenantId as string, entityId);
+        if (result.items.length === 0) {
+          itemUsedBy.hidden = true;
+          return;
+        }
+        itemUsedByList.replaceChildren();
+        for (const usedByItem of result.items) {
+          const li = document.createElement('li');
+          li.className = 'chip';
+          const span = document.createElement('span');
+          span.textContent = usedByItem.title;
+          li.append(span);
+          itemUsedByList.append(li);
+        }
+      } catch {
+        itemUsedBy.hidden = true;
+      }
+    }
+
+    if (!(await isAuthenticated())) {
+      status.textContent = 'Not logged in. Go back and log in first.';
+    } else if (!tenantId || !(itemId || itemSlugParam)) {
+      status.textContent = 'Missing tenant or item id/slug in the link.';
+    } else {
+      try {
+        let asItem: ItemBase | null = null;
+        let asInstance: (ItemBase & { slug: string | null }) | null = null;
+        if (itemSlugParam) {
+          // A slug always resolves to an instance - catalog items don't
+          // have one, so there's no item-vs-instance ambiguity to try
+          // both ways for, unlike the id case below.
+          asInstance = await getItemInstanceBySlug(tenantId, itemSlugParam);
+        } else {
+          // Not knowing in advance whether this id is a catalog item or
+          // an instance - try the item endpoint first, fall back to the
+          // instance one only on a real 404, not on e.g. a network/auth
+          // error, which should surface directly rather than being
+          // masked by a second, differently-failing request.
+          try {
+            asItem = await getCatalogItem(tenantId, itemId as string);
+          } catch (e) {
+            if (!(e instanceof ApiError) || e.status !== 404) throw e;
+            asInstance = await getItemInstance(tenantId, itemId as string);
+          }
+        }
+
+        status.hidden = true;
+        page.hidden = false;
+
+        if (asItem) {
+          populate(asItem, null, null);
+          void loadAncestry(asItem.entity_id);
+          void loadUsedBy(asItem.entity_id);
+        } else if (asInstance) {
+          populate(asInstance, asInstance.slug, asInstance.quantity);
+          const directId = asInstance.prototype_ids[0];
+          if (directId) void loadAncestry(directId);
+        }
+      } catch (e) {
+        status.hidden = false;
+        page.hidden = true;
+        status.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

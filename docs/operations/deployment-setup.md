@@ -130,7 +130,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
    - **Root directory**: `apps/account-hub`
    - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
    - **Build output directory**: `dist`
-5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own (separately registered, whenever it does this) Pages project can use the exact same variable names for its own, different values with no collision.
+5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own Pages project (below) can use the exact same variable names for its own, different values with no collision.
 6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/*` so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
 
 ### `apps/account-hub`'s own Authgear application (ADR 0071)
@@ -143,15 +143,39 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
 5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — `apps/api`'s dev-token client and `apps/loot-bot`'s client may already account for two applications, which could block registering this one on a strict per-project reading. Confirm directly in the console rather than assuming either way.
 
+## Cloudflare Pages (apps/inventory-web)
+
+`apps/inventory-web` deploys as a plain static build (`astro build` → `dist/`) — no container, no database, per [ADR 0004](../adr/0004-static-astro-frontend.md). Same mechanism as `apps/account-hub` above, **Cloudflare's own Git integration, not a GitHub Actions deploy step** — see [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload), which names this app explicitly: its own `deploy-inventory-web.yml` (forked around the same `wrangler-action` token-upload flow, never actually completed) is removed for the same reason. `ci.yml`'s own auto-discovered matrix already covers `mise run lint`/`test` for it on every PR.
+
+1. Sign up at [cloudflare.com](https://cloudflare.com) (free tier) if you haven't already, or reuse the same account as `apps/account-hub` above.
+2. **Workers & Pages → Create → Pages → Connect to Git**, authorize Cloudflare's GitHub App for the `ramsesoriginal/lorenzo` repo if it isn't already (can scope the App to just this one repo, or add this repo to an existing scoped App), then select it.
+3. **Project name**: `lorenzo-inventory-web`. **Production branch**: `main`.
+4. **Build settings** — same reasoning as `apps/account-hub`'s own build settings above (Cloudflare's "Root directory" still clones the whole repo, so `pnpm install` from `apps/inventory-web` still finds the true workspace root's `pnpm-workspace.yaml`):
+   - **Root directory**: `apps/inventory-web`
+   - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build`
+   - **Build output directory**: `dist`
+5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
+6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/*` so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
+
+### `apps/inventory-web`'s own Authgear application
+
+`apps/inventory-web` needs its **own** Authgear "Single Page Application" (public/PKCE) client — distinct from every other app's own client, exact-match redirect URIs per client:
+
+1. **Authgear Portal → your production project → Applications → New Application → Single Page Application.**
+2. **Authorized Redirect URIs**: add `https://lorenzo-inventory-web.pages.dev/auth/redirect` (the production Pages URL once step 3 above exists) and, for local dev, `http://127.0.0.1:4321/auth/redirect`.
+3. **Authorized Post-Logout Redirect URIs**: same origins, no path (`https://lorenzo-inventory-web.pages.dev`, `http://127.0.0.1:4321`) — `auth.ts` calls `logout({ redirectURI: window.location.origin })`.
+4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
+5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — by the time this app registers its own client, `apps/api`'s dev-token client, `apps/loot-bot`'s client, and `apps/account-hub`'s client may already be at or past that cap on a strict per-project reading. Confirm directly in the console rather than assuming either way.
+
 ## GitHub setup
 
 Create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments), and add:
 
 - **Secrets**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`.
 - **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE`, `AUTHGEAR_USERINFO_URL` — the values from the Authgear Cloud section above (`apps/api`'s own client — separate from `apps/account-hub`'s own application, which lives in Cloudflare Pages' own environment variables instead, not here). None of these are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
-- **Variable**: `CORS_ALLOWED_ORIGINS` — needed for any deployed static frontend to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). **Space-separated** exact origins, e.g. `https://lorenzo.example.com https://other.example.com` — deliberately not a JSON array or comma-separated list (see ADR 0048's own addendum for why: a JSON array's internal commas collided with how the deploy workflow joins environment variables, and crashed a real deploy). Currently set to local-dev origins only (`http://localhost:4321 http://127.0.0.1:4321 http://127.0.0.1:4322`) — add `https://lorenzo-account-hub.pages.dev` to this same space-separated value once it's deployed, don't replace it.
+- **Variable**: `CORS_ALLOWED_ORIGINS` — needed for any deployed static frontend to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). **Space-separated** exact origins, e.g. `https://lorenzo.example.com https://other.example.com` — deliberately not a JSON array or comma-separated list (see ADR 0048's own addendum for why: a JSON array's internal commas collided with how the deploy workflow joins environment variables, and crashed a real deploy). Currently set to local-dev origins only (`http://localhost:4321 http://127.0.0.1:4321 http://127.0.0.1:4322`) — add `https://lorenzo-account-hub.pages.dev` and `https://lorenzo-inventory-web.pages.dev` to this same space-separated value once each is deployed, don't replace it.
 
-Once the apps/api values exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger it — its own `paths:` filter won't fire, so trigger it manually once (Actions → "Deploy API" → "Run workflow") to actually apply new environment variables/secrets to the live service. `apps/account-hub` has no equivalent GitHub Actions trigger to worry about — Cloudflare's own Git integration redeploys on every push to `main` that touches it, independent of anything here.
+Once the apps/api values exist, `.github/workflows/deploy-api.yml` runs automatically on the next push to `main` that touches `apps/api/`. Note that a `chore`/docs-only change (like the one that first added the Authgear `env_vars` wiring) won't trigger it — its own `paths:` filter won't fire, so trigger it manually once (Actions → "Deploy API" → "Run workflow") to actually apply new environment variables/secrets to the live service. `apps/account-hub` and `apps/inventory-web` have no equivalent GitHub Actions trigger to worry about — Cloudflare's own Git integration redeploys on every push to `main` that touches either, independent of anything here.
 
 ## Rotating to the restricted app role (ADR 0021)
 

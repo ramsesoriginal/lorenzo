@@ -1,0 +1,828 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Manage items — Lorenzo">
+  <p><a href="/">&larr; Tenants</a></p>
+  <p id="status">Loading&hellip;</p>
+
+  <div id="page" hidden>
+    <h1 class="display" id="tenant-name"></h1>
+
+    <section class="section-lg">
+      <h2>New item</h2>
+      <div id="create-item-mount"></div>
+    </section>
+
+    <section class="section-lg">
+      <h2>Catalog</h2>
+      <div class="catalog-toolbar">
+        <input
+          type="search"
+          id="catalog-search"
+          class="text-input"
+          placeholder="Search the item catalog…"
+          aria-label="Search the item catalog"
+        />
+      </div>
+
+      <p id="catalog-empty" hidden>No items match.</p>
+      <p id="catalog-error" class="error-text" hidden></p>
+      <ul id="catalog-list" class="catalog-list" hidden></ul>
+    </section>
+
+    <section class="section-lg">
+      <h2>Instances</h2>
+      <div class="field">
+        <span class="field-label" id="browse-label">View a being's inventory</span>
+        <div class="combobox" id="browse-combobox">
+          <input
+            type="text"
+            id="browse-search"
+            class="text-input"
+            placeholder="Search beings…"
+            autocomplete="off"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="browse-suggestions"
+            aria-labelledby="browse-label"
+          />
+          <ul id="browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+        </div>
+      </div>
+
+      <p id="instances-viewing" class="next-up" hidden></p>
+      <p id="instances-empty" hidden></p>
+      <p id="instances-error" class="error-text" hidden></p>
+      <div id="instances-groups"></div>
+    </section>
+  </div>
+
+  <script>
+    import { isAuthenticated } from '../../lib/auth';
+    import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
+    import { listBeings } from '../../lib/beings';
+    import { readCatalogCache, writeCatalogCache } from '../../lib/catalogCache';
+    import {
+      createCatalogItem,
+      createItemInstance,
+      deleteCatalogItem,
+      deleteItemInstance,
+      getItemPrototypes,
+      getOwnedItemInstances,
+      listCatalogItems,
+      listItemsUsingPrototype,
+      setItemPrototypes,
+      setOwner,
+      unsetOwner,
+      updateCatalogItem,
+    } from '../../lib/items';
+    import { isCampaignGm } from '../../lib/me';
+    import { getTenant } from '../../lib/tenants';
+    import type {
+      BeingRef,
+      CatalogItem,
+      EntitySummary,
+      ItemInstance,
+      OwnedGroup,
+    } from '../../lib/types';
+
+    const status = document.getElementById('status')!;
+    const page = document.getElementById('page')!;
+    const tenantName = document.getElementById('tenant-name')!;
+
+    const search = document.getElementById('catalog-search') as HTMLInputElement;
+    const catalogEmpty = document.getElementById('catalog-empty')!;
+    const catalogError = document.getElementById('catalog-error')!;
+    const catalogList = document.getElementById('catalog-list') as HTMLUListElement;
+
+    const createItemMount = document.getElementById('create-item-mount')!;
+
+    const params = new URLSearchParams(window.location.search);
+    const tenantId = params.get('tenant');
+
+    // --- Reusable item form: shared by "New item" (create) and each catalog
+    // row's "Edit" panel. A field is just { element, ... } - adding another
+    // one later (stats, tags, whatever the API grows next) means writing one
+    // more field builder and listing it, not touching the form shell.
+
+    function createNameField(initialValue: string): {
+      element: HTMLElement;
+      input: HTMLInputElement;
+    } {
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.className = 'field-label';
+      label.textContent = 'Name';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'text-input';
+      input.required = true;
+      input.value = initialValue;
+      field.append(label, input);
+      return { element: field, input };
+    }
+
+    function createParentsField(options: {
+      initialParents: Map<string, string>;
+      editable: boolean;
+    }): { element: HTMLElement; getSelectedIds: () => string[] } {
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.className = 'field-label';
+      label.textContent = 'Parents';
+      field.append(label);
+
+      const selected = new Map(options.initialParents);
+
+      const chips = document.createElement('ul');
+      chips.className = 'chip-list';
+
+      function renderFieldChips() {
+        chips.replaceChildren();
+        for (const [entityId, title] of selected) {
+          const li = document.createElement('li');
+          li.className = 'chip';
+          const span = document.createElement('span');
+          span.textContent = title;
+          li.append(span);
+          if (options.editable) {
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'chip-remove';
+            remove.setAttribute('aria-label', `Remove ${title}`);
+            remove.textContent = '×';
+            remove.addEventListener('click', () => {
+              selected.delete(entityId);
+              renderFieldChips();
+            });
+            li.append(remove);
+          }
+          chips.append(li);
+        }
+      }
+      renderFieldChips();
+
+      if (options.editable) {
+        const combobox = document.createElement('div');
+        combobox.className = 'combobox';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'text-input';
+        input.placeholder = 'Search items to inherit from…';
+        input.autocomplete = 'off';
+        const suggestions = document.createElement('ul');
+        suggestions.className = 'combobox-suggestions';
+        suggestions.setAttribute('role', 'listbox');
+        suggestions.hidden = true;
+        combobox.append(input, suggestions);
+        field.append(combobox);
+
+        function closeSuggestions() {
+          suggestions.hidden = true;
+          suggestions.replaceChildren();
+        }
+
+        let debounce: ReturnType<typeof setTimeout> | undefined;
+        input.addEventListener('input', () => {
+          clearTimeout(debounce);
+          const query = input.value.trim();
+          if (!query) {
+            closeSuggestions();
+            return;
+          }
+          debounce = setTimeout(async () => {
+            try {
+              const result = await listCatalogItems(tenantId as string, query);
+              const candidates = result.items.filter((c) => !selected.has(c.entity_id));
+              if (candidates.length === 0) {
+                closeSuggestions();
+                return;
+              }
+              suggestions.replaceChildren();
+              for (const candidate of candidates) {
+                const li = document.createElement('li');
+                li.className = 'combobox-suggestion';
+                li.setAttribute('role', 'option');
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = candidate.title;
+                button.addEventListener('click', () => {
+                  selected.set(candidate.entity_id, candidate.title);
+                  renderFieldChips();
+                  input.value = '';
+                  closeSuggestions();
+                  input.focus();
+                });
+                li.append(button);
+                suggestions.append(li);
+              }
+              suggestions.hidden = false;
+            } catch {
+              closeSuggestions();
+            }
+          }, 250);
+        });
+
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeSuggestions();
+        });
+
+        document.addEventListener('click', (event) => {
+          if (!combobox.contains(event.target as Node)) closeSuggestions();
+        });
+      }
+
+      field.append(chips);
+
+      if (!options.editable) {
+        const note = document.createElement('p');
+        note.className = 'field-note';
+        note.textContent = 'Read-only.';
+        field.append(note);
+      }
+
+      return { element: field, getSelectedIds: () => [...selected.keys()] };
+    }
+
+    // The reverse of the parents field - not editable, not part of the
+    // form's own submit (there's nothing to send back for it): "what's
+    // built on top of this item," direct or indirect (ADR 0073), the edit
+    // panel's complement to the board's own exhaustive ancestry view.
+    function renderUsedByField(usedBy: CatalogItem[]): HTMLElement {
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.className = 'field-label';
+      label.textContent = 'Used as a prototype by';
+      field.append(label);
+
+      if (usedBy.length === 0) {
+        const note = document.createElement('p');
+        note.className = 'field-note';
+        note.textContent = 'Nothing yet.';
+        field.append(note);
+        return field;
+      }
+
+      const chips = document.createElement('ul');
+      chips.className = 'chip-list';
+      for (const usedByItem of usedBy) {
+        const li = document.createElement('li');
+        li.className = 'chip';
+        const span = document.createElement('span');
+        span.textContent = usedByItem.title;
+        li.append(span);
+        chips.append(li);
+      }
+      field.append(chips);
+      return field;
+    }
+
+    function renderItemForm(options: {
+      fields: HTMLElement[];
+      submitLabel: string;
+      onSubmit: () => Promise<void>;
+    }): HTMLFormElement {
+      const form = document.createElement('form');
+      form.className = 'item-form';
+      form.append(...options.fields);
+
+      const errorEl = document.createElement('p');
+      errorEl.className = 'error-text';
+      errorEl.hidden = true;
+      form.append(errorEl);
+
+      const submitButton = document.createElement('button');
+      submitButton.type = 'submit';
+      submitButton.textContent = options.submitLabel;
+      form.append(submitButton);
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        errorEl.hidden = true;
+        submitButton.disabled = true;
+        try {
+          await options.onSubmit();
+        } catch (e) {
+          errorEl.hidden = false;
+          errorEl.textContent = e instanceof Error ? e.message : String(e);
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+
+      return form;
+    }
+
+    // The catalog's "Instantiate" panel - unlike renderCharacterActionPanel
+    // (a single "pick one, do one thing" action), instantiating has two
+    // real paths: assign straight to a picked character, or create with no
+    // owner at all (ItemInstanceCreate.owner_character_id is optional - an
+    // instance doesn't have to have one). Both can carry an optional slug
+    // (ADR 0043), settable only here at creation time.
+    function renderInstantiatePanel(item: CatalogItem, onDone: () => void): HTMLElement {
+      const panel = document.createElement('div');
+      panel.className = 'character-picker-panel';
+
+      const slugField = document.createElement('label');
+      slugField.className = 'field';
+      const slugLabel = document.createElement('span');
+      slugLabel.className = 'field-label';
+      slugLabel.textContent = 'Slug (optional)';
+      const slugInput = document.createElement('input');
+      slugInput.type = 'text';
+      slugInput.className = 'text-input';
+      slugInput.placeholder = 'e.g. iron-sword-1';
+      slugField.append(slugLabel, slugInput);
+
+      const combobox = document.createElement('div');
+      combobox.className = 'combobox';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'text-input';
+      input.placeholder = 'Search beings…';
+      input.autocomplete = 'off';
+      const suggestions = document.createElement('ul');
+      suggestions.className = 'combobox-suggestions';
+      suggestions.setAttribute('role', 'listbox');
+      suggestions.hidden = true;
+      combobox.append(input, suggestions);
+
+      const noOwnerButton = document.createElement('button');
+      noOwnerButton.type = 'button';
+      noOwnerButton.textContent = 'Create without assigning';
+
+      const statusEl = document.createElement('p');
+      statusEl.className = 'picker-status';
+      statusEl.hidden = true;
+
+      panel.append(slugField, combobox, noOwnerButton, statusEl);
+
+      let busy = false;
+      async function finish(action: () => Promise<string>) {
+        if (busy) return;
+        busy = true;
+        input.disabled = true;
+        noOwnerButton.disabled = true;
+        suggestions.hidden = true;
+        try {
+          const message = await action();
+          statusEl.hidden = false;
+          statusEl.classList.remove('error-text');
+          statusEl.textContent = message;
+          window.setTimeout(onDone, 1200);
+        } catch (e) {
+          statusEl.hidden = false;
+          statusEl.classList.add('error-text');
+          statusEl.textContent = e instanceof Error ? e.message : String(e);
+          input.disabled = false;
+          noOwnerButton.disabled = false;
+          busy = false;
+        }
+      }
+
+      let debounce: ReturnType<typeof setTimeout> | undefined;
+      input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const query = input.value.trim();
+        if (!query) {
+          suggestions.hidden = true;
+          suggestions.replaceChildren();
+          return;
+        }
+        debounce = setTimeout(async () => {
+          const result = await listBeings(tenantId as string, query);
+          renderBeingSuggestions(suggestions, result.items, (being) => {
+            void finish(async () => {
+              await createItemInstance(
+                tenantId as string,
+                item.entity_id,
+                being.entity_id,
+                slugInput.value.trim() || undefined,
+              );
+              return `Created and assigned to ${being.name}.`;
+            });
+          });
+        }, 200);
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') onDone();
+      });
+
+      noOwnerButton.addEventListener('click', () => {
+        void finish(async () => {
+          await createItemInstance(
+            tenantId as string,
+            item.entity_id,
+            undefined,
+            slugInput.value.trim() || undefined,
+          );
+          return 'Created without an owner.';
+        });
+      });
+
+      window.setTimeout(() => input.focus(), 0);
+      return panel;
+    }
+
+    function mountCreateItemForm() {
+      const nameField = createNameField('');
+      const parentsField = createParentsField({ initialParents: new Map(), editable: true });
+      const form = renderItemForm({
+        fields: [nameField.element, parentsField.element],
+        submitLabel: 'Create item',
+        onSubmit: async () => {
+          const name = nameField.input.value.trim();
+          if (!name) throw new Error('Name is required.');
+          await createCatalogItem(tenantId as string, name, parentsField.getSelectedIds());
+          await loadCatalog(search.value);
+          mountCreateItemForm(); // fresh, empty form after a successful create
+        },
+      });
+      createItemMount.replaceChildren(form);
+    }
+
+    // The standalone, shareable single-item page (its own "Copy link").
+    function createViewLink(entityId: string, slug?: string | null): HTMLAnchorElement {
+      const link = document.createElement('a');
+      link.className = 'action-link';
+      link.textContent = 'View';
+      link.href = slug
+        ? `/item/?tenant=${tenantId}&slug=${encodeURIComponent(slug)}`
+        : `/item/?tenant=${tenantId}&id=${entityId}`;
+      return link;
+    }
+
+    function renderCatalogItem(item: CatalogItem): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'catalog-row';
+
+      const header = document.createElement('div');
+      header.className = 'catalog-row-header';
+      const title = document.createElement('span');
+      title.className = 'catalog-row-title';
+      title.textContent = item.title;
+
+      const actions = document.createElement('div');
+      actions.className = 'catalog-row-actions';
+      const viewLink = createViewLink(item.entity_id);
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.textContent = 'Edit';
+      const instantiateButton = document.createElement('button');
+      instantiateButton.type = 'button';
+      instantiateButton.textContent = 'Instantiate';
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'button-danger';
+      deleteButton.textContent = 'Delete';
+      actions.append(viewLink, editButton, instantiateButton, deleteButton);
+
+      header.append(title, actions);
+      li.append(header);
+
+      deleteButton.addEventListener('click', async () => {
+        if (!window.confirm(`Delete "${item.title}"? This can't be undone.`)) return;
+        deleteButton.disabled = true;
+        try {
+          await deleteCatalogItem(tenantId as string, item.entity_id);
+          await loadCatalog(search.value);
+        } catch (e) {
+          deleteButton.disabled = false;
+          window.alert(e instanceof Error ? e.message : String(e));
+        }
+      });
+
+      function closePanels() {
+        li.querySelector('.character-picker-panel')?.remove();
+        li.querySelector('.edit-item-panel')?.remove();
+        instantiateButton.textContent = 'Instantiate';
+        editButton.textContent = 'Edit';
+      }
+
+      editButton.addEventListener('click', async () => {
+        const wasOpen = editButton.textContent === 'Cancel';
+        closePanels();
+        if (wasOpen) return;
+
+        editButton.textContent = 'Cancel';
+        const panel = document.createElement('div');
+        panel.className = 'edit-item-panel';
+        panel.textContent = 'Loading…';
+        li.append(panel);
+
+        try {
+          const [prototypes, usedByPage] = await Promise.all([
+            getItemPrototypes(tenantId as string, item.entity_id),
+            listItemsUsingPrototype(tenantId as string, item.entity_id),
+          ]);
+          const initialParents = new Map(prototypes.map((p: EntitySummary) => [p.id, p.name]));
+          const nameField = createNameField(item.title);
+          const parentsField = createParentsField({ initialParents, editable: true });
+          const usedByField = renderUsedByField(usedByPage.items);
+          const form = renderItemForm({
+            fields: [nameField.element, parentsField.element, usedByField],
+            submitLabel: 'Save',
+            onSubmit: async () => {
+              const name = nameField.input.value.trim();
+              if (!name) throw new Error('Name is required.');
+              await Promise.all([
+                updateCatalogItem(tenantId as string, item.entity_id, name),
+                setItemPrototypes(
+                  tenantId as string,
+                  item.entity_id,
+                  parentsField.getSelectedIds(),
+                ),
+              ]);
+              item.title = name;
+              title.textContent = name;
+              closePanels();
+            },
+          });
+          panel.replaceChildren(form);
+        } catch (e) {
+          panel.textContent = e instanceof Error ? e.message : String(e);
+        }
+      });
+
+      instantiateButton.addEventListener('click', () => {
+        const wasOpen = instantiateButton.textContent === 'Cancel';
+        closePanels();
+        if (wasOpen) return;
+
+        instantiateButton.textContent = 'Cancel';
+        const panel = renderInstantiatePanel(item, () => closePanels());
+        li.append(panel);
+      });
+
+      return li;
+    }
+
+    let requestId = 0;
+
+    function renderCatalogList(items: CatalogItem[]) {
+      catalogList.removeAttribute('aria-busy');
+      if (items.length === 0) {
+        catalogEmpty.hidden = false;
+        catalogList.hidden = true;
+        return;
+      }
+      catalogEmpty.hidden = true;
+      catalogList.replaceChildren(...items.map(renderCatalogItem));
+      catalogList.hidden = false;
+    }
+
+    function renderCatalogSkeleton() {
+      catalogList.setAttribute('aria-busy', 'true');
+      catalogList.replaceChildren(
+        ...Array.from({ length: 4 }, () => {
+          const li = document.createElement('li');
+          li.className = 'catalog-row skeleton';
+          return li;
+        }),
+      );
+      catalogList.hidden = false;
+    }
+
+    async function loadCatalog(query: string) {
+      const thisRequest = ++requestId;
+      catalogError.hidden = true;
+
+      // Cache-first, default (unfiltered) listing only - see
+      // lib/catalogCache.ts for why. Paints instantly from whatever was
+      // cached last session, then a fresh fetch replaces it below -
+      // read-only the whole time, so a stale paint here can't cause a
+      // wrong write.
+      let paintedFromCache = false;
+      if (!query) {
+        const cached = readCatalogCache(tenantId as string);
+        if (cached) {
+          renderCatalogList(cached.items);
+          paintedFromCache = true;
+        }
+      }
+      if (!paintedFromCache) renderCatalogSkeleton();
+
+      try {
+        const result = await listCatalogItems(tenantId as string, query);
+        if (thisRequest !== requestId) return; // a newer search superseded this one
+        renderCatalogList(result.items);
+        if (!query) writeCatalogCache(tenantId as string, result);
+      } catch (e) {
+        if (thisRequest !== requestId) return;
+        catalogList.removeAttribute('aria-busy');
+        // Already showing (possibly stale) cached content - a background
+        // refresh failure isn't worth replacing it with a hard error.
+        if (paintedFromCache) return;
+        catalogList.hidden = true;
+        catalogError.hidden = false;
+        catalogError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    let searchDebounce: ReturnType<typeof setTimeout> | undefined;
+    search.addEventListener('input', () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => void loadCatalog(search.value), 300);
+    });
+
+    // --- Instances: browse a character's inventory and reassign owners ---
+
+    const browseSearch = document.getElementById('browse-search') as HTMLInputElement;
+    const browseSuggestions = document.getElementById('browse-suggestions') as HTMLUListElement;
+    const instancesViewing = document.getElementById('instances-viewing')!;
+    const instancesEmpty = document.getElementById('instances-empty')!;
+    const instancesError = document.getElementById('instances-error')!;
+    const instancesGroups = document.getElementById('instances-groups')!;
+
+    let currentCharacter: BeingRef | null = null;
+    let instancesRequestId = 0;
+
+    function renderInstanceRow(instance: ItemInstance): HTMLLIElement {
+      const li = document.createElement('li');
+      li.className = 'catalog-row';
+
+      const header = document.createElement('div');
+      header.className = 'catalog-row-header';
+      const title = document.createElement('span');
+      title.className = 'catalog-row-title';
+      title.textContent =
+        instance.quantity && instance.quantity > 1
+          ? `${instance.title} ×${instance.quantity}`
+          : instance.title;
+      if (instance.slug) {
+        const slug = document.createElement('code');
+        slug.className = 'catalog-row-slug';
+        slug.textContent = instance.slug;
+        title.append(' ', slug);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'catalog-row-actions';
+      const viewLink = createViewLink(instance.entity_id, instance.slug);
+      const reassignButton = document.createElement('button');
+      reassignButton.type = 'button';
+      reassignButton.textContent = 'Reassign';
+      const unassignButton = document.createElement('button');
+      unassignButton.type = 'button';
+      unassignButton.textContent = 'Unassign';
+      unassignButton.hidden = !instance.owner_entity_id;
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'button-danger';
+      deleteButton.textContent = 'Delete';
+      actions.append(viewLink, reassignButton, unassignButton, deleteButton);
+      header.append(title, actions);
+      li.append(header);
+
+      unassignButton.addEventListener('click', async () => {
+        unassignButton.disabled = true;
+        try {
+          await unsetOwner(tenantId as string, instance.entity_id);
+          // Unowned items don't show up under any character's view.
+          if (currentCharacter) void loadInstancesFor(currentCharacter);
+        } catch (e) {
+          unassignButton.disabled = false;
+          window.alert(e instanceof Error ? e.message : String(e));
+        }
+      });
+
+      reassignButton.addEventListener('click', () => {
+        const existingPanel = li.querySelector('.character-picker-panel');
+        if (existingPanel) {
+          existingPanel.remove();
+          reassignButton.textContent = 'Reassign';
+          return;
+        }
+        reassignButton.textContent = 'Cancel';
+        const panel = renderBeingActionPanel(
+          tenantId as string,
+          async (being) => {
+            await setOwner(tenantId as string, instance.entity_id, being.entity_id);
+            return `Reassigned to ${being.name}.`;
+          },
+          () => {
+            panel.remove();
+            reassignButton.textContent = 'Reassign';
+            // The item likely just left this character - refresh the view.
+            if (currentCharacter) void loadInstancesFor(currentCharacter);
+          },
+        );
+        li.append(panel);
+      });
+
+      deleteButton.addEventListener('click', async () => {
+        if (!window.confirm(`Delete "${instance.title}"? This can't be undone.`)) return;
+        deleteButton.disabled = true;
+        try {
+          await deleteItemInstance(tenantId as string, instance.entity_id);
+          if (currentCharacter) void loadInstancesFor(currentCharacter);
+        } catch (e) {
+          deleteButton.disabled = false;
+          window.alert(e instanceof Error ? e.message : String(e));
+        }
+      });
+
+      return li;
+    }
+
+    function renderInstanceGroup(group: OwnedGroup, rootTitle: string): HTMLElement {
+      const section = document.createElement('div');
+      section.className = 'section';
+      const heading = document.createElement('h3');
+      heading.textContent = group.container?.name ?? rootTitle;
+      section.append(heading);
+
+      const list = document.createElement('ul');
+      list.className = 'catalog-list';
+      for (const instance of group.item_instances) {
+        list.append(renderInstanceRow(instance));
+      }
+      section.append(list);
+      return section;
+    }
+
+    async function loadInstancesFor(character: BeingRef) {
+      currentCharacter = character;
+      const thisRequest = ++instancesRequestId;
+      instancesViewing.hidden = false;
+      instancesViewing.textContent = `Viewing ${character.name}'s inventory.`;
+      instancesEmpty.hidden = true;
+      instancesError.hidden = true;
+      instancesGroups.replaceChildren();
+      try {
+        const response = await getOwnedItemInstances(tenantId as string, character.entity_id);
+        if (thisRequest !== instancesRequestId) return;
+        const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
+        if (!hasAnything) {
+          instancesEmpty.hidden = false;
+          instancesEmpty.textContent = `${character.name} isn't carrying anything.`;
+          return;
+        }
+        for (const group of response.groups) {
+          if (group.item_instances.length > 0) {
+            instancesGroups.append(renderInstanceGroup(group, character.name));
+          }
+        }
+      } catch (e) {
+        if (thisRequest !== instancesRequestId) return;
+        instancesError.hidden = false;
+        instancesError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    let browseDebounce: ReturnType<typeof setTimeout> | undefined;
+    browseSearch.addEventListener('input', () => {
+      clearTimeout(browseDebounce);
+      const query = browseSearch.value.trim();
+      if (!query) {
+        browseSuggestions.hidden = true;
+        browseSuggestions.replaceChildren();
+        return;
+      }
+      browseDebounce = setTimeout(async () => {
+        const result = await listBeings(tenantId as string, query);
+        renderBeingSuggestions(browseSuggestions, result.items, (being) => {
+          browseSearch.value = being.name;
+          browseSuggestions.hidden = true;
+          void loadInstancesFor(being);
+        });
+      }, 200);
+    });
+
+    browseSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        browseSuggestions.hidden = true;
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const combobox = document.getElementById('browse-combobox')!;
+      if (!combobox.contains(event.target as Node)) {
+        browseSuggestions.hidden = true;
+      }
+    });
+
+    if (!(await isAuthenticated())) {
+      status.textContent = 'Not logged in. Go back and log in first.';
+    } else if (!tenantId) {
+      status.textContent = 'No tenant selected. Go back and pick one.';
+    } else if (!(await isCampaignGm())) {
+      status.textContent = "This page is for GMs only. You don't hold a GM grant in any campaign.";
+    } else {
+      try {
+        const tenant = await getTenant(tenantId);
+        status.hidden = true;
+        tenantName.textContent = tenant.name;
+        page.hidden = false;
+        mountCreateItemForm();
+        await loadCatalog('');
+      } catch (e) {
+        status.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

@@ -31,6 +31,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       `${response.status} ${response.statusText}${body ? `: ${body}` : ''}`,
     );
   }
+  // 204 No Content (e.g. DELETE /items/{id}) has no body to parse.
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return response.json() as Promise<T>;
 }
 
@@ -45,6 +49,14 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return apiFetch<T>(path, {
     method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch<T>(path, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });

@@ -8,17 +8,122 @@ import Base from '../../layouts/Base.astro';
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
     <p id="tenant-slug" class="tenant-slug"></p>
+    <p id="gm-tools" hidden><a id="manage-items-link" href="">Manage items (GM)</a></p>
 
-    <section id="characters" class="section">
-      <h2>Your characters</h2>
-      <p id="characters-loading">Loading characters&hellip;</p>
-      <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
-      <p id="characters-error" class="error-text" hidden></p>
-      <ul id="character-strip" class="character-strip"></ul>
+    <section id="picker-section" class="section">
+      <div
+        id="picker-tablist"
+        class="tabs"
+        role="tablist"
+        aria-label="Whose inventory to view"
+        hidden
+      >
+        <button
+          type="button"
+          id="tab-characters"
+          class="tab"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-characters"
+        >
+          Your characters
+        </button>
+        <button
+          type="button"
+          id="tab-browse"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-browse"
+          hidden
+        >
+          Browse a being
+        </button>
+        <button
+          type="button"
+          id="tab-unowned"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-unowned"
+          hidden
+        >
+          Unowned items
+        </button>
+      </div>
+
+      <div id="panel-characters" class="tab-panel" role="tabpanel" aria-labelledby="tab-characters">
+        <p id="characters-loading">Loading characters&hellip;</p>
+        <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
+        <p id="characters-error" class="error-text" hidden></p>
+        <ul id="character-strip" class="character-strip"></ul>
+      </div>
+
+      <div id="panel-browse" class="tab-panel" role="tabpanel" aria-labelledby="tab-browse" hidden>
+        <div class="field">
+          <span class="field-label" id="gm-browse-label">Search beings</span>
+          <div class="combobox" id="gm-browse-combobox">
+            <input
+              type="text"
+              id="gm-browse-search"
+              class="text-input"
+              placeholder="Search beings…"
+              autocomplete="off"
+              role="combobox"
+              aria-expanded="false"
+              aria-controls="gm-browse-suggestions"
+              aria-labelledby="gm-browse-label"
+            />
+            <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+          </div>
+        </div>
+        <div class="being-id-row">
+          <input
+            type="text"
+            id="gm-browse-raw-id"
+            class="text-input"
+            placeholder="or a being's entity id…"
+          />
+          <button type="button" id="gm-browse-raw-id-button">View</button>
+        </div>
+      </div>
+
+      <div
+        id="panel-unowned"
+        class="tab-panel"
+        role="tabpanel"
+        aria-labelledby="tab-unowned"
+        hidden
+      >
+        <p class="field-note">Item instances nobody currently owns.</p>
+      </div>
     </section>
 
+    <p id="undo-banner" class="next-up" hidden>
+      <span id="undo-message"></span>
+      <button type="button" id="undo-button">Undo</button>
+    </p>
+
     <section id="inventory" class="section">
-      <p id="inventory-loading" hidden>Loading inventory&hellip;</p>
+      <p id="inventory-viewing" class="next-up" hidden></p>
+
+      <div class="board-toolbar">
+        <input
+          type="search"
+          id="board-search"
+          class="text-input"
+          placeholder="Search this inventory…"
+        />
+        <button type="button" id="select-mode-button">Select items</button>
+      </div>
+
+      <div id="selection-toolbar" class="selection-toolbar" hidden>
+        <span id="selection-count"></span>
+        <button type="button" id="selection-give-button">Give selected to&hellip;</button>
+        <button type="button" id="selection-clear-button">Clear</button>
+      </div>
+      <div id="selection-give-panel"></div>
+
       <p id="inventory-empty" class="next-up" hidden></p>
       <p id="inventory-error" class="error-text" hidden></p>
       <div id="board-columns" class="board-columns"></div>
@@ -31,19 +136,53 @@ import Base from '../../layouts/Base.astro';
         >&times;</button
       >
       <h2 id="item-detail-title" class="display"></h2>
+      <p id="item-detail-slug" class="item-detail-slug" hidden></p>
       <p id="item-detail-qty" class="item-detail-qty" hidden></p>
       <dl id="item-detail-stats" class="item-detail-stats"></dl>
       <p id="item-detail-flags" class="item-detail-flags" hidden></p>
+      <div id="item-detail-ancestry" class="item-detail-ancestry" hidden>
+        <h3>Ancestry</h3>
+        <ul id="item-detail-ancestry-list"></ul>
+      </div>
       <div id="item-detail-descriptions" class="item-detail-descriptions"></div>
+      <a id="item-detail-view-link" class="action-link" href="">View standalone page</a>
+
+      <div class="item-detail-actions">
+        <button type="button" id="item-detail-give-button">Give to&hellip;</button>
+        <button type="button" id="item-detail-split-button">Split&hellip;</button>
+        <button type="button" id="item-detail-merge-button">Merge into&hellip;</button>
+      </div>
+      <div id="item-detail-action-panel"></div>
     </div>
   </dialog>
 
   <script>
+    import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { isAuthenticated } from '../../lib/auth';
+    import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
+    import { listBeings } from '../../lib/beings';
     import { listMyCharacters } from '../../lib/characters';
-    import { clearContainer, getOwnedItemInstances, setContainer } from '../../lib/items';
+    import {
+      bulkAssignItemInstances,
+      bulkMoveItemInstances,
+      clearContainer,
+      getOwnedItemInstances,
+      getUnownedItemInstances,
+      mergeItemInstance,
+      setContainer,
+      setOwner,
+      splitItemInstance,
+      unsetOwner,
+    } from '../../lib/items';
+    import { isCampaignGm } from '../../lib/me';
     import { getTenant } from '../../lib/tenants';
-    import type { CharacterSummary, ItemInstance, OwnedGroup } from '../../lib/types';
+    import type {
+      BeingRef,
+      CharacterSummary,
+      ItemInstance,
+      OwnedByResponse,
+      OwnedGroup,
+    } from '../../lib/types';
 
     const status = document.getElementById('status')!;
     const board = document.getElementById('board')!;
@@ -55,20 +194,203 @@ import Base from '../../layouts/Base.astro';
     const charactersError = document.getElementById('characters-error')!;
     const characterStrip = document.getElementById('character-strip')!;
 
-    const inventoryLoading = document.getElementById('inventory-loading')!;
+    const undoBanner = document.getElementById('undo-banner')!;
+    const undoMessage = document.getElementById('undo-message')!;
+    const undoButton = document.getElementById('undo-button') as HTMLButtonElement;
+
+    const inventoryViewing = document.getElementById('inventory-viewing')!;
+    const boardSearch = document.getElementById('board-search') as HTMLInputElement;
+    const selectModeButton = document.getElementById('select-mode-button') as HTMLButtonElement;
+    const selectionToolbar = document.getElementById('selection-toolbar')!;
+    const selectionCount = document.getElementById('selection-count')!;
+    const selectionGiveButton = document.getElementById(
+      'selection-give-button',
+    ) as HTMLButtonElement;
+    const selectionGivePanel = document.getElementById('selection-give-panel')!;
+    const selectionClearButton = document.getElementById(
+      'selection-clear-button',
+    ) as HTMLButtonElement;
     const inventoryEmpty = document.getElementById('inventory-empty')!;
     const inventoryError = document.getElementById('inventory-error')!;
     const boardColumns = document.getElementById('board-columns')!;
 
+    const pickerTablist = document.getElementById('picker-tablist')!;
+    const tabCharacters = document.getElementById('tab-characters') as HTMLButtonElement;
+    const tabBrowse = document.getElementById('tab-browse') as HTMLButtonElement;
+    const tabUnowned = document.getElementById('tab-unowned') as HTMLButtonElement;
+    const panelCharacters = document.getElementById('panel-characters')!;
+    const panelBrowse = document.getElementById('panel-browse')!;
+    const panelUnowned = document.getElementById('panel-unowned')!;
+
+    const gmBrowseCombobox = document.getElementById('gm-browse-combobox')!;
+    const gmBrowseSearch = document.getElementById('gm-browse-search') as HTMLInputElement;
+    const gmBrowseSuggestions = document.getElementById(
+      'gm-browse-suggestions',
+    ) as HTMLUListElement;
+    const gmBrowseRawId = document.getElementById('gm-browse-raw-id') as HTMLInputElement;
+    const gmBrowseRawIdButton = document.getElementById(
+      'gm-browse-raw-id-button',
+    ) as HTMLButtonElement;
+
+    // Your characters / Browse a being / Unowned items - three ways to pick
+    // whose inventory the board below shows, kept out of view as tabs
+    // instead of three stacked sections (the latter was the actual
+    // complaint: too much vertical real estate for GMs, who see all three).
+    // Non-GMs only ever have "Your characters" to pick from, so the tablist
+    // itself stays hidden for them - no point presenting a one-tab tab bar.
+    type PickerTab = 'characters' | 'browse' | 'unowned';
+    const pickerTabs: Record<PickerTab, HTMLButtonElement> = {
+      characters: tabCharacters,
+      browse: tabBrowse,
+      unowned: tabUnowned,
+    };
+    const pickerPanels: Record<PickerTab, HTMLElement> = {
+      characters: panelCharacters,
+      browse: panelBrowse,
+      unowned: panelUnowned,
+    };
+
+    function selectPickerTab(tab: PickerTab) {
+      for (const key of Object.keys(pickerTabs) as PickerTab[]) {
+        const isActive = key === tab;
+        pickerTabs[key].setAttribute('aria-selected', String(isActive));
+        pickerPanels[key].hidden = !isActive;
+      }
+    }
+
+    tabCharacters.addEventListener('click', () => selectPickerTab('characters'));
+    tabBrowse.addEventListener('click', () => selectPickerTab('browse'));
+    tabUnowned.addEventListener('click', () => {
+      selectPickerTab('unowned');
+      browseUnowned();
+    });
+
     const detailDialog = document.getElementById('item-detail') as HTMLDialogElement;
     const detailTitle = document.getElementById('item-detail-title')!;
+    const detailSlug = document.getElementById('item-detail-slug')!;
     const detailQty = document.getElementById('item-detail-qty')!;
     const detailStats = document.getElementById('item-detail-stats')!;
     const detailFlags = document.getElementById('item-detail-flags')!;
+    const detailAncestry = document.getElementById('item-detail-ancestry')!;
+    const detailAncestryList = document.getElementById(
+      'item-detail-ancestry-list',
+    ) as HTMLUListElement;
     const detailDescriptions = document.getElementById('item-detail-descriptions')!;
+    const detailViewLink = document.getElementById('item-detail-view-link') as HTMLAnchorElement;
+    const detailGiveButton = document.getElementById(
+      'item-detail-give-button',
+    ) as HTMLButtonElement;
+    const detailSplitButton = document.getElementById(
+      'item-detail-split-button',
+    ) as HTMLButtonElement;
+    const detailMergeButton = document.getElementById(
+      'item-detail-merge-button',
+    ) as HTMLButtonElement;
+    const detailActionPanel = document.getElementById('item-detail-action-panel')!;
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
+
+    // Set once at init (see the bottom of this script) - gates the
+    // GM-only "browse any being" section. Give/split/merge are player
+    // actions, not gated by this - the real authorization boundary is
+    // each write's own server-side check either way.
+    let userIsGm = false;
+
+    // How to refresh whatever board is currently shown - set by loadBoard/
+    // loadUnownedBoard, called after any action that might change what
+    // belongs here (give, split, merge, undo).
+    let reloadCurrentView: (() => void) | null = null;
+
+    // entity_id -> its ItemInstance, for everything currently rendered -
+    // lets the merge panel's "other stacks of this" lookup and the bulk
+    // give panel's item list work off data already in hand.
+    const boardItems = new Map<string, ItemInstance>();
+
+    // Multi-select (bulk actions) - only meaningful while selectMode is on.
+    let selectMode = false;
+    const selectedIds = new Set<string>();
+
+    // One-slot undo, mirroring apps/loot-bot's own convention (ADR 0068):
+    // each new undoable action overwrites whatever was pending, not a
+    // stack - this is "I just made a mistake," not a history browser.
+    // Bulk actions and deletes are deliberately not undoable here - a
+    // multi-item reversal needs per-item previous state, and a deleted
+    // instance's id is simply gone.
+    const UNDO_TTL_MS = 5 * 60 * 1000;
+    type UndoPayload =
+      | { kind: 'restore-owner'; entityId: string; previousOwnerId: string | null }
+      | { kind: 'restore-container'; entityId: string; previousContainerId: string | null }
+      | {
+          kind: 'undo-merge';
+          intoEntityId: string;
+          quantity: number;
+          previousOwnerId: string | null;
+        }
+      | { kind: 'undo-split'; splitOffEntityId: string; intoEntityId: string };
+    let pendingUndo: UndoPayload | null = null;
+    let undoTimeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    function recordUndo(payload: UndoPayload, description: string) {
+      pendingUndo = payload;
+      undoMessage.textContent = description;
+      undoBanner.hidden = false;
+      clearTimeout(undoTimeoutId);
+      undoTimeoutId = setTimeout(() => {
+        pendingUndo = null;
+        undoBanner.hidden = true;
+      }, UNDO_TTL_MS);
+    }
+
+    async function applyUndo() {
+      if (!pendingUndo) return;
+      const payload = pendingUndo;
+      pendingUndo = null;
+      clearTimeout(undoTimeoutId);
+      undoBanner.hidden = true;
+      try {
+        switch (payload.kind) {
+          case 'restore-owner':
+            if (payload.previousOwnerId) {
+              await setOwner(tenantId as string, payload.entityId, payload.previousOwnerId);
+            } else {
+              await unsetOwner(tenantId as string, payload.entityId);
+            }
+            break;
+          case 'restore-container':
+            if (payload.previousContainerId) {
+              await setContainer(tenantId as string, payload.entityId, payload.previousContainerId);
+            } else {
+              await clearContainer(tenantId as string, payload.entityId);
+            }
+            break;
+          case 'undo-merge':
+            // The merged-away instance's id is gone - this recreates an
+            // equivalent split-off stack rather than literally restoring
+            // the original, an accepted approximation (same one
+            // apps/loot-bot's own undo-merge documents).
+            await splitItemInstance(
+              tenantId as string,
+              payload.intoEntityId,
+              payload.quantity,
+              payload.previousOwnerId ?? undefined,
+            );
+            break;
+          case 'undo-split':
+            await mergeItemInstance(
+              tenantId as string,
+              payload.splitOffEntityId,
+              payload.intoEntityId,
+            );
+            break;
+        }
+        reloadCurrentView?.();
+      } catch (e) {
+        showTransientError(e instanceof Error ? e.message : String(e));
+      }
+    }
+
+    undoButton.addEventListener('click', () => void applyUndo());
 
     // Same-document View Transition when the browser supports it and the
     // user hasn't asked for reduced motion; a plain DOM mutation otherwise.
@@ -83,8 +405,22 @@ import Base from '../../layouts/Base.astro';
 
     let openCard: HTMLElement | null = null;
 
+    function closeDetailActionPanels() {
+      detailActionPanel.replaceChildren();
+      detailGiveButton.textContent = 'Give to…';
+      detailSplitButton.textContent = 'Split…';
+      detailMergeButton.textContent = 'Merge into…';
+    }
+
     function populateDetail(item: ItemInstance) {
       detailTitle.textContent = item.title;
+
+      detailViewLink.href = item.slug
+        ? `/item/?tenant=${tenantId}&slug=${encodeURIComponent(item.slug)}`
+        : `/item/?tenant=${tenantId}&id=${item.entity_id}`;
+
+      detailSlug.hidden = !item.slug;
+      detailSlug.textContent = item.slug ?? '';
 
       const showQty = Boolean(item.quantity && item.quantity > 1);
       detailQty.hidden = !showQty;
@@ -118,13 +454,47 @@ import Base from '../../layouts/Base.astro';
         p.textContent = description.content;
         detailDescriptions.append(p);
       }
+
+      closeDetailActionPanels();
+      detailSplitButton.disabled = !(item.quantity && item.quantity > 1);
+    }
+
+    // The full transitive ancestry (ADR 0073) is scoped to catalog Items,
+    // not instances - resolve the instance's own direct prototype first
+    // (ItemInstanceOut.prototype_ids, id-only), then walk *that* item's
+    // graph. Fire-and-forget from openDetail, guarded by a request id so
+    // opening a second item before the first fetch resolves can't clobber
+    // the now-current dialog with stale ancestry.
+    let ancestryRequestId = 0;
+    async function loadAncestry(item: ItemInstance) {
+      const thisRequest = ++ancestryRequestId;
+      const directId = item.prototype_ids[0];
+      if (!directId) {
+        detailAncestry.hidden = true;
+        return;
+      }
+      detailAncestry.hidden = false;
+      const loading = document.createElement('li');
+      loading.textContent = 'Loading…';
+      detailAncestryList.replaceChildren(loading);
+      try {
+        const rootLi = await fetchAncestryTree(tenantId as string, directId);
+        if (thisRequest !== ancestryRequestId) return;
+        detailAncestryList.replaceChildren(rootLi);
+      } catch {
+        if (thisRequest !== ancestryRequestId) return;
+        detailAncestry.hidden = true;
+      }
     }
 
     // The dialog borrows the clicked card's view-transition-name for the
     // duration it's open (and gives it back on close) - two different
     // elements sharing one name, one at a time, is what makes the browser
     // morph between them instead of just cross-fading.
+    let currentDetailItem: ItemInstance | null = null;
+
     function openDetail(item: ItemInstance, card: HTMLElement) {
+      currentDetailItem = item;
       openCard = card;
       withReflow(() => {
         card.style.viewTransitionName = '';
@@ -132,6 +502,7 @@ import Base from '../../layouts/Base.astro';
         populateDetail(item);
         detailDialog.showModal();
       });
+      void loadAncestry(item);
     }
 
     function closeDetail() {
@@ -163,6 +534,232 @@ import Base from '../../layouts/Base.astro';
       }
     });
 
+    // Give to… - a player action, always available, not GM-gated
+    // (ownership already accepts any entity id server-side, no
+    // character-only validation). An optional quantity splits off part of
+    // a stack instead of transferring the whole thing (via bulk-assign's
+    // own quantity delegation to split-with-owner).
+    detailGiveButton.addEventListener('click', () => {
+      const wasOpen = detailGiveButton.textContent === 'Cancel';
+      closeDetailActionPanels();
+      if (wasOpen || !currentDetailItem) return;
+
+      detailGiveButton.textContent = 'Cancel';
+      const item = currentDetailItem;
+      const hasStack = Boolean(item.quantity && item.quantity > 1);
+
+      const quantityField = document.createElement('label');
+      quantityField.className = 'field';
+      const quantityLabel = document.createElement('span');
+      quantityLabel.className = 'field-label';
+      quantityLabel.textContent = `How many? (of ${item.quantity}, blank for all)`;
+      const quantityInput = document.createElement('input');
+      quantityInput.type = 'number';
+      quantityInput.className = 'text-input';
+      quantityInput.min = '1';
+      if (item.quantity) quantityInput.max = String(item.quantity);
+      quantityField.append(quantityLabel, quantityInput);
+
+      const previousOwnerId = item.owner_entity_id;
+      const panel = renderBeingActionPanel(
+        tenantId as string,
+        async (being) => {
+          const rawQuantity = quantityInput.value.trim();
+          const quantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
+          if (quantity && item.quantity && quantity < item.quantity) {
+            const [result] = await bulkAssignItemInstances(tenantId as string, [
+              { entityId: item.entity_id, ownerCharacterId: being.entity_id, quantity },
+            ]);
+            if (result.status === 'error' || !result.item_instance) {
+              throw new Error(result.problem?.title ?? 'Could not give that.');
+            }
+            // The split-off instance is a *new* entity - restore-owner
+            // has nothing to restore it to; merging it back is the
+            // honest inverse instead.
+            recordUndo(
+              {
+                kind: 'undo-split',
+                splitOffEntityId: result.item_instance.entity_id,
+                intoEntityId: item.entity_id,
+              },
+              `Gave ${quantity} ${item.title} to ${being.name}.`,
+            );
+          } else {
+            await setOwner(tenantId as string, item.entity_id, being.entity_id);
+            recordUndo(
+              { kind: 'restore-owner', entityId: item.entity_id, previousOwnerId },
+              `Gave ${item.title} to ${being.name}.`,
+            );
+          }
+          return `Given to ${being.name}.`;
+        },
+        () => {
+          closeDetailActionPanels();
+          reloadCurrentView?.();
+        },
+        hasStack ? [quantityField] : [],
+      );
+      detailActionPanel.append(panel);
+    });
+
+    // Split… - splits part of a stack off into a new, same-owner sibling
+    // instance. Only meaningful for quantity > 1 (button disabled
+    // otherwise, see populateDetail).
+    detailSplitButton.addEventListener('click', () => {
+      const wasOpen = detailSplitButton.textContent === 'Cancel';
+      closeDetailActionPanels();
+      if (wasOpen || !currentDetailItem || detailSplitButton.disabled) return;
+
+      detailSplitButton.textContent = 'Cancel';
+      const item = currentDetailItem;
+      const panel = document.createElement('div');
+      panel.className = 'character-picker-panel';
+
+      const field = document.createElement('label');
+      field.className = 'field';
+      const label = document.createElement('span');
+      label.className = 'field-label';
+      label.textContent = `Split off how many? (of ${item.quantity})`;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'text-input';
+      input.min = '1';
+      input.max = String((item.quantity ?? 1) - 1);
+      field.append(label, input);
+
+      const submitButton = document.createElement('button');
+      submitButton.type = 'button';
+      submitButton.textContent = 'Split';
+
+      const statusEl = document.createElement('p');
+      statusEl.className = 'picker-status';
+      statusEl.hidden = true;
+
+      panel.append(field, submitButton, statusEl);
+
+      submitButton.addEventListener('click', async () => {
+        const quantity = Number.parseInt(input.value, 10);
+        if (!Number.isFinite(quantity) || quantity < 1) return;
+        submitButton.disabled = true;
+        try {
+          const splitOff = await splitItemInstance(tenantId as string, item.entity_id, quantity);
+          recordUndo(
+            {
+              kind: 'undo-split',
+              splitOffEntityId: splitOff.entity_id,
+              intoEntityId: item.entity_id,
+            },
+            `Split off ${quantity} ${item.title}.`,
+          );
+          statusEl.hidden = false;
+          statusEl.classList.remove('error-text');
+          statusEl.textContent = `Split off ${quantity}.`;
+          window.setTimeout(() => {
+            closeDetailActionPanels();
+            reloadCurrentView?.();
+          }, 1200);
+        } catch (e) {
+          statusEl.hidden = false;
+          statusEl.classList.add('error-text');
+          statusEl.textContent = e instanceof Error ? e.message : String(e);
+          submitButton.disabled = false;
+        }
+      });
+
+      detailActionPanel.append(panel);
+    });
+
+    // Two instances are the "same kind of item" for merge purposes if they
+    // share the same set of direct prototypes - title alone isn't reliable,
+    // since ADR 0067's title-fallback-to-entity-name means two entirely
+    // unrelated catalog items can display the same text. The merge endpoint
+    // itself only checks same-container/same-owner (see apps/api's
+    // item_instances.merge_item_instance), not item identity, so this
+    // filter is the only thing standing between a title collision and
+    // silently combining two different items' quantities.
+    function samePrototypes(a: string[], b: string[]): boolean {
+      if (a.length !== b.length) return false;
+      const bIds = new Set(b);
+      return a.every((id) => bIds.has(id));
+    }
+
+    // Merge into… - candidates are other stacks of the same item already
+    // visible on the current board (a same-tenant, same-view lookup off
+    // data already in hand, not a new search endpoint).
+    detailMergeButton.addEventListener('click', () => {
+      const wasOpen = detailMergeButton.textContent === 'Cancel';
+      closeDetailActionPanels();
+      if (wasOpen || !currentDetailItem) return;
+
+      detailMergeButton.textContent = 'Cancel';
+      const item = currentDetailItem;
+      const panel = document.createElement('div');
+      panel.className = 'character-picker-panel';
+
+      const candidates = [...boardItems.values()].filter(
+        (other) =>
+          other.entity_id !== item.entity_id &&
+          other.title === item.title &&
+          samePrototypes(other.prototype_ids, item.prototype_ids),
+      );
+
+      if (candidates.length === 0) {
+        const note = document.createElement('p');
+        note.className = 'field-note';
+        note.textContent = 'No other stack of this is visible on the current board.';
+        panel.append(note);
+        detailActionPanel.append(panel);
+        return;
+      }
+
+      const statusEl = document.createElement('p');
+      statusEl.className = 'picker-status';
+      statusEl.hidden = true;
+
+      const list = document.createElement('div');
+      list.className = 'merge-candidates';
+      for (const candidate of candidates) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent =
+          candidate.quantity && candidate.quantity > 1
+            ? `${candidate.title} ×${candidate.quantity}`
+            : candidate.title;
+        button.addEventListener('click', async () => {
+          for (const b of list.querySelectorAll('button')) (b as HTMLButtonElement).disabled = true;
+          try {
+            const merged = await mergeItemInstance(
+              tenantId as string,
+              item.entity_id,
+              candidate.entity_id,
+            );
+            recordUndo(
+              {
+                kind: 'undo-merge',
+                intoEntityId: candidate.entity_id,
+                quantity: item.quantity ?? 1,
+                previousOwnerId: item.owner_entity_id,
+              },
+              `Merged into ${merged.title}.`,
+            );
+            closeDetailActionPanels();
+            reloadCurrentView?.();
+          } catch (e) {
+            statusEl.hidden = false;
+            statusEl.classList.add('error-text');
+            statusEl.textContent = e instanceof Error ? e.message : String(e);
+            for (const b of list.querySelectorAll('button')) {
+              (b as HTMLButtonElement).disabled = false;
+            }
+          }
+        });
+        list.append(button);
+      }
+
+      panel.append(list, statusEl);
+      detailActionPanel.append(panel);
+    });
+
     function ensurePlaceholder(list: HTMLUListElement) {
       if (list.children.length === 0) {
         const empty = document.createElement('li');
@@ -184,16 +781,103 @@ import Base from '../../layouts/Base.astro';
       }, 5000);
     }
 
+    // --- Multi-select (bulk actions) ---
+
+    function updateSelectionToolbar() {
+      selectionToolbar.hidden = selectedIds.size === 0;
+      selectionCount.textContent = `${selectedIds.size} selected`;
+    }
+
+    function setCardSelected(card: HTMLLIElement, selected: boolean) {
+      card.classList.toggle('item-card--selected', selected);
+      const entityId = card.dataset.entityId;
+      if (!entityId) return;
+      if (selected) selectedIds.add(entityId);
+      else selectedIds.delete(entityId);
+      updateSelectionToolbar();
+    }
+
+    function clearSelection() {
+      for (const card of boardColumns.querySelectorAll<HTMLLIElement>('.item-card--selected')) {
+        card.classList.remove('item-card--selected');
+      }
+      selectedIds.clear();
+      updateSelectionToolbar();
+    }
+
+    selectModeButton.addEventListener('click', () => {
+      selectMode = !selectMode;
+      selectModeButton.textContent = selectMode ? 'Cancel selecting' : 'Select items';
+      selectModeButton.setAttribute('aria-pressed', String(selectMode));
+      if (!selectMode) clearSelection();
+    });
+
+    selectionClearButton.addEventListener('click', () => clearSelection());
+
+    // Give selected to… (bulk-assign) - same being-picker panel every
+    // other give/assign flow uses, over the current selection.
+    selectionGiveButton.addEventListener('click', () => {
+      const wasOpen = selectionGiveButton.textContent === 'Cancel';
+      selectionGivePanel.replaceChildren();
+      selectionGiveButton.textContent = 'Give selected to…';
+      if (wasOpen || selectedIds.size === 0) return;
+
+      selectionGiveButton.textContent = 'Cancel';
+      const ids = [...selectedIds];
+      const panel = renderBeingActionPanel(
+        tenantId as string,
+        async (being) => {
+          const results = await bulkAssignItemInstances(
+            tenantId as string,
+            ids.map((entityId) => ({ entityId, ownerCharacterId: being.entity_id })),
+          );
+          const failed = results.filter((r) => r.status === 'error');
+          // bulk-assign is never all-or-nothing (ADR 0044) - a total
+          // failure means nothing changed, so it's safe to just throw
+          // (leaves the panel open for retry, no reload needed). A
+          // partial failure already reassigned some items server-side,
+          // so it still has to fall through to onDone/reload below rather
+          // than throwing - otherwise the board silently drifts from
+          // what actually happened.
+          if (failed.length === results.length) {
+            throw new Error(`Couldn't give any of the ${ids.length} selected item(s).`);
+          }
+          if (failed.length > 0) {
+            showTransientError(`${failed.length} of ${ids.length} couldn't be given.`);
+          }
+          return failed.length > 0
+            ? `Gave ${ids.length - failed.length} of ${ids.length} item(s) to ${being.name}.`
+            : `Gave ${ids.length} item(s) to ${being.name}.`;
+        },
+        () => {
+          selectionGivePanel.replaceChildren();
+          selectionGiveButton.textContent = 'Give selected to…';
+          clearSelection();
+          selectMode = false;
+          selectModeButton.textContent = 'Select items';
+          selectModeButton.setAttribute('aria-pressed', 'false');
+          reloadCurrentView?.();
+        },
+      );
+      selectionGivePanel.append(panel);
+    });
+
     // dragenter/dragleave both fire while crossing child elements (a card
     // moving within its own column), so a plain "leave clears the
     // highlight" handler flickers - a per-column counter fixes that.
     const dragDepth = new WeakMap<HTMLElement, number>();
+    // Which container (or null, meaning "no container") each column's own
+    // card list represents - looked up on drop to know a move's *previous*
+    // container for undo, and to know whether a bulk move is possible.
+    const listContainerId = new Map<HTMLUListElement, string | null>();
 
     function bindDropZone(
       column: HTMLElement,
       list: HTMLUListElement,
       containerEntityId: string | null,
     ) {
+      listContainerId.set(list, containerEntityId);
+
       column.addEventListener('dragenter', (event) => {
         event.preventDefault();
         dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
@@ -230,25 +914,99 @@ import Base from '../../layouts/Base.astro';
         const sourceList = card.parentElement as HTMLUListElement;
         if (sourceList === list) return;
 
+        // Dragging a card that's part of a multi-selection (with more
+        // than just itself selected) moves the whole selection together.
+        const isBulk = selectMode && selectedIds.has(entityId) && selectedIds.size > 1;
+        const idsToMove = isBulk ? [...selectedIds] : [entityId];
+        const cardsToMove = idsToMove
+          .map((id) =>
+            boardColumns.querySelector<HTMLLIElement>(`.item-card[data-entity-id="${id}"]`),
+          )
+          .filter((c): c is HTMLLIElement => c !== null);
+        const previousContainerId = listContainerId.get(sourceList) ?? null;
+
         withReflow(() => {
           removePlaceholder(list);
-          list.append(card);
+          for (const c of cardsToMove) list.append(c);
           ensurePlaceholder(sourceList);
         });
 
-        const request = containerEntityId
-          ? setContainer(tenantId as string, entityId, containerEntityId)
-          : clearContainer(tenantId as string, entityId);
+        // Bulk endpoints are never all-or-nothing (ADR 0044/0065) - each
+        // resolves to a per-entry result, so a partial failure still needs
+        // to keep the DOM in sync with whichever entries actually moved
+        // server-side, not roll back the whole selection. failedIds is
+        // undefined for the single-item path, where any failure really is
+        // total and handled by the outer .catch below instead.
+        let request: Promise<{ failedIds: Set<string> } | undefined>;
+        if (isBulk && containerEntityId) {
+          request = bulkMoveItemInstances(tenantId as string, containerEntityId, idsToMove).then(
+            (results) => ({
+              failedIds: new Set(
+                results.filter((r) => r.status === 'error').map((r) => r.entity_id),
+              ),
+            }),
+          );
+        } else if (isBulk) {
+          // bulk-move has no "no container" mode - to_container_entity_id
+          // is required server-side, so clearing several at once still
+          // needs one clearContainer call per item. Settled individually
+          // (not Promise.all) so one rejection doesn't mask which of the
+          // others actually cleared.
+          request = Promise.allSettled(
+            idsToMove.map((id) => clearContainer(tenantId as string, id)),
+          ).then((settled) => ({
+            failedIds: new Set(
+              settled.flatMap((result, i) => (result.status === 'rejected' ? [idsToMove[i]] : [])),
+            ),
+          }));
+        } else {
+          request = (
+            containerEntityId
+              ? setContainer(tenantId as string, entityId, containerEntityId)
+              : clearContainer(tenantId as string, entityId)
+          ).then(() => undefined);
+        }
 
-        request.catch((e) => {
-          withReflow(() => {
-            removePlaceholder(sourceList);
-            sourceList.append(card);
-            ensurePlaceholder(list);
+        request
+          .then((result) => {
+            if (isBulk) {
+              const failedIds = result?.failedIds ?? new Set<string>();
+              if (failedIds.size > 0) {
+                withReflow(() => {
+                  removePlaceholder(sourceList);
+                  for (const c of cardsToMove) {
+                    if (failedIds.has(c.dataset.entityId ?? '')) sourceList.append(c);
+                  }
+                  ensurePlaceholder(list);
+                });
+                showTransientError(`${failedIds.size} of ${idsToMove.length} couldn't be moved.`);
+              }
+              // Multi-item moves aren't undoable here (would need
+              // per-item previous state) - deliberately not recorded.
+              clearSelection();
+              selectMode = false;
+              selectModeButton.textContent = 'Select items';
+              selectModeButton.setAttribute('aria-pressed', 'false');
+            } else {
+              recordUndo(
+                { kind: 'restore-container', entityId, previousContainerId },
+                `Moved ${boardItems.get(entityId)?.title ?? 'item'}.`,
+              );
+            }
+          })
+          .catch((e) => {
+            withReflow(() => {
+              removePlaceholder(sourceList);
+              for (const c of cardsToMove) sourceList.append(c);
+              ensurePlaceholder(list);
+            });
+            showTransientError(e instanceof Error ? e.message : String(e));
           });
-          showTransientError(e instanceof Error ? e.message : String(e));
-        });
       });
+    }
+
+    function matchesSearch(item: ItemInstance, query: string): boolean {
+      return !query || item.title.toLowerCase().includes(query);
     }
 
     function renderCard(item: ItemInstance): HTMLLIElement {
@@ -260,6 +1018,7 @@ import Base from '../../layouts/Base.astro';
       if (item.is_container) {
         li.classList.add('item-card--container');
       }
+      li.hidden = !matchesSearch(item, boardSearch.value.trim().toLowerCase());
 
       li.addEventListener('dragstart', (event) => {
         event.dataTransfer?.setData('text/plain', item.entity_id);
@@ -268,7 +1027,13 @@ import Base from '../../layouts/Base.astro';
         }
       });
 
-      li.addEventListener('click', () => openDetail(item, li));
+      li.addEventListener('click', () => {
+        if (selectMode) {
+          setCardSelected(li, !li.classList.contains('item-card--selected'));
+          return;
+        }
+        openDetail(item, li);
+      });
 
       const title = document.createElement('span');
       title.className = 'item-card-title';
@@ -299,6 +1064,7 @@ import Base from '../../layouts/Base.astro';
         ensurePlaceholder(list);
       } else {
         for (const item of group.item_instances) {
+          boardItems.set(item.entity_id, item);
           list.append(renderCard(item));
         }
       }
@@ -309,18 +1075,50 @@ import Base from '../../layouts/Base.astro';
       return section;
     }
 
-    async function loadBoard(characterEntityId: string, characterName: string) {
-      boardColumns.replaceChildren();
+    // Shared rendering for any OwnedByResponse-shaped source - "a being's
+    // own inventory" (owned-by/{id}) and "unowned loot" (unowned, ADR
+    // 0077) return the identical shape, so both boards use this unchanged.
+    // A couple of fake columns/cards shaped like the real thing, shown
+    // while the actual board loads - see the styles/normalize.css [hidden]
+    // fix and components.css .skeleton for why this works at all now.
+    function renderBoardSkeleton() {
+      boardColumns.setAttribute('aria-busy', 'true');
+      boardColumns.replaceChildren(
+        ...Array.from({ length: 2 }, () => {
+          const section = document.createElement('section');
+          section.className = 'board-column';
+          const list = document.createElement('ul');
+          list.className = 'column-cards';
+          for (let i = 0; i < 3; i++) {
+            const li = document.createElement('li');
+            li.className = 'item-card skeleton';
+            list.append(li);
+          }
+          section.append(list);
+          return section;
+        }),
+      );
+    }
+
+    async function loadBoardFromResponse(
+      fetchFn: () => Promise<OwnedByResponse>,
+      rootTitle: string,
+      emptyMessage: string,
+    ) {
+      boardItems.clear();
+      listContainerId.clear();
+      clearSelection();
       inventoryEmpty.hidden = true;
       inventoryError.hidden = true;
-      inventoryLoading.hidden = false;
+      renderBoardSkeleton();
       try {
-        const response = await getOwnedItemInstances(tenantId as string, characterEntityId);
-        inventoryLoading.hidden = true;
+        const response = await fetchFn();
+        boardColumns.replaceChildren();
+        boardColumns.removeAttribute('aria-busy');
         const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
         if (!hasAnything) {
           inventoryEmpty.hidden = false;
-          inventoryEmpty.textContent = `${characterName} isn't carrying anything yet.`;
+          inventoryEmpty.textContent = emptyMessage;
           return;
         }
         // The null-container group (things with no container, including
@@ -330,23 +1128,95 @@ import Base from '../../layouts/Base.astro';
           a.container === null ? -1 : b.container === null ? 1 : 0,
         );
         for (const group of ordered) {
-          boardColumns.append(renderColumn(group, characterName));
+          boardColumns.append(renderColumn(group, rootTitle));
         }
       } catch (e) {
-        inventoryLoading.hidden = true;
+        boardColumns.replaceChildren();
+        boardColumns.removeAttribute('aria-busy');
         inventoryError.hidden = false;
         inventoryError.textContent = e instanceof Error ? e.message : String(e);
       }
+    }
+
+    // entityId/rootTitle are deliberately generic, not character-specific -
+    // getOwnedItemInstances accepts any being's entity id, no
+    // character-only validation server-side (confirmed against
+    // apps/api's own source), so this same function already serves both
+    // "a player's own character" and "a GM browsing any being."
+    //
+    // prefetchedBoards holds requests already in flight (or settled) for a
+    // being's board, fired on hover/focus of its pill before the actual
+    // click - loadBoard consumes and discards the entry (one-shot: a later
+    // reload of the same being should hit the network again, not replay a
+    // now-stale response).
+    const prefetchedBoards = new Map<string, Promise<OwnedByResponse>>();
+
+    function prefetchBoard(entityId: string) {
+      if (prefetchedBoards.has(entityId)) return;
+      const request = getOwnedItemInstances(tenantId as string, entityId);
+      // Swallow here so an unclicked prefetch (hover without a follow-up
+      // click) never surfaces as an unhandled rejection - the original
+      // `request` reference kept in the map is untouched, so loadBoard's
+      // own await/catch still sees a real failure if the being is
+      // actually opened.
+      request.catch(() => {});
+      prefetchedBoards.set(entityId, request);
+    }
+
+    async function loadBoard(entityId: string, rootTitle: string) {
+      reloadCurrentView = () => void loadBoard(entityId, rootTitle);
+      const prefetched = prefetchedBoards.get(entityId);
+      prefetchedBoards.delete(entityId);
+      await loadBoardFromResponse(
+        () => prefetched ?? getOwnedItemInstances(tenantId as string, entityId),
+        rootTitle,
+        `${rootTitle} isn't carrying anything yet.`,
+      );
+    }
+
+    // GM-only: unclaimed loot, nobody's owned it yet (ADR 0077/#95).
+    async function loadUnownedBoard() {
+      reloadCurrentView = () => void loadUnownedBoard();
+      await loadBoardFromResponse(
+        () => getUnownedItemInstances(tenantId as string),
+        'Unowned',
+        "There's nothing unowned right now.",
+      );
     }
 
     function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
       for (const el of characterStrip.querySelectorAll('button')) {
         el.setAttribute('aria-pressed', String(el === button));
       }
+      inventoryViewing.hidden = true;
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
       window.history.replaceState({}, '', url);
       void loadBoard(character.entity_id, character.name);
+    }
+
+    // GM-only: browse any being's inventory - by search against
+    // GET /tenants/{t}/beings (ADR 0078: PCs, NPCs, and bare beings alike),
+    // or a raw entity id as a quick-entry shortcut. Deselects the "your
+    // characters" pill strip since none of the player's own characters is
+    // the one being shown.
+    function browseBeing(being: BeingRef) {
+      for (const el of characterStrip.querySelectorAll('button')) {
+        el.setAttribute('aria-pressed', 'false');
+      }
+      inventoryViewing.hidden = false;
+      inventoryViewing.textContent = `Viewing ${being.name}'s inventory.`;
+      void loadBoard(being.entity_id, being.name);
+    }
+
+    // GM-only: browse unowned loot (ADR 0077/#95).
+    function browseUnowned() {
+      for (const el of characterStrip.querySelectorAll('button')) {
+        el.setAttribute('aria-pressed', 'false');
+      }
+      inventoryViewing.hidden = false;
+      inventoryViewing.textContent = 'Viewing unowned items.';
+      void loadUnownedBoard();
     }
 
     async function loadCharacters(currentTenantId: string) {
@@ -366,6 +1236,8 @@ import Base from '../../layouts/Base.astro';
           button.textContent = character.name;
           button.setAttribute('aria-pressed', String(character.entity_id === selectedId));
           button.addEventListener('click', () => selectCharacter(character, button));
+          button.addEventListener('mouseenter', () => prefetchBoard(character.entity_id));
+          button.addEventListener('focus', () => prefetchBoard(character.entity_id));
           item.append(button);
           characterStrip.append(item);
 
@@ -380,6 +1252,49 @@ import Base from '../../layouts/Base.astro';
       }
     }
 
+    boardSearch.addEventListener('input', () => {
+      const query = boardSearch.value.trim().toLowerCase();
+      for (const card of boardColumns.querySelectorAll<HTMLLIElement>('.item-card')) {
+        const item = boardItems.get(card.dataset.entityId ?? '');
+        card.hidden = item ? !matchesSearch(item, query) : false;
+      }
+    });
+
+    let gmBrowseDebounce: ReturnType<typeof setTimeout> | undefined;
+    gmBrowseSearch.addEventListener('input', () => {
+      clearTimeout(gmBrowseDebounce);
+      const query = gmBrowseSearch.value.trim();
+      if (!query) {
+        gmBrowseSuggestions.hidden = true;
+        gmBrowseSuggestions.replaceChildren();
+        return;
+      }
+      gmBrowseDebounce = setTimeout(async () => {
+        const result = await listBeings(tenantId as string, query);
+        renderBeingSuggestions(gmBrowseSuggestions, result.items, (being) => {
+          gmBrowseSearch.value = being.name;
+          gmBrowseSuggestions.hidden = true;
+          browseBeing(being);
+        });
+      }, 200);
+    });
+
+    gmBrowseSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') gmBrowseSuggestions.hidden = true;
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!gmBrowseCombobox.contains(event.target as Node)) {
+        gmBrowseSuggestions.hidden = true;
+      }
+    });
+
+    gmBrowseRawIdButton.addEventListener('click', () => {
+      const id = gmBrowseRawId.value.trim();
+      if (!id) return;
+      browseBeing({ entity_id: id, name: id });
+    });
+
     if (!(await isAuthenticated())) {
       status.textContent = 'Not logged in. Go back and log in first.';
     } else if (!tenantId) {
@@ -392,6 +1307,17 @@ import Base from '../../layouts/Base.astro';
         tenantSlug.textContent = tenant.slug;
         board.hidden = false;
         await loadCharacters(tenantId);
+
+        userIsGm = await isCampaignGm();
+        if (userIsGm) {
+          const gmTools = document.getElementById('gm-tools')!;
+          const manageItemsLink = document.getElementById('manage-items-link') as HTMLAnchorElement;
+          manageItemsLink.href = `/items/?tenant=${tenantId}`;
+          gmTools.hidden = false;
+          pickerTablist.hidden = false;
+          tabBrowse.hidden = false;
+          tabUnowned.hidden = false;
+        }
       } catch (e) {
         status.textContent = e instanceof Error ? e.message : String(e);
       }
