@@ -25,3 +25,7 @@ Named explicitly, not hidden: platform-level events (suspend/unsuspend - no `ten
 ## Consequences
 
 - New migration + `models/audit_log.py`; `lorenzo_api/activity_log.py`; `schemas/activity_log.py` (`AuditLogEntryOut`); new `routers/activity_log.py` (or added to `routers/tenants.py`), registered in `main.py`; `record_activity` calls added at the seven listed mutation points.
+
+## Addendum ([ADR 0084](0084-activity-log-coverage-and-member-removal-notice.md))
+
+The "narrow first slice" and its any-tenant-member read gate are superseded: 0084 states what the log is for, replaces the seven hand-picked call sites with a coverage rule (any actor, GMs and admins included), and narrows reads to tenant OWNER/ORGA.
