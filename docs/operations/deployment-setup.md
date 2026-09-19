@@ -131,7 +131,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
    - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
    - **Build output directory**: `dist`
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own Pages project (below) can use the exact same variable names for its own, different values with no collision.
-6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/*` so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
+6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/**` (double star, not single — a single `*` doesn't match across `/`, so it would only catch changes to files directly in `apps/account-hub/` and silently never rebuild for anything under `src/`, which is everything that actually matters; confirmed against a real deploy that stopped rebuilding entirely) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
 
 ### `apps/account-hub`'s own Authgear application (ADR 0071)
 
@@ -155,7 +155,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
    - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
-6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/*` so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
+6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/**` (double star, not single — see `apps/account-hub`'s own note above) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
 
 ### `apps/inventory-web`'s own Authgear application
 

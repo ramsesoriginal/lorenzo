@@ -56,3 +56,9 @@ repo root:
 | `mise run format` | Autoformat |
 | `mise run test` | Run the test suite |
 | `mise run build` | Build the static site to `dist/` |
+
+## Deploy
+
+Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
+[docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsinventory-web)
+for the one-time setup.
