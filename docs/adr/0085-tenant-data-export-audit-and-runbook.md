@@ -1,6 +1,6 @@
 # 0085 - Tenant data export: audit of existing reads, three small missing read endpoints, and a runbook
 
-Status: proposed
+Status: accepted
 
 ## Context
 
