@@ -33,6 +33,7 @@ const CATEGORIES: readonly Readonly<{ title: string; commandNames: readonly stri
       "item",
       "move",
       "move-bulk",
+      "container-new",
       "merge",
       "rename",
       "give",

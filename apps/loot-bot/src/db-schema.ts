@@ -207,6 +207,70 @@ export type PendingUndo = typeof pendingUndo.$inferSelect;
 export type NewPendingUndoRow = typeof pendingUndo.$inferInsert;
 
 /**
+ * The catalog item `/container-new` instantiates a "sack" from (ADR 0094) -
+ * one row per Lorenzo tenant this bot serves. Stored here rather than looked
+ * up each time because the catalog API (`GET`/`POST /items`) requires a
+ * tenant `Membership`, which an ordinary player deliberately doesn't have
+ * (ADR 0050): a player can *instantiate* a prototype for their own
+ * character, but can't even list the catalog to find one. So whoever first
+ * runs the command with catalog access finds-or-creates it, and everyone
+ * after uses the stored id.
+ *
+ * Keyed by `tenant_id` so an id from one tenant can never be applied to
+ * another if this bot is ever pointed at a different one.
+ */
+export const containerPrototype = lootBotSchema.table("container_prototype", {
+  tenantId: text("tenant_id").primaryKey(),
+  prototypeEntityId: text("prototype_entity_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ContainerPrototype = typeof containerPrototype.$inferSelect;
+
+/**
+ * When a linked user first became eligible for Discord DMs of their Lorenzo
+ * notifications (ADR 0095) - stamped the first time the bridge sees them, so
+ * turning the feature on never DMs a user their whole existing inbox: only
+ * notifications created *after* this moment are ever sent. One row per
+ * Discord user, never updated.
+ */
+export const notificationEnrollment = lootBotSchema.table("notification_enrollment", {
+  discordUserId: text("discord_user_id").primaryKey(),
+  enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * The bridge's own ledger of what it has done with each Lorenzo
+ * notification, per Discord user (ADR 0095) - the "cursor" that lets it
+ * deliver a notification exactly once *without* marking it read in Lorenzo
+ * (which would silently empty the user's `apps/account-hub` inbox).
+ *
+ * `state`: `sending` (claimed by one run, so two overlapping scheduler runs
+ * can't both DM it; reclaimable once `claimedAt` is stale, in case a run
+ * died mid-send), `sent` (DM delivered), `undelivered` (Discord refused the
+ * DM - closed DMs; kept for the "couldn't DM you" banner on the user's next
+ * command), `noticed` (that banner was shown). `title`/`body` are stored
+ * *only* for `undelivered` rows - they're the one place the bot has to keep
+ * notification text, and only until the banner has shown it.
+ */
+export const notificationDelivery = lootBotSchema.table(
+  "notification_delivery",
+  {
+    discordUserId: text("discord_user_id").notNull(),
+    notificationId: text("notification_id").notNull(),
+    state: text("state").notNull(),
+    title: text("title"),
+    body: text("body"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.discordUserId, table.notificationId] })],
+);
+
+export type NotificationDeliveryState = "sending" | "sent" | "undelivered" | "noticed";
+export type NotificationDelivery = typeof notificationDelivery.$inferSelect;
+
+/**
  * What the bot itself saw happen to a character's belongings (ADR 0097) -
  * the source `/changes` reads. Bot-recorded only: anything done through
  * `apps/inventory-web`, `apps/account-hub`, or the API directly never

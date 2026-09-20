@@ -3,6 +3,7 @@ import { loadConfig } from "./config.js";
 import { createHttpServer, livezRoute } from "./http-server.js";
 import { createInteractionsRoute } from "./interactions-route.js";
 import { logger } from "./logger.js";
+import { createNotificationDeliveryRoute } from "./notification-route.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -21,6 +22,10 @@ async function main(): Promise<void> {
       // command, autocomplete, button/select-menu, and modal submit now
       // arrives as a signature-verified webhook POST here instead.
       ["/interactions", createInteractionsRoute({ config, logger })],
+      // Cloud Scheduler's timer-driven notification -> DM run (ADR 0095).
+      // Answers 404 unless NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT is set, and
+      // only ever serves a request carrying that service account's OIDC token.
+      ["/internal/deliver-notifications", createNotificationDeliveryRoute({ config, logger })],
     ]),
     { port: config.httpPort, logger },
   );

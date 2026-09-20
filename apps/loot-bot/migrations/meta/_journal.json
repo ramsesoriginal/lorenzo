@@ -33,8 +33,22 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1789907438857,
-      "tag": "0004_character_events",
+      "when": 1789902426409,
+      "tag": "0004_container_prototype",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789919359991,
+      "tag": "0005_notification_bridge",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789920785803,
+      "tag": "0006_character_events",
       "breakpoints": true
     }
   ]

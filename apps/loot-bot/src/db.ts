@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { DatabaseError, Pool } from "pg";
 import { loadConfig } from "./config.js";
@@ -10,13 +10,17 @@ import {
   type LootClaim,
   type LootDrop,
   type NewLinkedAccountRow,
+  type NotificationDelivery,
   type PendingUndo,
   type PlayerPreference,
   changesSeen,
   characterEvent,
+  containerPrototype,
   linkedAccount,
   lootClaim,
   lootDrop,
+  notificationDelivery,
+  notificationEnrollment,
   pendingUndo,
   playerPreference,
 } from "./db-schema.js";
@@ -29,6 +33,7 @@ export type {
   LootClaim,
   ClaimType,
   PendingUndo,
+  NotificationDelivery,
   CharacterEvent,
 };
 export { GLOBAL_PREFERENCE_CHANNEL_ID };
@@ -49,6 +54,9 @@ const db = drizzle(pool, {
     lootDrop,
     lootClaim,
     pendingUndo,
+    containerPrototype,
+    notificationEnrollment,
+    notificationDelivery,
     characterEvent,
     changesSeen,
   },
@@ -476,6 +484,193 @@ export async function setPendingUndo(
  * might retry against outdated state). */
 export async function deletePendingUndo(discordUserId: string): Promise<void> {
   await db.delete(pendingUndo).where(eq(pendingUndo.discordUserId, discordUserId));
+}
+
+/** The stored id of the catalog item `/container-new` makes sacks from, for
+ * one tenant (ADR 0094), or `undefined` if nobody with catalog access has
+ * set it up yet. */
+export async function getContainerPrototypeId(tenantId: string): Promise<string | undefined> {
+  const rows = await db
+    .select()
+    .from(containerPrototype)
+    .where(eq(containerPrototype.tenantId, tenantId))
+    .limit(1);
+  return rows[0]?.prototypeEntityId;
+}
+
+/** Stores (or replaces) the sack prototype for a tenant. An upsert rather
+ * than an insert: two people racing the very first `/container-new` may both
+ * find-or-create, and the last write winning is harmless - they resolve to
+ * the same "Sack" by name, or to two equivalent ones. */
+export async function setContainerPrototypeId(
+  tenantId: string,
+  prototypeEntityId: string,
+): Promise<void> {
+  await db
+    .insert(containerPrototype)
+    .values({ tenantId, prototypeEntityId })
+    .onConflictDoUpdate({
+      target: containerPrototype.tenantId,
+      set: { prototypeEntityId, createdAt: new Date() },
+    });
+}
+
+/** Idempotent, like every other `delete*` here - called when the stored
+ * prototype turns out to no longer exist, so the next run re-resolves it. */
+export async function clearContainerPrototypeId(tenantId: string): Promise<void> {
+  await db.delete(containerPrototype).where(eq(containerPrototype.tenantId, tenantId));
+}
+
+/** Every linked Discord user id - what the notification bridge (ADR 0095)
+ * walks, since only a linked user has a stored token to read their own
+ * notifications with. */
+export async function listLinkedDiscordUserIds(): Promise<readonly string[]> {
+  const rows = await db.select({ id: linkedAccount.discordUserId }).from(linkedAccount);
+  return rows.map((row) => row.id);
+}
+
+/**
+ * When this user became eligible for notification DMs, stamping *now* on
+ * their first ever call (ADR 0095): the bridge only DMs notifications
+ * created after this, so enabling it never floods anyone with their existing
+ * inbox. The stamp is written once and never moves.
+ */
+export async function getOrCreateNotificationEnrollment(discordUserId: string): Promise<Date> {
+  await db.insert(notificationEnrollment).values({ discordUserId }).onConflictDoNothing();
+  const rows = await db
+    .select()
+    .from(notificationEnrollment)
+    .where(eq(notificationEnrollment.discordUserId, discordUserId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new Error(`notification_enrollment row missing for ${discordUserId}`);
+  return row.enrolledAt;
+}
+
+/** How long a `sending` claim is honoured before another run may take it
+ * over - long enough for a real send to finish, short enough that a run
+ * which died mid-send doesn't strand a notification for good. */
+const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+/**
+ * Atomically claims one notification for delivery to one user: `true` means
+ * this caller (and only this caller) should send it. One
+ * `INSERT ... ON CONFLICT DO UPDATE ... WHERE`, not check-then-write, so two
+ * overlapping scheduler runs (or two Cloud Run instances) can never both
+ * DM the same notification. An existing row is only takeable when it is a
+ * *stale* `sending` claim; `sent`/`undelivered`/`noticed` are terminal here.
+ */
+export async function claimNotificationDelivery(
+  discordUserId: string,
+  notificationId: string,
+): Promise<boolean> {
+  const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+  const rows = await db
+    .insert(notificationDelivery)
+    .values({ discordUserId, notificationId, state: "sending" })
+    .onConflictDoUpdate({
+      target: [notificationDelivery.discordUserId, notificationDelivery.notificationId],
+      set: { claimedAt: new Date(), updatedAt: new Date() },
+      setWhere: sql`${notificationDelivery.state} = 'sending' AND ${notificationDelivery.claimedAt} < ${staleBefore.toISOString()}::timestamptz`,
+    })
+    .returning({ id: notificationDelivery.notificationId });
+  return rows.length > 0;
+}
+
+/** The DM went out. */
+export async function markNotificationSent(
+  discordUserId: string,
+  notificationId: string,
+): Promise<void> {
+  await db
+    .update(notificationDelivery)
+    .set({ state: "sent", updatedAt: new Date() })
+    .where(deliveryKey(discordUserId, notificationId));
+}
+
+/** Discord refused the DM (closed DMs). Keeps the text - and only here - so
+ * the "couldn't DM you" banner can show it on the user's next command. */
+export async function markNotificationUndelivered(
+  discordUserId: string,
+  notificationId: string,
+  fields: { title: string; body: string },
+): Promise<void> {
+  await db
+    .update(notificationDelivery)
+    .set({ state: "undelivered", ...fields, updatedAt: new Date() })
+    .where(deliveryKey(discordUserId, notificationId));
+}
+
+/** Gives up a claim after a *transient* send failure, so the next scheduler
+ * run retries. Only ever removes a `sending` row - never a finished one. */
+export async function releaseNotificationClaim(
+  discordUserId: string,
+  notificationId: string,
+): Promise<void> {
+  await db
+    .delete(notificationDelivery)
+    .where(
+      and(deliveryKey(discordUserId, notificationId), eq(notificationDelivery.state, "sending")),
+    );
+}
+
+/** The notifications Discord wouldn't let the bot DM this user, oldest
+ * first - what the "couldn't DM you" banner shows. Capped, so a long
+ * outage can't make the banner (or this query) unbounded. */
+export async function listUndeliveredNotifications(
+  discordUserId: string,
+  limit = 50,
+): Promise<readonly NotificationDelivery[]> {
+  return db
+    .select()
+    .from(notificationDelivery)
+    .where(
+      and(
+        eq(notificationDelivery.discordUserId, discordUserId),
+        eq(notificationDelivery.state, "undelivered"),
+      ),
+    )
+    .orderBy(asc(notificationDelivery.updatedAt), asc(notificationDelivery.notificationId))
+    .limit(limit);
+}
+
+/** The banner showed these; they won't show again, and their text is dropped. */
+export async function markNotificationsNoticed(
+  discordUserId: string,
+  notificationIds: readonly string[],
+): Promise<void> {
+  if (notificationIds.length === 0) return;
+  await db
+    .update(notificationDelivery)
+    .set({ state: "noticed", title: null, body: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(notificationDelivery.discordUserId, discordUserId),
+        eq(notificationDelivery.state, "undelivered"),
+        inArray(notificationDelivery.notificationId, [...notificationIds]),
+      ),
+    );
+}
+
+/** Drops finished ledger rows older than `olderThan`. Must stay comfortably
+ * longer than the bridge's own age cap on what it will deliver, or a
+ * still-unread old notification could be delivered a second time. */
+export async function pruneNotificationDeliveries(olderThan: Date): Promise<void> {
+  await db
+    .delete(notificationDelivery)
+    .where(
+      and(
+        inArray(notificationDelivery.state, ["sent", "noticed"]),
+        lt(notificationDelivery.updatedAt, olderThan),
+      ),
+    );
+}
+
+function deliveryKey(discordUserId: string, notificationId: string) {
+  return and(
+    eq(notificationDelivery.discordUserId, discordUserId),
+    eq(notificationDelivery.notificationId, notificationId),
+  );
 }
 
 export type NewCharacterEvent = Readonly<{

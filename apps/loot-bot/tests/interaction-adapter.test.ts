@@ -209,6 +209,27 @@ describe("buildAdapterInteraction - message component (type 3)", () => {
     expect(await updateBuilt.firstResponse).toEqual({ type: 7, data: { content: "refreshed" } });
   });
 
+  it("a select menu supports deferUpdate then editReply, editing the message it's on", async () => {
+    const built = buildAdapterInteraction(
+      basePayload({
+        type: 3,
+        data: { custom_id: "container-new:fill:sack-1", component_type: 3, values: ["a", "b"] },
+      }),
+    );
+    const interaction = built?.interaction;
+    if (!interaction || !built || !interaction.isStringSelectMenu()) {
+      throw new Error("expected select menu");
+    }
+
+    await interaction.deferUpdate();
+    expect(await built.firstResponse).toEqual({ type: 6 });
+    await interaction.editReply({ content: "Put 2 items in.", components: [] });
+    expect(editOriginalInteractionResponse).toHaveBeenCalledWith(APPLICATION_ID, TOKEN, {
+      content: "Put 2 items in.",
+      components: [],
+    });
+  });
+
   it("a button component supports deferUpdate then editReply", async () => {
     const built = buildAdapterInteraction(
       basePayload({ type: 3, data: { custom_id: "drop:apply:1", component_type: 2 } }),

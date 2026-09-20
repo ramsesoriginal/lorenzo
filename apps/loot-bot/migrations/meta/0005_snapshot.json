@@ -1,6 +1,6 @@
 {
-  "id": "d88f27e7-5d67-4baa-ba99-3d7422e0ecca",
-  "prevId": "6af8ffa2-7849-458d-b8ef-16ea007f6527",
+  "id": "67e80c06-9113-41fe-8152-eb66f7b3ba26",
+  "prevId": "d88f27e7-5d67-4baa-ba99-3d7422e0ecca",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -229,6 +229,94 @@
         },
         "created_at": {
           "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "loot_bot.notification_delivery": {
+      "name": "notification_delivery",
+      "schema": "loot_bot",
+      "columns": {
+        "discord_user_id": {
+          "name": "discord_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notification_id": {
+          "name": "notification_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "notification_delivery_discord_user_id_notification_id_pk": {
+          "name": "notification_delivery_discord_user_id_notification_id_pk",
+          "columns": ["discord_user_id", "notification_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "loot_bot.notification_enrollment": {
+      "name": "notification_enrollment",
+      "schema": "loot_bot",
+      "columns": {
+        "discord_user_id": {
+          "name": "discord_user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "enrolled_at": {
+          "name": "enrolled_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,

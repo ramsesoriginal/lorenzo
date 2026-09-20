@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Real-Postgres tests, no mocking the database - conceptually mirrors
@@ -538,6 +538,244 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
     await expect(
       db.deleteLootDrop("00000000-0000-0000-0000-000000000000"),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe.skipIf(!canRunDbTests)("container_prototype (real Postgres)", () => {
+  const TENANT = "db-test-tenant-sack";
+  const OTHER_TENANT = "db-test-tenant-sack-other";
+
+  afterEach(async () => {
+    await db.clearContainerPrototypeId(TENANT);
+    await db.clearContainerPrototypeId(OTHER_TENANT);
+  });
+
+  it("returns undefined for a tenant nobody has set a sack up for", async () => {
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+  });
+
+  it("stores and returns the prototype id", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-1");
+  });
+
+  it("replaces an existing id rather than failing - two racing first runs are harmless", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.setContainerPrototypeId(TENANT, "prototype-2");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-2");
+  });
+
+  it("keeps each tenant's prototype separate", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.setContainerPrototypeId(OTHER_TENANT, "prototype-other");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-1");
+    await expect(db.getContainerPrototypeId(OTHER_TENANT)).resolves.toBe("prototype-other");
+  });
+
+  it("clears it, and clearing an unset one is a no-op", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.clearContainerPrototypeId(TENANT);
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+    await expect(db.clearContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+  });
+});
+
+describe.skipIf(!canRunDbTests)("notification bridge ledger (real Postgres)", () => {
+  const USER = "db-test-notify-user";
+  const OTHER_USER = "db-test-notify-other-user";
+  const LINKED = "db-test-notify-linked-user";
+
+  async function wipe() {
+    // Finish and prune everything these tests could have left, wherever it got to.
+    for (const id of ["n-1", "n-2", "n-3", "n-4"]) {
+      for (const user of [USER, OTHER_USER]) {
+        await db.releaseNotificationClaim(user, id);
+      }
+    }
+    await db.pruneNotificationDeliveries(new Date(Date.now() + 60_000));
+    await db.markNotificationsNoticed(USER, ["n-1", "n-2", "n-3", "n-4"]);
+    await db.markNotificationsNoticed(OTHER_USER, ["n-1", "n-2", "n-3", "n-4"]);
+    await db.pruneNotificationDeliveries(new Date(Date.now() + 60_000));
+    await db.deleteLinkedAccount(LINKED);
+  }
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await wipe();
+  });
+
+  describe("listLinkedDiscordUserIds", () => {
+    it("lists linked users", async () => {
+      await db.upsertLinkedAccount({
+        discordUserId: LINKED,
+        authgearSubjectId: "authgear|db-test-notify-subject",
+        refreshTokenEncrypted: Buffer.from("r"),
+      });
+
+      await expect(db.listLinkedDiscordUserIds()).resolves.toContain(LINKED);
+    });
+  });
+
+  describe("getOrCreateNotificationEnrollment", () => {
+    it("stamps 'now' on first sight, and never moves it afterwards", async () => {
+      const before = Date.now();
+      const first = await db.getOrCreateNotificationEnrollment(USER);
+      const second = await db.getOrCreateNotificationEnrollment(USER);
+
+      expect(first.getTime()).toBeGreaterThanOrEqual(before - 5000);
+      expect(second.getTime()).toBe(first.getTime());
+    });
+  });
+
+  describe("claimNotificationDelivery", () => {
+    it("lets exactly one of several racing claims win", async () => {
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () => db.claimNotificationDelivery(USER, "n-1")),
+      );
+
+      expect(results.filter(Boolean)).toHaveLength(1);
+    });
+
+    it("keeps claims separate per user and per notification", async () => {
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(true);
+      expect(await db.claimNotificationDelivery(OTHER_USER, "n-1")).toBe(true);
+      expect(await db.claimNotificationDelivery(USER, "n-2")).toBe(true);
+    });
+
+    it("won't re-claim one that's in flight...", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(false);
+    });
+
+    it("...but will take over one whose run evidently died mid-send", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      vi.spyOn(Date, "now").mockReturnValue(Date.now() + 11 * 60 * 1000);
+
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(true);
+    });
+
+    it.each([
+      ["sent", async () => db.markNotificationSent(USER, "n-1")],
+      [
+        "undelivered",
+        async () => db.markNotificationUndelivered(USER, "n-1", { title: "t", body: "b" }),
+      ],
+    ])("never re-claims a %s one, however old - it's finished", async (_state, finish) => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      await finish();
+      vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60 * 60 * 1000);
+
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(false);
+    });
+  });
+
+  describe("releaseNotificationClaim", () => {
+    it("frees a claim so the next run can take it", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      await db.releaseNotificationClaim(USER, "n-1");
+
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(true);
+    });
+
+    it("never removes a finished row - a sent notification must stay sent", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      await db.markNotificationSent(USER, "n-1");
+      await db.releaseNotificationClaim(USER, "n-1");
+
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(false);
+    });
+  });
+
+  describe("undelivered notifications and the banner", () => {
+    async function queue(id: string, title: string) {
+      await db.claimNotificationDelivery(USER, id);
+      await db.markNotificationUndelivered(USER, id, { title, body: `${title} body` });
+    }
+
+    it("lists what Discord wouldn't deliver, with its text, oldest first", async () => {
+      await queue("n-1", "First");
+      await queue("n-2", "Second");
+
+      const rows = await db.listUndeliveredNotifications(USER);
+
+      expect(rows.map((r) => [r.notificationId, r.title, r.body])).toEqual([
+        ["n-1", "First", "First body"],
+        ["n-2", "Second", "Second body"],
+      ]);
+    });
+
+    it("lists only this user's, and not ones that were delivered fine", async () => {
+      await queue("n-1", "Mine");
+      await db.claimNotificationDelivery(USER, "n-2");
+      await db.markNotificationSent(USER, "n-2");
+      await db.claimNotificationDelivery(OTHER_USER, "n-3");
+      await db.markNotificationUndelivered(OTHER_USER, "n-3", { title: "Theirs", body: "x" });
+
+      const rows = await db.listUndeliveredNotifications(USER);
+
+      expect(rows.map((r) => r.notificationId)).toEqual(["n-1"]);
+    });
+
+    it("honours a limit", async () => {
+      await queue("n-1", "A");
+      await queue("n-2", "B");
+      await queue("n-3", "C");
+
+      expect(await db.listUndeliveredNotifications(USER, 2)).toHaveLength(2);
+    });
+
+    it("marks shown ones noticed, drops their stored text, and leaves the rest queued", async () => {
+      await queue("n-1", "Shown");
+      await queue("n-2", "Still waiting");
+
+      await db.markNotificationsNoticed(USER, ["n-1"]);
+
+      const rows = await db.listUndeliveredNotifications(USER);
+      expect(rows.map((r) => r.notificationId)).toEqual(["n-2"]);
+      // ...and a noticed one is finished: it can't be claimed and sent again.
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(false);
+    });
+
+    it("does nothing for an empty list, and can't resurrect or alter a sent one", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      await db.markNotificationSent(USER, "n-1");
+
+      await db.markNotificationsNoticed(USER, []);
+      await db.markNotificationsNoticed(USER, ["n-1"]);
+
+      expect(await db.listUndeliveredNotifications(USER)).toEqual([]);
+    });
+  });
+
+  describe("pruneNotificationDeliveries", () => {
+    it("drops finished rows older than the cutoff, but never a queued one", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      await db.markNotificationSent(USER, "n-1");
+      await db.claimNotificationDelivery(USER, "n-2");
+      await db.markNotificationUndelivered(USER, "n-2", { title: "t", body: "b" });
+
+      await db.pruneNotificationDeliveries(new Date(Date.now() + 60_000));
+
+      // n-1 was pruned, so it's claimable again; n-2 is still queued.
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(true);
+      expect((await db.listUndeliveredNotifications(USER)).map((r) => r.notificationId)).toEqual([
+        "n-2",
+      ]);
+    });
+
+    it("keeps rows newer than the cutoff", async () => {
+      await db.claimNotificationDelivery(USER, "n-1");
+      await db.markNotificationSent(USER, "n-1");
+
+      await db.pruneNotificationDeliveries(new Date(Date.now() - 60 * 60 * 1000));
+
+      expect(await db.claimNotificationDelivery(USER, "n-1")).toBe(false);
+    });
   });
 });
 

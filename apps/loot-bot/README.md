@@ -55,6 +55,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/add-to-group` | Adds a character to a group, creating it (with that character as its first member) if it doesn't exist yet |
 | `/add-channel-to-group` | GM-only: adds every recently-active poster's characters in this channel to a group, creating it if needed |
 | `/move-bulk` | Empties one of your containers into another, in one call |
+| `/container-new` | Makes a named sack owned by your character, then lets you pick which of your loose items go inside — no leaving Discord ([ADR 0094](../../docs/adr/0094-loot-bot-container-new.md)). Needs a "Sack" catalog item, set up once by anyone with catalog access |
 | `/changes` | What's happened to your characters' belongings since you last looked — gifts, awards, confiscations, drop takes and honored claims — private; `history:true` for the recent past. **Only shows changes made through this bot** ([ADR 0097](../../docs/adr/0097-loot-bot-changes.md)) |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
@@ -76,7 +77,16 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 - `src/pending-bulk-give.ts` — short-lived token storage for `/give-bulk`'s own two-step (pick items, then pick target) select-menu flow, mirroring `src/pending-links.ts`'s shape.
 - `src/commands/group-lookup.ts` — `resolveOrCreateGroup`: "an existing group by exact name, or a fresh one with initial members" shared by `/add-to-group`/`/add-channel-to-group`.
 - `src/lorenzo-client.ts` — a thin wrapper over a generated (`openapi-typescript`/`openapi-fetch`) typed client for `apps/api`. Regenerate with `mise run generate-client` after `apps/api`'s OpenAPI schema changes — CI's `client-drift` job (`mise run check-client`, which dumps a fresh schema and diffs the result) fails if you forget.
-- `src/db-schema.ts`/`src/db.ts` — Drizzle ORM over the bot's own `loot_bot` Postgres schema (`linked_account`, `player_preference`, `loot_drop`, `loot_claim`, `pending_undo`) — entirely separate from `apps/api`'s own tenant-scoped, RLS'd tables. `player_preference` is keyed per `(discord_user_id, discord_channel_id)`; `loot_claim` carries a `claim_type` (need/greed) tier.
+- `src/db-schema.ts`/`src/db.ts` — Drizzle ORM over the bot's own `loot_bot` Postgres schema (`linked_account`, `player_preference`, `loot_drop`, `loot_claim`, `pending_undo`) — entirely separate from `apps/api`'s own tenant-scoped, RLS'd tables. `player_preference` is keyed per `(discord_user_id, discord_channel_id)`; `loot_claim` carries a `claim_type` (need/greed) tier. `notification_enrollment`/`notification_delivery` are the notification bridge's own ledger (below).
+- `src/notification-bridge.ts`/`src/notification-route.ts`/`src/scheduler-auth.ts`/`src/undelivered-notice.ts`/`src/format-notification.ts` — the notification → Discord DM bridge (below): the delivery run, its Cloud Scheduler-facing route and OIDC check, the "couldn't DM you" banner shown after a user's next command, and how notifications look.
+
+## Notification DMs (optional)
+
+Each linked user's own unread Lorenzo notifications can be sent to them as Discord DMs ([ADR 0095](../../docs/adr/0095-loot-bot-notification-dms.md)). It's **off unless `NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT` is set** - one-time Cloud Scheduler setup in [`docs/operations/deployment-setup.md`](../../docs/operations/deployment-setup.md), which is what calls `POST /internal/deliver-notifications` on a timer (the bot scales to zero, so it can't poll for itself).
+
+- Every read is made **as the recipient**, with their own stored token; there is no shared token that can read anyone's inbox. It never marks a notification read in Lorenzo, so `apps/account-hub`'s inbox is left as it was.
+- Only notifications for this bot's tenant (or platform-wide ones) that were created **after a user was first seen** are sent, at most 5 per user per run, none older than 7 days - turning it on never DMs anyone their existing inbox.
+- If Discord says a user's DMs are closed, the notification isn't lost: it's held, and the next time that user runs any command they get a private "couldn't DM you" message listing what they missed.
 
 ## Deployment
 

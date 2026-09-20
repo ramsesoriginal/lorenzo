@@ -122,6 +122,10 @@ export type StringSelectMenuInteraction = RepliableInteraction &
     showModal(modal: ModalLike): Promise<void>;
     update(opts: MessagePayload): Promise<void>;
     deferUpdate(): Promise<void>;
+    /** Edits the message the menu is on, after `deferUpdate` acknowledged
+     * the pick - for work that can outlast Discord's 3-second ack window
+     * (`/container-new`'s fill, ADR 0094). */
+    editReply(opts: MessagePayload): Promise<SentMessage>;
   }>;
 
 export type ButtonInteraction = RepliableInteraction &
