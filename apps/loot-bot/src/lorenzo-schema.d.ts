@@ -148,12 +148,18 @@ export interface paths {
         };
         /**
          * List Activity Log
-         * @description See ADR 0063 - a first, deliberately narrow slice: only membership
-         *     and campaign/GM lifecycle events are logged (`lorenzo_api.
-         *     activity_log.record_activity`'s own call sites), not an exhaustive
-         *     record of every mutation in the API. Gated by `get_tenant_context`,
-         *     the same bar `list_tenant_roster` already uses - any tenant-wide
-         *     member, not OWNER-only.
+         * @description An accountability timeline for tenant administrators: who changed
+         *     what shape this tenant has, who can see or do what in it, and who
+         *     holds what - by any actor, GMs included (ADR 0063/0084). What is
+         *     recorded, and what is deliberately not, is ADR 0084's coverage rule;
+         *     a mutation route either calls `activity_log.record_activity` or says
+         *     in its own docstring why it doesn't.
+         *
+         *     Gated by `get_tenant_context`. That means "OWNER or ORGA" only because
+         *     every `MembershipRole` is administrative - GMs and players without a
+         *     Membership row get a 404. `tests/test_activity_log_access.py` fails if
+         *     a non-administrative role is ever added, at which point this gate must
+         *     become an explicit `is_tenant_admin` check in the same change.
          */
         get: operations["list_activity_log"];
         put?: never;
@@ -413,6 +419,11 @@ export interface paths {
          *     row and a Membership(role=OWNER) for the caller - they become the new
          *     tenant's owner atomically, the same "create the whole coherent unit in
          *     one commit" precedent every other CRUD RFC here already follows.
+         *
+         *     Deliberately not recorded in the activity log (ADR 0084): the log is
+         *     per-tenant and its RLS needs `app.tenant_id` set, which this route
+         *     runs before - `tenant.created_by` and the OWNER membership already say
+         *     who created it.
          */
         post: operations["create_tenant"];
         delete?: never;
@@ -959,7 +970,8 @@ export interface paths {
          *     entity.name/updated_by, not any Character column; reassigning
          *     owner_player_id touches character.owner_player_id/updated_by (and folds
          *     the new owner into the roster too, if not already present) but never
-         *     entity's own columns.
+         *     entity's own columns. A rename is deliberately not recorded in the
+         *     activity log (ADR 0084); an owner reassignment is.
          */
         patch: operations["update_character"];
         trace?: never;
@@ -1203,7 +1215,10 @@ export interface paths {
         get?: never;
         /**
          * Set Entity Stat
-         * @description Sets (creating or overwriting) entity_id's own direct value for one
+         * @description Deliberately not recorded in the activity log (ADR 0084: stat-value
+         *     writes are descriptive-content edits, not structural changes).
+         *
+         *     Sets (creating or overwriting) entity_id's own direct value for one
          *     stat_definition - see ADR 0037/RFC 0008. Returns the full
          *     EntityDetailOut, not a narrower per-stat shape: this write is
          *     entity-generic (a character's hp, an item's or item-instance's weight,
@@ -1307,7 +1322,8 @@ export interface paths {
         /**
          * Update Group
          * @description Rename only - a group has nothing else of its own to update. See
-         *     ADR 0064.
+         *     ADR 0064. Deliberately not recorded in the activity log (ADR 0084:
+         *     renames are descriptive-content edits).
          */
         patch: operations["update_group"];
         trace?: never;
@@ -1567,7 +1583,12 @@ export interface paths {
         delete: operations["delete_item"];
         options?: never;
         head?: never;
-        /** Update Item */
+        /**
+         * Update Item
+         * @description A rename - deliberately not recorded in the activity log (ADR 0084:
+         *     descriptive-content edits are excluded; `updated_by` already says who
+         *     last touched it).
+         */
         patch: operations["update_item"];
         trace?: never;
     };
@@ -1850,7 +1871,12 @@ export interface paths {
         delete: operations["delete_item_instance"];
         options?: never;
         head?: never;
-        /** Update Item Instance */
+        /**
+         * Update Item Instance
+         * @description A rename - deliberately not recorded in the activity log (ADR 0084:
+         *     descriptive-content edits are excluded; `updated_by` already says who
+         *     last touched it).
+         */
         patch: operations["update_item_instance"];
         trace?: never;
     };
