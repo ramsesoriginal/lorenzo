@@ -202,6 +202,72 @@ describe("getMyItemInstances", () => {
   });
 });
 
+describe("getUnownedItemInstances", () => {
+  it("flattens the API's per-container groups, carrying is_container and slug through", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/unowned`, ({ request }) => {
+        expect(request.headers.get("authorization")).toBe("Bearer test-token");
+        return HttpResponse.json({
+          groups: [
+            {
+              container: null,
+              item_instances: [
+                {
+                  entity_id: "chest-1",
+                  title: "Goblin hoard",
+                  quantity: null,
+                  is_container: true,
+                  slug: "goblin-hoard",
+                },
+              ],
+            },
+            {
+              container: { id: "chest-1", name: "Goblin hoard" },
+              item_instances: [
+                {
+                  entity_id: "coin-1",
+                  title: null,
+                  quantity: 40,
+                  is_container: null,
+                  slug: null,
+                },
+              ],
+            },
+          ],
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.getUnownedItemInstances(TENANT_ID, "test-token");
+
+    expect(items).toEqual([
+      {
+        entityId: "chest-1",
+        title: "Goblin hoard",
+        quantity: null,
+        isContainer: true,
+        slug: "goblin-hoard",
+      },
+      { entityId: "coin-1", title: "(untitled)", quantity: 40, isContainer: null, slug: null },
+    ]);
+  });
+
+  it("throws a LorenzoApiError carrying the status on failure", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/unowned`, () =>
+        HttpResponse.json({ title: "Forbidden", status: 403 }, { status: 403 }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+
+    await expect(client.getUnownedItemInstances(TENANT_ID, "test-token")).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+});
+
 describe("getEntity", () => {
   it("fetches the entity's full detail shape", async () => {
     server.use(
