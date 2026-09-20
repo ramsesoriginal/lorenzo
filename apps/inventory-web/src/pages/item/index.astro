@@ -132,12 +132,12 @@ import Base from '../../layouts/Base.astro';
       itemUsedBy.hidden = false;
       try {
         const result = await listItemsUsingPrototype(tenantId as string, entityId);
-        if (result.items.length === 0) {
+        if (result.length === 0) {
           itemUsedBy.hidden = true;
           return;
         }
         itemUsedByList.replaceChildren();
-        for (const usedByItem of result.items) {
+        for (const usedByItem of result) {
           const li = document.createElement('li');
           li.className = 'chip';
           const span = document.createElement('span');

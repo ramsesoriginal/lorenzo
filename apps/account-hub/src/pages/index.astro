@@ -15,22 +15,32 @@ import Base from '../layouts/Base.astro';
       <p>Signed in as <strong id="account-email"></strong>.</p>
       <button id="logout-button" type="button">Log out</button>
       <a href="/profile">Your profile</a>
-      <a href="/notifications">Notifications</a>
+      <a href="/notifications"
+        >Notifications<span id="unread-badge" class="unread-badge" hidden></span></a
+      >
       <a href="/tenants">Your tenants and campaigns</a>
       <a href="/characters">Your characters</a>
       <a href="/beings">Beings</a>
+      <a href="/overview">Your access, everywhere</a>
       <a href="/debug/me">Debug: <code>GET /me</code></a>
     </div>
   </section>
 
   <script>
     import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
+    import { getUnreadCount } from '../lib/notifications';
+
+    // Matches notifications.astro's own polling cadence and visibility
+    // pause (ADR 0085) - this page owns its own independent poll loop,
+    // there's no cross-page shared timer.
+    const POLL_INTERVAL_MS = 30_000;
 
     const loading = document.getElementById('account-loading')!;
     const errorEl = document.getElementById('account-error')!;
     const signedOut = document.getElementById('account-signed-out')!;
     const signedIn = document.getElementById('account-signed-in')!;
     const emailEl = document.getElementById('account-email')!;
+    const unreadBadge = document.getElementById('unread-badge')!;
 
     document.getElementById('login-button')?.addEventListener('click', () => {
       void login();
@@ -45,6 +55,37 @@ import Base from '../layouts/Base.astro';
       errorEl.textContent = message;
     }
 
+    let pollHandle: ReturnType<typeof setInterval> | undefined;
+
+    async function refreshUnreadBadge() {
+      const count = await getUnreadCount();
+      if (count > 0) {
+        unreadBadge.textContent = ` (${count})`;
+        unreadBadge.hidden = false;
+      } else {
+        unreadBadge.hidden = true;
+      }
+    }
+
+    function startPolling() {
+      stopPolling();
+      pollHandle = setInterval(() => void refreshUnreadBadge(), POLL_INTERVAL_MS);
+    }
+    function stopPolling() {
+      if (pollHandle !== undefined) clearInterval(pollHandle);
+      pollHandle = undefined;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (signedIn.hidden) return;
+      if (document.visibilityState === 'visible') {
+        void refreshUnreadBadge();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    });
+
     if (!isAuthConfigured()) {
       showError('Authgear is not configured for this app yet.');
     } else {
@@ -55,6 +96,8 @@ import Base from '../layouts/Base.astro';
           const info = await getUserInfo();
           emailEl.textContent = info.email ?? info.sub;
           signedIn.hidden = false;
+          await refreshUnreadBadge();
+          startPolling();
         } else {
           signedOut.hidden = false;
         }

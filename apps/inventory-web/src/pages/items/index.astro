@@ -196,7 +196,7 @@ import Base from '../../layouts/Base.astro';
           debounce = setTimeout(async () => {
             try {
               const result = await listCatalogItems(tenantId as string, query);
-              const candidates = result.items.filter((c) => !selected.has(c.entity_id));
+              const candidates = result.filter((c) => !selected.has(c.entity_id));
               if (candidates.length === 0) {
                 closeSuggestions();
                 return;
@@ -516,14 +516,14 @@ import Base from '../../layouts/Base.astro';
         li.append(panel);
 
         try {
-          const [prototypes, usedByPage] = await Promise.all([
+          const [prototypes, usedBy] = await Promise.all([
             getItemPrototypes(tenantId as string, item.entity_id),
             listItemsUsingPrototype(tenantId as string, item.entity_id),
           ]);
           const initialParents = new Map(prototypes.map((p: EntitySummary) => [p.id, p.name]));
           const nameField = createNameField(item.title);
           const parentsField = createParentsField({ initialParents, editable: true });
-          const usedByField = renderUsedByField(usedByPage.items);
+          const usedByField = renderUsedByField(usedBy);
           const form = renderItemForm({
             fields: [nameField.element, parentsField.element, usedByField],
             submitLabel: 'Save',
@@ -601,7 +601,7 @@ import Base from '../../layouts/Base.astro';
       if (!query) {
         const cached = readCatalogCache(tenantId as string);
         if (cached) {
-          renderCatalogList(cached.items);
+          renderCatalogList(cached);
           paintedFromCache = true;
         }
       }
@@ -610,7 +610,7 @@ import Base from '../../layouts/Base.astro';
       try {
         const result = await listCatalogItems(tenantId as string, query);
         if (thisRequest !== requestId) return; // a newer search superseded this one
-        renderCatalogList(result.items);
+        renderCatalogList(result);
         if (!query) writeCatalogCache(tenantId as string, result);
       } catch (e) {
         if (thisRequest !== requestId) return;
