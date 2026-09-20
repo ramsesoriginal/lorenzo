@@ -95,7 +95,7 @@ import Base from '../../layouts/Base.astro';
         aria-labelledby="tab-unowned"
         hidden
       >
-        <p class="field-note">Item instances nobody currently owns.</p>
+        <p class="field-note">Items nobody currently owns.</p>
       </div>
     </section>
 
@@ -149,6 +149,7 @@ import Base from '../../layouts/Base.astro';
 
       <div class="item-detail-actions">
         <button type="button" id="item-detail-give-button">Give to&hellip;</button>
+        <button type="button" id="item-detail-move-button">Move to&hellip;</button>
         <button type="button" id="item-detail-split-button">Split&hellip;</button>
         <button type="button" id="item-detail-merge-button">Merge into&hellip;</button>
       </div>
@@ -183,10 +184,12 @@ import Base from '../../layouts/Base.astro';
       unsetOwner,
     } from '../../lib/items';
     import { isCampaignGm } from '../../lib/me';
+    import { collectMoveTargets } from '../../lib/moveTargets';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
       CharacterSummary,
+      EntitySummary,
       ItemInstance,
       OwnedByResponse,
       OwnedGroup,
@@ -294,6 +297,9 @@ import Base from '../../layouts/Base.astro';
     const detailMergeButton = document.getElementById(
       'item-detail-merge-button',
     ) as HTMLButtonElement;
+    const detailMoveButton = document.getElementById(
+      'item-detail-move-button',
+    ) as HTMLButtonElement;
     const detailActionPanel = document.getElementById('item-detail-action-panel')!;
 
     const params = new URLSearchParams(window.location.search);
@@ -314,6 +320,13 @@ import Base from '../../layouts/Base.astro';
     // lets the merge panel's "other stacks of this" lookup and the bulk
     // give panel's item list work off data already in hand.
     const boardItems = new Map<string, ItemInstance>();
+
+    // container_entity_id -> its EntitySummary, for every occupied
+    // container currently rendered as its own board column - the "Move
+    // to…" button's candidate list (lib/moveTargets.ts) combines this
+    // with boardItems' own is_container-flagged cards, so a currently-
+    // empty container (no column of its own yet) is still offered.
+    const boardContainers = new Map<string, EntitySummary>();
 
     // Multi-select (bulk actions) - only meaningful while selectMode is on.
     let selectMode = false;
@@ -374,6 +387,7 @@ import Base from '../../layouts/Base.astro';
     function closeDetailActionPanels() {
       detailActionPanel.replaceChildren();
       detailGiveButton.textContent = 'Give to…';
+      detailMoveButton.textContent = 'Move to…';
       detailSplitButton.textContent = 'Split…';
       detailMergeButton.textContent = 'Merge into…';
     }
@@ -716,6 +730,83 @@ import Base from '../../layouts/Base.astro';
       detailActionPanel.append(panel);
     });
 
+    // Move to… - the non-drag-and-drop fallback for a single-item
+    // container move (drag-and-drop, bindDropZone below, was previously
+    // the only way). Candidates come from lib/moveTargets.ts, the same
+    // "already visible on the current board" convention Merge into…
+    // above already established.
+    detailMoveButton.addEventListener('click', () => {
+      const wasOpen = detailMoveButton.textContent === 'Cancel';
+      closeDetailActionPanels();
+      if (wasOpen || !currentDetailItem) return;
+
+      detailMoveButton.textContent = 'Cancel';
+      const item = currentDetailItem;
+      const previousContainerId = item.container_entity_id;
+      const panel = document.createElement('div');
+      panel.className = 'character-picker-panel';
+
+      const targets = collectMoveTargets(item, boardContainers.values(), boardItems.values());
+
+      if (targets.length === 0 && previousContainerId === null) {
+        const note = document.createElement('p');
+        note.className = 'field-note';
+        note.textContent = 'No other container is visible on the current board.';
+        panel.append(note);
+        detailActionPanel.append(panel);
+        return;
+      }
+
+      const statusEl = document.createElement('p');
+      statusEl.className = 'picker-status';
+      statusEl.hidden = true;
+
+      const list = document.createElement('div');
+      list.className = 'merge-candidates';
+
+      async function performMove(targetId: string | null) {
+        for (const b of list.querySelectorAll('button')) (b as HTMLButtonElement).disabled = true;
+        try {
+          if (targetId) {
+            await setContainer(tenantId as string, item.entity_id, targetId);
+          } else {
+            await clearContainer(tenantId as string, item.entity_id);
+          }
+          recordUndo(
+            { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
+            `Moved ${item.title}.`,
+          );
+          closeDetailActionPanels();
+          reloadCurrentView?.();
+        } catch (e) {
+          statusEl.hidden = false;
+          statusEl.classList.add('error-text');
+          statusEl.textContent = e instanceof Error ? e.message : String(e);
+          for (const b of list.querySelectorAll('button')) {
+            (b as HTMLButtonElement).disabled = false;
+          }
+        }
+      }
+
+      if (previousContainerId !== null) {
+        const clearButton = document.createElement('button');
+        clearButton.type = 'button';
+        clearButton.textContent = 'Remove from container';
+        clearButton.addEventListener('click', () => void performMove(null));
+        list.append(clearButton);
+      }
+      for (const target of targets) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = target.name;
+        button.addEventListener('click', () => void performMove(target.id));
+        list.append(button);
+      }
+
+      panel.append(list, statusEl);
+      detailActionPanel.append(panel);
+    });
+
     function ensurePlaceholder(list: HTMLUListElement) {
       if (list.children.length === 0) {
         const empty = document.createElement('li');
@@ -1007,6 +1098,10 @@ import Base from '../../layouts/Base.astro';
       const section = document.createElement('section');
       section.className = 'board-column';
 
+      if (group.container) {
+        boardContainers.set(group.container.id, group.container);
+      }
+
       const heading = document.createElement('h3');
       heading.textContent = group.container?.name ?? rootTitle;
       section.append(heading);
@@ -1059,6 +1154,7 @@ import Base from '../../layouts/Base.astro';
       emptyMessage: string,
     ) {
       boardItems.clear();
+      boardContainers.clear();
       listContainerId.clear();
       clearSelection();
       inventoryEmpty.hidden = true;
@@ -1249,9 +1345,9 @@ import Base from '../../layouts/Base.astro';
     });
 
     if (!(await isAuthenticated())) {
-      status.textContent = 'Not logged in. Go back and log in first.';
+      status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
-      status.textContent = 'No tenant selected. Go back and pick one.';
+      status.textContent = 'No tenant selected. Pick one to continue.';
     } else {
       try {
         const tenant = await getTenant(tenantId);
