@@ -1,4 +1,4 @@
-import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
+import { client, unwrap } from './api';
 import type {
   BulkResultItem,
   CatalogItem,
@@ -17,7 +17,11 @@ export async function getOwnedItemInstances(
   tenantId: string,
   ownerEntityId: string,
 ): Promise<OwnedByResponse> {
-  return apiFetch<OwnedByResponse>(`/tenants/${tenantId}/item-instances/owned-by/${ownerEntityId}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
+      params: { path: { tenant_id: tenantId, owner_entity_id: ownerEntityId } },
+    }),
+  );
 }
 
 // GET /tenants/{t}/item-instances/unowned (ADR 0077) - item instances with
@@ -25,7 +29,11 @@ export async function getOwnedItemInstances(
 // is - the identical OwnedByResponse shape, so the board's rendering works
 // unmodified for "browse unclaimed loot" too.
 export async function getUnownedItemInstances(tenantId: string): Promise<OwnedByResponse> {
-  return apiFetch<OwnedByResponse>(`/tenants/${tenantId}/item-instances/unowned`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/item-instances/unowned', {
+      params: { path: { tenant_id: tenantId } },
+    }),
+  );
 }
 
 export async function setContainer(
@@ -33,13 +41,20 @@ export async function setContainer(
   entityId: string,
   containerEntityId: string,
 ): Promise<void> {
-  await apiPut(`/tenants/${tenantId}/item-instances/${entityId}/container`, {
-    container_entity_id: containerEntityId,
-  });
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { container_entity_id: containerEntityId },
+    }),
+  );
 }
 
 export async function clearContainer(tenantId: string, entityId: string): Promise<void> {
-  await apiDelete(`/tenants/${tenantId}/item-instances/${entityId}/container`);
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
 }
 
 // PUT /item-instances/{id}/owner - "assign to a being" (ADR: owner as a
@@ -50,23 +65,33 @@ export async function setOwner(
   entityId: string,
   ownerCharacterId: string,
 ): Promise<void> {
-  await apiPut(`/tenants/${tenantId}/item-instances/${entityId}/owner`, {
-    owner_character_id: ownerCharacterId,
-  });
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { owner_character_id: ownerCharacterId },
+    }),
+  );
 }
 
 // DELETE /item-instances/{id}/owner - clears ownership; an instance
 // doesn't have to have one (ItemInstanceCreate.owner_character_id is
 // optional too - see createItemInstance below).
 export async function unsetOwner(tenantId: string, entityId: string): Promise<void> {
-  await apiDelete(`/tenants/${tenantId}/item-instances/${entityId}/owner`);
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
 }
 
 // The item catalog (prototypes), not instances - GET /tenants/{t}/items,
 // with an optional server-side search (`q`) for the parent-item picker.
 export async function listCatalogItems(tenantId: string, query = ''): Promise<Page<CatalogItem>> {
-  const qs = query ? `?q=${encodeURIComponent(query)}` : '';
-  return apiFetch<Page<CatalogItem>>(`/tenants/${tenantId}/items${qs}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/items', {
+      params: { path: { tenant_id: tenantId }, query: { q: query || undefined } },
+    }),
+  );
 }
 
 // GET /tenants/{t}/items?prototype_id=&recursive= (ADR 0073) - the reverse
@@ -78,8 +103,13 @@ export async function listItemsUsingPrototype(
   tenantId: string,
   prototypeId: string,
 ): Promise<Page<CatalogItem>> {
-  return apiFetch<Page<CatalogItem>>(
-    `/tenants/${tenantId}/items?prototype_id=${prototypeId}&recursive=true`,
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/items', {
+      params: {
+        path: { tenant_id: tenantId },
+        query: { prototype_id: prototypeId, recursive: true },
+      },
+    }),
   );
 }
 
@@ -92,10 +122,12 @@ export async function createCatalogItem(
   name: string,
   prototypeIds: string[],
 ): Promise<CatalogItem> {
-  return apiPost<CatalogItem>(`/tenants/${tenantId}/items`, {
-    name,
-    prototype_ids: prototypeIds,
-  });
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/items', {
+      params: { path: { tenant_id: tenantId } },
+      body: { name, prototype_ids: prototypeIds },
+    }),
+  );
 }
 
 // PATCH /tenants/{t}/items/{id} - only `name` is mutable through this
@@ -107,7 +139,12 @@ export async function updateCatalogItem(
   entityId: string,
   name: string,
 ): Promise<CatalogItem> {
-  return apiPatch<CatalogItem>(`/tenants/${tenantId}/items/${entityId}`, { name });
+  return unwrap(
+    await client.PATCH('/tenants/{tenant_id}/items/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { name },
+    }),
+  );
 }
 
 // PUT /tenants/{t}/items/{id}/prototypes (ADR 0072) - full replacement,
@@ -118,9 +155,12 @@ export async function setItemPrototypes(
   entityId: string,
   prototypeIds: string[],
 ): Promise<CatalogItem> {
-  return apiPut<CatalogItem>(`/tenants/${tenantId}/items/${entityId}/prototypes`, {
-    prototype_ids: prototypeIds,
-  });
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/items/{entity_id}/prototypes', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { prototype_ids: prototypeIds },
+    }),
+  );
 }
 
 // GET /tenants/{t}/entities/{id} - only used here for its `prototypes`
@@ -130,34 +170,52 @@ export async function getItemPrototypes(
   tenantId: string,
   entityId: string,
 ): Promise<EntitySummary[]> {
-  const entity = await apiFetch<{ prototypes: EntitySummary[] }>(
-    `/tenants/${tenantId}/entities/${entityId}`,
+  const entity = await unwrap(
+    await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
   );
   return entity.prototypes;
 }
 
 // DELETE /tenants/{t}/items/{id} - 204 No Content on success.
 export async function deleteCatalogItem(tenantId: string, entityId: string): Promise<void> {
-  await apiDelete(`/tenants/${tenantId}/items/${entityId}`);
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/items/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
 }
 
 // DELETE /tenants/{t}/item-instances/{id} - 204 No Content on success.
 export async function deleteItemInstance(tenantId: string, entityId: string): Promise<void> {
-  await apiDelete(`/tenants/${tenantId}/item-instances/${entityId}`);
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
 }
 
 // GET /tenants/{t}/items/{id} - a single catalog item by id, used to look
 // up a display name for an item-instance's direct prototype (the board's
 // ancestry view knows only the id, from ItemInstanceOut.prototype_ids).
 export async function getCatalogItem(tenantId: string, entityId: string): Promise<CatalogItem> {
-  return apiFetch<CatalogItem>(`/tenants/${tenantId}/items/${entityId}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/items/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
 }
 
 // GET /tenants/{t}/item-instances/{id} - a single item instance by id, for
 // the standalone shareable item page (which doesn't know in advance
 // whether a given id is a catalog item or an instance).
 export async function getItemInstance(tenantId: string, entityId: string): Promise<ItemInstance> {
-  return apiFetch<ItemInstance>(`/tenants/${tenantId}/item-instances/${entityId}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/item-instances/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+    }),
+  );
 }
 
 // GET /tenants/{t}/items/{id}/prototypes/ancestry (ADR 0073) - every
@@ -168,8 +226,10 @@ export async function getItemAncestry(
   tenantId: string,
   itemEntityId: string,
 ): Promise<PrototypeAncestor[]> {
-  return apiFetch<PrototypeAncestor[]>(
-    `/tenants/${tenantId}/items/${itemEntityId}/prototypes/ancestry`,
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/items/{entity_id}/prototypes/ancestry', {
+      params: { path: { tenant_id: tenantId, entity_id: itemEntityId } },
+    }),
   );
 }
 
@@ -186,19 +246,27 @@ export async function createItemInstance(
   ownerCharacterId?: string,
   slug?: string,
 ): Promise<ItemInstance> {
-  return apiPost<ItemInstance>(`/tenants/${tenantId}/item-instances`, {
-    prototype_id: prototypeId,
-    ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
-    ...(slug ? { slug } : {}),
-  });
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances', {
+      params: { path: { tenant_id: tenantId } },
+      body: {
+        prototype_id: prototypeId,
+        ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
+        ...(slug ? { slug } : {}),
+      },
+    }),
+  );
 }
 
 // GET /tenants/{t}/item-instances/by-slug/{slug} (ADR 0043) - resolves a
 // slug straight to its instance, for the standalone item page's nicer,
-// more memorable alternative to a raw entity id.
+// more memorable alternative to a raw entity id. Path-param encoding is
+// openapi-fetch's own job now, not a manual encodeURIComponent here.
 export async function getItemInstanceBySlug(tenantId: string, slug: string): Promise<ItemInstance> {
-  return apiFetch<ItemInstance>(
-    `/tenants/${tenantId}/item-instances/by-slug/${encodeURIComponent(slug)}`,
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/item-instances/by-slug/{slug}', {
+      params: { path: { tenant_id: tenantId, slug } },
+    }),
   );
 }
 
@@ -213,10 +281,12 @@ export async function splitItemInstance(
   quantity: number,
   ownerCharacterId?: string,
 ): Promise<ItemInstance> {
-  return apiPost<ItemInstance>(`/tenants/${tenantId}/item-instances/${entityId}/split`, {
-    quantity,
-    ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
-  });
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/{entity_id}/split', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { quantity, ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}) },
+    }),
+  );
 }
 
 // POST /item-instances/{id}/merge (ADR 0044) - entityId is fully consumed
@@ -226,9 +296,12 @@ export async function mergeItemInstance(
   entityId: string,
   intoEntityId: string,
 ): Promise<ItemInstance> {
-  return apiPost<ItemInstance>(`/tenants/${tenantId}/item-instances/${entityId}/merge`, {
-    into_entity_id: intoEntityId,
-  });
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/{entity_id}/merge', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { into_entity_id: intoEntityId },
+    }),
+  );
 }
 
 // POST /item-instances/bulk-assign (ADR 0044) - never all-or-nothing, one
@@ -240,13 +313,15 @@ export async function bulkAssignItemInstances(
   tenantId: string,
   items: { entityId: string; ownerCharacterId: string; quantity?: number }[],
 ): Promise<BulkResultItem[]> {
-  return apiPost<BulkResultItem[]>(
-    `/tenants/${tenantId}/item-instances/bulk-assign`,
-    items.map((item) => ({
-      entity_id: item.entityId,
-      owner_character_id: item.ownerCharacterId,
-      ...(item.quantity ? { quantity: item.quantity } : {}),
-    })),
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/bulk-assign', {
+      params: { path: { tenant_id: tenantId } },
+      body: items.map((item) => ({
+        entity_id: item.entityId,
+        owner_character_id: item.ownerCharacterId,
+        ...(item.quantity ? { quantity: item.quantity } : {}),
+      })),
+    }),
   );
 }
 
@@ -263,8 +338,13 @@ export async function bulkMoveItemInstances(
   toContainerEntityId: string,
   entityIds: string[],
 ): Promise<BulkResultItem[]> {
-  return apiPost<BulkResultItem[]>(`/tenants/${tenantId}/item-instances/bulk-move`, {
-    to_container_entity_id: toContainerEntityId,
-    items: entityIds.map((entityId) => ({ entity_id: entityId })),
-  });
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/bulk-move', {
+      params: { path: { tenant_id: tenantId } },
+      body: {
+        to_container_entity_id: toContainerEntityId,
+        items: entityIds.map((entityId) => ({ entity_id: entityId })),
+      },
+    }),
+  );
 }

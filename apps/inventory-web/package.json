@@ -14,18 +14,22 @@
     "check": "astro check",
     "lint": "biome check . && astro check && prettier --check \"**/*.astro\"",
     "format": "biome check --write . && prettier --write \"**/*.astro\"",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "generate-client": "openapi-typescript ../api/openapi.json -o src/lib/lorenzo-schema.d.ts"
   },
   "dependencies": {
     "@authgear/web": "^6.0.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource/instrument-serif": "^5.3.0",
-    "astro": "^7.3.3"
+    "astro": "^7.3.3",
+    "openapi-fetch": "^0.13.4",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
     "@biomejs/biome": "^2.3.0",
+    "openapi-typescript": "^7.5.2",
     "prettier": "^3.6.0",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.9.0",

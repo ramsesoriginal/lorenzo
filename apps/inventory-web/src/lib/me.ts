@@ -1,5 +1,4 @@
-import { apiFetch } from './api';
-import type { MeSummary } from './types';
+import { client, unwrap } from './api';
 
 // GM-gating convention established in apps/loot-bot (isCampaignGm): a
 // client-side convenience check only, to decide whether to show GM-only
@@ -7,6 +6,6 @@ import type { MeSummary } from './types';
 // server-side check, cross-tenant imprecision and all (campaign_gm_grants
 // carries no tenant_id).
 export async function isCampaignGm(): Promise<boolean> {
-  const me = await apiFetch<MeSummary>('/me');
+  const me = await unwrap(await client.GET('/me'));
   return me.campaign_gm_grants.length > 0;
 }
