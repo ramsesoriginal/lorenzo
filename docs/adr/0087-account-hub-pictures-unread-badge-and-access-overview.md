@@ -1,6 +1,8 @@
-# 0085 - account-hub: tenant/campaign pictures, an unread-notification badge, and a cross-tenant access overview
+# 0087 - account-hub: tenant/campaign pictures, an unread-notification badge, and a cross-tenant access overview
 
 Status: accepted
+
+_Originally numbered 0085; renumbered before merge - `feat/api-tenant-accountability-docs` ([PR #113](https://github.com/ramsesoriginal/lorenzo/pull/113)) independently claimed 0085 first (by commit timestamp) for its own tenant-data-export ADR. Same precedent as ADR 0050/0054/0068/0069._
 
 ## Context
 
