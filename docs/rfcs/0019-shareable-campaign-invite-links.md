@@ -1,6 +1,6 @@
 # RFC: Shareable, expiring campaign invite links
 
-Status: proposed
+Status: accepted - landed in [ADR 0092](../adr/0092-campaign-invite-links.md)
 
 ## Context
 
@@ -66,3 +66,12 @@ The token identifies a tenant; the caller doesn't know it yet, so `app.tenant_id
 - One new table and migration (`campaign_invite`), one router, two unauthenticated-or-nearly routes. The unauthenticated preview is the second such route in this API after picture-serving ([ADR 0056](../adr/0056-profile-pictures.md)) and the first that reads tenant-scoped data without any principal.
 - Decision (4) has a real infrastructure component; it cannot be finished inside `apps/api` alone. The ADR that this RFC becomes must say who configures the edge rule and where that is documented.
 - No client can offer "share this campaign" until account-hub adds the management UI and a landing page; those are later slices against this API, not part of it.
+
+## Resolution
+
+Decided with the maintainer and recorded in [ADR 0092](../adr/0092-campaign-invite-links.md):
+
+- **Rate limiting:** an edge rule as the real control plus an in-process backstop; not (B) a Postgres counter or (D) Redis.
+- **Use cap:** none required (the RFC recommended one) - expiry is still required. The consequence is spelled out in the ADR.
+- **Redemption requires a login;** only the preview is unauthenticated.
+- **Expiry maximum:** 30 days, the RFC's proposal, not separately confirmed.
