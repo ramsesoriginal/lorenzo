@@ -45,7 +45,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.campaign_access import is_tenant_orga
+from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_orga
 from lorenzo_api.entity_access import containing_ancestors_ids, reachable_entity_ids
 from lorenzo_api.models import (
     CampaignGm,
@@ -65,6 +65,7 @@ class InformationVisibility:
     """
 
     is_orga: bool
+    is_admin: bool
     player_ids: frozenset[uuid.UUID]
     knower_entity_ids: frozenset[uuid.UUID]
     gm_reachable_entity_ids: frozenset[uuid.UUID]
@@ -79,13 +80,19 @@ class InformationVisibility:
         information_id (the "visible to a subset" case), so this checks
         all of them, not just the first.
 
+        is_admin is the blanket bypass for *information*: a tenant OWNER
+        or ORGA sees everything (ADR 0091 widened it from ORGA-only). It
+        is deliberately a different flag from is_orga, which stays
+        ORGA-only for ADR 0040's item-instance inventory tier - the two
+        are separate decisions.
+
         gm_reachable_entity_ids is a second, differently-shaped bypass
-        from is_orga (RFC 0009/ADR 0035): a set rather than a single bit,
+        from is_admin (RFC 0009/ADR 0035): a set rather than a single bit,
         checked against info.entity_id directly - already a plain, always-
         loaded column, no eager-load chain needed for this check the way
         knowledge_links needs one.
         """
-        if self.is_orga or info.is_public:
+        if self.is_admin or info.is_public:
             return True
         if info.entity_id in self.gm_reachable_entity_ids:
             return True
@@ -109,15 +116,16 @@ async def resolve_information_visibility(
     once its input set is empty, mirroring can_access_campaign's own
     short-circuiting order.
 
-    is_orga is suppressed if the user has any active
+    is_admin (OWNER or ORGA, ADR 0091) and is_orga (ORGA only, ADR 0040's
+    inventory tier) are both suppressed if the user has any active
     TenantAdminCampaignOptOut row anywhere in this tenant - coarser than
     that row's own per-campaign shape, forced by this route having no
     campaign parameter to check against; see the module docstring and ADR
-    0028's addendum. Still ORGA-only, unchanged by ADR 0030's
-    is_tenant_admin widening elsewhere - see
-    campaign_access.can_access_campaign's own docstring for why campaign
-    reachability and information visibility are deliberately different
-    questions.
+    0028's addendum. is_admin governs information visibility; is_orga
+    stays ORGA-only for item-instance ownership narrowing, a separate
+    decision (ADR 0040) - see campaign_access.can_access_campaign's own
+    docstring for why campaign reachability and information visibility
+    are different questions.
 
     gm_reachable_entity_ids (RFC 0009/ADR 0035): every CampaignGm row the
     caller holds in this tenant, resolved to that campaign's own
@@ -129,10 +137,9 @@ async def resolve_information_visibility(
     ADR 0046), then walked once through entity_access.reachable_entity_ids -
     not once per campaign, since that walk's own root set already accepts a
     union of roots and produces the same result either way. Tenant OWNER is
-    deliberately not folded in here - see is_orga's own bypass above and
-    campaign_access.can_manage_campaign's docstring: administrative
-    capability over a campaign as an object is a different axis from
-    character/GM *knowledge* of it.
+    still not folded into this GM-reachable set - it does not need to be:
+    as of ADR 0091 an OWNER already bypasses everything through is_admin
+    (until they opt out, in which case they see what any non-admin sees).
     """
     player_ids: set[uuid.UUID] = set(
         (
@@ -175,7 +182,8 @@ async def resolve_information_visibility(
         )
 
     is_orga = await is_tenant_orga(session, tenant_id=tenant_id, user_id=user_id)
-    if is_orga:
+    is_admin = await is_tenant_admin(session, tenant_id=tenant_id, user_id=user_id)
+    if is_orga or is_admin:
         has_opt_out = (
             await session.execute(
                 select(TenantAdminCampaignOptOut.campaign_id)
@@ -186,7 +194,8 @@ async def resolve_information_visibility(
                 .limit(1)
             )
         ).first() is not None
-        is_orga = not has_opt_out
+        is_orga = is_orga and not has_opt_out
+        is_admin = is_admin and not has_opt_out
 
     gm_campaign_ids: set[uuid.UUID] = set(
         (
@@ -234,6 +243,7 @@ async def resolve_information_visibility(
 
     return InformationVisibility(
         is_orga=is_orga,
+        is_admin=is_admin,
         player_ids=frozenset(player_ids),
         knower_entity_ids=frozenset(character_ids | group_ids),
         gm_reachable_entity_ids=gm_reachable_ids,

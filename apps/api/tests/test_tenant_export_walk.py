@@ -124,13 +124,11 @@ async def test_every_documented_read_returns_the_rows_that_went_in(
     assert _contains(members.json(), character_id)
 
     # Information is per-entity (there is no collection endpoint): the entity
-    # detail lists what the caller may see.
+    # detail lists what the caller may see. The exporter is a tenant OWNER, who
+    # reads GM-only information like an ORGA (ADR 0091).
     detail = await client.get(f"{base}/entities/{proto_id}")
     assert detail.status_code == 200
-    assert _contains(detail.json()["information"], information["id"]) is False, (
-        "GM-only information is invisible to a tenant OWNER - see "
-        "tests/test_owner_information_visibility.py and ADR 0085's addendum"
-    )
+    assert _contains(detail.json()["information"], information["id"])
 
     # The two listings ADR 0085 added.
     assert _contains(await _walk(client, f"{base}/knowledge"), information["id"])

@@ -639,12 +639,13 @@ async def test_resolve_information_visibility_gm_reachable_unions_every_campaign
         await session.commit()
 
 
-async def test_resolve_information_visibility_owner_without_gm_standing_hides_secret() -> None:
-    """ADR 0028's "administrative access != automatic character knowledge"
-    principle, re-confirmed by RFC 0009/ADR 0035: a tenant OWNER with no
-    CampaignGm standing anywhere still can't see a GM-only secret on a
-    character's owned item - an owner's administrative role must not imply
-    GM omniscience either.
+async def test_resolve_information_visibility_owner_sees_secret_without_gm_standing() -> None:
+    """ADR 0091 (amending 0028/0035's "administrative access != automatic
+    character knowledge"): a tenant OWNER with no CampaignGm standing
+    anywhere now *does* see a GM-only secret on a character's owned item -
+    the information bypass covers OWNER as well as ORGA. `is_orga` stays
+    False: that is ADR 0040's separate item-instance inventory tier, which
+    deliberately remains ORGA-only.
     """
     async with admin_session_factory() as session:
         tenant = Tenant()
@@ -680,6 +681,7 @@ async def test_resolve_information_visibility_owner_without_gm_standing_hides_se
         visibility = await resolve_information_visibility(
             session, user_id=owner_user_id, tenant_id=tenant_id
         )
+        assert visibility.is_admin is True
         assert visibility.is_orga is False
         assert sword_id not in visibility.gm_reachable_entity_ids
 
@@ -690,7 +692,7 @@ async def test_resolve_information_visibility_owner_without_gm_standing_hides_se
             type="gm-note",
             knowledge_links=[],
         )
-        assert visibility.can_see(secret) is False
+        assert visibility.can_see(secret) is True
 
         await session.delete(await session.get_one(Tenant, tenant_id))
         await session.delete(await session.get_one(User, owner_user_id))

@@ -8,7 +8,7 @@ Lorenzo is [AGPL-3.0](../adr/0006-agpl-3.0-license.md) and meant to be self-host
 
 - **A bearer token** for the API, issued by Authgear (see [local Authgear setup](local-authgear-setup.md); `mise run //apps/api:dev-token` fetches one for a local instance).
 - **Your tenant id** (`GET /me` lists your memberships; `GET /me/managed` lists the tenants you run).
-- **Read [what you will not get](#what-you-will-not-get) first.** Two of those limits can make an export look complete when it is not.
+- **Read [what you will not get](#what-you-will-not-get) first.** Some of those limits can make an export look complete when it is not.
 
 ```bash
 export API="https://your-api.example"      # or http://localhost:8000
@@ -72,7 +72,7 @@ The detail carries that entity's information (visibility-filtered, see below), i
 
 State these to yourself before trusting an export.
 
-1. **GM-only information is invisible to a tenant OWNER.** Reads are filtered by `information_visibility`, whose administrative bypass applies to the **ORGA** role only. A token belonging to a tenant `OWNER` gets public information and whatever its own characters know, but **not** rows marked GM-only. This is confirmed by `tests/test_owner_information_visibility.py`, not inferred. To include GM-only information, export with a token belonging to an account that holds the `ORGA` role in the tenant (an owner can invite one), and check that account has not opted out of a campaign's visibility ([ADR 0034](../adr/0034-campaign-crud-api.md)). Whether OWNER should be able to read it directly is an open decision recorded in ADR 0085.
+1. **An administrator who has opted out of a campaign's secrets sees only what a player would.** A tenant `OWNER` or `ORGA` reads GM-only information ([ADR 0091](../adr/0091-owner-joins-orga-in-the-information-visibility-bypass.md)), *unless* they hold a campaign admin opt-out ([ADR 0034](../adr/0034-campaign-crud-api.md)) - and that opt-out suppresses the bypass tenant-wide, not just for the one campaign. If you have opted out of any campaign, either remove the opt-out (`DELETE .../campaigns/{campaign}/admin-opt-out`) for the duration of the export, or export with a different administrator's token. A quick check: the count of `information` rows an entity returns to you should match what its GM sees.
 2. **Stats are effective values.** An entity's `stats` include what it inherits through its prototypes; the entity's own overriding rows are not read back separately. Enough to back up what the product shows; not enough to reconstruct exactly which value was set where.
 3. **`entity_stat_group` has no API.** Nothing in the API reads or writes it, so a tenant built through the API has no rows there.
 4. **Not exported, on purpose:** notifications (each person's own inbox; read yours at `/me/notifications`), other users' global account data, and each admin's personal campaign opt-outs.

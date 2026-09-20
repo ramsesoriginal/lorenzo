@@ -1,7 +1,13 @@
 import uuid
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_campaign, make_character, make_tenant
+from conftest import (
+    delete_tenant,
+    make_campaign,
+    make_character,
+    make_opted_out_admin,
+    make_tenant,
+)
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
@@ -280,6 +286,7 @@ async def test_get_content_404_for_gm_only_information_not_visible_to_a_plain_me
         await session.commit()
         tenant_id, payload_id = tenant.id, payload.id
 
+    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0091)
     response = await client.get(f"/tenants/{tenant_id}/payloads/{payload_id}/content")
     assert response.status_code == 404
 

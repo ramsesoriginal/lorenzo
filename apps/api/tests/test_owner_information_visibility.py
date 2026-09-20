@@ -1,21 +1,28 @@
-"""Whether a tenant-wide administrator can read GM-only information - the
-open question ADR 0085's export audit raised.
+"""A tenant OWNER reads GM-only information like an ORGA - ADR 0091.
 
-`information_visibility` bypasses its filter for `is_tenant_orga` only, and
-its docstring says tenant OWNER is "deliberately not folded in". These tests
-pin down the actual behavior through the real HTTP read (`GET /entities/{id}`)
-so the export runbook (ADR 0085) states what really happens, not what the
-docstrings imply.
+ADR 0085's export audit found the opposite: `information_visibility`'s
+bypass was ORGA-only, so an OWNER's export silently omitted GM-only text
+(proven here with a real request, before the change). ADR 0091 widened it.
+These tests pin the behavior through the real HTTP read
+(`GET /entities/{id}`), and pin what did *not* change: an opted-out
+administrator still sees only what a non-admin sees, and ADR 0040's
+item-instance inventory tier stays ORGA-only (tests/test_api_item_instances.py).
 """
 
 import uuid
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_tenant
+from conftest import delete_tenant, make_campaign, make_tenant
 from httpx import AsyncClient
 from sqlalchemy import update
 
-from lorenzo_api.models import Entity, Item, Membership, MembershipRole
+from lorenzo_api.models import (
+    Entity,
+    Item,
+    Membership,
+    MembershipRole,
+    TenantAdminCampaignOptOut,
+)
 
 
 async def _make_entity(tenant_id: uuid.UUID) -> uuid.UUID:
@@ -36,22 +43,9 @@ async def _visible_information_ids(
     return {row["id"] for row in response.json()["information"]}
 
 
-async def _set_role(tenant_id: uuid.UUID, user_id: uuid.UUID, role: MembershipRole) -> None:
-    async with admin_session_factory() as session:
-        await session.execute(
-            update(Membership)
-            .where(Membership.tenant_id == tenant_id, Membership.user_id == user_id)
-            .values(role=role)
-        )
-        await session.commit()
-
-
-async def test_gm_only_information_visibility_for_owner_versus_orga(
-    client: AsyncClient, test_user_id: uuid.UUID
-) -> None:
-    tenant_id = await make_tenant(test_user_id)  # test user is OWNER
-    entity_id = await _make_entity(tenant_id)
-
+async def _make_gm_only_information(
+    client: AsyncClient, tenant_id: uuid.UUID, entity_id: uuid.UUID
+) -> str:
     created = await client.post(
         f"/tenants/{tenant_id}/entities/{entity_id}/information",
         json={
@@ -63,19 +57,45 @@ async def test_gm_only_information_visibility_for_owner_versus_orga(
         },
     )
     assert created.status_code == 201, created.text
-    secret_id = created.json()["id"]
+    return str(created.json()["id"])
 
-    owner_sees = secret_id in await _visible_information_ids(client, tenant_id, entity_id)
 
-    await _set_role(tenant_id, test_user_id, MembershipRole.ORGA)
-    orga_sees = secret_id in await _visible_information_ids(client, tenant_id, entity_id)
+async def test_owner_and_orga_both_read_gm_only_information(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)  # test user is OWNER
+    entity_id = await _make_entity(tenant_id)
+    secret_id = await _make_gm_only_information(client, tenant_id, entity_id)
 
-    # ORGA bypasses the filter; the finding is what OWNER gets.
-    assert orga_sees is True
-    print(f"OWNER sees GM-only information: {owner_sees}")
-    assert owner_sees is False, (
-        "OWNER can read GM-only information - the ADR 0085 export gap does not exist; "
-        "update the ADR addendum and this test"
-    )
+    assert secret_id in await _visible_information_ids(client, tenant_id, entity_id)
+
+    async with admin_session_factory() as session:
+        await session.execute(
+            update(Membership)
+            .where(Membership.tenant_id == tenant_id, Membership.user_id == test_user_id)
+            .values(role=MembershipRole.ORGA)
+        )
+        await session.commit()
+    assert secret_id in await _visible_information_ids(client, tenant_id, entity_id)
+
+    await delete_tenant(tenant_id)
+
+
+async def test_an_opted_out_owner_no_longer_sees_gm_only_information(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    entity_id = await _make_entity(tenant_id)
+    secret_id = await _make_gm_only_information(client, tenant_id, entity_id)
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id)
+        session.add(
+            TenantAdminCampaignOptOut(
+                tenant_id=tenant_id, user_id=test_user_id, campaign_id=campaign.id
+            )
+        )
+        await session.commit()
+
+    assert secret_id not in await _visible_information_ids(client, tenant_id, entity_id)
 
     await delete_tenant(tenant_id)
