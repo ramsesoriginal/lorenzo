@@ -48,7 +48,7 @@ The token identifies a tenant; the caller doesn't know it yet, so `app.tenant_id
    - **(B) Postgres-backed counter** - a small attempts table. Works across instances with no new service, but it turns every unauthenticated request into a DB *write*, which is itself the amplification we're trying to prevent. Only viable if writes happen on *failure* per source and are bounded.
    - **(C) In-process token bucket** - cheap, per-instance, a backstop only.
    - **(D) Revive ADR 0008** and add Redis - the honest general answer, but the largest change.
-   
+
    **Recommendation: (A) as the real control plus (C) as a code-level backstop; do not add (B) or (D) for this feature alone.** `GET`-preview does only an indexed read and never writes; `redeem` writes only on success. Failed attempts are structured-logged (with source, no token) and counted in metrics so an operator can see a probe and add an edge rule ([observability](../architecture/observability.md)).
 5. **Account farming to fill a campaign.** Requiring login makes seats cost an account, and Authgear handles signup abuse upstream. A GM who doesn't want unvetted joins uses a small `max_uses` and revokes; an approval queue is a possible follow-up, not this RFC.
 6. **Token leakage through logs.** The token is in the URL path. Access logs, tracing spans (`opentelemetry` FastAPI instrumentation records paths) and `structlog` must redact or drop it. Needs an explicit test, not a hope.

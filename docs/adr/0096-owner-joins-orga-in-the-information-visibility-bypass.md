@@ -1,4 +1,4 @@
-# 0091 - Tenant OWNER joins ORGA in the information-visibility bypass
+# 0096 - Tenant OWNER joins ORGA in the information-visibility bypass
 
 Status: accepted
 

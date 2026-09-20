@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-Accepts [RFC 0019](../rfcs/0019-shareable-campaign-invite-links.md); read it for the reasoning trail. Today a GM can only add someone they can already identify (`POST .../players` takes a user id, [ADR 0036](0036-user-player-character-crud-api.md)), so a one-shot, a convention table, or an open LARP signup has no self-serve path. This adds one: a GM shares a link, and people join a campaign as players themselves.
+Accepts [RFC 0023](../rfcs/0023-shareable-campaign-invite-links.md); read it for the reasoning trail. Today a GM can only add someone they can already identify (`POST .../players` takes a user id, [ADR 0036](0036-user-player-character-crud-api.md)), so a one-shot, a convention table, or an open LARP signup has no self-serve path. This adds one: a GM shares a link, and people join a campaign as players themselves.
 
 Its RFC left four things open, decided with the maintainer:
 
