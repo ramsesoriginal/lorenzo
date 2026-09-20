@@ -16,7 +16,7 @@ Two small additions a client needs and this API doesn't offer.
 
 Returns, for the caller only:
 
-```
+```text
 { "tenants":   [ { tenant_id, name, slug, role, campaigns: [ { campaign_id, name, is_gm } ] } ] }
 ```
 
