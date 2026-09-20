@@ -51,6 +51,8 @@ A single Confirm/Cancel button pair between choosing the item/target/quantity an
 
 `/set-current` (ADR 0068) already stores a per-channel current character with a global fallback. The new behavior is that a command which had to resolve a character *and succeeded with an explicitly-passed one* updates that preference to it — last-used wins — while an explicit option always overrides without needing `/set-current`. Scoped per server (one process = one guild, so this is the existing global-default row) with the per-channel row still taking precedence when present.
 
+**As built ([ADR 0088](../adr/0088-loot-bot-give-confirmation-and-last-used-character.md)) this differs from the sketch above:** no command actually takes an option naming *your own* character (`/give to:`, `/award` etc. all name someone else's), so the signal is instead the *owner of the item you acted on* — after a successful `/give`, `/move`, `/rename`, or `/merge`, if that owner is one of your characters, it becomes your default. It also needed a fix to `getPreference`, whose fallback to the global row was per-row and let a container-only channel row hide the remembered character.
+
 ### 4. `/help` grouped by task
 
 `/help`'s existing hand-maintained `CATEGORIES` (ADR 0068's addendum) is re-cut around what a player is trying to do ("See what I have", "Give or move things", "Drops and claims", "GM tools", "Account") and gains a short first-run intro at the top. No command is renamed — a 26-command rename would break muscle memory for what is a discoverability problem, not a naming one.
