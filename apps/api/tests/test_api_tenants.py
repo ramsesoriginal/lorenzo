@@ -109,6 +109,33 @@ async def test_get_tenant_404_for_non_member(client: AsyncClient) -> None:
         await session.commit()
 
 
+async def test_get_tenant_returns_detail_for_a_player_with_no_membership(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The exact list-vs-detail gap this closes: GET /tenants already
+    includes a tenant reached only via a Player row (ADR 0030's own
+    is_tenant_participant definition, exercised by
+    test_list_tenants_includes_every_relationship_kind_with_correct_role
+    above) - GET /tenants/{id} must not be stricter than the list that
+    surfaced it, or a caller can see a tenant in their own list and then
+    get a 404 clicking into it.
+    """
+    async with admin_session_factory() as session:
+        tenant = Tenant(name="Player Tenant", description="A world.")
+        session.add(tenant)
+        await session.flush()
+        campaign = await make_campaign(session, tenant_id=tenant.id)
+        session.add(Player(user_id=test_user_id, campaign_id=campaign.id, tenant_id=tenant.id))
+        await session.commit()
+        tenant_id = tenant.id
+
+    response = await client.get(f"/tenants/{tenant_id}")
+    assert response.status_code == 200
+    assert response.json()["id"] == str(tenant_id)
+
+    await delete_tenant(tenant_id)
+
+
 async def test_get_tenant_404_for_unknown_tenant(client: AsyncClient) -> None:
     response = await client.get("/tenants/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
