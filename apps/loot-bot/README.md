@@ -74,7 +74,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 - `src/undo-actions.ts` — `recordUndo`/`applyPendingUndo`: `/undo`'s own record-then-reverse machinery, backing `/give`/`/reassign`/`/move`/`/rename`/`/merge`.
 - `src/pending-bulk-give.ts` — short-lived token storage for `/give-bulk`'s own two-step (pick items, then pick target) select-menu flow, mirroring `src/pending-links.ts`'s shape.
 - `src/commands/group-lookup.ts` — `resolveOrCreateGroup`: "an existing group by exact name, or a fresh one with initial members" shared by `/add-to-group`/`/add-channel-to-group`.
-- `src/lorenzo-client.ts` — a thin wrapper over a generated (`openapi-typescript`/`openapi-fetch`) typed client for `apps/api`. Regenerate with `mise run generate-client` after `apps/api`'s OpenAPI schema changes.
+- `src/lorenzo-client.ts` — a thin wrapper over a generated (`openapi-typescript`/`openapi-fetch`) typed client for `apps/api`. Regenerate with `mise run generate-client` after `apps/api`'s OpenAPI schema changes — CI's `client-drift` job (`mise run check-client`, which dumps a fresh schema and diffs the result) fails if you forget.
 - `src/db-schema.ts`/`src/db.ts` — Drizzle ORM over the bot's own `loot_bot` Postgres schema (`linked_account`, `player_preference`, `loot_drop`, `loot_claim`, `pending_undo`) — entirely separate from `apps/api`'s own tenant-scoped, RLS'd tables. `player_preference` is keyed per `(discord_user_id, discord_channel_id)`; `loot_claim` carries a `claim_type` (need/greed) tier.
 
 ## Deployment
