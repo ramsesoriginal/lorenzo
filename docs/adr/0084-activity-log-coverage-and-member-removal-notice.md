@@ -1,4 +1,4 @@
-# 0084 - Activity log coverage policy, OWNER/ORGA-only reads, and a member-removal notice
+# 0084 - Activity log coverage policy and a member-removal notice
 
 Status: accepted
 
@@ -11,7 +11,7 @@ The log exists to answer one question for a tenant OWNER: **"who did this?"** - 
 Two adjacent gaps surfaced while auditing it:
 
 - `delete_membership` already records `membership.deleted` (ADR 0063), but with `detail=None` - it cannot say whether the member was removed by an owner or left of their own accord, or what role they held. And nothing tells the removed person. Removal ends only the tenant-wide `Membership` row: `Player` and `CampaignGm` rows reference `app_user`, not membership, so a removed member keeps any campaign seats they hold and their characters stay owned (ADR 0025's `SET NULL` only applies when a `Player` row itself is deleted, which membership removal does not do). From their side, the tenant-wide access simply disappears with no explanation.
-- Once GM and player actions are in the log, its read gate matters. ADR 0063 gated it by `get_tenant_context` (any tenant-wide member) - fine for membership events, wrong for a timeline that attributes every GM action to a named person.
+- Once GM and player actions are in the log, who can read it matters. ADR 0063 gated it by `get_tenant_context` (any tenant-wide member). Checked while implementing this ADR: `MembershipRole` has only `OWNER` and `ORGA`, so that already means tenant administrators only - a GM or player with no `Membership` row gets a `404` today. The gate is right; what was missing was anything saying it is deliberate or guarding it.
 
 ## Decision
 
@@ -41,9 +41,11 @@ Deliberately **not** logged, and now documented as deliberate rather than accide
 - **`detail` carries ids, counts and enum-like labels only - never user-authored content.** A tenant member who can read the log must not learn GM-only text from it. `information.created` records the target entity and its visibility tier, not its title or body.
 - Entries are written in the same transaction as the mutation, before its commit, exactly as ADR 0063 and `activity_log.py` already require (RLS on `audit_log` is plain `tenant_id = app.tenant_id`; a post-commit write would have lost that context - see [ADR 0032](0032-item-and-item-instance-crud-api.md)).
 
-### Read access: OWNER/ORGA only
+### Read access: administrators only, already true - now pinned
 
-`GET /tenants/{tenant_id}/activity-log` narrows from `get_tenant_context` (any tenant-wide member) to tenant-wide **OWNER or ORGA** (`campaign_access`'s tenant-admin predicate, [ADR 0030](0030-tenant-campaign-read-api.md)), `403` otherwise. **This is a breaking change** for any client that showed the log to every member - [ADR 0083](0083-account-hub-activity-log-and-notification-sending.md)'s account-hub view was built on the old bar and must handle the 403 (hide the panel) once this lands.
+`GET /tenants/{tenant_id}/activity-log` stays gated by `get_tenant_context`. That is "OWNER or ORGA only" **because every `MembershipRole` is administrative**, not because any check says so. This ADR changes no behavior and adds no `403`: a plain member cannot exist today. It adds tests proving GM-only and player-only users get `404`, and a **tripwire test** that fails if a non-administrative role is ever added to `MembershipRole` - at which point the gate must become an explicit `campaign_access.is_tenant_admin` check in the same change, or the new role would silently read every GM's and player's attributed actions.
+
+(An earlier draft of this ADR called this a breaking narrowing needing an account-hub change. It was not: it was written before checking the role enum.)
 
 ### Member removal
 
@@ -62,4 +64,4 @@ Deliberately **not** logged, and now documented as deliberate rather than accide
 - Every new tenant-scoped mutation route now has a stated default: log it if it matches the rule above, and say so in its docstring if it deliberately doesn't.
 - `routers/item_instances.py`, `items.py`, `characters.py`, `players.py`, `groups.py`, `information.py`, `stats.py` gain `record_activity` calls; `routers/tenants.py` and `routers/campaigns.py` gain the remaining ones. No migration - `audit_log` is unchanged.
 - The log will be markedly busier. Pagination already bounds reads ([ADR 0020](0020-rest-api-tenant-scoping-and-schemas.md)); a `?action=`/`?actor_id=` filter is a reasonable follow-up, not built here.
-- Documentation of the 403 change lands with the implementation, in `apps/api`'s README and the account-hub client.
+- The read gate is documented as deliberate in the router docstring, and the tripwire test names this ADR.
