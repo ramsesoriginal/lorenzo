@@ -2,6 +2,8 @@
 
 Status: proposed
 
+Numbered 0019 originally; renumbered to 0021 on merge into `main`, which had independently claimed 0019 for account-hub's own pictures/overview RFC in the meantime (0020 is left for another open branch's own renumbering, which also collided on 0019). Same renumbering precedent as ADR 0050/0054's own history.
+
 ## Context
 
 [ADR 0050](../adr/0050-loot-bot-stack-linking-and-isolation.md)–[0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md) and [ADR 0068](../adr/0068-loot-bot-inventory-and-gm-toolkit.md) built the bot's account linking, `/give`, `/drop`, and a GM/inventory-hygiene toolkit. The bot now has 26 commands. Using it against real play surfaced ten gaps, none of which needs a new kind of thing in the domain — each is a better view over, or a safer path through, data `apps/api` already holds:
@@ -81,7 +83,7 @@ Bridge each linked user's own unread Lorenzo notifications into Discord DMs. The
 
 ### 7. `/changes` — bot-recorded only, for now
 
-A player-facing "what happened to my own stuff since I last looked," distinct from the GM's tenant-wide activity log ([ADR 0063](../adr/0063-tenant-activity-log.md), tenant-admin-only, and deliberately limited to seven mutation points — none of which are gives, moves, or awards). `apps/api` has no per-player change feed, so this slice can only report what the bot itself already records: gives and moves the player made or received through the bot, drop takes and claim outcomes, and undo history (`pending_undo`, `loot_drop`, `loot_claim`), plus a per-user "last looked" marker. This is an honest, visibly partial view — anything done through `apps/inventory-web` or the API directly will not appear — and `/changes` says so. The complete version is [RFC 0020](0020-player-facing-change-feed-api.md); this slice deliberately builds nothing the API RFC would have to unpick.
+A player-facing "what happened to my own stuff since I last looked," distinct from the GM's tenant-wide activity log ([ADR 0063](../adr/0063-tenant-activity-log.md), tenant-admin-only, and deliberately limited to seven mutation points — none of which are gives, moves, or awards). `apps/api` has no per-player change feed, so this slice can only report what the bot itself already records: gives and moves the player made or received through the bot, drop takes and claim outcomes, and undo history (`pending_undo`, `loot_drop`, `loot_claim`), plus a per-user "last looked" marker. This is an honest, visibly partial view — anything done through `apps/inventory-web` or the API directly will not appear — and `/changes` says so. The complete version is [RFC 0022](0022-player-facing-change-feed-api.md); this slice deliberately builds nothing the API RFC would have to unpick.
 
 ## Alternatives considered
 
@@ -100,4 +102,4 @@ A player-facing "what happened to my own stuff since I last looked," distinct fr
 
 - Renaming or restructuring existing commands.
 - A channel-post, email, or push fallback; DM opt-out; DM delivery for notification scopes outside the bot's tenant.
-- Any change to `apps/api` (see RFC 0020 for the one deliberately deferred).
+- Any change to `apps/api` (see RFC 0022 for the one deliberately deferred).

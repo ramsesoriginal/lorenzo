@@ -1,10 +1,12 @@
-# 0087 - loot-bot: `/drop` container autocomplete and slug surfacing
+# 0093 - loot-bot: `/drop` container autocomplete and slug surfacing
 
 Status: accepted
 
+Numbered 0087 originally; renumbered to 0093 on merge into `main`, which had independently claimed 0087 for account-hub's own pictures ADR in the meantime (0084-0092 were by then all taken across other open branches, so the next free number was used). Same renumbering precedent as ADR 0050/0054's own history (see [docs/adr/README.md](README.md)).
+
 ## Context
 
-[RFC 0019](../rfcs/0019-loot-bot-player-toolkit.md) slice 2. [ADR 0052](0052-loot-bot-loot-drop-and-claims.md)'s addendum let `/drop container:` take a slug ([ADR 0043](0043-item-instance-slug.md)) instead of a raw entity id, but two gaps remained: `container` was the one item-picking option with no autocomplete, and nothing in the bot ever *showed* a slug, so a GM who prepared a container in `apps/inventory-web` still had to already know its slug to drop it.
+[RFC 0021](../rfcs/0021-loot-bot-player-toolkit.md) slice 2. [ADR 0052](0052-loot-bot-loot-drop-and-claims.md)'s addendum let `/drop container:` take a slug ([ADR 0043](0043-item-instance-slug.md)) instead of a raw entity id, but two gaps remained: `container` was the one item-picking option with no autocomplete, and nothing in the bot ever *showed* a slug, so a GM who prepared a container in `apps/inventory-web` still had to already know its slug to drop it.
 
 The obvious autocomplete source doesn't work. Every other container option (`/move`, `/set-current`, `/move-bulk`) narrows `getMyItemInstances` — what the caller's own characters *own* — to `isContainer === true` ([ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md)). A GM's pre-made loot pile is typically **ownerless**, so that list can never contain it: the one container `/drop` exists for would be exactly the one missing from its own suggestions.
 

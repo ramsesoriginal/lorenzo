@@ -25,14 +25,21 @@ import Base from '../layouts/Base.astro';
     import { getMe } from '../lib/me';
     import { renderMembershipAdmin } from '../lib/membershipAdminUi';
     import { renderNotificationComposer } from '../lib/notificationComposerUi';
+    import { renderPictureUpload } from '../lib/pictureUi';
     import {
+      campaignPictureUrl,
       createCampaignNotification,
       createTenant,
       createTenantNotification,
+      deleteCampaignPicture,
+      deleteTenantPicture,
       listCampaignGms,
       listMyTenants,
       listTenantCampaigns,
       listTenantRoster,
+      tenantPictureUrl,
+      uploadCampaignPicture,
+      uploadTenantPicture,
     } from '../lib/tenants';
     import type {
       CampaignSummaryOut,
@@ -143,8 +150,16 @@ import Base from '../layouts/Base.astro';
         );
       }
       // can_manage_campaign's real two-way gate: a tenant admin, or this
-      // specific campaign's own GM (RFC 0014) - not just one branch of it.
+      // specific campaign's own GM (RFC 0014) - not just one branch of it;
+      // matches upload_campaign_picture's own gate too (ADR 0085).
       if (admin || role === 'gm') {
+        item.append(
+          renderPictureUpload(
+            campaignPictureUrl(tenant.id, campaign.id),
+            (file) => uploadCampaignPicture(tenant.id, campaign.id, file),
+            () => deleteCampaignPicture(tenant.id, campaign.id),
+          ),
+        );
         item.append(renderInvitePlayer(tenant, campaign));
         item.append(
           renderNotificationComposer((body) =>
@@ -173,6 +188,18 @@ import Base from '../layouts/Base.astro';
 
       const admin = isTenantAdmin(tenant);
       const roster = await listTenantRoster(tenant.id);
+
+      // Same gate upload_tenant_picture itself enforces (ADR 0056/0085) -
+      // ORGA+, day-to-day tenant administration.
+      if (admin) {
+        item.append(
+          renderPictureUpload(
+            tenantPictureUrl(tenant.id),
+            (file) => uploadTenantPicture(tenant.id, file),
+            () => deleteTenantPicture(tenant.id),
+          ),
+        );
+      }
 
       if (campaigns.length === 0) {
         const none = document.createElement('p');
