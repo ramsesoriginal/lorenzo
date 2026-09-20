@@ -78,6 +78,7 @@ Bridge each linked user's own unread Lorenzo notifications into Discord DMs. The
 **Fallback when DMs are closed — the part that matters.** Creating a DM channel or sending to it can fail (Discord error 50007, "Cannot send messages to this user"). A failed delivery is never dropped: the notification is kept in a `pending_notice` queue (again, the bot's own table), and on that user's **next command of any kind**, the bot prepends an ephemeral banner — marked "couldn't DM you" — listing what was missed, then clears it once shown. The result is "found out, just not by DM," instead of "missed an award silently." Not built in this slice, deliberately: a channel-post fallback, retry-with-backoff beyond the next scheduler tick, or per-user opt-out of DMs — each an easy follow-up once the base path is real.
 
 **Scoping questions to settle in the slice's ADR, not here:**
+
 - One bot process serves one tenant, but `GET /me/notifications` spans every scope and tenant the user has rows in. Default proposal: DM only notifications whose `tenant_id` is the bot's own tenant, plus platform-scope (null `tenant_id`) ones.
 - Message shape and length (notification `title`/`body` vs. Discord's message limits) and how batches sharing a `batch_id` are grouped.
 
