@@ -2,16 +2,18 @@
 
 Status: proposed
 
+Numbered 0020 originally; renumbered to 0022 alongside [RFC 0021](0021-loot-bot-player-toolkit.md), which it is the companion to (see that RFC's own history note).
+
 ## Context
 
-[RFC 0019](0019-loot-bot-player-toolkit.md)'s `/changes` command answers "what happened to my own stuff since I last looked" — but with no API support it can only report actions the Discord bot itself recorded. Anything done through `apps/inventory-web`, `apps/account-hub`, or the API directly is invisible to it, and so are actions *other people* took that affected the player (a GM confiscating or awarding an item, another character giving them something) unless they happened to go through the bot.
+[RFC 0021](0021-loot-bot-player-toolkit.md)'s `/changes` command answers "what happened to my own stuff since I last looked" — but with no API support it can only report actions the Discord bot itself recorded. Anything done through `apps/inventory-web`, `apps/account-hub`, or the API directly is invisible to it, and so are actions *other people* took that affected the player (a GM confiscating or awarding an item, another character giving them something) unless they happened to go through the bot.
 
 The API has one change log today, and it is the wrong shape for this:
 
 - [ADR 0063](../adr/0063-tenant-activity-log.md)'s `audit_log`/`GET /tenants/{id}/activity-log` is **tenant-admin only**, and deliberately narrow — only seven named mutation points (membership create/bulk-create/update/delete, campaign create/delete, GM grant/revoke) call `record_activity`. None of them are item-instance gives, moves, awards, confiscations, renames, merges, or splits.
 - `updated_at` is a poor substitute: owner and container writes deliberately never bump it ([ADR 0051](../adr/0051-loot-bot-give-command.md)'s addendum), so an `updated_at`-based "changed since" would miss exactly the events a player cares about most.
 
-This RFC is a proposal only. Nothing in [RFC 0019](0019-loot-bot-player-toolkit.md) depends on it landing.
+This RFC is a proposal only. Nothing in [RFC 0021](0021-loot-bot-player-toolkit.md) depends on it landing.
 
 ## Decision (open — proposal, not consensus)
 
