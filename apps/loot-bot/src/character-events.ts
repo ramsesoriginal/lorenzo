@@ -4,7 +4,7 @@ import { insertCharacterEvents } from "./db.js";
 
 /**
  * Recording what happens to characters' belongings, for `/changes` (ADR
- * 0096). Each command that moves something between characters builds one
+ * 0097). Each command that moves something between characters builds one
  * {@link PendingEvent} with a describer below and hands it to
  * {@link recordCharacterEvents}.
  *
