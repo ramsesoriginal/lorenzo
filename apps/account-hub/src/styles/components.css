@@ -52,6 +52,16 @@ button:hover {
   padding: 2px var(--space-2);
 }
 
+/* An unread count suffixed onto a nav link (ADR 0085) - gold, per
+   identity.md §1.4's "gold is punctuation": marks something needing
+   attention, not a permanent surface treatment. */
+.unread-badge {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-accent);
+}
+
 /* Secondary metadata line under a campaign or notification title - game
    system/role/secret, or scope/timestamp. */
 .campaign-meta,
