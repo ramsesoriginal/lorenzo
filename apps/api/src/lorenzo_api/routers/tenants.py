@@ -16,7 +16,9 @@ from lorenzo_api.dependencies import (
     ParamsDep,
     SessionDep,
     get_tenant_context,
+    get_tenant_or_404,
     require_tenant_creator_role,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match
@@ -170,19 +172,38 @@ async def list_tenants(
 
 @router.get("/{tenant_id}")
 async def get_tenant(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)], session: SessionDep
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_or_404)],
+    session: SessionDep,
+    user: CurrentUser,
 ) -> TenantOut:
+    # get_tenant_or_404 + an explicit require_tenant_participant check here
+    # (not get_tenant_context, which this route used until this fix) - the
+    # same list-vs-detail gap ADR 0030 already closed for GET .../campaigns,
+    # GET .../entities, and item-instance reads (routers/campaigns.py,
+    # entities.py, item_instances.py, groups.py, all via this same
+    # require_tenant_participant helper). GET /tenants already includes any
+    # tenant reached via a Membership, a Player, or a CampaignGm row
+    # (list_tenants above) - a caller reachable only through a Player row
+    # (an ordinary invited player with no tenant-wide Membership, ADR 0022's
+    # own legitimate non-error state) could see a tenant in that list but
+    # then get a 404 clicking into its own detail, since get_tenant_context
+    # requires a Membership row specifically. Found via a real report: a
+    # player who'd only been added to a campaign (never given tenant-wide
+    # Membership) got exactly this 404 from apps/inventory-web's board page,
+    # despite their own GM being able to see their character fine.
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     return await _tenant_out(tenant_id, session)
 
 
 async def _tenant_out(tenant_id: uuid.UUID, session: SessionDep) -> TenantOut:
-    # Callers that already confirmed tenant_id is real (get_tenant_context,
-    # or POST/PATCH below re-reading the row they just wrote) still get a
-    # real 404 here rather than an unchecked None - same "re-query for the
-    # real row, dependency already did the 404 check" division of labor as
-    # get_entity_or_404; raising is dead code in practice for the
-    # get_tenant_context case (tenant_id can't disappear mid-transaction),
-    # just what lets mypy narrow tenant to non-None below.
+    # Callers that already confirmed tenant_id is real (get_tenant_context/
+    # get_tenant_or_404, or POST/PATCH below re-reading the row they just
+    # wrote) still get a real 404 here rather than an unchecked None - same
+    # "re-query for the real row, dependency already did the 404 check"
+    # division of labor as get_entity_or_404; raising is dead code in
+    # practice for either of those two dependency cases (tenant_id can't
+    # disappear mid-transaction), just what lets mypy narrow tenant to
+    # non-None below.
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")

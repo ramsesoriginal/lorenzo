@@ -31,7 +31,7 @@ For each linked user the run takes *that user's* stored token ([`getValidAccessT
 
 ### A bot-side ledger, not `/read`
 
-Two new `loot_bot` tables (migration `0004`), no RLS, matching the schema's other bot-local tables:
+Two new `loot_bot` tables (migration `0005`), no RLS, matching the schema's other bot-local tables:
 
 - `notification_enrollment(discord_user_id, enrolled_at)` — stamped **once**, the first time the bridge sees a linked user.
 - `notification_delivery((discord_user_id, notification_id), state, title, body, claimed_at, updated_at)` — what the bridge has done with each notification. `state` is `sending` → `sent`, or `undelivered` → `noticed`. `title`/`body` are stored **only** for `undelivered` rows (the one place the bot must hold notification text, and only until the banner has shown it; they are nulled once noticed).
@@ -71,7 +71,7 @@ After any **slash command** has answered, if the user has `undelivered` notifica
 ## Consequences
 
 - **A one-time human step**, made explicit: the Cloud Scheduler job, its service account, and the `LOOT_BOT_SCHEDULER_SERVICE_ACCOUNT` variable. Until then the feature is simply off.
-- **Migration `0004`.** Another open branch ([ADR 0094](0094-loot-bot-container-new.md)'s `/container-new`) also adds a `0004`; whichever lands second must regenerate its migration (`mise run //apps/loot-bot:db-generate`), since drizzle numbers them sequentially.
+- **Migration `0005`, chained on `/container-new`'s `0004`.** Drizzle numbers migrations sequentially and each snapshot builds on the last, so two branches can't both be `0004`. This branch therefore contains [ADR 0094](0094-loot-bot-container-new.md)'s `/container-new` (which keeps `0004`) and has its own tables regenerated on top as `0005`. It must merge after `/container-new`; the reverse order would need this one's migration regenerated.
 - **At-least-once at the edges.** If a DM is sent but recording it fails, the claim goes stale and a later run may send it again after ten minutes; and a banner shown but not recorded shows once more. Both are rare and harmless, and preferred to the alternative of losing one.
 - **Latency.** A notification arrives on the next five-minute tick, not instantly; the banner path is immediate on the user's next command.
 - Not built: a per-user opt-out, a channel-post option, retry backoff beyond the next tick, DMs for notifications from other tenants, and grouping by `batch_id` — each an easy follow-up if it turns out to matter.

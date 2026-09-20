@@ -60,6 +60,6 @@ Private. Reads the events for **the caller's own characters** (`getControlledCha
 
 - **Partial by construction.** Anything done through `apps/inventory-web`, `apps/account-hub`, or the API directly never appears, and neither do actions taken before this shipped (nothing is backfilled).
 - **Extra API reads.** Recording a give or reassign costs up to two `getCharacterName` lookups, best-effort and after the write.
-- **Migration `0004`.** Other open branches ([ADR 0094](0094-loot-bot-container-new.md), [ADR 0095](0095-loot-bot-notification-dms.md)) also add a `0004`; drizzle numbers them sequentially, so whichever lands after the first must regenerate its migration (`mise run //apps/loot-bot:db-generate`).
+- **Migration `0006`, chained on `0004` and `0005`.** Drizzle numbers migrations sequentially and each snapshot builds on the last, so this branch contains [ADR 0094](0094-loot-bot-container-new.md)'s `0004` and [ADR 0095](0095-loot-bot-notification-dms.md)'s `0005` and has its own tables regenerated on top as `0006`. It must merge after both; a different order would need this migration regenerated.
 - **Migrating to the API feed.** When RFC 0022 lands, `/changes` switches its source and drops the note; the recording calls and both tables can then be deleted. Nothing here is shaped to survive that, deliberately.
 - Not built: recording the player's own housekeeping, backfill, per-character filtering (`/changes character:…`), and showing GM identity.
