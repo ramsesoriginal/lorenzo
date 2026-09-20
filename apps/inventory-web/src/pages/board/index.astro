@@ -95,7 +95,7 @@ import Base from '../../layouts/Base.astro';
         aria-labelledby="tab-unowned"
         hidden
       >
-        <p class="field-note">Item instances nobody currently owns.</p>
+        <p class="field-note">Items nobody currently owns.</p>
       </div>
     </section>
 
@@ -1392,9 +1392,9 @@ import Base from '../../layouts/Base.astro';
     });
 
     if (!(await isAuthenticated())) {
-      status.textContent = 'Not logged in. Go back and log in first.';
+      status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
-      status.textContent = 'No tenant selected. Go back and pick one.';
+      status.textContent = 'No tenant selected. Pick one to continue.';
     } else {
       try {
         const tenant = await getTenant(tenantId);

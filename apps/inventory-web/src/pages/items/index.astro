@@ -475,7 +475,7 @@ import Base from '../../layouts/Base.astro';
       editButton.textContent = 'Edit';
       const instantiateButton = document.createElement('button');
       instantiateButton.type = 'button';
-      instantiateButton.textContent = 'Instantiate';
+      instantiateButton.textContent = 'Create instance';
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
       deleteButton.className = 'button-danger';
@@ -500,7 +500,7 @@ import Base from '../../layouts/Base.astro';
       function closePanels() {
         li.querySelector('.character-picker-panel')?.remove();
         li.querySelector('.edit-item-panel')?.remove();
-        instantiateButton.textContent = 'Instantiate';
+        instantiateButton.textContent = 'Create instance';
         editButton.textContent = 'Edit';
       }
 
@@ -807,9 +807,9 @@ import Base from '../../layouts/Base.astro';
     });
 
     if (!(await isAuthenticated())) {
-      status.textContent = 'Not logged in. Go back and log in first.';
+      status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
-      status.textContent = 'No tenant selected. Go back and pick one.';
+      status.textContent = 'No tenant selected. Pick one to continue.';
     } else if (!(await isCampaignGm())) {
       status.textContent = "This page is for GMs only. You don't hold a GM grant in any campaign.";
     } else {

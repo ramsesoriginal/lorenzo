@@ -16,7 +16,7 @@ import Base from '../../layouts/Base.astro';
     const result = document.getElementById('result')!;
 
     if (!(await isAuthenticated())) {
-      result.textContent = 'Not logged in. Go back and log in first.';
+      result.textContent = "You're not logged in. Log in to continue.";
     } else {
       try {
         const me = await apiFetch('/me');
