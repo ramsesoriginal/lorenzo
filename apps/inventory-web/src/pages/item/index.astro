@@ -151,9 +151,9 @@ import Base from '../../layouts/Base.astro';
     }
 
     if (!(await isAuthenticated())) {
-      status.textContent = 'Not logged in. Go back and log in first.';
+      status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId || !(itemId || itemSlugParam)) {
-      status.textContent = 'Missing tenant or item id/slug in the link.';
+      status.textContent = "This link is incomplete — it's missing a tenant or item.";
     } else {
       try {
         let asItem: ItemBase | null = null;
