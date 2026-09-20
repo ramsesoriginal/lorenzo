@@ -28,4 +28,4 @@ Named explicitly, not hidden: platform-level events (suspend/unsuspend - no `ten
 
 ## Addendum ([ADR 0084](0084-activity-log-coverage-and-member-removal-notice.md))
 
-The "narrow first slice" and its any-tenant-member read gate are superseded: 0084 states what the log is for, replaces the seven hand-picked call sites with a coverage rule (any actor, GMs and admins included), and narrows reads to tenant OWNER/ORGA.
+The "narrow first slice" is superseded: 0084 states what the log is for and replaces the seven hand-picked call sites with a coverage rule (any actor, GMs and admins included). The read gate above is unchanged - and is administrators-only in practice, since `MembershipRole` has only OWNER and ORGA - but 0084 now pins that with tests.
