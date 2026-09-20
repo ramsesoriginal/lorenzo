@@ -3,8 +3,10 @@
 Call it from any mutation that changes what exists, who holds it, or who can
 see/do what, by any actor (ADR 0084's coverage rule). `detail` takes ids,
 counts and field *names* only - never user-authored content, since readers
-of the log must not learn GM-only text from it. A mutation that deliberately
-isn't logged says so in its own docstring.
+of the log must not learn GM-only text from it. Whole categories ADR 0084
+excludes (pictures, notifications, `/me`, `/admin`) need no per-route note;
+any one-off exclusion (a rename, a stat value, tenant creation) says so in
+its own docstring.
 
 Core mechanics only - no auth, no commit (matching lorenzo_api.
 notifications' own shape) - each mutation route calls `record_activity`

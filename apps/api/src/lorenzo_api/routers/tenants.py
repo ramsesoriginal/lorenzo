@@ -204,6 +204,11 @@ async def create_tenant(
     row and a Membership(role=OWNER) for the caller - they become the new
     tenant's owner atomically, the same "create the whole coherent unit in
     one commit" precedent every other CRUD RFC here already follows.
+
+    Deliberately not recorded in the activity log (ADR 0084): the log is
+    per-tenant and its RLS needs `app.tenant_id` set, which this route
+    runs before - `tenant.created_by` and the OWNER membership already say
+    who created it.
     """
     slug = await _resolve_create_slug(session, body.slug, body.name)
     tenant = Tenant(name=body.name, slug=slug, created_by=user.id, updated_by=user.id)
