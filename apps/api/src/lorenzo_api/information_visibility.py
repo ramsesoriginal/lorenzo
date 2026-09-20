@@ -81,7 +81,7 @@ class InformationVisibility:
         all of them, not just the first.
 
         is_admin is the blanket bypass for *information*: a tenant OWNER
-        or ORGA sees everything (ADR 0091 widened it from ORGA-only). It
+        or ORGA sees everything (ADR 0096 widened it from ORGA-only). It
         is deliberately a different flag from is_orga, which stays
         ORGA-only for ADR 0040's item-instance inventory tier - the two
         are separate decisions.
@@ -116,7 +116,7 @@ async def resolve_information_visibility(
     once its input set is empty, mirroring can_access_campaign's own
     short-circuiting order.
 
-    is_admin (OWNER or ORGA, ADR 0091) and is_orga (ORGA only, ADR 0040's
+    is_admin (OWNER or ORGA, ADR 0096) and is_orga (ORGA only, ADR 0040's
     inventory tier) are both suppressed if the user has any active
     TenantAdminCampaignOptOut row anywhere in this tenant - coarser than
     that row's own per-campaign shape, forced by this route having no
@@ -138,7 +138,7 @@ async def resolve_information_visibility(
     not once per campaign, since that walk's own root set already accepts a
     union of roots and produces the same result either way. Tenant OWNER is
     still not folded into this GM-reachable set - it does not need to be:
-    as of ADR 0091 an OWNER already bypasses everything through is_admin
+    as of ADR 0096 an OWNER already bypasses everything through is_admin
     (until they opt out, in which case they see what any non-admin sees).
     """
     player_ids: set[uuid.UUID] = set(

@@ -1,8 +1,8 @@
-"""A tenant OWNER reads GM-only information like an ORGA - ADR 0091.
+"""A tenant OWNER reads GM-only information like an ORGA - ADR 0096.
 
 ADR 0085's export audit found the opposite: `information_visibility`'s
 bypass was ORGA-only, so an OWNER's export silently omitted GM-only text
-(proven here with a real request, before the change). ADR 0091 widened it.
+(proven here with a real request, before the change). ADR 0096 widened it.
 These tests pin the behavior through the real HTTP read
 (`GET /entities/{id}`), and pin what did *not* change: an opted-out
 administrator still sees only what a non-admin sees, and ADR 0040's

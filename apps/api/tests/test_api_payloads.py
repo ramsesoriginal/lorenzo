@@ -286,7 +286,7 @@ async def test_get_content_404_for_gm_only_information_not_visible_to_a_plain_me
         await session.commit()
         tenant_id, payload_id = tenant.id, payload.id
 
-    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0091)
+    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0096)
     response = await client.get(f"/tenants/{tenant_id}/payloads/{payload_id}/content")
     assert response.status_code == 404
 

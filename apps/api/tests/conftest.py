@@ -186,7 +186,7 @@ async def make_character(
 
 async def make_plain_participant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """Makes user_id a plain participant of tenant_id: no tenant-wide
-    Membership (so no administrative bypass of any kind, ADR 0091), but a
+    Membership (so no administrative bypass of any kind, ADR 0096), but a
     Player seat in a fresh campaign so tenant reads still admit them. What
     the "hides GM-only information from a plain member" tests actually need
     - they originally used an OWNER Membership as the stand-in, which was
@@ -204,7 +204,7 @@ async def make_plain_participant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> No
 async def make_opted_out_admin(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """Keeps user_id's tenant-wide Membership but gives them a campaign
     admin opt-out, which suppresses the information bypass tenant-wide (ADR
-    0034/0091). For the routes that require a Membership (the item catalog,
+    0034/0096). For the routes that require a Membership (the item catalog,
     payload content) and so can't be reached by a plain participant: since
     every MembershipRole is administrative, an opted-out administrator is
     the only caller there who does not get the bypass - and it exercises

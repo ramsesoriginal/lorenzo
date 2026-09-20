@@ -847,7 +847,7 @@ async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
     router specifically.
     """
     tenant_id = await make_tenant(test_user_id)
-    await make_plain_participant(tenant_id, test_user_id)  # no admin bypass (ADR 0091)
+    await make_plain_participant(tenant_id, test_user_id)  # no admin bypass (ADR 0096)
     async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name="My Sword")
         session.add(entity)

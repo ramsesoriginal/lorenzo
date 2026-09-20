@@ -412,7 +412,7 @@ async def test_get_item_hides_gm_only_description_from_a_plain_member(
     no Knowledge row is GM-only by default and must not appear here.
     """
     tenant_id = await make_tenant(test_user_id)
-    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0091)
+    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0096)
     entity_id, _ = await _make_item_with_description(tenant_id, is_public=False)
 
     response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
@@ -450,7 +450,7 @@ async def test_list_items_hides_gm_only_description_from_a_plain_member(
     list too, not only on the single-item GET.
     """
     tenant_id = await make_tenant(test_user_id)
-    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0091)
+    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0096)
     await _make_item_with_description(tenant_id, is_public=False)
 
     response = await client.get(f"/tenants/{tenant_id}/items")

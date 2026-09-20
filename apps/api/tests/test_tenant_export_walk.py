@@ -125,7 +125,7 @@ async def test_every_documented_read_returns_the_rows_that_went_in(
 
     # Information is per-entity (there is no collection endpoint): the entity
     # detail lists what the caller may see. The exporter is a tenant OWNER, who
-    # reads GM-only information like an ORGA (ADR 0091).
+    # reads GM-only information like an ORGA (ADR 0096).
     detail = await client.get(f"{base}/entities/{proto_id}")
     assert detail.status_code == 200
     assert _contains(detail.json()["information"], information["id"])

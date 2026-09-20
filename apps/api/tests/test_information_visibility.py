@@ -640,7 +640,7 @@ async def test_resolve_information_visibility_gm_reachable_unions_every_campaign
 
 
 async def test_resolve_information_visibility_owner_sees_secret_without_gm_standing() -> None:
-    """ADR 0091 (amending 0028/0035's "administrative access != automatic
+    """ADR 0096 (amending 0028/0035's "administrative access != automatic
     character knowledge"): a tenant OWNER with no CampaignGm standing
     anywhere now *does* see a GM-only secret on a character's owned item -
     the information bypass covers OWNER as well as ORGA. `is_orga` stays
