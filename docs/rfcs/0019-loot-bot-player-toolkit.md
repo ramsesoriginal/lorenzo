@@ -37,7 +37,7 @@ Order is smallest-and-least-risky first; slice 6 is the only one needing new inf
 
 ### 1. Generated-client drift check
 
-`mise run generate-client` reads `apps/api/openapi.json` (already committed). A CI job regenerates `apps/loot-bot/src/lorenzo-schema.d.ts` from it and fails on `git diff --exit-code` — the same class of gap `release.yml`'s `sync-lockfile` job exists to catch for `uv.lock`. Whether `openapi.json` itself is also regenerated from `apps/api`'s live app in CI (so it can't lag the routes either) is an implementation detail for the slice, checked against how `apps/api` already dumps it.
+`mise run generate-client` reads `apps/api/openapi.json`, which is **gitignored** and produced on demand by `mise run //apps/api:openapi-schema` (correcting this RFC's original draft, which assumed it was committed). A CI job therefore dumps a fresh schema, regenerates `apps/loot-bot/src/lorenzo-schema.d.ts` from it, and fails on `git diff --exit-code` — the same class of gap `release.yml`'s `sync-lockfile` job exists to catch for `uv.lock`. Built as slice 1; on its first run it found the committed client already ~900 lines behind `apps/api`.
 
 ### 2. `/drop` autocomplete and slug surfacing
 
