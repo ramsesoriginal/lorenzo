@@ -1,4 +1,4 @@
-"""Campaign invite links, core mechanics only - see ADR 0092/RFC 0019.
+"""Campaign invite links, core mechanics only - see ADR 0092/RFC 0023.
 
 No auth and no commit (matching `notifications`/`activity_log`): the routes
 in `routers/invites.py` (public preview/redeem) and

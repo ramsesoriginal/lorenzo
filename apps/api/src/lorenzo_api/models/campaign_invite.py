@@ -11,7 +11,7 @@ from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk
 
 class CampaignInvite(Base):
     """A shareable link that lets people join one campaign as players
-    themselves - see ADR 0092/RFC 0019.
+    themselves - see ADR 0092/RFC 0023.
 
     The token is never stored: only its SHA-256 (`token_hash`, unique), so
     a leaked table leaks no working links. `expires_at` is required (a
