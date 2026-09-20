@@ -247,18 +247,22 @@ async def update_tenant(
     if update.get("slug") is not None:
         await _check_slug_available_for_update(session, tenant_id, update["slug"])
 
-    changed = False
-    if update.get("name") is not None:
-        tenant.name = update["name"]
-        changed = True
-    if update.get("slug") is not None:
-        tenant.slug = update["slug"]
-        changed = True
-    if update.get("description") is not None:
-        tenant.description = update["description"]
-        changed = True
-    if changed:
+    changed_fields: list[str] = []
+    for field in ("name", "slug", "description"):
+        if update.get(field) is not None:
+            setattr(tenant, field, update[field])
+            changed_fields.append(field)
+    if changed_fields:
         tenant.updated_by = user.id
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="tenant.updated",
+            target_type="tenant",
+            target_id=tenant_id,
+            detail=f"fields={','.join(changed_fields)}",
+        )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
