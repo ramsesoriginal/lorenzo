@@ -9,6 +9,12 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordCharacterEvents } = vi.hoisted(() => ({ recordCharacterEvents: vi.fn() }));
+vi.mock("../src/character-events.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/character-events.js")>()),
+  recordCharacterEvents,
+}));
+
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
 
@@ -245,5 +251,62 @@ describe("reassignCommand.autocomplete", () => {
     await reassignCommand.autocomplete?.(interaction, { config, logger: {} as never });
 
     expect(interaction.respond).toHaveBeenCalledWith([{ name: "Frodo", value: "char-1" }]);
+  });
+});
+
+describe("reassignCommand.execute - recording for /changes (ADR 0096)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("records the move against the former and the new owner, without naming the GM", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch", quantity: 5 });
+    getCharacterName.mockImplementation(async (_t: string, id: string) =>
+      id === "char-1" ? "Frodo" : "Sam",
+    );
+
+    await reassignCommand.execute(fakeInteraction(), { config, logger: {} as never });
+
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          kind: "reassigned",
+          summary: "Torch ×5 was reassigned from Frodo to Sam.",
+          characterEntityIds: ["char-1", "char-2"],
+        }),
+      ],
+      expect.anything(),
+    );
+    const [[events]] = recordCharacterEvents.mock.calls as [[{ summary: string }[]]];
+    expect(events[0]?.summary).not.toContain("gm-1");
+  });
+
+  it("records an ownerless item as simply assigned to the new owner", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword", owner_entity_id: null },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
+    getCharacterName.mockResolvedValue("Sam");
+
+    await reassignCommand.execute(fakeInteraction(), { config, logger: {} as never });
+
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          summary: "Sword was assigned to Sam.",
+          characterEntityIds: ["char-2"],
+        }),
+      ],
+      expect.anything(),
+    );
   });
 });

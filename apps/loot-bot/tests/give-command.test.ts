@@ -9,6 +9,12 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordCharacterEvents } = vi.hoisted(() => ({ recordCharacterEvents: vi.fn() }));
+vi.mock("../src/character-events.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/character-events.js")>()),
+  recordCharacterEvents,
+}));
+
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
 
@@ -328,5 +334,68 @@ describe("giveCommand.autocomplete", () => {
       { name: "Frodo", value: "char-1" },
       { name: "Sam", value: "char-2" },
     ]);
+  });
+});
+
+describe("giveCommand.execute - recording for /changes (ADR 0096)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function arrange(quantity: number | null = 5) {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity, title: "Torch", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch", quantity });
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "char-2",
+    );
+    return interaction;
+  }
+
+  it("records the give against both characters, naming them", async () => {
+    getCharacterName.mockImplementation(async (_t: string, id: string) =>
+      id === "char-1" ? "Frodo" : "Sam",
+    );
+
+    await giveCommand.execute(arrange(), { config, logger: {} as never });
+
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          kind: "gave",
+          summary: "Frodo gave Torch ×5 to Sam.",
+          characterEntityIds: ["char-1", "char-2"],
+        }),
+      ],
+      expect.anything(),
+    );
+  });
+
+  it("still records it, by id, when the name lookups fail - and the reply is unaffected", async () => {
+    getCharacterName.mockRejectedValue(new LorenzoApiError("nope", 404));
+    const interaction = arrange();
+
+    await giveCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith("Gave Torch to them.");
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [expect.objectContaining({ characterEntityIds: ["char-1", "char-2"] })],
+      expect.anything(),
+    );
+  });
+
+  it("records nothing when the give itself failed", async () => {
+    getCharacterName.mockResolvedValue("Sam");
+    setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
+    const interaction = arrange();
+    setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
+
+    await giveCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(recordCharacterEvents).not.toHaveBeenCalled();
   });
 });

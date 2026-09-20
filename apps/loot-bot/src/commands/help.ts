@@ -38,6 +38,7 @@ const CATEGORIES: readonly Readonly<{ title: string; commandNames: readonly stri
       "give",
       "give-bulk",
       "note",
+      "changes",
       "undo",
     ],
   },

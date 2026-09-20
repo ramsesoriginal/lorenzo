@@ -1,5 +1,11 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
+  describeItem,
+  giveEvent,
+  nameCharacter,
+  recordCharacterEvents,
+} from "../character-events.js";
+import {
   type ControlledCharacter,
   type LorenzoApiClient,
   LorenzoApiError,
@@ -120,11 +126,33 @@ export const giveCommand: Command = {
         });
       }
 
-      const targetName = await client
+      const targetLookup = await client
         .getCharacterName(tenantId, targetCharacterId, accessToken)
-        .catch(() => "them");
+        .catch(() => null);
+      const targetName = targetLookup ?? "them";
       const itemName = result.given.title ?? "(untitled)";
       const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
+
+      // For `/changes` (ADR 0096): both the giver's and the receiver's
+      // players will see this. Best-effort, after the give itself succeeded.
+      const giverId = current.owner_entity_id;
+      const giverLookup = giverId
+        ? await client.getCharacterName(tenantId, giverId, accessToken).catch(() => null)
+        : null;
+      const receiver = nameCharacter(targetCharacterId, targetLookup);
+      if (receiver) {
+        await recordCharacterEvents(
+          [
+            giveEvent({
+              giver: nameCharacter(giverId, giverLookup),
+              receiver,
+              item: describeItem(itemName, result.given.quantity),
+            }),
+          ],
+          ctx.logger,
+        );
+      }
+
       await interaction.editReply(`Gave ${amount}${itemName} to ${targetName}.`);
     } catch (error) {
       if (error instanceof LorenzoApiError) {

@@ -11,6 +11,12 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordCharacterEvents } = vi.hoisted(() => ({ recordCharacterEvents: vi.fn() }));
+vi.mock("../src/character-events.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/character-events.js")>()),
+  recordCharacterEvents,
+}));
+
 const { resolveCurrentCharacter } = vi.hoisted(() => ({ resolveCurrentCharacter: vi.fn() }));
 vi.mock("../src/preferences.js", () => ({ resolveCurrentCharacter }));
 
@@ -55,6 +61,7 @@ const {
   splitItemInstance,
   setItemInstanceOwner,
   bulkAssignItemInstances,
+  getCharacterName,
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   isCampaignGm: vi.fn(),
@@ -64,6 +71,7 @@ const {
   splitItemInstance: vi.fn(),
   setItemInstanceOwner: vi.fn(),
   bulkAssignItemInstances: vi.fn(),
+  getCharacterName: vi.fn(async () => "Frodo"),
   createLorenzoApiClient: vi.fn(),
 }));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
@@ -78,6 +86,7 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       splitItemInstance,
       setItemInstanceOwner,
       bulkAssignItemInstances,
+      getCharacterName,
     }),
   };
 });
@@ -724,5 +733,102 @@ describe("dropCommand.onButton — clear claims", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ embeds: expect.anything(), components: expect.anything() }),
     );
+  });
+});
+
+describe("dropCommand - recording for /changes (ADR 0096)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getCharacterName.mockResolvedValue("Frodo");
+  });
+
+  it("records an immediate take for the character that took it", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    resolveCurrentCharacter.mockResolvedValue("char-1");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Torch", quantity: null, owner_entity_id: null },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch", quantity: null });
+    getLootDrop.mockResolvedValue({
+      id: "drop-1",
+      containerEntityId: "container-1",
+      createdByDiscordUserId: "gm-1",
+    });
+    getItemInstancesByContainer.mockResolvedValue([]);
+    listLootClaims.mockResolvedValue([]);
+
+    await dropCommand.onModalSubmit?.(fakeModalSubmit("drop:take-modal:drop-1:item-1", ""), {
+      config,
+      logger: {} as never,
+    });
+
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          kind: "took",
+          summary: "Frodo took Torch from a loot drop.",
+          characterEntityIds: ["char-1"],
+        }),
+      ],
+      expect.anything(),
+    );
+  });
+
+  it("records each honored claim - and only those - when claims are applied", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    listLootClaims.mockResolvedValue([
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-1",
+        characterEntityId: "char-1",
+        claimType: "greed",
+        quantity: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-2",
+        characterEntityId: "char-2",
+        claimType: "greed",
+        quantity: null,
+        createdAt: new Date("2026-01-01T00:01:00Z"),
+      },
+    ]);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Sword", quantity: null, owner_entity_id: null },
+      etag: "etag-1",
+    });
+    bulkAssignItemInstances.mockResolvedValue([
+      { entity_id: "item-1", status: "ok", item_instance: { entity_id: "item-1", title: "Sword" } },
+    ]);
+
+    await dropCommand.onButton?.(fakeButton("drop:apply:drop-1"), { config, logger: {} as never });
+
+    // The second claim on the same one-off item lost out client-side, so only
+    // the first character received anything.
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          kind: "claim-honored",
+          summary: "Frodo received Sword from a loot drop claim.",
+          characterEntityIds: ["char-1"],
+        }),
+      ],
+      expect.anything(),
+    );
+  });
+
+  it("records nothing when no claim could be honored", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    listLootClaims.mockResolvedValue([]);
+
+    await dropCommand.onButton?.(fakeButton("drop:apply:drop-1"), { config, logger: {} as never });
+
+    expect(recordCharacterEvents).not.toHaveBeenCalled();
   });
 });

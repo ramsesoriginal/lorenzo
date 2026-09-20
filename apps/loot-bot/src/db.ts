@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { DatabaseError, Pool } from "pg";
 import { loadConfig } from "./config.js";
 import {
+  type CharacterEvent,
   type ClaimType,
   GLOBAL_PREFERENCE_CHANNEL_ID,
   type LinkedAccount,
@@ -11,6 +12,8 @@ import {
   type NewLinkedAccountRow,
   type PendingUndo,
   type PlayerPreference,
+  changesSeen,
+  characterEvent,
   linkedAccount,
   lootClaim,
   lootDrop,
@@ -26,6 +29,7 @@ export type {
   LootClaim,
   ClaimType,
   PendingUndo,
+  CharacterEvent,
 };
 export { GLOBAL_PREFERENCE_CHANNEL_ID };
 
@@ -39,7 +43,15 @@ export { GLOBAL_PREFERENCE_CHANNEL_ID };
  */
 const pool = new Pool({ connectionString: loadConfig().databaseUrl });
 const db = drizzle(pool, {
-  schema: { linkedAccount, playerPreference, lootDrop, lootClaim, pendingUndo },
+  schema: {
+    linkedAccount,
+    playerPreference,
+    lootDrop,
+    lootClaim,
+    pendingUndo,
+    characterEvent,
+    changesSeen,
+  },
 });
 
 /** Closes the underlying connection pool - for graceful shutdown and for
@@ -464,4 +476,74 @@ export async function setPendingUndo(
  * might retry against outdated state). */
 export async function deletePendingUndo(discordUserId: string): Promise<void> {
   await db.delete(pendingUndo).where(eq(pendingUndo.discordUserId, discordUserId));
+}
+
+export type NewCharacterEvent = Readonly<{
+  eventId: string;
+  characterEntityId: string;
+  kind: string;
+  summary: string;
+}>;
+
+/** Records what happened to characters' belongings (ADR 0096) - one row per
+ * affected character, in a single insert so a transfer's two rows land
+ * together. */
+export async function insertCharacterEvents(events: readonly NewCharacterEvent[]): Promise<void> {
+  if (events.length === 0) return;
+  await db.insert(characterEvent).values([...events]);
+}
+
+/**
+ * The events for any of `characterEntityIds`, newest first - what `/changes`
+ * shows. `since` (exclusive) is "since you last looked"; leave it off for
+ * the whole recent history. A transfer between two characters the same
+ * player controls is two rows sharing an `eventId`; only the first (newest)
+ * row of each `eventId` is returned, so it shows once.
+ *
+ * `total` counts distinct events matching, so a caller can say how many
+ * older ones a `limit` left out.
+ */
+export async function listCharacterEvents(
+  characterEntityIds: readonly string[],
+  options: { since?: Date | undefined; limit: number },
+): Promise<{ events: readonly CharacterEvent[]; total: number }> {
+  if (characterEntityIds.length === 0) return { events: [], total: 0 };
+
+  const where = and(
+    inArray(characterEvent.characterEntityId, [...characterEntityIds]),
+    options.since ? gt(characterEvent.createdAt, options.since) : undefined,
+  );
+  const rows = await db
+    .selectDistinctOn([characterEvent.eventId])
+    .from(characterEvent)
+    .where(where)
+    .orderBy(characterEvent.eventId, desc(characterEvent.createdAt));
+  const newestFirst = [...rows].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime() || a.id.localeCompare(b.id),
+  );
+  return { events: newestFirst.slice(0, options.limit), total: newestFirst.length };
+}
+
+/** When this user last ran `/changes`, if ever. */
+export async function getChangesSeenAt(discordUserId: string): Promise<Date | undefined> {
+  const rows = await db
+    .select()
+    .from(changesSeen)
+    .where(eq(changesSeen.discordUserId, discordUserId))
+    .limit(1);
+  return rows[0]?.seenAt;
+}
+
+/** Moves the "last looked" marker - an upsert, one row per user. */
+export async function setChangesSeenAt(discordUserId: string, seenAt: Date): Promise<void> {
+  await db
+    .insert(changesSeen)
+    .values({ discordUserId, seenAt })
+    .onConflictDoUpdate({ target: changesSeen.discordUserId, set: { seenAt } });
+}
+
+/** Drops events older than `olderThan` - the event log is a convenience
+ * view, not a ledger, so it doesn't grow forever. */
+export async function pruneCharacterEvents(olderThan: Date): Promise<void> {
+  await db.delete(characterEvent).where(lt(characterEvent.createdAt, olderThan));
 }

@@ -1,6 +1,7 @@
 import { addChannelToGroupCommand } from "./add-channel-to-group.js";
 import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
+import { changesCommand } from "./changes.js";
 import { confiscateCommand } from "./confiscate.js";
 import { dropCommand } from "./drop.js";
 import { giveBulkCommand } from "./give-bulk.js";
@@ -57,6 +58,7 @@ const commands: readonly Command[] = [
   moveBulkCommand,
   addToGroupCommand,
   addChannelToGroupCommand,
+  changesCommand,
   helpCommand,
 ];
 

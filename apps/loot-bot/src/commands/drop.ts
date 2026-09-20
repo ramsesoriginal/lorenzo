@@ -1,5 +1,12 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
+  claimHonoredEvent,
+  describeItem,
+  nameCharacter,
+  recordCharacterEvents,
+  takeEvent,
+} from "../character-events.js";
+import {
   type LootClaim,
   deleteLootClaim,
   deleteLootClaimsForDrop,
@@ -186,7 +193,7 @@ export const dropCommand: Command = {
     }
 
     const claims = await listLootClaims(dropId);
-    const outcomes = await applyAllClaims(client, tenantId, claims, accessToken);
+    const outcomes = await applyAllClaims(client, tenantId, claims, accessToken, ctx);
 
     await markLootDropApplied(dropId);
     await deleteLootClaimsForDrop(dropId);
@@ -280,6 +287,24 @@ async function handleTakeModalSubmit(
 
     await refreshDropMessage(interaction, ctx, dropId);
     const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
+
+    // For `/changes` (ADR 0096). Best-effort - the take has already happened.
+    const taker = nameCharacter(
+      characterEntityId,
+      await client.getCharacterName(tenantId, characterEntityId, accessToken).catch(() => null),
+    );
+    if (taker) {
+      await recordCharacterEvents(
+        [
+          takeEvent({
+            character: taker,
+            item: describeItem(result.given.title ?? "(untitled)", result.given.quantity),
+          }),
+        ],
+        ctx.logger,
+      );
+    }
+
     await interaction.followUp({
       content: `Took ${amount}${result.given.title ?? "(untitled)"}.`,
       ephemeral: true,
@@ -420,6 +445,7 @@ async function applyAllClaims(
   tenantId: string,
   claimsInCreatedOrder: readonly LootClaim[],
   accessToken: string,
+  ctx: CommandContext,
 ): Promise<ClaimOutcome[]> {
   // Array.prototype.sort is stable (ES2019+), so claims already ordered by
   // createdAt (listLootClaims) stay oldest-first within each tier after
@@ -518,12 +544,17 @@ async function applyAllClaims(
   if (requests.length === 0) return outcomes;
 
   const results = await client.bulkAssignItemInstances(tenantId, requests, accessToken);
+  const honored: Array<{ characterEntityId: string; item: string }> = [];
   results.forEach((result, index) => {
     const context = requestContext[index];
     if (!context) return;
     const { claim, itemTitle } = context;
 
     if (result.status === "ok") {
+      honored.push({
+        characterEntityId: claim.characterEntityId,
+        item: describeItem(itemTitle, requests[index]?.quantity ?? null),
+      });
       outcomes.push({
         discordUserId: claim.discordUserId,
         itemTitle,
@@ -540,6 +571,28 @@ async function applyAllClaims(
       quantity: claim.quantity,
     });
   });
+
+  // For `/changes` (ADR 0096): whoever's claim was honored can find out what
+  // they got, even if they missed the summary. One name lookup per distinct
+  // character, best-effort - the assignment itself has already happened.
+  if (honored.length > 0) {
+    const names = new Map<string, string | null>();
+    await Promise.all(
+      [...new Set(honored.map((h) => h.characterEntityId))].map(async (characterEntityId) => {
+        names.set(
+          characterEntityId,
+          await client.getCharacterName(tenantId, characterEntityId, accessToken).catch(() => null),
+        );
+      }),
+    );
+    await recordCharacterEvents(
+      honored.flatMap((h) => {
+        const character = nameCharacter(h.characterEntityId, names.get(h.characterEntityId));
+        return character ? [claimHonoredEvent({ character, item: h.item })] : [];
+      }),
+      ctx.logger,
+    );
+  }
 
   return outcomes;
 }
