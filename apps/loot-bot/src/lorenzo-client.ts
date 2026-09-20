@@ -81,7 +81,7 @@ export type OwnedItem = Readonly<{
   /** ADR 0043's tenant-unique, human-assigned name - `null` for the
    * (common) instance nobody ever named. Surfaced in replies so a GM who
    * prepped a container in `apps/inventory-web` can find it again by name
-   * (RFC 0019). */
+   * (RFC 0021). */
   slug: string | null;
 }>;
 
