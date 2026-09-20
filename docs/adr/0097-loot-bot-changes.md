@@ -1,6 +1,8 @@
-# 0096 - loot-bot: `/changes`, a bot-recorded view of what happened to your stuff
+# 0097 - loot-bot: `/changes`, a bot-recorded view of what happened to your stuff
 
 Status: accepted
+
+Numbered 0096 originally; renumbered to 0097 on merge into `main`, which had independently claimed 0096 for the tenant-OWNER/ORGA information-visibility ADR in the meantime. Same renumbering precedent as ADR 0050/0054's own history (see [docs/adr/README.md](README.md)).
 
 ## Context
 

@@ -30,6 +30,20 @@ run = "pnpm exec tsx --env-file=.env scripts/register-commands.ts"
 description = "Regenerate the typed Lorenzo API client from apps/api's OpenAPI schema"
 run = "pnpm exec openapi-typescript ../api/openapi.json -o src/lorenzo-schema.d.ts"
 
+[tasks.check-client]
+description = "Fail if src/lorenzo-schema.d.ts is stale against apps/api's current OpenAPI schema"
+# apps/api/openapi.json is gitignored, so this dumps a fresh one first rather
+# than trusting whatever's lying around. `git diff` is the comparison: the
+# generated file is committed and Biome-ignored (biome.json), so any byte of
+# difference means someone changed apps/api's routes/schemas without running
+# `mise run generate-client`.
+run = [
+  "mise run //apps/api:openapi-schema",
+  "pnpm install --frozen-lockfile",
+  "pnpm exec openapi-typescript ../api/openapi.json -o src/lorenzo-schema.d.ts",
+  "git diff --exit-code --stat -- src/lorenzo-schema.d.ts || { echo 'src/lorenzo-schema.d.ts is stale - run `mise run //apps/loot-bot:generate-client` and commit the result.'; exit 1; }",
+]
+
 [tasks.db-generate]
 description = "Generate a new Drizzle migration from schema changes"
 run = "pnpm exec drizzle-kit generate"
