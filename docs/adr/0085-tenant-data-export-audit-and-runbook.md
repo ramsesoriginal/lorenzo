@@ -70,3 +70,13 @@ Reads are filtered by `information_visibility`. The bypass code documents its ow
 - Three read-only endpoints and their schemas/tests; no migration, no new table.
 - The runbook doubles as the acceptance test: if a step can't be run end to end against a real tenant, the audit table above is wrong and gets corrected.
 - The knowledge listing is the first endpoint that lists `knowledge` at all; because it returns ids only and is OWNER/ORGA-gated, it adds no way for a player to learn who knows what.
+
+## Addendum: audit outcomes from implementation
+
+Settled by real requests, not by reading code (`apps/api/tests/test_owner_information_visibility.py`, `test_tenant_export_walk.py`):
+
+- **The OWNER visibility question is real.** A tenant `OWNER` does *not* see GM-only information through `GET /entities/{id}`; the same request as an `ORGA` does. `information_visibility`'s bypass is `is_tenant_orga`, and its docstring's "OWNER is deliberately not folded in" means what it says. An export made with an OWNER's token silently omits GM-only text. The runbook states this and gives the workaround (export with a token holding `ORGA`). **Whether OWNER should read it directly is undecided** and is not changed here: it reverses a choice recorded in ADR 0035/RFC 0009, so it needs its own decision.
+- `payload_number` is reachable: it is one arm of the payload union information reads return.
+- `entity_stat_group` has no read or write path in the API at all, so a tenant built through the API has no rows in it. Nothing to export; noted as a limitation.
+- Two corrections to the audit table's "yes" rows: the campaign, character and entity **lists are summaries** (the detail reads carry the rest), and `.../gms` and `.../groups/{id}/members` return **plain lists, not pages**. The runbook says so per row.
+- `GET /tenants/{id}/stat-groups`, `/stat-definitions` and `/knowledge` now exist.
