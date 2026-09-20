@@ -650,6 +650,11 @@ async def delete_membership(
     ):
         raise LastOwnerError(detail=f"User {user_id} is the sole OWNER of tenant {tenant_id}")
 
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+
+    left = user_id == user.id
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -657,7 +662,25 @@ async def delete_membership(
         action="membership.deleted",
         target_type="membership",
         target_id=user_id,
-        detail=None,
+        detail=f"{'left' if left else 'removed'}, role={membership.role.value}",
+    )
+    # ADR 0084: always tell the departing member, including on a self-service
+    # leave. Removal ends only the tenant-wide Membership row - Player/
+    # CampaignGm rows reference app_user, not membership, so any campaign
+    # seats they hold are untouched, and the text says exactly that rather
+    # than implying anything they made was lost.
+    await create_tenant_notification(
+        session,
+        tenant_id=tenant_id,
+        recipient_user_id=user_id,
+        type="tenant_membership_removed",
+        title=f"You left {tenant.name}" if left else f"Your access to {tenant.name} has ended",
+        body=(
+            f"Your tenant-wide membership in {tenant.name} has ended."
+            " Nothing you created there was deleted, and any campaign seats you hold"
+            " there - as a player or a GM - are unchanged."
+        ),
+        created_by=user.id,
     )
     await session.delete(membership)
     await session.commit()
