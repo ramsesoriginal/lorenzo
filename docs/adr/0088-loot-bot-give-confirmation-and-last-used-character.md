@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-[RFC 0019](../rfcs/0019-loot-bot-player-toolkit.md) slice 3, two small changes that share one file and one risk.
+[RFC 0021](../rfcs/0021-loot-bot-player-toolkit.md) slice 3, two small changes that share one file and one risk.
 
 **`/give` moves an item out of the caller's inventory the instant the command is submitted.** `/undo` exists ([ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md)) but is best-effort and short-lived, and a mistyped autocomplete pick is easy. One deliberate click before it happens is cheap insurance.
 
