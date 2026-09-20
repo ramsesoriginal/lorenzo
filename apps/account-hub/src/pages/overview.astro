@@ -1,0 +1,112 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Your access, everywhere — Lorenzo">
+  <h1 class="display">Your access, everywhere</h1>
+  <p><a href="/">&larr; Back</a></p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
+
+  <ul id="tenant-list"></ul>
+
+  <script>
+    import { campaignRoleFor, type CampaignRole } from '../lib/format';
+    import { getMe } from '../lib/me';
+    import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import type { CampaignSummaryOut, MeOut, TenantSummaryOut } from '../lib/types';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const tenantList = document.getElementById('tenant-list')!;
+
+    function roleLabel(role: CampaignRole): string {
+      switch (role) {
+        case 'gm':
+          return 'GM';
+        case 'player':
+          return 'Player';
+        case 'visible':
+          return 'Visible';
+      }
+    }
+
+    function renderCampaignRow(campaign: CampaignSummaryOut, role: CampaignRole): HTMLLIElement {
+      const item = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = campaign.name;
+      const roleBadge = document.createElement('span');
+      roleBadge.className = 'tenant-role';
+      roleBadge.textContent = roleLabel(role);
+      item.append(name, ' ', roleBadge);
+      return item;
+    }
+
+    async function renderTenantRow(tenant: TenantSummaryOut, me: MeOut): Promise<HTMLLIElement> {
+      const item = document.createElement('li');
+      const heading = document.createElement('h2');
+      heading.textContent = `${tenant.name} `;
+      const roleBadge = document.createElement('span');
+      roleBadge.className = 'tenant-role';
+      roleBadge.textContent = tenant.role;
+      heading.append(roleBadge);
+      item.append(heading);
+
+      const campaignsPage = await listTenantCampaigns(tenant.id);
+      // Roles and membership state only (ADR 0085) - a campaign merely
+      // visible to the caller isn't "their access" in the sense this page
+      // is for; /tenants already shows every visible campaign per tenant.
+      const played = campaignsPage.items
+        .map((campaign) => ({ campaign, role: campaignRoleFor(campaign.id, me) }))
+        .filter(({ role }) => role !== 'visible');
+
+      if (played.length === 0) {
+        const none = document.createElement('p');
+        none.textContent = "You don't play or GM any campaign here.";
+        item.append(none);
+      } else {
+        const list = document.createElement('ul');
+        for (const { campaign, role } of played) {
+          list.append(renderCampaignRow(campaign, role));
+        }
+        item.append(list);
+      }
+
+      return item;
+    }
+
+    async function load() {
+      const me = await getMe();
+      const tenantsPage = await listMyTenants();
+      if (tenantsPage.items.length === 0) {
+        emptyState.hidden = false;
+        tenantList.replaceChildren();
+        return;
+      }
+      emptyState.hidden = true;
+      const rows = await Promise.all(
+        tenantsPage.items.map((tenant) => renderTenantRow(tenant, me)),
+      );
+      tenantList.replaceChildren(...rows);
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        loadError.textContent = e instanceof Error ? e.message : String(e);
+      }
+    }
+  </script>
+</Base>

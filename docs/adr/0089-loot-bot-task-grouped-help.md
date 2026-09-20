@@ -4,13 +4,13 @@ Status: accepted
 
 ## Context
 
-[RFC 0019](../rfcs/0019-loot-bot-player-toolkit.md) slice 4. [ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md)'s addendum added `/help` when the bot reached 25 commands: a hand-maintained `CATEGORIES` list (Account, Inventory, Groups, GM tools, Loot drops, Utility) rendered as one embed field per category, each line `/name — description`. It's accurate, but it answers "what commands exist" rather than "how do I do the thing I came to do":
+[RFC 0021](../rfcs/0021-loot-bot-player-toolkit.md) slice 4. [ADR 0068](0068-loot-bot-inventory-and-gm-toolkit.md)'s addendum added `/help` when the bot reached 25 commands: a hand-maintained `CATEGORIES` list (Account, Inventory, Groups, GM tools, Loot drops, Utility) rendered as one embed field per category, each line `/name — description`. It's accurate, but it answers "what commands exist" rather than "how do I do the thing I came to do":
 
 - The categories are by *kind of object*, not by *goal*. "Inventory" holds ten commands with no order — `/move-bulk` sits between `/item` and `/merge`, and nothing says `/inventory` is where a newcomer starts.
 - Nothing tells a first-time user what to do first, although the answer (`/link`, then `/inventory`) is the same for everyone.
 - `/help`'s own registered description, "List every command, or show one command's full options", describes the mechanism, not why you'd run it.
 
-The fix has to stay a discoverability fix. Renaming or restructuring the commands themselves (a 26-command reshuffle into subcommands, say) would break muscle memory for a problem that doesn't need it — RFC 0019 ruled that out explicitly, and it also collides with ADR 0053's note that this bot deliberately uses no subcommands.
+The fix has to stay a discoverability fix. Renaming or restructuring the commands themselves (a 26-command reshuffle into subcommands, say) would break muscle memory for a problem that doesn't need it — RFC 0021 ruled that out explicitly, and it also collides with ADR 0053's note that this bot deliberately uses no subcommands.
 
 ## Decision
 

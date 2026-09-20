@@ -1,4 +1,5 @@
-import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
+import { apiDelete, apiFetch, apiPatch, apiPost, apiPut, apiUpload } from './api';
+import { API_BASE_URL } from './config';
 import type {
   AuditLogEntryOut,
   BulkMembershipResultItem,
@@ -27,6 +28,23 @@ export async function listMyTenants(): Promise<Page<TenantSummaryOut>> {
   return apiFetch<Page<TenantSummaryOut>>(`/tenants?page=1&size=${PAGE_SIZE}`);
 }
 
+// ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike
+// MeOut, ADR 0056/0060), so the client constructs the URL itself; GET
+// .../picture has no fallback for a tenant with nothing uploaded (a plain
+// 404, unlike a user's Gravatar redirect), which pictureUi.ts's <img
+// onerror> handles.
+export function tenantPictureUrl(tenantId: string): string {
+  return `${API_BASE_URL}/tenants/${tenantId}/picture`;
+}
+
+export async function uploadTenantPicture(tenantId: string, file: File): Promise<void> {
+  await apiUpload<void>(`/tenants/${tenantId}/picture`, 'file', file);
+}
+
+export async function deleteTenantPicture(tenantId: string): Promise<void> {
+  await apiDelete<void>(`/tenants/${tenantId}/picture`);
+}
+
 export async function listTenantCampaigns(tenantId: string): Promise<Page<CampaignSummaryOut>> {
   return apiFetch<Page<CampaignSummaryOut>>(
     `/tenants/${tenantId}/campaigns?page=1&size=${PAGE_SIZE}`,
@@ -47,6 +65,24 @@ export async function updateCampaign(
   body: CampaignUpdate,
 ): Promise<CampaignOut> {
   return apiPatch<CampaignOut>(`/tenants/${tenantId}/campaigns/${campaignId}`, body);
+}
+
+// ADR 0085 - same reasoning as tenantPictureUrl above, gated by
+// can_manage_campaign server-side (same as update_campaign).
+export function campaignPictureUrl(tenantId: string, campaignId: string): string {
+  return `${API_BASE_URL}/tenants/${tenantId}/campaigns/${campaignId}/picture`;
+}
+
+export async function uploadCampaignPicture(
+  tenantId: string,
+  campaignId: string,
+  file: File,
+): Promise<void> {
+  await apiUpload<void>(`/tenants/${tenantId}/campaigns/${campaignId}/picture`, 'file', file);
+}
+
+export async function deleteCampaignPicture(tenantId: string, campaignId: string): Promise<void> {
+  await apiDelete<void>(`/tenants/${tenantId}/campaigns/${campaignId}/picture`);
 }
 
 // Unpaginated - GmOut's own docstring calls this "inherently small and

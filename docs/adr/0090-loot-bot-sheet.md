@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-[RFC 0019](../rfcs/0019-loot-bot-player-toolkit.md) slice 5a. A player's character has stats and lore, but the only way to see either from Discord was `/item` with a raw entity id — and `/item` posts publicly, by design ("showing it off is the point"). A player wants to glance at their own sheet privately, by character name.
+[RFC 0021](../rfcs/0021-loot-bot-player-toolkit.md) slice 5a. A player's character has stats and lore, but the only way to see either from Discord was `/item` with a raw entity id — and `/item` posts publicly, by design ("showing it off is the point"). A player wants to glance at their own sheet privately, by character name.
 
 Checked against the real API before building anything:
 
