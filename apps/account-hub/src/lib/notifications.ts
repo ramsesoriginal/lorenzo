@@ -12,6 +12,16 @@ export async function listNotifications(unreadOnly = false): Promise<Page<Notifi
   return apiFetch<Page<Notification>>(`/me/notifications?${params.toString()}`);
 }
 
+// ADR 0085 - a nav badge only needs the pagination envelope's own count,
+// not the items themselves, so size=1 (not PAGE_SIZE) keeps this cheap
+// regardless of inbox size.
+export async function getUnreadCount(): Promise<number> {
+  const page = await apiFetch<Page<Notification>>(
+    '/me/notifications?unread_only=true&page=1&size=1',
+  );
+  return page.total;
+}
+
 export async function markNotificationRead(id: string): Promise<Notification> {
   return apiPost<Notification>(`/me/notifications/${id}/read`, undefined);
 }
