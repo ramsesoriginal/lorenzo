@@ -35,10 +35,9 @@ The UI (remove button, confirmation step) and the audit trail already exist (ADR
 
 ### 5. Self-serve tenant-data export (blocked on `apps/api`)
 
-Per the drafted (unmerged) ADR on `feat/api-tenant-accountability-docs`, there will be no single download endpoint to call - the design is a handful of small new read endpoints plus a human-readable runbook describing how to walk every tenant-scoped read to reconstruct a full export. Two shapes for this app's own page, once that lands, not chosen here:
+Per the drafted (unmerged) ADR on `feat/api-tenant-accountability-docs`, there will be no single download endpoint to call - the design is a handful of small new read endpoints plus a human-readable runbook describing how to walk every tenant-scoped read to reconstruct a full export.
 
-- **Documentation-only**: a page (or a section of an existing one) that simply links to/renders the runbook, telling an owner how to export their own data via API calls (e.g. with `curl`/a script) - no new client code beyond a static page, matching this app's established minimalism.
-- **Client-assisted**: a page that actually walks the documented sequence of reads itself and offers the result as a downloadable JSON bundle - real, buildable client work (no `apps/api` change needed beyond what that ADR already proposes), but meaningfully more code than the documentation-only shape, and duplicates logic the runbook already has to state precisely for its own sake.
+**Decided (2026-09-20): documentation-only for now.** A page (or a section of an existing one) that simply links to/renders the runbook, telling an owner how to export their own data via API calls (e.g. with `curl`/a script) - no new client code beyond a static page, matching this app's established minimalism. The client-assisted alternative (a page that actually walks the documented reads itself and offers a downloadable JSON bundle) is explicitly deferred, not rejected - real, buildable client work once there's a concrete need for it, not designed here.
 
 Left open for the user to pick once the `apps/api` side is actually reviewable; recorded here so the choice isn't made silently mid-implementation.
 
