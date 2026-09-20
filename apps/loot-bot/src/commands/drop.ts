@@ -280,8 +280,16 @@ async function handleTakeModalSubmit(
 
     await refreshDropMessage(interaction, ctx, dropId);
     const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
+    // Name who it went to: the character is a remembered default (ADR 0088),
+    // so a player who's since switched characters elsewhere needs to see a
+    // wrong one here, not discover it in their inventory later. Best-effort -
+    // the take has already happened.
+    const characterName = await client
+      .getCharacterName(tenantId, characterEntityId, accessToken)
+      .catch(() => null);
+    const recipient = characterName ? ` for ${characterName}` : "";
     await interaction.followUp({
-      content: `Took ${amount}${result.given.title ?? "(untitled)"}.`,
+      content: `Took ${amount}${result.given.title ?? "(untitled)"}${recipient}.`,
       ephemeral: true,
     });
   } catch (error) {

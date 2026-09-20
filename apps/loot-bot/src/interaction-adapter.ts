@@ -322,6 +322,10 @@ function buildButtonInteraction(
         data: serializeMessagePayload(opts, replyFlags(opts)),
       });
     },
+    async update(opts) {
+      replied = true;
+      gate.send({ type: ResponseType.UpdateMessage, data: serializeMessagePayload(opts) });
+    },
     async deferUpdate() {
       deferred = true;
       gate.send({ type: ResponseType.DeferredUpdateMessage });

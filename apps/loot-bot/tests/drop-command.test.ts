@@ -55,6 +55,7 @@ const {
   splitItemInstance,
   setItemInstanceOwner,
   bulkAssignItemInstances,
+  getCharacterName,
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   isCampaignGm: vi.fn(),
@@ -64,6 +65,7 @@ const {
   splitItemInstance: vi.fn(),
   setItemInstanceOwner: vi.fn(),
   bulkAssignItemInstances: vi.fn(),
+  getCharacterName: vi.fn(),
   createLorenzoApiClient: vi.fn(),
 }));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
@@ -78,6 +80,7 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       splitItemInstance,
       setItemInstanceOwner,
       bulkAssignItemInstances,
+      getCharacterName,
     }),
   };
 });
@@ -336,6 +339,7 @@ describe("dropCommand.onModalSubmit — take", () => {
       etag: "etag-1",
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
+    getCharacterName.mockResolvedValue("Frodo");
     getLootDrop.mockResolvedValue({
       id: "drop-1",
       containerEntityId: "container-1",
@@ -355,6 +359,34 @@ describe("dropCommand.onModalSubmit — take", () => {
       "etag-1",
     );
     expect(interaction.update).toHaveBeenCalled();
+    expect(interaction.followUp).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Took Torch for Frodo.", ephemeral: true }),
+    );
+    // Names the recipient from the *resolved* character, not a fresh guess -
+    // it's a remembered default (ADR 0088), so a wrong one must be visible.
+    expect(getCharacterName).toHaveBeenCalledWith("tenant-1", "char-1", "token-123");
+  });
+
+  it("still confirms the take, just without a name, if the character lookup fails", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    resolveCurrentCharacter.mockResolvedValue("char-1");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Torch", quantity: null, owner_entity_id: null },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
+    getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getLootDrop.mockResolvedValue({
+      id: "drop-1",
+      containerEntityId: "container-1",
+      createdByDiscordUserId: "gm-1",
+    });
+    getItemInstancesByContainer.mockResolvedValue([]);
+    listLootClaims.mockResolvedValue([]);
+    const interaction = fakeModalSubmit("drop:take-modal:drop-1:item-1", "");
+
+    await dropCommand.onModalSubmit?.(interaction, { config, logger: {} as never });
+
     expect(interaction.followUp).toHaveBeenCalledWith(
       expect.objectContaining({ content: "Took Torch.", ephemeral: true }),
     );
