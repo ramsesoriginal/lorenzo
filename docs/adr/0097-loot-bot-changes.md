@@ -8,7 +8,7 @@ Numbered 0096 originally; renumbered to 0097 on merge into `main`, which had ind
 
 [RFC 0021](../rfcs/0021-loot-bot-player-toolkit.md) slice 7. A player wants a private answer to "what happened to my characters' belongings since I last looked" — a gift from another player, an award, a confiscation, a loot drop they missed. It is distinct from a GM's view: [ADR 0063](0063-tenant-activity-log.md)'s activity log is tenant-admin-only and deliberately covers only seven membership and campaign mutations, none of which are item moves.
 
-The API has nothing to build this from. There is no per-player change feed, and `updated_at` can't stand in for one: owner and container writes deliberately never bump it ([ADR 0051](0051-loot-bot-give-command.md)'s addendum). The complete answer is [RFC 0022](0022-player-facing-change-feed-api.md), an `apps/api` change; it was agreed, when this slice was scoped, that `/changes` would meanwhile be **bot-recorded only** and would say so, building nothing RFC 0022 would have to unpick.
+The API has nothing to build this from. There is no per-player change feed, and `updated_at` can't stand in for one: owner and container writes deliberately never bump it ([ADR 0051](0051-loot-bot-give-command.md)'s addendum). The complete answer is [RFC 0022](../rfcs/0022-player-facing-change-feed-api.md), an `apps/api` change; it was agreed, when this slice was scoped, that `/changes` would meanwhile be **bot-recorded only** and would say so, building nothing RFC 0022 would have to unpick.
 
 The bot also keeps no history today: `pending_undo` is one overwritten row per user, and a drop's claims are deleted once applied. So this slice needs an event log of its own, and a call in every command that moves belongings between characters.
 
