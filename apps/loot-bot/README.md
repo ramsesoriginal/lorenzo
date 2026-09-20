@@ -58,7 +58,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |
-| `/help` | Lists every command, grouped by what it's for, or (with `command`) one command's full options |
+| `/help` | Where to start: every command grouped by what you're trying to do (with a first-run intro), or (with `command`) one command's full options — [ADR 0089](../../docs/adr/0089-loot-bot-task-grouped-help.md) |
 
 ## Architecture
 
