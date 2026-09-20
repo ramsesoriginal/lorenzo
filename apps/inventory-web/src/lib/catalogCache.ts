@@ -1,4 +1,4 @@
-import type { CatalogItem, Page } from './types';
+import type { CatalogItem } from './types';
 
 // Scoped deliberately narrow: only the default (unfiltered) catalog
 // listing on /items, per tenant - the one thing on this app that's both
@@ -8,25 +8,31 @@ import type { CatalogItem, Page } from './types';
 // there is far less predictable to reason about. Never load-bearing: a
 // read failure or a full cache miss just means "fetch like before," never
 // a broken page.
-const VERSION = 1;
+//
+// v2: stores every catalog item (lib/items.ts's listCatalogItems now
+// follows every page, not just the first) as a plain array, not a single
+// Page<CatalogItem> - v1's shape would otherwise cache a silently
+// truncated catalog. Bumped so a v1 entry from a previous session is
+// never misread as the new shape.
+const VERSION = 2;
 
 function storageKey(tenantId: string): string {
   return `lorenzo:inventory-web:catalog:v${VERSION}:${tenantId}`;
 }
 
-export function readCatalogCache(tenantId: string): Page<CatalogItem> | null {
+export function readCatalogCache(tenantId: string): CatalogItem[] | null {
   try {
     const raw = window.localStorage.getItem(storageKey(tenantId));
     if (!raw) return null;
-    return JSON.parse(raw) as Page<CatalogItem>;
+    return JSON.parse(raw) as CatalogItem[];
   } catch {
     return null;
   }
 }
 
-export function writeCatalogCache(tenantId: string, page: Page<CatalogItem>): void {
+export function writeCatalogCache(tenantId: string, items: CatalogItem[]): void {
   try {
-    window.localStorage.setItem(storageKey(tenantId), JSON.stringify(page));
+    window.localStorage.setItem(storageKey(tenantId), JSON.stringify(items));
   } catch {
     // localStorage can throw (quota, private browsing, disabled) - purely
     // a perceived-speed optimization, so failing silently here is
