@@ -33,6 +33,7 @@ Deliberately **not** logged, and now documented as deliberate rather than accide
 - Profile pictures (user/tenant/campaign) and `PATCH /me`: cosmetic, and `/me` is user-scoped with no tenant to attach an entry to.
 - Notification creation/reading: communication, not tenant structure ([ADR 0058](0058-notifications.md)).
 - Platform-scope events (suspension, `/admin/*`): still out of scope, unchanged from ADR 0063 - no `tenant_id` to attach them to.
+- Tenant creation: the log is per-tenant and its RLS needs `app.tenant_id` set, which that route runs before. `tenant.created_by` and the new OWNER membership already record who created it.
 
 ### Shape of an entry
 
@@ -61,7 +62,7 @@ Deliberately **not** logged, and now documented as deliberate rather than accide
 
 ## Consequences
 
-- Every new tenant-scoped mutation route now has a stated default: log it if it matches the rule above, and say so in its docstring if it deliberately doesn't.
+- Every new tenant-scoped mutation route now has a stated default: log it if it matches the rule above. The categories excluded above (pictures, notifications, `/me`, `/admin`) need no per-route note; a one-off exclusion - a rename, a stat value, tenant creation - says so in its own docstring.
 - `routers/item_instances.py`, `items.py`, `characters.py`, `players.py`, `groups.py`, `information.py`, `stats.py` gain `record_activity` calls; `routers/tenants.py` and `routers/campaigns.py` gain the remaining ones. No migration - `audit_log` is unchanged.
 - The log will be markedly busier. Pagination already bounds reads ([ADR 0020](0020-rest-api-tenant-scoping-and-schemas.md)); a `?action=`/`?actor_id=` filter is a reasonable follow-up, not built here.
 - The read gate is documented as deliberate in the router docstring, and the tripwire test names this ADR.
