@@ -55,6 +55,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/add-to-group` | Adds a character to a group, creating it (with that character as its first member) if it doesn't exist yet |
 | `/add-channel-to-group` | GM-only: adds every recently-active poster's characters in this channel to a group, creating it if needed |
 | `/move-bulk` | Empties one of your containers into another, in one call |
+| `/container-new` | Makes a named sack owned by your character, then lets you pick which of your loose items go inside — no leaving Discord ([ADR 0094](../../docs/adr/0094-loot-bot-container-new.md)). Needs a "Sack" catalog item, set up once by anyone with catalog access |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |
