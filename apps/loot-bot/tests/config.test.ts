@@ -79,3 +79,44 @@ describe("loadConfig", () => {
     expect(second.discordGuildId).toBe("456");
   });
 });
+
+describe("loadConfig - notification bridge (ADR 0095)", () => {
+  beforeEach(() => {
+    resetConfigForTests();
+  });
+
+  it("is off by default: no scheduler service account configured", () => {
+    expect(loadConfig(validEnv).notificationSchedulerServiceAccount).toBeUndefined();
+  });
+
+  it("reads the scheduler's service account", () => {
+    const config = loadConfig({
+      ...validEnv,
+      NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT: "scheduler@proj.iam.gserviceaccount.com",
+    });
+
+    expect(config.notificationSchedulerServiceAccount).toBe(
+      "scheduler@proj.iam.gserviceaccount.com",
+    );
+  });
+
+  it('treats an empty string as unset - an unset GitHub Actions variable arrives as ""', () => {
+    const config = loadConfig({ ...validEnv, NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT: "" });
+
+    expect(config.notificationSchedulerServiceAccount).toBeUndefined();
+  });
+
+  it("rejects a value that isn't an email address", () => {
+    expect(() =>
+      loadConfig({ ...validEnv, NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT: "not-an-email" }),
+    ).toThrow("NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT");
+  });
+
+  it("derives the delivery URL - the job's target and its OIDC audience - from the public base URL", () => {
+    const config = loadConfig({ ...validEnv, LOOT_BOT_PUBLIC_BASE_URL: "https://bot.example.com" });
+
+    expect(config.notificationDeliveryUrl).toBe(
+      "https://bot.example.com/internal/deliver-notifications",
+    );
+  });
+});

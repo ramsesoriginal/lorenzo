@@ -5,6 +5,7 @@ import type { components, paths } from "./lorenzo-schema.js";
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
+export type NotificationOut = components["schemas"]["NotificationOut"];
 export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
 export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
@@ -623,6 +624,21 @@ export function createLorenzoApiClient(baseUrl: string) {
     async listItems(tenantId: string, accessToken: string): Promise<readonly ItemOut[]> {
       const { data, error, response } = await client.GET("/tenants/{tenant_id}/items", {
         params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.items;
+    },
+
+    /** GET /me/notifications?unread_only=true - the caller's own unread
+     * Lorenzo notifications (ADR 0058), newest first, first page only (50).
+     * What the notification-DM bridge (ADR 0095) reads, as the recipient
+     * themself: a read, never a `/read` write, so `apps/account-hub`'s inbox
+     * is left exactly as the bridge found it. Spans every tenant and scope
+     * the user has rows in - the bridge filters to this bot's own tenant. */
+    async listMyUnreadNotifications(accessToken: string): Promise<readonly NotificationOut[]> {
+      const { data, error, response } = await client.GET("/me/notifications", {
+        params: { query: { unread_only: true, size: 50 } },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (error !== undefined) throw toApiError(error, response.status);

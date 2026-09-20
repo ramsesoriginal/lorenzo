@@ -1,3 +1,4 @@
+import { showUndeliveredNotice } from "../undelivered-notice.js";
 import { addChannelToGroupCommand } from "./add-channel-to-group.js";
 import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
@@ -131,5 +132,13 @@ export async function dispatchInteraction(
     } else {
       await interaction.reply(payload);
     }
+  }
+
+  // The "couldn't DM you" fallback (ADR 0095): once a slash command has
+  // answered, show any notifications Discord wouldn't let the bot DM this
+  // user. Slash commands only - a button click or menu pick mid-flow isn't
+  // "running a command", and would put a banner in the middle of one.
+  if (interaction.isChatInputCommand()) {
+    await showUndeliveredNotice(interaction, ctx.logger);
   }
 }

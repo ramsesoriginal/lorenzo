@@ -969,3 +969,43 @@ describe("listGroups", () => {
     ]);
   });
 });
+
+describe("listMyUnreadNotifications", () => {
+  it("asks for the caller's own unread notifications, as the caller", async () => {
+    let query: URLSearchParams | undefined;
+    server.use(
+      http.get(`${BASE_URL}/me/notifications`, ({ request }) => {
+        query = new URL(request.url).searchParams;
+        expect(request.headers.get("authorization")).toBe("Bearer test-token");
+        return HttpResponse.json({
+          items: [{ id: "n-1", title: "You were awarded a sword", body: "Ashfang", read_at: null }],
+          total: 1,
+          page: 1,
+          size: 50,
+          pages: 1,
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.listMyUnreadNotifications("test-token");
+
+    expect(query?.get("unread_only")).toBe("true");
+    expect(query?.get("size")).toBe("50");
+    expect(items.map((n) => n.id)).toEqual(["n-1"]);
+  });
+
+  it("throws a LorenzoApiError carrying the status on failure", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me/notifications`, () =>
+        HttpResponse.json({ title: "Unauthorized", status: 401 }, { status: 401 }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+
+    await expect(client.listMyUnreadNotifications("bad-token")).rejects.toMatchObject({
+      status: 401,
+    });
+  });
+});
