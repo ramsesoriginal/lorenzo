@@ -7,7 +7,7 @@ export const MAX_CHANGES_SHOWN = 25;
 const MAX_LINE_LENGTH = 150;
 
 /** Shown on every reply, empty or not: `/changes` can only report what this
- * bot itself saw (ADR 0096), and an empty list must not read as "nothing
+ * bot itself saw (ADR 0097), and an empty list must not read as "nothing
  * happened". */
 export const COVERAGE_NOTE =
   "Only changes made through this bot are shown — anything done in the web apps won't appear here.";
@@ -25,7 +25,7 @@ function line(change: ChangeLine): string {
 }
 
 /**
- * The `/changes` reply (ADR 0096). Pure - no Discord or database calls.
+ * The `/changes` reply (ADR 0097). Pure - no Discord or database calls.
  *
  * - `since` is when the user last looked (`undefined` for a first look, or
  *   when they asked for `history`).

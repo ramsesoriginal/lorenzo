@@ -132,7 +132,7 @@ export const confiscateCommand: Command = {
       const characterName = characterLookup ?? "them";
       const amount = result.requestedQuantity !== null ? `${result.requestedQuantity} of ` : "";
 
-      // For `/changes` (ADR 0096): the player whose item was taken should be
+      // For `/changes` (ADR 0097): the player whose item was taken should be
       // able to find out. The GM who did it is deliberately not named.
       const character = nameCharacter(characterEntityId, characterLookup);
       if (character) {

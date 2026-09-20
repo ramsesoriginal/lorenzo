@@ -95,7 +95,7 @@ export const awardCommand: Command = {
         .catch(() => null);
       const characterName = characterLookup ?? "them";
 
-      // For `/changes` (ADR 0096): the awarded player can find out even if
+      // For `/changes` (ADR 0097): the awarded player can find out even if
       // they missed the announcement. The GM isn't named.
       const character = nameCharacter(characterEntityId, characterLookup);
       if (character) {

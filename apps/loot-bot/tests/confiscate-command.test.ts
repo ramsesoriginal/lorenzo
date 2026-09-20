@@ -244,7 +244,7 @@ describe("confiscateCommand.autocomplete", () => {
   });
 });
 
-describe("confiscateCommand.execute - recording for /changes (ADR 0096)", () => {
+describe("confiscateCommand.execute - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

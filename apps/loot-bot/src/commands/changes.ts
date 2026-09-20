@@ -16,7 +16,7 @@ const RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 /**
  * `/changes` - what happened to your characters' belongings since you last
- * looked (ADR 0096): gives (made or received), bulk gives, awards,
+ * looked (ADR 0097): gives (made or received), bulk gives, awards,
  * confiscations, reassignments, and loot drop takes and honored claims.
  * Distinct from a GM's tenant activity log (ADR 0063), which is admin-only
  * and covers none of these.

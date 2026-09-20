@@ -55,7 +55,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/add-to-group` | Adds a character to a group, creating it (with that character as its first member) if it doesn't exist yet |
 | `/add-channel-to-group` | GM-only: adds every recently-active poster's characters in this channel to a group, creating it if needed |
 | `/move-bulk` | Empties one of your containers into another, in one call |
-| `/changes` | What's happened to your characters' belongings since you last looked — gifts, awards, confiscations, drop takes and honored claims — private; `history:true` for the recent past. **Only shows changes made through this bot** ([ADR 0096](../../docs/adr/0096-loot-bot-changes.md)) |
+| `/changes` | What's happened to your characters' belongings since you last looked — gifts, awards, confiscations, drop takes and honored claims — private; `history:true` for the recent past. **Only shows changes made through this bot** ([ADR 0097](../../docs/adr/0097-loot-bot-changes.md)) |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |

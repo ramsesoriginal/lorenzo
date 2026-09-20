@@ -1,11 +1,10 @@
-import { apiDelete, apiFetch, apiPatch, apiPost, apiPut } from './api';
+import { apiDelete, apiFetch, apiFetchAllPages, apiPatch, apiPost, apiPut } from './api';
 import type {
   BulkResultItem,
   CatalogItem,
   EntitySummary,
   ItemInstance,
   OwnedByResponse,
-  Page,
   PrototypeAncestor,
 } from './types';
 
@@ -64,21 +63,27 @@ export async function unsetOwner(tenantId: string, entityId: string): Promise<vo
 
 // The item catalog (prototypes), not instances - GET /tenants/{t}/items,
 // with an optional server-side search (`q`) for the parent-item picker.
-export async function listCatalogItems(tenantId: string, query = ''): Promise<Page<CatalogItem>> {
+// Follows every page (apiFetchAllPages) rather than returning just the
+// first - a tenant with more than one page's worth of catalog items (the
+// API's own default page size is 50, ADR 0020) would otherwise silently
+// vanish past whatever page happened to come back first.
+export async function listCatalogItems(tenantId: string, query = ''): Promise<CatalogItem[]> {
   const qs = query ? `?q=${encodeURIComponent(query)}` : '';
-  return apiFetch<Page<CatalogItem>>(`/tenants/${tenantId}/items${qs}`);
+  return apiFetchAllPages<CatalogItem>(`/tenants/${tenantId}/items${qs}`);
 }
 
 // GET /tenants/{t}/items?prototype_id=&recursive= (ADR 0073) - the reverse
 // lookup: "what's built on top of X." recursive=true (unlike this
 // endpoint's own default) since this is the edit panel's "used as a
 // prototype by" complement to the board's own exhaustive ancestry view -
-// both show the full picture, not just the direct edge.
+// both show the full picture, not just the direct edge. Same
+// every-page-not-just-the-first treatment as listCatalogItems above - a
+// widely-reused prototype is exactly the case likeliest to exceed one page.
 export async function listItemsUsingPrototype(
   tenantId: string,
   prototypeId: string,
-): Promise<Page<CatalogItem>> {
-  return apiFetch<Page<CatalogItem>>(
+): Promise<CatalogItem[]> {
+  return apiFetchAllPages<CatalogItem>(
     `/tenants/${tenantId}/items?prototype_id=${prototypeId}&recursive=true`,
   );
 }

@@ -736,7 +736,7 @@ describe("dropCommand.onButton — clear claims", () => {
   });
 });
 
-describe("dropCommand - recording for /changes (ADR 0096)", () => {
+describe("dropCommand - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getCharacterName.mockResolvedValue("Frodo");

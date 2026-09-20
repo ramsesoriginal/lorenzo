@@ -337,7 +337,7 @@ describe("giveCommand.autocomplete", () => {
   });
 });
 
-describe("giveCommand.execute - recording for /changes (ADR 0096)", () => {
+describe("giveCommand.execute - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

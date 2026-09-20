@@ -152,7 +152,7 @@ export const giveBulkCommand: Command = {
         .catch(() => null);
       const targetName = targetLookup ?? "them";
 
-      // For `/changes` (ADR 0096): the receiver's player can see what arrived.
+      // For `/changes` (ADR 0097): the receiver's player can see what arrived.
       // Only the receiver is recorded - a bulk-assign result doesn't say who
       // each item came from.
       const receiver = nameCharacter(targetCharacterId, targetLookup);

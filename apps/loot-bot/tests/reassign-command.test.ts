@@ -254,7 +254,7 @@ describe("reassignCommand.autocomplete", () => {
   });
 });
 
-describe("reassignCommand.execute - recording for /changes (ADR 0096)", () => {
+describe("reassignCommand.execute - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

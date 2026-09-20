@@ -485,7 +485,7 @@ export type NewCharacterEvent = Readonly<{
   summary: string;
 }>;
 
-/** Records what happened to characters' belongings (ADR 0096) - one row per
+/** Records what happened to characters' belongings (ADR 0097) - one row per
  * affected character, in a single insert so a transfer's two rows land
  * together. */
 export async function insertCharacterEvents(events: readonly NewCharacterEvent[]): Promise<void> {

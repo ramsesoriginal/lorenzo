@@ -230,7 +230,7 @@ describe("awardCommand.autocomplete", () => {
   });
 });
 
-describe("awardCommand.execute - recording for /changes (ADR 0096)", () => {
+describe("awardCommand.execute - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

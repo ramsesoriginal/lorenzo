@@ -207,7 +207,7 @@ export type PendingUndo = typeof pendingUndo.$inferSelect;
 export type NewPendingUndoRow = typeof pendingUndo.$inferInsert;
 
 /**
- * What the bot itself saw happen to a character's belongings (ADR 0096) -
+ * What the bot itself saw happen to a character's belongings (ADR 0097) -
  * the source `/changes` reads. Bot-recorded only: anything done through
  * `apps/inventory-web`, `apps/account-hub`, or the API directly never
  * appears here, which `/changes` says plainly (RFC 0022 is the API-side
@@ -244,7 +244,7 @@ export const characterEvent = lootBotSchema.table(
 export type CharacterEvent = typeof characterEvent.$inferSelect;
 
 /** When a Discord user last ran `/changes` - what "since you last looked"
- * means (ADR 0096). One row per user, overwritten each time. */
+ * means (ADR 0097). One row per user, overwritten each time. */
 export const changesSeen = lootBotSchema.table("changes_seen", {
   discordUserId: text("discord_user_id").primaryKey(),
   seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),

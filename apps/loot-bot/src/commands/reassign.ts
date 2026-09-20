@@ -137,7 +137,7 @@ export const reassignCommand: Command = {
       const itemName = result.given.title ?? "(untitled)";
       const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
 
-      // For `/changes` (ADR 0096): the former and the new owner's players
+      // For `/changes` (ADR 0097): the former and the new owner's players
       // both see this. The GM who did it is deliberately not named.
       const fromId = current.owner_entity_id;
       const fromLookup = fromId

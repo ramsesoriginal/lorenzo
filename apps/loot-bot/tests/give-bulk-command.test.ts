@@ -200,7 +200,7 @@ describe("giveBulkCommand.onSelectMenu", () => {
   });
 });
 
-describe("giveBulkCommand - recording for /changes (ADR 0096)", () => {
+describe("giveBulkCommand - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

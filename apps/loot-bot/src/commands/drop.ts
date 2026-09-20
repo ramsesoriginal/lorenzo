@@ -288,7 +288,7 @@ async function handleTakeModalSubmit(
     await refreshDropMessage(interaction, ctx, dropId);
     const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
 
-    // For `/changes` (ADR 0096). Best-effort - the take has already happened.
+    // For `/changes` (ADR 0097). Best-effort - the take has already happened.
     const taker = nameCharacter(
       characterEntityId,
       await client.getCharacterName(tenantId, characterEntityId, accessToken).catch(() => null),
@@ -572,7 +572,7 @@ async function applyAllClaims(
     });
   });
 
-  // For `/changes` (ADR 0096): whoever's claim was honored can find out what
+  // For `/changes` (ADR 0097): whoever's claim was honored can find out what
   // they got, even if they missed the summary. One name lookup per distinct
   // character, best-effort - the assignment itself has already happened.
   if (honored.length > 0) {

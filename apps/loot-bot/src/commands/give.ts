@@ -133,7 +133,7 @@ export const giveCommand: Command = {
       const itemName = result.given.title ?? "(untitled)";
       const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
 
-      // For `/changes` (ADR 0096): both the giver's and the receiver's
+      // For `/changes` (ADR 0097): both the giver's and the receiver's
       // players will see this. Best-effort, after the give itself succeeded.
       const giverId = current.owner_entity_id;
       const giverLookup = giverId
