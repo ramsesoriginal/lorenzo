@@ -1,5 +1,6 @@
 import { getAccessToken } from './auth';
 import { API_BASE_URL } from './config';
+import type { Page } from './types';
 
 export class ApiError extends Error {
   constructor(
@@ -64,4 +65,23 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 
 export async function apiDelete<T>(path: string): Promise<T> {
   return apiFetch<T>(path, { method: 'DELETE' });
+}
+
+// Every list endpoint in this API is paginated (fastapi-pagination's own
+// default Params: size defaults to 50, capped at 100 - ADR 0020) - a plain
+// apiFetch<Page<T>> silently truncates to whichever page came back, with
+// nothing past it ever fetched. Requests the largest allowed page size up
+// front, then fetches every remaining page in parallel (page numbers are
+// known from the first response's own `pages`) and flattens the result -
+// for a caller that just wants "every item," not one page of them.
+export async function apiFetchAllPages<T>(path: string): Promise<T[]> {
+  const separator = path.includes('?') ? '&' : '?';
+  const first = await apiFetch<Page<T>>(`${path}${separator}size=100`);
+  if (first.pages <= 1) return first.items;
+  const rest = await Promise.all(
+    Array.from({ length: first.pages - 1 }, (_, i) =>
+      apiFetch<Page<T>>(`${path}${separator}size=100&page=${i + 2}`),
+    ),
+  );
+  return [first.items, ...rest.map((page) => page.items)].flat();
 }
