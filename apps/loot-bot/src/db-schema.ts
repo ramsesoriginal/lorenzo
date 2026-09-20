@@ -206,6 +206,27 @@ export type PendingUndo = typeof pendingUndo.$inferSelect;
 export type NewPendingUndoRow = typeof pendingUndo.$inferInsert;
 
 /**
+ * The catalog item `/container-new` instantiates a "sack" from (ADR 0094) -
+ * one row per Lorenzo tenant this bot serves. Stored here rather than looked
+ * up each time because the catalog API (`GET`/`POST /items`) requires a
+ * tenant `Membership`, which an ordinary player deliberately doesn't have
+ * (ADR 0050): a player can *instantiate* a prototype for their own
+ * character, but can't even list the catalog to find one. So whoever first
+ * runs the command with catalog access finds-or-creates it, and everyone
+ * after uses the stored id.
+ *
+ * Keyed by `tenant_id` so an id from one tenant can never be applied to
+ * another if this bot is ever pointed at a different one.
+ */
+export const containerPrototype = lootBotSchema.table("container_prototype", {
+  tenantId: text("tenant_id").primaryKey(),
+  prototypeEntityId: text("prototype_entity_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ContainerPrototype = typeof containerPrototype.$inferSelect;
+
+/**
  * When a linked user first became eligible for Discord DMs of their Lorenzo
  * notifications (ADR 0095) - stamped the first time the bridge sees them, so
  * turning the feature on never DMs a user their whole existing inbox: only

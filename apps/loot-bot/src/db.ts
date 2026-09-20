@@ -12,6 +12,7 @@ import {
   type NotificationDelivery,
   type PendingUndo,
   type PlayerPreference,
+  containerPrototype,
   linkedAccount,
   lootClaim,
   lootDrop,
@@ -49,6 +50,7 @@ const db = drizzle(pool, {
     lootDrop,
     lootClaim,
     pendingUndo,
+    containerPrototype,
     notificationEnrollment,
     notificationDelivery,
   },
@@ -476,6 +478,41 @@ export async function setPendingUndo(
  * might retry against outdated state). */
 export async function deletePendingUndo(discordUserId: string): Promise<void> {
   await db.delete(pendingUndo).where(eq(pendingUndo.discordUserId, discordUserId));
+}
+
+/** The stored id of the catalog item `/container-new` makes sacks from, for
+ * one tenant (ADR 0094), or `undefined` if nobody with catalog access has
+ * set it up yet. */
+export async function getContainerPrototypeId(tenantId: string): Promise<string | undefined> {
+  const rows = await db
+    .select()
+    .from(containerPrototype)
+    .where(eq(containerPrototype.tenantId, tenantId))
+    .limit(1);
+  return rows[0]?.prototypeEntityId;
+}
+
+/** Stores (or replaces) the sack prototype for a tenant. An upsert rather
+ * than an insert: two people racing the very first `/container-new` may both
+ * find-or-create, and the last write winning is harmless - they resolve to
+ * the same "Sack" by name, or to two equivalent ones. */
+export async function setContainerPrototypeId(
+  tenantId: string,
+  prototypeEntityId: string,
+): Promise<void> {
+  await db
+    .insert(containerPrototype)
+    .values({ tenantId, prototypeEntityId })
+    .onConflictDoUpdate({
+      target: containerPrototype.tenantId,
+      set: { prototypeEntityId, createdAt: new Date() },
+    });
+}
+
+/** Idempotent, like every other `delete*` here - called when the stored
+ * prototype turns out to no longer exist, so the next run re-resolves it. */
+export async function clearContainerPrototypeId(tenantId: string): Promise<void> {
+  await db.delete(containerPrototype).where(eq(containerPrototype.tenantId, tenantId));
 }
 
 /** Every linked Discord user id - what the notification bridge (ADR 0095)
