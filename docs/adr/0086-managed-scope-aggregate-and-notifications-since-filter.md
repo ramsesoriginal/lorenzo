@@ -1,6 +1,6 @@
 # 0086 - `GET /me/managed` and a `since` filter on `GET /me/notifications`
 
-Status: proposed
+Status: accepted
 
 ## Context
 
