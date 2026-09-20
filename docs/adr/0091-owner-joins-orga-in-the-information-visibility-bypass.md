@@ -12,11 +12,11 @@ Decided with the maintainer after ADR 0085's addendum put the question to them: 
 
 ## Decision
 
-`information_visibility.resolve_information_visibility` decides its blanket bypass with `campaign_access.is_tenant_admin` (OWNER **or** ORGA) instead of `is_tenant_orga`. Everything else about the bypass is unchanged:
+`InformationVisibility` gains an `is_admin` flag - `campaign_access.is_tenant_admin` (OWNER **or** ORGA) - and `can_see` uses it for the blanket information bypass. The existing `is_orga` flag stays exactly as it was (ORGA only): it is **ADR 0040's** separate item-instance inventory tier ("whether an admin can see that a character owns a hidden item"), a different decision that a test pins (an OWNER gets no bonus on other people's inventory) and that this ADR deliberately does not touch. Everything else about the bypass is unchanged:
 
 - **The per-campaign opt-out still suppresses it.** An administrator who plays in a campaign and does not want to see its secrets keeps using `PUT .../admin-opt-out` ([ADR 0034](0034-campaign-crud-api.md)), which already works for OWNER (it requires tenant OWNER or ORGA). As `resolve_information_visibility` documents, that suppression is coarser than its per-campaign shape: *any* active opt-out anywhere in the tenant suppresses the bypass for that caller across the whole tenant, because the read route has no campaign parameter to check against. Unchanged, but now applies to owners too.
 - **GM reachability (ADR 0035/0046) is untouched.** OWNER is still not folded into the GM-reachable-set; the bypass simply makes it moot for anyone it applies to.
-- `campaign_access.is_tenant_orga` stays where it is; only its use here goes.
+- Both flags are suppressed by the same opt-out.
 
 This **supersedes the "deliberately not folded in" sentence** in `information_visibility.py`'s docstring, which is rewritten to say OWNER now bypasses and why. ADR 0035's decision that a campaign GM sees secrets without tenant membership is unaffected.
 
@@ -28,6 +28,6 @@ This **supersedes the "deliberately not folded in" sentence** in `information_vi
 
 ## Consequences
 
-- **A behavior change for existing owners.** An OWNER now sees GM-only information on every read that resolves visibility (`GET /entities/{id}`, item and item-instance reads). An owner who also *plays* in a campaign is exposed to that campaign's GM-only text unless they opt out - the same position an ORGA has always been in. It is worth telling owners that the opt-out exists.
-- `tests/test_owner_information_visibility.py` flips from documenting the gap to asserting OWNER sees GM-only information (and still that an opted-out owner does not); ADR 0085's runbook drops its OWNER workaround; `tests/test_tenant_export_walk.py`'s deliberate `is False` becomes `is True`.
-- The tenant-admin bypass is now a single predicate (`is_tenant_admin`) across campaign reachability, management, and information visibility, instead of one outlier.
+- **A behavior change for existing owners.** An OWNER now sees GM-only *information* (descriptions and other information rows) on every read that resolves it (`GET /entities/{id}`, and the descriptions on item and item-instance reads). Which item *instances* they can list is unchanged (ADR 0040). An owner who also *plays* in a campaign is exposed to that campaign's GM-only text unless they opt out - the same position an ORGA has always been in. It is worth telling owners that the opt-out exists.
+- `tests/test_owner_information_visibility.py` flips from documenting the gap to asserting OWNER sees GM-only information (and that an opted-out owner does not); ADR 0085's runbook drops its OWNER workaround; `tests/test_tenant_export_walk.py`'s deliberate `is False` becomes `is True`. Five existing tests that used an OWNER membership as their "plain member" stand-in now use a real plain participant (a `Player` with no Membership) so they keep testing information filtering; one unit test that asserted the old OWNER claim is flipped.
+- Information visibility now uses the same predicate (`is_tenant_admin`) as campaign reachability and management. The one remaining ORGA-only bypass is ADR 0040's inventory tier, deliberately.
