@@ -25,14 +25,21 @@ import Base from '../layouts/Base.astro';
     import { getMe } from '../lib/me';
     import { renderMembershipAdmin } from '../lib/membershipAdminUi';
     import { renderNotificationComposer } from '../lib/notificationComposerUi';
+    import { renderPictureUpload } from '../lib/pictureUi';
     import {
+      campaignPictureUrl,
       createCampaignNotification,
       createTenant,
       createTenantNotification,
+      deleteCampaignPicture,
+      deleteTenantPicture,
       listCampaignGms,
       listMyTenants,
       listTenantCampaigns,
       listTenantRoster,
+      tenantPictureUrl,
+      uploadCampaignPicture,
+      uploadTenantPicture,
     } from '../lib/tenants';
     import type {
       CampaignSummaryOut,
@@ -111,7 +118,7 @@ import Base from '../layouts/Base.astro';
       tenant: TenantSummaryOut,
       campaign: CampaignSummaryOut,
       me: MeOut,
-      roster: RosterEntry[],
+      roster: RosterEntry[] | null,
       gmsByCampaign: Map<string, string[]>,
       onChanged: () => void,
     ): HTMLLIElement {
@@ -124,12 +131,18 @@ import Base from '../layouts/Base.astro';
       meta.textContent = ` ${campaign.game_system} · ${roleLabel(role)}${campaign.secret ? ' · secret' : ''}`;
       item.append(name, meta);
 
-      // RFC 0017 (a) - visible to every tenant-wide member, not just an
-      // admin or this campaign's own GM (get_tenant_context's own gate on
-      // the underlying roster fetch).
-      item.append(renderCampaignRoster(campaign, roster));
-
       const admin = isTenantAdmin(tenant);
+      // RFC 0017 (a)'s own "any tenant-wide member" is, by construction,
+      // exactly admin (owner/orga) - MembershipRole has no plain-member
+      // role, so get_tenant_context's gate on the underlying roster fetch
+      // already excludes anyone else. roster is null (not fetched at all)
+      // for a non-admin tenant - a participant-only caller (Player/
+      // CampaignGm standing, no Membership row) got an uncaught 404 here
+      // before this fix, breaking this whole page for them.
+      if (roster) {
+        item.append(renderCampaignRoster(campaign, roster));
+      }
+
       if (admin) {
         item.append(renderEditToggle(tenant, campaign, onChanged));
         item.append(
@@ -137,14 +150,22 @@ import Base from '../layouts/Base.astro';
             tenant,
             campaign,
             gmsByCampaign.get(campaign.id) ?? [],
-            roster,
+            roster ?? [],
             onChanged,
           ),
         );
       }
       // can_manage_campaign's real two-way gate: a tenant admin, or this
-      // specific campaign's own GM (RFC 0014) - not just one branch of it.
+      // specific campaign's own GM (RFC 0014) - not just one branch of it;
+      // matches upload_campaign_picture's own gate too (ADR 0085).
       if (admin || role === 'gm') {
+        item.append(
+          renderPictureUpload(
+            campaignPictureUrl(tenant.id, campaign.id),
+            (file) => uploadCampaignPicture(tenant.id, campaign.id, file),
+            () => deleteCampaignPicture(tenant.id, campaign.id),
+          ),
+        );
         item.append(renderInvitePlayer(tenant, campaign));
         item.append(
           renderNotificationComposer((body) =>
@@ -172,7 +193,26 @@ import Base from '../layouts/Base.astro';
       item.append(heading);
 
       const admin = isTenantAdmin(tenant);
-      const roster = await listTenantRoster(tenant.id);
+      // get_tenant_context (the real gate behind list_tenant_roster/
+      // list_activity_log/create_tenant_notification_route) requires an
+      // actual Membership row, which by construction means admin
+      // (owner/orga) - MembershipRole has no plain-member role. Fetching
+      // this for every tenant listMyTenants() returns, including
+      // participant-only ones (Player/CampaignGm standing, no Membership),
+      // 404'd uncaught and broke this whole page for that caller.
+      const roster = admin ? await listTenantRoster(tenant.id) : null;
+
+      // Same gate upload_tenant_picture itself enforces (ADR 0056/0085) -
+      // ORGA+, day-to-day tenant administration.
+      if (admin) {
+        item.append(
+          renderPictureUpload(
+            tenantPictureUrl(tenant.id),
+            (file) => uploadTenantPicture(tenant.id, file),
+            () => deleteTenantPicture(tenant.id),
+          ),
+        );
+      }
 
       if (campaigns.length === 0) {
         const none = document.createElement('p');
@@ -189,7 +229,9 @@ import Base from '../layouts/Base.astro';
         const list = document.createElement('ul');
         list.className = 'roster-list';
         for (const campaign of campaigns) {
-          list.append(renderCampaign(tenant, campaign, me, roster.items, gmsByCampaign, onChanged));
+          list.append(
+            renderCampaign(tenant, campaign, me, roster?.items ?? null, gmsByCampaign, onChanged),
+          );
         }
         item.append(list);
       }
@@ -202,8 +244,9 @@ import Base from '../layouts/Base.astro';
       // single-item actions here are gated identically for consistency
       // rather than assumed looser (showing nothing to an orga who might
       // technically have single-item rights is the safe direction of a
-      // wrong guess).
-      if (tenant.role === 'owner') {
+      // wrong guess). tenant.role === 'owner' implies admin, so roster is
+      // never null here.
+      if (tenant.role === 'owner' && roster) {
         const memberships = roster.items.filter(
           (r): r is MembershipRosterEntryOut => r.kind === 'membership',
         );
@@ -211,9 +254,15 @@ import Base from '../layouts/Base.astro';
       }
 
       // RFC 0017 (f)/(g) - gated the same as list_tenant_roster/
-      // update_tenant themselves: any tenant-wide member, not owner-only.
-      item.append(await renderActivityLog(tenant));
-      item.append(renderNotificationComposer((body) => createTenantNotification(tenant.id, body)));
+      // update_tenant themselves: get_tenant_context, which is admin-only
+      // by construction (see the roster fetch above) - not owner-only, but
+      // not "any participant" either.
+      if (admin) {
+        item.append(await renderActivityLog(tenant));
+        item.append(
+          renderNotificationComposer((body) => createTenantNotification(tenant.id, body)),
+        );
+      }
 
       return item;
     }
