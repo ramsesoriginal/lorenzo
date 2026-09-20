@@ -24,7 +24,7 @@ import type { Command } from "./types.js";
 const CATEGORIES: readonly Readonly<{ title: string; commandNames: readonly string[] }>[] = [
   {
     title: "Account",
-    commandNames: ["link", "unlink", "set-current", "whoami", "introduce"],
+    commandNames: ["link", "unlink", "set-current", "whoami", "sheet", "introduce"],
   },
   {
     title: "Inventory",

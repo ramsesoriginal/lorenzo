@@ -56,6 +56,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/add-channel-to-group` | GM-only: adds every recently-active poster's characters in this channel to a group, creating it if needed |
 | `/move-bulk` | Empties one of your containers into another, in one call |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
+| `/sheet` | Your character's resolved stats and whatever notes/backstory you're cleared to see — private; defaults to your current (or only) character ([ADR 0090](../../docs/adr/0090-loot-bot-sheet.md)) |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |
 | `/help` | Lists every command, grouped by what it's for, or (with `command`) one command's full options |
