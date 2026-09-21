@@ -35,14 +35,14 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | --- | --- |
 | `/link` | Starts account linking — replies with a one-time Authgear login URL |
 | `/unlink` | Unlinks your Discord account from your Lorenzo identity |
-| `/set-current` | Sets your current character and/or default container for this channel — what other commands default to |
+| `/set-current` | Pins your current character and/or default container for this channel — what other commands default to. Without one, your default is the character you last gave, moved, renamed, or merged an item as ([ADR 0088](../../docs/adr/0088-loot-bot-give-confirmation-and-last-used-character.md)) |
 | `/inventory` | Lists the item instances your linked characters own, grouped by container, optionally filtered by name (`search`) |
-| `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target |
+| `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target, with one Give/Cancel click before anything moves |
 | `/give-bulk` | Gives several of your own items to one character at once (multi-select flow) |
 | `/merge` | Combines two of your own stacks of the same item into one |
 | `/rename` | Gives one of your own items a custom name |
 | `/undo` | Undoes your own last give, reassign, move, rename, or merge (a few minutes' grace) |
-| `/drop` | GM-only: drops a pre-made loot container (by id or slug) into the channel — take/claim (need or greed) /unclaim, then "apply claims" or "clear claims" in one batch |
+| `/drop` | GM-only: drops a pre-made loot container (autocompleted from unowned and your own containers, or paste an id or slug — slugs also show in `/inventory`, `/inspect`, and `/item`, [ADR 0093](../../docs/adr/0093-loot-bot-drop-autocomplete-and-slug-surfacing.md)) into the channel — take/claim (need or greed) /unclaim, then "apply claims" or "clear claims" in one batch |
 | `/pending-claims` | Lists every currently-open drop's outstanding claims, across the whole server — not GM-only |
 | `/award` | GM-only: awards a brand-new item straight from the catalog to a character |
 | `/inspect` | GM-only: looks at another character's inventory |
@@ -55,6 +55,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/add-to-group` | Adds a character to a group, creating it (with that character as its first member) if it doesn't exist yet |
 | `/add-channel-to-group` | GM-only: adds every recently-active poster's characters in this channel to a group, creating it if needed |
 | `/move-bulk` | Empties one of your containers into another, in one call |
+| `/container-new` | Makes a named sack owned by your character, then lets you pick which of your loose items go inside — no leaving Discord ([ADR 0094](../../docs/adr/0094-loot-bot-container-new.md)). Needs a "Sack" catalog item, set up once by anyone with catalog access |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |

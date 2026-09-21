@@ -1,10 +1,14 @@
-import { apiFetch } from './api';
+import { client, unwrap } from './api';
 import type { Page, Tenant, TenantSummary } from './types';
 
 export async function listTenants(): Promise<Page<TenantSummary>> {
-  return apiFetch<Page<TenantSummary>>('/tenants');
+  return unwrap(await client.GET('/tenants'));
 }
 
 export async function getTenant(tenantId: string): Promise<Tenant> {
-  return apiFetch<Tenant>(`/tenants/${tenantId}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}', {
+      params: { path: { tenant_id: tenantId } },
+    }),
+  );
 }

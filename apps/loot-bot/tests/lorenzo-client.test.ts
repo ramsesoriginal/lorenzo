@@ -202,6 +202,72 @@ describe("getMyItemInstances", () => {
   });
 });
 
+describe("getUnownedItemInstances", () => {
+  it("flattens the API's per-container groups, carrying is_container and slug through", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/unowned`, ({ request }) => {
+        expect(request.headers.get("authorization")).toBe("Bearer test-token");
+        return HttpResponse.json({
+          groups: [
+            {
+              container: null,
+              item_instances: [
+                {
+                  entity_id: "chest-1",
+                  title: "Goblin hoard",
+                  quantity: null,
+                  is_container: true,
+                  slug: "goblin-hoard",
+                },
+              ],
+            },
+            {
+              container: { id: "chest-1", name: "Goblin hoard" },
+              item_instances: [
+                {
+                  entity_id: "coin-1",
+                  title: null,
+                  quantity: 40,
+                  is_container: null,
+                  slug: null,
+                },
+              ],
+            },
+          ],
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.getUnownedItemInstances(TENANT_ID, "test-token");
+
+    expect(items).toEqual([
+      {
+        entityId: "chest-1",
+        title: "Goblin hoard",
+        quantity: null,
+        isContainer: true,
+        slug: "goblin-hoard",
+      },
+      { entityId: "coin-1", title: "(untitled)", quantity: 40, isContainer: null, slug: null },
+    ]);
+  });
+
+  it("throws a LorenzoApiError carrying the status on failure", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/unowned`, () =>
+        HttpResponse.json({ title: "Forbidden", status: 403 }, { status: 403 }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+
+    await expect(client.getUnownedItemInstances(TENANT_ID, "test-token")).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+});
+
 describe("getEntity", () => {
   it("fetches the entity's full detail shape", async () => {
     server.use(
@@ -967,5 +1033,116 @@ describe("listGroups", () => {
       { entityId: "group-1", name: "The Party" },
       { entityId: "group-2", name: "Villains" },
     ]);
+  });
+});
+
+describe("createItemInstance with a name", () => {
+  it("sends the name so the instance isn't just called after its prototype", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ entity_id: "sack-1", title: "Camp supplies" }, { status: 201 });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.createItemInstance(
+      TENANT_ID,
+      "prototype-1",
+      CHARACTER_ID,
+      undefined,
+      "test-token",
+      "Camp supplies",
+    );
+
+    expect(receivedBody).toEqual({
+      prototype_id: "prototype-1",
+      owner_character_id: CHARACTER_ID,
+      name: "Camp supplies",
+    });
+  });
+});
+
+describe("findItemsByName", () => {
+  it("filters the catalog server-side with ?q=, as the caller", async () => {
+    let query: string | null = null;
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/items`, ({ request }) => {
+        query = new URL(request.url).searchParams.get("q");
+        expect(request.headers.get("authorization")).toBe("Bearer test-token");
+        return HttpResponse.json({ items: [{ entity_id: "item-1", title: "Sack" }] });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.findItemsByName(TENANT_ID, "Sack", "test-token");
+
+    expect(query).toBe("Sack");
+    expect(items.map((i) => i.title)).toEqual(["Sack"]);
+  });
+
+  it("throws a LorenzoApiError carrying the status - a non-member gets a 404", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/items`, () =>
+        HttpResponse.json({ title: "Not Found", status: 404 }, { status: 404 }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+
+    await expect(client.findItemsByName(TENANT_ID, "Sack", "test-token")).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+});
+
+describe("createItem", () => {
+  it("posts a plain catalog item: a name and no prototypes", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/items`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ entity_id: "item-9", title: "Sack" }, { status: 201 });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const item = await client.createItem(TENANT_ID, "Sack", "test-token");
+
+    expect(receivedBody).toEqual({ name: "Sack", prototype_ids: [] });
+    expect(item.entity_id).toBe("item-9");
+  });
+});
+
+describe("bulkMoveItemInstances", () => {
+  it("moves exactly the given items, in the explicit-list mode", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/bulk-move`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json([
+            { entity_id: "a", status: "ok" },
+            { entity_id: "b", status: "error", problem: { title: "Nope", detail: "Not yours" } },
+          ]);
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const results = await client.bulkMoveItemInstances(
+      TENANT_ID,
+      "sack-1",
+      ["a", "b"],
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({
+      to_container_entity_id: "sack-1",
+      items: [{ entity_id: "a" }, { entity_id: "b" }],
+    });
+    expect(results.map((r) => r.status)).toEqual(["ok", "error"]);
   });
 });

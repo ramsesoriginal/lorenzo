@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+import { client, unwrap } from './api';
 import type { BeingSummary, Page } from './types';
 
 // GET /tenants/{t}/beings (ADR 0078) - every Being in the tenant: PCs,
@@ -7,6 +7,9 @@ import type { BeingSummary, Page } from './types';
 // assigning loot to an NPC that was never promoted into a tracked
 // Character. Supports search (`q`), unlike the old characters roster.
 export async function listBeings(tenantId: string, query = ''): Promise<Page<BeingSummary>> {
-  const qs = query ? `?q=${encodeURIComponent(query)}` : '';
-  return apiFetch<Page<BeingSummary>>(`/tenants/${tenantId}/beings${qs}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/beings', {
+      params: { path: { tenant_id: tenantId }, query: { q: query || undefined } },
+    }),
+  );
 }

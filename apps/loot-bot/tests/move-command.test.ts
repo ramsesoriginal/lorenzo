@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { rememberActingCharacter } = vi.hoisted(() => ({ rememberActingCharacter: vi.fn() }));
+vi.mock("../src/commands/remember-character.js", () => ({ rememberActingCharacter }));
+
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
 
@@ -79,7 +82,11 @@ describe("moveCommand.execute", () => {
   it("moves the item with a fresh etag and confirms", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
-      data: { entity_id: "item-1", container_entity_id: "old-container-1" },
+      data: {
+        entity_id: "item-1",
+        container_entity_id: "old-container-1",
+        owner_entity_id: "char-1",
+      },
       etag: "etag-1",
     });
     setItemInstanceContainer.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
@@ -103,6 +110,14 @@ describe("moveCommand.execute", () => {
       entityId: "item-1",
       previousContainerEntityId: "old-container-1",
     });
+    expect(rememberActingCharacter).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-1",
+      "token-123",
+      "user-1",
+      "char-1",
+      expect.anything(),
+    );
   });
 
   it.each([

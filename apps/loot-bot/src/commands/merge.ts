@@ -3,6 +3,7 @@ import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
+import { rememberActingCharacter } from "./remember-character.js";
 import type { Command } from "./types.js";
 
 /**
@@ -116,6 +117,14 @@ export const mergeCommand: Command = {
         quantity: current.quantity ?? 1,
         ownerCharacterId: current.owner_entity_id,
       });
+      await rememberActingCharacter(
+        client,
+        tenantId,
+        accessToken,
+        interaction.user.id,
+        current.owner_entity_id,
+        ctx.logger,
+      );
 
       await interaction.editReply(`Merged into ${merged.title ?? "(untitled)"}.`);
     } catch (error) {

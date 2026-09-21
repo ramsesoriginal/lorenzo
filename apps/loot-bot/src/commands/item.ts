@@ -60,8 +60,25 @@ export const itemCommand: Command = {
     const tenantId = ctx.config.lorenzoTenantId;
 
     try {
-      const entity = await client.getEntity(tenantId, entityId, accessToken);
-      await interaction.editReply({ embeds: [formatItemEmbed(entity)] });
+      // The slug lives on the item instance, not the entity (ADR 0043), so
+      // it's a second, parallel read. Purely a convenience: an entity that
+      // isn't an item instance at all (an NPC's gear list, a place) 404s
+      // here by design, and any other API failure just means no slug is
+      // shown - never worth failing the whole `/item` for.
+      const [entity, slug] = await Promise.all([
+        client.getEntity(tenantId, entityId, accessToken),
+        client.getItemInstance(tenantId, entityId, accessToken).then(
+          ({ data }) => data.slug,
+          (error: unknown) => {
+            if (!(error instanceof LorenzoApiError)) throw error;
+            if (error.status !== 404) {
+              ctx.logger.warn({ err: error, entityId }, "couldn't look up slug for /item");
+            }
+            return null;
+          },
+        ),
+      ]);
+      await interaction.editReply({ embeds: [formatItemEmbed(entity, slug)] });
     } catch (error) {
       if (error instanceof LorenzoApiError && error.status === 404) {
         await interaction.editReply("Couldn't find that item — check the id and try again.");

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { DatabaseError, Pool } from "pg";
 import { loadConfig } from "./config.js";
@@ -11,6 +11,7 @@ import {
   type NewLinkedAccountRow,
   type PendingUndo,
   type PlayerPreference,
+  containerPrototype,
   linkedAccount,
   lootClaim,
   lootDrop,
@@ -39,7 +40,14 @@ export { GLOBAL_PREFERENCE_CHANNEL_ID };
  */
 const pool = new Pool({ connectionString: loadConfig().databaseUrl });
 const db = drizzle(pool, {
-  schema: { linkedAccount, playerPreference, lootDrop, lootClaim, pendingUndo },
+  schema: {
+    linkedAccount,
+    playerPreference,
+    lootDrop,
+    lootClaim,
+    pendingUndo,
+    containerPrototype,
+  },
 });
 
 /** Closes the underlying connection pool - for graceful shutdown and for
@@ -199,11 +207,13 @@ export async function deleteLinkedAccount(discordUserId: string): Promise<void> 
 
 /**
  * Looks up a Discord user's "current character"/"current default
- * container" preference for one channel, if any has ever been set for it -
- * falling back to the `GLOBAL_PREFERENCE_CHANNEL_ID` "global default" row
- * (ADR 0068) when no channel-specific one exists yet. Pass
- * `GLOBAL_PREFERENCE_CHANNEL_ID` itself to look up only the global default
- * (skips the redundant second query).
+ * container" preference for one channel, if any has ever been set for it,
+ * with each field falling back to the `GLOBAL_PREFERENCE_CHANNEL_ID`
+ * "global default" row (ADR 0068) when the channel's own row doesn't set it.
+ * The fallback is per field, not per row (ADR 0088): a channel row created
+ * by `/set-current container:...` alone has no character, and must not hide
+ * the user's server-wide default/last-used one. Pass
+ * `GLOBAL_PREFERENCE_CHANNEL_ID` itself to look up only the global default.
  */
 export async function getPreference(
   discordUserId: string,
@@ -215,23 +225,23 @@ export async function getPreference(
     .where(
       and(
         eq(playerPreference.discordUserId, discordUserId),
-        eq(playerPreference.discordChannelId, discordChannelId),
+        inArray(playerPreference.discordChannelId, [
+          discordChannelId,
+          GLOBAL_PREFERENCE_CHANNEL_ID,
+        ]),
       ),
-    )
-    .limit(1);
-  if (rows[0] || discordChannelId === GLOBAL_PREFERENCE_CHANNEL_ID) return rows[0];
-
-  const globalRows = await db
-    .select()
-    .from(playerPreference)
-    .where(
-      and(
-        eq(playerPreference.discordUserId, discordUserId),
-        eq(playerPreference.discordChannelId, GLOBAL_PREFERENCE_CHANNEL_ID),
-      ),
-    )
-    .limit(1);
-  return globalRows[0];
+    );
+  const channelRow = rows.find((row) => row.discordChannelId === discordChannelId);
+  const globalRow = rows.find((row) => row.discordChannelId === GLOBAL_PREFERENCE_CHANNEL_ID);
+  if (!channelRow) return globalRow;
+  if (!globalRow || channelRow === globalRow) return channelRow;
+  return {
+    ...channelRow,
+    currentCharacterEntityId:
+      channelRow.currentCharacterEntityId ?? globalRow.currentCharacterEntityId,
+    currentContainerEntityId:
+      channelRow.currentContainerEntityId ?? globalRow.currentContainerEntityId,
+  };
 }
 
 /**
@@ -464,4 +474,39 @@ export async function setPendingUndo(
  * might retry against outdated state). */
 export async function deletePendingUndo(discordUserId: string): Promise<void> {
   await db.delete(pendingUndo).where(eq(pendingUndo.discordUserId, discordUserId));
+}
+
+/** The stored id of the catalog item `/container-new` makes sacks from, for
+ * one tenant (ADR 0094), or `undefined` if nobody with catalog access has
+ * set it up yet. */
+export async function getContainerPrototypeId(tenantId: string): Promise<string | undefined> {
+  const rows = await db
+    .select()
+    .from(containerPrototype)
+    .where(eq(containerPrototype.tenantId, tenantId))
+    .limit(1);
+  return rows[0]?.prototypeEntityId;
+}
+
+/** Stores (or replaces) the sack prototype for a tenant. An upsert rather
+ * than an insert: two people racing the very first `/container-new` may both
+ * find-or-create, and the last write winning is harmless - they resolve to
+ * the same "Sack" by name, or to two equivalent ones. */
+export async function setContainerPrototypeId(
+  tenantId: string,
+  prototypeEntityId: string,
+): Promise<void> {
+  await db
+    .insert(containerPrototype)
+    .values({ tenantId, prototypeEntityId })
+    .onConflictDoUpdate({
+      target: containerPrototype.tenantId,
+      set: { prototypeEntityId, createdAt: new Date() },
+    });
+}
+
+/** Idempotent, like every other `delete*` here - called when the stored
+ * prototype turns out to no longer exist, so the next run re-resolves it. */
+export async function clearContainerPrototypeId(tenantId: string): Promise<void> {
+  await db.delete(containerPrototype).where(eq(containerPrototype.tenantId, tenantId));
 }
