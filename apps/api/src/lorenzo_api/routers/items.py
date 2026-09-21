@@ -13,6 +13,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -318,6 +319,15 @@ async def create_item(
         session.add(
             EntityPrototype(entity_id=entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
         )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item.created",
+        target_type="item",
+        target_id=entity.id,
+        detail=f"prototypes={len(body.prototype_ids)}",
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -337,6 +347,10 @@ async def update_item(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> ItemOut:
+    """A rename - deliberately not recorded in the activity log (ADR 0084:
+    descriptive-content edits are excluded; `updated_by` already says who
+    last touched it).
+    """
     entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     update = body.model_dump(exclude_unset=True)
@@ -417,6 +431,15 @@ async def replace_item_prototypes(
             detail=f"Replacing item {entity_id}'s prototypes would create an inheritance cycle"
         ) from exc
 
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item.prototypes_replaced",
+        target_type="item",
+        target_id=entity_id,
+        detail=f"prototypes={len(prototype_ids)}",
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_out(tenant_id, entity_id, request, response, session, user)
@@ -466,6 +489,7 @@ async def delete_item(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     session: SessionDep,
+    user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> None:
     """Guarded: 409 if any item_instance's entity directly prototypes this
@@ -489,8 +513,46 @@ async def delete_item(
             detail=f"Item {entity_id} is still a direct prototype of at least one item instance"
         )
 
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item.deleted",
+        target_type="item",
+        target_id=entity_id,
+        detail=None,
+    )
     await session.delete(entity)
     await session.commit()
+
+
+async def _record_bulk_prototype_activity(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    action: str,
+    target_id: uuid.UUID,
+    results: Sequence[
+        BulkReparentResultItem | BulkAddPrototypeResultItem | BulkRemovePrototypeResultItem
+    ],
+) -> None:
+    """One entry per bulk call, counts only (ADR 0084); nothing is written
+    when no item succeeded, since then nothing changed. `target_id` is the
+    prototype being added/removed/re-parented to.
+    """
+    ok = sum(1 for result in results if result.status == "ok")
+    if ok == 0:
+        return
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        action=action,
+        target_type="item",
+        target_id=target_id,
+        detail=f"{ok} ok, {len(results) - ok} failed",
+    )
 
 
 async def _validate_prototype_ids_exist(
@@ -606,6 +668,14 @@ async def bulk_reparent_item_prototype(
             BulkReparentResultItem(entity_id=entity_id, status="ok", item=item_out, problem=None)
         )
 
+    await _record_bulk_prototype_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item.bulk_reparented",
+        target_id=body.to_prototype_id,
+        results=results,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results
@@ -672,6 +742,14 @@ async def bulk_add_item_prototype(
             )
         )
 
+    await _record_bulk_prototype_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item.bulk_prototype_added",
+        target_id=body.prototype_id,
+        results=results,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results
@@ -719,6 +797,14 @@ async def bulk_remove_item_prototype(
             )
         )
 
+    await _record_bulk_prototype_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item.bulk_prototype_removed",
+        target_id=body.prototype_id,
+        results=results,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results

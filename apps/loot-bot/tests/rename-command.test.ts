@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { rememberActingCharacter } = vi.hoisted(() => ({ rememberActingCharacter: vi.fn() }));
+vi.mock("../src/commands/remember-character.js", () => ({ rememberActingCharacter }));
+
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
 
@@ -81,7 +84,7 @@ describe("renameCommand.execute", () => {
   it("renames the item and confirms with its new title", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
-      data: { entity_id: "item-1", title: "Sword" },
+      data: { entity_id: "item-1", title: "Sword", owner_entity_id: "char-1" },
       etag: "etag-1",
     });
     renameItemInstance.mockResolvedValue({ entity_id: "item-1", title: "Grandfather's Sword" });
@@ -102,6 +105,14 @@ describe("renameCommand.execute", () => {
       entityId: "item-1",
       previousTitle: "Sword",
     });
+    expect(rememberActingCharacter).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-1",
+      "token-123",
+      "discord-user-1",
+      "char-1",
+      expect.anything(),
+    );
   });
 
   it.each([

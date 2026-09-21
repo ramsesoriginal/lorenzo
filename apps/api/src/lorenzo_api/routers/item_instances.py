@@ -10,6 +10,7 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
 from sqlalchemy import ColumnElement, Select, and_, or_, select, true
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_manage_any_campaign_in_tenant,
@@ -637,6 +638,15 @@ async def create_item_instance(
                 tenant_id=tenant_id,
             )
         )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.created",
+        target_type="item_instance",
+        target_id=entity.id,
+        detail=f"prototype={body.prototype_id}",
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -656,6 +666,10 @@ async def update_item_instance(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> ItemInstanceOut:
+    """A rename - deliberately not recorded in the activity log (ADR 0084:
+    descriptive-content edits are excluded; `updated_by` already says who
+    last touched it).
+    """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
@@ -683,6 +697,15 @@ async def delete_item_instance(
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.deleted",
+        target_type="item_instance",
+        target_id=entity_id,
+        detail=None,
+    )
     await session.delete(entity)
     await session.commit()
 
@@ -693,14 +716,17 @@ async def _perform_set_owner(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     owner_character_id: uuid.UUID,
-) -> None:
+) -> bool:
     """Core owner-set mechanics only - no auth, no If-Match, no response
     shaping, no commit - shared by the single-item PUT .../owner route and
     bulk-assign's own quantity-omitted branch (ADR 0044), so the two can't
-    drift.
+    drift. Returns whether the owner actually changed (the single-item
+    route only logs a real change, ADR 0084).
     """
     existing = await session.get(Ownership, entity_id)
     if existing is not None:
+        if existing.owner_character_id == owner_character_id:
+            return False
         existing.owner_character_id = owner_character_id
     else:
         session.add(
@@ -710,6 +736,7 @@ async def _perform_set_owner(
                 tenant_id=tenant_id,
             )
         )
+    return True
 
 
 @router.put("/{entity_id}/owner")
@@ -732,12 +759,22 @@ async def set_item_instance_owner(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
-    await _perform_set_owner(
+    changed = await _perform_set_owner(
         session,
         tenant_id=tenant_id,
         entity_id=entity_id,
         owner_character_id=body.owner_character_id,
     )
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.owner_set",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=f"owner={body.owner_character_id}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
@@ -764,6 +801,15 @@ async def clear_item_instance_owner(
     existing = await session.get(Ownership, entity_id)
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.owner_cleared",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=f"owner={existing.owner_character_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
@@ -775,17 +821,20 @@ async def _perform_set_container(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     container_entity_id: uuid.UUID,
-) -> None:
+) -> bool:
     """Core container-set mechanics only - no auth, no If-Match, no
     response shaping, no commit - shared by the single-item PUT
     .../container route and bulk-move's own per-item mutation (ADR 0065),
     so the two can't drift, the same _perform_split/_perform_set_owner
     extraction ADR 0044 already established. No cycle check - ADR 0016
     deliberately allows containment cycles ("game worlds can be
-    legitimately non-Euclidean"), unchanged by this extraction.
+    legitimately non-Euclidean"), unchanged by this extraction. Returns
+    whether the container actually changed (ADR 0084 logs only real moves).
     """
     existing = await session.get(Containment, entity_id)
     if existing is not None:
+        if existing.parent_entity_id == container_entity_id:
+            return False
         existing.parent_entity_id = container_entity_id
     else:
         session.add(
@@ -795,6 +844,7 @@ async def _perform_set_container(
                 tenant_id=tenant_id,
             )
         )
+    return True
 
 
 @router.put("/{entity_id}/container")
@@ -812,12 +862,22 @@ async def set_item_instance_container(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
-    await _perform_set_container(
+    changed = await _perform_set_container(
         session,
         tenant_id=tenant_id,
         entity_id=entity_id,
         container_entity_id=body.container_entity_id,
     )
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.container_set",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=f"container={body.container_entity_id}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
@@ -840,9 +900,45 @@ async def clear_item_instance_container(
     existing = await session.get(Containment, entity_id)
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.container_cleared",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=f"container={existing.parent_entity_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
+
+
+async def _record_bulk_activity(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    action: str,
+    target_id: uuid.UUID | None,
+    results: Sequence[BulkAssignResultItem | BulkMoveResultItem],
+) -> None:
+    """One entry per bulk call, counts only (ADR 0084) - the per-item
+    outcome is already in the call's own response. Nothing is written when
+    no item succeeded, since then nothing changed.
+    """
+    ok = sum(1 for result in results if result.status == "ok")
+    if ok == 0:
+        return
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        action=action,
+        target_type="item_instance",
+        target_id=target_id,
+        detail=f"{ok} ok, {len(results) - ok} failed",
+    )
 
 
 async def _perform_split(
@@ -960,6 +1056,15 @@ async def split_item_instance(
         owner_character_id=body.owner_character_id,
         user=user,
     )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.split",
+        target_type="item_instance",
+        target_id=entity_id,
+        detail=f"new={new_entity_id}, quantity={body.quantity}",
+    )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -1023,6 +1128,15 @@ async def merge_item_instance(
         raise InvalidMergeError(detail="Cannot merge item instances with different owners")
 
     target_containment.quantity += source_containment.quantity
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.merged",
+        target_type="item_instance",
+        target_id=body.into_entity_id,
+        detail=f"source={entity_id}, quantity={source_containment.quantity}",
+    )
     await session.delete(source_entity)
 
     await session.commit()
@@ -1104,6 +1218,14 @@ async def bulk_assign_item_instances(
             )
         )
 
+    await _record_bulk_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.bulk_assigned",
+        target_id=None,
+        results=results,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results
@@ -1192,6 +1314,14 @@ async def bulk_move_item_instances(
             )
         )
 
+    await _record_bulk_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.bulk_moved",
+        target_id=body.to_container_entity_id,
+        results=results,
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results

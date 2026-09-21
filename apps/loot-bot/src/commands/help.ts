@@ -47,8 +47,20 @@ export const HELP_GROUPS: readonly HelpGroup[] = [
     commandNames: ["link", "whoami", "set-current", "introduce"],
   },
   {
-    title: "See what you have",
-    commandNames: ["inventory", "item", "my-groups"],
+    title: "Inventory",
+    commandNames: [
+      "inventory",
+      "item",
+      "move",
+      "move-bulk",
+      "container-new",
+      "merge",
+      "rename",
+      "give",
+      "give-bulk",
+      "note",
+      "undo",
+    ],
   },
   {
     title: "Give, move, and tidy",
@@ -56,7 +68,7 @@ export const HELP_GROUPS: readonly HelpGroup[] = [
   },
   {
     title: "Notes and groups",
-    commandNames: ["note", "add-to-group"],
+    commandNames: ["note", "add-to-group", "my-groups"],
   },
   {
     title: "Loot drops",

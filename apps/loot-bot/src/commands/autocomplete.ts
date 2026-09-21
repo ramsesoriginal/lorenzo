@@ -21,3 +21,23 @@ export function filterChoices(choices: readonly Choice[], typed: string): Choice
 export function formatItemChoiceName(title: string, quantity: number | null): string {
   return quantity !== null && quantity > 1 ? `${title} ×${quantity}` : title;
 }
+
+// Discord rejects an autocomplete choice whose `name` is over 100 characters.
+const MAX_CHOICE_NAME_LENGTH = 100;
+
+/** `formatItemChoiceName`, plus the instance's slug in brackets when it has
+ * one (`"Goblin hoard [goblin-hoard]"`) - so a GM can tell two containers
+ * with the same title apart, and learn the slug they could have typed
+ * instead. The title is what gets truncated to stay under Discord's
+ * 100-character limit, never the slug: it's the part someone might copy. */
+export function formatChoiceNameWithSlug(
+  title: string,
+  quantity: number | null,
+  slug: string | null,
+): string {
+  const name = formatItemChoiceName(title, quantity);
+  if (slug === null) return name.slice(0, MAX_CHOICE_NAME_LENGTH);
+  const suffix = ` [${slug}]`;
+  const room = Math.max(MAX_CHOICE_NAME_LENGTH - suffix.length, 0);
+  return `${name.slice(0, room)}${suffix}`.slice(0, MAX_CHOICE_NAME_LENGTH);
+}
