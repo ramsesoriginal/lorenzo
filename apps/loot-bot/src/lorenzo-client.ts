@@ -629,18 +629,53 @@ export function createLorenzoApiClient(baseUrl: string) {
       return data.items;
     },
 
+    /** GET /tenants/{tenant_id}/items?q= - catalog items whose *name*
+     * contains `query` (ADR 0047), case-insensitively, first page. Unlike
+     * `listItems`, this is a server-side filter, so a big catalog can't
+     * push the one item wanted off the first page. Like every `/items`
+     * route it needs a tenant `Membership` - an ordinary player gets a 404
+     * here, by design (ADR 0023's non-enumerable convention). */
+    async findItemsByName(
+      tenantId: string,
+      query: string,
+      accessToken: string,
+    ): Promise<readonly ItemOut[]> {
+      const { data, error, response } = await client.GET("/tenants/{tenant_id}/items", {
+        params: { path: { tenant_id: tenantId }, query: { q: query } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.items;
+    },
+
+    /** POST /tenants/{tenant_id}/items - adds a plain catalog item (no
+     * prototypes) by name. Needs a tenant `Membership`, like the rest of
+     * `/items`; `/container-new` uses it once, to make the "Sack". */
+    async createItem(tenantId: string, name: string, accessToken: string): Promise<ItemOut> {
+      const { data, error, response } = await client.POST("/tenants/{tenant_id}/items", {
+        params: { path: { tenant_id: tenantId } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { name, prototype_ids: [] },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
     /** POST /tenants/{tenant_id}/item-instances - instantiates a new item
      * instance from a catalog prototype, `/award`'s own write. `quantity`
      * isn't a creation-time field (ADR 0041 - it lives on `Containment`,
      * not `ItemInstance`), so awarding a stack needs `containerEntityId`
      * given; `/award` itself is responsible for deciding what to do when
-     * it's missing, not this method. */
+     * it's missing, not this method. `name` overrides the instance's name,
+     * which otherwise defaults to the prototype's (`/container-new` names
+     * each sack). */
     async createItemInstance(
       tenantId: string,
       prototypeId: string,
       ownerCharacterId: string,
       containerEntityId: string | undefined,
       accessToken: string,
+      name?: string,
     ): Promise<ItemInstanceOut> {
       const { data, error, response } = await client.POST("/tenants/{tenant_id}/item-instances", {
         params: { path: { tenant_id: tenantId } },
@@ -649,6 +684,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           prototype_id: prototypeId,
           owner_character_id: ownerCharacterId,
           ...(containerEntityId !== undefined ? { container_entity_id: containerEntityId } : {}),
+          ...(name !== undefined ? { name } : {}),
         },
       });
       if (error !== undefined) throw toApiError(error, response.status);
@@ -808,9 +844,8 @@ export function createLorenzoApiClient(baseUrl: string) {
     /** POST .../item-instances/bulk-move (ADR 0065) - `/move-bulk`'s own
      * write (ADR 0068): empties every item directly inside
      * `fromContainerEntityId` into `toContainerEntityId` in one call, never
-     * all-or-nothing. The API also supports an explicit `items` list mode
-     * (mutually exclusive with `fromContainerEntityId`) - not used by this
-     * bot yet, no wrapper needed for it until something actually calls it. */
+     * all-or-nothing. The API's other, explicit-list mode is
+     * {@link bulkMoveItemInstances} below. */
     async bulkMoveItemInstancesFromContainer(
       tenantId: string,
       fromContainerEntityId: string,
@@ -825,6 +860,32 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: {
             to_container_entity_id: toContainerEntityId,
             from_container_entity_id: fromContainerEntityId,
+          },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/bulk-move's explicit-list mode (ADR 0065) -
+     * moves exactly `entityIds` into `toContainerEntityId`, one per-item
+     * "ok"/"error" outcome each, never all-or-nothing. `/container-new`'s
+     * fill step: the player picked these items by hand, not "everything in
+     * container X". */
+    async bulkMoveItemInstances(
+      tenantId: string,
+      toContainerEntityId: string,
+      entityIds: readonly string[],
+      accessToken: string,
+    ): Promise<readonly BulkMoveResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/bulk-move",
+        {
+          params: { path: { tenant_id: tenantId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            to_container_entity_id: toContainerEntityId,
+            items: entityIds.map((entity_id) => ({ entity_id })),
           },
         },
       );
