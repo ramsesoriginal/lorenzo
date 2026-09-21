@@ -598,3 +598,46 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
     ).resolves.toBeUndefined();
   });
 });
+
+describe.skipIf(!canRunDbTests)("container_prototype (real Postgres)", () => {
+  const TENANT = "db-test-tenant-sack";
+  const OTHER_TENANT = "db-test-tenant-sack-other";
+
+  afterEach(async () => {
+    await db.clearContainerPrototypeId(TENANT);
+    await db.clearContainerPrototypeId(OTHER_TENANT);
+  });
+
+  it("returns undefined for a tenant nobody has set a sack up for", async () => {
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+  });
+
+  it("stores and returns the prototype id", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-1");
+  });
+
+  it("replaces an existing id rather than failing - two racing first runs are harmless", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.setContainerPrototypeId(TENANT, "prototype-2");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-2");
+  });
+
+  it("keeps each tenant's prototype separate", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.setContainerPrototypeId(OTHER_TENANT, "prototype-other");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-1");
+    await expect(db.getContainerPrototypeId(OTHER_TENANT)).resolves.toBe("prototype-other");
+  });
+
+  it("clears it, and clearing an unset one is a no-op", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.clearContainerPrototypeId(TENANT);
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+    await expect(db.clearContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+  });
+});

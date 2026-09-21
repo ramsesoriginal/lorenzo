@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { formatInventoryEmbed } from "../src/format-inventory.js";
 import type { ItemInstanceOut, OwnedByResponse } from "../src/lorenzo-client.js";
 
-function item(title: string, quantity: number | null = null): ItemInstanceOut {
+function item(
+  title: string,
+  quantity: number | null = null,
+  slug: string | null = null,
+): ItemInstanceOut {
   return {
     entity_id: crypto.randomUUID(),
     owner_entity_id: null,
@@ -21,7 +25,7 @@ function item(title: string, quantity: number | null = null): ItemInstanceOut {
     created_by: null,
     updated_by: null,
     updated_at: "2026-01-01T00:00:00Z",
-    slug: null,
+    slug,
     prototype_ids: [],
     descriptions: [],
     pictures: [],
@@ -51,6 +55,30 @@ describe("formatInventoryEmbed", () => {
     expect(embed.fields).toEqual([
       { name: "Backpack", value: "• Sword\n• Shield" },
       { name: "Not in a container", value: "• Torch" },
+    ]);
+  });
+
+  it("shows an instance's slug as a code span, and only when it has one", () => {
+    const response: OwnedByResponse = {
+      groups: [
+        {
+          container: null,
+          item_instances: [
+            item("Goblin hoard", null, "goblin-hoard"),
+            item("Torch", 5, "torches"),
+            item("Rope"),
+          ],
+        },
+      ],
+    };
+
+    const embed = formatInventoryEmbed("Frodo", response).toJSON();
+
+    expect(embed.fields).toEqual([
+      {
+        name: "Not in a container",
+        value: "• Goblin hoard `goblin-hoard`\n• Torch ×5 `torches`\n• Rope",
+      },
     ]);
   });
 

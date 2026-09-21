@@ -279,6 +279,14 @@ function buildSelectMenuInteraction(
       deferred = true;
       gate.send({ type: ResponseType.DeferredUpdateMessage });
     },
+    async editReply(opts) {
+      await gate.promise;
+      return editOriginalInteractionResponse(
+        payload.application_id,
+        payload.token,
+        serializeMessagePayload(opts),
+      );
+    },
     async reply(opts) {
       replied = true;
       gate.send({

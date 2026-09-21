@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
+  AutocompleteInteraction,
   ButtonInteraction,
   ChatInputCommandInteraction,
   ModalMessageModalSubmitInteraction,
@@ -50,6 +51,8 @@ vi.mock("../src/db.js", () => ({
 const {
   isCampaignGm,
   getItemInstancesByContainer,
+  getUnownedItemInstances,
+  getMyItemInstances,
   getItemInstance,
   getItemInstanceBySlug,
   splitItemInstance,
@@ -60,6 +63,8 @@ const {
 } = vi.hoisted(() => ({
   isCampaignGm: vi.fn(),
   getItemInstancesByContainer: vi.fn(),
+  getUnownedItemInstances: vi.fn(),
+  getMyItemInstances: vi.fn(),
   getItemInstance: vi.fn(),
   getItemInstanceBySlug: vi.fn(),
   splitItemInstance: vi.fn(),
@@ -75,6 +80,8 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
     createLorenzoApiClient: createLorenzoApiClient.mockReturnValue({
       isCampaignGm,
       getItemInstancesByContainer,
+      getUnownedItemInstances,
+      getMyItemInstances,
       getItemInstance,
       getItemInstanceBySlug,
       splitItemInstance,
@@ -756,5 +763,93 @@ describe("dropCommand.onButton — clear claims", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ embeds: expect.anything(), components: expect.anything() }),
     );
+  });
+});
+
+describe("dropCommand.autocomplete", () => {
+  function fakeAutocomplete(value = "") {
+    return {
+      user: { id: "gm-1" },
+      options: { getFocused: vi.fn(() => ({ name: "container", value })) },
+      respond: vi.fn(async () => undefined),
+    } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
+  }
+
+  function owned(entityId: string, title: string, over: Record<string, unknown> = {}) {
+    return { entityId, title, quantity: null, isContainer: true, slug: null, ...over };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getUnownedItemInstances.mockResolvedValue([]);
+    getMyItemInstances.mockResolvedValue([]);
+  });
+
+  it("responds with no choices when there's no valid access token", async () => {
+    getValidAccessToken.mockResolvedValue(null);
+    const interaction = fakeAutocomplete();
+
+    await dropCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.respond).toHaveBeenCalledWith([]);
+    expect(getUnownedItemInstances).not.toHaveBeenCalled();
+  });
+
+  it("suggests a GM's ownerless loot container, which their own inventory never lists", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    getUnownedItemInstances.mockResolvedValue([owned("chest-1", "Goblin hoard")]);
+    const interaction = fakeAutocomplete();
+
+    await dropCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
+    expect(getUnownedItemInstances).toHaveBeenCalledWith("tenant-1", "gm-token");
+    expect(interaction.respond).toHaveBeenCalledWith([{ name: "Goblin hoard", value: "chest-1" }]);
+  });
+
+  it("also suggests containers the caller owns, and only container-capable ones", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    getUnownedItemInstances.mockResolvedValue([
+      owned("chest-1", "Goblin hoard"),
+      owned("sword-1", "Sword", { isContainer: false }),
+      owned("rope-1", "Rope", { isContainer: null }),
+    ]);
+    getMyItemInstances.mockResolvedValue([
+      owned("bag-1", "Bag of holding"),
+      owned("torch-1", "Torch", { isContainer: false }),
+    ]);
+    const interaction = fakeAutocomplete();
+
+    await dropCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.respond).toHaveBeenCalledWith([
+      { name: "Goblin hoard", value: "chest-1" },
+      { name: "Bag of holding", value: "bag-1" },
+    ]);
+  });
+
+  it("lists a container once even if both sources return it", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    getUnownedItemInstances.mockResolvedValue([owned("chest-1", "Goblin hoard")]);
+    getMyItemInstances.mockResolvedValue([owned("chest-1", "Goblin hoard")]);
+    const interaction = fakeAutocomplete();
+
+    await dropCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.respond).toHaveBeenCalledWith([{ name: "Goblin hoard", value: "chest-1" }]);
+  });
+
+  it("shows the slug in the choice name, and matches what's typed against it", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    getUnownedItemInstances.mockResolvedValue([
+      owned("chest-1", "Goblin hoard", { slug: "goblin-hoard" }),
+      owned("chest-2", "Dragon cache", { slug: "wyrm-vault" }),
+    ]);
+    const interaction = fakeAutocomplete("wyrm");
+
+    await dropCommand.autocomplete?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.respond).toHaveBeenCalledWith([
+      { name: "Dragon cache [wyrm-vault]", value: "chest-2" },
+    ]);
   });
 });
