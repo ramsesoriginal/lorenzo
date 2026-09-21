@@ -26,7 +26,7 @@ Every interface that mirrored an `apps/api` response shape (`CatalogItem`, `Item
 
 ### Every `lib/*.ts` API-calling module rewritten against the typed client
 
-`items.ts`/`beings.ts`/`characters.ts`/`tenants.ts`/`me.ts` (and `debug/me.astro`'s own direct call) call `client.<METHOD>(path, { params, body })` instead of building a path string by hand, then `unwrap()` the result. Behavior is unchanged, including `listCatalogItems`/`listItemsUsingPrototype`'s own pre-existing first-page-only pagination gap ([ADR-worthy in its own right, tracked separately](https://github.com/ramsesoriginal/lorenzo/pull/116) rather than folded into this change).
+`items.ts`/`beings.ts`/`characters.ts`/`tenants.ts`/`me.ts` (and `debug/me.astro`'s own direct call) call `client.<METHOD>(path, { params, body })` instead of building a path string by hand, then `unwrap()` the result. Behavior is unchanged, including the every-page catalog fetching [PR #116](https://github.com/ramsesoriginal/lorenzo/pull/116) added on top of the old `apiFetch`: it is carried over as `fetchAllPages(getPage)` in `lib/api.ts`, which takes the typed client call for one page (`MAX_PAGE_SIZE` per request) rather than a path string, and `listCatalogItems`/`listItemsUsingPrototype` still return a flat `CatalogItem[]`.
 
 ## Not in scope
 
