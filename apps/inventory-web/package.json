@@ -14,7 +14,7 @@
     "check": "astro check",
     "lint": "biome check . && astro check && prettier --check \"**/*.astro\"",
     "format": "biome check --write . && prettier --write \"**/*.astro\"",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "generate-client": "openapi-typescript ../api/openapi.json -o src/lib/lorenzo-schema.d.ts"
   },
   "dependencies": {

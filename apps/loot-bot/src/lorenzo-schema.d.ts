@@ -148,12 +148,18 @@ export interface paths {
         };
         /**
          * List Activity Log
-         * @description See ADR 0063 - a first, deliberately narrow slice: only membership
-         *     and campaign/GM lifecycle events are logged (`lorenzo_api.
-         *     activity_log.record_activity`'s own call sites), not an exhaustive
-         *     record of every mutation in the API. Gated by `get_tenant_context`,
-         *     the same bar `list_tenant_roster` already uses - any tenant-wide
-         *     member, not OWNER-only.
+         * @description An accountability timeline for tenant administrators: who changed
+         *     what shape this tenant has, who can see or do what in it, and who
+         *     holds what - by any actor, GMs included (ADR 0063/0084). What is
+         *     recorded, and what is deliberately not, is ADR 0084's coverage rule;
+         *     a mutation route either calls `activity_log.record_activity` or says
+         *     in its own docstring why it doesn't.
+         *
+         *     Gated by `get_tenant_context`. That means "OWNER or ORGA" only because
+         *     every `MembershipRole` is administrative - GMs and players without a
+         *     Membership row get a 404. `tests/test_activity_log_access.py` fails if
+         *     a non-administrative role is ever added, at which point this gate must
+         *     become an explicit `is_tenant_admin` check in the same change.
          */
         get: operations["list_activity_log"];
         put?: never;
@@ -413,6 +419,11 @@ export interface paths {
          *     row and a Membership(role=OWNER) for the caller - they become the new
          *     tenant's owner atomically, the same "create the whole coherent unit in
          *     one commit" precedent every other CRUD RFC here already follows.
+         *
+         *     Deliberately not recorded in the activity log (ADR 0084): the log is
+         *     per-tenant and its RLS needs `app.tenant_id` set, which this route
+         *     runs before - `tenant.created_by` and the OWNER membership already say
+         *     who created it.
          */
         post: operations["create_tenant"];
         delete?: never;
@@ -959,7 +970,8 @@ export interface paths {
          *     entity.name/updated_by, not any Character column; reassigning
          *     owner_player_id touches character.owner_player_id/updated_by (and folds
          *     the new owner into the roster too, if not already present) but never
-         *     entity's own columns.
+         *     entity's own columns. A rename is deliberately not recorded in the
+         *     activity log (ADR 0084); an owner reassignment is.
          */
         patch: operations["update_character"];
         trace?: never;
@@ -1037,6 +1049,32 @@ export interface paths {
          *     ADR 0025), so this can return more than one row.
          */
         post: operations["create_character_notification_route"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/beings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Beings
+         * @description Every Being in this tenant - PCs, NPCs, and bare beings with no
+         *     Character row at all (ADR 0031's "a bare being with no character row
+         *     remains perfectly valid" case, invisible to GET .../characters) - see
+         *     ADR 0078/issue #94. Item-instance ownership (ADR 0019/RFC 0005)
+         *     already targets any entity generically; this is the missing "pick a
+         *     being" discovery step for a GM assigning loot to an NPC that was never
+         *     promoted into a tracked Character.
+         */
+        get: operations["list_beings"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1177,7 +1215,10 @@ export interface paths {
         get?: never;
         /**
          * Set Entity Stat
-         * @description Sets (creating or overwriting) entity_id's own direct value for one
+         * @description Deliberately not recorded in the activity log (ADR 0084: stat-value
+         *     writes are descriptive-content edits, not structural changes).
+         *
+         *     Sets (creating or overwriting) entity_id's own direct value for one
          *     stat_definition - see ADR 0037/RFC 0008. Returns the full
          *     EntityDetailOut, not a narrower per-stat shape: this write is
          *     entity-generic (a character's hp, an item's or item-instance's weight,
@@ -1281,7 +1322,8 @@ export interface paths {
         /**
          * Update Group
          * @description Rename only - a group has nothing else of its own to update. See
-         *     ADR 0064.
+         *     ADR 0064. Deliberately not recorded in the activity log (ADR 0084:
+         *     renames are descriptive-content edits).
          */
         patch: operations["update_group"];
         trace?: never;
@@ -1495,6 +1537,13 @@ export interface paths {
          *     q (ADR 0047) matches against Entity.name, not VItem.title - title is a
          *     nullable, description-payload-sourced display field, name is the
          *     item's own stable, always-set identifier and the right search target.
+         *
+         *     prototype_id/recursive (ADR 0073) - the reverse-lookup filter: "what's
+         *     built on top of X." recursive defaults to false (direct prototypes
+         *     only), the same default/opt-in shape GET /item-instances?container_id=
+         *     already established for containment (ADR 0065); recursive without
+         *     prototype_id is a no-op, not an error, matching that same route's own
+         *     treatment of recursive without container_id.
          */
         get: operations["list_items"];
         put?: never;
@@ -1534,8 +1583,146 @@ export interface paths {
         delete: operations["delete_item"];
         options?: never;
         head?: never;
-        /** Update Item */
+        /**
+         * Update Item
+         * @description A rename - deliberately not recorded in the activity log (ADR 0084:
+         *     descriptive-content edits are excluded; `updated_by` already says who
+         *     last touched it).
+         */
         patch: operations["update_item"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/items/{entity_id}/prototypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace Item Prototypes
+         * @description Prototypes as a set sub-resource - PUT fully replaces entity_id's own
+         *     direct EntityPrototype edges, the same "PUT replaces the relationship"
+         *     convention ADR 0032/RFC 0005 already established for owner/container,
+         *     just over a set rather than a single value. See ADR 0072.
+         *
+         *     An empty list clears every prototype - there's no separate DELETE
+         *     action, unlike owner/container: those are singular values with no
+         *     "empty" representation of their own, so clearing needs a row delete; a
+         *     set's own empty state is already expressible as an ordinary PUT body.
+         *
+         *     Unlike owner/container, this does touch entity.updated_by/updated_at -
+         *     a prototype set is part of what the item *is* (it changes the item's
+         *     own resolved stats, ADR 0037/0039), not where it's placed.
+         */
+        put: operations["replace_item_prototypes"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/items/{entity_id}/prototypes/ancestry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Item Prototype Ancestry
+         * @description Every transitive ancestor of entity_id (direct and indirect
+         *     prototypes), not just the direct set ItemOut.prototype_ids already
+         *     exposes. See ADR 0073. Not paginated - prototype graphs are shallow by
+         *     construction (ADR 0015), the same "bounded, no pagination needed"
+         *     reasoning OwnedByResponse already uses.
+         */
+        get: operations["get_item_prototype_ancestry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/items/bulk-reparent-prototype": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Reparent Item Prototype
+         * @description Replaces from_prototype_id with to_prototype_id across many items in
+         *     one call - ADR 0073's "push a prototype up the chain." item_ids omitted
+         *     resolves to every Item currently having from_prototype_id as a direct
+         *     prototype; given explicitly, an item that doesn't currently have it is
+         *     a tolerated no-op, not an error.
+         *
+         *     Never all-or-nothing, the same session.begin_nested()-per-item pattern
+         *     as bulk_assign_item_instances/bulk_move_item_instances: a caught
+         *     Problem becomes that item's own "error" entry, everything else already
+         *     applied proceeds to the one shared commit.
+         */
+        post: operations["bulk_reparent_item_prototype"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/items/bulk-add-prototype": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Add Item Prototype
+         * @description Adds prototype_id to every listed item's direct prototype set - ADR
+         *     0073. An item that already has it is a tolerated no-op; attribution
+         *     (updated_by/updated_at) is only stamped when the edge actually changed,
+         *     unlike PUT .../prototypes' own unconditional bump (ADR 0072) - this is
+         *     an idempotent "ensure present" check-then-act, not a declarative
+         *     replace.
+         */
+        post: operations["bulk_add_item_prototype"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/items/bulk-remove-prototype": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Remove Item Prototype
+         * @description Removes prototype_id from every listed item's direct prototype set -
+         *     ADR 0073. An item that doesn't have it is a tolerated no-op. No cycle
+         *     risk - removing an edge can never create one - so no DBAPIError
+         *     translation is needed here, unlike bulk_add_item_prototype.
+         */
+        post: operations["bulk_remove_item_prototype"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/item-instances": {
@@ -1581,6 +1768,40 @@ export interface paths {
          *     paginated - bounded by one owner's inventory (ADR 0020 / task brief).
          */
         get: operations["list_item_instances_owned_by"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/unowned": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Unowned Item Instances
+         * @description Item instances with no owner at all, grouped by direct container the
+         *     same way owned-by/{owner_entity_id} is - the unowned counterpart a GM
+         *     needs to browse unclaimed loot before assigning it (ADR 0077/issue
+         *     #95), returning the identical OwnedByResponse shape so
+         *     apps/inventory-web's existing owner-board rendering works unmodified
+         *     for this case too, with zero client-side reshaping.
+         *
+         *     No ADR 0040 predicate needed: ownerless instances are unconditionally
+         *     visible to any tenant participant already (_visible_owner_predicate's
+         *     own first OR-branch) - there's no owner to reach or hide behind.
+         *     Deliberately not paginated, matching owned-by's own precedent.
+         *
+         *     Registered after /owned-by/{owner_entity_id} and /by-slug/{slug}, and
+         *     before /{entity_id} below, for the identical wildcard-shadowing reason
+         *     those routes are already ordered that way.
+         */
+        get: operations["list_unowned_item_instances"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1650,7 +1871,12 @@ export interface paths {
         delete: operations["delete_item_instance"];
         options?: never;
         head?: never;
-        /** Update Item Instance */
+        /**
+         * Update Item Instance
+         * @description A rename - deliberately not recorded in the activity log (ADR 0084:
+         *     descriptive-content edits are excluded; `updated_by` already says who
+         *     last touched it).
+         */
         patch: operations["update_item_instance"];
         trace?: never;
     };
@@ -2029,6 +2255,34 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * BeingSummaryOut
+         * @description GET /tenants/{id}/beings - see ADR 0078. A superset of
+         *     CharacterSummaryOut: every Being, not just ones with a Character row.
+         *
+         *     `name` is plain Entity.name (the internal/reference name, ADR 0012),
+         *     matching CharacterSummaryOut's own precedent - not any narrative
+         *     title. `is_pc` is genuinely three-valued, unlike
+         *     CharacterSummaryOut.is_pc (always a real bool, since that schema only
+         *     ever describes rows that already have a Character): `None` means no
+         *     Character row exists at all, distinct from `False` (a Character row
+         *     exists, but owner_player_id is unset).
+         *
+         *     Requires `being.entity` and `being.character` eager-loaded first
+         *     (`lazy="raise_on_sql"`, ADR 0018) - raises rather than silently
+         *     lazy-loading if the caller forgot.
+         */
+        BeingSummaryOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Is Pc */
+            is_pc: boolean | null;
+        };
         /** Body_upload_campaign_picture */
         Body_upload_campaign_picture: {
             /** File */
@@ -2043,6 +2297,40 @@ export interface components {
         Body_upload_tenant_picture: {
             /** File */
             file: string;
+        };
+        /**
+         * BulkAddPrototypeRequest
+         * @description POST /items/bulk-add-prototype body - see ADR 0073. Adds
+         *     prototype_id to every listed item's direct prototype set; an item that
+         *     already has it is a tolerated no-op.
+         */
+        BulkAddPrototypeRequest: {
+            /**
+             * Prototype Id
+             * Format: uuid
+             */
+            prototype_id: string;
+            /** Item Ids */
+            item_ids: string[];
+        };
+        /**
+         * BulkAddPrototypeResultItem
+         * @description POST /items/bulk-add-prototype - one output entry per item. See
+         *     BulkReparentResultItem's own docstring for the shared shape/reasoning.
+         */
+        BulkAddPrototypeResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            item?: components["schemas"]["ItemOut"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
         };
         /**
          * BulkAssignItem
@@ -2167,6 +2455,85 @@ export interface components {
              */
             status: "ok" | "error";
             item_instance?: components["schemas"]["ItemInstanceOut"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /**
+         * BulkRemovePrototypeRequest
+         * @description POST /items/bulk-remove-prototype body - see ADR 0073. Removes
+         *     prototype_id from every listed item's direct prototype set; an item
+         *     that doesn't have it is a tolerated no-op.
+         */
+        BulkRemovePrototypeRequest: {
+            /**
+             * Prototype Id
+             * Format: uuid
+             */
+            prototype_id: string;
+            /** Item Ids */
+            item_ids: string[];
+        };
+        /**
+         * BulkRemovePrototypeResultItem
+         * @description POST /items/bulk-remove-prototype - one output entry per item. See
+         *     BulkReparentResultItem's own docstring for the shared shape/reasoning.
+         */
+        BulkRemovePrototypeResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            item?: components["schemas"]["ItemOut"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /**
+         * BulkReparentPrototypeRequest
+         * @description POST /items/bulk-reparent-prototype body - see ADR 0073. For every
+         *     affected item currently having from_prototype_id as a direct prototype,
+         *     replaces that edge with to_prototype_id. item_ids omitted means "every
+         *     item with from_prototype_id as a direct prototype"; given explicitly, an
+         *     item that doesn't currently have from_prototype_id is a tolerated no-op,
+         *     not an error.
+         */
+        BulkReparentPrototypeRequest: {
+            /**
+             * From Prototype Id
+             * Format: uuid
+             */
+            from_prototype_id: string;
+            /**
+             * To Prototype Id
+             * Format: uuid
+             */
+            to_prototype_id: string;
+            /** Item Ids */
+            item_ids?: string[] | null;
+        };
+        /**
+         * BulkReparentResultItem
+         * @description POST /items/bulk-reparent-prototype - one output entry, always
+         *     present for every resolved item regardless of outcome (ADR 0073: never
+         *     all-or-nothing). Exactly one of item/problem is set, matching status -
+         *     the same shape BulkMoveResultItem/BulkAssignResultItem already
+         *     established, just wrapping ItemOut instead of ItemInstanceOut.
+         */
+        BulkReparentResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            item?: components["schemas"]["ItemOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
         };
         /**
@@ -2734,6 +3101,8 @@ export interface components {
             container_entity_id: string | null;
             /** Quantity */
             quantity: number | null;
+            /** Prototype Ids */
+            prototype_ids: string[];
             /** Is Magical */
             is_magical: boolean | null;
             /** Is Cursed */
@@ -2792,12 +3161,13 @@ export interface components {
          *     entity->information->payloads->description/picture,
          *     entity->information->knowledge_links (ADR 0028 - `descriptions` is
          *     visibility-gated, not a bare property anymore),
-         *     entity->stats->stat_definition->stat_group, and entity->contained_links
-         *     (ADR 0066 - `_is_container_out`'s own structural fallback) eager-loaded
-         *     (see `routers.items.eager_load_options`, the exact recipe proven in
+         *     entity->stats->stat_definition->stat_group, entity->contained_links
+         *     (ADR 0066 - `_is_container_out`'s own structural fallback), and
+         *     entity->prototype_links (ADR 0072 - `prototype_ids`) eager-loaded (see
+         *     `routers.items.eager_load_options`, the exact recipe proven in
          *     `tests/test_v_item.py`) - the six wrapped properties/methods (plus
-         *     `contained_links` itself) raise MissingGreenlet otherwise, they do not
-         *     silently lazy-load.
+         *     `contained_links`/`prototype_links` themselves) raise MissingGreenlet
+         *     otherwise, they do not silently lazy-load.
          *
          *     `ItemInstanceOut` below extends this directly - identical fields plus
          *     `owner_entity_id`/`slug` - rather than repeating the field list a
@@ -2827,6 +3197,8 @@ export interface components {
             container_entity_id: string | null;
             /** Quantity */
             quantity: number | null;
+            /** Prototype Ids */
+            prototype_ids: string[];
             /** Is Magical */
             is_magical: boolean | null;
             /** Is Cursed */
@@ -3115,6 +3487,19 @@ export interface components {
         Page_AuditLogEntryOut_: {
             /** Items */
             items: components["schemas"]["AuditLogEntryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[BeingSummaryOut] */
+        Page_BeingSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["BeingSummaryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -3503,6 +3888,28 @@ export interface components {
             user_color?: string | null;
         };
         /**
+         * PrototypeAncestorOut
+         * @description GET /items/{id}/prototypes/ancestry - one entry. See ADR 0073.
+         *     `prototype_ids` is this ancestor's own *direct* prototypes (always a
+         *     subset of the full returned ancestor set) - a flat list of nodes with
+         *     their own edges, not a pre-built tree, since multiple inheritance means
+         *     the real shape can be a DAG rather than a clean chain; the client
+         *     renders whatever structure actually exists from these edges rather than
+         *     this endpoint forcing a linear breadcrumb that would lie about
+         *     branching cases.
+         */
+        PrototypeAncestorOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Prototype Ids */
+            prototype_ids: string[];
+        };
+        /**
          * SetContainerRequest
          * @description PUT /item-instances/{id}/container body.
          */
@@ -3537,6 +3944,19 @@ export interface components {
              * Format: uuid
              */
             owner_character_id: string;
+        };
+        /**
+         * SetPrototypesRequest
+         * @description PUT /items/{id}/prototypes body - see ADR 0072. Full replacement,
+         *     same shape as ItemCreate.prototype_ids - the given list becomes the
+         *     item's complete new set of direct prototypes.
+         */
+        SetPrototypesRequest: {
+            /**
+             * Prototype Ids
+             * @default []
+             */
+            prototype_ids: string[];
         };
         /**
          * SplitItemInstanceRequest
@@ -7740,6 +8160,76 @@ export interface operations {
             };
         };
     };
+    list_beings: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive substring match against the being's name. */
+                q?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BeingSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     payload_content: {
         parameters: {
             query?: never;
@@ -9104,6 +9594,10 @@ export interface operations {
             query?: {
                 /** @description Case-insensitive substring match against the item's name. */
                 q?: string | null;
+                /** @description Only return items that have this entity as a prototype. */
+                prototype_id?: string | null;
+                /** @description With prototype_id, also include items that inherit from it transitively, not just directly. */
+                recursive?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -9442,6 +9936,351 @@ export interface operations {
             };
         };
     };
+    replace_item_prototypes: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPrototypesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_item_prototype_ancestry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrototypeAncestorOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_reparent_item_prototype: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkReparentPrototypeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkReparentResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_add_item_prototype: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkAddPrototypeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkAddPrototypeResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    bulk_remove_item_prototype: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRemovePrototypeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkRemovePrototypeResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_item_instances: {
         parameters: {
             query?: {
@@ -9590,6 +10429,71 @@ export interface operations {
             path: {
                 tenant_id: string;
                 owner_entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnedByResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_unowned_item_instances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
             };
             cookie?: never;
         };

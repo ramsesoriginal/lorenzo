@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getAccessToken } from './auth';
 import { API_BASE_URL } from './config';
 import type { paths } from './lorenzo-schema';
+import type { Page } from './types';
 
 export type { components, paths } from './lorenzo-schema';
 
@@ -82,3 +83,21 @@ export async function unwrap<T>(result: {
   }
   return result.data as T;
 }
+
+// Every list endpoint in this API is paginated (fastapi-pagination's own
+// default Params: size defaults to 50, capped at 100 - ADR 0020) - a single
+// GET silently truncates to whichever page came back, with nothing past it
+// ever fetched. Fetches page 1, then every remaining page in parallel (the
+// page count is known from the first response's own `pages`), and flattens
+// the result - for a caller that wants "every item," not one page of them.
+// getPage is the typed client call for one page, so this stays agnostic of
+// which endpoint it's paging.
+export async function fetchAllPages<T>(getPage: (page: number) => Promise<Page<T>>): Promise<T[]> {
+  const first = await getPage(1);
+  if (first.pages <= 1) return first.items;
+  const rest = await Promise.all(Array.from({ length: first.pages - 1 }, (_, i) => getPage(i + 2)));
+  return [first.items, ...rest.map((page) => page.items)].flat();
+}
+
+// The largest page size the API allows (ADR 0020) - fewest round trips.
+export const MAX_PAGE_SIZE = 100;
