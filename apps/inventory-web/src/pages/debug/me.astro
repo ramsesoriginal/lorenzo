@@ -10,7 +10,7 @@ import Base from '../../layouts/Base.astro';
   <pre id="result">Loading&hellip;</pre>
 
   <script>
-    import { apiFetch } from '../../lib/api';
+    import { client, unwrap } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
 
     const result = document.getElementById('result')!;
@@ -19,7 +19,7 @@ import Base from '../../layouts/Base.astro';
       result.textContent = "You're not logged in. Log in to continue.";
     } else {
       try {
-        const me = await apiFetch('/me');
+        const me = await unwrap(await client.GET('/me'));
         result.textContent = JSON.stringify(me, null, 2);
       } catch (e) {
         result.textContent = e instanceof Error ? e.message : String(e);

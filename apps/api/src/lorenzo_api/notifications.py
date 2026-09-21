@@ -271,3 +271,38 @@ def create_platform_notification(
         body=body,
         created_by=created_by,
     )
+
+
+def notify_campaign_gms(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    campaign_id: uuid.UUID,
+    gm_user_ids: set[uuid.UUID],
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> list[Notification]:
+    """scope="campaign", but to the campaign's *GMs only* (ADR 0092) -
+    unlike `create_campaign_notification`, which broadcasts to every player
+    and GM. The caller resolves `gm_user_ids`. One `batch_id`, like every
+    other fan-out (ADR 0061).
+    """
+    batch_id = uuid.uuid4()
+    notifications = [
+        _build(
+            batch_id=batch_id,
+            user_id=user_id,
+            tenant_id=tenant_id,
+            scope="campaign",
+            source_id=campaign_id,
+            type=type,
+            title=title,
+            body=body,
+            created_by=created_by,
+        )
+        for user_id in gm_user_ids
+    ]
+    session.add_all(notifications)
+    return notifications
