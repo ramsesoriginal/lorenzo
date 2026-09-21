@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AutocompleteInteraction,
+  ButtonInteraction,
   ChatInputCommandInteraction,
 } from "../src/commands/types.js";
 import type { Config } from "../src/config.js";
+import { GIVE_CANCEL_CUSTOM_ID, buildGiveConfirmCustomId } from "../src/format-give.js";
 import { LorenzoApiError } from "../src/lorenzo-client.js";
 
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
@@ -11,6 +13,9 @@ vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
+
+const { rememberActingCharacter } = vi.hoisted(() => ({ rememberActingCharacter: vi.fn() }));
+vi.mock("../src/commands/remember-character.js", () => ({ rememberActingCharacter }));
 
 const {
   getMyPlayers,
@@ -54,6 +59,8 @@ const config = {
   lorenzoTenantId: "tenant-1",
 } as Config;
 
+const ctx = { config, logger: {} as never };
+
 function fakeInteraction(userId = "discord-user-1") {
   return {
     user: { id: userId },
@@ -68,6 +75,29 @@ function fakeInteraction(userId = "discord-user-1") {
     deferReply: ReturnType<typeof vi.fn>;
     editReply: ReturnType<typeof vi.fn>;
   };
+}
+
+function fakeButton(customId: string, userId = "discord-user-1") {
+  return {
+    user: { id: userId },
+    customId,
+    update: vi.fn(async () => undefined),
+    editReply: vi.fn(async () => undefined),
+  } as unknown as ButtonInteraction & {
+    update: ReturnType<typeof vi.fn>;
+    editReply: ReturnType<typeof vi.fn>;
+  };
+}
+
+/** The confirm button `/give` would have shown for this intent. */
+function confirmButton(quantity: number | null = null) {
+  return fakeButton(
+    buildGiveConfirmCustomId({
+      itemEntityId: "item-1",
+      targetCharacterId: "char-2",
+      quantity,
+    }),
+  );
 }
 
 function fakeAutocomplete(
@@ -85,16 +115,25 @@ function fakeAutocomplete(
   } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
 }
 
-describe("giveCommand.execute", () => {
+describe("giveCommand.execute (the confirmation prompt)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+
+  function promptFor(quantity: number | null = null) {
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "char-2",
+    );
+    interaction.options.getInteger.mockReturnValue(quantity);
+    return interaction;
+  }
 
   it("prompts to /link when there's no valid access token", async () => {
     getValidAccessToken.mockResolvedValue(null);
     const interaction = fakeInteraction();
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
+    await giveCommand.execute(interaction, ctx);
 
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.stringContaining("run `/link` first"),
@@ -102,7 +141,170 @@ describe("giveCommand.execute", () => {
     expect(getItemInstance).not.toHaveBeenCalled();
   });
 
-  it("transfers the whole instance when no quantity is given", async () => {
+  it("asks before giving a whole stack, and writes nothing", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockResolvedValue("Sam");
+    const interaction = promptFor();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith({
+      content: "Give **Torch ×5** to **Sam**?",
+      components: expect.any(Array),
+    });
+    expect(splitItemInstance).not.toHaveBeenCalled();
+    expect(setItemInstanceOwner).not.toHaveBeenCalled();
+    expect(recordUndo).not.toHaveBeenCalled();
+  });
+
+  it("words a partial give with what's left in the stack", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockResolvedValue("Sam");
+    const interaction = promptFor(2);
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Give **2 of Torch** (you have 5) to **Sam**?" }),
+    );
+  });
+
+  it("puts the whole intent in the confirm button, so the click needs no bot-side state", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 5, title: "Torch" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockResolvedValue("Sam");
+    const interaction = promptFor(2);
+
+    await giveCommand.execute(interaction, ctx);
+
+    const [{ components }] = interaction.editReply.mock.calls[0] as [
+      { components: { toJSON(): { components: { custom_id: string; label: string }[] } }[] },
+    ];
+    const buttons = components[0]?.toJSON().components ?? [];
+    expect(buttons.map((b) => [b.label, b.custom_id])).toEqual([
+      ["Give", "give:ok:item-1:char-2:2"],
+      ["Cancel", GIVE_CANCEL_CUSTOM_ID],
+    ]);
+  });
+
+  it("rejects a quantity for an item that isn't a stack, before offering a click", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
+    const interaction = promptFor(1);
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining("isn't a stack"));
+    expect(getCharacterName).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [403, "reachable from any of your characters"],
+    [404, "Couldn't find that item"],
+    [422, "Couldn't do that"],
+  ])(
+    "gives a specific message when reading the item fails with %i",
+    async (status, expectedText) => {
+      getValidAccessToken.mockResolvedValue("token-123");
+      getItemInstance.mockRejectedValue(new LorenzoApiError("boom", status));
+      const interaction = promptFor();
+
+      await giveCommand.execute(interaction, ctx);
+
+      expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining(expectedText));
+    },
+  );
+
+  it("fails early, without a prompt, when the target character doesn't exist", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    const interaction = promptFor();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("Couldn't find that item or that character"),
+    );
+  });
+});
+
+describe("giveCommand.onButton (the confirmed transfer)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("cancels without touching the API", async () => {
+    const button = fakeButton(GIVE_CANCEL_CUSTOM_ID);
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.update).toHaveBeenCalledWith({
+      content: "Cancelled — nothing was given.",
+      components: [],
+    });
+    expect(getValidAccessToken).not.toHaveBeenCalled();
+    expect(getItemInstance).not.toHaveBeenCalled();
+  });
+
+  it("refuses a malformed confirm id instead of guessing", async () => {
+    const button = fakeButton("give:ok:item-1:char-2:banana");
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.update).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining("isn't valid anymore") }),
+    );
+    expect(getItemInstance).not.toHaveBeenCalled();
+    expect(setItemInstanceOwner).not.toHaveBeenCalled();
+  });
+
+  it("strips the buttons as its very first response, before any API call", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
+    getCharacterName.mockResolvedValue("Sam");
+    const button = confirmButton();
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.update).toHaveBeenCalledWith({ content: "Giving…", components: [] });
+    expect(button.update.mock.invocationCallOrder[0]).toBeLessThan(
+      getItemInstance.mock.invocationCallOrder[0] as number,
+    );
+  });
+
+  it("prompts to /link when the clicker has no valid access token", async () => {
+    getValidAccessToken.mockResolvedValue(null);
+    const button = confirmButton();
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.editReply).toHaveBeenCalledWith(expect.stringContaining("run `/link` first"));
+    expect(setItemInstanceOwner).not.toHaveBeenCalled();
+  });
+
+  it("transfers the whole instance when no quantity was chosen", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
       data: { entity_id: "item-1", quantity: 5, title: "Torch", owner_entity_id: "char-1" },
@@ -110,13 +312,9 @@ describe("giveCommand.execute", () => {
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
     getCharacterName.mockResolvedValue("Frodo");
+    const button = confirmButton();
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
-
-    await giveCommand.execute(interaction, { config, logger: {} as never });
+    await giveCommand.onButton?.(button, ctx);
 
     expect(splitItemInstance).not.toHaveBeenCalled();
     expect(setItemInstanceOwner).toHaveBeenCalledWith(
@@ -126,7 +324,7 @@ describe("giveCommand.execute", () => {
       "token-123",
       "etag-1",
     );
-    expect(interaction.editReply).toHaveBeenCalledWith("Gave Torch to Frodo.");
+    expect(button.editReply).toHaveBeenCalledWith("Gave Torch to Frodo.");
     expect(recordUndo).toHaveBeenCalledWith("discord-user-1", {
       kind: "restore-owner",
       entityId: "item-1",
@@ -145,14 +343,9 @@ describe("giveCommand.execute", () => {
       etag: "etag-2",
     });
     getCharacterName.mockResolvedValue("Sam");
+    const button = confirmButton(2);
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
-    interaction.options.getInteger.mockReturnValue(2);
-
-    await giveCommand.execute(interaction, { config, logger: {} as never });
+    await giveCommand.onButton?.(button, ctx);
 
     expect(splitItemInstance).toHaveBeenCalledWith(
       "tenant-1",
@@ -163,7 +356,7 @@ describe("giveCommand.execute", () => {
       "char-2",
     );
     expect(setItemInstanceOwner).not.toHaveBeenCalled();
-    expect(interaction.editReply).toHaveBeenCalledWith("Gave 2 of Torch to Sam.");
+    expect(button.editReply).toHaveBeenCalledWith("Gave 2 of Torch to Sam.");
     // Undo of a split-give gives the *split-off* instance back, not the
     // original source - the source's own remaining quantity is untouched.
     expect(recordUndo).toHaveBeenCalledWith("discord-user-1", {
@@ -181,14 +374,9 @@ describe("giveCommand.execute", () => {
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
     getCharacterName.mockResolvedValue("Sam");
+    const button = confirmButton(5);
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
-    interaction.options.getInteger.mockReturnValue(5);
-
-    await giveCommand.execute(interaction, { config, logger: {} as never });
+    await giveCommand.onButton?.(button, ctx);
 
     expect(splitItemInstance).not.toHaveBeenCalled();
     expect(setItemInstanceOwner).toHaveBeenCalledWith(
@@ -200,23 +388,78 @@ describe("giveCommand.execute", () => {
     );
   });
 
-  it("rejects a quantity for an item that isn't a stack, before calling the API", async () => {
+  it("decides against the stack as it is now, not as the prompt showed it", async () => {
+    // The prompt offered "2 of 5"; by the click only 1 is left, so asking
+    // for 2 covers the whole (remaining) stack and transfers it outright.
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: 1, title: "Torch", owner_entity_id: "char-1" },
+      etag: "etag-9",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch" });
+    getCharacterName.mockResolvedValue("Sam");
+    const button = confirmButton(2);
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(splitItemInstance).not.toHaveBeenCalled();
+    expect(setItemInstanceOwner).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-1",
+      "char-2",
+      "token-123",
+      "etag-9",
+    );
+  });
+
+  it("remembers the giving character as the caller's last-used one", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
+    getCharacterName.mockResolvedValue("Sam");
+    const button = confirmButton();
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(rememberActingCharacter).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-1",
+      "token-123",
+      "discord-user-1",
+      "char-1",
+      ctx.logger,
+    );
+  });
+
+  it("does not remember anything when the give itself failed", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
+    const button = confirmButton();
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(rememberActingCharacter).not.toHaveBeenCalled();
+    expect(recordUndo).not.toHaveBeenCalled();
+  });
+
+  it("re-checks that a quantity still makes sense, if the item stopped being a stack", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
       data: { entity_id: "item-1", quantity: null, title: "Sword" },
       etag: "etag-1",
     });
+    const button = confirmButton(2);
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
-    interaction.options.getInteger.mockReturnValue(1);
+    await giveCommand.onButton?.(button, ctx);
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
-
-    expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining("isn't a stack"));
-    expect(splitItemInstance).not.toHaveBeenCalled();
+    expect(button.editReply).toHaveBeenCalledWith(expect.stringContaining("isn't a stack"));
     expect(setItemInstanceOwner).not.toHaveBeenCalled();
   });
 
@@ -227,15 +470,11 @@ describe("giveCommand.execute", () => {
   ])("gives a specific message for a %i error", async (status, expectedText) => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockRejectedValue(new LorenzoApiError("boom", status));
+    const button = confirmButton();
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
+    await giveCommand.onButton?.(button, ctx);
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
-
-    expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining(expectedText));
+    expect(button.editReply).toHaveBeenCalledWith(expect.stringContaining(expectedText));
   });
 
   it("still succeeds even if the friendly-name lookup fails", async () => {
@@ -246,15 +485,11 @@ describe("giveCommand.execute", () => {
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
     getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    const button = confirmButton();
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
+    await giveCommand.onButton?.(button, ctx);
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
-
-    expect(interaction.editReply).toHaveBeenCalledWith("Gave Sword to them.");
+    expect(button.editReply).toHaveBeenCalledWith("Gave Sword to them.");
   });
 
   it("tells the caller to retry when the write 412s on a stale etag", async () => {
@@ -264,15 +499,11 @@ describe("giveCommand.execute", () => {
       etag: "etag-1",
     });
     setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
+    const button = confirmButton();
 
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
+    await giveCommand.onButton?.(button, ctx);
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
-
-    expect(interaction.editReply).toHaveBeenCalledWith(
+    expect(button.editReply).toHaveBeenCalledWith(
       expect.stringContaining("Someone else changed that item"),
     );
   });
@@ -287,7 +518,7 @@ describe("giveCommand.autocomplete", () => {
     getValidAccessToken.mockResolvedValue(null);
     const interaction = fakeAutocomplete("item");
 
-    await giveCommand.autocomplete?.(interaction, { config, logger: {} as never });
+    await giveCommand.autocomplete?.(interaction, ctx);
 
     expect(interaction.respond).toHaveBeenCalledWith([]);
   });
@@ -300,7 +531,7 @@ describe("giveCommand.autocomplete", () => {
     ]);
 
     const interaction = fakeAutocomplete("item", "tor");
-    await giveCommand.autocomplete?.(interaction, { config, logger: {} as never });
+    await giveCommand.autocomplete?.(interaction, ctx);
 
     expect(interaction.respond).toHaveBeenCalledWith([{ name: "Torch ×5", value: "item-1" }]);
   });
@@ -321,7 +552,7 @@ describe("giveCommand.autocomplete", () => {
     ]);
 
     const interaction = fakeAutocomplete("to", "", "item-1");
-    await giveCommand.autocomplete?.(interaction, { config, logger: {} as never });
+    await giveCommand.autocomplete?.(interaction, ctx);
 
     expect(getCampaignPlayers).toHaveBeenCalledWith("tenant-1", "campaign-1", "token-123");
     expect(interaction.respond).toHaveBeenCalledWith([

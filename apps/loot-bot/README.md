@@ -35,9 +35,9 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | --- | --- |
 | `/link` | Starts account linking — replies with a one-time Authgear login URL |
 | `/unlink` | Unlinks your Discord account from your Lorenzo identity |
-| `/set-current` | Sets your current character and/or default container for this channel — what other commands default to |
+| `/set-current` | Pins your current character and/or default container for this channel — what other commands default to. Without one, your default is the character you last gave, moved, renamed, or merged an item as ([ADR 0088](../../docs/adr/0088-loot-bot-give-confirmation-and-last-used-character.md)) |
 | `/inventory` | Lists the item instances your linked characters own, grouped by container, optionally filtered by name (`search`) |
-| `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target |
+| `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target, with one Give/Cancel click before anything moves |
 | `/give-bulk` | Gives several of your own items to one character at once (multi-select flow) |
 | `/merge` | Combines two of your own stacks of the same item into one |
 | `/rename` | Gives one of your own items a custom name |

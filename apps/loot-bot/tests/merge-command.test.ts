@@ -9,6 +9,9 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { rememberActingCharacter } = vi.hoisted(() => ({ rememberActingCharacter: vi.fn() }));
+vi.mock("../src/commands/remember-character.js", () => ({ rememberActingCharacter }));
+
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
 
@@ -123,6 +126,14 @@ describe("mergeCommand.execute", () => {
       quantity: 3,
       ownerCharacterId: "char-1",
     });
+    expect(rememberActingCharacter).toHaveBeenCalledWith(
+      expect.anything(),
+      "tenant-1",
+      "token-123",
+      "discord-user-1",
+      "char-1",
+      expect.anything(),
+    );
   });
 
   it.each([
