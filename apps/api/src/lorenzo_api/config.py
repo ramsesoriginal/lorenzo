@@ -66,6 +66,20 @@ class Settings(BaseSettings):
     # class at all). NoDecode defers all decoding to _parse_cors_origins.
     cors_allowed_origins: Annotated[list[str], NoDecode] = []
 
+    # ADR 0092's in-process backstop for the two public invite-link routes:
+    # requests per minute per client address, per instance. Cloud Run runs
+    # several instances, so this only limits each one separately - it is a
+    # backstop, and the edge rate-limit rule (docs/operations/invite-link-
+    # rate-limiting.md) is the real control. 0 disables it.
+    invite_rate_limit_per_minute: int = 30
+    # How many reverse proxies sit in front of this app whose
+    # X-Forwarded-For entry can be trusted. 0 (the default, right for local
+    # dev and tests) keys the limiter on the direct peer address. Behind
+    # Cloud Run's front end this must be 1, or every caller shares one
+    # bucket: the *rightmost* entry is the address that proxy actually saw,
+    # whereas anything to its left is client-supplied and spoofable.
+    invite_rate_limit_trusted_proxy_hops: int = 0
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:

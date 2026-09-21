@@ -17,6 +17,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
 
 from lorenzo_api.db import engine
+from lorenzo_api.redaction import redact_span_attributes
 
 
 def configure_tracing(app: FastAPI) -> TracerProvider:
@@ -24,7 +25,11 @@ def configure_tracing(app: FastAPI) -> TracerProvider:
     provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
     trace.set_tracer_provider(provider)
 
-    FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
+    # The instrumentation records the raw request path on the span, and an
+    # invite token lives in a path (ADR 0092) - scrub it as the span starts.
+    FastAPIInstrumentor.instrument_app(
+        app, tracer_provider=provider, server_request_hook=redact_span_attributes
+    )
     # Instrumentation hooks into SQLAlchemy's event system, which fires on
     # the underlying sync engine even when using the async wrapper.
     SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine, tracer_provider=provider)
