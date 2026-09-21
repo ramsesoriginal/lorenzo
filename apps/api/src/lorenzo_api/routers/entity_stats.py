@@ -154,7 +154,10 @@ async def set_entity_stat(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> EntityDetailOut:
-    """Sets (creating or overwriting) entity_id's own direct value for one
+    """Deliberately not recorded in the activity log (ADR 0084: stat-value
+    writes are descriptive-content edits, not structural changes).
+
+    Sets (creating or overwriting) entity_id's own direct value for one
     stat_definition - see ADR 0037/RFC 0008. Returns the full
     EntityDetailOut, not a narrower per-stat shape: this write is
     entity-generic (a character's hp, an item's or item-instance's weight,

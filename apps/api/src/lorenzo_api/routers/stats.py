@@ -5,7 +5,8 @@ import uuid
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 
-from lorenzo_api.dependencies import SessionDep, get_tenant_context
+from lorenzo_api.activity_log import record_activity
+from lorenzo_api.dependencies import CurrentUser, SessionDep, get_tenant_context
 from lorenzo_api.exceptions import (
     InvalidStatGroupError,
     StatDefinitionNotFoundError,
@@ -65,6 +66,7 @@ async def create_stat_group(
     request: Request,
     response: Response,
     session: SessionDep,
+    user: CurrentUser,
 ) -> StatGroupOut:
     """No post-commit re-read (unlike routers/items.py's create_item) - the
     response is built straight from the in-memory row create/committed just
@@ -77,6 +79,16 @@ async def create_stat_group(
     """
     stat_group = StatGroup(tenant_id=tenant_id, name=body.name, priority=body.priority)
     session.add(stat_group)
+    await session.flush()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="stat_group.created",
+        target_type="stat_group",
+        target_id=stat_group.id,
+        detail=f"priority={body.priority}",
+    )
     await session.commit()
     response.headers["Location"] = str(
         request.url_for("get_stat_group", tenant_id=tenant_id, stat_group_id=stat_group.id)
@@ -99,6 +111,7 @@ async def create_stat_definition(
     request: Request,
     response: Response,
     session: SessionDep,
+    user: CurrentUser,
 ) -> StatDefinitionOut:
     """stat_group_id must resolve to a stat group in this tenant (422
     InvalidStatGroupError otherwise) - mirrors create_item_instance's own
@@ -119,6 +132,16 @@ async def create_stat_definition(
         value_type=body.value_type,
     )
     session.add(stat_definition)
+    await session.flush()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="stat_definition.created",
+        target_type="stat_definition",
+        target_id=stat_definition.id,
+        detail=f"stat_group={body.stat_group_id}, value_type={body.value_type.value}",
+    )
     await session.commit()
     response.headers["Location"] = str(
         request.url_for(
