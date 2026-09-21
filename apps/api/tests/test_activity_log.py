@@ -1,6 +1,7 @@
-"""GET /tenants/{tenant_id}/activity-log - see ADR 0063. A first,
-deliberately narrow slice: only the seven named mutation points below are
-logged, not an exhaustive audit trail.
+"""GET /tenants/{tenant_id}/activity-log - see ADR 0063. Membership and
+campaign/GM lifecycle events; the wider coverage rule (ADR 0084) is tested
+alongside each router's own mutations, and administrative settings in
+test_activity_log_admin_actions.py.
 """
 
 import uuid

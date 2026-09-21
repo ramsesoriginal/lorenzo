@@ -6,6 +6,7 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     can_manage_any_campaign_in_tenant,
@@ -234,6 +235,18 @@ async def create_information(
         PayloadDescription(
             payload_id=payload.id, tenant_id=tenant_id, locale=body.locale, content=body.content
         )
+    )
+    # Entity and visibility tier only - never the title, type, or content,
+    # since a GM-only secret must not be readable from the activity log
+    # (ADR 0084).
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="information.created",
+        target_type="information",
+        target_id=information.id,
+        detail=f"entity={entity_id}, visibility={'public' if body.is_public else 'restricted'}",
     )
 
     await session.commit()
