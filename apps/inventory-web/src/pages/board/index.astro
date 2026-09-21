@@ -9,12 +9,6 @@ import Base from '../../layouts/Base.astro';
     <h1 class="display" id="tenant-name"></h1>
     <p id="tenant-slug" class="tenant-slug"></p>
     <p id="gm-tools" hidden><a id="manage-items-link" href="">Manage items (GM)</a></p>
-    <div id="debug-tools" class="section" hidden>
-      <button type="button" id="debug-seed-is-container-button">
-        Debug: mark 3 entities as containers
-      </button>
-      <pre id="debug-seed-log" class="field-note" hidden></pre>
-    </div>
 
     <section id="picker-section" class="section">
       <div
@@ -177,7 +171,6 @@ import Base from '../../layouts/Base.astro';
       type UndoPayload,
     } from '../../lib/boardLogic';
     import { listMyCharacters } from '../../lib/characters';
-    import { liveSeedApi, localStorageSeedStore, seedIsContainer } from '../../lib/debugSeed';
     import {
       bulkAssignItemInstances,
       bulkMoveItemInstances,
@@ -192,7 +185,7 @@ import Base from '../../layouts/Base.astro';
     } from '../../lib/items';
     import { isCampaignGm } from '../../lib/me';
     import { collectMoveTargets } from '../../lib/moveTargets';
-    import { getTenant, listTenants } from '../../lib/tenants';
+    import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
       CharacterSummary,
@@ -1351,40 +1344,6 @@ import Base from '../../layouts/Base.astro';
       browseBeing({ entity_id: id, name: id });
     });
 
-    function setupDebugSeedButton(currentTenantId: string) {
-      const debugTools = document.getElementById('debug-tools')!;
-      const button = document.getElementById('debug-seed-is-container-button') as HTMLButtonElement;
-      const log = document.getElementById('debug-seed-log')!;
-      debugTools.hidden = false;
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        log.hidden = false;
-        log.textContent = '';
-        const write = (line: string) => {
-          log.textContent += `${line}\n`;
-        };
-        try {
-          const result = await seedIsContainer(
-            currentTenantId,
-            liveSeedApi,
-            localStorageSeedStore(),
-            undefined,
-            write,
-          );
-          write(
-            result.failed.length === 0
-              ? 'Done.'
-              : `Done, with ${result.failed.length} failure(s) - click again to retry those.`,
-          );
-          reloadCurrentView?.();
-        } catch (e) {
-          write(`Stopped: ${e instanceof Error ? e.message : String(e)}`);
-        } finally {
-          button.disabled = false;
-        }
-      });
-    }
-
     if (!(await isAuthenticated())) {
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
@@ -1407,18 +1366,6 @@ import Base from '../../layouts/Base.astro';
           pickerTablist.hidden = false;
           tabBrowse.hidden = false;
           tabUnowned.hidden = false;
-        }
-
-        // Debug-only: visible to campaign GMs and tenant owner/orga. A
-        // failed role lookup just leaves it hidden.
-        let isTenantAdmin = false;
-        try {
-          const tenants = await listTenants();
-          const role = tenants.items.find((t) => t.id === tenantId)?.role;
-          isTenantAdmin = role === 'owner' || role === 'orga';
-        } catch {}
-        if (userIsGm || isTenantAdmin) {
-          setupDebugSeedButton(tenantId);
         }
       } catch (e) {
         status.textContent = e instanceof Error ? e.message : String(e);
