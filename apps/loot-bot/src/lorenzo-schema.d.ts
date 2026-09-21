@@ -246,6 +246,39 @@ export interface paths {
         patch: operations["update_me"];
         trace?: never;
     };
+    "/me/managed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Managed Scope
+         * @description What the caller runs, across every tenant - see ADR 0086. Tenants
+         *     where they hold a tenant-wide OWNER/ORGA Membership (with every
+         *     campaign in them), plus tenants where they only GM (with just the
+         *     campaigns they GM). Not paginated, like `GET /me`: bounded by the
+         *     caller's own memberships and GM rows. Authenticated but not
+         *     tenant-scoped.
+         *
+         *     Resolved tenant by tenant for the same reason `_me_out` is: `membership`
+         *     and `campaign_gm` admit the caller's own rows by `app.user_id`, but
+         *     `campaign` has no `user_id` to self-authorize against, and these rows
+         *     span several tenants - so `app.tenant_id` is set per tenant rather than
+         *     any policy being weakened. A tenant administrator's opt-out from a
+         *     campaign's *play* visibility (ADR 0034) is irrelevant here: this is the
+         *     administrative axis, so they still see it.
+         */
+        get: operations["get_my_managed_scope"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/picture": {
         parameters: {
             query?: never;
@@ -289,6 +322,16 @@ export interface paths {
          *     shape `player`/`campaign_gm` have, ADR 0030's addendum), and every
          *     field this response needs is already denormalized onto the row
          *     itself - nothing here is joined from live, tenant-scoped data.
+         *
+         *     `since` (ADR 0086): only rows with `created_at >= since`, a
+         *     timezone-aware ISO 8601 timestamp (a naive one is a 422). Inclusive on
+         *     purpose - a client sends back the newest `created_at` it has seen, and
+         *     with `>` it would silently miss a second row sharing that exact
+         *     timestamp; with `>=` it may see the boundary row again and dedupes by
+         *     `id`. Known limitation: a row from a transaction that began before,
+         *     but committed after, the client's last poll can carry an earlier
+         *     `created_at` and be skipped - narrow, since notifications are written
+         *     in short single transactions.
          */
         get: operations["list_my_notifications"];
         put?: never;
@@ -2062,6 +2105,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Knowledge
+         * @description Every knowledge grant in the tenant - see ADR 0085. The one read
+         *     that shows the `knowledge` table itself: everywhere else it's only a
+         *     filtering effect on what an information read returns, so an export
+         *     (or an owner auditing "who was told this?") had no way to see it.
+         *     Ids only, oldest first so a re-run appends rather than reshuffles.
+         */
+        get: operations["list_knowledge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/stat-groups": {
         parameters: {
             query?: never;
@@ -2069,7 +2136,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Stat Groups
+         * @description Every stat group in the tenant, name-ordered - the listing the
+         *     by-id route below never had, so a stat vocabulary is discoverable
+         *     (and exportable, ADR 0085) without already knowing its ids.
+         */
+        get: operations["list_stat_groups"];
         put?: never;
         /**
          * Create Stat Group
@@ -2113,7 +2186,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Stat Definitions
+         * @description Every stat definition in the tenant, name-ordered - see
+         *     `list_stat_groups` (ADR 0085).
+         */
+        get: operations["list_stat_definitions"];
         put?: never;
         /**
          * Create Stat Definition
@@ -3239,6 +3317,89 @@ export interface components {
             name?: string | null;
         };
         /**
+         * KnowledgeEntryOut
+         * @description GET /tenants/{tenant_id}/knowledge - see ADR 0085. One grant of one
+         *     piece of information to one knower. Ids only, never content: this is an
+         *     index of *who knows what* for export and audit, and reading the
+         *     information itself still goes through its own visibility-filtered
+         *     read. Exactly one of `knower_entity_id` (a character or group) and
+         *     `knower_player_id` is set, mirroring `knowledge`'s own CHECK constraint
+         *     (ADR 0028).
+         */
+        KnowledgeEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Knower Entity Id */
+            knower_entity_id: string | null;
+            /** Knower Player Id */
+            knower_player_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ManagedCampaignOut
+         * @description One campaign in `GET /me/managed` - see ADR 0086. `is_gm` is true if
+         *     the caller holds a `CampaignGm` row for it; a tenant administrator sees
+         *     every campaign in their tenant, GM of it or not.
+         */
+        ManagedCampaignOut: {
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Name */
+            name: string;
+            /** Is Gm */
+            is_gm: boolean;
+        };
+        /**
+         * ManagedScopeOut
+         * @description `GET /me/managed` - an index of what the caller runs, to navigate
+         *     from: not a dashboard, no counts or rosters (ADR 0086).
+         */
+        ManagedScopeOut: {
+            /** Tenants */
+            tenants: components["schemas"]["ManagedTenantOut"][];
+        };
+        /**
+         * ManagedTenantOut
+         * @description One tenant in `GET /me/managed`. `role` is the caller's tenant-wide
+         *     Membership role, or `None` when they are here only because they GM a
+         *     campaign in it.
+         */
+        ManagedTenantOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Role */
+            role: ("owner" | "orga") | null;
+            /** Campaigns */
+            campaigns: components["schemas"]["ManagedCampaignOut"][];
+        };
+        /**
          * MeOut
          * @description The caller's own identity, tenant-wide memberships, campaign
          *     memberships, and GM grants - see ADR 0023/0031. `players`/
@@ -3574,6 +3735,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[KnowledgeEntryOut] */
+        Page_KnowledgeEntryOut_: {
+            /** Items */
+            items: components["schemas"]["KnowledgeEntryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[NotificationOut] */
         Page_NotificationOut_: {
             /** Items */
@@ -3591,6 +3765,32 @@ export interface components {
         Page_PlayerSummaryOut_: {
             /** Items */
             items: components["schemas"]["PlayerSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[StatDefinitionOut] */
+        Page_StatDefinitionOut_: {
+            /** Items */
+            items: components["schemas"]["StatDefinitionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[StatGroupOut] */
+        Page_StatGroupOut_: {
+            /** Items */
+            items: components["schemas"]["StatGroupOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -4931,6 +5131,60 @@ export interface operations {
             };
         };
     };
+    get_my_managed_scope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedScopeOut"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     upload_my_picture: {
         parameters: {
             query?: never;
@@ -5052,6 +5306,7 @@ export interface operations {
         parameters: {
             query?: {
                 unread_only?: boolean;
+                since?: string | null;
                 page?: number;
                 size?: number;
             };
@@ -11385,6 +11640,142 @@ export interface operations {
             };
         };
     };
+    list_knowledge: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_KnowledgeEntryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_stat_groups: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_StatGroupOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     create_stat_group: {
         parameters: {
             query?: never;
@@ -11473,6 +11864,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatGroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_stat_definitions: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_StatDefinitionOut_"];
                 };
             };
             /** @description Validation Error */

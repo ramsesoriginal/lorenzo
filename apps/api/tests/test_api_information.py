@@ -1,7 +1,13 @@
 import uuid
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_campaign, make_character, make_tenant
+from conftest import (
+    delete_tenant,
+    make_campaign,
+    make_character,
+    make_opted_out_admin,
+    make_tenant,
+)
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -318,6 +324,7 @@ async def test_milestone_scenario_alice_sees_public_and_her_own_secret(
     these observer-specific visibility tests.
     """
     tenant_id = await make_tenant(test_user_id)
+    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0096)
     async with admin_session_factory() as session:
         campaign = await make_campaign(session, tenant_id=tenant_id)
         await session.flush()
@@ -423,6 +430,7 @@ async def test_add_and_remove_information_knower(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     tenant_id = await make_tenant(test_user_id)
+    await make_opted_out_admin(tenant_id, test_user_id)  # no information bypass (ADR 0096)
     async with admin_session_factory() as session:
         campaign = await make_campaign(session, tenant_id=tenant_id)
         await session.flush()

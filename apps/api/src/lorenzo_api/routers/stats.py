@@ -3,10 +3,12 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.dependencies import CurrentUser, SessionDep, get_tenant_context
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, get_tenant_context
 from lorenzo_api.exceptions import (
     InvalidStatGroupError,
     StatDefinitionNotFoundError,
@@ -96,6 +98,23 @@ async def create_stat_group(
     return StatGroupOut.model_validate(stat_group)
 
 
+@router.get("/stat-groups")
+async def list_stat_groups(
+    tenant_id: uuid.UUID, session: SessionDep, params: ParamsDep
+) -> Page[StatGroupOut]:
+    """Every stat group in the tenant, name-ordered - the listing the
+    by-id route below never had, so a stat vocabulary is discoverable
+    (and exportable, ADR 0085) without already knowing its ids.
+    """
+    stmt = (
+        select(StatGroup)
+        .where(StatGroup.tenant_id == tenant_id)
+        .order_by(StatGroup.name, StatGroup.id)
+    )
+    page: Page[StatGroupOut] = await apaginate(session, stmt, params)
+    return page
+
+
 @router.get("/stat-groups/{stat_group_id}")
 async def get_stat_group(
     tenant_id: uuid.UUID, stat_group_id: uuid.UUID, session: SessionDep
@@ -149,6 +168,22 @@ async def create_stat_definition(
         )
     )
     return StatDefinitionOut.model_validate(stat_definition)
+
+
+@router.get("/stat-definitions")
+async def list_stat_definitions(
+    tenant_id: uuid.UUID, session: SessionDep, params: ParamsDep
+) -> Page[StatDefinitionOut]:
+    """Every stat definition in the tenant, name-ordered - see
+    `list_stat_groups` (ADR 0085).
+    """
+    stmt = (
+        select(StatDefinition)
+        .where(StatDefinition.tenant_id == tenant_id)
+        .order_by(StatDefinition.name, StatDefinition.id)
+    )
+    page: Page[StatDefinitionOut] = await apaginate(session, stmt, params)
+    return page
 
 
 @router.get("/stat-definitions/{stat_definition_id}")
