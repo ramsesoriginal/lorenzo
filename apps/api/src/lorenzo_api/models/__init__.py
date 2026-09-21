@@ -2,6 +2,7 @@ from lorenzo_api.models.audit_log import AuditLog
 from lorenzo_api.models.being import Being
 from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.campaign_gm import CampaignGm
+from lorenzo_api.models.campaign_invite import CampaignInvite
 from lorenzo_api.models.campaign_profile_picture import CampaignProfilePicture
 from lorenzo_api.models.character import Character
 from lorenzo_api.models.character_player import CharacterPlayer
@@ -42,6 +43,7 @@ __all__ = [
     "Being",
     "Campaign",
     "CampaignGm",
+    "CampaignInvite",
     "CampaignProfilePicture",
     "Character",
     "CharacterPlayer",
