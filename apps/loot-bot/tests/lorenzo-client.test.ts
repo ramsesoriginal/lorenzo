@@ -1035,3 +1035,114 @@ describe("listGroups", () => {
     ]);
   });
 });
+
+describe("createItemInstance with a name", () => {
+  it("sends the name so the instance isn't just called after its prototype", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ entity_id: "sack-1", title: "Camp supplies" }, { status: 201 });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.createItemInstance(
+      TENANT_ID,
+      "prototype-1",
+      CHARACTER_ID,
+      undefined,
+      "test-token",
+      "Camp supplies",
+    );
+
+    expect(receivedBody).toEqual({
+      prototype_id: "prototype-1",
+      owner_character_id: CHARACTER_ID,
+      name: "Camp supplies",
+    });
+  });
+});
+
+describe("findItemsByName", () => {
+  it("filters the catalog server-side with ?q=, as the caller", async () => {
+    let query: string | null = null;
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/items`, ({ request }) => {
+        query = new URL(request.url).searchParams.get("q");
+        expect(request.headers.get("authorization")).toBe("Bearer test-token");
+        return HttpResponse.json({ items: [{ entity_id: "item-1", title: "Sack" }] });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.findItemsByName(TENANT_ID, "Sack", "test-token");
+
+    expect(query).toBe("Sack");
+    expect(items.map((i) => i.title)).toEqual(["Sack"]);
+  });
+
+  it("throws a LorenzoApiError carrying the status - a non-member gets a 404", async () => {
+    server.use(
+      http.get(`${BASE_URL}/tenants/${TENANT_ID}/items`, () =>
+        HttpResponse.json({ title: "Not Found", status: 404 }, { status: 404 }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+
+    await expect(client.findItemsByName(TENANT_ID, "Sack", "test-token")).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+});
+
+describe("createItem", () => {
+  it("posts a plain catalog item: a name and no prototypes", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/items`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ entity_id: "item-9", title: "Sack" }, { status: 201 });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const item = await client.createItem(TENANT_ID, "Sack", "test-token");
+
+    expect(receivedBody).toEqual({ name: "Sack", prototype_ids: [] });
+    expect(item.entity_id).toBe("item-9");
+  });
+});
+
+describe("bulkMoveItemInstances", () => {
+  it("moves exactly the given items, in the explicit-list mode", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/bulk-move`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          return HttpResponse.json([
+            { entity_id: "a", status: "ok" },
+            { entity_id: "b", status: "error", problem: { title: "Nope", detail: "Not yours" } },
+          ]);
+        },
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const results = await client.bulkMoveItemInstances(
+      TENANT_ID,
+      "sack-1",
+      ["a", "b"],
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({
+      to_container_entity_id: "sack-1",
+      items: [{ entity_id: "a" }, { entity_id: "b" }],
+    });
+    expect(results.map((r) => r.status)).toEqual(["ok", "error"]);
+  });
+});

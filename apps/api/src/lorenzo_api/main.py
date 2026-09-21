@@ -17,12 +17,14 @@ from lorenzo_api.observability.tracing import configure_tracing
 from lorenzo_api.routers.activity_log import router as activity_log_router
 from lorenzo_api.routers.admin import router as admin_router
 from lorenzo_api.routers.beings import router as beings_router
+from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
+from lorenzo_api.routers.invites import router as invites_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.payloads import router as payloads_router
@@ -78,6 +80,8 @@ def create_app() -> FastAPI:
     app.include_router(users_router)
     app.include_router(tenants_router)
     app.include_router(campaigns_router)
+    app.include_router(campaign_invites_router)
+    app.include_router(invites_router)
     app.include_router(players_router)
     app.include_router(characters_router)
     app.include_router(beings_router)

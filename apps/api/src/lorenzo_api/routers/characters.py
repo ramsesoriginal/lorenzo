@@ -8,6 +8,7 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
     campaign_ids_for_players,
@@ -407,6 +408,15 @@ async def create_character(
         session.add(
             CharacterPlayer(character_entity_id=entity.id, player_id=player_id, tenant_id=tenant_id)
         )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="character.created",
+        target_type="character",
+        target_id=entity.id,
+        detail=f"players={len(roster_player_ids)}",
+    )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -459,7 +469,26 @@ async def promote_character(
         response.headers["Location"] = str(
             request.url_for("get_character", tenant_id=tenant_id, character_id=character_id)
         )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="character.promoted",
+            target_type="character",
+            target_id=character_id,
+            detail=f"owner_player={body.owner_player_id}",
+        )
     else:
+        if existing.owner_player_id != body.owner_player_id:
+            await record_activity(
+                session,
+                tenant_id=tenant_id,
+                actor_id=user.id,
+                action="character.owner_changed",
+                target_type="character",
+                target_id=character_id,
+                detail=f"owner_player={body.owner_player_id}",
+            )
         existing.owner_player_id = body.owner_player_id
         existing.updated_by = user.id
 
@@ -495,7 +524,8 @@ async def update_character(
     entity.name/updated_by, not any Character column; reassigning
     owner_player_id touches character.owner_player_id/updated_by (and folds
     the new owner into the roster too, if not already present) but never
-    entity's own columns.
+    entity's own columns. A rename is deliberately not recorded in the
+    activity log (ADR 0084); an owner reassignment is.
     """
     character = await _get_character_or_404(tenant_id, character_id, session)
     entity = await get_entity_or_404(session, character_id, tenant_id)
@@ -523,6 +553,15 @@ async def update_character(
         new_owner = update["owner_player_id"]
         character.owner_player_id = new_owner
         character.updated_by = user.id
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="character.owner_changed",
+            target_type="character",
+            target_id=character_id,
+            detail=f"owner_player={new_owner}",
+        )
         if new_owner is not None:
             link = await session.get(CharacterPlayer, (character_id, new_owner))
             if link is None:
@@ -557,6 +596,15 @@ async def delete_character(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_demote(session, tenant_id=tenant_id, user=user, character_id=character_id)
 
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="character.demoted",
+        target_type="character",
+        target_id=character_id,
+        detail=None,
+    )
     await session.delete(character)
     await session.commit()
 
@@ -588,6 +636,15 @@ async def add_character_player(
                 character_entity_id=character_id, player_id=player_id, tenant_id=tenant_id
             )
         )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="character.player_linked",
+            target_type="character",
+            target_id=character_id,
+            detail=f"player={player_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _character_out(tenant_id, character_id, session)
@@ -616,6 +673,15 @@ async def remove_character_player(
     existing = await session.get(CharacterPlayer, (character_id, player_id))
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="character.player_unlinked",
+            target_type="character",
+            target_id=character_id,
+            detail=f"player={player_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _character_out(tenant_id, character_id, session)

@@ -198,11 +198,27 @@ async def update_campaign(
     await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
 
     update = body.model_dump(exclude_unset=True)
-    for field in ("name", "game_system", "slug", "description", "secret"):
-        if field in update:
-            setattr(campaign, field, update[field])
+    changed_fields = [
+        field
+        for field in ("name", "game_system", "slug", "description", "secret")
+        if field in update
+    ]
+    for field in changed_fields:
+        setattr(campaign, field, update[field])
     if update:
         campaign.updated_by = user.id
+    if changed_fields:
+        # Field names only, never values - `secret` is GM-only text a
+        # log reader must not learn from the log (ADR 0084).
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign.updated",
+            target_type="campaign",
+            target_id=campaign_id,
+            detail=f"fields={','.join(changed_fields)}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
@@ -440,6 +456,15 @@ async def opt_out_of_campaign_admin_visibility(
                 tenant_id=tenant_id, user_id=user.id, campaign_id=campaign_id, created_by=user.id
             )
         )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign.admin_opted_out",
+            target_type="campaign",
+            target_id=campaign_id,
+            detail=None,
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
@@ -463,6 +488,15 @@ async def opt_back_in_to_campaign_admin_visibility(
     existing = await session.get(TenantAdminCampaignOptOut, (tenant_id, user.id, campaign_id))
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="campaign.admin_opted_in",
+            target_type="campaign",
+            target_id=campaign_id,
+            detail=None,
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _campaign_out(tenant_id, campaign_id, session)
