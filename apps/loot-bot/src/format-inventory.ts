@@ -69,8 +69,12 @@ function formatItemList(items: OwnedByResponse["groups"][number]["item_instances
 
 // `quantity` is a stack size (ADR 0041 - splitting a stack needs one) -
 // null/1 means "just one, not a stack", so it's only surfaced when it's
-// actually informative.
+// actually informative. A `slug` (ADR 0043 - only ever set on an instance
+// someone deliberately named) is shown as an inline code span so it reads as
+// something to copy, e.g. into `/drop container:`; most instances have none,
+// and their lines are unchanged.
 function formatItemLine(item: OwnedByResponse["groups"][number]["item_instances"][number]): string {
   const name = item.title ?? "(untitled)";
-  return item.quantity !== null && item.quantity > 1 ? `${name} ×${item.quantity}` : name;
+  const line = item.quantity !== null && item.quantity > 1 ? `${name} ×${item.quantity}` : name;
+  return item.slug ? `${line} \`${item.slug}\`` : line;
 }

@@ -42,7 +42,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/merge` | Combines two of your own stacks of the same item into one |
 | `/rename` | Gives one of your own items a custom name |
 | `/undo` | Undoes your own last give, reassign, move, rename, or merge (a few minutes' grace) |
-| `/drop` | GM-only: drops a pre-made loot container (by id or slug) into the channel — take/claim (need or greed) /unclaim, then "apply claims" or "clear claims" in one batch |
+| `/drop` | GM-only: drops a pre-made loot container (autocompleted from unowned and your own containers, or paste an id or slug — slugs also show in `/inventory`, `/inspect`, and `/item`, [ADR 0093](../../docs/adr/0093-loot-bot-drop-autocomplete-and-slug-surfacing.md)) into the channel — take/claim (need or greed) /unclaim, then "apply claims" or "clear claims" in one batch |
 | `/pending-claims` | Lists every currently-open drop's outstanding claims, across the whole server — not GM-only |
 | `/award` | GM-only: awards a brand-new item straight from the catalog to a character |
 | `/inspect` | GM-only: looks at another character's inventory |

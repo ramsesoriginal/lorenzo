@@ -9,11 +9,14 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
-const { getMyItemInstances, getEntity, createLorenzoApiClient } = vi.hoisted(() => ({
-  getMyItemInstances: vi.fn(),
-  getEntity: vi.fn(),
-  createLorenzoApiClient: vi.fn(),
-}));
+const { getMyItemInstances, getEntity, getItemInstance, createLorenzoApiClient } = vi.hoisted(
+  () => ({
+    getMyItemInstances: vi.fn(),
+    getEntity: vi.fn(),
+    getItemInstance: vi.fn(),
+    createLorenzoApiClient: vi.fn(),
+  }),
+);
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/lorenzo-client.js")>();
   return {
@@ -21,6 +24,7 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
     createLorenzoApiClient: createLorenzoApiClient.mockReturnValue({
       getMyItemInstances,
       getEntity,
+      getItemInstance,
     }),
   };
 });
@@ -53,9 +57,32 @@ function fakeAutocomplete(value = "") {
   } as unknown as AutocompleteInteraction & { respond: ReturnType<typeof vi.fn> };
 }
 
+const ENTITY = {
+  id: "item-1",
+  name: "Ashfang",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+  stats: [],
+  stat_groups: [],
+  information: [],
+  prototypes: [],
+  instances: [],
+  parent: null,
+  quantity: null,
+  children: [],
+};
+
+function sentEmbedFields(interaction: { editReply: ReturnType<typeof vi.fn> }) {
+  const payload = interaction.editReply.mock.calls[0]?.[0] as {
+    embeds: { toJSON(): { fields?: { name: string; value: string }[] } }[];
+  };
+  return payload.embeds[0]?.toJSON().fields ?? [];
+}
+
 describe("itemCommand.execute", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getItemInstance.mockResolvedValue({ data: { slug: null }, etag: null });
   });
 
   it("prompts to /link when there's no valid access token", async () => {
@@ -94,6 +121,59 @@ describe("itemCommand.execute", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ embeds: expect.any(Array) }),
     );
+  });
+
+  it("shows the instance's slug in a copyable code block", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getEntity.mockResolvedValue(ENTITY);
+    getItemInstance.mockResolvedValue({ data: { slug: "goblin-hoard" }, etag: "e1" });
+    const interaction = fakeInteraction();
+
+    await itemCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(getItemInstance).toHaveBeenCalledWith("tenant-1", "item-1", "token-123");
+    expect(sentEmbedFields(interaction)).toContainEqual({
+      name: "Slug",
+      value: "```\ngoblin-hoard\n```",
+    });
+  });
+
+  it("shows no slug field when the instance has none", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getEntity.mockResolvedValue(ENTITY);
+    const interaction = fakeInteraction();
+
+    await itemCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(sentEmbedFields(interaction).map((f) => f.name)).not.toContain("Slug");
+  });
+
+  it("quietly omits the slug when the entity isn't an item instance (404)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getEntity.mockResolvedValue(ENTITY);
+    getItemInstance.mockRejectedValue(new LorenzoApiError("not found", 404));
+    const warn = vi.fn();
+    const interaction = fakeInteraction();
+
+    await itemCommand.execute(interaction, { config, logger: { warn } as never });
+
+    expect(sentEmbedFields(interaction).map((f) => f.name)).not.toContain("Slug");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("still shows the item, and logs, when the slug lookup fails for another reason", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getEntity.mockResolvedValue(ENTITY);
+    getItemInstance.mockRejectedValue(new LorenzoApiError("boom", 500));
+    const warn = vi.fn();
+    const interaction = fakeInteraction();
+
+    await itemCommand.execute(interaction, { config, logger: { warn } as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ embeds: expect.any(Array) }),
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("gives a friendly message for an unknown item", async () => {

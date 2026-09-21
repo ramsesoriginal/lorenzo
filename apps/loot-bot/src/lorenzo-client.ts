@@ -78,7 +78,22 @@ export type OwnedItem = Readonly<{
    * autocomplete (ADR 0068) narrow to `isContainer === true` instead of
    * "everything you own." */
   isContainer: boolean | null;
+  /** ADR 0043's tenant-unique, human-assigned name - `null` for the
+   * (common) instance nobody ever named. Surfaced in replies so a GM who
+   * prepped a container in `apps/inventory-web` can find it again by name
+   * (RFC 0021). */
+  slug: string | null;
 }>;
+
+function toOwnedItem(item: OwnedByResponse["groups"][number]["item_instances"][number]): OwnedItem {
+  return {
+    entityId: item.entity_id,
+    title: item.title ?? "(untitled)",
+    quantity: item.quantity,
+    isContainer: item.is_container,
+    slug: item.slug,
+  };
+}
 
 /** One group entity (ADR 0028/0045) - a bare `entity` with no dedicated
  * table, defined purely by having members; `/note`'s `visibility:group`
@@ -275,17 +290,32 @@ export function createLorenzoApiClient(baseUrl: string) {
             character.entityId,
             accessToken,
           );
-          return response.groups.flatMap((group) =>
-            group.item_instances.map((item) => ({
-              entityId: item.entity_id,
-              title: item.title ?? "(untitled)",
-              quantity: item.quantity,
-              isContainer: item.is_container,
-            })),
-          );
+          return response.groups.flatMap((group) => group.item_instances.map(toOwnedItem));
         }),
       );
       return perCharacter.flat();
+    },
+
+    /** GET /tenants/{tenant_id}/item-instances/unowned - every instance with
+     * no owner at all, flattened out of the API's per-container grouping.
+     * What a GM's pre-made loot container looks like before `/drop` (ADR
+     * 0052) hands it out: nothing owns it, so `getMyItemInstances` can
+     * never see it. Ownerless instances are visible to any tenant
+     * participant (ADR 0040), so this needs no GM gate of its own. Not
+     * paginated, matching `owned-by`. */
+    async getUnownedItemInstances(
+      tenantId: string,
+      accessToken: string,
+    ): Promise<readonly OwnedItem[]> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/item-instances/unowned",
+        {
+          params: { path: { tenant_id: tenantId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.groups.flatMap((group) => group.item_instances.map(toOwnedItem));
     },
 
     /** GET /tenants/{tenant_id}/item-instances/{entity_id} - the current
