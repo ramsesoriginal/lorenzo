@@ -16,7 +16,7 @@ This design was produced through a structured, adversarial debate among five ind
 
 `tenant` gains a `kind` column: enum `play` (default) | `repository`. A `kind = repository` tenant never has `Campaign` or `Player` rows — gated at the application layer for this slice (a CHECK/trigger can follow once the shape is proven in practice). This was the most contested single decision in the whole design, and is worth stating plainly why it won over keeping repository content in its own tables outside the tenant graph entirely:
 
-- **Reuse is real, not aspirational.** `entity`, `entity_prototype` (multiple inheritance, cycle-prevented), `stat_group`/`stat_definition`, `information`/`payload`, and every view built over them (`v_effective_stat`, ADR 0037/0039) work unmodified. A parallel, non-tenant-scoped schema would need every one of these — the cycle-prevention trigger, the recursive stat resolution, the class-table-inheritance payload shape — taught to also traverse a second graph, forever, for every future feature that touches entities.
+- **Reuse is real, not aspirational.** `entity` and its whole component/extension family — concrete kinds, prototype inheritance (cycle-prevented), stat values, containment, information/payloads; the complete list is in §4 — plus every view built over them (`v_effective_stat`, ADR 0037/0039), work unmodified. A parallel, non-tenant-scoped schema would need every one of these — the cycle-prevention trigger, the recursive stat resolution, the class-table-inheritance payload shape — taught to also traverse a second graph, forever, for every future feature that touches entities.
 - **The alternative's own strongest form was tried and found worse.** A single `entity` table with a `repository_id` column as an alternative to `tenant_id` (one shared graph, not a parallel schema) was proposed and stress-tested directly. It fails on a different, more dangerous axis than the one it was meant to avoid: every existing query, view, and RLS policy that currently treats `tenant_id` as *the* scoping column would need to learn a second, mutually-exclusive case — most consequentially `v_effective_stat`'s own recursive prototype resolution, the most complex and performance-sensitive query in the domain model. A missed branch there is a silent, unenumerable failure (an inherited stat quietly resolves wrong) rather than a loud, obvious one (a repository shows up somewhere in an admin screen it shouldn't). The tenant-flavored approach is additive purely at the **policy** layer — invisible to every query and view that already exists — rather than at the **schema** layer, visible to all of them.
 
 ### 2. Authorship is Membership on the repository-tenant, for now — explicitly not the final answer
@@ -29,9 +29,16 @@ Whoever holds `Membership(role=OWNER)` on a `kind=repository` tenant can edit it
 
 `repository_subscription(repository_tenant_id, subscriber_tenant_id, mode: live | frozen, created_at, created_by)`. A DB-enforced trigger CHECK requires `repository_tenant_id` to reference a `tenant.kind = 'repository'` row. This is the single mechanism that makes the RLS extension below safe by construction rather than by discipline: the exception is **structurally incapable** of granting one ordinary tenant read access into another ordinary tenant, independent of whether every future line of application code gets it right.
 
-### 4. A second, narrow, read-only RLS policy on exactly six tables
+### 4. A second, narrow, read-only RLS policy on every table repository content can populate — not six, a complete family
 
-`entity`, `entity_prototype`, `stat_group`, `stat_definition`, `information`, `payload` — the only tables repository content ever populates — each gain a second, additive, `FOR SELECT`-only permissive policy alongside their existing `tenant_id = your own` policy:
+An earlier draft of this section named six tables by picking one representative per concern and missed this codebase's own class-table-inheritance pattern, where a "concept" is usually two or more tables — a definition/base table plus its value, acquisition, or concrete-extension siblings. Naming `stat_group`/`stat_definition` (what a stat *is*) but not `entity_stat` (what value an entity actually *has* for it) would have meant a bridge repository's whole reason for existing — attaching concrete stat values to a setting's entities — couldn't be read across the subscription boundary at all. The complete, correct set:
+
+- `entity` itself.
+- Its concrete-kind extensions: `item`, `item_instance`, `being`, `character` — and any future concrete kind added the same way.
+- The component tables that attach data to an entity by `entity_id`: `entity_prototype`, `entity_stat_group`, `entity_stat`, `containment`, `information`.
+- The concrete extensions of those components: `payload`'s four kinds (`payload_description`, `payload_number`, `payload_picture`, `payload_document`).
+
+Each gains a second, additive, `FOR SELECT`-only permissive policy alongside its existing `tenant_id = your own` policy, of the same shape:
 
 ```sql
 CREATE POLICY repository_read ON entity FOR SELECT
@@ -41,7 +48,11 @@ CREATE POLICY repository_read ON entity FOR SELECT
   ));
 ```
 
-Postgres ORs multiple permissive policies together automatically. The base policy's own `WITH CHECK` is untouched — writes can never target a subscribed-to repository, even under a buggy `USING` clause, because the write path never changes at all. Two further requirements, named as **required scope for this RFC's implementation, not optional hardening**:
+**Deliberately excluded, and why**: `knowledge`/`group_member` — repository content has no real characters or players to be a knower, so per §10 there is nothing for these tables to hold. `ownership` — repository content has no player-controlled characters to own anything; an NPC "holding" an item within a repository is `containment`, not `ownership`. Anything campaign/membership/notification-shaped (`campaign`, `player`, `membership`, `character_player`, `campaign_gm`, `notification`, `audit_log`, ...) — a repository-tenant never holds rows in any of these by construction (§1).
+
+**This is a consequence of a rule, not a fixed list to remember.** Any table that is `entity` itself, a class-table-inheritance extension of it, a component attached to an entity by `entity_id`, or a class-table-inheritance extension of one of those components, needs this same second policy. A future concrete entity kind or payload kind that skips it reopens exactly the gap this correction just closed — the same discipline [RFC 0001](0001-core-domain-data-model.md) already asks for with its "every concrete type gets a view, kept in sync, or the core's flexibility becomes a readability tax" rule, one layer further down.
+
+Postgres ORs multiple permissive policies together automatically. The base policy's own `WITH CHECK` is untouched on every one of these tables — writes can never target a subscribed-to repository, even under a buggy `USING` clause, because the write path never changes at all. Two further requirements, named as **required scope for this RFC's implementation, not optional hardening**:
 
 - The exception policy is `FOR SELECT` only, never `FOR ALL`. Its worst-case failure mode is leaking already-published read access, never a write.
 - This codebase already has a standing, per-table convention of directly testing RLS isolation (`test_entity.py`, `test_entity_prototype.py`, `test_containment.py`, `test_information.py`, `test_knowledge.py` all assert tenant-isolation behavior against `current_setting('app.tenant_id')` today). Extend it with two new assertions per affected table: *no subscription row exists → zero cross-tenant visibility*, and *a subscription row exists → SELECT-only visibility, writes still rejected*. A future refactor that breaks isolation breaks this suite mechanically, every time — this is what "safe by construction" means in a codebase with real CI gates, as distinct from a policy whose safety depends on being carefully re-read during every future change nearby.
