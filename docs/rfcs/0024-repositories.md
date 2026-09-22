@@ -35,7 +35,7 @@ An earlier draft of this section named six tables by picking one representative 
 
 - `entity` itself.
 - Its concrete-kind extensions: `item`, `item_instance`, `being`, `character` — and any future concrete kind added the same way.
-- The component tables that attach data to an entity by `entity_id`: `entity_prototype`, `entity_stat_group`, `entity_stat`, `containment`, `information`.
+- The component tables that attach data to an entity by `entity_id`, or relate two entities: `entity_prototype`, `entity_stat_group`, `entity_stat`, `containment`, `information`, `group_member`.
 - The concrete extensions of those components: `payload`'s four kinds (`payload_description`, `payload_number`, `payload_picture`, `payload_document`).
 
 Each gains a second, additive, `FOR SELECT`-only permissive policy alongside its existing `tenant_id = your own` policy, of the same shape:
@@ -48,7 +48,9 @@ CREATE POLICY repository_read ON entity FOR SELECT
   ));
 ```
 
-**Deliberately excluded, and why**: `knowledge`/`group_member` — repository content has no real characters or players to be a knower, so per §10 there is nothing for these tables to hold. `ownership` — repository content has no player-controlled characters to own anything; an NPC "holding" an item within a repository is `containment`, not `ownership`. Anything campaign/membership/notification-shaped (`campaign`, `player`, `membership`, `character_player`, `campaign_gm`, `notification`, `audit_log`, ...) — a repository-tenant never holds rows in any of these by construction (§1).
+**`group_member` is included for its roster role, not its visibility role** — worth stating explicitly since the two are easy to conflate. `group_member` currently does two different jobs in this codebase: it lets a group act as a *knower* (gating who sees what, per RFC 0001/ADR 0028), and it records *who belongs to a group* as a plain fact (a guild's or faction's membership). Repository content has genuine use for the second — a content repository pre-authoring "these NPCs are members of this organization" is exactly the kind of world content this RFC exists to make copyable — but not the first, for the same reason `knowledge` itself is excluded below: there are no real players or characters yet for a group to gate anything on behalf of. Both jobs share one table, so it's included; a copy operation just never has anything meaningful to do with the knower-facing half of it.
+
+**Deliberately excluded, and why**: `knowledge` — repository content has no real characters or players to be a knower, so per §10 there is nothing for this table to hold. `ownership` — repository content has no player-controlled characters to own anything; an NPC "holding" an item within a repository is `containment`, not `ownership`. Anything campaign/membership/notification-shaped (`campaign`, `player`, `membership`, `character_player`, `campaign_gm`, `notification`, `audit_log`, ...) — a repository-tenant never holds rows in any of these by construction (§1).
 
 **This is a consequence of a rule, not a fixed list to remember.** Any table that is `entity` itself, a class-table-inheritance extension of it, a component attached to an entity by `entity_id`, or a class-table-inheritance extension of one of those components, needs this same second policy. A future concrete entity kind or payload kind that skips it reopens exactly the gap this correction just closed — the same discipline [RFC 0001](0001-core-domain-data-model.md) already asks for with its "every concrete type gets a view, kept in sync, or the core's flexibility becomes a readability tax" rule, one layer further down.
 
