@@ -867,21 +867,24 @@ Cards should resemble clean information records, not parchment panels.
 Preferred:
 
 - subtle borders
-- restrained radius
-- little or no shadow
+- the canonical radius for that surface (§8.3), never a nearby number
 - clear title / metadata hierarchy
 - calm neutral surfaces
+
+Shadow policy is binary, not "little or no shadow": default surfaces — cards, panels, table rows — get a border and no shadow at all. Reserve shadow for genuinely elevated overlays: menus, dialogs, popovers, and drag previews, where it signals "this is floating above the page" rather than decorating a surface that already sits flat in the layout.
 
 Avoid excessive glassmorphism, floating-card stacks, heavy skeuomorphic panels, or ornamental frames.
 
 ### 8.3 Radius
 
-A useful starting system:
+Canonical values — pick one of these, not a nearby number:
 
-- controls: 6–8 px
-- cards: 8–12 px
-- large marketing surfaces: 12–20 px
-- pills only where the component is genuinely a tag, filter, or status token
+- controls (`--radius-control`): 8 px
+- cards (`--radius-card`): 10 px
+- large surfaces (`--radius-surface`): 16 px
+- pills (`--radius-pill`): 999 px, only where the component is genuinely a tag, filter, or status token
+
+A different radius is a deliberate, named exception, not a rounding choice — inconsistent radius is one of the invisible things that makes a multi-app suite feel unrelated.
 
 The brand should not become bubbly.
 
