@@ -10,143 +10,36 @@
          components. Icons (icons.svg) are referenced directly via <use>
          where they're shown, not <link>'d - an SVG sprite isn't a
          stylesheet. All self-hosted, all relative - open this file via
-         file:// and every one of these resolves with no server. -->
+         file:// and every one of these resolves with no server.
+
+         Deliberately no <style> block and no inline style="" anywhere in
+         this page (one narrow exception noted at the swatch grid below) -
+         the whole point of this preview is proving the package alone is
+         enough to style a real page, baseline included. -->
     <link rel="stylesheet" href="../normalize.css" />
     <link rel="stylesheet" href="../tokens.css" />
     <link rel="stylesheet" href="../fonts.css" />
     <link rel="stylesheet" href="../base.css" />
     <link rel="stylesheet" href="../layout.css" />
     <link rel="stylesheet" href="../components.css" />
-    <style>
-      /* Preview-page-only layout below - not part of the package itself. */
-      .wrap {
-        max-width: 880px;
-        margin-inline: auto;
-        padding: var(--space-5) var(--space-4);
-      }
-
-      header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: var(--space-3);
-        margin-bottom: var(--space-6);
-      }
-
-      h1 {
-        font-size: 32px;
-        margin: 0;
-      }
-      h2 {
-        font-size: 18px;
-        margin: 0 0 var(--space-2);
-        font-family: var(--font-ui);
-        font-weight: 600;
-      }
-      p.intro {
-        color: var(--text-secondary);
-        max-width: 60ch;
-      }
-
-      button.theme-toggle {
-        font-family: var(--font-mono);
-        font-size: 12px;
-        background: transparent;
-        color: var(--text-primary);
-        border: 1px solid var(--border-strong);
-      }
-
-      section {
-        margin-bottom: var(--space-6);
-      }
-
-      .swatch-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: var(--space-3);
-      }
-      .swatch {
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-card);
-        overflow: hidden;
-      }
-      .swatch-color {
-        height: 56px;
-      }
-      .swatch-label {
-        padding: var(--space-2);
-        font-family: var(--font-mono);
-        font-size: 12px;
-        background: var(--surface-default);
-      }
-
-      .row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-3);
-        align-items: center;
-      }
-
-      .badge-public {
-        font-size: 13px;
-        opacity: 0.7;
-        padding: 4px 12px;
-      }
-
-      .type-sample {
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-card);
-        padding: var(--space-4);
-        margin-bottom: var(--space-3);
-      }
-      .type-sample .display {
-        font-family: var(--font-display);
-        font-size: 28px;
-        margin: 0 0 var(--space-2);
-      }
-      .type-sample .body {
-        margin: 0;
-      }
-      .type-sample .mono {
-        font-size: 13px;
-        color: var(--text-secondary);
-      }
-
-      footer {
-        color: var(--text-tertiary);
-        font-size: 13px;
-        padding-top: var(--space-4);
-        border-top: 1px solid var(--border-subtle);
-      }
-      footer code {
-        background: var(--fill-soft);
-        padding: 2px 4px;
-        border-radius: 4px;
-      }
-    </style>
   </head>
   <body>
     <header class="site-header">
-      <div
-        class="wrap row"
-        style="justify-content: space-between; width: 100%; padding: 0"
+      <span class="display">✧ Lorenzo</span>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
       >
-        <span class="display" style="font-size: 20px">✧ Lorenzo</span>
-        <button
-          class="theme-toggle"
-          id="theme-toggle"
-          type="button"
-          aria-pressed="false"
-        >
-          ☾ dark
-        </button>
-      </div>
+        ☾ dark
+      </button>
     </header>
 
     <main>
       <div class="wrap">
         <h1 class="display">Lorenzo Brand</h1>
-        <p class="intro">
+        <p class="lede">
           A live preview of the whole package —
           <code>normalize.css</code>, <code>tokens.css</code>,
           <code>fonts.css</code>, <code>base.css</code>,
@@ -160,54 +53,57 @@
 
         <section id="surfaces">
           <h2>Surfaces, text, and borders</h2>
-          <div class="swatch-grid">
-            <div class="swatch">
+          <!-- The one deliberate exception to this page's no-inline-style
+               rule: showing what an arbitrary token's value actually looks
+               like has no substitute for reading that value directly. -->
+          <div class="grid">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--surface-default)"
               ></div>
               <div class="swatch-label">--surface-default</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--surface-muted)"
               ></div>
               <div class="swatch-label">--surface-muted</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--text-primary)"
               ></div>
               <div class="swatch-label">--text-primary</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--text-secondary)"
               ></div>
               <div class="swatch-label">--text-secondary</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--border-strong)"
               ></div>
               <div class="swatch-label">--border-strong</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div class="swatch-color" style="background: var(--action)"></div>
               <div class="swatch-label">--action</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--focus-ring)"
               ></div>
               <div class="swatch-label">--focus-ring</div>
             </div>
-            <div class="swatch">
+            <div class="card">
               <div
                 class="swatch-color"
                 style="background: var(--canonical)"
@@ -219,12 +115,14 @@
 
         <section id="type">
           <h2>Typography (fonts.css - self-hosted, no CDN)</h2>
-          <div class="type-sample">
-            <div class="display">A campaign is a world in motion</div>
-            <p class="body">
+          <div class="card card-body">
+            <p class="display">A campaign is a world in motion</p>
+            <p>
               Body text in <code>--font-ui</code>, at normal weight and size.
             </p>
-            <p class="mono">entity.tenant_id — <code>--font-mono</code></p>
+            <p class="status-text mono">
+              entity.tenant_id — <code>--font-mono</code>
+            </p>
           </div>
         </section>
 
@@ -244,77 +142,89 @@
 
         <section id="icons">
           <h2>Icons (icons.svg - self-hosted Tabler sprite, no CDN)</h2>
-          <p class="intro" style="margin-bottom: var(--space-3)">
+          <p class="lede">
             A representative sample of the 40 icons in the sprite - see
             <code>icons.manifest.yaml</code> for the full semantic-name →
             Tabler-source mapping. Decorative here (next to a visible label), so
             each <code>&lt;svg&gt;</code> is <code>aria-hidden</code> per
             identity.md §15.6.
           </p>
-          <div class="row">
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-save"></use></svg
-              >Save</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-copy"></use></svg
-              >Copy</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-delete"></use></svg
-              >Delete</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-search"></use></svg
-              >Search</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-private"></use></svg
-              >Private</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-history"></use></svg
-              >History</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-campaign"></use></svg
-              >Campaign</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-give"></use></svg
-              >Give</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-ancestry"></use></svg
-              >Ancestry</span
-            >
-            <span class="row" style="gap: var(--space-1)"
-              ><svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-notifications"></use></svg
-              >Notifications</span
-            >
-          </div>
-          <div class="row" style="margin-top: var(--space-3)">
-            <button class="btn btn-secondary" type="button" aria-label="Undo">
-              <svg class="icon" aria-hidden="true">
-                <use href="../icons.svg#icon-undo"></use>
-              </svg>
-            </button>
-            <span class="status-text"
-              >An icon-only control names the control, not the artwork
-              (identity.md §15.6) - inspect it with a screen reader or the
-              accessibility tree to see "Undo" from <code>aria-label</code>, not
-              "icon-undo".</span
-            >
+          <div class="stack">
+            <div class="row">
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-save"></use>
+                </svg>
+                Save
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-copy"></use>
+                </svg>
+                Copy
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-delete"></use>
+                </svg>
+                Delete
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-search"></use>
+                </svg>
+                Search
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-private"></use>
+                </svg>
+                Private
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-history"></use>
+                </svg>
+                History
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-campaign"></use>
+                </svg>
+                Campaign
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-give"></use>
+                </svg>
+                Give
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-ancestry"></use>
+                </svg>
+                Ancestry
+              </span>
+              <span class="row-tight">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-notifications"></use>
+                </svg>
+                Notifications
+              </span>
+            </div>
+            <div class="row">
+              <button class="btn btn-secondary" type="button" aria-label="Undo">
+                <svg class="icon" aria-hidden="true">
+                  <use href="../icons.svg#icon-undo"></use>
+                </svg>
+              </button>
+              <span class="status-text">
+                An icon-only control names the control, not the artwork
+                (identity.md §15.6) - inspect it with a screen reader or the
+                accessibility tree to see "Undo" from
+                <code>aria-label</code>, not "icon-undo".
+              </span>
+            </div>
           </div>
         </section>
 
@@ -337,49 +247,48 @@
             <span class="badge-visibility">🔒 Private</span>
             <span class="badge-visibility">◉ GM only</span>
             <span class="badge-visibility">👥 Selected characters</span>
-            <span class="badge-public">Public</span>
+            <span class="status-text">Public</span>
           </div>
         </section>
 
         <section id="forms">
           <h2>Forms, tabs, chips, lists (components.css)</h2>
-          <div
-            class="field"
-            style="max-width: 320px; margin-bottom: var(--space-3)"
-          >
-            <label class="field-label" for="demo-input">Character name</label>
-            <input
-              class="text-input"
-              id="demo-input"
-              type="text"
-              placeholder="Ashfang"
-            />
+          <div class="stack">
+            <div class="field">
+              <label class="field-label" for="demo-input">Character name</label>
+              <input
+                class="text-input"
+                id="demo-input"
+                type="text"
+                placeholder="Ashfang"
+              />
+            </div>
+            <div class="tabs">
+              <button class="tab" type="button" aria-selected="true">
+                Inventory
+              </button>
+              <button class="tab" type="button">Notes</button>
+              <button class="tab" type="button">History</button>
+            </div>
+            <div class="row">
+              <span class="chip">
+                Flaming
+                <button class="chip-remove" type="button" aria-label="Remove">
+                  ×
+                </button>
+              </span>
+              <span class="chip">
+                Cursed
+                <button class="chip-remove" type="button" aria-label="Remove">
+                  ×
+                </button>
+              </span>
+            </div>
+            <ul class="list">
+              <li>Xavier — <span class="badge">Player</span></li>
+              <li>Zorro — <span class="badge">GM</span></li>
+            </ul>
           </div>
-          <div class="tabs" style="margin-bottom: var(--space-3)">
-            <button class="tab" type="button" aria-selected="true">
-              Inventory
-            </button>
-            <button class="tab" type="button">Notes</button>
-            <button class="tab" type="button">History</button>
-          </div>
-          <div class="row" style="margin-bottom: var(--space-3)">
-            <span class="chip"
-              >Flaming
-              <button class="chip-remove" type="button" aria-label="Remove">
-                ×
-              </button></span
-            >
-            <span class="chip"
-              >Cursed
-              <button class="chip-remove" type="button" aria-label="Remove">
-                ×
-              </button></span
-            >
-          </div>
-          <ul class="list">
-            <li>Xavier — <span class="badge">Player</span></li>
-            <li>Zorro — <span class="badge">GM</span></li>
-          </ul>
         </section>
 
         <footer>

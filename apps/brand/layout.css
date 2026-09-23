@@ -14,8 +14,18 @@
 .site-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/* A text wordmark (no logo asset shipped in this package) sized to sit
+   correctly in a compact header, rather than at its unconstrained
+   context-dependent default (identity.md §5.3's .display is deliberately
+   size-agnostic everywhere else). */
+.site-header .display {
+  font-size: 20px;
 }
 
 .brand {
@@ -48,12 +58,70 @@ main {
   padding: var(--space-4);
 }
 
-/* Shared section-spacing utility - every section on a page is one of
-   these two rhythms, rather than each inventing its own margin-top. */
+/* A bare <section> gets a sensible default rhythm with no class needed -
+   .section/.section-lg below stay available for wherever a different
+   rhythm is deliberately wanted instead. */
+section {
+  margin-bottom: var(--space-6);
+}
+
+/* A bare <footer> gets a sensible default treatment - a quiet divider
+   above secondary, muted page-level information. */
+footer {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* Shared section-spacing utility - for wherever a section needs a
+   different rhythm than the bare-element default above. */
 .section {
   margin-top: var(--space-5);
 }
 
 .section-lg {
   margin-top: var(--space-6);
+}
+
+/* A centered, reading-width content wrapper - the default outermost
+   container for any page's content. */
+.wrap {
+  max-width: 880px;
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+/* A horizontal row of items with consistent gap - the single most common
+   "put some things next to each other" layout need. .row-tight is the
+   same idea at a smaller gap, for a tightly-paired icon+label. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.row-tight {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A vertical stack of elements with consistent spacing between them - the
+   vertical counterpart to .row, so stacked pieces never need their own
+   one-off margin. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* A simple responsive grid - override the card width via
+   style="--grid-min: 200px" where the 160px default doesn't fit. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--grid-min, 160px), 1fr));
+  gap: var(--space-3);
 }

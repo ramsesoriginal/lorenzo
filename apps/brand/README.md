@@ -18,9 +18,16 @@ plus a self-hosted icon sprite:
 1. **`normalize.css`** — a minimal modern reset (box-model, spacing, list/media defaults)
 2. **`tokens.css`** — colors (identity.md §6), font-family names, spacing, and radius (§5.2/§8.1/§8.3), as custom properties
 3. **`fonts.css`** + **`fonts/`** — the actual self-hosted `@font-face` files backing those font-family names (no CDN — same files `apps/inventory-web`/`apps/account-hub` already use)
-4. **`base.css`** — sensible defaults for bare elements (`body`, `h1`/`h2`, links, focus rings)
-5. **`layout.css`** — the generic page-shell pieces (header, brand lockup, section spacing) — domain-specific layout stays in each app
-6. **`components.css`** — buttons, form controls, tabs, chips, badges, status pills, and the neutral visibility-badge treatment, all keyed off `tokens.css`'s semantic roles
+4. **`base.css`** — sensible defaults for bare elements: `body`, a corrected `h1`/`h2`/`h3` scale (identity.md §5.3 — H1 may use the display face, H2/H3 never do), links, focus rings, and a subtle background chip on inline `code`
+5. **`layout.css`** — the generic page-shell pieces: `.site-header` (with built-in space-between for a right-aligned action), `.wrap` (a centered reading-width container), `.row`/`.row-tight`/`.stack`/`.grid` (the small set of layout primitives — a horizontal row, a tightly-paired icon+label, a vertical stack with consistent gaps, a responsive auto-fit grid), and sensible bare `section`/`footer` rhythm — domain-specific layout stays in each app
+6. **`components.css`** — buttons, form controls, tabs, chips, badges, status pills, the neutral visibility-badge treatment, and a generic `.card`/`.card-body` surface, all keyed off `tokens.css`'s semantic roles
+
+`preview/index.html` is built from *only* these — no `<style>` block, no
+inline `style=""` anywhere in it except the swatch grid's own color values
+(showing what an arbitrary token actually looks like has no substitute for
+reading that value directly). That's deliberate: it's the proof that
+including this package is enough to style a real page, baseline included,
+not just a components catalog.
 
 **`icons.svg`** + **`icons.manifest.yaml`** — a self-hosted SVG sprite of
 [Tabler Icons](https://tabler.io/icons) (MIT), referenced via `<use>`
@@ -31,10 +38,8 @@ referenced directly wherever an icon is shown. No build step here either:
 adding an icon means fetching its real Tabler outline SVG and hand-adding
 one `<symbol>` block, same as everything else in this package.
 
-`preview/index.html` links the six stylesheets in order, references several
-icons from the sprite, and renders a live sample of each. Open it straight
-from disk in a browser — there's nothing to install, run, or build. Edit
-any file and reload to see the change.
+Open `preview/index.html` straight from disk in a browser — there's nothing
+to install, run, or build. Edit any file and reload to see the change.
 
 Deploys to Cloudflare Pages via Git integration, same mechanism as
 `apps/inventory-web`/`apps/account-hub` (see
