@@ -131,9 +131,7 @@
         "linked_account_authgear_subject_id_unique": {
           "name": "linked_account_authgear_subject_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "authgear_subject_id"
-          ]
+          "columns": ["authgear_subject_id"]
         }
       },
       "policies": {},
@@ -196,12 +194,8 @@
           "tableFrom": "loot_claim",
           "tableTo": "loot_drop",
           "schemaTo": "loot_bot",
-          "columnsFrom": [
-            "loot_drop_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["loot_drop_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -209,11 +203,7 @@
       "compositePrimaryKeys": {
         "loot_claim_loot_drop_id_item_entity_id_discord_user_id_pk": {
           "name": "loot_claim_loot_drop_id_item_entity_id_discord_user_id_pk",
-          "columns": [
-            "loot_drop_id",
-            "item_entity_id",
-            "discord_user_id"
-          ]
+          "columns": ["loot_drop_id", "item_entity_id", "discord_user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -333,10 +323,7 @@
       "compositePrimaryKeys": {
         "notification_delivery_discord_user_id_notification_id_pk": {
           "name": "notification_delivery_discord_user_id_notification_id_pk",
-          "columns": [
-            "discord_user_id",
-            "notification_id"
-          ]
+          "columns": ["discord_user_id", "notification_id"]
         }
       },
       "uniqueConstraints": {},
@@ -449,10 +436,7 @@
       "compositePrimaryKeys": {
         "player_preference_discord_user_id_discord_channel_id_pk": {
           "name": "player_preference_discord_user_id_discord_channel_id_pk",
-          "columns": [
-            "discord_user_id",
-            "discord_channel_id"
-          ]
+          "columns": ["discord_user_id", "discord_channel_id"]
         }
       },
       "uniqueConstraints": {},
