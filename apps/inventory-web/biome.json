@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!dist", "!.astro", "!**/*.astro"]
+    "includes": ["**", "!dist", "!.astro", "!**/*.astro", "!src/lib/lorenzo-schema.d.ts"]
   },
   "formatter": {
     "enabled": true,

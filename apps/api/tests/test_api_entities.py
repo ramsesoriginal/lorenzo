@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_campaign, make_character
+from conftest import delete_tenant, make_campaign, make_character, make_plain_participant
 from httpx import AsyncClient
 
 from lorenzo_api.models import (
@@ -517,9 +517,6 @@ async def test_get_entity_hides_gm_only_information_from_a_plain_member(
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
-        session.add(
-            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
-        )
         entity = Entity(tenant_id=tenant_id, name="Entity")
         session.add(entity)
         await session.flush()
@@ -528,6 +525,7 @@ async def test_get_entity_hides_gm_only_information_from_a_plain_member(
         )
         await session.commit()
         entity_id = entity.id
+    await make_plain_participant(tenant_id, test_user_id)
 
     response = await client.get(f"/tenants/{tenant_id}/entities/{entity_id}")
     assert response.status_code == 200
@@ -793,9 +791,6 @@ async def test_get_entity_hides_information_known_only_to_a_different_users_char
         session.add(tenant)
         await session.flush()
         tenant_id = tenant.id
-        session.add(
-            Membership(tenant_id=tenant_id, user_id=test_user_id, role=MembershipRole.OWNER)
-        )
         campaign = await make_campaign(
             session, tenant_id=tenant_id, name="Campaign", game_system="D&D 5e"
         )
@@ -930,13 +925,6 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
         session.add_all([tenant_a, tenant_b])
         await session.flush()
         tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
-        session.add_all(
-            [
-                Membership(tenant_id=tenant_a_id, user_id=test_user_id, role=MembershipRole.OWNER),
-                Membership(tenant_id=tenant_b_id, user_id=test_user_id, role=MembershipRole.OWNER),
-            ]
-        )
-
         entity_a = Entity(tenant_id=tenant_a_id, name="Entity A")
         session.add(entity_a)
         await session.flush()
@@ -980,6 +968,9 @@ async def test_get_entity_information_visibility_is_tenant_scoped(
         )
         await session.commit()
         entity_a_id = entity_a.id
+    # A plain participant of tenant A (no Membership, no knowledge there): their
+    # only standing in tenant B is the Player/Knowledge chain above.
+    await make_plain_participant(tenant_a_id, test_user_id)
 
     response = await client.get(f"/tenants/{tenant_a_id}/entities/{entity_a_id}")
     assert response.status_code == 200

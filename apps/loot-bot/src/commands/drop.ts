@@ -36,6 +36,7 @@ import {
 } from "../lorenzo-client.js";
 import { resolveCurrentCharacter } from "../preferences.js";
 import { getValidAccessToken } from "../token-provider.js";
+import { type Choice, filterChoices, formatChoiceNameWithSlug } from "./autocomplete.js";
 import { transferItem } from "./item-transfer.js";
 import type {
   Command,
@@ -58,9 +59,44 @@ export const dropCommand: Command = {
     .addStringOption((opt) =>
       opt
         .setName("container")
-        .setDescription("The container's entity id or slug")
-        .setRequired(true),
+        .setDescription("The container to drop - pick one, or paste its entity id or slug")
+        .setRequired(true)
+        .setAutocomplete(true),
     ),
+
+  // Suggests every container-capable instance the caller can see that
+  // nobody owns (a GM's pre-made loot pile - what `/drop` is actually for)
+  // plus any the caller owns themselves, narrowed to `isContainer === true`
+  // like `/move`'s and `/set-current`'s container options (ADR 0068). Still
+  // just a suggestion: the typed id/slug paths in `execute` (ADR 0052's
+  // addendum) keep working for anything not listed - e.g. a container
+  // owned by someone else, or one still empty (`is_container` is `null`,
+  // not `true`, until something's inside it - ADR 0066).
+  async autocomplete(interaction, ctx) {
+    const focused = interaction.options.getFocused(true);
+    const accessToken = await getValidAccessToken(interaction.user.id);
+    if (!accessToken) {
+      await interaction.respond([]);
+      return;
+    }
+
+    const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
+    const tenantId = ctx.config.lorenzoTenantId;
+
+    const [unowned, mine] = await Promise.all([
+      client.getUnownedItemInstances(tenantId, accessToken),
+      client.getMyItemInstances(tenantId, accessToken),
+    ]);
+    const containers = new Map<string, Choice>();
+    for (const item of [...unowned, ...mine]) {
+      if (!item.isContainer || containers.has(item.entityId)) continue;
+      containers.set(item.entityId, {
+        name: formatChoiceNameWithSlug(item.title, item.quantity, item.slug),
+        value: item.entityId,
+      });
+    }
+    await interaction.respond(filterChoices([...containers.values()], focused.value));
+  },
 
   async execute(interaction, ctx) {
     await interaction.deferReply(); // public - the whole point is the party sees it
@@ -287,12 +323,16 @@ async function handleTakeModalSubmit(
 
     await refreshDropMessage(interaction, ctx, dropId);
     const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
-
-    // For `/changes` (ADR 0097). Best-effort - the take has already happened.
-    const taker = nameCharacter(
-      characterEntityId,
-      await client.getCharacterName(tenantId, characterEntityId, accessToken).catch(() => null),
-    );
+    // Name who it went to: the character is a remembered default (ADR 0088),
+    // so a player who's since switched characters elsewhere needs to see a
+    // wrong one here, not discover it in their inventory later. Best-effort -
+    // the take has already happened. Also what /changes (ADR 0097) records
+    // the take against - one lookup serves both.
+    const characterName = await client
+      .getCharacterName(tenantId, characterEntityId, accessToken)
+      .catch(() => null);
+    const recipient = characterName ? ` for ${characterName}` : "";
+    const taker = nameCharacter(characterEntityId, characterName);
     if (taker) {
       await recordCharacterEvents(
         [
@@ -304,9 +344,8 @@ async function handleTakeModalSubmit(
         ctx.logger,
       );
     }
-
     await interaction.followUp({
-      content: `Took ${amount}${result.given.title ?? "(untitled)"}.`,
+      content: `Took ${amount}${result.given.title ?? "(untitled)"}${recipient}.`,
       ephemeral: true,
     });
   } catch (error) {

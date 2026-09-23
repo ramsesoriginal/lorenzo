@@ -219,11 +219,13 @@ export async function deleteLinkedAccount(discordUserId: string): Promise<void> 
 
 /**
  * Looks up a Discord user's "current character"/"current default
- * container" preference for one channel, if any has ever been set for it -
- * falling back to the `GLOBAL_PREFERENCE_CHANNEL_ID` "global default" row
- * (ADR 0068) when no channel-specific one exists yet. Pass
- * `GLOBAL_PREFERENCE_CHANNEL_ID` itself to look up only the global default
- * (skips the redundant second query).
+ * container" preference for one channel, if any has ever been set for it,
+ * with each field falling back to the `GLOBAL_PREFERENCE_CHANNEL_ID`
+ * "global default" row (ADR 0068) when the channel's own row doesn't set it.
+ * The fallback is per field, not per row (ADR 0088): a channel row created
+ * by `/set-current container:...` alone has no character, and must not hide
+ * the user's server-wide default/last-used one. Pass
+ * `GLOBAL_PREFERENCE_CHANNEL_ID` itself to look up only the global default.
  */
 export async function getPreference(
   discordUserId: string,
@@ -235,23 +237,23 @@ export async function getPreference(
     .where(
       and(
         eq(playerPreference.discordUserId, discordUserId),
-        eq(playerPreference.discordChannelId, discordChannelId),
+        inArray(playerPreference.discordChannelId, [
+          discordChannelId,
+          GLOBAL_PREFERENCE_CHANNEL_ID,
+        ]),
       ),
-    )
-    .limit(1);
-  if (rows[0] || discordChannelId === GLOBAL_PREFERENCE_CHANNEL_ID) return rows[0];
-
-  const globalRows = await db
-    .select()
-    .from(playerPreference)
-    .where(
-      and(
-        eq(playerPreference.discordUserId, discordUserId),
-        eq(playerPreference.discordChannelId, GLOBAL_PREFERENCE_CHANNEL_ID),
-      ),
-    )
-    .limit(1);
-  return globalRows[0];
+    );
+  const channelRow = rows.find((row) => row.discordChannelId === discordChannelId);
+  const globalRow = rows.find((row) => row.discordChannelId === GLOBAL_PREFERENCE_CHANNEL_ID);
+  if (!channelRow) return globalRow;
+  if (!globalRow || channelRow === globalRow) return channelRow;
+  return {
+    ...channelRow,
+    currentCharacterEntityId:
+      channelRow.currentCharacterEntityId ?? globalRow.currentCharacterEntityId,
+    currentContainerEntityId:
+      channelRow.currentContainerEntityId ?? globalRow.currentContainerEntityId,
+  };
 }
 
 /**

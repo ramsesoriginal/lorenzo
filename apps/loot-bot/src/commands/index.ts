@@ -24,6 +24,7 @@ import { pingCommand } from "./ping.js";
 import { reassignCommand } from "./reassign.js";
 import { renameCommand } from "./rename.js";
 import { setCurrentCommand } from "./set-current.js";
+import { sheetCommand } from "./sheet.js";
 import type { AnyInteraction, Command, CommandContext } from "./types.js";
 import { undoCommand } from "./undo.js";
 import { unlinkCommand } from "./unlink.js";
@@ -61,6 +62,7 @@ const commands: readonly Command[] = [
   addToGroupCommand,
   addChannelToGroupCommand,
   containerNewCommand,
+  sheetCommand,
   changesCommand,
   helpCommand,
 ];

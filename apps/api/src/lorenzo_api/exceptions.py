@@ -24,6 +24,8 @@ __all__ = [
     "CampaignManagementForbiddenError",
     "CampaignNotEmptyError",
     "CampaignNotFoundError",
+    "InvalidInviteExpiryError",
+    "InviteNotFoundError",
     "CharacterManagementForbiddenError",
     "CharacterNotFoundError",
     "EntityNotFoundError",
@@ -66,6 +68,7 @@ __all__ = [
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
+    "TooManyRequestsError",
     "TenantNotFoundError",
     "UserNotFoundError",
 ]
@@ -532,3 +535,33 @@ class InvalidGroupMemberError(UnprocessableProblem):
     """
 
     title = "An entity cannot be a member of its own group"
+
+
+class InviteNotFoundError(NotFoundProblem):
+    """GET /invites/{token} and POST /invites/{token}/redeem - see ADR 0092.
+    One class, one fixed `detail`, for *every* reason a link can fail: an
+    unknown, expired, revoked or exhausted token must be indistinguishable
+    to whoever is holding it, or the difference tells an attacker a token
+    was once real. Never carries the token.
+    """
+
+    title = "Invite link not valid"
+
+
+class InvalidInviteExpiryError(UnprocessableProblem):
+    """POST .../invites - `expires_at` must be in the future and no more
+    than 30 days out (ADR 0092: a link always ends, and not too far off).
+    """
+
+    title = "Invalid invite expiry"
+
+
+class TooManyRequestsError(StatusProblem):
+    """The in-process rate-limit backstop on the public invite-link routes
+    (ADR 0092). Carries `Retry-After`. fastapi_problem has no named 429
+    base, so this subclasses StatusProblem directly, the way
+    PreconditionFailedError does for 412.
+    """
+
+    status = 429
+    title = "Too many requests"

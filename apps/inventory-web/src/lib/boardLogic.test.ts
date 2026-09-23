@@ -26,6 +26,14 @@ function makeItem(overrides: Partial<ItemInstance> = {}): ItemInstance {
     is_cursed: null,
     is_container: null,
     descriptions: [],
+    pictures: [],
+    physical_stats: [],
+    economic_stats: [],
+    destroyable_stats: [],
+    damaging_stats: [],
+    created_by: null,
+    updated_by: null,
+    updated_at: '2026-01-01T00:00:00Z',
     prototype_ids: ['proto-sword'],
     container_entity_id: null,
     owner_entity_id: null,
@@ -38,7 +46,7 @@ function makeBulkResult(overrides: Partial<BulkResultItem> = {}): BulkResultItem
   return {
     entity_id: 'item-1',
     status: 'ok',
-    item_instance: { entity_id: 'item-1' },
+    item_instance: makeItem({ entity_id: 'item-1' }),
     problem: null,
     ...overrides,
   };

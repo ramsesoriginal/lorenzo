@@ -6,6 +6,13 @@ import {
   recordCharacterEvents,
 } from "../character-events.js";
 import {
+  GIVE_CANCEL_CUSTOM_ID,
+  type GiveIntent,
+  buildGiveConfirmComponents,
+  formatGivePrompt,
+  parseGiveConfirmCustomId,
+} from "../format-give.js";
+import {
   type ControlledCharacter,
   type LorenzoApiClient,
   LorenzoApiError,
@@ -15,7 +22,8 @@ import { getValidAccessToken } from "../token-provider.js";
 import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import { transferItem } from "./item-transfer.js";
-import type { Command } from "./types.js";
+import { rememberActingCharacter } from "./remember-character.js";
+import type { ButtonInteraction, Command, CommandContext } from "./types.js";
 
 /**
  * `/give` - loot-splitting (ADR 0051). No `quantity`, or one that covers
@@ -24,6 +32,11 @@ import type { Command } from "./types.js";
  * transfers only the split-off instance - see ADR 0051 for the full
  * split-vs-transfer reasoning and why the item's container is left
  * untouched either way.
+ *
+ * Nothing moves when the command runs: it shows what's about to leave the
+ * caller's inventory and waits for one click on "Give" (ADR 0088). The
+ * transfer itself happens in `onButton`, re-validated against fresh state
+ * exactly as the command used to do inline.
  */
 export const giveCommand: Command = {
   definition: new SlashCommandBuilder()
@@ -93,67 +106,31 @@ export const giveCommand: Command = {
     const tenantId = ctx.config.lorenzoTenantId;
 
     try {
-      // Fresh state, not whatever autocomplete last showed - the quantity
-      // decision below has to be correct now, not a moment ago (ADR 0051).
-      const { data: current, etag } = await client.getItemInstance(
-        tenantId,
-        itemEntityId,
-        accessToken,
-      );
-
-      const result = await transferItem(
-        client,
-        tenantId,
-        current,
-        etag,
-        requestedQuantity,
-        targetCharacterId,
-        accessToken,
-      );
-
-      if (result.kind === "not-a-stack") {
-        await interaction.editReply(
-          "That item isn't a stack — omit the quantity to give the whole thing.",
-        );
+      // Read now, only to word the prompt and fail early on the things that
+      // can never work (unreachable item, unknown target, a quantity on a
+      // non-stack) instead of costing a click first. Nothing here decides
+      // the transfer - `onButton` re-reads before writing (ADR 0051).
+      const { data: current } = await client.getItemInstance(tenantId, itemEntityId, accessToken);
+      if (requestedQuantity !== null && current.quantity === null) {
+        await interaction.editReply(NOT_A_STACK_MESSAGE);
         return;
       }
+      const targetName = await client.getCharacterName(tenantId, targetCharacterId, accessToken);
 
-      if (current.owner_entity_id) {
-        await recordUndo(interaction.user.id, {
-          kind: "restore-owner",
-          entityId: result.given.entity_id,
-          previousOwnerCharacterId: current.owner_entity_id,
-        });
-      }
-
-      const targetLookup = await client
-        .getCharacterName(tenantId, targetCharacterId, accessToken)
-        .catch(() => null);
-      const targetName = targetLookup ?? "them";
-      const itemName = result.given.title ?? "(untitled)";
-      const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
-
-      // For `/changes` (ADR 0097): both the giver's and the receiver's
-      // players will see this. Best-effort, after the give itself succeeded.
-      const giverId = current.owner_entity_id;
-      const giverLookup = giverId
-        ? await client.getCharacterName(tenantId, giverId, accessToken).catch(() => null)
-        : null;
-      const receiver = nameCharacter(targetCharacterId, targetLookup);
-      if (receiver) {
-        await recordCharacterEvents(
-          [
-            giveEvent({
-              giver: nameCharacter(giverId, giverLookup),
-              receiver,
-              item: describeItem(itemName, result.given.quantity),
-            }),
-          ],
-          ctx.logger,
-        );
-      }
-
-      await interaction.editReply(`Gave ${amount}${itemName} to ${targetName}.`);
+      const intent: GiveIntent = {
+        itemEntityId,
+        targetCharacterId,
+        quantity: requestedQuantity,
+      };
+      await interaction.editReply({
+        content: formatGivePrompt(
+          current.title ?? "(untitled)",
+          current.quantity,
+          requestedQuantity,
+          targetName,
+        ),
+        components: buildGiveConfirmComponents(intent),
+      });
     } catch (error) {
       if (error instanceof LorenzoApiError) {
         await interaction.editReply(describeGiveError(error));
@@ -162,7 +139,124 @@ export const giveCommand: Command = {
       throw error;
     }
   },
+
+  async onButton(interaction, ctx) {
+    if (interaction.customId === GIVE_CANCEL_CUSTOM_ID) {
+      await interaction.update({ content: "Cancelled — nothing was given.", components: [] });
+      return;
+    }
+
+    const intent = parseGiveConfirmCustomId(interaction.customId);
+    if (!intent) {
+      await interaction.update({
+        content: "That confirmation isn't valid anymore — run `/give` again.",
+        components: [],
+      });
+      return;
+    }
+
+    // The click's own acknowledgement also strips the buttons, so a second
+    // click on a message that already lost them can't confirm twice - a
+    // partial give is a split, and splitting twice isn't idempotent.
+    await interaction.update({ content: "Giving…", components: [] });
+    await confirmGive(interaction, ctx, intent);
+  },
 };
+
+async function confirmGive(
+  interaction: ButtonInteraction,
+  ctx: CommandContext,
+  intent: GiveIntent,
+): Promise<void> {
+  const accessToken = await getValidAccessToken(interaction.user.id);
+  if (!accessToken) {
+    await interaction.editReply("You haven't linked your account yet — run `/link` first.");
+    return;
+  }
+
+  const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
+  const tenantId = ctx.config.lorenzoTenantId;
+
+  try {
+    // Fresh state, not whatever the prompt or autocomplete last showed - the
+    // quantity decision below has to be correct now, not a moment ago (ADR
+    // 0051), and the prompt may have sat there a while.
+    const { data: current, etag } = await client.getItemInstance(
+      tenantId,
+      intent.itemEntityId,
+      accessToken,
+    );
+
+    const result = await transferItem(
+      client,
+      tenantId,
+      current,
+      etag,
+      intent.quantity,
+      intent.targetCharacterId,
+      accessToken,
+    );
+
+    if (result.kind === "not-a-stack") {
+      await interaction.editReply(NOT_A_STACK_MESSAGE);
+      return;
+    }
+
+    if (current.owner_entity_id) {
+      await recordUndo(interaction.user.id, {
+        kind: "restore-owner",
+        entityId: result.given.entity_id,
+        previousOwnerCharacterId: current.owner_entity_id,
+      });
+    }
+    await rememberActingCharacter(
+      client,
+      tenantId,
+      accessToken,
+      interaction.user.id,
+      current.owner_entity_id,
+      ctx.logger,
+    );
+
+    const targetLookup = await client
+      .getCharacterName(tenantId, intent.targetCharacterId, accessToken)
+      .catch(() => null);
+    const targetName = targetLookup ?? "them";
+    const itemName = result.given.title ?? "(untitled)";
+    const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
+
+    // For `/changes` (ADR 0097): both the giver's and the receiver's players
+    // will see this. Best-effort, after the give itself succeeded; reuses
+    // targetLookup above rather than a second call for the same character.
+    const giverId = current.owner_entity_id;
+    const giverLookup = giverId
+      ? await client.getCharacterName(tenantId, giverId, accessToken).catch(() => null)
+      : null;
+    const receiver = nameCharacter(intent.targetCharacterId, targetLookup);
+    if (receiver) {
+      await recordCharacterEvents(
+        [
+          giveEvent({
+            giver: nameCharacter(giverId, giverLookup),
+            receiver,
+            item: describeItem(itemName, result.given.quantity),
+          }),
+        ],
+        ctx.logger,
+      );
+    }
+
+    await interaction.editReply(`Gave ${amount}${itemName} to ${targetName}.`);
+  } catch (error) {
+    if (error instanceof LorenzoApiError) {
+      await interaction.editReply(describeGiveError(error));
+      return;
+    }
+    throw error;
+  }
+}
+
+const NOT_A_STACK_MESSAGE = "That item isn't a stack — omit the quantity to give the whole thing.";
 
 async function findGiveTargets(
   client: LorenzoApiClient,

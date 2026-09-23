@@ -257,6 +257,7 @@ describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
 
   afterEach(async () => {
     await db.deletePreference(DISCORD_ID, CHANNEL_ID);
+    await db.deletePreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
   });
 
   it("returns undefined for a discord user with no preference set", async () => {
@@ -333,6 +334,63 @@ describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
     expect(row?.currentCharacterEntityId).toBe("char-channel");
 
     await db.deletePreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
+  });
+
+  // ADR 0088: the fallback to the global default is per field, not per
+  // row - `/set-current container:...` alone creates a channel row with no
+  // character, which used to hide the user's server-wide (last-used) one.
+  it("falls back to the global character when the channel row only sets a container", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { containerEntityId: "container-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-global");
+    expect(row?.currentContainerEntityId).toBe("container-channel");
+  });
+
+  it("falls back to the global container when the channel row only sets a character", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+      containerEntityId: "container-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-channel");
+    expect(row?.currentContainerEntityId).toBe("container-global");
+  });
+
+  it("leaves a field unset when neither the channel nor the global row sets it", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentContainerEntityId).toBeNull();
+  });
+
+  it("returns the channel's own row identity when merging, not the global one", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { containerEntityId: "container-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.discordChannelId).toBe(CHANNEL_ID);
+  });
+
+  it("looking up the global default itself is unaffected by any channel row", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-global");
+    expect(row?.discordChannelId).toBe(db.GLOBAL_PREFERENCE_CHANNEL_ID);
   });
 });
 

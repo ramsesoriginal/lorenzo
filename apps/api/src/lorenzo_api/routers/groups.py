@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import can_manage_character
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -208,21 +209,24 @@ async def _add_member_core(
     tenant_id: uuid.UUID,
     group_entity_id: uuid.UUID,
     character_entity_id: uuid.UUID,
-) -> None:
+) -> bool:
     """Idempotent - inserting an already-existing membership is a no-op,
     mirroring grant_campaign_gm's own idempotent PUT shape. No auth/
     validation here - see _authorize_add_member, run by every caller
-    first.
+    first. Returns whether a row was actually added (ADR 0084 logs only
+    real changes).
     """
     existing = await session.get(GroupMember, (group_entity_id, character_entity_id))
-    if existing is None:
-        session.add(
-            GroupMember(
-                group_entity_id=group_entity_id,
-                character_entity_id=character_entity_id,
-                tenant_id=tenant_id,
-            )
+    if existing is not None:
+        return False
+    session.add(
+        GroupMember(
+            group_entity_id=group_entity_id,
+            character_entity_id=character_entity_id,
+            tenant_id=tenant_id,
         )
+    )
+    return True
 
 
 @router.post("", status_code=201)
@@ -262,6 +266,15 @@ async def create_group(
             group_entity_id=entity.id,
             character_entity_id=character_entity_id,
         )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="group.created",
+        target_type="group",
+        target_id=entity.id,
+        detail=f"members={len(member_ids)}",
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -282,7 +295,8 @@ async def update_group(
     if_match: Annotated[str | None, Header()] = None,
 ) -> EntitySummary:
     """Rename only - a group has nothing else of its own to update. See
-    ADR 0064.
+    ADR 0064. Deliberately not recorded in the activity log (ADR 0084:
+    renames are descriptive-content edits).
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     entity = await get_entity_or_404(session, group_entity_id, tenant_id)
@@ -327,11 +341,30 @@ async def delete_group(
         session, tenant_id=tenant_id, user=user, group_entity_id=group_entity_id
     )
 
+    member_count = (
+        await session.execute(
+            select(func.count())
+            .select_from(GroupMember)
+            .where(
+                GroupMember.group_entity_id == group_entity_id, GroupMember.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one()
     await session.execute(
         delete(GroupMember).where(
             GroupMember.group_entity_id == group_entity_id, GroupMember.tenant_id == tenant_id
         )
     )
+    if member_count:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="group.deleted",
+            target_type="group",
+            target_id=group_entity_id,
+            detail=f"members_removed={member_count}",
+        )
     await session.commit()
 
 
@@ -368,6 +401,7 @@ async def bulk_add_group_members(
     )
 
     results: list[GroupMemberResultItem] = []
+    added = 0
     for character_entity_id in body:
         try:
             async with session.begin_nested():
@@ -380,12 +414,13 @@ async def bulk_add_group_members(
                     user=user,
                     character_entity_id=character_entity_id,
                 )
-                await _add_member_core(
+                if await _add_member_core(
                     session,
                     tenant_id=tenant_id,
                     group_entity_id=group_entity_id,
                     character_entity_id=character_entity_id,
-                )
+                ):
+                    added += 1
         except Problem as exc:
             results.append(
                 GroupMemberResultItem(
@@ -397,6 +432,16 @@ async def bulk_add_group_members(
             continue
         results.append(GroupMemberResultItem(character_entity_id=character_entity_id, status="ok"))
 
+    if added:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="group.members_bulk_added",
+            target_type="group",
+            target_id=group_entity_id,
+            detail=f"{added} added, {sum(1 for r in results if r.status == 'error')} failed",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results
@@ -426,12 +471,22 @@ async def add_group_member(
         session, tenant_id=tenant_id, user=user, character_entity_id=character_entity_id
     )
 
-    await _add_member_core(
+    added = await _add_member_core(
         session,
         tenant_id=tenant_id,
         group_entity_id=group_entity_id,
         character_entity_id=character_entity_id,
     )
+    if added:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="group.member_added",
+            target_type="group",
+            target_id=group_entity_id,
+            detail=f"character={character_entity_id}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     members = await _group_members(session, tenant_id=tenant_id, group_entity_id=group_entity_id)
@@ -459,6 +514,15 @@ async def remove_group_member(
     existing = await session.get(GroupMember, (group_entity_id, character_entity_id))
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="group.member_removed",
+            target_type="group",
+            target_id=group_entity_id,
+            detail=f"character={character_entity_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     members = await _group_members(session, tenant_id=tenant_id, group_entity_id=group_entity_id)
@@ -517,6 +581,15 @@ async def duplicate_group(
                 tenant_id=tenant_id,
             )
         )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="group.duplicated",
+        target_type="group",
+        target_id=new_entity.id,
+        detail=f"source={group_entity_id}, members={len(member_ids)}",
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(

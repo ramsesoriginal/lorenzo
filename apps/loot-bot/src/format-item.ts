@@ -18,8 +18,13 @@ type Payload = Information["payloads"][number];
  * function - unlike `/give`'s autocomplete, there is no "never
  * authoritative" caveat to repeat here, this really is everything the
  * caller is allowed to see.
+ *
+ * `slug` (ADR 0043) isn't on `EntityDetailOut` - it lives on the item
+ * instance - so `/item` looks it up separately and passes it in. Shown as a
+ * fenced block, not an inline span: Discord puts a copy button on those,
+ * and one item's worth of embed has room for it.
  */
-export function formatItemEmbed(entity: EntityDetailOut): EmbedBuilder {
+export function formatItemEmbed(entity: EntityDetailOut, slug: string | null = null): EmbedBuilder {
   const embed = new EmbedBuilder().setTitle(entity.name);
 
   const firstPicture = entity.information
@@ -36,10 +41,14 @@ export function formatItemEmbed(entity: EntityDetailOut): EmbedBuilder {
     embed.addFields({ name: "Stats", value: truncate(statLines) });
   }
 
-  const budget = MAX_FIELDS_PER_EMBED - (entity.stats.length > 0 ? 1 : 0);
+  const budget = MAX_FIELDS_PER_EMBED - (entity.stats.length > 0 ? 1 : 0) - (slug ? 1 : 0);
   const visibleInfo = entity.information.slice(0, Math.max(budget, 0));
   for (const info of visibleInfo) {
     embed.addFields({ name: info.title, value: truncate(formatPayloads(info.payloads)) });
+  }
+
+  if (slug) {
+    embed.addFields({ name: "Slug", value: `\`\`\`\n${slug}\n\`\`\`` });
   }
 
   const omitted = entity.information.length - visibleInfo.length;

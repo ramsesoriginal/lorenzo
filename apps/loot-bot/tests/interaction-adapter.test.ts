@@ -245,6 +245,27 @@ describe("buildAdapterInteraction - message component (type 3)", () => {
     });
   });
 
+  it("a button component's update is its first response, replacing the message (buttons stripped)", async () => {
+    const built = buildAdapterInteraction(
+      basePayload({ type: 3, data: { custom_id: "give:ok:1", component_type: 2 } }),
+    );
+    const interaction = built?.interaction;
+    if (!interaction || !built || !interaction.isButton()) throw new Error("expected button");
+
+    await interaction.update({ content: "Giving…", components: [] });
+
+    expect(await built.firstResponse).toEqual({
+      type: 7,
+      data: { content: "Giving…", components: [] },
+    });
+    // ...and a later editReply goes to the original message, as after
+    // any other first response.
+    await interaction.editReply("Gave Torch to Sam.");
+    expect(editOriginalInteractionResponse).toHaveBeenCalledWith(APPLICATION_ID, TOKEN, {
+      content: "Gave Torch to Sam.",
+    });
+  });
+
   it("an unrecognized component_type is not built at all", () => {
     const built = buildAdapterInteraction(
       basePayload({ type: 3, data: { custom_id: "x", component_type: 99 } }),
