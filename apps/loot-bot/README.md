@@ -57,6 +57,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/move-bulk` | Empties one of your containers into another, in one call |
 | `/container-new` | Makes a named sack owned by your character, then lets you pick which of your loose items go inside — no leaving Discord ([ADR 0094](../../docs/adr/0094-loot-bot-container-new.md)). Needs a "Sack" catalog item, set up once by anyone with catalog access |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
+| `/sheet` | Your character's resolved stats and whatever notes/backstory you're cleared to see — private; defaults to your current (or only) character ([ADR 0090](../../docs/adr/0090-loot-bot-sheet.md)) |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
 | `/ping` | Liveness check |
 | `/help` | Where to start: every command grouped by what you're trying to do (with a first-run intro), or (with `command`) one command's full options — [ADR 0089](../../docs/adr/0089-loot-bot-task-grouped-help.md) |
