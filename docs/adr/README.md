@@ -48,7 +48,7 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0043 - Item-instance slug](0043-item-instance-slug.md)
 - [0044 - Loot assignment: split-with-owner, merge, and bulk-assign](0044-loot-assignment-split-merge-bulk-assign.md)
 - [0045 - Read-only groups API](0045-read-only-groups-api.md)
-- [0046 - GM reachability widens to the party's surroundings](0046-gm-reachability-widens-to-surroundings.md)
+- [0046 - GM reachability widens to the party's surroundings, not just their inventory](0046-gm-reachability-widens-to-surroundings.md)
 - [0047 - Item catalog search and container-capability convention](0047-item-catalog-search-and-container-convention.md)
 - [0048 - CORS configuration](0048-cors-configuration.md)
 - [0049 - `mine` filter on `GET /tenants/{tenant_id}/characters`](0049-list-characters-mine-filter.md)
