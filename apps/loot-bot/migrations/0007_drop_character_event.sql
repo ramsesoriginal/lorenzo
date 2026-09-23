@@ -1,0 +1,1 @@
+DROP TABLE "loot_bot"."character_event" CASCADE;

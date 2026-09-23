@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import { confiscateEvent, nameCharacter, recordCharacterEvents } from "../character-events.js";
 import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
@@ -131,16 +130,6 @@ export const confiscateCommand: Command = {
         .catch(() => null);
       const characterName = characterLookup ?? "them";
       const amount = result.requestedQuantity !== null ? `${result.requestedQuantity} of ` : "";
-
-      // For `/changes` (ADR 0097): the player whose item was taken should be
-      // able to find out. The GM who did it is deliberately not named.
-      const character = nameCharacter(characterEntityId, characterLookup);
-      if (character) {
-        await recordCharacterEvents(
-          [confiscateEvent({ character, item: `${amount}${result.destroyedTitle}` })],
-          ctx.logger,
-        );
-      }
 
       await interaction.editReply(
         `Confiscated ${amount}${result.destroyedTitle} from ${characterName}.`,

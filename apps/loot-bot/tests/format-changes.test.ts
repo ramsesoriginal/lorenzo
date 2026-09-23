@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COVERAGE_NOTE, MAX_CHANGES_SHOWN, buildChangesEmbed } from "../src/format-changes.js";
+import { MAX_CHANGES_SHOWN, buildChangesEmbed, describeChange } from "../src/format-changes.js";
 
 const AT = new Date("2026-09-20T10:00:00Z");
 const UNIX = Math.floor(AT.getTime() / 1000);
@@ -10,19 +10,52 @@ function change(summary: string, createdAt = AT) {
 
 const embedOf = (args: Parameters<typeof buildChangesEmbed>[0]) => buildChangesEmbed(args).toJSON();
 
-describe("buildChangesEmbed", () => {
-  it("always says the view only covers changes made through the bot", () => {
-    for (const args of [
-      { changes: [change("a")], total: 1, since: undefined, history: false },
-      { changes: [], total: 0, since: undefined, history: false },
-      { changes: [], total: 0, since: AT, history: false },
-      { changes: [], total: 0, since: undefined, history: true },
-    ]) {
-      expect(embedOf(args).footer?.text).toBe(COVERAGE_NOTE);
-    }
-    expect(COVERAGE_NOTE).toContain("through this bot");
+describe("describeChange", () => {
+  const base = { entityName: "Torch", detail: null, character: "Frodo", actorVisible: false };
+
+  it("names another player when the actor is visible", () => {
+    expect(describeChange({ ...base, kind: "received", actorVisible: true })).toBe(
+      "Frodo received Torch from another player.",
+    );
+    expect(describeChange({ ...base, kind: "given_away", actorVisible: true })).toBe(
+      "Torch was taken from Frodo by another player.",
+    );
   });
 
+  it("says nothing about the actor when it's a GM or admin", () => {
+    expect(describeChange({ ...base, kind: "received" })).toBe("Frodo received Torch.");
+    expect(describeChange({ ...base, kind: "given_away" })).toBe("Torch was taken from Frodo.");
+  });
+
+  it("shows the quantity split off or merged in, parsed from detail", () => {
+    expect(describeChange({ ...base, kind: "split", detail: "quantity=2" })).toBe(
+      "Frodo's Torch ×2 was split off.",
+    );
+    expect(describeChange({ ...base, kind: "merged", detail: "quantity=3" })).toBe(
+      "Frodo's Torch ×3 was merged in.",
+    );
+  });
+
+  it("describes a move, a rename, and a deletion", () => {
+    expect(describeChange({ ...base, kind: "moved" })).toBe("Frodo's Torch was moved.");
+    expect(describeChange({ ...base, kind: "renamed", entityName: "Blessed Torch" })).toBe(
+      "Frodo's item was renamed to Blessed Torch.",
+    );
+    expect(describeChange({ ...base, kind: "deleted" })).toBe("Frodo's Torch was deleted.");
+  });
+
+  it("falls back to a generic line for an unrecognized kind", () => {
+    expect(describeChange({ ...base, kind: "something-new" })).toBe("Frodo's Torch changed.");
+  });
+
+  it("ignores unparseable detail", () => {
+    expect(describeChange({ ...base, kind: "split", detail: "not-a-quantity" })).toBe(
+      "Frodo's Torch was split off.",
+    );
+  });
+});
+
+describe("buildChangesEmbed", () => {
   it("lists each change with a relative timestamp", () => {
     const embed = embedOf({
       changes: [change("Frodo gave Torch to Sam.")],

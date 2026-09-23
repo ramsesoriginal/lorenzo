@@ -1,12 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
-  claimHonoredEvent,
-  describeItem,
-  nameCharacter,
-  recordCharacterEvents,
-  takeEvent,
-} from "../character-events.js";
-import {
   type LootClaim,
   deleteLootClaim,
   deleteLootClaimsForDrop,
@@ -326,24 +319,11 @@ async function handleTakeModalSubmit(
     // Name who it went to: the character is a remembered default (ADR 0088),
     // so a player who's since switched characters elsewhere needs to see a
     // wrong one here, not discover it in their inventory later. Best-effort -
-    // the take has already happened. Also what /changes (ADR 0097) records
-    // the take against - one lookup serves both.
+    // the take has already happened.
     const characterName = await client
       .getCharacterName(tenantId, characterEntityId, accessToken)
       .catch(() => null);
     const recipient = characterName ? ` for ${characterName}` : "";
-    const taker = nameCharacter(characterEntityId, characterName);
-    if (taker) {
-      await recordCharacterEvents(
-        [
-          takeEvent({
-            character: taker,
-            item: describeItem(result.given.title ?? "(untitled)", result.given.quantity),
-          }),
-        ],
-        ctx.logger,
-      );
-    }
     await interaction.followUp({
       content: `Took ${amount}${result.given.title ?? "(untitled)"}${recipient}.`,
       ephemeral: true,
@@ -583,17 +563,12 @@ async function applyAllClaims(
   if (requests.length === 0) return outcomes;
 
   const results = await client.bulkAssignItemInstances(tenantId, requests, accessToken);
-  const honored: Array<{ characterEntityId: string; item: string }> = [];
   results.forEach((result, index) => {
     const context = requestContext[index];
     if (!context) return;
     const { claim, itemTitle } = context;
 
     if (result.status === "ok") {
-      honored.push({
-        characterEntityId: claim.characterEntityId,
-        item: describeItem(itemTitle, requests[index]?.quantity ?? null),
-      });
       outcomes.push({
         discordUserId: claim.discordUserId,
         itemTitle,
@@ -610,28 +585,6 @@ async function applyAllClaims(
       quantity: claim.quantity,
     });
   });
-
-  // For `/changes` (ADR 0097): whoever's claim was honored can find out what
-  // they got, even if they missed the summary. One name lookup per distinct
-  // character, best-effort - the assignment itself has already happened.
-  if (honored.length > 0) {
-    const names = new Map<string, string | null>();
-    await Promise.all(
-      [...new Set(honored.map((h) => h.characterEntityId))].map(async (characterEntityId) => {
-        names.set(
-          characterEntityId,
-          await client.getCharacterName(tenantId, characterEntityId, accessToken).catch(() => null),
-        );
-      }),
-    );
-    await recordCharacterEvents(
-      honored.flatMap((h) => {
-        const character = nameCharacter(h.characterEntityId, names.get(h.characterEntityId));
-        return character ? [claimHonoredEvent({ character, item: h.item })] : [];
-      }),
-      ctx.logger,
-    );
-  }
 
   return outcomes;
 }

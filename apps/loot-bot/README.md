@@ -56,7 +56,7 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/add-channel-to-group` | GM-only: adds every recently-active poster's characters in this channel to a group, creating it if needed |
 | `/move-bulk` | Empties one of your containers into another, in one call |
 | `/container-new` | Makes a named sack owned by your character, then lets you pick which of your loose items go inside — no leaving Discord ([ADR 0094](../../docs/adr/0094-loot-bot-container-new.md)). Needs a "Sack" catalog item, set up once by anyone with catalog access |
-| `/changes` | What's happened to your characters' belongings since you last looked — gifts, awards, confiscations, drop takes and honored claims — private; `history:true` for the recent past. **Only shows changes made through this bot** ([ADR 0097](../../docs/adr/0097-loot-bot-changes.md)) |
+| `/changes` | What's happened to your characters' belongings since you last looked — gifts, awards, confiscations, splits, merges, moves, renames, deletions — from any source, not just this bot — private; `history:true` for the recent past ([ADR 0097](../../docs/adr/0097-loot-bot-changes.md), reading [ADR 0099](../../docs/adr/0099-player-facing-change-feed.md)'s API feed) |
 | `/whoami` | Shows which Lorenzo identity you're linked to, your full profile, tenant role, and your characters here — private |
 | `/sheet` | Your character's resolved stats and whatever notes/backstory you're cleared to see — private; defaults to your current (or only) character ([ADR 0090](../../docs/adr/0090-loot-bot-sheet.md)) |
 | `/introduce` | Posts a curated public introduction (name, pronouns, bio, color, picture) to the channel |
