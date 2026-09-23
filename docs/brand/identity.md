@@ -201,7 +201,9 @@ Use the centered wordmark with the supporting spark for moments where vertical r
 
 #### Brand mark alone
 
-Use the spark alone when space is constrained or recognition is already established: favicon, app icon basis, avatar, loading indicator, UI brand stamp, launcher icon, social avatar, watermark, selected product state.
+Use the spark alone when space is constrained or recognition is already established: favicon, app icon basis, UI brand stamp, launcher icon, social avatar, watermark.
+
+This is about using the spark *as the logo itself* at reduced size — it is not a license to reach for it as interface iconography. See §17 for the boundary between brand identity and conventional UI icons (loading indicators, selection states, and per-user avatar placeholders use ordinary interface treatments, not the spark).
 
 #### Mascot emblem
 
@@ -788,19 +790,14 @@ The `--visibility-restricted-*` and `--button-*` tokens are all aliases (`--visi
 
 ### 7.1 The spark as a motif
 
-The four-point spark may appear beyond the logo as a restrained system element.
+The four-point spark may appear beyond the logo as a restrained system element, but its value comes from scarcity. Reserve it for:
 
-Appropriate uses:
-
-- canonical or featured status
-- selected nodes
-- small dividers
-- premium or special-but-not-monetized moments
-- empty-state emphasis
-- map anchors
-- subtle section separators
-- loading and progress
+- canonical, source, or reference significance
+- rare branded moments — onboarding, empty states, major loading transitions
+- restrained editorial punctuation
 - tiny brand stamps
+
+Do not use it for selection, hover, focus, or active state; map pins or locations; routine loading or progress; navigation; favorites/unread/new/pinned states; generic "featured" content; premium/paid status; or ordinary section dividers — these are conventional interface concerns and get conventional interface icons instead. See §17 for the full policy on the spark versus interface iconography.
 
 Do not turn every bullet into a spark. Recognition comes from restraint.
 
@@ -1018,7 +1015,9 @@ Motion should feel like orientation and discovery, not spectacle.
 
 ### 11.2 Brand-mark motion
 
-The shaded spark is the preferred motion-capable mark because the fixed faux-lighting gives rotation and movement visual direction.
+This section governs the rare branded-loading-moment case only — application startup, first-run setup, a large import (§17) — not routine request/response waiting, which uses conventional spinners, skeletons, and progress bars instead.
+
+The shaded spark is the preferred motion-capable mark for those rare moments because the fixed faux-lighting gives rotation and movement visual direction.
 
 Appropriate loader treatments:
 
@@ -1303,6 +1302,27 @@ Do not make loading identity dependent on spinning animation alone.
 
 Do not shrink typography to preserve a decorative layout. Dense data should remain readable, zoomable, and navigable.
 
+### 15.6 Interface icons
+
+An icon inside an already-labelled control is decorative and hidden from assistive technology:
+
+```html
+<button type="button">
+  <svg class="icon" aria-hidden="true"><use href="/assets/icons/ui.svg#icon-save"></use></svg>
+  Save
+</button>
+```
+
+An icon-only control names the control, not the artwork inside it:
+
+```html
+<button type="button" aria-label="Copy">
+  <svg class="icon" aria-hidden="true"><use href="/assets/icons/ui.svg#icon-copy"></use></svg>
+</button>
+```
+
+Prefer visible text where practical. Use native `<button>`, `<a>`, `<details>`, and other semantic elements rather than making a bare SVG interactive. See §17 for the icon system itself.
+
 ---
 
 ## 16. Asset governance and implementation
@@ -1369,9 +1389,118 @@ A change to the spark silhouette, wordmark letterforms, spacing, or lockup compo
 
 ---
 
-## 17. Practical selection guide
+## 17. Icon and symbol strategy
 
-Use this decision flow:
+The spark and interface icons are two separate systems, not one. §4 and §7.1 already narrowed the spark to identity and canonical/significant meaning; this section states that boundary explicitly and covers the ordinary interface iconography that fills every job the spark no longer does.
+
+### 17.1 The Lorenzo spark
+
+The four-point spark is Lorenzo's primary identity symbol. Its value comes from scarcity.
+
+Use it for:
+
+- Lorenzo identity: logo, favicon, app icon, brand stamp
+- canonical, source, or reference significance
+- rare branded transitions, onboarding, and empty states
+- restrained editorial punctuation
+- major branded loading moments (§11.2) — application startup, first-run setup, a large import
+
+Do not use it for:
+
+- selection, hover, focus, or active state
+- generic map pins or locations
+- routine loading or progress
+- navigation
+- favorites, unread, new, or pinned states
+- generic importance or "featured" content
+- premium/paid status
+- ordinary section dividers
+- a default placeholder for user- or entity-owned avatars/pictures
+
+A spark inside product data should imply *this has special significance within Lorenzo*. It should never merely mean "currently selected" or "please wait" — use conventional UI treatments for transient state instead: color, borders, focus rings, checks, progress bars, skeletons, spinners, line styles, and standard icons.
+
+### 17.2 Icon sources
+
+- UI icons: [Tabler Icons](https://tabler.io/icons)
+- External brand icons: official brand assets where required; otherwise [Simple Icons](https://simpleicons.org)
+- Lorenzo-specific domain icons: Tabler first, custom only when necessary (§17.4)
+- Self-host all icon assets. No CDN or hotlinking.
+- Do not mix icon families casually.
+
+Brand assets (§4, §16) and UI icons are separate systems with separate governance.
+
+### 17.3 UI icons
+
+Tabler is the default interface icon family. Use conventional symbols for conventional actions — save, copy, delete, search, edit, settings, map/location, visibility, lock, history, undo, expand/collapse, notifications. Prefer established visual language over novelty.
+
+Use the standard Tabler visual grammar:
+
+- 24×24 viewBox
+- 2px stroke
+- round caps and joins
+- outline-first
+- `currentColor`
+- no baked-in theme colors
+
+Do not vary stroke weight or mix filled/outline variants arbitrarily.
+
+### 17.4 Custom domain icons
+
+Create a custom icon only when Lorenzo has a genuine domain concept that Tabler cannot represent clearly — for example a repository/source relationship, prototype inheritance, timeline divergence, knowledge provenance, or world/plane semantics.
+
+A custom icon should visually belong beside Tabler and follow the same geometry and stroke conventions. Keep Lorenzo-owned custom icons separate from third-party originals. The spark is a brand asset, not a fallback custom icon.
+
+### 17.5 Semantic naming
+
+Application-facing icon names describe meaning, not upstream artwork. Prefer `icon-delete`, `icon-private`, `icon-location`, `icon-warning`, `icon-history` over `icon-trash`, `icon-lock`, `icon-pin`, `icon-triangle`, `icon-clock`.
+
+Maintain one semantic mapping from Lorenzo concepts to source icons. The same icon should not represent materially different concepts within the same context.
+
+### 17.6 Runtime
+
+Keep upstream SVG originals unchanged. Generate a local, same-origin SVG sprite from an explicit manifest containing only the icons actually used:
+
+```yaml
+copy: copy
+delete: trash
+private: lock
+warning: alert-triangle
+location: map-pin
+```
+
+Application markup uses the stable, Lorenzo-owned IDs from that manifest, not the upstream names directly:
+
+```html
+<svg class="icon" aria-hidden="true">
+  <use href="/assets/icons/ui.svg#icon-copy"></use>
+</svg>
+```
+
+Do not expose library names or versions in application markup. Fingerprint the generated sprite asset in production. See §15.6 for how icon-only and decorative icons get labelled.
+
+### 17.7 Third-party brand marks
+
+External brand marks (a payment provider's logo, a platform's logo) are not UI icons — store and govern them separately from `ui.svg`. Prefer official assets where a brand's own guidelines require them; Simple Icons may be used where appropriate, but its artwork does not grant blanket trademark permission. Do not recolor, modify, or combine a third-party brand mark unless that brand's own guidelines permit it.
+
+### 17.8 State and status
+
+Icons reinforce state; they do not define it. Use explicit text for success, warning, error, pending, private/restricted visibility, and canonical/source status — matching §15.1's "do not rely on hue alone" rule and §6.6's color-neutral visibility treatment.
+
+Visibility is not severity: a private or GM-only item uses the neutral treatment plus a clear label and icon (§6.6), never danger styling. Selection and focus are UI states, not entity properties — represent them through surfaces, borders, and focus rings (§6.6), not an icon standing in for the state.
+
+### 17.9 Loading
+
+Use standard loading patterns for routine operations: spinner, skeleton, progress bar, or indeterminate progress. Reserve animated spark treatment for the rare branded transitions named in §17.1/§11.2 — the spark is for branded waiting, not routine waiting.
+
+### 17.10 Principle
+
+Use Lorenzo-specific visual language only where Lorenzo-specific meaning exists. Let ordinary interface mechanics remain ordinary. The quieter the system is around it, the more meaningful the spark becomes.
+
+---
+
+## 18. Practical selection guide
+
+Use this decision flow to pick the right *brand* asset. For an ordinary interface icon (delete, search, lock, and the like), this isn't it — see §17 instead.
 
 ### Need a full logo in a horizontal space?
 
@@ -1384,7 +1513,7 @@ Use this decision flow:
 - use the appropriate `wordmark_*` asset
 - use `wordmark_full.svg` when the full signature composition is specifically desired
 
-### Need a small icon?
+### Need the brand mark at a small size?
 
 - use `brand_mark.svg` or `brand_mark_monochrome.svg`
 - prefer unshaded at very small sizes
@@ -1405,7 +1534,7 @@ Use this decision flow:
 
 ---
 
-## 18. Quick do / do not
+## 19. Quick do / do not
 
 ### Do
 
@@ -1419,12 +1548,14 @@ Use this decision flow:
 - use whitespace and hierarchy before decoration
 - use the correct light/dark lockup asset
 - simplify as the available size decreases
+- use Tabler-based interface icons for ordinary interface concerns (§17)
 
 ### Do not
 
 - turn Lorenzo into a fantasy-only brand
 - add shields, crests, scrolls, runes, or generic compass roses
 - overuse stars throughout the UI
+- use the spark for selection, loading, navigation, or status — that's what interface icons are for (§17)
 - make Gold the dominant interface color
 - typeset the wordmark from a font
 - use the mascot as the tiny primary logo
@@ -1435,7 +1566,7 @@ Use this decision flow:
 
 ---
 
-## 19. Mascot
+## 20. Mascot
 
 Lorenzo the mascot is described in detail in [the lorenzo charcter bible](lorenzo-character-bible.md)
 
@@ -1443,6 +1574,6 @@ The second mascot, Catileo, is described in [the catileo character bible](catile
 
 ---
 
-## 20. One-line summary
+## 21. One-line summary
 
 **Lorenzo is a modern system for keeping track of worlds, expressed through scholarly typography, calm information design, blue interaction, restrained gold punctuation, a distinctive four-point spark, and the human warmth of Lorenzo and Catileo.**

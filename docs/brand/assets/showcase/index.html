@@ -331,20 +331,15 @@
   .logo-panel img.panel-lockup { height: 32px; width: auto; }
   .logo-panel .caption { font-family: var(--font-mono); font-size: 12px; opacity: .65; text-align: center; }
 
-  /* Motif */
+  /* Motif — a single canonical marker (identity.md §7.1), not a repeating
+     divider or loading motif; see #roles for ordinary interface icons */
   .divider {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: var(--space-4);
     margin-bottom: var(--space-5);
   }
-  .divider img { width: 18px; height: 18px; }
-  .divider img:nth-child(1) { opacity: .25; }
-  .divider img:nth-child(2) { opacity: .5; }
-  .divider img:nth-child(3) { opacity: 1; }
-  .divider img:nth-child(4) { opacity: .5; }
-  .divider img:nth-child(5) { opacity: .25; }
+  .divider img { width: 20px; height: 20px; }
 
   .motif-graphic { display: block; margin: 0 auto var(--space-3); max-width: 360px; width: 100%; height: auto; }
   .motif-caption { text-align: center; font-family: var(--font-display); font-size: 20px; font-style: italic; opacity: .85; }
@@ -568,15 +563,13 @@
     <div class="wrap">
       <h2>Supporting graphic language</h2>
       <p class="section-intro">
-        The spark reappears as a restrained system element — dividers, canonical markers, loading
-        states — per identity.md §7.1. Elsewhere, Lorenzo's visual vocabulary is nodes, paths, and
+        The spark reappears beyond the logo only for canonical markers and rare editorial
+        punctuation — per identity.md §7.1, its value comes from scarcity, so it is deliberately
+        not used here as a repeating divider or loading motif (§17 covers what is: ordinary
+        interface icons). Elsewhere, Lorenzo's visual vocabulary is nodes, paths, and
         relationships: information architecture, not treasure maps (§7.2).
       </p>
       <div class="divider" aria-hidden="true">
-        <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
         <img src="../favicon/favicon.svg" alt="">
       </div>
       <svg class="motif-graphic" viewBox="0 0 360 120" role="img" aria-label="Abstract nodes and relationship lines">
