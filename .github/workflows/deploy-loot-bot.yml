@@ -139,6 +139,9 @@ jobs:
           # credentials (same reasoning as deploy-api.yml's own AUTHGEAR_*
           # vars) - only the bot token, the OIDC client secret, the DB URL,
           # and the token-encryption key are real secrets.
+          # NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT is an email address, not a
+          # credential; unset (the default) leaves the notification-DM bridge off
+          # (ADR 0095).
           env_vars: |
             DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
             DISCORD_CLIENT_ID=${{ vars.DISCORD_CLIENT_ID }}
@@ -152,6 +155,7 @@ jobs:
             LOOT_BOT_DATABASE_URL=${{ secrets.LOOT_BOT_DATABASE_URL }}
             LOOT_BOT_TOKEN_ENCRYPTION_KEY=${{ secrets.LOOT_BOT_TOKEN_ENCRYPTION_KEY }}
             LOOT_BOT_PUBLIC_BASE_URL=${{ vars.LOOT_BOT_PUBLIC_BASE_URL }}
+            NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT=${{ vars.LOOT_BOT_SCHEDULER_SERVICE_ACCOUNT }}
 
       - name: Verify the deployed revision is actually ready
         # /livez, not /healthz - Google Front End reserves the literal path
