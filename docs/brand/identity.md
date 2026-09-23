@@ -2,7 +2,7 @@
 
 version: 1.0
 status: living specification
-updated: 2026-09-09
+updated: 2026-09-23
 scope: master brand, product family, digital applications, developer tools, community surfaces
 
 ---
@@ -450,15 +450,15 @@ Avoid:
 
 ### 6.1 Core palette
 
-| Name             | Hex       | Role                                                |
-| ---------------- | --------- | --------------------------------------------------- |
-| **Lorenzo Ink**  | `#08131F` | primary text, logo, dark UI, deep surfaces          |
-| **Archive Blue** | `#1769C2` | primary interaction color, links, active states     |
-| **Astral Blue**  | `#3B91E8` | highlights, illustrative accents, selected details  |
-| **Medici Gold**  | `#B88A3B` | brand mark, special accents, meaningful punctuation |
-| **Parchment**    | `#F4EFE5` | warm editorial surfaces, illustration fields        |
-| **Paper**        | `#FBFAF7` | primary light background                            |
-| **Burgundy**     | `#7B2638` | rare secondary accent, secrets, dramatic emphasis   |
+| Name             | Hex       | Role                                                                              |
+| ---------------- | --------- | --------------------------------------------------------------------------------- |
+| **Lorenzo Ink**  | `#08131F` | primary text, logo, dark UI, deep surfaces                                        |
+| **Archive Blue** | `#1769C2` | primary interaction color, links, active states                                   |
+| **Astral Blue**  | `#3B91E8` | highlights, illustrative accents, selected details                                |
+| **Medici Gold**  | `#B88A3B` | brand mark, special accents, meaningful punctuation                               |
+| **Parchment**    | `#F4EFE5` | warm editorial surfaces, illustration fields                                      |
+| **Paper**        | `#FBFAF7` | primary light background                                                          |
+| **Burgundy**     | `#7B2638` | rare secondary accent — destructive/dangerous states, genuinely dramatic emphasis |
 
 ### 6.2 Palette logic
 
@@ -472,7 +472,7 @@ Avoid:
 
 **Parchment** adds warmth without resorting to literal parchment textures.
 
-**Burgundy** is a controlled secondary accent, not a second primary brand color.
+**Burgundy** is a controlled secondary accent, not a second primary brand color. It signals destructive or dangerous actions and genuinely dramatic narrative beats — never secrecy or restricted visibility, which is deliberately color-neutral instead (§6.6).
 
 ### 6.3 Usage proportions
 
@@ -509,6 +509,8 @@ Dark theme examples:
 - border: Paper 14–18%
 - soft fill: Paper 6–9%
 
+These ratios are now codified as concrete custom properties — `--text-secondary`, `--text-tertiary`, `--border-subtle`, `--fill-soft`, and the rest of the semantic layer — in §6.6, so every app reads the same values instead of re-deriving them.
+
 ### 6.5 Accessibility notes
 
 Approximate contrast behavior against Paper / Ink:
@@ -523,29 +525,260 @@ Approximate contrast behavior against Paper / Ink:
 
 Never communicate state through color alone. Pair color with labels, icons, shape, position, or text.
 
-### 6.6 Design-token starter
+### 6.6 Semantic color roles and tokens
+
+§6.1–6.5 define the *palette* — seven colors and how they should feel. With `apps/api` now standing behind multiple real apps (`apps/inventory-web`, `apps/account-hub`, more to come), that's no longer enough on its own: every app needs to reach for the same name for "the border on a normal card" or "the background of a destructive button" instead of each one improvising its own reading of Ink-at-some-opacity. This section is that shared vocabulary — a semantic layer that sits on top of the palette and is what product code actually consumes.
+
+#### Primitives, utility colors, and semantic roles
+
+Three tiers, each with one job:
+
+1. **Brand primitives** (§6.1) — Ink, Archive Blue, Astral Blue, Medici Gold, Parchment, Paper, Burgundy. Identity-level. Product code should not reference these directly.
+2. **Utility colors** — two additions, for meanings the seven primitives have no honest answer to: a muted archival green for success, a darker ochre for warning. Neither reads as a plausible tint of Ink, either Blue, Gold, or Burgundy, so rather than force one of them into a job it doesn't fit, these get their own small, brand-adjacent tier. They are not brand colors and don't appear in §6.1.
+3. **Semantic roles** — the tokens below (`--surface-default`, `--text-primary`, `--action-hover`, `--danger`, and so on). Named for the job, not the color. This is the tier every app actually styles against.
+
+Wherever a semantic role's exact color can be reached by transforming a primitive or utility color, it's defined that way — `color-mix()` of two named colors, never a fresh literal — so the relationship stays legible in the source instead of two independently-typed hex codes silently drifting apart. A handful of dark-theme accents (marked below) are hand-tuned, perceptually lightened variants that a flat `color-mix()` genuinely can't reproduce; those stay literal, on purpose.
+
+The governing idea:
+
+| Meaning                 | Color family                   |
+| ----------------------- | ------------------------------ |
+| Normal information      | Ink / Paper                    |
+| Interaction             | Archive Blue / Astral Blue     |
+| Canonical / significant | Medici Gold                    |
+| Success                 | muted archival green (utility) |
+| Warning                 | darker ochre (utility)         |
+| Danger / destructive    | Burgundy                       |
+
+Astral Blue additionally stands alone as a supporting interaction/visualization color — `--focus-ring`, `--graph-highlight`, `--illustration-blue` — independent of whichever blue `--action` currently is in the active theme.
+
+Medici Gold keeps exactly one meaning: canonical, significant, Lorenzo identity itself (a canonical repository, a source world, the spark, a rare editorial mark of provenance). It is never warning, premium, selected, interactive, or "the important button" — this was already true per §1.4 and §6.3; this section just makes it load-bearing rather than a style note.
+
+#### Visibility is neutral, not colored
+
+Domain visibility — private, GM-only, visible to a selected group, or public (see [docs/domain/entities-knowledge-and-visibility.md](../domain/entities-knowledge-and-visibility.md)) — is a fact about who can see something, not a warning, an error, or a dramatic state. It gets no color of its own, and specifically never Burgundy: reusing a "destructive/dramatic" color for "restricted" conflates two unrelated concepts and was never a deliberate design decision to begin with.
+
+Every non-public tier shares one neutral treatment — `--visibility-restricted-surface/-text/-border` — regardless of which tier it is; only an icon and a label say which one:
+
+| Icon (placeholder — real SVG icons come later) | Tier                     |
+| ---------------------------------------------- | ------------------------ |
+| 🔒                                             | Private                  |
+| ◉                                              | GM only                  |
+| 👥                                             | Selected characters      |
+| *(none)*                                       | Public — no badge at all |
+
+Public is the unmarked default and needs no badge; only a restriction needs to say so.
+
+#### Buttons are their own layer
+
+Buttons and inline links both key off `--action`, but a button is a distinct component with its own background/foreground/hover — not the same rule as coloring a piece of text. Keeping `--button-*` as its own small namespace (defined in terms of the roles above, never a fresh literal) means it pushes zero net-new colors into the system and inherits dark-theme behavior automatically.
+
+#### Light theme
+
+| Token                             | Derivation                           | Value     | Intended use                           |
+| --------------------------------- | ------------------------------------ | --------- | -------------------------------------- |
+| `--surface-canvas`                | Paper                                | `#FBFAF7` | page/app background                    |
+| `--surface-default`               | Paper                                | `#FBFAF7` | cards, panels, normal surfaces         |
+| `--surface-muted`                 | Paper 96% / Ink 4%                   | `#F1F1EE` | table headers, subdued sections        |
+| `--surface-warm`                  | Parchment                            | `#F4EFE5` | editorial/narrative moments            |
+| `--surface-selected`              | Paper 88% / Archive Blue 12%         | `#E0E9F1` | selected rows/cards/nodes              |
+| `--fill-soft`                     | Ink 6%, translucent over its surface | —         | transient hover/badge tint (unchanged) |
+| `--text-primary`                  | Ink                                  | `#08131F` | normal text                            |
+| `--text-secondary`                | Ink 70% / Paper 30%                  | `#515860` | supporting text                        |
+| `--text-tertiary`                 | Ink 55% / Paper 45%                  | `#757B80` | metadata, timestamps                   |
+| `--text-inverse`                  | Paper                                | `#FBFAF7` | text on dark/blue surfaces             |
+| `--border-subtle`                 | Ink 16% / Paper 84%                  | `#D4D5D4` | normal component borders               |
+| `--border-strong`                 | Ink 24% / Paper 76%                  | `#C1C3C3` | emphasized separators                  |
+| `--action`                        | Archive Blue                         | `#1769C2` | links, interactive text                |
+| `--action-hover`                  | Archive Blue 85% / Ink 15%           | `#155CAA` | hover/pressed interactive text         |
+| `--action-surface`                | Paper 92% / Archive Blue 8%          | `#E9EEF3` | subtle blue control background         |
+| `--action-selected`               | = `--surface-selected`               | `#E0E9F1` | selected state                         |
+| `--focus-ring`                    | Astral Blue                          | `#3B91E8` | keyboard focus                         |
+| `--graph-highlight`               | Astral Blue                          | `#3B91E8` | graph/relationship-diagram accents     |
+| `--illustration-blue`             | Astral Blue                          | `#3B91E8` | non-text illustrative accents          |
+| `--canonical`                     | Medici Gold                          | `#B88A3B` | canonical/significant identity         |
+| `--canonical-surface`             | Paper 92% / Gold 8%                  | `#F6F1E8` | subtle canonical emphasis              |
+| `--success`                       | utility-success                      | `#2F6F56` | positive status                        |
+| `--success-surface`               | Paper 92% / utility-success 8%       | `#EBEFEA` | positive notice background             |
+| `--warning`                       | utility-warning                      | `#7A5A1F` | caution                                |
+| `--warning-surface`               | Paper 92% / utility-warning 8%       | `#F1EDE6` | caution background                     |
+| `--danger`                        | Burgundy                             | `#7B2638` | destructive/error state                |
+| `--danger-surface`                | Paper 92% / Burgundy 8%              | `#F1E9E8` | destructive/error background           |
+| `--visibility-restricted-surface` | = `--surface-muted`                  | `#F1F1EE` | any non-public visibility badge        |
+| `--visibility-restricted-text`    | = `--text-primary`                   | `#08131F` | any non-public visibility badge        |
+| `--visibility-restricted-border`  | = `--border-strong`                  | `#C1C3C3` | any non-public visibility badge        |
+| `--button-primary-bg`             | = `--action`                         | `#1769C2` | primary button background              |
+| `--button-primary-fg`             | = `--text-inverse`                   | `#FBFAF7` | primary button text                    |
+| `--button-primary-hover`          | = `--action-hover`                   | `#155CAA` | primary button hover                   |
+| `--button-secondary-bg`           | transparent                          | —         | secondary button background            |
+| `--button-secondary-fg`           | = `--text-primary`                   | `#08131F` | secondary button text                  |
+| `--button-secondary-border`       | = `--border-strong`                  | `#C1C3C3` | secondary button border                |
+| `--button-danger-bg`              | = `--danger`                         | `#7B2638` | destructive button background          |
+| `--button-danger-fg`              | = `--text-inverse`                   | `#FBFAF7` | destructive button text                |
+
+#### Dark theme
+
+Every token not listed here is unchanged from the light theme.
+
+| Token                 | Derivation                             | Value     |
+| --------------------- | -------------------------------------- | --------- |
+| `--surface-canvas`    | Ink                                    | `#08131F` |
+| `--surface-default`   | Ink 96% / Paper 4%                     | `#121C28` |
+| `--surface-muted`     | Ink 92% / Paper 8%                     | `#1B2530` |
+| `--surface-warm`      | Ink 84% / Gold 16%                     | `#242623` |
+| `--surface-selected`  | hand-tuned — not a plain mix           | `#1B3044` |
+| `--fill-soft`         | Paper 7%, translucent over its surface | —         |
+| `--text-primary`      | Paper                                  | `#FBFAF7` |
+| `--text-secondary`    | Ink 25% / Paper 75%                    | `#BEC0C1` |
+| `--text-tertiary`     | Ink 45% / Paper 55%                    | `#8E9296` |
+| `--text-inverse`      | Ink                                    | `#08131F` |
+| `--border-subtle`     | Ink 84% / Paper 16%                    | `#2F3842` |
+| `--border-strong`     | Ink 76% / Paper 24%                    | `#424A53` |
+| `--action`            | Astral Blue (replaces Archive Blue)    | `#3B91E8` |
+| `--action-hover`      | Astral Blue 85% / Paper 15%            | `#58A1EA` |
+| `--action-surface`    | hand-tuned — not a plain mix           | `#172637` |
+| `--action-selected`   | hand-tuned — not a plain mix           | `#1B3044` |
+| `--focus-ring`        | = `--action-hover`                     | `#58A1EA` |
+| `--graph-highlight`   | Astral Blue (unchanged)                | `#3B91E8` |
+| `--illustration-blue` | Astral Blue (unchanged)                | `#3B91E8` |
+| `--canonical`         | Gold (unchanged)                       | `#B88A3B` |
+| `--canonical-surface` | Ink 84% / Gold 16%                     | `#242623` |
+| `--success`           | hand-tuned — not a plain mix           | `#6FC29A` |
+| `--success-surface`   | Ink 75% / utility-success 25%          | `#14282E` |
+| `--warning`           | hand-tuned — not a plain mix           | `#D7AA52` |
+| `--warning-surface`   | Ink 78% / utility-warning 22%          | `#212525` |
+| `--danger`            | hand-tuned — not a plain mix           | `#E47A8D` |
+| `--danger-surface`    | hand-tuned — not a plain mix           | `#221F2C` |
+
+`--action` swapping from Archive Blue to Astral Blue in dark mode isn't new — it's the existing convention every shipped app already follows. What's new here is that `--focus-ring` now tracks that swap deliberately: in light mode it's Astral Blue standing apart from Archive-Blue `--action`; once `--action` itself becomes Astral Blue in dark mode, the focus ring borrows `--action-hover`'s lighter tint instead, so a focused element still reads as distinct from a plain link in both themes — not two unrelated hardcoded values.
+
+The `--visibility-restricted-*` and `--button-*` tokens are all aliases (`--visibility-restricted-surface: var(--surface-muted)`, etc.), so they need no dark-theme entries of their own — they inherit correctly for free.
+
+#### Starter
 
 ```css
 :root {
-  --lorenzo-ink: #08131f;
-  --lorenzo-archive-blue: #1769c2;
-  --lorenzo-astral-blue: #3b91e8;
-  --lorenzo-gold: #b88a3b;
-  --lorenzo-parchment: #f4efe5;
-  --lorenzo-paper: #fbfaf7;
-  --lorenzo-burgundy: #7b2638;
+  color-scheme: light dark;
 
-  --lorenzo-bg: var(--lorenzo-paper);
-  --lorenzo-fg: var(--lorenzo-ink);
-  --lorenzo-action: var(--lorenzo-archive-blue);
-  --lorenzo-brand-accent: var(--lorenzo-gold);
+  /* Brand primitives (§6.1) — identity only, never referenced directly by product UI */
+  --brand-ink: #08131f;
+  --brand-archive-blue: #1769c2;
+  --brand-astral-blue: #3b91e8;
+  --brand-gold: #b88a3b;
+  --brand-parchment: #f4efe5;
+  --brand-paper: #fbfaf7;
+  --brand-burgundy: #7b2638;
+
+  /* Utility colors — genuinely new hues, not tints of a brand primitive */
+  --utility-success: #2f6f56;
+  --utility-warning: #7a5a1f;
+
+  /* Surfaces */
+  --surface-canvas: var(--brand-paper);
+  --surface-default: var(--brand-paper);
+  --surface-muted: color-mix(in srgb, var(--brand-paper) 96%, var(--brand-ink) 4%);
+  --surface-warm: var(--brand-parchment);
+  --surface-selected: color-mix(in srgb, var(--brand-paper) 88%, var(--brand-archive-blue) 12%);
+  --fill-soft: color-mix(in srgb, var(--brand-ink) 6%, transparent);
+
+  /* Text */
+  --text-primary: var(--brand-ink);
+  --text-secondary: color-mix(in srgb, var(--brand-ink) 70%, var(--brand-paper));
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 55%, var(--brand-paper));
+  --text-inverse: var(--brand-paper);
+
+  /* Borders */
+  --border-subtle: color-mix(in srgb, var(--brand-ink) 16%, var(--brand-paper));
+  --border-strong: color-mix(in srgb, var(--brand-ink) 24%, var(--brand-paper));
+
+  /* Interaction */
+  --action: var(--brand-archive-blue);
+  --action-hover: color-mix(in srgb, var(--brand-archive-blue) 85%, var(--brand-ink) 15%);
+  --action-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--brand-archive-blue) 8%);
+  --action-selected: var(--surface-selected);
+  --focus-ring: var(--brand-astral-blue);
+  --graph-highlight: var(--brand-astral-blue);
+  --illustration-blue: var(--brand-astral-blue);
+
+  /* Canonical / significant — Gold's one job (§6.6) */
+  --canonical: var(--brand-gold);
+  --canonical-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--brand-gold) 8%);
+
+  /* Status */
+  --success: var(--utility-success);
+  --success-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--utility-success) 8%);
+  --warning: var(--utility-warning);
+  --warning-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--utility-warning) 8%);
+  --danger: var(--brand-burgundy);
+  --danger-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--brand-burgundy) 8%);
+
+  /* Buttons are their own layer, defined only in terms of roles above */
+  --button-primary-bg: var(--action);
+  --button-primary-fg: var(--text-inverse);
+  --button-primary-hover: var(--action-hover);
+  --button-secondary-bg: transparent;
+  --button-secondary-fg: var(--text-primary);
+  --button-secondary-border: var(--border-strong);
+  --button-danger-bg: var(--danger);
+  --button-danger-fg: var(--text-inverse);
+
+  /* Visibility is deliberately color-neutral — every non-public tier
+     (private, GM-only, a selected group) shares this one treatment;
+     only the icon/label changes. Public needs no badge at all. */
+  --visibility-restricted-surface: var(--surface-muted);
+  --visibility-restricted-text: var(--text-primary);
+  --visibility-restricted-border: var(--border-strong);
 }
 
 [data-theme="dark"] {
-  --lorenzo-bg: var(--lorenzo-ink);
-  --lorenzo-fg: var(--lorenzo-paper);
-  --lorenzo-action: var(--lorenzo-astral-blue);
-  --lorenzo-brand-accent: var(--lorenzo-gold);
+  --surface-canvas: var(--brand-ink);
+  --surface-default: color-mix(in srgb, var(--brand-ink) 96%, var(--brand-paper) 4%);
+  --surface-muted: color-mix(in srgb, var(--brand-ink) 92%, var(--brand-paper) 8%);
+  --surface-warm: color-mix(in srgb, var(--brand-ink) 84%, var(--brand-gold) 16%);
+  /* hand-tuned — a flat mix of any two named colors here undershoots the
+     intended blue cast; don't try to re-derive it mechanically */
+  --surface-selected: #1b3044;
+  --fill-soft: color-mix(in srgb, var(--brand-paper) 7%, transparent);
+
+  --text-primary: var(--brand-paper);
+  --text-secondary: color-mix(in srgb, var(--brand-ink) 25%, var(--brand-paper));
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 45%, var(--brand-paper));
+  --text-inverse: var(--brand-ink);
+
+  --border-subtle: color-mix(in srgb, var(--brand-ink) 84%, var(--brand-paper) 16%);
+  --border-strong: color-mix(in srgb, var(--brand-ink) 76%, var(--brand-paper) 24%);
+
+  /* Astral replaces Archive for readable dark-mode interaction (unchanged
+     from the existing --action light-dark() pairing) */
+  --action: var(--brand-astral-blue);
+  --action-hover: color-mix(in srgb, var(--brand-astral-blue) 85%, var(--brand-paper) 15%);
+  /* hand-tuned, same reasoning as --surface-selected above */
+  --action-surface: #172637;
+  --action-selected: #1b3044;
+
+  /* Astral Blue now equals --action, so the focus ring borrows
+     --action-hover's lighter tint instead, to stay visually distinct from
+     a plain link the way it already is in light mode. */
+  --focus-ring: var(--action-hover);
+  --graph-highlight: var(--brand-astral-blue);
+  --illustration-blue: var(--brand-astral-blue);
+
+  --canonical: var(--brand-gold);
+  --canonical-surface: color-mix(in srgb, var(--brand-ink) 84%, var(--brand-gold) 16%);
+
+  /* These three are hand-tuned (hue held, lightness/saturation raised) —
+     a plain color-mix() toward Ink or Paper can't reproduce a perceptual
+     lighten, so don't try to derive them mechanically if they ever change. */
+  --success: #6fc29a;
+  --success-surface: color-mix(in srgb, var(--brand-ink) 75%, var(--utility-success) 25%);
+  --warning: #d7aa52;
+  --warning-surface: color-mix(in srgb, var(--brand-ink) 78%, var(--utility-warning) 22%);
+  --danger: #e47a8d;
+  --danger-surface: #221f2c;
+
+  --visibility-restricted-surface: var(--surface-muted);
+  --visibility-restricted-text: var(--text-primary);
+  --visibility-restricted-border: var(--border-strong);
 }
 ```
 
