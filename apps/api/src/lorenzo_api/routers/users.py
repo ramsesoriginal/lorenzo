@@ -9,6 +9,7 @@ from pydantic import AwareDatetime
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, set_tenant_rls_context
 from lorenzo_api.exceptions import (
     LastOwnerError,
@@ -358,6 +359,81 @@ async def get_user_by_nickname(nickname: str, user: CurrentUser, session: Sessio
     return UserRefOut.from_user(found)
 
 
+async def _record_account_departure(session: SessionDep, *, user_id: uuid.UUID) -> None:
+    """ADR 0084's addendum: deleting an account cascades away every
+    membership, player seat and GM grant the user held, in every tenant, so
+    record each one first - in the tenant it belonged to, under the action
+    an ordinary removal of that relationship already uses, with the reason
+    `account deleted`. Written with the user as actor; `audit_log.actor_id`
+    is ON DELETE SET NULL, so that clears once the account is gone, and the
+    user stays identifiable by `target_id`. No notification: the only
+    recipient would be the account being deleted.
+
+    `audit_log`'s RLS is tenant-scoped, so each tenant's entries are
+    written under that tenant's own RLS context. The three source tables
+    admit the caller's own rows by `app.user_id` regardless of tenant.
+    """
+    memberships = (
+        await session.execute(
+            select(Membership.tenant_id, Membership.role).where(Membership.user_id == user_id)
+        )
+    ).all()
+    players = (
+        await session.execute(select(Player.tenant_id, Player.id).where(Player.user_id == user_id))
+    ).all()
+    gm_grants = (
+        await session.execute(
+            select(CampaignGm.tenant_id, CampaignGm.campaign_id).where(
+                CampaignGm.user_id == user_id
+            )
+        )
+    ).all()
+
+    tenant_ids = (
+        {tenant_id for tenant_id, _ in memberships}
+        | {tenant_id for tenant_id, _ in players}
+        | {tenant_id for tenant_id, _ in gm_grants}
+    )
+    for tenant_id in sorted(tenant_ids, key=str):
+        await set_tenant_rls_context(session, tenant_id)
+        for member_tenant_id, role in memberships:
+            if member_tenant_id == tenant_id:
+                await record_activity(
+                    session,
+                    tenant_id=tenant_id,
+                    actor_id=user_id,
+                    action="membership.deleted",
+                    target_type="membership",
+                    target_id=user_id,
+                    detail=f"account deleted, role={role.value}",
+                )
+        for player_tenant_id, player_id in players:
+            if player_tenant_id == tenant_id:
+                await record_activity(
+                    session,
+                    tenant_id=tenant_id,
+                    actor_id=user_id,
+                    action="player.removed",
+                    target_type="player",
+                    target_id=player_id,
+                    detail=f"account deleted, user={user_id}",
+                )
+        for gm_tenant_id, campaign_id in gm_grants:
+            if gm_tenant_id == tenant_id:
+                await record_activity(
+                    session,
+                    tenant_id=tenant_id,
+                    actor_id=user_id,
+                    action="campaign_gm.revoked",
+                    target_type="campaign_gm",
+                    target_id=user_id,
+                    detail=f"account deleted, campaign_id={campaign_id}",
+                )
+        # Flush while this tenant's context is still the active one - the
+        # INSERT's RLS check runs at flush time, not at session.add().
+        await session.flush()
+
+
 @router.delete("/me", status_code=204)
 async def delete_me(user: CurrentUser, session: SessionDep) -> None:
     """ADR 0036/RFC 0007 - removes the caller's own app_user row. Guarded:
@@ -413,6 +489,8 @@ async def delete_me(user: CurrentUser, session: SessionDep) -> None:
         )
         if owner_ids == [user.id]:
             raise LastOwnerError(detail=f"User {user.id} is the sole OWNER of tenant {tenant_id}")
+
+    await _record_account_departure(session, user_id=user.id)
 
     # The user_profile_picture link cascades away with the User row below,
     # but nothing points the other way - the profile_picture row itself
