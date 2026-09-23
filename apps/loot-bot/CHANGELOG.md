@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.3.0...loot-bot-v0.4.0) (2026-09-23)
+
+
+### Features
+
+* **api:** activity log coverage and member-removal notice (ADR 0084) ([009b954](https://github.com/ramsesoriginal/lorenzo/commit/009b9546244bff8e42eb26b9e566c2455a15d937))
+* **api:** deliver [#154](https://github.com/ramsesoriginal/lorenzo/issues/154) to main - export reads, GET /me/managed, notifications since, OWNER visibility (ADR 0085/0086/0096) ([cebd784](https://github.com/ramsesoriginal/lorenzo/commit/cebd784b89efbfb8d10e50a75bbd13c887adf717))
+* **api:** player-facing change feed - GET /me/changes (ADR 0099) ([4b01537](https://github.com/ramsesoriginal/lorenzo/commit/4b015376fc70a299b8271a9ccfc0c93e82b86318))
+* **api:** player-facing change feed (ADR 0099) ([f433826](https://github.com/ramsesoriginal/lorenzo/commit/f433826c5d89f0c49772d5375bba267087549f78))
+* **api:** shareable, expiring campaign invite links (ADR 0092) ([3e61e5f](https://github.com/ramsesoriginal/lorenzo/commit/3e61e5f220d3314033150892ea78f327cd1c7626))
+* **api:** tenant export reads, GET /me/managed, notifications since (ADR 0085/0086) ([784fb36](https://github.com/ramsesoriginal/lorenzo/commit/784fb36a49977ca796d87df19b2de4b569fb639d))
+* **loot-bot:** add /changes - what happened to your stuff since you last looked ([556b603](https://github.com/ramsesoriginal/lorenzo/commit/556b603b3082907a709a2ea3f0bda69043d93e47))
+* **loot-bot:** add /changes - what happened to your stuff since you last looked ([5e4113b](https://github.com/ramsesoriginal/lorenzo/commit/5e4113bdeed470b0534d6dc16d3df6583382f7e7))
+* **loot-bot:** add /container-new - bundle loose items into a named sack ([4d12e7e](https://github.com/ramsesoriginal/lorenzo/commit/4d12e7ed10f091277f42e35005a5c102fbb47cf8))
+* **loot-bot:** add /container-new - bundle loose items into a named sack ([a6b2db6](https://github.com/ramsesoriginal/lorenzo/commit/a6b2db6ec2df2678ff043265258d17eff30204ae))
+* **loot-bot:** add /sheet - a character's resolved stats and the notes you may see ([a511e9e](https://github.com/ramsesoriginal/lorenzo/commit/a511e9eba218e8ef9ade36dd01e0a14cea5c78f1))
+* **loot-bot:** add /sheet - a character's resolved stats and the notes you may see ([1d6f91e](https://github.com/ramsesoriginal/lorenzo/commit/1d6f91eb1007bc2fecf4cb42adecd776b6a6bfce))
+* **loot-bot:** autocomplete /drop's container and surface item slugs ([11ae2c9](https://github.com/ramsesoriginal/lorenzo/commit/11ae2c9535054070cdc9695fb77cbe1e5c2aefce))
+* **loot-bot:** autocomplete /drop's container and surface item slugs ([42dafad](https://github.com/ramsesoriginal/lorenzo/commit/42dafad4675d37a630663e67e9395c9c08c71b77))
+* **loot-bot:** confirm /give with one click, and remember your last-used character ([0450d6f](https://github.com/ramsesoriginal/lorenzo/commit/0450d6f65fddffd98fcd063880b914de6508bbe1))
+* **loot-bot:** confirm /give with one click, and remember your last-used character ([40aec43](https://github.com/ramsesoriginal/lorenzo/commit/40aec4314c52ddc81d238d0b639672459ca9cab2))
+* **loot-bot:** DM users their Lorenzo notifications, with a "couldn't DM you" fallback ([0cb93b2](https://github.com/ramsesoriginal/lorenzo/commit/0cb93b29721374c1dbb62888747e57fe7f1f47d8))
+* **loot-bot:** DM users their Lorenzo notifications, with a "couldn't DM you" fallback ([fa67509](https://github.com/ramsesoriginal/lorenzo/commit/fa675094505c16551e96b763dee5684f0f6ac340))
+* **loot-bot:** group /help by task, with a first-run intro ([e92b0b9](https://github.com/ramsesoriginal/lorenzo/commit/e92b0b95ff9add5726187259cadadddeda420f3c))
+* **loot-bot:** group /help by task, with a first-run intro ([0023ddf](https://github.com/ramsesoriginal/lorenzo/commit/0023ddfe8962b668b1e83e53f92492f3560a716f))
+
+
+### Bug Fixes
+
+* **loot-bot:** test /changes recording via onButton, not execute() ([2717278](https://github.com/ramsesoriginal/lorenzo/commit/271727882fa42290c97d9d91e4f991c4ef2a1154))
+
 ## [0.3.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.2.0...loot-bot-v0.3.0) (2026-09-19)
 
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.0.0...account-hub-v1.1.0) (2026-09-23)
+
+
+### Features
+
+* **account-hub:** cross-tenant/cross-campaign access overview ([ec67ec8](https://github.com/ramsesoriginal/lorenzo/commit/ec67ec89e7e8eac5ae947c2693ae48623b1c21ff))
+* **account-hub:** pictures, unread badge, and cross-tenant overview ([0544d43](https://github.com/ramsesoriginal/lorenzo/commit/0544d43d11d74cf9dc398dd3afad4cd370d83ce3))
+* **account-hub:** tenant and campaign picture upload/display ([c35e967](https://github.com/ramsesoriginal/lorenzo/commit/c35e967cf74d66522d6bf5cc3c63451df6270134))
+* **account-hub:** unread-notification indicator on the home hub ([4a0ecf8](https://github.com/ramsesoriginal/lorenzo/commit/4a0ecf8cb7f81b38fe417d2b50affa67854ecd73))
+* **brand:** swap Instrument Serif for Newsreader as the display typeface ([f9abfbd](https://github.com/ramsesoriginal/lorenzo/commit/f9abfbd4687eab3fd79d4ca59b3b4d333de5b3aa))
+
+
+### Bug Fixes
+
+* **account-hub,inventory-web:** match Cloudflare's trailing-slash canonical URL for OAuth callback ([9642c5a](https://github.com/ramsesoriginal/lorenzo/commit/9642c5a8ae5e7871a13587086db2b95ef8ba68e5))
+* **account-hub,inventory-web:** match Cloudflare's trailing-slash canonical URL for the OAuth callback ([690194e](https://github.com/ramsesoriginal/lorenzo/commit/690194eac234a974a2aae1f1a1c05e9913078367))
+* **account-hub:** don't crash /tenants for participant-only tenants ([d48ffce](https://github.com/ramsesoriginal/lorenzo/commit/d48ffce963804ed45767ff73ccd2f818bc36c8c0))
+* **account-hub:** don't crash /tenants for participant-only tenants ([ba3e026](https://github.com/ramsesoriginal/lorenzo/commit/ba3e026022a8d6180a91a26a472fa8913bb09f09))
+* **inventory-web,account-hub:** Cloudflare Pages build watch paths need ** not * ([790d7a2](https://github.com/ramsesoriginal/lorenzo/commit/790d7a2e399d132e5f507d433206aa7a3c557433))
+* **inventory-web,account-hub:** Cloudflare Pages build watch paths need ** not * ([dc9c0df](https://github.com/ramsesoriginal/lorenzo/commit/dc9c0df2da3438406d3a78b8c230da0be6b69b22))
+
 ## 1.0.0 (2026-09-19)
 
 

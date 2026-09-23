@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.0.0...inventory-web-v1.1.0) (2026-09-23)
+
+
+### Features
+
+* **brand:** swap Instrument Serif for Newsreader as the display typeface ([f9abfbd](https://github.com/ramsesoriginal/lorenzo/commit/f9abfbd4687eab3fd79d4ca59b3b4d333de5b3aa))
+* **inventory-web:** add a button fallback for moving an item between containers ([99685f7](https://github.com/ramsesoriginal/lorenzo/commit/99685f7b7f037ad1ee67577d3ea2845fac5d72a9))
+* **inventory-web:** add a button fallback for moving an item between containers ([c6bd50e](https://github.com/ramsesoriginal/lorenzo/commit/c6bd50eaed4bdce2c184f6c4108c99dae06ef471))
+* **inventory-web:** debug button to mark three entities as containers ([f6ffddd](https://github.com/ramsesoriginal/lorenzo/commit/f6ffdddc9501208575145a2b29abbecca9be80a0))
+* **inventory-web:** debug button to mark three entities as containers ([f6aee7e](https://github.com/ramsesoriginal/lorenzo/commit/f6aee7ed0bc3a3f0f46692ab8b53c1020ec1eb74))
+
+
+### Bug Fixes
+
+* **account-hub,inventory-web:** match Cloudflare's trailing-slash canonical URL for OAuth callback ([9642c5a](https://github.com/ramsesoriginal/lorenzo/commit/9642c5a8ae5e7871a13587086db2b95ef8ba68e5))
+* **account-hub,inventory-web:** match Cloudflare's trailing-slash canonical URL for the OAuth callback ([690194e](https://github.com/ramsesoriginal/lorenzo/commit/690194eac234a974a2aae1f1a1c05e9913078367))
+* **inventory-web,account-hub:** Cloudflare Pages build watch paths need ** not * ([790d7a2](https://github.com/ramsesoriginal/lorenzo/commit/790d7a2e399d132e5f507d433206aa7a3c557433))
+* **inventory-web,account-hub:** Cloudflare Pages build watch paths need ** not * ([dc9c0df](https://github.com/ramsesoriginal/lorenzo/commit/dc9c0df2da3438406d3a78b8c230da0be6b69b22))
+* **inventory-web:** follow every page of the item catalog, not just the first ([f20b767](https://github.com/ramsesoriginal/lorenzo/commit/f20b767717796c1cd0e0187d69e2ceed3ab0bc6f))
+* **inventory-web:** follow every page of the item catalog, not just the first ([bfcc1c5](https://github.com/ramsesoriginal/lorenzo/commit/bfcc1c5a7842f5d8120914cc05e680dd4666ead5))
+* **inventory-web:** tighten a handful of strings against the brand voice guide ([30dfc6e](https://github.com/ramsesoriginal/lorenzo/commit/30dfc6e9453924920dcfa13be8e0dce23924e835))
+* **inventory-web:** tighten a handful of strings against the brand voice guide ([a902996](https://github.com/ramsesoriginal/lorenzo/commit/a902996170510edd38fc64f102ba2f563ccca6cf))
+
 ## 1.0.0 (2026-09-19)
 
 

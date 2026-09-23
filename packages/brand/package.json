@@ -2,7 +2,7 @@
   "name": "@lorenzo/brand",
   "private": true,
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Lorenzo's shared brand layout package - tokens, fonts, icons, and a small opinionated CSS foundation - for other apps to bundle at build time. See ADR 0098.",
   "files": [
     "tokens.css",
