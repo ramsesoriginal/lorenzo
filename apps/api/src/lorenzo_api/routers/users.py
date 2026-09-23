@@ -1,15 +1,17 @@
 import uuid
-from datetime import UTC, datetime
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, UploadFile
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import AwareDatetime
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.change_feed import RETENTION_DAYS
 from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, set_tenant_rls_context
 from lorenzo_api.exceptions import (
     LastOwnerError,
@@ -23,6 +25,7 @@ from lorenzo_api.models import (
     CampaignGm,
     Character,
     CharacterPlayer,
+    EntityChange,
     Membership,
     MembershipRole,
     Notification,
@@ -35,6 +38,7 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_user_profile_picture,
 )
+from lorenzo_api.schemas.changes import EntityChangeOut
 from lorenzo_api.schemas.managed import ManagedCampaignOut, ManagedScopeOut, ManagedTenantOut
 from lorenzo_api.schemas.notifications import NotificationOut
 from lorenzo_api.schemas.users import MeOut, ProfileUpdate, UserRefOut
@@ -287,6 +291,49 @@ async def list_my_notifications(
         stmt = stmt.where(Notification.created_at >= since)
     stmt = stmt.order_by(Notification.created_at.desc(), Notification.id)
     page: Page[NotificationOut] = await apaginate(session, stmt, params)
+    return page
+
+
+@router.get("/me/changes")
+async def list_my_changes(
+    user: CurrentUser,
+    session: SessionDep,
+    params: ParamsDep,
+    since: Annotated[AwareDatetime | None, Query()] = None,
+) -> Page[EntityChangeOut]:
+    """What happened to things the caller's characters own or carry, across
+    every tenant, newest first - see ADR 0099. `since` is inclusive and
+    timezone-aware, exactly like `GET /me/notifications` (ADR 0086).
+
+    One flat query, no per-tenant looping: `entity_change`'s RLS admits a
+    row only to its recipient (`user_id = app.user_id`), whatever the
+    tenant. Also filtered by `user_id` here, not left to RLS alone (ADR
+    0002). There is no job runner (ADR 0008), so this is where the 90-day
+    retention happens: expired rows are excluded from the listing, then the
+    caller's own are deleted.
+    """
+    cutoff = datetime.now(tz=UTC) - timedelta(days=RETENTION_DAYS)
+    stmt = select(EntityChange).where(
+        EntityChange.user_id == user.id, EntityChange.occurred_at >= cutoff
+    )
+    if since is not None:
+        stmt = stmt.where(EntityChange.occurred_at >= since)
+    stmt = stmt.order_by(EntityChange.occurred_at.desc(), EntityChange.id)
+
+    def _out(rows: Sequence[EntityChange]) -> list[EntityChangeOut]:
+        return [EntityChangeOut.from_change(row) for row in rows]
+
+    page: Page[EntityChangeOut] = await apaginate(session, stmt, params, transformer=_out)
+
+    # Pruned last, not first: app.user_id is transaction-local
+    # (get_current_user), and this commit ends the transaction - any query
+    # after it would run with no user set and see nothing through RLS.
+    await session.execute(
+        delete(EntityChange).where(
+            EntityChange.user_id == user.id, EntityChange.occurred_at < cutoff
+        )
+    )
+    await session.commit()
     return page
 
 

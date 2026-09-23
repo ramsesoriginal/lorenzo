@@ -342,6 +342,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Changes
+         * @description What happened to things the caller's characters own or carry, across
+         *     every tenant, newest first - see ADR 0099. `since` is inclusive and
+         *     timezone-aware, exactly like `GET /me/notifications` (ADR 0086).
+         *
+         *     One flat query, no per-tenant looping: `entity_change`'s RLS admits a
+         *     row only to its recipient (`user_id = app.user_id`), whatever the
+         *     tenant. Also filtered by `user_id` here, not left to RLS alone (ADR
+         *     0002). There is no job runner (ADR 0008), so this is where the 90-day
+         *     retention happens: expired rows are excluded from the listing, then the
+         *     caller's own are deleted.
+         */
+        get: operations["list_my_changes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/notifications/sent": {
         parameters: {
             query?: never;
@@ -2953,6 +2982,49 @@ export interface components {
             name?: string | null;
         };
         /**
+         * EntityChangeOut
+         * @description One row of `GET /me/changes` - see ADR 0099. `actor_user_id` is set
+         *     only when the actor is visible to the recipient: another player, never
+         *     a GM or tenant administrator. `entity_name` is the item's name when the
+         *     change happened, so a row still reads correctly after a rename or
+         *     deletion.
+         */
+        EntityChangeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Character Entity Id
+             * Format: uuid
+             */
+            character_entity_id: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Entity Name */
+            entity_name: string;
+            /** Kind */
+            kind: string;
+            /** Detail */
+            detail: string | null;
+            /** Actor User Id */
+            actor_user_id: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /**
          * EntityDetailOut
          * @description The full shape of a single entity - every relationship resolved and
          *     inlined. See ADR 0020. Deliberately not reused for the list endpoint,
@@ -3908,6 +3980,19 @@ export interface components {
         Page_CharacterSummaryOut_: {
             /** Items */
             items: components["schemas"]["CharacterSummaryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[EntityChangeOut] */
+        Page_EntityChangeOut_: {
+            /** Items */
+            items: components["schemas"]["EntityChangeOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -5557,6 +5642,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_NotificationOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_my_changes: {
+        parameters: {
+            query?: {
+                since?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EntityChangeOut_"];
                 };
             };
             /** @description Validation Error */
