@@ -8,6 +8,7 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import can_manage_campaign
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -169,6 +170,16 @@ async def create_player(
         updated_by=user.id,
     )
     session.add(player)
+    await session.flush()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="player.added",
+        target_type="player",
+        target_id=player.id,
+        detail=f"user={body.user_id}",
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -204,5 +215,14 @@ async def delete_player(
             detail=f"Not authorized to manage campaign {campaign_id}"
         )
 
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="player.removed",
+        target_type="player",
+        target_id=player_id,
+        detail=f"{'left' if player.user_id == user.id else 'removed'}, user={player.user_id}",
+    )
     await session.delete(player)
     await session.commit()

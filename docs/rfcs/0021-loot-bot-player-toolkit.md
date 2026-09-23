@@ -1,6 +1,6 @@
 # RFC: `apps/loot-bot` — a player toolkit round: notification DMs, safer `/give`, containers, sheets, and discoverability
 
-Status: proposed
+Status: accepted — landed across ADR [0088](../adr/0088-loot-bot-give-confirmation-and-last-used-character.md)/[0089](../adr/0089-loot-bot-task-grouped-help.md)/[0090](../adr/0090-loot-bot-sheet.md)/[0093](../adr/0093-loot-bot-drop-autocomplete-and-slug-surfacing.md)/[0094](../adr/0094-loot-bot-container-new.md)/[0095](../adr/0095-loot-bot-notification-dms.md)/[0097](../adr/0097-loot-bot-changes.md), plus the client-drift CI slice (`.github/workflows/ci.yml`'s `client-drift` job)
 
 Numbered 0019 originally; renumbered to 0021 on merge into `main`, which had independently claimed 0019 for account-hub's own pictures/overview RFC in the meantime (0020 is left for another open branch's own renumbering, which also collided on 0019). Same renumbering precedent as ADR 0050/0054's own history.
 

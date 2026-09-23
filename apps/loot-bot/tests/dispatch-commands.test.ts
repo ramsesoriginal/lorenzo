@@ -47,9 +47,9 @@ describe("dispatchInteraction", () => {
 
     const call = (interaction.reply as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
     const embed = call.embeds[0].data;
-    const utilityField = embed.fields.find((f: { name: string }) => f.name === "Utility");
-    expect(utilityField.value).toContain("`/ping`");
-    expect(utilityField.value).toContain("`/help`");
+    const housekeeping = embed.fields.find((f: { name: string }) => f.name === "Housekeeping");
+    expect(housekeeping.value).toContain("`/ping`");
+    expect(housekeeping.value).toContain("`/help`");
   });
 
   describe("the 'couldn't DM you' banner (ADR 0095)", () => {

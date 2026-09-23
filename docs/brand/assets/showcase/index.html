@@ -10,25 +10,59 @@
 <link rel="apple-touch-icon" href="../favicon/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
 <style>
   :root {
     /* identity.md §6.6 — copied verbatim from the design-token starter */
-    --lorenzo-ink: #08131f;
-    --lorenzo-archive-blue: #1769c2;
-    --lorenzo-astral-blue: #3b91e8;
-    --lorenzo-gold: #b88a3b;
-    --lorenzo-parchment: #f4efe5;
-    --lorenzo-paper: #fbfaf7;
-    --lorenzo-burgundy: #7b2638;
+    --brand-ink: #08131f;
+    --brand-archive-blue: #1769c2;
+    --brand-astral-blue: #3b91e8;
+    --brand-gold: #b88a3b;
+    --brand-parchment: #f4efe5;
+    --brand-paper: #fbfaf7;
+    --brand-burgundy: #7b2638;
 
-    --lorenzo-bg: var(--lorenzo-paper);
-    --lorenzo-fg: var(--lorenzo-ink);
-    --lorenzo-action: var(--lorenzo-archive-blue);
-    --lorenzo-brand-accent: var(--lorenzo-gold);
+    --utility-success: #2f6f56;
+    --utility-warning: #7a5a1f;
+
+    --surface-canvas: var(--brand-paper);
+    --surface-muted: color-mix(in srgb, var(--brand-paper) 96%, var(--brand-ink) 4%);
+    --text-primary: var(--brand-ink);
+    --text-secondary: color-mix(in srgb, var(--brand-ink) 70%, var(--brand-paper));
+    --text-inverse: var(--brand-paper);
+    --border-subtle: color-mix(in srgb, var(--brand-ink) 16%, var(--brand-paper));
+    --border-strong: color-mix(in srgb, var(--brand-ink) 24%, var(--brand-paper));
+
+    --action: var(--brand-archive-blue);
+    --action-hover: color-mix(in srgb, var(--brand-archive-blue) 85%, var(--brand-ink) 15%);
+    --focus-ring: var(--brand-astral-blue);
+    --canonical: var(--brand-gold);
+    --canonical-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--brand-gold) 8%);
+
+    --success: var(--utility-success);
+    --success-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--utility-success) 8%);
+    --warning: var(--utility-warning);
+    --warning-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--utility-warning) 8%);
+    --danger: var(--brand-burgundy);
+    --danger-surface: color-mix(in srgb, var(--brand-paper) 92%, var(--brand-burgundy) 8%);
+
+    --button-primary-bg: var(--action);
+    --button-primary-fg: var(--text-inverse);
+    --button-primary-hover: var(--action-hover);
+    --button-secondary-bg: transparent;
+    --button-secondary-fg: var(--text-primary);
+    --button-secondary-border: var(--border-strong);
+    --button-danger-bg: var(--danger);
+    --button-danger-fg: var(--text-inverse);
+
+    /* Visibility is deliberately color-neutral (identity.md §6.6) — every
+       non-public tier shares this one treatment; only the icon changes. */
+    --visibility-restricted-surface: var(--surface-muted);
+    --visibility-restricted-text: var(--text-primary);
+    --visibility-restricted-border: var(--border-strong);
 
     --font-body: Geist, Inter, ui-sans-serif, system-ui, sans-serif;
-    --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --font-display: "Newsreader", Georgia, "Times New Roman", serif;
     --font-mono: "Geist Mono", "SFMono-Regular", Consolas, monospace;
 
     --space-1: 4px;
@@ -41,15 +75,34 @@
     --radius-control: 8px;
     --radius-card: 10px;
     --radius-large: 16px;
-
-    --border: color-mix(in srgb, var(--lorenzo-fg) 14%, transparent);
+    --radius-pill: 999px;
   }
 
   [data-theme="dark"] {
-    --lorenzo-bg: var(--lorenzo-ink);
-    --lorenzo-fg: var(--lorenzo-paper);
-    --lorenzo-action: var(--lorenzo-astral-blue);
-    --lorenzo-brand-accent: var(--lorenzo-gold);
+    --surface-canvas: var(--brand-ink);
+    --surface-muted: color-mix(in srgb, var(--brand-ink) 92%, var(--brand-paper) 8%);
+    --text-primary: var(--brand-paper);
+    --text-secondary: color-mix(in srgb, var(--brand-ink) 25%, var(--brand-paper));
+    --text-inverse: var(--brand-ink);
+    --border-subtle: color-mix(in srgb, var(--brand-ink) 84%, var(--brand-paper) 16%);
+    --border-strong: color-mix(in srgb, var(--brand-ink) 76%, var(--brand-paper) 24%);
+
+    /* Astral replaces Archive for readable dark-mode interaction */
+    --action: var(--brand-astral-blue);
+    --action-hover: color-mix(in srgb, var(--brand-astral-blue) 85%, var(--brand-paper) 15%);
+    /* --action is now Astral Blue itself, so the focus ring borrows
+       --action-hover's lighter tint to stay visually distinct from a link */
+    --focus-ring: var(--action-hover);
+    --canonical-surface: color-mix(in srgb, var(--brand-ink) 84%, var(--brand-gold) 16%);
+
+    /* Hand-tuned, perceptually lightened — a flat color-mix() can't
+       reproduce these (identity.md §6.6) */
+    --success: #6fc29a;
+    --success-surface: color-mix(in srgb, var(--brand-ink) 75%, var(--utility-success) 25%);
+    --warning: #d7aa52;
+    --warning-surface: color-mix(in srgb, var(--brand-ink) 78%, var(--utility-warning) 22%);
+    --danger: #e47a8d;
+    --danger-surface: #221f2c;
   }
 
   * { box-sizing: border-box; }
@@ -57,8 +110,8 @@
 
   body {
     margin: 0;
-    background: var(--lorenzo-bg);
-    color: var(--lorenzo-fg);
+    background: var(--surface-canvas);
+    color: var(--text-primary);
     font-family: var(--font-body);
     line-height: 1.6;
     transition: background .2s ease, color .2s ease;
@@ -66,7 +119,7 @@
 
   main { display: block; }
 
-  a { color: var(--lorenzo-action); }
+  a { color: var(--action); }
 
   .wrap {
     max-width: 1040px;
@@ -79,8 +132,8 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    background: var(--lorenzo-bg);
-    border-bottom: 1px solid var(--border);
+    background: var(--surface-canvas);
+    border-bottom: 1px solid var(--border-subtle);
   }
   .site-header .wrap {
     display: flex;
@@ -97,7 +150,7 @@
   nav.site-nav { display: flex; gap: var(--space-4); }
   nav.site-nav a {
     text-decoration: none;
-    color: var(--lorenzo-fg);
+    color: var(--text-primary);
     font-size: 14px;
     font-weight: 500;
     opacity: .75;
@@ -110,16 +163,16 @@
     font-family: var(--font-mono);
     font-size: 12px;
     background: transparent;
-    color: var(--lorenzo-fg);
-    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-control);
     padding: 6px 10px;
     cursor: pointer;
   }
-  button.theme-toggle:hover { border-color: var(--lorenzo-action); color: var(--lorenzo-action); }
+  button.theme-toggle:hover { border-color: var(--action); color: var(--action); }
 
   /* Sections */
-  section { padding-block: var(--space-6); border-bottom: 1px solid var(--border); }
+  section { padding-block: var(--space-6); border-bottom: 1px solid var(--border-subtle); }
   section:last-of-type { border-bottom: none; }
 
   .eyebrow {
@@ -127,8 +180,8 @@
     font-family: var(--font-mono);
     font-size: 12px;
     letter-spacing: .02em;
-    color: var(--lorenzo-brand-accent);
-    border: 1px solid color-mix(in srgb, var(--lorenzo-brand-accent) 40%, transparent);
+    color: var(--canonical);
+    border: 1px solid color-mix(in srgb, var(--canonical) 40%, transparent);
     border-radius: 999px;
     padding: 4px 12px;
     margin-bottom: var(--space-4);
@@ -176,17 +229,63 @@
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: var(--space-3);
   }
-  .swatch { border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--border); }
+  .swatch { border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--border-subtle); }
   .swatch-color { height: 88px; }
-  .swatch-label { padding: var(--space-2) var(--space-3); background: var(--lorenzo-bg); }
+  .swatch-label { padding: var(--space-2) var(--space-3); background: var(--surface-canvas); }
   .swatch-label .name { font-size: 13px; font-weight: 500; }
   .swatch-label .hex { font-family: var(--font-mono); font-size: 12px; opacity: .7; }
   .swatch-label .role { font-size: 12px; opacity: .6; margin-top: 2px; }
 
+  /* Semantic roles */
+  .demo-row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4); }
+  .demo-row:last-child { margin-bottom: 0; }
+  .demo-label { width: 100%; font-family: var(--font-mono); font-size: 12px; opacity: .6; margin-bottom: -4px; }
+
+  .btn {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: var(--radius-control);
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--button-primary-bg); color: var(--button-primary-fg); }
+  .btn-primary:hover { background: var(--button-primary-hover); }
+  .btn-secondary { background: var(--button-secondary-bg); color: var(--button-secondary-fg); border-color: var(--button-secondary-border); }
+  .btn-danger { background: var(--button-danger-bg); color: var(--button-danger-fg); }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+  }
+  .pill-success { background: var(--success-surface); color: var(--success); }
+  .pill-warning { background: var(--warning-surface); color: var(--warning); }
+  .pill-danger { background: var(--danger-surface); color: var(--danger); }
+
+  /* Every non-public visibility tier shares this one neutral badge -
+     only the icon/label differs. Public gets no badge at all. */
+  .badge-visibility {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    background: var(--visibility-restricted-surface);
+    color: var(--visibility-restricted-text);
+    border: 1px solid var(--visibility-restricted-border);
+  }
+  .badge-public { font-size: 13px; opacity: .7; padding: 4px 12px; }
+
   /* Typography */
   .type-samples { display: grid; gap: var(--space-4); margin-bottom: var(--space-5); }
   .type-card {
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-card);
     padding: var(--space-4);
   }
@@ -201,8 +300,8 @@
   .code-card {
     font-family: var(--font-mono);
     font-size: 13px;
-    background: color-mix(in srgb, var(--lorenzo-fg) 5%, transparent);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-card);
     padding: var(--space-4);
     overflow-x: auto;
@@ -211,7 +310,7 @@
 
   table.scale { width: 100%; border-collapse: collapse; margin-top: var(--space-4); }
   table.scale caption { text-align: left; font-size: 13px; opacity: .6; margin-bottom: var(--space-2); }
-  table.scale td { padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+  table.scale td { padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); }
   table.scale td.role { width: 160px; font-family: var(--font-mono); font-size: 12px; opacity: .6; vertical-align: middle; }
 
   /* Logos on light/dark */
@@ -226,26 +325,21 @@
     gap: var(--space-4);
     min-height: 220px;
   }
-  .logo-panel.light { background: var(--lorenzo-paper); color: var(--lorenzo-ink); border: 1px solid color-mix(in srgb, var(--lorenzo-ink) 12%, transparent); }
-  .logo-panel.dark { background: var(--lorenzo-ink); color: var(--lorenzo-paper); }
+  .logo-panel.light { background: var(--brand-paper); color: var(--brand-ink); border: 1px solid color-mix(in srgb, var(--brand-ink) 12%, transparent); }
+  .logo-panel.dark { background: var(--brand-ink); color: var(--brand-paper); }
   .logo-panel img.mark { height: 56px; width: auto; }
   .logo-panel img.panel-lockup { height: 32px; width: auto; }
   .logo-panel .caption { font-family: var(--font-mono); font-size: 12px; opacity: .65; text-align: center; }
 
-  /* Motif */
+  /* Motif — a single canonical marker (identity.md §7.1), not a repeating
+     divider or loading motif; see #roles for ordinary interface icons */
   .divider {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: var(--space-4);
     margin-bottom: var(--space-5);
   }
-  .divider img { width: 18px; height: 18px; }
-  .divider img:nth-child(1) { opacity: .25; }
-  .divider img:nth-child(2) { opacity: .5; }
-  .divider img:nth-child(3) { opacity: 1; }
-  .divider img:nth-child(4) { opacity: .5; }
-  .divider img:nth-child(5) { opacity: .25; }
+  .divider img { width: 20px; height: 20px; }
 
   .motif-graphic { display: block; margin: 0 auto var(--space-3); max-width: 360px; width: 100%; height: auto; }
   .motif-caption { text-align: center; font-family: var(--font-display); font-size: 20px; font-style: italic; opacity: .85; }
@@ -253,7 +347,7 @@
   /* Mascot */
   .mascot-grid { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-3); align-items: stretch; }
   .mascot-card {
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-card);
     padding: var(--space-4);
     display: flex;
@@ -265,7 +359,7 @@
     height: 96px;
     object-fit: cover;
     border-radius: var(--radius-card);
-    background: var(--lorenzo-parchment);
+    background: var(--brand-parchment);
     flex-shrink: 0;
   }
   .mascot-card img.missing { visibility: hidden; }
@@ -273,7 +367,7 @@
   .mascot-card p { margin: 0; font-size: 14px; opacity: .8; }
 
   .catileo-aside {
-    border: 1px dashed var(--border);
+    border: 1px dashed var(--border-subtle);
     border-radius: var(--radius-card);
     padding: var(--space-4);
     font-family: var(--font-display);
@@ -287,7 +381,7 @@
   /* Voice */
   .voice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3); }
   .voice-card {
-    border: 1px dashed var(--border);
+    border: 1px dashed var(--border-subtle);
     border-radius: var(--radius-card);
     padding: var(--space-4);
     font-size: 14px;
@@ -322,6 +416,7 @@
     </a>
     <nav class="site-nav" aria-label="Sections">
       <a href="#palette">Palette</a>
+      <a href="#roles">Roles</a>
       <a href="#type">Type</a>
       <a href="#logos">Logos</a>
       <a href="#motif">Motif</a>
@@ -356,9 +451,44 @@
       <h2>Color system</h2>
       <p class="section-intro">
         Ink and Paper carry the interface. Archive Blue drives interaction. Medici Gold is
-        punctuation, not a surface — identity.md §6.3 puts it at roughly 2–5% of a screen.
+        punctuation, not a surface — identity.md §6.3 puts it at roughly 2–5% of a screen. These
+        seven primitives are identity-level; product code styles against the semantic roles below.
       </p>
       <div class="palette-grid" id="palette-grid"></div>
+    </div>
+  </section>
+
+  <section id="roles">
+    <div class="wrap">
+      <h2>Semantic roles</h2>
+      <p class="section-intro">
+        identity.md §6.6: primitives don't get used directly — every app reaches for the same
+        surface/text/border/action/status roles instead. Burgundy is destructive/dangerous and
+        genuinely dramatic emphasis only — never secrecy. Restricted visibility (private, GM-only,
+        a selected group) is deliberately color-neutral; only the icon says which tier it is, and
+        public needs no badge at all.
+      </p>
+      <div class="palette-grid" id="roles-grid"></div>
+
+      <div class="demo-row">
+        <span class="demo-label">Buttons</span>
+        <button class="btn btn-primary" type="button">Save changes</button>
+        <button class="btn btn-secondary" type="button">Cancel</button>
+        <button class="btn btn-danger" type="button">Delete campaign</button>
+      </div>
+      <div class="demo-row">
+        <span class="demo-label">Status</span>
+        <span class="pill pill-success">Synced</span>
+        <span class="pill pill-warning">Needs review</span>
+        <span class="pill pill-danger">Failed</span>
+      </div>
+      <div class="demo-row">
+        <span class="demo-label">Visibility — one neutral treatment, differentiated by icon only</span>
+        <span class="badge-visibility">🔒 Private</span>
+        <span class="badge-visibility">◉ GM only</span>
+        <span class="badge-visibility">👥 Selected characters</span>
+        <span class="badge-public">Public</span>
+      </div>
     </div>
   </section>
 
@@ -366,7 +496,7 @@
     <div class="wrap">
       <h2>Typography</h2>
       <p class="section-intro">
-        Geist for interface and body. Instrument Serif, used sparingly, for editorial and display
+        Geist for interface and body. Newsreader, used sparingly, for editorial and display
         moments. Geist Mono for code, IDs, and anything that benefits from monospacing.
       </p>
       <div class="type-samples">
@@ -378,7 +508,7 @@
         <div class="type-card display-sample">
           <div class="big">Aa</div>
           <p class="sample-text">Old-world scholarship × modern information system.</p>
-          <div class="stack">"Instrument Serif", Georgia, "Times New Roman", serif</div>
+          <div class="stack">"Newsreader", Georgia, "Times New Roman", serif</div>
         </div>
         <div class="code-card" aria-label="Geist Mono code sample">
 <pre>{
@@ -433,25 +563,23 @@
     <div class="wrap">
       <h2>Supporting graphic language</h2>
       <p class="section-intro">
-        The spark reappears as a restrained system element — dividers, canonical markers, loading
-        states — per identity.md §7.1. Elsewhere, Lorenzo's visual vocabulary is nodes, paths, and
+        The spark reappears beyond the logo only for canonical markers and rare editorial
+        punctuation — per identity.md §7.1, its value comes from scarcity, so it is deliberately
+        not used here as a repeating divider or loading motif (§17 covers what is: ordinary
+        interface icons). Elsewhere, Lorenzo's visual vocabulary is nodes, paths, and
         relationships: information architecture, not treasure maps (§7.2).
       </p>
       <div class="divider" aria-hidden="true">
         <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
-        <img src="../favicon/favicon.svg" alt="">
       </div>
       <svg class="motif-graphic" viewBox="0 0 360 120" role="img" aria-label="Abstract nodes and relationship lines">
-        <g fill="none" stroke="var(--lorenzo-action)" stroke-width="1.5" opacity="0.6">
+        <g fill="none" stroke="var(--action)" stroke-width="1.5" opacity="0.6">
           <line x1="40" y1="90" x2="140" y2="30"></line>
           <line x1="140" y1="30" x2="230" y2="60"></line>
           <line x1="230" y1="60" x2="320" y2="20"></line>
           <line x1="140" y1="30" x2="200" y2="95"></line>
         </g>
-        <g fill="var(--lorenzo-brand-accent)">
+        <g fill="var(--canonical)">
           <circle cx="40" cy="90" r="5"></circle>
           <circle cx="140" cy="30" r="6"></circle>
           <circle cx="230" cy="60" r="5"></circle>
@@ -545,7 +673,7 @@
       ['Medici Gold', '#B88A3B', 'brand mark, meaningful punctuation'],
       ['Parchment', '#F4EFE5', 'warm editorial surfaces'],
       ['Paper', '#FBFAF7', 'primary light background'],
-      ['Burgundy', '#7B2638', 'rare accent, secrets, drama']
+      ['Burgundy', '#7B2638', 'rare accent, destructive/dangerous, drama']
     ];
     var grid = document.getElementById('palette-grid');
     palette.forEach(function (c) {
@@ -559,6 +687,35 @@
           '<div class="role">' + c[2] + '</div>' +
         '</div>';
       grid.appendChild(el);
+    });
+
+    // Semantic roles resolve to a CSS var, not a fixed hex - several of them
+    // (--action, --focus-ring, --danger among them) genuinely differ between
+    // light and dark, so the swatch itself keys off the live custom property
+    // and re-colors with the theme toggle above instead of freezing one value.
+    var roles = [
+      ['--surface-muted', 'table headers, subdued sections'],
+      ['--text-primary', 'normal text'],
+      ['--text-secondary', 'supporting text'],
+      ['--border-strong', 'emphasized separators'],
+      ['--action', 'links, interactive text'],
+      ['--focus-ring', 'keyboard focus'],
+      ['--canonical', 'canonical/significant identity'],
+      ['--success', 'positive status'],
+      ['--warning', 'caution'],
+      ['--danger', 'destructive/error state']
+    ];
+    var rolesGrid = document.getElementById('roles-grid');
+    roles.forEach(function (r) {
+      var el = document.createElement('div');
+      el.className = 'swatch';
+      el.innerHTML =
+        '<div class="swatch-color" style="background:var(' + r[0] + ')"></div>' +
+        '<div class="swatch-label">' +
+          '<div class="hex">' + r[0] + '</div>' +
+          '<div class="role">' + r[1] + '</div>' +
+        '</div>';
+      rolesGrid.appendChild(el);
     });
   })();
 </script>

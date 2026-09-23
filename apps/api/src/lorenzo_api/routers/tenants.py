@@ -225,6 +225,11 @@ async def create_tenant(
     row and a Membership(role=OWNER) for the caller - they become the new
     tenant's owner atomically, the same "create the whole coherent unit in
     one commit" precedent every other CRUD RFC here already follows.
+
+    Deliberately not recorded in the activity log (ADR 0084): the log is
+    per-tenant and its RLS needs `app.tenant_id` set, which this route
+    runs before - `tenant.created_by` and the OWNER membership already say
+    who created it.
     """
     slug = await _resolve_create_slug(session, body.slug, body.name)
     tenant = Tenant(name=body.name, slug=slug, created_by=user.id, updated_by=user.id)
@@ -268,18 +273,22 @@ async def update_tenant(
     if update.get("slug") is not None:
         await _check_slug_available_for_update(session, tenant_id, update["slug"])
 
-    changed = False
-    if update.get("name") is not None:
-        tenant.name = update["name"]
-        changed = True
-    if update.get("slug") is not None:
-        tenant.slug = update["slug"]
-        changed = True
-    if update.get("description") is not None:
-        tenant.description = update["description"]
-        changed = True
-    if changed:
+    changed_fields: list[str] = []
+    for field in ("name", "slug", "description"):
+        if update.get(field) is not None:
+            setattr(tenant, field, update[field])
+            changed_fields.append(field)
+    if changed_fields:
         tenant.updated_by = user.id
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="tenant.updated",
+            target_type="tenant",
+            target_id=tenant_id,
+            detail=f"fields={','.join(changed_fields)}",
+        )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -671,6 +680,11 @@ async def delete_membership(
     ):
         raise LastOwnerError(detail=f"User {user_id} is the sole OWNER of tenant {tenant_id}")
 
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+
+    left = user_id == user.id
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -678,7 +692,25 @@ async def delete_membership(
         action="membership.deleted",
         target_type="membership",
         target_id=user_id,
-        detail=None,
+        detail=f"{'left' if left else 'removed'}, role={membership.role.value}",
+    )
+    # ADR 0084: always tell the departing member, including on a self-service
+    # leave. Removal ends only the tenant-wide Membership row - Player/
+    # CampaignGm rows reference app_user, not membership, so any campaign
+    # seats they hold are untouched, and the text says exactly that rather
+    # than implying anything they made was lost.
+    await create_tenant_notification(
+        session,
+        tenant_id=tenant_id,
+        recipient_user_id=user_id,
+        type="tenant_membership_removed",
+        title=f"You left {tenant.name}" if left else f"Your access to {tenant.name} has ended",
+        body=(
+            f"Your tenant-wide membership in {tenant.name} has ended."
+            " Nothing you created there was deleted, and any campaign seats you hold"
+            " there - as a player or a GM - are unchanged."
+        ),
+        created_by=user.id,
     )
     await session.delete(membership)
     await session.commit()

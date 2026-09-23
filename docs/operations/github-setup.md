@@ -18,6 +18,8 @@ Confirmed via the real check-runs on `main` (`curl https://api.github.com/repos/
 
 Re-importing the file doesn't happen automatically, though — the live ruleset (Settings → Rules → Rulesets → **main**) needs the same contexts added by hand under "Require status checks to pass," or it'll keep enforcing only whatever list it already has.
 
+`apps/account-hub` and `apps/inventory-web` now also have their own `mise.toml` with `lint`/`test` tasks, so `ci.yml`'s `discover` job (which matrixes over every `apps/*/mise.toml` automatically) now also produces `test (apps/account-hub)` and `test (apps/inventory-web)` contexts — but neither [.github/rulesets/main.json](../../.github/rulesets/main.json) nor the live ruleset requires them yet. Same manual step as above: add both contexts by hand once they've run at least once on `main`.
+
 ## Actions: allow workflows to open pull requests
 
 Settings → Actions → General → Workflow permissions → check **"Allow GitHub Actions to create and approve pull requests"**.
