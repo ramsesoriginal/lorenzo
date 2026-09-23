@@ -568,7 +568,7 @@ describe("giveCommand.autocomplete", () => {
   });
 });
 
-describe("giveCommand.execute - recording for /changes (ADR 0097)", () => {
+describe("giveCommand.onButton - recording for /changes (ADR 0097)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -580,11 +580,7 @@ describe("giveCommand.execute - recording for /changes (ADR 0097)", () => {
       etag: "etag-1",
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Torch", quantity });
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "item-1" : "char-2",
-    );
-    return interaction;
+    return confirmButton();
   }
 
   it("records the give against both characters, naming them", async () => {
@@ -592,7 +588,7 @@ describe("giveCommand.execute - recording for /changes (ADR 0097)", () => {
       id === "char-1" ? "Frodo" : "Sam",
     );
 
-    await giveCommand.execute(arrange(), { config, logger: {} as never });
+    await giveCommand.onButton?.(arrange(), ctx);
 
     expect(recordCharacterEvents).toHaveBeenCalledWith(
       [
@@ -608,11 +604,11 @@ describe("giveCommand.execute - recording for /changes (ADR 0097)", () => {
 
   it("still records it, by id, when the name lookups fail - and the reply is unaffected", async () => {
     getCharacterName.mockRejectedValue(new LorenzoApiError("nope", 404));
-    const interaction = arrange();
+    const button = arrange();
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
+    await giveCommand.onButton?.(button, ctx);
 
-    expect(interaction.editReply).toHaveBeenCalledWith("Gave Torch to them.");
+    expect(button.editReply).toHaveBeenCalledWith("Gave Torch to them.");
     expect(recordCharacterEvents).toHaveBeenCalledWith(
       [expect.objectContaining({ characterEntityIds: ["char-1", "char-2"] })],
       expect.anything(),
@@ -621,11 +617,10 @@ describe("giveCommand.execute - recording for /changes (ADR 0097)", () => {
 
   it("records nothing when the give itself failed", async () => {
     getCharacterName.mockResolvedValue("Sam");
-    setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
-    const interaction = arrange();
+    const button = arrange();
     setItemInstanceOwner.mockRejectedValue(new LorenzoApiError("stale", 412));
 
-    await giveCommand.execute(interaction, { config, logger: {} as never });
+    await giveCommand.onButton?.(button, ctx);
 
     expect(recordCharacterEvents).not.toHaveBeenCalled();
   });
