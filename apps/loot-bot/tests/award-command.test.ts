@@ -9,12 +9,6 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
-const { recordCharacterEvents } = vi.hoisted(() => ({ recordCharacterEvents: vi.fn() }));
-vi.mock("../src/character-events.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../src/character-events.js")>()),
-  recordCharacterEvents,
-}));
-
 const {
   isCampaignGm,
   getGmCampaignIds,
@@ -227,53 +221,5 @@ describe("awardCommand.autocomplete", () => {
     await awardCommand.autocomplete?.(interaction, { config, logger: {} as never });
 
     expect(interaction.respond).toHaveBeenCalledWith([{ name: "Frodo", value: "char-1" }]);
-  });
-});
-
-describe("awardCommand.execute - recording for /changes (ADR 0097)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("records the award for the character, without naming the GM", async () => {
-    getValidAccessToken.mockResolvedValue("token-123");
-    isCampaignGm.mockResolvedValue(true);
-    createItemInstance.mockResolvedValue({
-      entity_id: "item-1",
-      title: "Sword",
-      owner_entity_id: "char-1",
-    });
-    getCharacterName.mockResolvedValue("Frodo");
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "prototype-1" : "char-1",
-    );
-
-    await awardCommand.execute(interaction, { config, logger: {} as never });
-
-    expect(recordCharacterEvents).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          kind: "awarded",
-          summary: "Frodo was awarded Sword.",
-          characterEntityIds: ["char-1"],
-        }),
-      ],
-      expect.anything(),
-    );
-  });
-
-  it("records nothing when the award failed", async () => {
-    getValidAccessToken.mockResolvedValue("token-123");
-    isCampaignGm.mockResolvedValue(true);
-    createItemInstance.mockRejectedValue(new LorenzoApiError("nope", 403));
-    const interaction = fakeInteraction();
-    interaction.options.getString.mockImplementation((name: string) =>
-      name === "item" ? "prototype-1" : "char-1",
-    );
-
-    await awardCommand.execute(interaction, { config, logger: {} as never });
-
-    expect(recordCharacterEvents).not.toHaveBeenCalled();
   });
 });

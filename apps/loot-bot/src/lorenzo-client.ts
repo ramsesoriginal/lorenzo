@@ -6,6 +6,7 @@ export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
 export type NotificationOut = components["schemas"]["NotificationOut"];
+export type EntityChangeOut = components["schemas"]["EntityChangeOut"];
 export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
 export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
@@ -673,6 +674,29 @@ export function createLorenzoApiClient(baseUrl: string) {
       });
       if (error !== undefined) throw toApiError(error, response.status);
       return data.items;
+    },
+
+    /** GET /me/changes - what happened to the caller's own characters'
+     * belongings (ADR 0099), newest first. `since` is inclusive, exactly
+     * like `listMyUnreadNotifications` (ADR 0086). First page only (100,
+     * `fastapi-pagination`'s own max `size`) - spans every tenant the
+     * caller has rows in, like `listMyUnreadNotifications`, so the result
+     * is filtered here to this bot's own tenant before being handed back;
+     * an account active enough to have over 100 changes across every tenant
+     * since `since` could see this page short a few of *this* tenant's own
+     * rows, same known-narrow tradeoff `/me/notifications`'s own `since`
+     * carries. */
+    async listMyChanges(
+      tenantId: string,
+      accessToken: string,
+      since: Date | undefined,
+    ): Promise<readonly EntityChangeOut[]> {
+      const { data, error, response } = await client.GET("/me/changes", {
+        params: { query: { size: 100, since: since ? since.toISOString() : null } },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (error !== undefined) throw toApiError(error, response.status);
+      return data.items.filter((row) => row.tenant_id === tenantId);
     },
 
     /** GET /tenants/{tenant_id}/items?q= - catalog items whose *name*

@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "discord.js";
-import { awardEvent, nameCharacter, recordCharacterEvents } from "../character-events.js";
 import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices } from "./autocomplete.js";
@@ -94,16 +93,6 @@ export const awardCommand: Command = {
         .getCharacterName(tenantId, characterEntityId, accessToken)
         .catch(() => null);
       const characterName = characterLookup ?? "them";
-
-      // For `/changes` (ADR 0097): the awarded player can find out even if
-      // they missed the announcement. The GM isn't named.
-      const character = nameCharacter(characterEntityId, characterLookup);
-      if (character) {
-        await recordCharacterEvents(
-          [awardEvent({ character, item: given.title ?? "(untitled)" })],
-          ctx.logger,
-        );
-      }
 
       await interaction.editReply(`Awarded ${given.title ?? "(untitled)"} to ${characterName}.`);
     } catch (error) {

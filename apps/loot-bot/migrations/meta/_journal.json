@@ -50,6 +50,13 @@
       "when": 1789920785803,
       "tag": "0006_character_events",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790198525968,
+      "tag": "0007_drop_character_event",
+      "breakpoints": true
     }
   ]
 }

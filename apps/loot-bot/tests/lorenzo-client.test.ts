@@ -1186,3 +1186,96 @@ describe("listMyUnreadNotifications", () => {
     });
   });
 });
+
+describe("listMyChanges", () => {
+  function changeRow(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      id: "c-1",
+      tenant_id: TENANT_ID,
+      character_entity_id: CHARACTER_ID,
+      entity_id: "22222222-2222-2222-2222-222222222222",
+      entity_name: "Torch",
+      kind: "received",
+      detail: null,
+      actor_user_id: null,
+      occurred_at: "2026-09-20T10:00:00Z",
+      ...overrides,
+    };
+  }
+
+  it("asks for the caller's own changes, as the caller, since an optional marker", async () => {
+    let query: URLSearchParams | undefined;
+    server.use(
+      http.get(`${BASE_URL}/me/changes`, ({ request }) => {
+        query = new URL(request.url).searchParams;
+        expect(request.headers.get("authorization")).toBe("Bearer test-token");
+        return HttpResponse.json({
+          items: [changeRow()],
+          total: 1,
+          page: 1,
+          size: 100,
+          pages: 1,
+        });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const since = new Date("2026-09-19T10:00:00Z");
+    const items = await client.listMyChanges(TENANT_ID, "test-token", since);
+
+    expect(query?.get("size")).toBe("100");
+    expect(query?.get("since")).toBe(since.toISOString());
+    expect(items.map((c) => c.id)).toEqual(["c-1"]);
+  });
+
+  it("omits 'since' entirely on a first look or history:true", async () => {
+    let query: URLSearchParams | undefined;
+    server.use(
+      http.get(`${BASE_URL}/me/changes`, ({ request }) => {
+        query = new URL(request.url).searchParams;
+        return HttpResponse.json({ items: [], total: 0, page: 1, size: 100, pages: 1 });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    await client.listMyChanges(TENANT_ID, "test-token", undefined);
+
+    expect(query?.has("since")).toBe(false);
+  });
+
+  it("filters out rows from other tenants the caller's own account has rows in", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me/changes`, () =>
+        HttpResponse.json({
+          items: [
+            changeRow({ id: "mine" }),
+            changeRow({ id: "theirs", tenant_id: "other-tenant" }),
+          ],
+          total: 2,
+          page: 1,
+          size: 100,
+          pages: 1,
+        }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const items = await client.listMyChanges(TENANT_ID, "test-token", undefined);
+
+    expect(items.map((c) => c.id)).toEqual(["mine"]);
+  });
+
+  it("throws a LorenzoApiError carrying the status on failure", async () => {
+    server.use(
+      http.get(`${BASE_URL}/me/changes`, () =>
+        HttpResponse.json({ title: "Unauthorized", status: 401 }, { status: 401 }),
+      ),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+
+    await expect(client.listMyChanges(TENANT_ID, "bad-token", undefined)).rejects.toMatchObject({
+      status: 401,
+    });
+  });
+});
