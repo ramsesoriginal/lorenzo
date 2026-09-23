@@ -42,7 +42,7 @@ const ResponseType = {
 
 type RawOption = Readonly<{
   name: string;
-  value?: string | number;
+  value?: string | number | boolean;
   focused?: boolean;
 }>;
 
@@ -120,6 +120,10 @@ function makeOptionsReader(options: readonly RawOption[] | undefined): OptionsRe
       if (typeof value === "number") return value;
       if (required) throw new Error(`missing required integer option: ${name}`);
       return null as never;
+    },
+    getBoolean(name: string) {
+      const value = find(name)?.value;
+      return typeof value === "boolean" ? value : null;
     },
     getFocused(full?: boolean) {
       const focused = opts.find((o) => o.focused);

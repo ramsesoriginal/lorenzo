@@ -55,6 +55,9 @@ export type OptionsReader = Readonly<{
   getString(name: string, required?: boolean): string | null;
   getInteger(name: string, required: true): number;
   getInteger(name: string, required?: boolean): number | null;
+  /** `null` when the option wasn't given - Discord omits an unset optional
+   * boolean rather than sending `false`. */
+  getBoolean(name: string): boolean | null;
   getFocused(full: true): Readonly<{ name: string; value: string }>;
   getFocused(): string;
 }>;

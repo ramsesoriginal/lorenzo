@@ -8,6 +8,12 @@ import type { Config } from "../src/config.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordCharacterEvents } = vi.hoisted(() => ({ recordCharacterEvents: vi.fn() }));
+vi.mock("../src/character-events.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/character-events.js")>()),
+  recordCharacterEvents,
+}));
+
 const { storePendingBulkGive, consumePendingBulkGive } = vi.hoisted(() => ({
   storePendingBulkGive: vi.fn(),
   consumePendingBulkGive: vi.fn(),
@@ -191,5 +197,51 @@ describe("giveBulkCommand.onSelectMenu", () => {
       expect.objectContaining({ content: expect.stringContaining("expired") }),
     );
     expect(bulkAssignItemInstances).not.toHaveBeenCalled();
+  });
+});
+
+describe("giveBulkCommand - recording for /changes (ADR 0097)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function arrange(results: unknown[]) {
+    getValidAccessToken.mockResolvedValue("token-123");
+    consumePendingBulkGive.mockReturnValue({
+      discordUserId: "discord-user-1",
+      itemEntityIds: ["item-1", "item-2", "item-3"],
+    });
+    bulkAssignItemInstances.mockResolvedValue(results);
+    getCharacterName.mockResolvedValue("Sam");
+    return fakeSelectMenu("give-bulk:pick-target:token-abc", ["char-2"]);
+  }
+
+  it("records what arrived for the receiver - only the items that actually moved", async () => {
+    const menu = arrange([
+      { entity_id: "item-1", status: "ok", item_instance: { title: "Sword", quantity: null } },
+      { entity_id: "item-2", status: "ok", item_instance: { title: "Torch", quantity: 5 } },
+      { entity_id: "item-3", status: "error" },
+    ]);
+
+    await giveBulkCommand.onSelectMenu?.(menu, { config, logger: {} as never });
+
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          kind: "given-in-bulk",
+          summary: "Sam was given 2 items: Sword, Torch ×5.",
+          characterEntityIds: ["char-2"],
+        }),
+      ],
+      expect.anything(),
+    );
+  });
+
+  it("records nothing when nothing moved", async () => {
+    const menu = arrange([{ entity_id: "item-1", status: "error" }]);
+
+    await giveBulkCommand.onSelectMenu?.(menu, { config, logger: {} as never });
+
+    expect(recordCharacterEvents).not.toHaveBeenCalled();
   });
 });

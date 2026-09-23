@@ -54,6 +54,24 @@ describe("buildAdapterInteraction - chat input (type 2)", () => {
     expect(() => interaction.options.getString("missing", true)).toThrow();
   });
 
+  it("reads an optional boolean option: its value when given, null when Discord omitted it", () => {
+    const built = buildAdapterInteraction(
+      chatInputPayload([
+        { name: "history", value: true },
+        { name: "off", value: false },
+        { name: "item", value: "sword" },
+      ]),
+    );
+    const interaction = built?.interaction;
+    if (!interaction || !interaction.isChatInputCommand()) throw new Error("expected chat input");
+
+    expect(interaction.options.getBoolean("history")).toBe(true);
+    expect(interaction.options.getBoolean("off")).toBe(false);
+    expect(interaction.options.getBoolean("missing")).toBeNull();
+    // A non-boolean value under that name isn't mistaken for one.
+    expect(interaction.options.getBoolean("item")).toBeNull();
+  });
+
   it("resolves the first-response gate with deferReply's body, then editReply edits it", async () => {
     const built = buildAdapterInteraction(chatInputPayload());
     const interaction = built?.interaction;

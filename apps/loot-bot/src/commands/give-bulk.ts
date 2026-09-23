@@ -4,6 +4,12 @@ import {
   SlashCommandBuilder,
   StringSelectMenuBuilder,
 } from "discord.js";
+import {
+  bulkGiveEvent,
+  describeItem,
+  nameCharacter,
+  recordCharacterEvents,
+} from "../character-events.js";
 import { type BulkAssignResultItem, createLorenzoApiClient } from "../lorenzo-client.js";
 import { consumePendingBulkGive, storePendingBulkGive } from "../pending-bulk-give.js";
 import { getValidAccessToken } from "../token-provider.js";
@@ -141,9 +147,26 @@ export const giveBulkCommand: Command = {
         })),
         accessToken,
       );
-      const targetName = await client
+      const targetLookup = await client
         .getCharacterName(tenantId, targetCharacterId, accessToken)
-        .catch(() => "them");
+        .catch(() => null);
+      const targetName = targetLookup ?? "them";
+
+      // For `/changes` (ADR 0097): the receiver's player can see what arrived.
+      // Only the receiver is recorded - a bulk-assign result doesn't say who
+      // each item came from.
+      const receiver = nameCharacter(targetCharacterId, targetLookup);
+      const givenItems = results
+        .filter((result) => result.status === "ok")
+        .map((result) =>
+          describeItem(
+            result.item_instance?.title ?? "(untitled)",
+            result.item_instance?.quantity ?? null,
+          ),
+        );
+      if (receiver && givenItems.length > 0) {
+        await recordCharacterEvents([bulkGiveEvent({ receiver, items: givenItems })], ctx.logger);
+      }
 
       await interaction.update({
         content: formatBulkGiveSummary(results, targetName),

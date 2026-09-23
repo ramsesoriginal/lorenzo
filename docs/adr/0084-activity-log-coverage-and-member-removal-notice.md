@@ -66,3 +66,22 @@ Deliberately **not** logged, and now documented as deliberate rather than accide
 - `routers/item_instances.py`, `items.py`, `characters.py`, `players.py`, `groups.py`, `information.py`, `stats.py` gain `record_activity` calls; `routers/tenants.py` and `routers/campaigns.py` gain the remaining ones. No migration - `audit_log` is unchanged.
 - The log will be markedly busier. Pagination already bounds reads ([ADR 0020](0020-rest-api-tenant-scoping-and-schemas.md)); a `?action=`/`?actor_id=` filter is a reasonable follow-up, not built here.
 - The read gate is documented as deliberate in the router docstring, and the tripwire test names this ADR.
+
+## Addendum: account deletion (`DELETE /me`)
+
+Deleting an account ([ADR 0036](0036-user-player-character-crud-api.md)) removes the user's `app_user` row, and foreign-key cascades take every `membership`, `player`, `campaign_gm` and `tenant_admin_campaign_opt_out` row with it, in every tenant the user touched. Before this addendum none of that reached the activity log, so a tenant owner saw a member, a player and a GM simply vanish.
+
+`DELETE /me` now records, **before** the row is deleted and in the same transaction, one entry per departing relationship, in the tenant it belonged to, using the actions those relationships already use elsewhere:
+
+- `membership.deleted`, detail `account deleted, role=<role>`
+- `player.removed` per seat, detail `account deleted, user=<user id>`
+- `campaign_gm.revoked` per GM grant, detail `account deleted, campaign_id=<campaign id>`
+
+Admin opt-outs are not logged: they are a personal preference, and logging an opt-*in* the user never made would be misleading.
+
+Two things differ from an ordinary removal, on purpose:
+
+- **No notification.** The person leaving is the only one [the member-removal notice](#member-removal) would go to, and their inbox is deleted with them. Whether a tenant's owners should be told is a separate question, not decided here.
+- **The actor becomes `NULL`.** Entries are written with the user as the actor, but `audit_log.actor_id` is `ON DELETE SET NULL` (ADR 0063), so the moment the account is gone the actor is cleared. The departed user stays identifiable through `target_id` (not a foreign key, so it keeps the id) and the `account deleted` reason.
+
+If the sole-owner guard refuses the deletion, nothing is written.
