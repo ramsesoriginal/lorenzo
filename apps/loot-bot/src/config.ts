@@ -39,6 +39,19 @@ const envSchema = z.object({
     (v) => (v === "" ? undefined : v),
     z.string().url().default("http://127.0.0.1:8090"),
   ),
+
+  // The service account Cloud Scheduler's job runs as (ADR 0095) - the only
+  // caller `/internal/deliver-notifications` will accept, proven by the
+  // OIDC token Cloud Scheduler attaches. Optional: leaving it unset switches
+  // the notification-DM bridge off entirely (the route answers 404), which
+  // is the right default for local dev and for a deploy that hasn't done the
+  // one-time Cloud Scheduler setup. Same empty-string-means-unset handling
+  // as LOOT_BOT_PUBLIC_BASE_URL above: an unset GitHub Actions variable
+  // arrives as "", not as a missing line.
+  NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.string().email().optional(),
+  ),
 });
 
 export type Config = Readonly<{
@@ -57,6 +70,12 @@ export type Config = Readonly<{
   httpPort: number;
   publicBaseUrl: string;
   authCallbackUrl: string;
+  /** `undefined` = the notification-DM bridge is off (ADR 0095). */
+  notificationSchedulerServiceAccount: string | undefined;
+  /** The exact URL Cloud Scheduler's job must POST to, and the `audience`
+   * its OIDC token must carry (Cloud Scheduler defaults the audience to the
+   * job's own URL) - derived from the public base URL so the two can't drift. */
+  notificationDeliveryUrl: string;
 }>;
 
 let cached: Config | undefined;
@@ -94,6 +113,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     httpPort: e.LOOT_BOT_HTTP_PORT,
     publicBaseUrl: e.LOOT_BOT_PUBLIC_BASE_URL,
     authCallbackUrl: new URL("/auth/callback", e.LOOT_BOT_PUBLIC_BASE_URL).toString(),
+    notificationSchedulerServiceAccount: e.NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT,
+    notificationDeliveryUrl: new URL(
+      "/internal/deliver-notifications",
+      e.LOOT_BOT_PUBLIC_BASE_URL,
+    ).toString(),
   };
   return cached;
 }
