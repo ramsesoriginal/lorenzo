@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a traditional fantasy campaign</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap with-sidebar">
+        <nav class="sidebar" aria-label="Campaign sections">
+          <a href="#" aria-current="page">Party</a>
+          <a href="#">Quest log</a>
+          <a href="#">World map</a>
+          <a href="#">GM notes</a>
+        </nav>
+
+        <div>
+          <p class="status-text"><a href="index.html">← Content</a></p>
+          <h1 class="display">The Ashfall Campaign</h1>
+          <p class="lede">
+            Sunday group, session 24. Faerûn, Sword Coast region - see the
+            <a href="../trees.html">tree view</a> for the full world hierarchy
+            this campaign is built on.
+          </p>
+
+          <span class="badge-visibility">
+            <svg class="icon">
+              <use href="../../icons.svg#icon-private"></use>
+            </svg>
+            GM only, below this line
+          </span>
+
+          <section>
+            <h2>Party</h2>
+            <div class="grid" style="--grid-min: 180px">
+              <div class="card card-body">
+                <h3>Kaelen Ashworth</h3>
+                <p class="status-text">Ranger, level 6</p>
+              </div>
+              <div class="card card-body">
+                <h3>Sister Wrenna</h3>
+                <p class="status-text">Paladin, level 6</p>
+              </div>
+              <div class="card card-body">
+                <h3>Doveri</h3>
+                <p class="status-text">Wizard, level 6</p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h2>Quest log</h2>
+            <ul class="list">
+              <li>
+                <span>Clear the Elfsong Tavern's cellar</span>
+                <span class="pill pill-success">Completed</span>
+              </li>
+              <li>
+                <span>Escort the Cormyr trade caravan</span>
+                <span class="pill pill-warning">Active</span>
+              </li>
+              <li>
+                <span>Recover Ashfang from the Wyrm's Rock vault</span>
+                <span class="pill pill-warning">Active</span>
+              </li>
+              <li>
+                <span>Broker peace with the Suzail thieves' guild</span>
+                <span class="pill pill-danger">Failed</span>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>GM notes</h2>
+            <div class="card card-body">
+              <p>
+                <span class="canonical-marker"
+                  >✧ Ashfang — canonical item record</span
+                >
+              </p>
+              <p class="status-text">
+                Awarded session 19, currently held by Kaelen Ashworth
+              </p>
+              <p>
+                Do not let the party sell this - it's the trigger for the dragon
+                subplot in Act 3.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

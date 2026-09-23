@@ -1,0 +1,62 @@
+# Semantic name -> Tabler Icons (outline, https://tabler.io/icons) source
+# name, for every <symbol> in icons.svg - identity.md §17.5/§17.6, ADR 0098.
+#
+# This is documentation, not a build input: icons.svg has no generation
+# step (apps/brand has none anywhere), so adding an icon means updating
+# both files by hand together. Audited against every real icon-worthy
+# action in apps/inventory-web and apps/account-hub (issue #178).
+#
+# Some semantic names below are deliberate aliases of another entry's
+# artwork - a closely related action reusing the same visual rather than
+# inventing a new one. They're listed separately for clarity, but don't
+# get their own <symbol> in icons.svg; use the aliased id directly.
+
+icon-back: arrow-left
+icon-close: x
+icon-undo: arrow-back-up
+icon-save: device-floppy
+icon-copy: copy
+icon-delete: trash
+icon-edit: edit
+icon-search: search
+icon-add: plus
+icon-give: gift
+icon-move: transition-right
+icon-split: stack-pop
+icon-merge-items: stack-push
+icon-collection: stack-2
+icon-select-mode: checkbox
+icon-select-item: check
+icon-upload: upload
+icon-campaign: world
+icon-campaign-join: world-plus
+icon-campaign-leave: world-minus
+icon-revoke: user-x
+icon-unassign: user-minus
+icon-reassign: user-plus
+icon-handoff: credit-card-hand
+icon-login: login
+icon-logout: logout
+icon-notifications: bell
+icon-refresh: refresh
+icon-expand: chevron-down
+icon-collapse: chevron-up
+icon-private: lock
+icon-history: history
+icon-ancestry: git-branch
+icon-container: box
+icon-settings: settings
+icon-map: map
+icon-location: map-pinned
+icon-visibility: fence
+icon-eye: eye
+icon-eye-off: eye-off
+
+# Aliases - reuse an existing symbol id above, not a new one:
+#   icon-remove            -> icon-close   (removing a chip/tag)
+#   icon-clear-selection   -> icon-close   (clearing a bulk-selection toolbar)
+#   icon-rename             -> icon-edit    (rename-in-place is still an edit)
+#   icon-look-up            -> icon-search  (the invite picker's email/nickname lookup)
+#   icon-mark-read          -> icon-select-item (both are a plain confirmation checkmark)
+#   icon-invite             -> icon-reassign (both read as "assign a person," add vs. reassign)
+#   icon-restricted         -> icon-private (identity.md §6.6's --visibility-restricted-* naming)

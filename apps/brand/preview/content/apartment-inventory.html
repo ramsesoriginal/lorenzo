@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a mundane apartment inventory</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <p class="status-text"><a href="index.html">← Content</a></p>
+        <h1 class="display">Apartment 4B inventory</h1>
+        <p class="lede">
+          A moving-out checklist. Nothing more dramatic than a kitchen and a
+          spare closet - proving the style holds even when the content genuinely
+          doesn't need it to.
+        </p>
+
+        <section>
+          <h2>Kitchen</h2>
+          <ul class="list">
+            <li>
+              <span>Dinner plates</span>
+              <span class="badge">×6</span>
+            </li>
+            <li>
+              <span>Coffee maker (drip)</span>
+              <span class="badge">×1</span>
+            </li>
+            <li>
+              <span>Mixing bowls, nested set</span>
+              <span class="badge">×3</span>
+            </li>
+            <li>
+              <span>Wine glasses</span>
+              <span class="badge">×4</span>
+              <span class="status-text">one chipped</span>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Living room</h2>
+          <div class="grid" style="--grid-min: 180px">
+            <div class="card card-body">
+              <h3>Sofa, grey</h3>
+              <p class="status-text">Keep</p>
+            </div>
+            <div class="card card-body">
+              <h3>Bookshelf, oak veneer</h3>
+              <p class="status-text">Donate</p>
+            </div>
+            <div class="card card-body">
+              <h3>Desk lamp</h3>
+              <p class="status-text">Keep</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Add an item</h2>
+          <div class="inline-form">
+            <input
+              class="text-input"
+              type="text"
+              placeholder="Item name"
+              style="max-width: 220px"
+            />
+            <input
+              class="text-input"
+              type="number"
+              placeholder="Qty"
+              style="max-width: 80px"
+              value="1"
+            />
+            <button class="btn btn-primary" type="button">Add</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>
