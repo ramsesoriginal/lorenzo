@@ -2,7 +2,7 @@
 
 ```mermaid
 C4Context
-  title Lorenzo — system context (target shape - apps/api and the Discord bot are built, web/mobile are unbuilt)
+  title Lorenzo — system context (target shape - apps/api, the Discord bot, and two web frontends are built, mobile is unbuilt)
 
   Person(gm, "Game Master", "Runs campaigns, owns the secrets")
   Person(player, "Player", "Sees only what they're allowed to")

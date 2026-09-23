@@ -77,4 +77,8 @@ C4Deployment
   Rel(bot, neondb, "SQL", "pg, TLS")
 ```
 
-See [docs/architecture/deployment.md](../deployment.md) for the prose version of both, including a local-vs-deployed comparison table.
+## apps/inventory-web and apps/account-hub
+
+Not diagrammed here — both deploy as a plain static build via Cloudflare Pages' own Git integration (no GitHub Actions job, no container, no database), a much simpler topology than the two pipelines above. See [docs/architecture/deployment.md#appsinventory-web-and-appsaccount-hub](../deployment.md#appsinventory-web-and-appsaccount-hub) for the prose version.
+
+See [docs/architecture/deployment.md](../deployment.md) for the prose version of all four apps, including a local-vs-deployed comparison table for `apps/api`/`apps/loot-bot`.
