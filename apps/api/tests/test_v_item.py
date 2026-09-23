@@ -37,6 +37,7 @@ from lorenzo_api.models import (
 # that), so there's no real user/tenant/membership to resolve one from.
 _SEES_EVERYTHING = InformationVisibility(
     is_orga=True,
+    is_admin=True,
     player_ids=frozenset(),
     knower_entity_ids=frozenset(),
     gm_reachable_entity_ids=frozenset(),

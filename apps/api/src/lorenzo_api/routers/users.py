@@ -1,9 +1,11 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Request, UploadFile
+from fastapi import APIRouter, Query, Request, UploadFile
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
+from pydantic import AwareDatetime
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 
@@ -16,6 +18,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.models import (
     Being,
+    Campaign,
     CampaignGm,
     Character,
     CharacterPlayer,
@@ -23,6 +26,7 @@ from lorenzo_api.models import (
     MembershipRole,
     Notification,
     Player,
+    Tenant,
     User,
 )
 from lorenzo_api.profile_pictures import (
@@ -30,6 +34,7 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_user_profile_picture,
 )
+from lorenzo_api.schemas.managed import ManagedCampaignOut, ManagedScopeOut, ManagedTenantOut
 from lorenzo_api.schemas.notifications import NotificationOut
 from lorenzo_api.schemas.users import MeOut, ProfileUpdate, UserRefOut
 
@@ -113,6 +118,76 @@ async def get_me(user: CurrentUser, request: Request, session: SessionDep) -> Me
     return await _me_out(user.id, request, session)
 
 
+@router.get("/me/managed")
+async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> ManagedScopeOut:
+    """What the caller runs, across every tenant - see ADR 0086. Tenants
+    where they hold a tenant-wide OWNER/ORGA Membership (with every
+    campaign in them), plus tenants where they only GM (with just the
+    campaigns they GM). Not paginated, like `GET /me`: bounded by the
+    caller's own memberships and GM rows. Authenticated but not
+    tenant-scoped.
+
+    Resolved tenant by tenant for the same reason `_me_out` is: `membership`
+    and `campaign_gm` admit the caller's own rows by `app.user_id`, but
+    `campaign` has no `user_id` to self-authorize against, and these rows
+    span several tenants - so `app.tenant_id` is set per tenant rather than
+    any policy being weakened. A tenant administrator's opt-out from a
+    campaign's *play* visibility (ADR 0034) is irrelevant here: this is the
+    administrative axis, so they still see it.
+    """
+    admin_role_by_tenant = {
+        tenant_id: role
+        for tenant_id, role in (
+            await session.execute(
+                select(Membership.tenant_id, Membership.role).where(Membership.user_id == user.id)
+            )
+        ).all()
+        if role in (MembershipRole.OWNER, MembershipRole.ORGA)
+    }
+    gm_campaign_ids_by_tenant: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for tenant_id, campaign_id in (
+        await session.execute(
+            select(CampaignGm.tenant_id, CampaignGm.campaign_id).where(
+                CampaignGm.user_id == user.id
+            )
+        )
+    ).all():
+        gm_campaign_ids_by_tenant.setdefault(tenant_id, set()).add(campaign_id)
+
+    tenants: list[ManagedTenantOut] = []
+    for tenant_id in set(admin_role_by_tenant) | set(gm_campaign_ids_by_tenant):
+        await set_tenant_rls_context(session, tenant_id)
+        tenant_row = (
+            await session.execute(select(Tenant.name, Tenant.slug).where(Tenant.id == tenant_id))
+        ).one()
+        gm_campaign_ids = gm_campaign_ids_by_tenant.get(tenant_id, set())
+        campaign_stmt = (
+            select(Campaign.id, Campaign.name)
+            .where(Campaign.tenant_id == tenant_id)
+            .order_by(Campaign.name, Campaign.id)
+        )
+        if tenant_id not in admin_role_by_tenant:
+            campaign_stmt = campaign_stmt.where(Campaign.id.in_(gm_campaign_ids))
+        campaigns = [
+            ManagedCampaignOut(
+                campaign_id=campaign_id, name=name, is_gm=campaign_id in gm_campaign_ids
+            )
+            for campaign_id, name in (await session.execute(campaign_stmt)).all()
+        ]
+        role = admin_role_by_tenant.get(tenant_id)
+        tenants.append(
+            ManagedTenantOut(
+                tenant_id=tenant_id,
+                name=tenant_row.name,
+                slug=tenant_row.slug,
+                role=role.value if role is not None else None,
+                campaigns=campaigns,
+            )
+        )
+    tenants.sort(key=lambda t: (t.name, str(t.tenant_id)))
+    return ManagedScopeOut(tenants=tenants)
+
+
 @router.patch("/me")
 async def update_me(
     user: CurrentUser, body: ProfileUpdate, request: Request, session: SessionDep
@@ -184,6 +259,7 @@ async def list_my_notifications(
     session: SessionDep,
     params: ParamsDep,
     unread_only: bool = False,
+    since: Annotated[AwareDatetime | None, Query()] = None,
 ) -> Page[NotificationOut]:
     """See ADR 0058 - a single flat query, no per-tenant RLS-context
     looping needed (unlike `_me_out`'s own Player/CampaignGm resolution):
@@ -192,10 +268,22 @@ async def list_my_notifications(
     shape `player`/`campaign_gm` have, ADR 0030's addendum), and every
     field this response needs is already denormalized onto the row
     itself - nothing here is joined from live, tenant-scoped data.
+
+    `since` (ADR 0086): only rows with `created_at >= since`, a
+    timezone-aware ISO 8601 timestamp (a naive one is a 422). Inclusive on
+    purpose - a client sends back the newest `created_at` it has seen, and
+    with `>` it would silently miss a second row sharing that exact
+    timestamp; with `>=` it may see the boundary row again and dedupes by
+    `id`. Known limitation: a row from a transaction that began before,
+    but committed after, the client's last poll can carry an earlier
+    `created_at` and be skipped - narrow, since notifications are written
+    in short single transactions.
     """
     stmt = select(Notification).where(Notification.user_id == user.id)
     if unread_only:
         stmt = stmt.where(Notification.read_at.is_(None))
+    if since is not None:
+        stmt = stmt.where(Notification.created_at >= since)
     stmt = stmt.order_by(Notification.created_at.desc(), Notification.id)
     page: Page[NotificationOut] = await apaginate(session, stmt, params)
     return page

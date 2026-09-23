@@ -2,7 +2,13 @@ import uuid
 from datetime import datetime
 
 from _admin_db import admin_session_factory
-from conftest import delete_tenant, make_campaign, make_character, make_tenant
+from conftest import (
+    delete_tenant,
+    make_campaign,
+    make_character,
+    make_plain_participant,
+    make_tenant,
+)
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -841,6 +847,7 @@ async def test_get_item_instance_hides_gm_only_description_from_a_plain_member(
     router specifically.
     """
     tenant_id = await make_tenant(test_user_id)
+    await make_plain_participant(tenant_id, test_user_id)  # no admin bypass (ADR 0096)
     async with admin_session_factory() as session:
         entity = Entity(tenant_id=tenant_id, name="My Sword")
         session.add(entity)

@@ -2,6 +2,7 @@ import { addChannelToGroupCommand } from "./add-channel-to-group.js";
 import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
 import { confiscateCommand } from "./confiscate.js";
+import { containerNewCommand } from "./container-new.js";
 import { dropCommand } from "./drop.js";
 import { giveBulkCommand } from "./give-bulk.js";
 import { giveCommand } from "./give.js";
@@ -58,6 +59,7 @@ const commands: readonly Command[] = [
   moveBulkCommand,
   addToGroupCommand,
   addChannelToGroupCommand,
+  containerNewCommand,
   sheetCommand,
   helpCommand,
 ];
