@@ -373,9 +373,9 @@ Fallback stack:
 
 `Geist, Inter, ui-sans-serif, system-ui, sans-serif`
 
-#### Editorial and display — Instrument Serif
+#### Editorial and display — Newsreader
 
-Use **Instrument Serif** selectively for:
+Use **Newsreader** selectively for:
 
 - large campaign or world titles
 - landing-page headlines
@@ -388,7 +388,7 @@ Do not use it for dense forms, long tables, small metadata, or developer tooling
 
 Fallback stack:
 
-`"Instrument Serif", Georgia, "Times New Roman", serif`
+`"Newsreader", Georgia, "Times New Roman", serif`
 
 #### Code and developer surfaces — Geist Mono
 
@@ -412,11 +412,11 @@ A practical starting scale:
 
 | Role         | Typeface                  | Typical size | Weight / style |
 | ------------ | ------------------------- | -----------: | -------------- |
-| Hero display | Instrument Serif          |     48–72 px | Regular        |
-| H1           | Instrument Serif or Geist |     36–48 px | Regular / 600  |
+| Hero display | Newsreader                |     48–72 px | Regular        |
+| H1           | Newsreader or Geist       |     36–48 px | Regular / 600  |
 | H2           | Geist                     |     28–36 px | 600            |
 | H3           | Geist                     |     20–24 px | 600            |
-| Entity title | Instrument Serif          |     24–32 px | Regular        |
+| Entity title | Newsreader                |     24–32 px | Regular        |
 | Body         | Geist                     |     15–17 px | 400            |
 | UI           | Geist                     |     13–15 px | 400–500        |
 | Metadata     | Geist                     |     12–13 px | 400–500        |
@@ -837,7 +837,7 @@ UI:
 - Geist-first typography
 - Archive Blue interactions
 - Gold sparingly for brand and special emphasis
-- Instrument Serif for world/entity titles only when it improves character rather than density
+- Newsreader for world/entity titles only when it improves character rather than density
 
 Do not decorate every record with the mascot or star.
 
