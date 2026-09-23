@@ -8,6 +8,7 @@ from lorenzo_api.models.character import Character
 from lorenzo_api.models.character_player import CharacterPlayer
 from lorenzo_api.models.containment import Containment
 from lorenzo_api.models.entity import Entity
+from lorenzo_api.models.entity_change import EntityChange
 from lorenzo_api.models.entity_prototype import EntityPrototype
 from lorenzo_api.models.entity_stat import EntityStat
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
@@ -49,6 +50,7 @@ __all__ = [
     "CharacterPlayer",
     "Containment",
     "Entity",
+    "EntityChange",
     "EntityPrototype",
     "EntityStat",
     "EntityStatGroup",
