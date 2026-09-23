@@ -12,6 +12,7 @@
     "base.css",
     "layout.css",
     "components.css",
+    "motion.css",
     "icons.svg",
     "icons.manifest.yaml"
   ],
@@ -23,6 +24,7 @@
     "./base.css": "./base.css",
     "./layout.css": "./layout.css",
     "./components.css": "./components.css",
+    "./motion.css": "./motion.css",
     "./icons.svg": "./icons.svg",
     "./icons.manifest.yaml": "./icons.manifest.yaml"
   }

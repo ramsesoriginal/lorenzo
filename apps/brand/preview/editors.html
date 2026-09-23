@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — editor</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html" aria-current="page">Editor</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Custom editor</h1>
+        <p class="lede">
+          <code>.editor-toolbar</code> + <code>.editor-content</code>, composed
+          with <code>.card</code> for the outer chrome. A GM's session-notes
+          editor for a world entry.
+        </p>
+
+        <div class="card" style="max-width: 560px">
+          <div class="editor-toolbar">
+            <button type="button" title="Bold" aria-label="Bold">
+              <strong>B</strong>
+            </button>
+            <button type="button" title="Italic" aria-label="Italic">
+              <em>I</em>
+            </button>
+            <span class="divider"></span>
+            <button type="button" title="Insert link" aria-label="Insert link">
+              <svg class="icon"><use href="../icons.svg#icon-map"></use></svg>
+            </button>
+            <button type="button" title="Attach" aria-label="Attach">
+              <svg class="icon">
+                <use href="../icons.svg#icon-upload"></use>
+              </svg>
+            </button>
+            <span class="divider"></span>
+            <button type="button" title="Undo" aria-label="Undo">
+              <svg class="icon"><use href="../icons.svg#icon-undo"></use></svg>
+            </button>
+          </div>
+          <div
+            class="editor-content"
+            contenteditable="true"
+            data-placeholder="Write a note about this location…"
+          >
+            The Elfsong Tavern sits two streets back from the harbor, named for
+            a ghost that hums through its chimney on foggy nights. The GM-only
+            notes below aren't visible to players.
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

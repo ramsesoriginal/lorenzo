@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a starship crew</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap with-sidebar">
+        <nav class="sidebar" aria-label="Ship departments">
+          <a href="#" aria-current="page">Command</a>
+          <a href="#">Engineering</a>
+          <a href="#">Medical</a>
+          <a href="#">Security</a>
+          <a href="#">Science</a>
+        </nav>
+
+        <div>
+          <p class="status-text"><a href="index.html">← Content</a></p>
+          <h1 class="display">ISV Halcyon Drift</h1>
+          <p class="lede">
+            Deep-range survey vessel, 14 months out from Meridian Station. Crew
+            roster and ship's log - command deck access only.
+          </p>
+
+          <span class="badge-visibility">
+            <svg class="icon">
+              <use href="../../icons.svg#icon-private"></use>
+            </svg>
+            Command deck only
+          </span>
+
+          <section>
+            <h2>Duty roster</h2>
+            <ul class="list">
+              <li>
+                <span>Captain Reyes Okonkwo-Lin</span>
+                <span class="badge">Command</span>
+                <span class="pill pill-success">On duty</span>
+              </li>
+              <li>
+                <span>Chief Engineer Vasquez</span>
+                <span class="badge">Engineering</span>
+                <span class="pill pill-success">On duty</span>
+              </li>
+              <li>
+                <span>Dr. Imani Achterberg</span>
+                <span class="badge">Medical</span>
+                <span class="pill pill-warning">Off duty</span>
+              </li>
+              <li>
+                <span>Lieutenant Park</span>
+                <span class="badge">Security</span>
+                <span class="pill pill-danger">Away team</span>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Ship's log</h2>
+            <div class="card card-body">
+              <p>
+                <span class="canonical-marker"
+                  >✧ Ship's Log — Canonical Record</span
+                >
+              </p>
+              <p class="status-text">Stardate 47331.2 — Capt. Okonkwo-Lin</p>
+              <p>
+                We've altered course to investigate an anomalous gravity well
+                seventeen hours ahead. Away team standing by. Science officer
+                Achterberg's preliminary readings suggest it isn't natural.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

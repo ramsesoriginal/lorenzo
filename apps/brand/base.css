@@ -6,6 +6,13 @@
  * and identity.md §6.6.
  */
 
+html {
+  /* Reserves the scrollbar's width whether or not it's currently needed,
+     so content doesn't shift width the instant a page grows past one
+     screen - a small thing, but felt on every page. */
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--surface-canvas);
   color: var(--text-primary);

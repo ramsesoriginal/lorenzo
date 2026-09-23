@@ -25,7 +25,18 @@
   </head>
   <body>
     <header class="site-header">
-      <span class="display">✧ Lorenzo</span>
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html" aria-current="page">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
       <button
         class="btn btn-secondary"
         id="theme-toggle"
@@ -290,13 +301,15 @@
             </ul>
           </div>
         </section>
-
-        <footer>
-          Part of <code>apps/brand</code> — see
-          <code>docs/adr/0098-branding-css-app-and-package.md</code>.
-        </footer>
       </div>
     </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
 
     <script>
       (function () {

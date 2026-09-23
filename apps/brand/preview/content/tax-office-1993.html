@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a tax office, 1993</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap with-sidebar">
+        <nav class="sidebar" aria-label="Office sections">
+          <a href="#" aria-current="page">Filing</a>
+          <a href="#">Assessments</a>
+          <a href="#">Collections</a>
+          <a href="#">Appeals</a>
+          <a href="#">Archive room</a>
+        </nav>
+
+        <div>
+          <p class="status-text">
+            <a href="index.html">← Content</a>
+          </p>
+          <h1 class="display">Cook County Assessor's Office</h1>
+          <p class="lede">
+            Filing room, third floor. Case files are still paper - this terminal
+            only tracks status and routes memos between desks.
+          </p>
+
+          <section>
+            <h2>Open case files</h2>
+            <ul class="list">
+              <li>
+                <span>#93-04471 — Hendricks, M.</span>
+                <span class="pill pill-warning">Pending review</span>
+                <span class="status-text">Filed Mar 2, 1993</span>
+              </li>
+              <li>
+                <span>#93-04472 — Okafor Family Trust</span>
+                <span class="pill pill-success">Filed</span>
+                <span class="status-text">Filed Mar 3, 1993</span>
+              </li>
+              <li>
+                <span>#93-04355 — Redbrook Hardware Co.</span>
+                <span class="pill pill-danger">Appeal lodged</span>
+                <span class="status-text">Filed Feb 18, 1993</span>
+              </li>
+              <li>
+                <span>#93-04480 — Vance, T. &amp; Vance, R.</span>
+                <span class="pill pill-warning">Pending review</span>
+                <span class="status-text">Filed Mar 4, 1993</span>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Internal memo</h2>
+            <div class="card card-body">
+              <p class="status-text">To: All filing clerks — Mar 5, 1993</p>
+              <p>
+                Assessment notices for the 1993 tax year go out the second week
+                of April. Please clear the pending-review queue before then —
+                appeals filed after the notice date get routed to the county
+                board, not this office.
+              </p>
+              <span class="badge">Memo #12</span>
+            </div>
+          </section>
+
+          <section>
+            <h2>New filing</h2>
+            <div class="inline-form">
+              <input
+                class="text-input"
+                type="text"
+                placeholder="Parcel number"
+                style="max-width: 220px"
+              />
+              <button class="btn btn-primary" type="button">
+                Open case file
+              </button>
+              <span class="status-text">3 clerks on duty</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

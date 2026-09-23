@@ -11,6 +11,16 @@
  * package.md's "don't generalize before a second consumer needs it" rule.
  */
 
+/* Page shell: body is a full-height flex column so a short page's footer
+   still sits at the bottom of the viewport rather than immediately under
+   the content - header and footer keep their own natural height, main
+   grows to fill whatever space is left between them. */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .site-header {
   display: flex;
   align-items: center;
@@ -26,6 +36,35 @@
    size-agnostic everywhere else). */
 .site-header .display {
   font-size: 20px;
+}
+
+/* Header nav - a bare <a> in a bare <nav> would otherwise render as
+   default underlined link-blue text crammed against the wordmark, with no
+   visual weight or way to show which page is current. Same treatment as
+   .sidebar below, so the two page shells read as one system. */
+.site-header nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.site-header nav a {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.site-header nav a:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+
+.site-header nav a[aria-current="page"] {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .brand {
@@ -55,6 +94,7 @@
 }
 
 main {
+  flex: 1 0 auto;
   padding: var(--space-4);
 }
 
@@ -66,10 +106,14 @@ section {
 }
 
 /* A bare <footer> gets a sensible default treatment - a quiet divider
-   above secondary, muted page-level information. */
+   above secondary, muted page-level information. A sibling of <main>,
+   not nested inside .wrap, so its own border/background span the full
+   page width the same way .site-header's do - put its actual text in a
+   nested .wrap (see preview/*.html) so it still lines up with the
+   content column above it. */
 footer {
-  margin-top: var(--space-6);
-  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+  padding-block: var(--space-4);
   border-top: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
   font-size: 13px;
@@ -124,4 +168,44 @@ footer {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--grid-min, 160px), 1fr));
   gap: var(--space-3);
+}
+
+/* A narrow sidebar (nav, filters) beside a wider main content area - the
+   other common page shell, alongside .wrap's single centered column.
+   Stacks to one column below 720px rather than crushing the sidebar. */
+.with-sidebar {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--space-5);
+}
+
+@media (max-width: 720px) {
+  .with-sidebar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sidebar a {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.sidebar a:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+
+.sidebar a[aria-current="page"] {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+  font-weight: 600;
 }

@@ -37,6 +37,15 @@
   padding: var(--space-4);
 }
 
+/* .card used directly on an <a> (a whole card is the click target) - reset
+   the base link color/decoration so it reads as a card first, not as blue
+   underlined link text that happens to contain a heading. */
+a.card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
 /* A bare, unclassed <button> still gets a sensible default (identity.md
    §17's "buttons are their own layer" - never plain --action) - add
    .btn-secondary/.btn-danger explicitly to opt out of this default. */
@@ -330,4 +339,286 @@ pre {
   border-radius: var(--radius-card);
   padding: var(--space-3);
   overflow-x: auto;
+}
+
+/* Dialogs - a bare <dialog> gets a sensible default with no class needed.
+   Both a border and a shadow here, not just the shadow §8.2's binary
+   policy would otherwise suggest for an elevated surface: a non-modal
+   <dialog> (opened via show(), not showModal()) never gets a ::backdrop
+   at all - that's a platform behavior, not something this stylesheet
+   controls - so unlike a modal one, it has nothing else separating it
+   from whatever happens to be behind it. */
+dialog {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-surface);
+  padding: var(--space-4);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  max-width: min(480px, 92vw);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+}
+
+/* Only a modal dialog (showModal()) ever gets this - the blur is what
+   actually reads as "everything else is out of focus," well beyond what
+   the darkening tint alone communicates. */
+dialog::backdrop {
+  background: color-mix(in srgb, var(--brand-ink) 50%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+/* Tree view - nested <details>/<summary>, native disclosure semantics
+   (keyboard-operable, no JS required for expand/collapse). */
+.tree,
+.tree ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree ul {
+  padding-inline-start: var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.tree summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.tree summary::-webkit-details-marker {
+  display: none;
+}
+
+.tree summary::marker {
+  content: "";
+}
+
+.tree summary:hover {
+  background: var(--fill-soft);
+}
+
+/* .tree-toggle, not the generic .icon - a summary row often carries a
+   second, semantic icon (a type marker) alongside the disclosure chevron,
+   and only the chevron itself should rotate open. */
+.tree summary .tree-toggle {
+  transition: transform 150ms ease;
+}
+
+.tree details[open] > summary .tree-toggle {
+  transform: rotate(90deg);
+}
+
+/* Form fields beyond .text-input */
+textarea.text-input {
+  min-height: 96px;
+  resize: vertical;
+}
+
+/* A single-line <select> gets its own chevron (native ones look
+   inconsistent across browsers/OSes) via two small gradients rather than
+   an SVG data URI, since a data URI's own fill/stroke can't reference a
+   design token - a plain gradient can. Excludes [multiple] and a sized
+   listbox below, which render as a scrollable box, not a one-line
+   dropdown, and shouldn't get a chevron at all. */
+select.text-input:not([multiple]):not([size]) {
+  cursor: pointer;
+  appearance: none;
+  padding-right: calc(var(--space-3) + 18px);
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) center,
+    calc(100% - 15px) center;
+  background-size: 5px 5px;
+}
+
+/* A multi-select listbox - still a .text-input for border/font
+   consistency, but no chevron and no forced single line. */
+select.text-input[multiple],
+select.text-input[size] {
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+/* Browsers italicize an <optgroup> label by default - this design system
+   has no italics anywhere else, so it gets the same treatment as any
+   other secondary label instead. */
+optgroup {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--action);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--action);
+}
+
+/* A color swatch button - full .text-input width would stretch a small
+   fixed-size native control absurdly wide, so it gets its own compact
+   sizing instead. */
+input[type="color"] {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-default);
+  cursor: pointer;
+}
+
+/* A file input's native "choose file" button, restyled to match .btn-
+   secondary rather than the browser's own default button chrome. */
+input[type="file"] {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+input[type="file"]::file-selector-button {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  padding: var(--space-1) var(--space-2);
+  margin-right: var(--space-2);
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--fill-soft);
+}
+
+/* An image-button submit control - not a text field, so no .text-input
+   border/padding, just a focus ring and a pointer cursor to read as
+   interactive. */
+input[type="image"] {
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+
+input[type="image"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* A toggle switch - not a native input type, built from a checkbox
+   visually hidden under a track/thumb pair. */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+  transition: background-color 150ms ease;
+  pointer-events: none;
+}
+
+.switch-track::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--surface-default);
+  border-radius: 50%;
+  transition: transform 150ms ease;
+}
+
+.switch input:checked + .switch-track {
+  background: var(--action);
+}
+
+.switch input:checked + .switch-track::before {
+  transform: translateX(16px);
+}
+
+.switch input:focus-visible + .switch-track {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* A custom editor surface - compose with .card for the outer chrome
+   (<div class="card"><div class="editor-toolbar">...<div class=
+   "editor-content" contenteditable>). */
+.editor-toolbar {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.editor-toolbar button {
+  background: transparent;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.editor-toolbar button:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+
+.editor-toolbar .divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border-subtle);
+  margin-inline: var(--space-1);
+}
+
+.editor-content {
+  padding: var(--space-3);
+  min-height: 160px;
+  outline: none;
+}
+
+.editor-content:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-tertiary);
 }
