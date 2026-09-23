@@ -279,6 +279,14 @@ function buildSelectMenuInteraction(
       deferred = true;
       gate.send({ type: ResponseType.DeferredUpdateMessage });
     },
+    async editReply(opts) {
+      await gate.promise;
+      return editOriginalInteractionResponse(
+        payload.application_id,
+        payload.token,
+        serializeMessagePayload(opts),
+      );
+    },
     async reply(opts) {
       replied = true;
       gate.send({
@@ -321,6 +329,10 @@ function buildButtonInteraction(
         type: ResponseType.ChannelMessageWithSource,
         data: serializeMessagePayload(opts, replyFlags(opts)),
       });
+    },
+    async update(opts) {
+      replied = true;
+      gate.send({ type: ResponseType.UpdateMessage, data: serializeMessagePayload(opts) });
     },
     async deferUpdate() {
       deferred = true;

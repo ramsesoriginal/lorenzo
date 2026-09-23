@@ -28,6 +28,7 @@ from lorenzo_api.models import (
     MembershipRole,
     Player,
     Tenant,
+    TenantAdminCampaignOptOut,
     User,
 )
 
@@ -181,6 +182,40 @@ async def make_character(
     session.add(character)
     await session.flush()
     return character
+
+
+async def make_plain_participant(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Makes user_id a plain participant of tenant_id: no tenant-wide
+    Membership (so no administrative bypass of any kind, ADR 0096), but a
+    Player seat in a fresh campaign so tenant reads still admit them. What
+    the "hides GM-only information from a plain member" tests actually need
+    - they originally used an OWNER Membership as the stand-in, which was
+    only "plain" while OWNER had no information bypass.
+    """
+    async with admin_session_factory() as session:
+        membership = await session.get(Membership, (tenant_id, user_id))
+        if membership is not None:
+            await session.delete(membership)
+        campaign = await make_campaign(session, tenant_id=tenant_id, name="Plain Participant")
+        session.add(Player(user_id=user_id, campaign_id=campaign.id, tenant_id=tenant_id))
+        await session.commit()
+
+
+async def make_opted_out_admin(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    """Keeps user_id's tenant-wide Membership but gives them a campaign
+    admin opt-out, which suppresses the information bypass tenant-wide (ADR
+    0034/0096). For the routes that require a Membership (the item catalog,
+    payload content) and so can't be reached by a plain participant: since
+    every MembershipRole is administrative, an opted-out administrator is
+    the only caller there who does not get the bypass - and it exercises
+    the same filtering code a "plain member" originally did.
+    """
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id, name="Opted Out")
+        session.add(
+            TenantAdminCampaignOptOut(tenant_id=tenant_id, user_id=user_id, campaign_id=campaign.id)
+        )
+        await session.commit()
 
 
 def _make_fake_current_user(

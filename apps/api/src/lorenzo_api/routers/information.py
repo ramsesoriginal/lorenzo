@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
     CurrentUser,
     SessionDep,
@@ -113,6 +114,15 @@ async def add_information_knower(
                 information_id=information_id,
             )
         )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="information.knower_added",
+            target_type="information",
+            target_id=information_id,
+            detail=f"knower={knower_entity_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await information_out_or_404(
@@ -147,6 +157,15 @@ async def remove_information_knower(
     )
     if existing is not None:
         await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="information.knower_removed",
+            target_type="information",
+            target_id=information_id,
+            detail=f"knower={knower_entity_id}",
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await information_out_or_404(

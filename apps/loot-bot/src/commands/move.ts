@@ -3,6 +3,7 @@ import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { recordUndo } from "../undo-actions.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
+import { rememberActingCharacter } from "./remember-character.js";
 import type { Command } from "./types.js";
 
 /**
@@ -92,6 +93,14 @@ export const moveCommand: Command = {
         entityId: itemEntityId,
         previousContainerEntityId: current.container_entity_id,
       });
+      await rememberActingCharacter(
+        client,
+        tenantId,
+        accessToken,
+        interaction.user.id,
+        current.owner_entity_id,
+        ctx.logger,
+      );
 
       await interaction.editReply(`Moved ${moved.title ?? "(untitled)"}.`);
     } catch (error) {

@@ -119,11 +119,20 @@ export type StringSelectMenuInteraction = RepliableInteraction &
     showModal(modal: ModalLike): Promise<void>;
     update(opts: MessagePayload): Promise<void>;
     deferUpdate(): Promise<void>;
+    /** Edits the message the menu is on, after `deferUpdate` acknowledged
+     * the pick - for work that can outlast Discord's 3-second ack window
+     * (`/container-new`'s fill, ADR 0094). */
+    editReply(opts: MessagePayload): Promise<SentMessage>;
   }>;
 
 export type ButtonInteraction = RepliableInteraction &
   Readonly<{
     customId: string;
+    /** Replaces the message the button was on, as the interaction's own
+     * first response - unlike `deferUpdate`, it can strip the buttons in
+     * the same breath as acknowledging the click (`/give`'s confirmation,
+     * ADR 0088, relies on that so a double-click can't confirm twice). */
+    update(opts: MessagePayload): Promise<void>;
     deferUpdate(): Promise<void>;
     editReply(opts: MessagePayload): Promise<SentMessage>;
   }>;

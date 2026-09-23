@@ -52,7 +52,16 @@ export const HELP_GROUPS: readonly HelpGroup[] = [
   },
   {
     title: "Give, move, and tidy",
-    commandNames: ["give", "give-bulk", "move", "move-bulk", "merge", "rename", "undo"],
+    commandNames: [
+      "give",
+      "give-bulk",
+      "move",
+      "move-bulk",
+      "container-new",
+      "merge",
+      "rename",
+      "undo",
+    ],
   },
   {
     title: "Notes and groups",

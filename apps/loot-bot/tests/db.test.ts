@@ -257,6 +257,7 @@ describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
 
   afterEach(async () => {
     await db.deletePreference(DISCORD_ID, CHANNEL_ID);
+    await db.deletePreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
   });
 
   it("returns undefined for a discord user with no preference set", async () => {
@@ -333,6 +334,63 @@ describe.skipIf(!canRunDbTests)("player_preference (real Postgres)", () => {
     expect(row?.currentCharacterEntityId).toBe("char-channel");
 
     await db.deletePreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
+  });
+
+  // ADR 0088: the fallback to the global default is per field, not per
+  // row - `/set-current container:...` alone creates a channel row with no
+  // character, which used to hide the user's server-wide (last-used) one.
+  it("falls back to the global character when the channel row only sets a container", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { containerEntityId: "container-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-global");
+    expect(row?.currentContainerEntityId).toBe("container-channel");
+  });
+
+  it("falls back to the global container when the channel row only sets a character", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+      containerEntityId: "container-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-channel");
+    expect(row?.currentContainerEntityId).toBe("container-global");
+  });
+
+  it("leaves a field unset when neither the channel nor the global row sets it", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.currentContainerEntityId).toBeNull();
+  });
+
+  it("returns the channel's own row identity when merging, not the global one", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { containerEntityId: "container-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, CHANNEL_ID);
+    expect(row?.discordChannelId).toBe(CHANNEL_ID);
+  });
+
+  it("looking up the global default itself is unaffected by any channel row", async () => {
+    await db.setPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID, {
+      characterEntityId: "char-global",
+    });
+    await db.setPreference(DISCORD_ID, CHANNEL_ID, { characterEntityId: "char-channel" });
+
+    const row = await db.getPreference(DISCORD_ID, db.GLOBAL_PREFERENCE_CHANNEL_ID);
+    expect(row?.currentCharacterEntityId).toBe("char-global");
+    expect(row?.discordChannelId).toBe(db.GLOBAL_PREFERENCE_CHANNEL_ID);
   });
 });
 
@@ -538,5 +596,48 @@ describe.skipIf(!canRunDbTests)("loot_drop / loot_claim (real Postgres)", () => 
     await expect(
       db.deleteLootDrop("00000000-0000-0000-0000-000000000000"),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe.skipIf(!canRunDbTests)("container_prototype (real Postgres)", () => {
+  const TENANT = "db-test-tenant-sack";
+  const OTHER_TENANT = "db-test-tenant-sack-other";
+
+  afterEach(async () => {
+    await db.clearContainerPrototypeId(TENANT);
+    await db.clearContainerPrototypeId(OTHER_TENANT);
+  });
+
+  it("returns undefined for a tenant nobody has set a sack up for", async () => {
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+  });
+
+  it("stores and returns the prototype id", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-1");
+  });
+
+  it("replaces an existing id rather than failing - two racing first runs are harmless", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.setContainerPrototypeId(TENANT, "prototype-2");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-2");
+  });
+
+  it("keeps each tenant's prototype separate", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.setContainerPrototypeId(OTHER_TENANT, "prototype-other");
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBe("prototype-1");
+    await expect(db.getContainerPrototypeId(OTHER_TENANT)).resolves.toBe("prototype-other");
+  });
+
+  it("clears it, and clearing an unset one is a no-op", async () => {
+    await db.setContainerPrototypeId(TENANT, "prototype-1");
+    await db.clearContainerPrototypeId(TENANT);
+
+    await expect(db.getContainerPrototypeId(TENANT)).resolves.toBeUndefined();
+    await expect(db.clearContainerPrototypeId(TENANT)).resolves.toBeUndefined();
   });
 });
