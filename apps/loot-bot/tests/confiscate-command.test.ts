@@ -9,6 +9,12 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
+const { recordCharacterEvents } = vi.hoisted(() => ({ recordCharacterEvents: vi.fn() }));
+vi.mock("../src/character-events.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/character-events.js")>()),
+  recordCharacterEvents,
+}));
+
 const {
   isCampaignGm,
   getGmCampaignIds,
@@ -235,5 +241,44 @@ describe("confiscateCommand.autocomplete", () => {
 
     expect(interaction.respond).toHaveBeenCalledWith([]);
     expect(getItemInstancesOwnedBy).not.toHaveBeenCalled();
+  });
+});
+
+describe("confiscateCommand.execute - recording for /changes (ADR 0097)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("records what was taken, for the player it was taken from, without naming the GM", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockResolvedValue("Frodo");
+
+    await confiscateCommand.execute(fakeInteraction(), { config, logger: {} as never });
+
+    expect(recordCharacterEvents).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          kind: "confiscated",
+          summary: "Sword was taken from Frodo.",
+          characterEntityIds: [expect.any(String)],
+        }),
+      ],
+      expect.anything(),
+    );
+  });
+
+  it("records nothing when the confiscation failed", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    getItemInstance.mockRejectedValue(new LorenzoApiError("gone", 404));
+
+    await confiscateCommand.execute(fakeInteraction(), { config, logger: {} as never });
+
+    expect(recordCharacterEvents).not.toHaveBeenCalled();
   });
 });

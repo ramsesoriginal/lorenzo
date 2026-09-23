@@ -1,6 +1,8 @@
+import { showUndeliveredNotice } from "../undelivered-notice.js";
 import { addChannelToGroupCommand } from "./add-channel-to-group.js";
 import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
+import { changesCommand } from "./changes.js";
 import { confiscateCommand } from "./confiscate.js";
 import { containerNewCommand } from "./container-new.js";
 import { dropCommand } from "./drop.js";
@@ -22,6 +24,7 @@ import { pingCommand } from "./ping.js";
 import { reassignCommand } from "./reassign.js";
 import { renameCommand } from "./rename.js";
 import { setCurrentCommand } from "./set-current.js";
+import { sheetCommand } from "./sheet.js";
 import type { AnyInteraction, Command, CommandContext } from "./types.js";
 import { undoCommand } from "./undo.js";
 import { unlinkCommand } from "./unlink.js";
@@ -59,6 +62,8 @@ const commands: readonly Command[] = [
   addToGroupCommand,
   addChannelToGroupCommand,
   containerNewCommand,
+  sheetCommand,
+  changesCommand,
   helpCommand,
 ];
 
@@ -133,5 +138,13 @@ export async function dispatchInteraction(
     } else {
       await interaction.reply(payload);
     }
+  }
+
+  // The "couldn't DM you" fallback (ADR 0095): once a slash command has
+  // answered, show any notifications Discord wouldn't let the bot DM this
+  // user. Slash commands only - a button click or menu pick mid-flow isn't
+  // "running a command", and would put a banner in the middle of one.
+  if (interaction.isChatInputCommand()) {
+    await showUndeliveredNotice(interaction, ctx.logger);
   }
 }

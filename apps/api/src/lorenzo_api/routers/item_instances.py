@@ -16,6 +16,7 @@ from lorenzo_api.campaign_access import (
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
+from lorenzo_api.change_feed import Change, holders, record_change
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -647,6 +648,13 @@ async def create_item_instance(
         target_id=entity.id,
         detail=f"prototype={body.prototype_id}",
     )
+    # A new instance created straight into someone's possession is "received".
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        changes=[Change(entity_id=entity.id, before=frozenset(), both_kind=None)],
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
@@ -675,8 +683,24 @@ async def update_item_instance(
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
     update = body.model_dump(exclude_unset=True)
     if "name" in update:
+        renamed = update["name"] != entity.name
         entity.name = update["name"]
         entity.updated_by = user.id
+        if renamed:
+            # Not an activity-log event (above), but it is one for the people
+            # holding the item (ADR 0099).
+            await record_change(
+                session,
+                tenant_id=tenant_id,
+                actor_id=user.id,
+                changes=[
+                    Change(
+                        entity_id=entity_id,
+                        before=await holders(session, tenant_id=tenant_id, entity_id=entity_id),
+                        both_kind="renamed",
+                    )
+                ],
+            )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
@@ -705,6 +729,20 @@ async def delete_item_instance(
         target_type="item_instance",
         target_id=entity_id,
         detail=None,
+    )
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        changes=[
+            Change(
+                entity_id=entity_id,
+                before=await holders(session, tenant_id=tenant_id, entity_id=entity_id),
+                both_kind=None,
+                deleted=True,
+                entity_name=entity.name,
+            )
+        ],
     )
     await session.delete(entity)
     await session.commit()
@@ -759,6 +797,7 @@ async def set_item_instance_owner(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
+    before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     changed = await _perform_set_owner(
         session,
         tenant_id=tenant_id,
@@ -774,6 +813,12 @@ async def set_item_instance_owner(
             target_type="item_instance",
             target_id=entity_id,
             detail=f"owner={body.owner_character_id}",
+        )
+        await record_change(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            changes=[Change(entity_id=entity_id, before=before, both_kind=None)],
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -800,6 +845,7 @@ async def clear_item_instance_owner(
 
     existing = await session.get(Ownership, entity_id)
     if existing is not None:
+        before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
         await session.delete(existing)
         await record_activity(
             session,
@@ -809,6 +855,12 @@ async def clear_item_instance_owner(
             target_type="item_instance",
             target_id=entity_id,
             detail=f"owner={existing.owner_character_id}",
+        )
+        await record_change(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            changes=[Change(entity_id=entity_id, before=before, both_kind=None)],
         )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
@@ -862,6 +914,7 @@ async def set_item_instance_container(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
+    before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     changed = await _perform_set_container(
         session,
         tenant_id=tenant_id,
@@ -877,6 +930,12 @@ async def set_item_instance_container(
             target_type="item_instance",
             target_id=entity_id,
             detail=f"container={body.container_entity_id}",
+        )
+        await record_change(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -899,6 +958,7 @@ async def clear_item_instance_container(
 
     existing = await session.get(Containment, entity_id)
     if existing is not None:
+        before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
         await session.delete(existing)
         await record_activity(
             session,
@@ -908,6 +968,12 @@ async def clear_item_instance_container(
             target_type="item_instance",
             target_id=entity_id,
             detail=f"container={existing.parent_entity_id}",
+        )
+        await record_change(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
         )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
@@ -1048,6 +1114,7 @@ async def split_item_instance(
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
+    before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     new_entity_id = await _perform_split(
         session,
         tenant_id=tenant_id,
@@ -1064,6 +1131,20 @@ async def split_item_instance(
         target_type="item_instance",
         target_id=entity_id,
         detail=f"new={new_entity_id}, quantity={body.quantity}",
+    )
+    # The split-off piece starts out held by whoever held its source.
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        changes=[
+            Change(
+                entity_id=new_entity_id,
+                before=before,
+                both_kind="split",
+                detail=f"quantity={body.quantity}",
+            )
+        ],
     )
 
     await session.commit()
@@ -1137,6 +1218,21 @@ async def merge_item_instance(
         target_id=body.into_entity_id,
         detail=f"source={entity_id}, quantity={source_containment.quantity}",
     )
+    # Source and target share owner and container (checked above), so the
+    # same people hold both: one "merged" row about the target is enough.
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        changes=[
+            Change(
+                entity_id=body.into_entity_id,
+                before=await holders(session, tenant_id=tenant_id, entity_id=body.into_entity_id),
+                both_kind="merged",
+                detail=f"quantity={source_containment.quantity}",
+            )
+        ],
+    )
     await session.delete(source_entity)
 
     await session.commit()
@@ -1182,6 +1278,7 @@ async def bulk_assign_item_instances(
                 await _authorize_instance_write(
                     session, tenant_id=tenant_id, user=user, entity_id=item.entity_id
                 )
+                before = await holders(session, tenant_id=tenant_id, entity_id=item.entity_id)
                 if item.quantity is not None:
                     result_entity_id = await _perform_split(
                         session,
@@ -1191,14 +1288,29 @@ async def bulk_assign_item_instances(
                         owner_character_id=item.owner_character_id,
                         user=user,
                     )
+                    changes = [
+                        Change(
+                            entity_id=result_entity_id,
+                            before=before,
+                            both_kind="split",
+                            detail=f"quantity={item.quantity}",
+                        )
+                    ]
                 else:
-                    await _perform_set_owner(
+                    changed = await _perform_set_owner(
                         session,
                         tenant_id=tenant_id,
                         entity_id=item.entity_id,
                         owner_character_id=item.owner_character_id,
                     )
                     result_entity_id = item.entity_id
+                    changes = (
+                        [Change(entity_id=item.entity_id, before=before, both_kind=None)]
+                        if changed
+                        else []
+                    )
+                # Inside the savepoint: a failed item rolls back its feed rows too.
+                await record_change(session, tenant_id=tenant_id, actor_id=user.id, changes=changes)
         except Problem as exc:
             results.append(
                 BulkAssignResultItem(
@@ -1291,12 +1403,20 @@ async def bulk_move_item_instances(
                 await _authorize_instance_write(
                     session, tenant_id=tenant_id, user=user, entity_id=entity_id
                 )
-                await _perform_set_container(
+                before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
+                moved = await _perform_set_container(
                     session,
                     tenant_id=tenant_id,
                     entity_id=entity_id,
                     container_entity_id=body.to_container_entity_id,
                 )
+                if moved:
+                    await record_change(
+                        session,
+                        tenant_id=tenant_id,
+                        actor_id=user.id,
+                        changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
+                    )
         except Problem as exc:
             results.append(
                 BulkMoveResultItem(

@@ -229,3 +229,39 @@ Reuses the *same* GCP project, Workload Identity Pool/Provider, and service acco
 
 - **Secrets**: `DISCORD_BOT_TOKEN`, `LOOT_BOT_AUTHGEAR_CLIENT_SECRET`, `LOOT_BOT_DATABASE_URL`, `LOOT_BOT_MIGRATIONS_DATABASE_URL`, `LOOT_BOT_TOKEN_ENCRYPTION_KEY` (32 random bytes, base64-encoded, e.g. `openssl rand -base64 32`).
 - **Variables**: `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`, `DISCORD_PUBLIC_KEY` (all from the Discord Developer Portal), `LOOT_BOT_AUTHGEAR_CLIENT_ID` (this bot's own client, distinct from `apps/api`'s - which has none), `LORENZO_API_BASE_URL` (the deployed `apps/api` Cloud Run URL), `LORENZO_TENANT_ID`, `LOOT_BOT_PUBLIC_BASE_URL` (step 4 above - unset for the very first deploy, which is why that one run is expected to fail its final health check). `AUTHGEAR_ISSUER` is **not** duplicated - it's the same Authgear project as `apps/api`, so the variable of that name `apps/api`'s own setup already added is reused as-is.
+
+### Notification DMs (ADR 0095, optional)
+
+The bot can DM each linked user their own Lorenzo notifications. It scales to zero, so it has no process of its own to poll from - **Cloud Scheduler** calls it on a timer instead. Nothing here is needed for the rest of the bot, and until step 3 the endpoint (`/internal/deliver-notifications`) answers 404 like any unknown path.
+
+```bash
+export LOOT_BOT_URL="$(gcloud run services describe lorenzo-loot-bot --region="$REGION" --format='value(status.url)')"
+export SCHEDULER_SA_NAME="loot-bot-scheduler"
+export SCHEDULER_SA_EMAIL="$SCHEDULER_SA_NAME@$PROJECT_ID.iam.gserviceaccount.com"
+```
+
+1. **Enable the API and make the job's identity.** This service account needs *no roles* - it exists only so Cloud Scheduler can mint an OIDC token that says who is calling:
+
+   ```bash
+   gcloud services enable cloudscheduler.googleapis.com
+   gcloud iam service-accounts create "$SCHEDULER_SA_NAME" --display-name="loot-bot notification scheduler"
+   ```
+
+2. **Tell the bot which account to trust.** Set the `LOOT_BOT_SCHEDULER_SERVICE_ACCOUNT` GitHub **variable** (same `production` Environment) to `$SCHEDULER_SA_EMAIL`, then re-run `deploy-loot-bot.yml` so Cloud Run gets it as `NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT`. The bot rejects every request not carrying a Google-signed token for exactly that account, addressed to exactly `<LOOT_BOT_PUBLIC_BASE_URL>/internal/deliver-notifications`. (The service has to stay public for Discord's webhooks, step 3 above, so this token check - not Cloud Run IAM - is the gate.)
+
+3. **Create the job.** The audience must equal the URL exactly. Whoever runs this needs `roles/iam.serviceAccountUser` on the scheduler service account (project owners already have it):
+
+   ```bash
+   gcloud scheduler jobs create http loot-bot-deliver-notifications \
+     --location="$REGION" \
+     --schedule="*/5 * * * *" \
+     --uri="$LOOT_BOT_URL/internal/deliver-notifications" \
+     --http-method=POST \
+     --oidc-service-account-email="$SCHEDULER_SA_EMAIL" \
+     --oidc-token-audience="$LOOT_BOT_URL/internal/deliver-notifications" \
+     --attempt-deadline=180s
+   ```
+
+4. **Check it.** `gcloud scheduler jobs run loot-bot-deliver-notifications --location="$REGION"`, then look at the `lorenzo-loot-bot` Cloud Run logs for `notification delivery run finished` - it logs the run's tally (`users`, `skippedUsers`, `delivered`, `undelivered`, `failed`). A 401 in the job's own log means the service account or audience doesn't match what the bot was told in step 2.
+
+Each user is first "enrolled" the first time a run sees them, and only notifications created *after* that are ever sent - turning this on doesn't DM anyone their existing inbox. One Cloud Scheduler job is well inside the free tier (three jobs per billing account).

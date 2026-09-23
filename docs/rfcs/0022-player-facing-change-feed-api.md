@@ -1,6 +1,6 @@
 # RFC: A player-facing change feed in `apps/api`
 
-Status: proposed
+Status: accepted - landed in [ADR 0099](../adr/0099-player-facing-change-feed.md)
 
 Numbered 0020 originally; renumbered to 0022 alongside [RFC 0021](0021-loot-bot-player-toolkit.md), which it is the companion to (see that RFC's own history note).
 
@@ -51,3 +51,7 @@ A change to a GM-private note must not appear in a player's feed, and a confisca
 
 - A GM/admin-facing item history or full ownership provenance ledger — the "ledger of ownership" [docs/domain/client-views.md](../domain/client-views.md) records as a possible future direction is a superset of this and stays unscoped.
 - Any implementation. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), this gets no issue until it is decided.
+
+## Resolution
+
+Decided with the maintainer and recorded in [ADR 0099](../adr/0099-player-facing-change-feed.md): the actor is shown only when it is another player; a character's stuff is what it owns or carries; rows are kept 90 days; information changes are left out of the first slice; and the admin activity log stays separate. The context's claim that the activity log covers only seven mutation points is out of date since ADR 0084.
