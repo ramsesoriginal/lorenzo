@@ -1,0 +1,59 @@
+/*
+ * Structural arrangement: the page shell every app can start from. Visual
+ * skin (color, border, radius) for individual pieces lives in
+ * components.css - same separation apps/inventory-web/src/styles/layout.css
+ * already established.
+ *
+ * This is the genuinely generic subset of that file - a page shell, brand
+ * lockup, and a shared spacing rhythm. Anything domain-specific (a kanban
+ * board's columns, a character strip, a tenant grid) stays local to the
+ * app that needs it, not here - see ADR 0098 and docs/guides/adding-a-
+ * package.md's "don't generalize before a second consumer needs it" rule.
+ */
+
+.site-header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-mark {
+  display: block;
+  /* identity.md §4.7: horizontal lockup minimum width is 220px. */
+  width: 220px;
+  height: auto;
+}
+
+.brand-mark--dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .brand-mark--light {
+    display: none;
+  }
+
+  .brand-mark--dark {
+    display: block;
+  }
+}
+
+main {
+  padding: var(--space-4);
+}
+
+/* Shared section-spacing utility - every section on a page is one of
+   these two rhythms, rather than each inventing its own margin-top. */
+.section {
+  margin-top: var(--space-5);
+}
+
+.section-lg {
+  margin-top: var(--space-6);
+}

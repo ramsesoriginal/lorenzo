@@ -1,0 +1,42 @@
+/*
+ * Tokens applied to bare HTML elements - the "everything renders sanely
+ * before any component class is involved" layer. Adapted from
+ * apps/inventory-web/src/styles/base.css to the new semantic tokens
+ * (--surface-canvas/--text-primary, not the old --bg/--fg) - see ADR 0098
+ * and identity.md §6.6.
+ */
+
+body {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+a {
+  color: var(--action);
+}
+
+a:hover {
+  color: var(--action-hover);
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}

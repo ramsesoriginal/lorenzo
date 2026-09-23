@@ -1,0 +1,285 @@
+/*
+ * Reusable pieces: buttons, form controls, tabs, chips, badges/pills, and
+ * small status/text treatments - the generic subset curated from
+ * apps/inventory-web's and apps/account-hub's own components.css.
+ * Anything domain-specific (item cards, board columns, catalog rows,
+ * tenant cards) stays local to the app that needs it, not here - see
+ * ADR 0098 and docs/guides/adding-a-package.md's "don't generalize before
+ * a second consumer needs it" rule.
+ *
+ * Uses the semantic tokens from tokens.css (identity.md §6.6) throughout -
+ * never a --brand- or --utility- primitive directly.
+ */
+
+/* A bare, unclassed <button> still gets a sensible default (identity.md
+   §17's "buttons are their own layer" - never plain --action) - add
+   .btn-secondary/.btn-danger explicitly to opt out of this default. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-fg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--button-primary-hover);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* .btn on an <a> gets the same visual language as a <button> - anchors
+   don't inherit the `button` element rule above. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.btn-primary,
+.btn.btn-primary {
+  background: var(--button-primary-bg);
+  color: var(--button-primary-fg);
+}
+
+.btn-primary:hover {
+  background: var(--button-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  border-color: var(--button-secondary-border);
+}
+
+.btn-secondary:hover {
+  background: var(--fill-soft);
+}
+
+.btn-danger {
+  background: var(--button-danger-bg);
+  color: var(--button-danger-fg);
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
+/* Form controls */
+.text-input {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+}
+
+.text-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* A single-line create/invite form (text input + submit + status). */
+.inline-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tab {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  background: none;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--action);
+}
+
+/* Chips - removable multi-select tags */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--fill-soft);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  font-size: 13px;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  background: var(--border-subtle);
+}
+
+/* A small, uppercase role/kind tag next to a name - non-interactive. */
+.badge {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  background: var(--fill-soft);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
+}
+
+/* Status pills - success/warning/danger only (§6.6); canonical and
+   restricted-visibility get their own, differently-shaped treatments
+   below, since neither is a "status." */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-pill);
+}
+
+.pill-success {
+  background: var(--success-surface);
+  color: var(--success);
+}
+
+.pill-warning {
+  background: var(--warning-surface);
+  color: var(--warning);
+}
+
+.pill-danger {
+  background: var(--danger-surface);
+  color: var(--danger);
+}
+
+/* Restricted visibility - one neutral treatment for every non-public
+   tier (private, GM-only, a selected group); only the icon/label
+   differs. Public gets no badge at all - see identity.md §6.6/§18. */
+.badge-visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--visibility-restricted-surface);
+  color: var(--visibility-restricted-text);
+  border: 1px solid var(--visibility-restricted-border);
+}
+
+/* An unread count or similar "needs attention" marker - gold, per
+   identity.md §1.4's "gold is punctuation": marks significance, not a
+   permanent surface treatment. */
+.canonical-marker {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--canonical);
+}
+
+/* A bordered list of records with inline actions (characters, beings,
+   members) - identity.md §8.2's "clean information records." */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list > li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+
+/* Small, muted status/progress text next to a button or form -
+   "Saving…", an inline error, or nothing at all. */
+.status-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.error-text {
+  color: var(--danger);
+}
+
+pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--fill-soft);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-3);
+  overflow-x: auto;
+}

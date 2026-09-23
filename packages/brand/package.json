@@ -3,11 +3,23 @@
   "private": true,
   "type": "module",
   "version": "1.0.0",
-  "description": "Lorenzo's shared design tokens, for other apps to bundle at build time. See ADR 0098.",
+  "description": "Lorenzo's shared brand layout package - tokens, fonts, icons, and a small opinionated CSS foundation - for other apps to bundle at build time. See ADR 0098.",
   "files": [
-    "tokens.css"
+    "tokens.css",
+    "fonts.css",
+    "fonts/",
+    "normalize.css",
+    "base.css",
+    "layout.css",
+    "components.css"
   ],
   "exports": {
-    "./tokens.css": "./tokens.css"
+    "./tokens.css": "./tokens.css",
+    "./fonts.css": "./fonts.css",
+    "./fonts/*": "./fonts/*",
+    "./normalize.css": "./normalize.css",
+    "./base.css": "./base.css",
+    "./layout.css": "./layout.css",
+    "./components.css": "./components.css"
   }
 }

@@ -1,21 +1,29 @@
-# Lorenzo — Brand Tokens
+# Lorenzo — Brand
 
-Lorenzo's shared design tokens (`tokens.css`) as a plain static site — no
-framework, no build step. See [ADR 0098](../../docs/adr/0098-branding-css-app-and-package.md)
-for why this exists and how it fits together with
+Lorenzo's whole shared brand layout package, as a plain static site — no
+framework, no build step. Include any file here and get Lorenzo's
+opinionated, on-brand defaults: colors, fonts, a reset, base element
+styling, structural layout, and reusable components. See
+[ADR 0098](../../docs/adr/0098-branding-css-app-and-package.md) for why
+this exists and how it fits together with
 [`packages/brand`](../../packages/brand), and
-[docs/brand/identity.md](../../docs/brand/identity.md) §5.2/§6/§8.1/§8.3 for
-what the values themselves mean.
+[docs/brand/identity.md](../../docs/brand/identity.md) for what the values
+themselves mean.
 
 ## What it does
 
-`tokens.css` is the single hand-edited source of these design tokens —
-colors, font-family names, spacing, and radius. `preview/index.html`
-`<link>`s to it directly and renders a live sample (surfaces, buttons,
-status pills, visibility badges, a type sample), with a light/dark toggle.
+Six hand-edited files, in the order any consumer should load them:
 
-Open `preview/index.html` straight from disk in a browser — there's nothing
-to install, run, or build. Edit `tokens.css` and reload to see the change.
+1. **`normalize.css`** — a minimal modern reset (box-model, spacing, list/media defaults)
+2. **`tokens.css`** — colors (identity.md §6), font-family names, spacing, and radius (§5.2/§8.1/§8.3), as custom properties
+3. **`fonts.css`** + **`fonts/`** — the actual self-hosted `@font-face` files backing those font-family names (no CDN — same files `apps/inventory-web`/`apps/account-hub` already use)
+4. **`base.css`** — sensible defaults for bare elements (`body`, `h1`/`h2`, links, focus rings)
+5. **`layout.css`** — the generic page-shell pieces (header, brand lockup, section spacing) — domain-specific layout stays in each app
+6. **`components.css`** — buttons, form controls, tabs, chips, badges, status pills, and the neutral visibility-badge treatment, all keyed off `tokens.css`'s semantic roles
+
+`preview/index.html` `<link>`s to all six in order and renders a live sample
+of each. Open it straight from disk in a browser — there's nothing to
+install, run, or build. Edit any file and reload to see the change.
 
 Deploys to Cloudflare Pages via Git integration, same mechanism as
 `apps/inventory-web`/`apps/account-hub` (see
