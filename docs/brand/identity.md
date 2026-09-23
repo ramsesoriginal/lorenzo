@@ -819,7 +819,7 @@ Lorenzo’s visual vocabulary should include:
 
 These should look like **information architecture**, not treasure maps.
 
-Use crisp line work, clear hierarchy, and modern labeling.
+Use crisp line work, clear hierarchy, and modern labeling. See §18 for the concrete visual grammar — line styles, node states, and structural markers — that vocabulary resolves to.
 
 ### 7.3 Lines and borders
 
@@ -1498,7 +1498,63 @@ Use Lorenzo-specific visual language only where Lorenzo-specific meaning exists.
 
 ---
 
-## 18. Practical selection guide
+## 18. Information visualization grammar
+
+§7.2 names the vocabulary — nodes, paths, timelines, coordinates, relationships, repository links, knowledge visibility, branching histories — and the standard it has to meet: information architecture, not treasure maps. That's the right direction, but on its own it's still direction rather than a system. Given what Lorenzo actually models, graphs, maps, and timelines may end up more characteristic of the product than the logo — so the vocabulary needs a concrete visual answer before much of that UI gets built, not a bespoke one invented per feature.
+
+### 18.1 What needs a consistent visual answer
+
+Each of these needs one recognizable treatment, reused everywhere it appears: node taxonomy, edge taxonomy, current selection, unknown/hidden state ([knowledge](../domain/entities-knowledge-and-visibility.md)), prototype-inherited state, canonical vs. local state ([repository provenance](../domain/repositories.md)), temporal divergence ([the timeline/plane/multiverse axes](../domain/world-model.md)), containment, and cross-world links.
+
+Most of these don't need a unique color. Line style, shape, labels, and hierarchy carry more of the distinction than color does — color reinforces the grammar below, it isn't the grammar.
+
+### 18.2 Core grammar
+
+| Visual treatment            | Meaning                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| Solid edge                  | Direct, explicit relationship                                                          |
+| Dashed edge                 | Derived, inherited, or indirect relationship                                           |
+| Dotted/faded edge           | Unknown, inferred, incomplete, or uncertain relationship                               |
+| Arrowhead                   | Direction matters                                                                      |
+| No arrowhead                | Symmetric / non-directional relationship                                               |
+| Branch marker               | Timeline or history divergence                                                         |
+| Merge marker                | Timelines or histories converge or reconcile                                           |
+| Spark marker                | Canonical/source/reference point (§17.1 — never generic importance)                    |
+| Lock icon                   | Restricted visibility, as a static badge (§6.6's visibility-restricted treatment)      |
+| Eye / eye-off icon          | A show/hide control on the current view — a diagram layer or branch, not a domain fact |
+| `--surface-selected` fill   | Current selection, optionally paired with `--focus-ring` when keyboard-focused         |
+| Muted / low-opacity node    | Inactive, unavailable, out-of-context, or unresolved                                   |
+| `--canonical` (Gold) accent | Canonical/reference significance only — never generic importance (§6.6)                |
+
+Branch/merge markers start from Tabler's own `git-branch`/`git-merge` glyphs (§17.3) — reach for a custom mark (§17.4) only if that metaphor turns out not to read for a story timeline.
+
+A few rules matter more than the exact mapping:
+
+- **Selection stays separate from meaning.** A selected node gets `--surface-selected`/`--focus-ring`; its semantic shape or icon never changes to show selection.
+- **Color reinforces meaning, it doesn't carry it.** "Inherited" should still read as inherited in grayscale — dash pattern, shape, labels, and icons carry the distinction first, matching §15.1's existing rule.
+- **Edges carry relationship semantics; nodes carry entity semantics.** Don't turn every relationship into a different node color.
+
+### 18.3 Keep the vocabulary small
+
+Don't expect anyone to memorize twelve edge styles. Keep the core grammar to roughly three edge styles, two or three node states, the small set of structural markers above, and ordinary Tabler icons (§17.3). Anything more specialized than that gets a text label instead of a new visual convention.
+
+The same restraint applies to node shape: resist building a shape ontology. Use a distinct shape only where it's structurally useful for reading the graph faster — not as decoration. If circles versus squares don't improve reading, don't add them just to add them.
+
+### 18.4 One grammar across every view
+
+The same primitives should carry across every surface that draws one of these, not a separate visual language per feature:
+
+- **relationship graph** — direct vs. inherited relationships
+- **timeline** — events, branches, convergence
+- **repository/provenance** — source → derived → local copy
+- **knowledge graph** — known, hidden, uncertain
+- **world map** — ordinary locations vs. canonical/reference anchors
+
+That consistency is the actual payoff: Lorenzo should have one recognizable way of saying direct, derived, uncertain, selected, restricted, and canonical — not a different visual language for every feature that happens to draw a graph.
+
+---
+
+## 19. Practical selection guide
 
 Use this decision flow to pick the right *brand* asset. For an ordinary interface icon (delete, search, lock, and the like), this isn't it — see §17 instead.
 
@@ -1534,7 +1590,7 @@ Use this decision flow to pick the right *brand* asset. For an ordinary interfac
 
 ---
 
-## 19. Quick do / do not
+## 20. Quick do / do not
 
 ### Do
 
@@ -1566,7 +1622,7 @@ Use this decision flow to pick the right *brand* asset. For an ordinary interfac
 
 ---
 
-## 20. Mascot
+## 21. Mascot
 
 Lorenzo the mascot is described in detail in [the lorenzo charcter bible](lorenzo-character-bible.md)
 
@@ -1574,6 +1630,6 @@ The second mascot, Catileo, is described in [the catileo character bible](catile
 
 ---
 
-## 21. One-line summary
+## 22. One-line summary
 
 **Lorenzo is a modern system for keeping track of worlds, expressed through scholarly typography, calm information design, blue interaction, restrained gold punctuation, a distinctive four-point spark, and the human warmth of Lorenzo and Catileo.**
