@@ -7,7 +7,9 @@
     <title>Lorenzo Brand — preview</title>
     <!-- The whole package, in ITCSS order: reset -> tokens -> fonts ->
          base element defaults -> structural layout -> reusable
-         components. All self-hosted, all relative - open this file via
+         components. Icons (icons.svg) are referenced directly via <use>
+         where they're shown, not <link>'d - an SVG sprite isn't a
+         stylesheet. All self-hosted, all relative - open this file via
          file:// and every one of these resolves with no server. -->
     <link rel="stylesheet" href="../normalize.css" />
     <link rel="stylesheet" href="../tokens.css" />
@@ -148,9 +150,10 @@
           A live preview of the whole package —
           <code>normalize.css</code>, <code>tokens.css</code>,
           <code>fonts.css</code>, <code>base.css</code>,
-          <code>layout.css</code>, <code>components.css</code> — loaded here
-          exactly as any consumer would (ADR 0098). Edit any of those files and
-          reload this page directly; no server or build step needed. See
+          <code>layout.css</code>, <code>components.css</code>,
+          <code>icons.svg</code> — loaded here exactly as any consumer would
+          (ADR 0098). Edit any of those files and reload this page directly; no
+          server or build step needed. See
           <code>docs/brand/identity.md</code> for the full spec these values
           come from.
         </p>
@@ -236,6 +239,82 @@
             <button type="button">
               Unstyled &lt;button&gt;, still on-brand
             </button>
+          </div>
+        </section>
+
+        <section id="icons">
+          <h2>Icons (icons.svg - self-hosted Tabler sprite, no CDN)</h2>
+          <p class="intro" style="margin-bottom: var(--space-3)">
+            A representative sample of the 40 icons in the sprite - see
+            <code>icons.manifest.yaml</code> for the full semantic-name →
+            Tabler-source mapping. Decorative here (next to a visible label), so
+            each <code>&lt;svg&gt;</code> is <code>aria-hidden</code> per
+            identity.md §15.6.
+          </p>
+          <div class="row">
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-save"></use></svg
+              >Save</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-copy"></use></svg
+              >Copy</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-delete"></use></svg
+              >Delete</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-search"></use></svg
+              >Search</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-private"></use></svg
+              >Private</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-history"></use></svg
+              >History</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-campaign"></use></svg
+              >Campaign</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-give"></use></svg
+              >Give</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-ancestry"></use></svg
+              >Ancestry</span
+            >
+            <span class="row" style="gap: var(--space-1)"
+              ><svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-notifications"></use></svg
+              >Notifications</span
+            >
+          </div>
+          <div class="row" style="margin-top: var(--space-3)">
+            <button class="btn btn-secondary" type="button" aria-label="Undo">
+              <svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-undo"></use>
+              </svg>
+            </button>
+            <span class="status-text"
+              >An icon-only control names the control, not the artwork
+              (identity.md §15.6) - inspect it with a screen reader or the
+              accessibility tree to see "Undo" from <code>aria-label</code>, not
+              "icon-undo".</span
+            >
           </div>
         </section>
 

@@ -19,13 +19,15 @@ run = [
   "cp ../../apps/brand/base.css ./base.css",
   "cp ../../apps/brand/layout.css ./layout.css",
   "cp ../../apps/brand/components.css ./components.css",
+  "cp ../../apps/brand/icons.svg ./icons.svg",
+  "cp ../../apps/brand/icons.manifest.yaml ./icons.manifest.yaml",
   "rm -rf ./fonts",
   "cp -r ../../apps/brand/fonts ./fonts",
 ]
 
 [tasks.clean]
 description = "Remove the copied files, so nothing generated is left on disk"
-run = "rm -f ./tokens.css ./fonts.css ./normalize.css ./base.css ./layout.css ./components.css && rm -rf ./fonts"
+run = "rm -f ./tokens.css ./fonts.css ./normalize.css ./base.css ./layout.css ./components.css ./icons.svg ./icons.manifest.yaml && rm -rf ./fonts"
 
 [tasks.dev]
 description = "Nothing to run - see apps/brand/preview for a live preview"

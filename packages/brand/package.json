@@ -11,7 +11,9 @@
     "normalize.css",
     "base.css",
     "layout.css",
-    "components.css"
+    "components.css",
+    "icons.svg",
+    "icons.manifest.yaml"
   ],
   "exports": {
     "./tokens.css": "./tokens.css",
@@ -20,6 +22,8 @@
     "./normalize.css": "./normalize.css",
     "./base.css": "./base.css",
     "./layout.css": "./layout.css",
-    "./components.css": "./components.css"
+    "./components.css": "./components.css",
+    "./icons.svg": "./icons.svg",
+    "./icons.manifest.yaml": "./icons.manifest.yaml"
   }
 }

@@ -7,4 +7,6 @@ normalize.css
 base.css
 layout.css
 components.css
+icons.svg
+icons.manifest.yaml
 fonts/

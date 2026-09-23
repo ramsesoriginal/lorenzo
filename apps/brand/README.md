@@ -12,7 +12,8 @@ themselves mean.
 
 ## What it does
 
-Six hand-edited files, in the order any consumer should load them:
+Six hand-edited stylesheets, in the order any consumer should load them,
+plus a self-hosted icon sprite:
 
 1. **`normalize.css`** — a minimal modern reset (box-model, spacing, list/media defaults)
 2. **`tokens.css`** — colors (identity.md §6), font-family names, spacing, and radius (§5.2/§8.1/§8.3), as custom properties
@@ -21,9 +22,19 @@ Six hand-edited files, in the order any consumer should load them:
 5. **`layout.css`** — the generic page-shell pieces (header, brand lockup, section spacing) — domain-specific layout stays in each app
 6. **`components.css`** — buttons, form controls, tabs, chips, badges, status pills, and the neutral visibility-badge treatment, all keyed off `tokens.css`'s semantic roles
 
-`preview/index.html` `<link>`s to all six in order and renders a live sample
-of each. Open it straight from disk in a browser — there's nothing to
-install, run, or build. Edit any file and reload to see the change.
+**`icons.svg`** + **`icons.manifest.yaml`** — a self-hosted SVG sprite of
+[Tabler Icons](https://tabler.io/icons) (MIT), referenced via `<use>`
+(identity.md §17/§15.6), covering every real icon-worthy action audited
+across `apps/inventory-web`/`apps/account-hub` ([issue #178](https://github.com/ramsesoriginal/lorenzo/issues/178)).
+Not `<link>`'d like the stylesheets — an SVG sprite isn't a stylesheet, it's
+referenced directly wherever an icon is shown. No build step here either:
+adding an icon means fetching its real Tabler outline SVG and hand-adding
+one `<symbol>` block, same as everything else in this package.
+
+`preview/index.html` links the six stylesheets in order, references several
+icons from the sprite, and renders a live sample of each. Open it straight
+from disk in a browser — there's nothing to install, run, or build. Edit
+any file and reload to see the change.
 
 Deploys to Cloudflare Pages via Git integration, same mechanism as
 `apps/inventory-web`/`apps/account-hub` (see

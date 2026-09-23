@@ -11,6 +11,16 @@
  * never a --brand- or --utility- primitive directly.
  */
 
+/* Sized relative to the surrounding text so an icon sits correctly next to
+   a label at any font-size, and nudged to align with the text baseline
+   (identity.md §17.3/§15.6 - see icons.svg/icons.manifest.yaml). */
+.icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+}
+
 /* A bare, unclassed <button> still gets a sensible default (identity.md
    §17's "buttons are their own layer" - never plain --action) - add
    .btn-secondary/.btn-danger explicitly to opt out of this default. */
