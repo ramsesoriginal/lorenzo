@@ -48,7 +48,7 @@ export const HELP_GROUPS: readonly HelpGroup[] = [
   },
   {
     title: "See what you have",
-    commandNames: ["inventory", "item", "sheet", "my-groups"],
+    commandNames: ["inventory", "item", "sheet", "changes", "my-groups"],
   },
   {
     title: "Give, move, and tidy",

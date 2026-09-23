@@ -2,6 +2,7 @@ import { showUndeliveredNotice } from "../undelivered-notice.js";
 import { addChannelToGroupCommand } from "./add-channel-to-group.js";
 import { addToGroupCommand } from "./add-to-group.js";
 import { awardCommand } from "./award.js";
+import { changesCommand } from "./changes.js";
 import { confiscateCommand } from "./confiscate.js";
 import { containerNewCommand } from "./container-new.js";
 import { dropCommand } from "./drop.js";
@@ -62,6 +63,7 @@ const commands: readonly Command[] = [
   addChannelToGroupCommand,
   containerNewCommand,
   sheetCommand,
+  changesCommand,
   helpCommand,
 ];
 

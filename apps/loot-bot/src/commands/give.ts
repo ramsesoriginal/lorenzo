@@ -1,5 +1,11 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
+  describeItem,
+  giveEvent,
+  nameCharacter,
+  recordCharacterEvents,
+} from "../character-events.js";
+import {
   GIVE_CANCEL_CUSTOM_ID,
   type GiveIntent,
   buildGiveConfirmComponents,
@@ -212,11 +218,34 @@ async function confirmGive(
       ctx.logger,
     );
 
-    const targetName = await client
+    const targetLookup = await client
       .getCharacterName(tenantId, intent.targetCharacterId, accessToken)
-      .catch(() => "them");
+      .catch(() => null);
+    const targetName = targetLookup ?? "them";
     const itemName = result.given.title ?? "(untitled)";
     const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
+
+    // For `/changes` (ADR 0097): both the giver's and the receiver's players
+    // will see this. Best-effort, after the give itself succeeded; reuses
+    // targetLookup above rather than a second call for the same character.
+    const giverId = current.owner_entity_id;
+    const giverLookup = giverId
+      ? await client.getCharacterName(tenantId, giverId, accessToken).catch(() => null)
+      : null;
+    const receiver = nameCharacter(intent.targetCharacterId, targetLookup);
+    if (receiver) {
+      await recordCharacterEvents(
+        [
+          giveEvent({
+            giver: nameCharacter(giverId, giverLookup),
+            receiver,
+            item: describeItem(itemName, result.given.quantity),
+          }),
+        ],
+        ctx.logger,
+      );
+    }
+
     await interaction.editReply(`Gave ${amount}${itemName} to ${targetName}.`);
   } catch (error) {
     if (error instanceof LorenzoApiError) {

@@ -836,3 +836,132 @@ describe.skipIf(!canRunDbTests)("notification bridge ledger (real Postgres)", ()
     });
   });
 });
+
+describe.skipIf(!canRunDbTests)("character events and /changes marker (real Postgres)", () => {
+  const CHAR_A = "db-test-event-char-a";
+  const CHAR_B = "db-test-event-char-b";
+  const CHAR_OTHER = "db-test-event-char-other";
+  const USER = "db-test-changes-user";
+  const T0 = new Date("2026-01-01T00:00:00Z");
+  const at = (minutes: number) => new Date(T0.getTime() + minutes * 60_000);
+
+  async function wipe() {
+    // Everything these tests write is older than "now" but newer than 1990.
+    await db.pruneCharacterEvents(new Date("2100-01-01T00:00:00Z"));
+  }
+
+  afterEach(wipe);
+
+  // The public insert stamps "now"; these tests need chosen times, so they
+  // insert through it and then rely on relative ordering by inserting in
+  // sequence with real (tiny) gaps.
+  async function record(eventId: string, characterEntityId: string, summary: string) {
+    await db.insertCharacterEvents([{ eventId, characterEntityId, kind: "gave", summary }]);
+    await new Promise((resolve) => setTimeout(resolve, 15));
+  }
+
+  const ID_1 = "00000000-0000-4000-8000-000000000001";
+  const ID_2 = "00000000-0000-4000-8000-000000000002";
+  const ID_3 = "00000000-0000-4000-8000-000000000003";
+
+  it("returns nothing for no characters, without querying", async () => {
+    await expect(db.listCharacterEvents([], { limit: 10 })).resolves.toEqual({
+      events: [],
+      total: 0,
+    });
+  });
+
+  it("returns events for the given characters only, newest first", async () => {
+    await record(ID_1, CHAR_A, "first");
+    await record(ID_2, CHAR_B, "second");
+    await record(ID_3, CHAR_OTHER, "not mine");
+
+    const { events, total } = await db.listCharacterEvents([CHAR_A, CHAR_B], { limit: 10 });
+
+    expect(events.map((e) => e.summary)).toEqual(["second", "first"]);
+    expect(total).toBe(2);
+  });
+
+  it("shows a transfer between two of the caller's own characters once", async () => {
+    // One event, two rows - one per character - sharing an event id.
+    await db.insertCharacterEvents([
+      { eventId: ID_1, characterEntityId: CHAR_A, kind: "gave", summary: "A gave X to B." },
+      { eventId: ID_1, characterEntityId: CHAR_B, kind: "gave", summary: "A gave X to B." },
+    ]);
+
+    const { events, total } = await db.listCharacterEvents([CHAR_A, CHAR_B], { limit: 10 });
+
+    expect(events).toHaveLength(1);
+    expect(total).toBe(1);
+  });
+
+  it("shows the same transfer to a player who controls only one side", async () => {
+    await db.insertCharacterEvents([
+      { eventId: ID_1, characterEntityId: CHAR_A, kind: "gave", summary: "A gave X to B." },
+      { eventId: ID_1, characterEntityId: CHAR_B, kind: "gave", summary: "A gave X to B." },
+    ]);
+
+    await expect(db.listCharacterEvents([CHAR_B], { limit: 10 })).resolves.toMatchObject({
+      total: 1,
+    });
+    await expect(db.listCharacterEvents([CHAR_A], { limit: 10 })).resolves.toMatchObject({
+      total: 1,
+    });
+  });
+
+  it("caps the list but still counts everything, so a caller can say how many it left out", async () => {
+    await record(ID_1, CHAR_A, "one");
+    await record(ID_2, CHAR_A, "two");
+    await record(ID_3, CHAR_A, "three");
+
+    const { events, total } = await db.listCharacterEvents([CHAR_A], { limit: 2 });
+
+    expect(events.map((e) => e.summary)).toEqual(["three", "two"]);
+    expect(total).toBe(3);
+  });
+
+  it("'since' is exclusive: only events strictly after it", async () => {
+    await record(ID_1, CHAR_A, "before");
+    const marker = new Date();
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    await record(ID_2, CHAR_A, "after");
+
+    const { events } = await db.listCharacterEvents([CHAR_A], { since: marker, limit: 10 });
+
+    expect(events.map((e) => e.summary)).toEqual(["after"]);
+  });
+
+  it("does nothing for an empty insert", async () => {
+    await expect(db.insertCharacterEvents([])).resolves.toBeUndefined();
+  });
+
+  it("prunes events older than a cutoff, and keeps newer ones", async () => {
+    await record(ID_1, CHAR_A, "old");
+    const cutoff = new Date();
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    await record(ID_2, CHAR_A, "new");
+
+    await db.pruneCharacterEvents(cutoff);
+
+    const { events } = await db.listCharacterEvents([CHAR_A], { limit: 10 });
+    expect(events.map((e) => e.summary)).toEqual(["new"]);
+  });
+
+  describe("the 'last looked' marker", () => {
+    afterEach(async () => {
+      await db.setChangesSeenAt(USER, at(0));
+    });
+
+    it("is undefined until someone has looked", async () => {
+      await expect(db.getChangesSeenAt("db-test-never-looked")).resolves.toBeUndefined();
+    });
+
+    it("stores the time, and moves it forward on the next look", async () => {
+      await db.setChangesSeenAt(USER, at(5));
+      expect((await db.getChangesSeenAt(USER))?.getTime()).toBe(at(5).getTime());
+
+      await db.setChangesSeenAt(USER, at(9));
+      expect((await db.getChangesSeenAt(USER))?.getTime()).toBe(at(9).getTime());
+    });
+  });
+});

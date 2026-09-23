@@ -1,5 +1,6 @@
 import {
   customType,
+  index,
   integer,
   pgSchema,
   primaryKey,
@@ -268,3 +269,47 @@ export const notificationDelivery = lootBotSchema.table(
 
 export type NotificationDeliveryState = "sending" | "sent" | "undelivered" | "noticed";
 export type NotificationDelivery = typeof notificationDelivery.$inferSelect;
+
+/**
+ * What the bot itself saw happen to a character's belongings (ADR 0097) -
+ * the source `/changes` reads. Bot-recorded only: anything done through
+ * `apps/inventory-web`, `apps/account-hub`, or the API directly never
+ * appears here, which `/changes` says plainly (RFC 0022 is the API-side
+ * feed that would make it complete).
+ *
+ * One row per *affected character*, keyed by the character's entity id
+ * rather than a Discord user: the bot has no reverse lookup from a character
+ * to whoever plays it, but a player can list the characters they control, so
+ * "events for my characters" is answerable and "events for that Discord
+ * user" wouldn't be. A transfer between two characters writes two rows that
+ * share an `eventId`, so a player who controls both sides sees it once.
+ *
+ * `summary` is rendered *when recorded*, from names the acting user was
+ * allowed to read then - the viewer may not be allowed to look up the other
+ * character's name later. It names characters rather than saying "you", so
+ * it reads correctly for a player with several characters. It never names a
+ * GM who acted: what happened to your stuff is shown, not who decided it.
+ */
+export const characterEvent = lootBotSchema.table(
+  "character_event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id").notNull(),
+    characterEntityId: text("character_entity_id").notNull(),
+    kind: text("kind").notNull(),
+    summary: text("summary").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("character_event_character_created_idx").on(table.characterEntityId, table.createdAt),
+  ],
+);
+
+export type CharacterEvent = typeof characterEvent.$inferSelect;
+
+/** When a Discord user last ran `/changes` - what "since you last looked"
+ * means (ADR 0097). One row per user, overwritten each time. */
+export const changesSeen = lootBotSchema.table("changes_seen", {
+  discordUserId: text("discord_user_id").primaryKey(),
+  seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -1,5 +1,11 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
+  describeItem,
+  nameCharacter,
+  reassignEvent,
+  recordCharacterEvents,
+} from "../character-events.js";
+import {
   type ControlledCharacter,
   LorenzoApiError,
   createLorenzoApiClient,
@@ -124,11 +130,33 @@ export const reassignCommand: Command = {
         });
       }
 
-      const targetName = await client
+      const targetLookup = await client
         .getCharacterName(tenantId, targetCharacterId, accessToken)
-        .catch(() => "them");
+        .catch(() => null);
+      const targetName = targetLookup ?? "them";
       const itemName = result.given.title ?? "(untitled)";
       const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
+
+      // For `/changes` (ADR 0097): the former and the new owner's players
+      // both see this. The GM who did it is deliberately not named.
+      const fromId = current.owner_entity_id;
+      const fromLookup = fromId
+        ? await client.getCharacterName(tenantId, fromId, accessToken).catch(() => null)
+        : null;
+      const to = nameCharacter(targetCharacterId, targetLookup);
+      if (to) {
+        await recordCharacterEvents(
+          [
+            reassignEvent({
+              from: nameCharacter(fromId, fromLookup),
+              to,
+              item: describeItem(itemName, result.given.quantity),
+            }),
+          ],
+          ctx.logger,
+        );
+      }
+
       await interaction.editReply(`Reassigned ${amount}${itemName} to ${targetName}.`);
     } catch (error) {
       if (error instanceof LorenzoApiError) {
