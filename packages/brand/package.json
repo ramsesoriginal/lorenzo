@@ -1,0 +1,13 @@
+{
+  "name": "@lorenzo/brand",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Lorenzo's shared design tokens, for other apps to bundle at build time. See ADR 0098.",
+  "files": [
+    "tokens.css"
+  ],
+  "exports": {
+    "./tokens.css": "./tokens.css"
+  }
+}

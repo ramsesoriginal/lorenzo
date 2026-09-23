@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand Tokens — preview</title>
+    <!-- Real fonts, loaded here for visual fidelity only - tokens.css itself
+     only declares font-family *names* (see its own header comment). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../tokens.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--surface-canvas);
+        color: var(--text-primary);
+        font-family: var(--font-ui);
+        line-height: 1.5;
+      }
+
+      .wrap {
+        max-width: 880px;
+        margin-inline: auto;
+        padding: var(--space-5) var(--space-4);
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        margin-bottom: var(--space-6);
+      }
+
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 32px;
+        margin: 0;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 var(--space-2);
+      }
+      p.intro {
+        color: var(--text-secondary);
+        max-width: 60ch;
+      }
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+      }
+
+      button.theme-toggle {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        background: transparent;
+        color: var(--text-primary);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+
+      section {
+        margin-bottom: var(--space-6);
+      }
+
+      .swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: var(--space-3);
+      }
+      .swatch {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        overflow: hidden;
+      }
+      .swatch-color {
+        height: 56px;
+      }
+      .swatch-label {
+        padding: var(--space-2);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        background: var(--surface-default);
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        align-items: center;
+      }
+
+      .btn {
+        font-family: var(--font-ui);
+        font-size: 14px;
+        font-weight: 500;
+        padding: 8px 16px;
+        border-radius: var(--radius-control);
+        border: 1px solid transparent;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background: var(--button-primary-bg);
+        color: var(--button-primary-fg);
+      }
+      .btn-primary:hover {
+        background: var(--button-primary-hover);
+      }
+      .btn-secondary {
+        background: var(--button-secondary-bg);
+        color: var(--button-secondary-fg);
+        border-color: var(--button-secondary-border);
+      }
+      .btn-danger {
+        background: var(--button-danger-bg);
+        color: var(--button-danger-fg);
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 4px 12px;
+        border-radius: var(--radius-pill);
+      }
+      .pill-success {
+        background: var(--success-surface);
+        color: var(--success);
+      }
+      .pill-warning {
+        background: var(--warning-surface);
+        color: var(--warning);
+      }
+      .pill-danger {
+        background: var(--danger-surface);
+        color: var(--danger);
+      }
+
+      .badge-visibility {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        padding: 4px 12px;
+        border-radius: var(--radius-pill);
+        background: var(--visibility-restricted-surface);
+        color: var(--visibility-restricted-text);
+        border: 1px solid var(--visibility-restricted-border);
+      }
+      .badge-public {
+        font-size: 13px;
+        opacity: 0.7;
+        padding: 4px 12px;
+      }
+
+      .type-sample {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        padding: var(--space-4);
+        margin-bottom: var(--space-3);
+      }
+      .type-sample .display {
+        font-family: var(--font-display);
+        font-size: 28px;
+        margin: 0 0 var(--space-2);
+      }
+      .type-sample .body {
+        margin: 0;
+      }
+
+      footer {
+        color: var(--text-tertiary);
+        font-size: 13px;
+        padding-top: var(--space-4);
+        border-top: 1px solid var(--border-subtle);
+      }
+      footer code {
+        background: var(--fill-soft);
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Lorenzo Brand Tokens</h1>
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          ☾ dark
+        </button>
+      </header>
+
+      <p class="intro">
+        A live preview of <code>../tokens.css</code> — the single hand-edited
+        source <code>packages/brand</code> copies from (ADR 0098). Edit that
+        file and reload this page directly; no server or build step needed. See
+        <code>docs/brand/identity.md</code> §5.2/§6/§8.1/§8.3 for the full spec
+        these values come from.
+      </p>
+
+      <section id="surfaces">
+        <h2>Surfaces, text, and borders</h2>
+        <div class="swatch-grid">
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--surface-default)"
+            ></div>
+            <div class="swatch-label">--surface-default</div>
+          </div>
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--surface-muted)"
+            ></div>
+            <div class="swatch-label">--surface-muted</div>
+          </div>
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--text-primary)"
+            ></div>
+            <div class="swatch-label">--text-primary</div>
+          </div>
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--text-secondary)"
+            ></div>
+            <div class="swatch-label">--text-secondary</div>
+          </div>
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--border-strong)"
+            ></div>
+            <div class="swatch-label">--border-strong</div>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background: var(--action)"></div>
+            <div class="swatch-label">--action</div>
+          </div>
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--focus-ring)"
+            ></div>
+            <div class="swatch-label">--focus-ring</div>
+          </div>
+          <div class="swatch">
+            <div
+              class="swatch-color"
+              style="background: var(--canonical)"
+            ></div>
+            <div class="swatch-label">--canonical</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="buttons">
+        <h2>Buttons</h2>
+        <div class="row">
+          <button class="btn btn-primary" type="button">Save changes</button>
+          <button class="btn btn-secondary" type="button">Cancel</button>
+          <button class="btn btn-danger" type="button">Delete campaign</button>
+        </div>
+      </section>
+
+      <section id="status">
+        <h2>Status</h2>
+        <div class="row">
+          <span class="pill pill-success">Synced</span>
+          <span class="pill pill-warning">Needs review</span>
+          <span class="pill pill-danger">Failed</span>
+        </div>
+      </section>
+
+      <section id="visibility">
+        <h2>Visibility — one neutral treatment, differentiated by icon only</h2>
+        <div class="row">
+          <span class="badge-visibility">🔒 Private</span>
+          <span class="badge-visibility">◉ GM only</span>
+          <span class="badge-visibility">👥 Selected characters</span>
+          <span class="badge-public">Public</span>
+        </div>
+      </section>
+
+      <section id="type">
+        <h2>Typography</h2>
+        <div class="type-sample">
+          <div class="display">A campaign is a world in motion</div>
+          <p class="body">
+            Body text in <code>--font-ui</code>, at normal weight and size.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>
