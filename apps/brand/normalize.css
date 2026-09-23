@@ -1,0 +1,50 @@
+/*
+ * Minimal modern reset - only the box-model, spacing, and list/media
+ * defaults that would otherwise get re-fought in every component. No
+ * project-specific decisions here; those live in base.css/tokens.css.
+ *
+ * Ported verbatim from apps/inventory-web/src/styles/normalize.css - it
+ * has zero token references, so it's identical here (see ADR 0098).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* The `hidden` attribute's UA-stylesheet `display: none` has the same
+   specificity as any author class selector (e.g. `.item-card { display:
+   flex }`), and author rules win ties regardless of source order - so
+   toggling `.hidden = true` on an element whose own class sets a non-none
+   `display` silently does nothing without this. Scoped to `!important`
+   deliberately: "hidden" should always mean "not rendered," full stop,
+   the same guarantee frameworks' own preflight resets give it. */
+[hidden] {
+  display: none !important;
+}

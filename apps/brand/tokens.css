@@ -1,0 +1,240 @@
+/*
+ * Lorenzo's shared design tokens (docs/brand/identity.md §5.2, §6, §8.1, §8.3).
+ *
+ * This is the single hand-edited source of truth for these tokens.
+ * packages/brand's own copy of this exact file is generated from it by
+ * that package's `build` task — never edit the copy directly (see
+ * ADR 0098). Open apps/brand/preview/index.html in a browser to see it
+ * applied live; no server or build step needed.
+ *
+ * This file declares font-family *names* only (§5.2) - it doesn't load
+ * font files itself. A plain static stylesheet with no bundler can't
+ * resolve the @fontsource-variable/* package imports the apps that
+ * eventually adopt this still use for that, so whatever consumes this
+ * file is responsible for loading the actual font files however it
+ * wants to (self-hosted package, CDN link, etc).
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Brand primitives (§6.1) — identity only, never referenced directly by product UI */
+  --brand-ink: #08131f;
+  --brand-archive-blue: #1769c2;
+  --brand-astral-blue: #3b91e8;
+  --brand-gold: #b88a3b;
+  --brand-parchment: #f4efe5;
+  --brand-paper: #fbfaf7;
+  --brand-burgundy: #7b2638;
+
+  /* Utility colors — genuinely new hues, not tints of a brand primitive */
+  --utility-success: #2f6f56;
+  --utility-warning: #7a5a1f;
+
+  /* Surfaces */
+  --surface-canvas: var(--brand-paper);
+  --surface-default: var(--brand-paper);
+  --surface-muted: color-mix(
+    in srgb,
+    var(--brand-paper) 96%,
+    var(--brand-ink) 4%
+  );
+  --surface-warm: var(--brand-parchment);
+  --surface-selected: color-mix(
+    in srgb,
+    var(--brand-paper) 88%,
+    var(--brand-archive-blue) 12%
+  );
+  --fill-soft: color-mix(in srgb, var(--brand-ink) 6%, transparent);
+
+  /* Text */
+  --text-primary: var(--brand-ink);
+  --text-secondary: color-mix(
+    in srgb,
+    var(--brand-ink) 70%,
+    var(--brand-paper)
+  );
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 55%, var(--brand-paper));
+  --text-inverse: var(--brand-paper);
+
+  /* Borders */
+  --border-subtle: color-mix(in srgb, var(--brand-ink) 16%, var(--brand-paper));
+  --border-strong: color-mix(in srgb, var(--brand-ink) 24%, var(--brand-paper));
+
+  /* Interaction */
+  --action: var(--brand-archive-blue);
+  --action-hover: color-mix(
+    in srgb,
+    var(--brand-archive-blue) 85%,
+    var(--brand-ink) 15%
+  );
+  --action-surface: color-mix(
+    in srgb,
+    var(--brand-paper) 92%,
+    var(--brand-archive-blue) 8%
+  );
+  --action-selected: var(--surface-selected);
+  --focus-ring: var(--brand-astral-blue);
+  --graph-highlight: var(--brand-astral-blue);
+  --illustration-blue: var(--brand-astral-blue);
+
+  /* Canonical / significant — Gold's one job (§6.6) */
+  --canonical: var(--brand-gold);
+  --canonical-surface: color-mix(
+    in srgb,
+    var(--brand-paper) 92%,
+    var(--brand-gold) 8%
+  );
+
+  /* Status */
+  --success: var(--utility-success);
+  --success-surface: color-mix(
+    in srgb,
+    var(--brand-paper) 92%,
+    var(--utility-success) 8%
+  );
+  --warning: var(--utility-warning);
+  --warning-surface: color-mix(
+    in srgb,
+    var(--brand-paper) 92%,
+    var(--utility-warning) 8%
+  );
+  --danger: var(--brand-burgundy);
+  --danger-surface: color-mix(
+    in srgb,
+    var(--brand-paper) 92%,
+    var(--brand-burgundy) 8%
+  );
+
+  /* Buttons are their own layer, defined only in terms of roles above */
+  --button-primary-bg: var(--action);
+  --button-primary-fg: var(--text-inverse);
+  --button-primary-hover: var(--action-hover);
+  --button-secondary-bg: transparent;
+  --button-secondary-fg: var(--text-primary);
+  --button-secondary-border: var(--border-strong);
+  --button-danger-bg: var(--danger);
+  --button-danger-fg: var(--text-inverse);
+
+  /* Visibility is deliberately color-neutral — every non-public tier
+     (private, GM-only, a selected group) shares this one treatment;
+     only the icon/label changes. Public needs no badge at all. */
+  --visibility-restricted-surface: var(--surface-muted);
+  --visibility-restricted-text: var(--text-primary);
+  --visibility-restricted-border: var(--border-strong);
+
+  /* Typography (§5.2) — names only, see file header */
+  --font-ui:
+    "Geist Variable", Geist, Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Newsreader Variable", "Newsreader", Georgia, "Times New Roman", serif;
+  --font-mono:
+    "Geist Mono Variable", "Geist Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Spacing — 8px rhythm with a 4px half-step (§8.1) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --space-7: 64px;
+
+  /* Radius — canonical values (§8.3); a different radius is a deliberate,
+     named exception, not a rounding choice */
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-surface: 16px;
+  --radius-pill: 999px;
+}
+
+[data-theme="dark"] {
+  --surface-canvas: var(--brand-ink);
+  --surface-default: color-mix(
+    in srgb,
+    var(--brand-ink) 96%,
+    var(--brand-paper) 4%
+  );
+  --surface-muted: color-mix(
+    in srgb,
+    var(--brand-ink) 92%,
+    var(--brand-paper) 8%
+  );
+  --surface-warm: color-mix(
+    in srgb,
+    var(--brand-ink) 84%,
+    var(--brand-gold) 16%
+  );
+  /* hand-tuned — a flat mix of any two named colors here undershoots the
+     intended blue cast; don't try to re-derive it mechanically */
+  --surface-selected: #1b3044;
+  --fill-soft: color-mix(in srgb, var(--brand-paper) 7%, transparent);
+
+  --text-primary: var(--brand-paper);
+  --text-secondary: color-mix(
+    in srgb,
+    var(--brand-ink) 25%,
+    var(--brand-paper)
+  );
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 45%, var(--brand-paper));
+  --text-inverse: var(--brand-ink);
+
+  --border-subtle: color-mix(
+    in srgb,
+    var(--brand-ink) 84%,
+    var(--brand-paper) 16%
+  );
+  --border-strong: color-mix(
+    in srgb,
+    var(--brand-ink) 76%,
+    var(--brand-paper) 24%
+  );
+
+  /* Astral replaces Archive for readable dark-mode interaction (unchanged
+     from the existing --action light-dark() pairing) */
+  --action: var(--brand-astral-blue);
+  --action-hover: color-mix(
+    in srgb,
+    var(--brand-astral-blue) 85%,
+    var(--brand-paper) 15%
+  );
+  /* hand-tuned, same reasoning as --surface-selected above */
+  --action-surface: #172637;
+  --action-selected: #1b3044;
+
+  /* Astral Blue now equals --action, so the focus ring borrows
+     --action-hover's lighter tint instead, to stay visually distinct from
+     a plain link the way it already is in light mode. */
+  --focus-ring: var(--action-hover);
+  --graph-highlight: var(--brand-astral-blue);
+  --illustration-blue: var(--brand-astral-blue);
+
+  --canonical: var(--brand-gold);
+  --canonical-surface: color-mix(
+    in srgb,
+    var(--brand-ink) 84%,
+    var(--brand-gold) 16%
+  );
+
+  /* These three are hand-tuned (hue held, lightness/saturation raised) —
+     a plain color-mix() toward Ink or Paper can't reproduce a perceptual
+     lighten, so don't try to derive them mechanically if they ever change. */
+  --success: #6fc29a;
+  --success-surface: color-mix(
+    in srgb,
+    var(--brand-ink) 75%,
+    var(--utility-success) 25%
+  );
+  --warning: #d7aa52;
+  --warning-surface: color-mix(
+    in srgb,
+    var(--brand-ink) 78%,
+    var(--utility-warning) 22%
+  );
+  --danger: #e47a8d;
+  --danger-surface: #221f2c;
+
+  --visibility-restricted-surface: var(--surface-muted);
+  --visibility-restricted-text: var(--text-primary);
+  --visibility-restricted-border: var(--border-strong);
+}

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a university research project</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <p class="status-text"><a href="index.html">← Content</a></p>
+        <h1 class="display">Adaptive Coral Resilience Project</h1>
+        <p class="lede">
+          Marine Biology Department, year 3 of a 5-year NSF grant. Internal
+          tracker for the lab - not the public-facing project site.
+        </p>
+
+        <div class="row">
+          <span class="chip">Marine Biology</span>
+          <span class="chip">Climate Adaptation</span>
+          <span class="chip">NSF-funded</span>
+          <span class="chip">Open Data</span>
+        </div>
+
+        <div class="row" style="margin-top: var(--space-4)">
+          <div class="card card-body" style="text-align: center">
+            <div class="display" style="font-size: 32px">
+              <span class="stat-count" style="--stat-value: 340000"></span>
+            </div>
+            <div class="status-text">grant funding (USD)</div>
+          </div>
+          <div class="card card-body" style="text-align: center">
+            <div class="display" style="font-size: 32px">
+              <span class="stat-count" style="--stat-value: 1284"></span>
+            </div>
+            <div class="status-text">field samples collected</div>
+          </div>
+          <div class="card card-body" style="text-align: center">
+            <div class="display" style="font-size: 32px">
+              <span class="stat-count" style="--stat-value: 3"></span>
+            </div>
+            <div class="status-text">years running</div>
+          </div>
+        </div>
+
+        <section>
+          <div class="tabs" role="tablist" aria-label="Project sections">
+            <button class="tab" role="tab" aria-selected="true">
+              Overview
+            </button>
+            <button class="tab" role="tab" aria-selected="false">
+              Datasets
+            </button>
+            <button class="tab" role="tab" aria-selected="false">Team</button>
+            <button class="tab" role="tab" aria-selected="false">
+              Publications
+            </button>
+          </div>
+
+          <div class="stack" style="margin-top: var(--space-4)">
+            <div class="card card-body">
+              <h3>Bleaching recovery, Site 4</h3>
+              <p class="status-text">
+                Updated 6 days ago · 312 samples · quarterly survey
+              </p>
+              <span class="pill pill-success">On track</span>
+            </div>
+            <div class="card card-body">
+              <h3>Larval settlement rates</h3>
+              <p class="status-text">
+                Updated 3 weeks ago · 89 samples · awaiting lab analysis
+              </p>
+              <span class="pill pill-warning">Delayed</span>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Team</h2>
+          <ul class="list">
+            <li>
+              <span>Dr. Amara Osei</span>
+              <span class="badge">Principal Investigator</span>
+            </li>
+            <li>
+              <span>Dr. Felix Bergström</span>
+              <span class="badge">Postdoc</span>
+            </li>
+            <li>
+              <span>Priya Nandakumar</span>
+              <span class="badge">Graduate Student</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+
+        document.querySelectorAll('.tab[role="tab"]').forEach(function (tab) {
+          tab.addEventListener("click", function () {
+            document.querySelectorAll('.tab[role="tab"]').forEach(function (t) {
+              t.setAttribute("aria-selected", "false");
+            });
+            tab.setAttribute("aria-selected", "true");
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

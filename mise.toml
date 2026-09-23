@@ -1,7 +1,7 @@
 monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/account-hub", "apps/api", "apps/inventory-web", "apps/loot-bot"]
+config_roots = ["apps/account-hub", "apps/api", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/brand"]
 
 [tools]
 node = "22"
@@ -17,26 +17,23 @@ uv = "0.12.3"
 
 # `//...:x` (Bazel-style "everything under here") also matches this file's
 # own `//:x` task, since the root project is part of "everything" - so it
-# recursed into itself infinitely instead of fanning out. `//apps/...:x`
-# scopes the glob to actual sub-projects instead. Extend to
-# `//packages/...:x` too once packages/* exists (see
-# docs/guides/adding-a-package.md) - omitted for now because mise errors on
-# a glob that matches zero tasks.
+# recursed into itself infinitely instead of fanning out. `//apps/...:x`/
+# `//packages/...:x` scope the glob to actual sub-projects instead.
 [tasks.dev]
 description = "Run every app's dev task"
-run = "mise run '//apps/...:dev'"
+run = ["mise run '//apps/...:dev'", "mise run '//packages/...:dev'"]
 
 [tasks.lint]
 description = "Lint everything (fans out to every app)"
-run = "mise run '//apps/...:lint'"
+run = ["mise run '//apps/...:lint'", "mise run '//packages/...:lint'"]
 
 [tasks.format]
 description = "Format everything (fans out to every app)"
-run = "mise run '//apps/...:format'"
+run = ["mise run '//apps/...:format'", "mise run '//packages/...:format'"]
 
 [tasks.test]
 description = "Test everything (fans out to every app)"
-run = "mise run '//apps/...:test'"
+run = ["mise run '//apps/...:test'", "mise run '//packages/...:test'"]
 
 [tasks.check]
 description = "Full pre-PR gate: lint (incl. type check) + test, everything"

@@ -1,0 +1,24 @@
+# apps/brand has no package.json and no build step - see ADR 0098 and
+# docs/brand/identity.md §6.6. tokens.css and preview/*.html are
+# hand-edited static files, previewable via file:// with nothing to
+# compile - Cloudflare Pages serves this directory as-is.
+
+[tasks.dev]
+description = "Nothing to run - open preview/index.html directly in a browser"
+run = "echo 'apps/brand has no dev server - open apps/brand/preview/index.html directly in a browser.'"
+
+[tasks.lint]
+description = "Prettier format-check for the static CSS/HTML"
+run = "npx --yes prettier --check \"**/*.{css,html}\""
+
+[tasks.format]
+description = "Prettier autoformat for the static CSS/HTML"
+run = "npx --yes prettier --write \"**/*.{css,html}\""
+
+[tasks.test]
+description = "No automated tests for static markup yet"
+run = "echo 'apps/brand has no automated tests yet.'"
+
+[tasks.build]
+description = "No build step - Cloudflare Pages serves these files as-is"
+run = "echo 'apps/brand has no build step - see docs/operations/deployment-setup.md.'"

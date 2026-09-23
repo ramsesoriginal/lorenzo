@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — motion</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <div class="reading-progress"></div>
+
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html" aria-current="page">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Motion</h1>
+        <p class="lede">
+          Every animation technique in <code>motion.css</code>, live. A thin bar
+          across the very top of this page is the scroll-linked reading progress
+          - scroll to see it fill (identity.md §11, ADR 0098).
+        </p>
+
+        <section id="routine">
+          <h2>Routine loading (§17.9) - ordinary, no brand decoration</h2>
+          <div class="row">
+            <span class="spinner" role="status" aria-label="Loading"></span>
+            <div class="progress-bar" style="width: 200px">
+              <span style="width: 62%"></span>
+            </div>
+          </div>
+          <div class="row" style="margin-top: var(--space-3)">
+            <div class="skeleton" style="width: 120px; height: 16px"></div>
+            <div class="skeleton" style="width: 200px; height: 16px"></div>
+            <div class="skeleton" style="width: 80px; height: 16px"></div>
+          </div>
+        </section>
+
+        <section id="spark">
+          <h2>
+            Rare branded loading (§11.2) - startup, first run, a big import only
+          </h2>
+          <p class="lede">
+            The mechanics only - this package doesn't vendor the actual shaded
+            spark mark (that's <code>docs/brand/assets/</code>'s job, a separate
+            system per identity.md §17.2). The rotation timing (1.6s/turn,
+            within §11.2's 1.4-1.8s range) is what
+            <code>.spark-loader</code> actually provides; a real deployment
+            supplies the mark itself, e.g. as a background-image.
+          </p>
+          <div class="spark-loader" aria-hidden="true">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--canonical)"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <use href="../icons.svg#icon-campaign"></use>
+            </svg>
+          </div>
+        </section>
+
+        <section id="glow">
+          <h2>Canonical glow (§1.4/§6.6/§17.1) - Gold's one job, rare</h2>
+          <p class="lede">
+            Reserved for something actually canonical - a source repository, a
+            campaign's origin world - never generic decoration.
+          </p>
+          <div class="card glow-canonical card-body" style="max-width: 320px">
+            <div class="canonical-marker">✧ Faerûn (source repository)</div>
+            <p class="status-text">
+              Read live by 3 campaigns - the canonical version, not a copy.
+            </p>
+          </div>
+        </section>
+
+        <section id="typewriter">
+          <h2>Typewriter reveal (opt-in, rare editorial moment)</h2>
+          <p>
+            <span
+              class="typewriter display"
+              style="
+                --typewriter-chars: 26;
+                --typewriter-width: 26ch;
+                font-size: 24px;
+              "
+              >Keep track of worlds.</span
+            >
+          </p>
+        </section>
+
+        <section id="count">
+          <h2>Count-up stats</h2>
+          <div class="row">
+            <div class="card card-body" style="text-align: center">
+              <div class="display" style="font-size: 32px">
+                <span class="stat-count" style="--stat-value: 47"></span>
+              </div>
+              <div class="status-text">items owned</div>
+            </div>
+            <div class="card card-body" style="text-align: center">
+              <div class="display" style="font-size: 32px">
+                <span class="stat-count" style="--stat-value: 12"></span>
+              </div>
+              <div class="status-text">characters</div>
+            </div>
+            <div class="card card-body" style="text-align: center">
+              <div class="display" style="font-size: 32px">
+                <span class="stat-count" style="--stat-value: 3"></span>
+              </div>
+              <div class="status-text">active campaigns</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="stagger">
+          <h2>Staggered entrance</h2>
+          <p class="lede">
+            Reload the page to see the sequence - each card fades in
+            <code>sibling-index() * 80ms</code> after the last (Chrome/Edge,
+            Safari 26+; everything else shows all four immediately, still fully
+            readable).
+          </p>
+          <div class="grid stagger">
+            <div class="card card-body">Ashfang</div>
+            <div class="card card-body">Flaming Sword</div>
+            <div class="card card-body">Sword</div>
+            <div class="card card-body">Sheath</div>
+          </div>
+        </section>
+
+        <section id="squircle">
+          <h2>Squircle corners</h2>
+          <p class="lede">
+            <code>corner-shape: squircle</code> (Chromium only as of 2026) on
+            top of the same <code>--radius-card</code> every other card already
+            uses - a continuously smooth curve instead of a circular arc. Falls
+            back to the ordinary rounded corner everywhere else.
+          </p>
+          <div class="card card-body squircle" style="max-width: 240px">
+            A squircle card, where supported.
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

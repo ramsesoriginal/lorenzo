@@ -16,6 +16,14 @@
     "apps/loot-bot": {
       "release-type": "node",
       "component": "loot-bot"
+    },
+    "apps/brand": {
+      "release-type": "simple",
+      "component": "brand"
+    },
+    "packages/brand": {
+      "release-type": "node",
+      "component": "brand-package"
     }
   }
 }

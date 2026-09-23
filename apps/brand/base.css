@@ -1,0 +1,89 @@
+/*
+ * Tokens applied to bare HTML elements - the "everything renders sanely
+ * before any component class is involved" layer. Adapted from
+ * apps/inventory-web/src/styles/base.css to the new semantic tokens
+ * (--surface-canvas/--text-primary, not the old --bg/--fg) - see ADR 0098
+ * and identity.md §6.6.
+ */
+
+html {
+  /* Reserves the scrollbar's width whether or not it's currently needed,
+     so content doesn't shift width the instant a page grows past one
+     screen - a small thing, but felt on every page. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typographic hierarchy (identity.md §5.3) - H1 may use the display face,
+   H2/H3 never do (Geist/600 only). `.display` stays its own explicit,
+   size-independent utility - identity.md's own hierarchy uses it from
+   24px (entity title) up to 72px (hero), so it deliberately doesn't set
+   a font-size here. */
+h1,
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+h1 {
+  font-size: 36px;
+  margin: 0 0 var(--space-3);
+}
+
+h2,
+h3 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 28px;
+  margin: 0 0 var(--space-2);
+}
+
+h3 {
+  font-size: 20px;
+  margin: 0 0 var(--space-2);
+}
+
+a {
+  color: var(--action);
+}
+
+a:hover {
+  color: var(--action-hover);
+}
+
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* A bare inline <code> gets a subtle chip treatment by default - the
+   common "inline code" reading pattern. Reset inside pre - a code block
+   already gets its own full treatment in components.css. */
+code {
+  font-family: var(--font-mono);
+  background: var(--fill-soft);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
