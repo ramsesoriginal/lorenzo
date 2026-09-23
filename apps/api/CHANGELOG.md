@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.7.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.6.0...api-v0.7.0) (2026-09-23)
+
+
+### Features
+
+* **api:** a tenant OWNER reads GM-only information like an ORGA (ADR 0091) ([959ae3a](https://github.com/ramsesoriginal/lorenzo/commit/959ae3ad626264bf2348a38e78827db034cef250))
+* **api:** activity log coverage and member-removal notice (ADR 0084) ([009b954](https://github.com/ramsesoriginal/lorenzo/commit/009b9546244bff8e42eb26b9e566c2455a15d937))
+* **api:** deliver [#154](https://github.com/ramsesoriginal/lorenzo/issues/154) to main - export reads, GET /me/managed, notifications since, OWNER visibility (ADR 0085/0086/0096) ([cebd784](https://github.com/ramsesoriginal/lorenzo/commit/cebd784b89efbfb8d10e50a75bbd13c887adf717))
+* **api:** GET /me/managed and a since filter on GET /me/notifications ([529d6c0](https://github.com/ramsesoriginal/lorenzo/commit/529d6c0ead41d038cfe9e7a175d1d894119a5c01))
+* **api:** list stat groups/definitions and tenant knowledge grants ([e90e122](https://github.com/ramsesoriginal/lorenzo/commit/e90e122cd264132179c1525e23c78c9b8fd4438f))
+* **api:** log character, player, and group mutations in the activity log ([629900b](https://github.com/ramsesoriginal/lorenzo/commit/629900b4390e27eb1dc5b9ed20074808178b24ca))
+* **api:** log information, knowledge grants, and stat definitions; document exclusions ([ea7f335](https://github.com/ramsesoriginal/lorenzo/commit/ea7f335045e29e2c6242945c2e014453bf54305d))
+* **api:** log item and item-instance mutations in the activity log ([75f8cc1](https://github.com/ramsesoriginal/lorenzo/commit/75f8cc1dee94588cc0b9c158a52def1a5ff0c95e))
+* **api:** log tenant/campaign PATCH and admin opt-out in the activity log ([4a6f4df](https://github.com/ramsesoriginal/lorenzo/commit/4a6f4df74aa693cabc7b3e2bb87442da14f019e7))
+* **api:** notify and record detail when a member is removed from a tenant ([6a37c7b](https://github.com/ramsesoriginal/lorenzo/commit/6a37c7b943d05fbfe6261da5efd0c1e2a505e697))
+* **api:** player-facing change feed - GET /me/changes (ADR 0099) ([4b01537](https://github.com/ramsesoriginal/lorenzo/commit/4b015376fc70a299b8271a9ccfc0c93e82b86318))
+* **api:** player-facing change feed (ADR 0099) ([f433826](https://github.com/ramsesoriginal/lorenzo/commit/f433826c5d89f0c49772d5375bba267087549f78))
+* **api:** shareable, expiring campaign invite links (ADR 0092) ([3e61e5f](https://github.com/ramsesoriginal/lorenzo/commit/3e61e5f220d3314033150892ea78f327cd1c7626))
+* **api:** shareable, expiring campaign invite links (ADR 0092) ([588a080](https://github.com/ramsesoriginal/lorenzo/commit/588a0809bc30544b5717d8b1c763534cbd82a2b1))
+* **api:** tenant export reads, GET /me/managed, notifications since (ADR 0085/0086) ([784fb36](https://github.com/ramsesoriginal/lorenzo/commit/784fb36a49977ca796d87df19b2de4b569fb639d))
+
+
+### Bug Fixes
+
+* **api:** GET /tenants/{id} no longer 404s for participant-only callers ([8375424](https://github.com/ramsesoriginal/lorenzo/commit/8375424ebb559f244622f5d1f676a5719f470bee))
+* **api:** GET /tenants/{id} no longer 404s for participant-only callers ([9be4343](https://github.com/ramsesoriginal/lorenzo/commit/9be43439bd67273d6464c1e04e78e2ba200d4a08))
+* **api:** record every departure an account deletion causes ([22c90a1](https://github.com/ramsesoriginal/lorenzo/commit/22c90a1d2f0eef2e7c3aeaf7d6290c8f01df4880))
+* **api:** record every departure an account deletion causes (ADR 0084 addendum) ([6cb0b42](https://github.com/ramsesoriginal/lorenzo/commit/6cb0b4232e1f36401122c211b7276c77df55f4c4))
+
+
+### Documentation
+
+* add the change feed (ADR 0099) to the apps/api README, ER diagram and overview ([8721316](https://github.com/ramsesoriginal/lorenzo/commit/872131646df3a0b21ed338b7b24c61324f329b06))
+* add the change feed (ADR 0099) to the apps/api README, ER diagram and overview ([9af5001](https://github.com/ramsesoriginal/lorenzo/commit/9af5001ba91f29feb57ab97f3fae3d40e8193e8f))
+* bring apps/api README, ER diagram and overview up to date (ADR 0084-0096) ([59403d5](https://github.com/ramsesoriginal/lorenzo/commit/59403d528e7631f0f5816c22b202cc3b35620c9c))
+* bring apps/api README, ER diagram and overview up to date with ADR 0084-0096 ([8b7d00f](https://github.com/ramsesoriginal/lorenzo/commit/8b7d00ffbd80b24ea84eee4b0ef92eb735ec4d9c))
+* follow the renumbering of the invite-links RFC (0019 -&gt; 0023) ([ff98ebe](https://github.com/ramsesoriginal/lorenzo/commit/ff98ebe4d3c10ae407c94e036a2e8b68165157fd))
+* follow the renumbering of the OWNER-visibility ADR (0091 -&gt; 0096) ([971d41f](https://github.com/ramsesoriginal/lorenzo/commit/971d41f996d4c3c27f0b79b2dc1bfe6d8e453f29))
+* runbook for exporting a tenant, backed by an executable walk test ([70ed52a](https://github.com/ramsesoriginal/lorenzo/commit/70ed52a6fe9207f8cd024449301a88102bc6cdcd))
+
 ## [0.6.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.5.0...api-v0.6.0) (2026-09-19)
 
 

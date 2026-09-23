@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — thematic content</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Thematic content</h1>
+        <p class="lede">
+          The same stylesheets, the same handful of components, seven completely
+          unrelated subjects. If the brand only looks right on
+          campaign-management screens, it isn't a brand yet - it's a theme for
+          one app. Every page below is built from nothing but
+          <code>apps/brand</code>'s own classes.
+        </p>
+
+        <div class="grid" style="--grid-min: 220px">
+          <a class="card card-body" href="tax-office-1993.html">
+            <h3>A tax office, 1993</h3>
+            <p class="status-text">Case files, memos, pending filings</p>
+          </a>
+          <a class="card card-body" href="university-research.html">
+            <h3>A university research project</h3>
+            <p class="status-text">Grants, datasets, publications</p>
+          </a>
+          <a class="card card-body" href="starship-crew.html">
+            <h3>A starship crew</h3>
+            <p class="status-text">Departments, duty roster, ship's log</p>
+          </a>
+          <a class="card card-body" href="merchant-family.html">
+            <h3>A Renaissance merchant family</h3>
+            <p class="status-text">Ledgers, trade routes, a family tree</p>
+          </a>
+          <a class="card card-body" href="cyberpunk-corp.html">
+            <h3>A cyberpunk corporation</h3>
+            <p class="status-text">Divisions, clearance levels, contracts</p>
+          </a>
+          <a class="card card-body" href="apartment-inventory.html">
+            <h3>A mundane apartment inventory</h3>
+            <p class="status-text">Just a household's worth of stuff</p>
+          </a>
+          <a class="card card-body" href="fantasy-campaign.html">
+            <h3>A traditional fantasy campaign</h3>
+            <p class="status-text">Party roster, quest log, GM notes</p>
+          </a>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

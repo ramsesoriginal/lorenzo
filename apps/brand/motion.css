@@ -1,0 +1,337 @@
+/*
+ * Motion (identity.md §11): purposeful, calm, precise, short, reversible
+ * where possible, and respectful of prefers-reduced-motion throughout.
+ *
+ * Routine waiting (§17.9) uses .spinner/.skeleton/.progress-bar - ordinary
+ * interface mechanics, no brand decoration. .spark-loader is the opposite
+ * case: the rare, genuinely branded loading moment (§11.2) - app startup,
+ * first-run setup, a large import - never routine request/response
+ * waiting. .glow-canonical is Gold's one job (§6.6/§17.1) made literal:
+ * reserve it for something actually canonical/significant, not decoration.
+ *
+ * Every experimental technique below (corner-shape, sibling-index(),
+ * animation-timeline: scroll()) is wrapped in @supports and degrades to a
+ * plain, static equivalent - never required to understand the content.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Routine loading (§17.9) - ordinary interface mechanics                 */
+/* ---------------------------------------------------------------------- */
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--action);
+  border-radius: 50%;
+  animation: brand-spin 0.7s linear infinite;
+}
+
+@keyframes brand-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A static block by default, upgraded to a pulse only when motion is
+   welcome (opting animation *in* under no-preference, rather than having
+   to opt it back out under reduce). */
+.skeleton {
+  background: var(--fill-soft);
+  border-radius: var(--radius-control);
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: brand-skeleton-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes brand-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.progress-bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--fill-soft);
+  overflow: hidden;
+}
+
+.progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--action);
+  border-radius: inherit;
+  transition: width 200ms ease;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Rare branded loading (§11.2) - app startup, first-run, a large import  */
+/* ---------------------------------------------------------------------- */
+
+.spark-loader {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .spark-loader {
+    animation: brand-spark-spin 1.6s linear infinite;
+  }
+}
+
+@keyframes brand-spark-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Canonical glow (§1.4/§6.6/§17.1) - Gold's one job, made literal. Rare,  */
+/* deliberate emphasis only - never a generic decorative border.          */
+/* ---------------------------------------------------------------------- */
+
+@property --brand-glow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes brand-glow-spin {
+  to {
+    --brand-glow-angle: 360deg;
+  }
+}
+
+/* overflow: visible undoes .card's own overflow: hidden when the two are
+   combined on one element - otherwise the halo below, which deliberately
+   bleeds 2px past the border via inset: -2px, gets clipped to nothing. A
+   no-op on any element that wasn't already clipping. */
+.glow-canonical {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.glow-canonical::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -2;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--brand-glow-angle),
+    var(--canonical),
+    var(--brand-parchment),
+    var(--canonical)
+  );
+  /* A soft ambient bleed outside the ring itself, cycling through the same
+     two hues the gradient rotates through - drop-shadow traces the ring's
+     own (opaque, edge-to-edge) silhouette, so this reads as a halo around
+     the card's outer edge rather than needing to track the rotation
+     itself directly. Static (first color) under reduced motion. */
+  filter: drop-shadow(
+    0 0 8px color-mix(in srgb, var(--canonical) 55%, transparent)
+  );
+}
+
+@keyframes brand-glow-halo {
+  0%,
+  100% {
+    filter: drop-shadow(
+      0 0 8px color-mix(in srgb, var(--canonical) 55%, transparent)
+    );
+  }
+  50% {
+    filter: drop-shadow(
+      0 0 8px color-mix(in srgb, var(--brand-parchment) 55%, transparent)
+    );
+  }
+}
+
+.glow-canonical::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--surface-muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .glow-canonical::before {
+    animation:
+      brand-glow-spin 3s linear infinite,
+      brand-glow-halo 3s linear infinite;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Opt-in editorial effects - rare, deliberate, never a default anywhere  */
+/* ---------------------------------------------------------------------- */
+
+/* A typewriter reveal - set --typewriter-chars to the text's own length
+   (no way to read that from plain CSS/HTML alone). */
+.typewriter {
+  display: inline-block;
+  width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .typewriter {
+    animation: brand-typewriter 1.5s steps(var(--typewriter-chars, 20)) forwards;
+  }
+}
+
+/* Without this, reduced motion would leave the text permanently clipped
+   to zero width instead of just skipping the reveal animation - the text
+   itself must never depend on motion to become readable. */
+@media (prefers-reduced-motion: reduce) {
+  .typewriter {
+    width: var(--typewriter-width, 100%);
+  }
+}
+
+@keyframes brand-typewriter {
+  to {
+    width: var(--typewriter-width, 100%);
+  }
+}
+
+/* A count-up number - set --stat-value to the target integer.
+   inherits: true is required, not incidental: the number itself is drawn
+   by .stat-count::after's counter(), and a pseudo-element only ever sees
+   a custom property its originating element set if that property is
+   registered to inherit - otherwise it always reads the initial value (0),
+   and the counter never appears to move no matter how the animation
+   below drives --stat-value on .stat-count itself. */
+@property --stat-value {
+  syntax: "<integer>";
+  inherits: true;
+  initial-value: 0;
+}
+
+.stat-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-count::after {
+  counter-reset: brand-stat-count var(--stat-value);
+  content: counter(brand-stat-count);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stat-count {
+    animation: brand-count-up 1.4s ease-out forwards;
+  }
+}
+
+@keyframes brand-count-up {
+  from {
+    --stat-value: 0;
+  }
+}
+
+/* A scroll-linked reading-progress bar - fixed to the top of the
+   viewport, filling as the page scrolls. CSS-only, no script: static and
+   hidden without scroll-driven-animation support (Firefox, older
+   browsers) rather than showing a bar that never moves. */
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--action);
+  transform-origin: left;
+  transform: scaleX(0);
+  z-index: 100;
+  visibility: hidden;
+}
+
+@supports (animation-timeline: scroll()) {
+  .reading-progress {
+    visibility: visible;
+    animation: brand-reading-progress linear;
+    animation-timeline: scroll(root);
+  }
+}
+
+@keyframes brand-reading-progress {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* A staggered fade-in for a list of direct children - degrades to
+   "everything visible immediately" without sibling-index() support. */
+.stagger > * {
+  opacity: 0;
+  animation: brand-stagger-in 0.4s ease-out forwards;
+}
+
+@supports (animation-delay: calc(sibling-index() * 1s)) {
+  @media (prefers-reduced-motion: no-preference) {
+    .stagger > * {
+      animation-delay: calc(sibling-index() * 80ms);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger > * {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+@keyframes brand-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Squircle corners (Chromium-only as of 2026 - MDN corner-shape) -       */
+/* progressive enhancement over the same element's own border-radius,    */
+/* never a replacement for it.                                           */
+/* ---------------------------------------------------------------------- */
+
+@supports (corner-shape: squircle) {
+  .squircle {
+    corner-shape: squircle;
+  }
+}

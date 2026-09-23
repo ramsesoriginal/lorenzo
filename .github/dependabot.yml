@@ -79,3 +79,14 @@ updates:
       docker:
         patterns:
           - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/packages/brand"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm:
+        patterns:
+          - "*"

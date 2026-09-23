@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — forms</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html" aria-current="page">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Form fields</h1>
+        <p class="lede">
+          Every input type <code>components.css</code> styles, gathered on one
+          form. A new character sheet, since it needs almost every field type at
+          once.
+        </p>
+
+        <form class="card card-body stack" style="max-width: 480px">
+          <div class="field">
+            <label class="field-label" for="f-name">Character name</label>
+            <input
+              class="text-input"
+              id="f-name"
+              type="text"
+              value="Kaelen Ashworth"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-class">Class</label>
+            <select class="text-input" id="f-class">
+              <optgroup label="Martial">
+                <option>Ranger</option>
+                <option>Paladin</option>
+                <option>Fighter</option>
+              </optgroup>
+              <optgroup label="Caster">
+                <option>Wizard</option>
+                <option>Cleric</option>
+              </optgroup>
+              <option>Rogue</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-languages">Known languages</label>
+            <select class="text-input" id="f-languages" multiple size="4">
+              <option selected>Common</option>
+              <option selected>Elvish</option>
+              <option>Dwarvish</option>
+              <option>Draconic</option>
+              <option>Sylvan</option>
+              <option>Infernal</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-backstory">Backstory</label>
+            <textarea class="text-input" id="f-backstory">
+Raised on the frontier, Kaelen took up the bow after the Ashfall drove their family south.</textarea>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Alignment</span>
+            <div class="field-row">
+              <label class="field-row">
+                <input type="radio" name="f-alignment" checked />
+                Good
+              </label>
+              <label class="field-row">
+                <input type="radio" name="f-alignment" />
+                Neutral
+              </label>
+              <label class="field-row">
+                <input type="radio" name="f-alignment" />
+                Evil
+              </label>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Traits</span>
+            <label class="field-row">
+              <input type="checkbox" checked />
+              Multiclass eligible
+            </label>
+            <label class="field-row">
+              <input type="checkbox" />
+              Retired
+            </label>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-encumbrance"
+              >Encumbrance (kg)</label
+            >
+            <input
+              type="range"
+              id="f-encumbrance"
+              min="0"
+              max="100"
+              value="38"
+            />
+          </div>
+
+          <div class="field">
+            <span class="field-label">Publicly visible</span>
+            <label class="switch">
+              <input type="checkbox" checked />
+              <span class="switch-track"></span>
+            </label>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-email"
+              >Player contact email</label
+            >
+            <input
+              class="text-input"
+              id="f-email"
+              type="email"
+              value="kaelen.player@example.com"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-vault-code"
+              >Shared vault passphrase</label
+            >
+            <input
+              class="text-input"
+              id="f-vault-code"
+              type="password"
+              value="hunter2"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-portrait-url">Portrait URL</label>
+            <input
+              class="text-input"
+              id="f-portrait-url"
+              type="url"
+              placeholder="https://example.com/kaelen.png"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-compendium-search"
+              >Search compendium</label
+            >
+            <input
+              class="text-input"
+              id="f-compendium-search"
+              type="search"
+              placeholder="Longbow, +1"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-level">Level</label>
+            <input
+              class="text-input"
+              id="f-level"
+              type="number"
+              min="1"
+              max="20"
+              value="6"
+              style="max-width: 100px"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-created">Character created</label>
+            <input
+              class="text-input"
+              id="f-created"
+              type="date"
+              value="2026-02-14"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-retainer-since"
+              >Retainer since</label
+            >
+            <input
+              class="text-input"
+              id="f-retainer-since"
+              type="month"
+              value="2026-03"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-downtime-week"
+              >Downtime week</label
+            >
+            <input
+              class="text-input"
+              id="f-downtime-week"
+              type="week"
+              value="2026-W12"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-session-start"
+              >Session start time</label
+            >
+            <input
+              class="text-input"
+              id="f-session-start"
+              type="time"
+              value="18:30"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-next-session">Next session</label>
+            <input
+              class="text-input"
+              id="f-next-session"
+              type="datetime-local"
+              value="2026-09-28T18:30"
+            />
+          </div>
+
+          <div class="field">
+            <span class="field-label">Sheet accent color</span>
+            <input
+              type="color"
+              value="#1769c2"
+              aria-label="Sheet accent color"
+            />
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="f-portrait-upload"
+              >Upload portrait</label
+            >
+            <input type="file" id="f-portrait-upload" accept="image/*" />
+          </div>
+
+          <div class="inline-form">
+            <button class="btn btn-primary" type="submit">
+              Save character
+            </button>
+            <button class="btn btn-secondary" type="reset">Reset</button>
+            <input
+              type="image"
+              src="save-icon.svg"
+              alt="Quick save"
+              width="20"
+              height="20"
+              title="Quick save"
+            />
+            <span class="status-text">Autosaved 2 minutes ago</span>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

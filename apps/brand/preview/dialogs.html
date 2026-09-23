@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — dialogs</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html" aria-current="page">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Dialogs</h1>
+        <p class="lede">
+          The bare <code>dialog</code>/<code>dialog::backdrop</code> rules in
+          <code>components.css</code> - no dialog-specific class needed, just
+          the native element.
+        </p>
+
+        <section id="single">
+          <h2>A single modal dialog</h2>
+          <p class="lede">
+            <code>showModal()</code> - focus is trapped, the page behind dims
+            via <code>::backdrop</code>, Escape closes it.
+          </p>
+          <button class="btn btn-primary" id="open-single" type="button">
+            Award loot
+          </button>
+        </section>
+
+        <dialog id="award-dialog">
+          <h3>Award an item</h3>
+          <p class="status-text">Bandit Camp drop → Kaelen Ashworth</p>
+          <form method="dialog" class="stack">
+            <div class="field">
+              <label class="field-label" for="award-item">Item</label>
+              <select class="text-input" id="award-item">
+                <option>Rusted Shortsword</option>
+                <option>Potion of Healing</option>
+                <option>Bandit's Signet Ring</option>
+              </select>
+            </div>
+            <div class="row" style="justify-content: flex-end">
+              <button class="btn btn-secondary" value="cancel">Cancel</button>
+              <button class="btn btn-primary" value="award">Award</button>
+            </div>
+          </form>
+        </dialog>
+
+        <section id="overlapping">
+          <h2>Two semi-overlapping dialogs</h2>
+          <p class="lede">
+            Non-modal (<code>show()</code>, not <code>showModal()</code>) - no
+            backdrop, no focus trap, both stay visible and independently
+            closable at once. Positioned here as a loose stack of two loot drops
+            open for comparison side by side.
+          </p>
+          <button class="btn btn-primary" id="open-both" type="button">
+            Compare two drops
+          </button>
+        </section>
+
+        <dialog
+          id="drop-a"
+          style="
+            position: fixed;
+            top: 220px;
+            left: 50%;
+            margin-left: -260px;
+            z-index: 10;
+          "
+        >
+          <h3>Dragon's Hoard</h3>
+          <p class="status-text">Claimed by 2 of 4 members</p>
+          <ul class="list">
+            <li>Ashfang, Flaming Sword</li>
+            <li>412 gp, assorted coin</li>
+            <li>Scale of the Red Wyrm</li>
+          </ul>
+          <div class="row" style="justify-content: flex-end">
+            <button class="btn btn-secondary" data-close="drop-a">Close</button>
+          </div>
+        </dialog>
+
+        <dialog
+          id="drop-b"
+          style="
+            position: fixed;
+            top: 280px;
+            left: 50%;
+            margin-left: -40px;
+            z-index: 20;
+          "
+        >
+          <h3>Bandit Camp</h3>
+          <p class="status-text">Claimed by 1 of 4 members</p>
+          <ul class="list">
+            <li>Rusted Shortsword</li>
+            <li>Potion of Healing ×2</li>
+            <li>Bandit's Signet Ring</li>
+          </ul>
+          <div class="row" style="justify-content: flex-end">
+            <button class="btn btn-secondary" data-close="drop-b">Close</button>
+          </div>
+        </dialog>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+
+        document
+          .getElementById("open-single")
+          .addEventListener("click", function () {
+            document.getElementById("award-dialog").showModal();
+          });
+
+        document
+          .getElementById("open-both")
+          .addEventListener("click", function () {
+            document.getElementById("drop-a").show();
+            document.getElementById("drop-b").show();
+          });
+
+        document.querySelectorAll("[data-close]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            document.getElementById(btn.getAttribute("data-close")).close();
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

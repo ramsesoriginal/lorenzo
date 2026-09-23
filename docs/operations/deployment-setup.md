@@ -167,6 +167,20 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
 5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — by the time this app registers its own client, `apps/api`'s dev-token client, `apps/loot-bot`'s client, and `apps/account-hub`'s client may already be at or past that cap on a strict per-project reading. Confirm directly in the console rather than assuming either way.
 
+## Cloudflare Pages (apps/brand)
+
+`apps/brand` is a plain static site with **no build step at all** — no framework, no `package.json`, nothing to `pnpm install` — see [ADR 0098](../adr/0098-branding-css-app-and-package.md). Same Git-integration mechanism as `apps/account-hub`/`apps/inventory-web` above, but simpler: no Authgear application, no environment variables.
+
+1. Sign up at [cloudflare.com](https://cloudflare.com) (free tier) if you haven't already, or reuse the same account as the other two Pages projects above.
+2. **Workers & Pages → Create → Pages → Connect to Git**, authorize Cloudflare's GitHub App for the `ramsesoriginal/lorenzo` repo if it isn't already, then select it.
+3. **Project name**: `lorenzo-brand`. **Production branch**: `main`.
+4. **Build settings** — unlike the other two Pages projects, there's genuinely nothing to build:
+   - **Root directory**: `apps/brand`
+   - **Build command**: *(leave empty)*
+   - **Build output directory**: `/` (the root directory itself — `tokens.css` and `preview/` are served as-is)
+5. **Build watch paths** (Settings → Builds & deployments) — set to `apps/brand/**` (double star — see `apps/account-hub`'s own note above) so pushes touching unrelated apps don't trigger a rebuild.
+6. Once deployed, `https://lorenzo-brand.pages.dev/tokens.css` is a real, hotlinkable URL — see ADR 0098 for how a deployment opts into pointing `PUBLIC_BRANDING_CSS_URL` at it instead of each app's own bundled copy (not wired up yet; tracked in [issue #178](https://github.com/ramsesoriginal/lorenzo/issues/178)).
+
 ## GitHub setup
 
 Create a `production` [Environment](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment) (Settings → Environments), and add:

@@ -140,6 +140,14 @@ repos:
         language: system
         files: ^apps/loot-bot/.*\.ts$
         pass_filenames: false
+      # apps/brand has no package.json/node_modules of its own (ADR 0098) -
+      # npx rather than the pnpm --dir pattern the other apps above use.
+      - id: prettier-brand
+        name: prettier --write (apps/brand)
+        entry: npx --yes prettier --write
+        language: system
+        files: ^apps/brand/.*\.(css|html)$
+        pass_filenames: true
 
 # Further language-specific hooks get added here alongside the next app
 # that needs them - see docs/guides/adding-an-app.md.

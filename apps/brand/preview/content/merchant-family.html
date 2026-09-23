@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a Renaissance merchant family</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <p class="status-text"><a href="index.html">← Content</a></p>
+        <h1 class="display">Casa Contarini</h1>
+        <p class="lede">
+          Venetian trading house, est. 1447. Ledgers, trade routes, and the
+          family line, kept by the house steward.
+        </p>
+
+        <div class="row">
+          <span class="chip">Spice trade</span>
+          <span class="chip">Levant route</span>
+          <span class="chip">Silk</span>
+          <span class="chip">Banking house</span>
+        </div>
+
+        <section>
+          <h2>Ledger, this quarter</h2>
+          <ul class="list">
+            <li>
+              <span>Galley <em>San Marco</em> — pepper, cloves</span>
+              <span class="pill pill-success">Arrived</span>
+              <span class="status-text">2,400 ducats</span>
+            </li>
+            <li>
+              <span>Galley <em>Fortuna</em> — Damascene silk</span>
+              <span class="pill pill-warning">Delayed, storms</span>
+              <span class="status-text">expected 1,850 ducats</span>
+            </li>
+            <li>
+              <span>Loan to House Morosini</span>
+              <span class="pill pill-danger">Overdue</span>
+              <span class="status-text">600 ducats</span>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>The family line</h2>
+          <ul class="tree">
+            <li>
+              <details open>
+                <summary>
+                  <svg class="icon tree-toggle">
+                    <use href="../../icons.svg#icon-expand"></use>
+                  </svg>
+                  Alvise Contarini, founder (1447)
+                </summary>
+                <ul>
+                  <li>
+                    <details open>
+                      <summary>
+                        <svg class="icon tree-toggle">
+                          <use href="../../icons.svg#icon-expand"></use>
+                        </svg>
+                        Marco Contarini — house steward
+                      </summary>
+                      <ul>
+                        <li>
+                          <span class="field-row"
+                            >Giulia Contarini — Levant factor</span
+                          >
+                        </li>
+                        <li>
+                          <span class="field-row"
+                            >Pietro Contarini — apprenticed, Bruges office</span
+                          >
+                        </li>
+                      </ul>
+                    </details>
+                  </li>
+                  <li>
+                    <span class="field-row"
+                      >Beatrice Contarini, m. House Morosini</span
+                    >
+                  </li>
+                </ul>
+              </details>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

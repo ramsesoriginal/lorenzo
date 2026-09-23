@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — a cyberpunk corporation</title>
+    <link rel="stylesheet" href="../../normalize.css" />
+    <link rel="stylesheet" href="../../tokens.css" />
+    <link rel="stylesheet" href="../../fonts.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="stylesheet" href="../../layout.css" />
+    <link rel="stylesheet" href="../../components.css" />
+    <link rel="stylesheet" href="../../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="../index.html">Tokens</a>
+          <a href="../motion.html">Motion</a>
+          <a href="../dialogs.html">Dialogs</a>
+          <a href="../forms.html">Forms</a>
+          <a href="../trees.html">Trees</a>
+          <a href="../editors.html">Editor</a>
+          <a href="index.html" aria-current="page">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap with-sidebar">
+        <nav class="sidebar" aria-label="Corporate divisions">
+          <a href="#" aria-current="page">R&amp;D</a>
+          <a href="#">Security</a>
+          <a href="#">Logistics</a>
+          <a href="#">Legal</a>
+        </nav>
+
+        <div>
+          <p class="status-text"><a href="index.html">← Content</a></p>
+          <h1 class="display">Kestrel-Onoda Biotech</h1>
+          <p class="lede">
+            Internal division dashboard. Access logged. This session: employee
+            #40217, clearance level 3.
+          </p>
+
+          <span class="badge-visibility">
+            <svg class="icon">
+              <use href="../../icons.svg#icon-private"></use>
+            </svg>
+            Classified — Level 3
+          </span>
+
+          <div class="row" style="margin-top: var(--space-4)">
+            <div class="card card-body" style="text-align: center">
+              <div class="display" style="font-size: 32px">
+                <span class="stat-count" style="--stat-value: 8420"></span>
+              </div>
+              <div class="status-text">employees, all divisions</div>
+            </div>
+            <div class="card card-body" style="text-align: center">
+              <div class="display" style="font-size: 32px">
+                <span class="stat-count" style="--stat-value: 12"></span>
+              </div>
+              <div class="status-text">active field contracts</div>
+            </div>
+          </div>
+
+          <section>
+            <h2>Active contracts</h2>
+            <ul class="list">
+              <li>
+                <span>Neural interface field trial — Sector 9</span>
+                <span class="pill pill-success">Active</span>
+              </li>
+              <li>
+                <span>Asset recovery — ex-employee R. Vance</span>
+                <span class="pill pill-danger">Compromised</span>
+              </li>
+              <li>
+                <span>Synthskin batch QA — Line 4</span>
+                <span class="pill pill-warning">Under review</span>
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>Division controls</h2>
+            <div class="field-row">
+              <label class="switch">
+                <input type="checkbox" checked />
+                <span class="switch-track"></span>
+              </label>
+              <span>Surveillance uplink, floors 1–12</span>
+            </div>
+            <div class="row" style="margin-top: var(--space-3)">
+              <button class="btn btn-primary" type="button">
+                Deploy asset
+              </button>
+              <button class="btn btn-danger" type="button">
+                Terminate contract
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>
