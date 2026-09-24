@@ -18,15 +18,14 @@ class InformationCreate(BaseModel):
     EntityPrototype together), not two separate calls that could leave an
     Information row with no Payload yet.
 
-    Deliberately description-only for this slice - payload_number/picture/
-    document creation is explicitly out of scope (RFC 0011's own flagged
-    "binary payload upload mechanics... not resolved here"; a JSON body
-    has nowhere to put raw bytes without base64 or multipart, neither
-    decided). `type` is Information's own free-text narrative category
+    Deliberately description-only - payload_number/picture/document
+    creation is still out of scope (RFC 0015 sub-slice 4's binary upload
+    question). `type` is Information's own free-text narrative category
     (RFC 0001: "a rumor, an official record, a GM note, ..."), not the
-    payload's kind - callers authoring more than one piece of information
-    about the same entity must give each a distinct `type`, since
-    Information carries UniqueConstraint(entity_id, type).
+    payload's kind. Only singleton types (information_type.is_singleton:
+    `description`, `main_picture`) are one per entity; every other type can
+    repeat (ADR 0101). `order` is the row's position among the entity's
+    information; omitted, the server appends it after the last one.
     """
 
     title: str
@@ -34,6 +33,20 @@ class InformationCreate(BaseModel):
     is_public: bool = False
     content: str
     locale: str = "en-US"
+    order: int | None = None
+
+
+class InformationUpdate(BaseModel):
+    """PATCH /tenants/{tenant_id}/information/{information_id} - see ADR
+    0101. Merge-patch semantics (`exclude_unset`), like every other PATCH
+    in this API: an omitted field is left alone. Payload text is edited on
+    the payload itself (PATCH .../payloads/{id}), not here.
+    """
+
+    title: str | None = None
+    type: str | None = None
+    is_public: bool | None = None
+    order: int | None = None
 
 
 class EntityStatValueOut(BaseModel):
@@ -87,6 +100,11 @@ class InformationOut(BaseModel):
     id: uuid.UUID
     title: str
     type: str
+    is_public: bool
+    order: int
+    # ETag/If-Match source for PATCH/DELETE .../information/{id} (ADR
+    # 0042/0101). Each payload carries its own, separately.
+    updated_at: datetime
     payloads: list[PayloadOut]
 
     @classmethod
@@ -95,6 +113,9 @@ class InformationOut(BaseModel):
             id=information.id,
             title=information.title,
             type=information.type,
+            is_public=information.is_public,
+            order=information.order,
+            updated_at=information.updated_at,
             payloads=[payload_to_schema(payload, request) for payload in information.payloads],
         )
 

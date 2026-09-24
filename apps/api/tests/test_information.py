@@ -107,7 +107,9 @@ async def test_information_and_payload_bundle_end_to_end() -> None:
         await session.commit()
 
 
-async def test_information_type_is_unique_per_entity() -> None:
+async def test_singleton_information_type_is_unique_per_entity() -> None:
+    """ADR 0101: only the singleton types (information_type.is_singleton)
+    are one per entity, via the partial unique index."""
     async with admin_session_factory() as session:
         tenant = Tenant()
         session.add(tenant)
@@ -119,10 +121,10 @@ async def test_information_type_is_unique_per_entity() -> None:
         session.add_all(
             [
                 Information(
-                    tenant_id=tenant.id, entity_id=entity.id, title="First", type="gm-note"
+                    tenant_id=tenant.id, entity_id=entity.id, title="First", type="description"
                 ),
                 Information(
-                    tenant_id=tenant.id, entity_id=entity.id, title="Second", type="gm-note"
+                    tenant_id=tenant.id, entity_id=entity.id, title="Second", type="description"
                 ),
             ]
         )
@@ -132,6 +134,29 @@ async def test_information_type_is_unique_per_entity() -> None:
         # Nothing was actually persisted - the failed commit rolls back the
         # whole transaction, including the tenant/entity flushed earlier.
         await session.rollback()
+
+
+async def test_non_singleton_information_type_repeats_with_appended_order() -> None:
+    """ADR 0101: any other type repeats; an omitted `order` is appended by
+    the BEFORE INSERT trigger, even for rows inserted in one flush."""
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        entity = Entity(tenant_id=tenant.id, name="Test Item")
+        session.add(entity)
+        await session.flush()
+
+        notes = [
+            Information(tenant_id=tenant.id, entity_id=entity.id, title=title, type="gm-note")
+            for title in ("First", "Second", "Third")
+        ]
+        session.add_all(notes)
+        await session.commit()
+
+        assert [note.order for note in notes] == [0, 1, 2]
+        await session.delete(tenant)
+        await session.commit()
 
 
 async def test_information_rls_isolates_tenants_for_a_non_superuser_role() -> None:
