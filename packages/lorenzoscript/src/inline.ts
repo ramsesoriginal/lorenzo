@@ -1,16 +1,23 @@
-// Inline pass (ADR 0100): one left-to-right scan, a bracket stack for links,
-// and CommonMark's delimiter-run algorithm for emphasis.
-import type { Inline, Span } from './ast';
+// Inline pass (ADR 0100, 0102): one left-to-right scan, stacks for links and
+// `{{.class …}}` spans, and CommonMark's delimiter-run algorithm for emphasis.
+import type { Attrs, Inline, Span } from './ast';
 
 type Delim = { type: 'delim'; ch: string; n: number; orig: number; open: boolean; close: boolean };
-type Node = Inline | Delim;
-type Bracket = { at: number; image: boolean; active: boolean };
+/** A `{#id .class}` waiting to attach to the element before it (see `literal`). */
+type Pending = { type: 'attrs'; attrs: Attrs; raw: string };
+type Node = Inline | Delim | Pending;
+type Parent = Extract<Inline, { children: Inline[] }>;
+type Opener = { at: number; image: boolean; active: boolean };
+type SpanOpener = { at: number; attrs: Attrs };
 
 /** What a matched run of each delimiter character becomes, by how many characters it uses. */
-const DELIMS: Record<string, { tags: Span[]; strict: boolean }> = {
-  '*': { tags: ['em', 'strong'], strict: false },
+const DELIMS: Record<string, { tags: Span[]; strict?: boolean; exact?: boolean }> = {
+  '*': { tags: ['em', 'strong'] },
   // `_` never opens or closes inside a word, so `snake_case` stays literal.
   _: { tags: ['i', 'b'], strict: true },
+  // These pair only with a run of the same length: ~sub~, ~~del~~, ^sup^.
+  '~': { tags: ['sub', 'del'], exact: true },
+  '^': { tags: ['sup'], exact: true },
 };
 
 const PUNCT = /[!-/:-@[-`{-~]/;
@@ -19,8 +26,51 @@ const PUNCT_ANY = /[\p{P}\p{S}]/u;
 const AUTOLINK = /^<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*)>/;
 const EMAIL =
   /^<([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/;
+const FOOTNOTE_REF = /^\[\^([^\]\s][^\]]*)\]/;
+
+/** `#id` and `.class` tokens, the one attribute syntax every `{…}` and `{{…}}` shares. */
+export const ATTR_LIST = String.raw`[.#][A-Za-z][\w-]*(?:[ \t]+[.#][A-Za-z][\w-]*)*`;
+const ATTRS = new RegExp(String.raw`^\{[ \t]*(${ATTR_LIST})[ \t]*\}`);
+const SPAN_OPEN = new RegExp(String.raw`^\{\{(${ATTR_LIST})(?:[ \t]+|(?=\}\}))`);
+
+export function attributes(list: string): Attrs {
+  const attrs: Attrs = { id: '', classes: [] };
+  for (const token of list.split(/[ \t]+/).filter(Boolean)) {
+    if (token.startsWith('#')) attrs.id = token.slice(1);
+    else attrs.classes.push(token.slice(1));
+  }
+  return attrs;
+}
 
 const unescapePunct = (s: string) => s.replace(/\\([!-/:-@[-`{-~])/g, '$1');
+
+/** Footnote labels match like CommonMark link labels. */
+export const normalizeLabel = (label: string) => label.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** Heading ids, and stage 3's `[[wikilink]]` slugs: ASCII, lowercase, hyphenated. */
+export const slugify = (s: string) =>
+  s
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+/** Plain text of inline content, e.g. for an image's alt or a heading's slug. */
+export const plainText = (nodes: Inline[]): string =>
+  nodes
+    .map((n) =>
+      'children' in n
+        ? plainText(n.children)
+        : 'text' in n
+          ? n.text
+          : 'tex' in n
+            ? n.tex
+            : n.type === 'break'
+              ? ' '
+              : '',
+    )
+    .join('');
 
 /**
  * Blocks and inline elements each nest at most this deep; anything deeper stays text.
@@ -30,7 +80,7 @@ export const MAX_NESTING = 32;
 
 const DEPTH = new WeakMap<Inline, number>();
 const depthOf = (nodes: Inline[]) => nodes.reduce((d, n) => Math.max(d, DEPTH.get(n) ?? 0), 0);
-const nest = (node: Inline & { children: Inline[] }) => {
+const nest = (node: Parent) => {
   DEPTH.set(node, depthOf(node.children) + 1);
   return node;
 };
@@ -38,15 +88,30 @@ const textNode = (s: string): Inline => ({ type: 'text', text: s });
 
 export function parseInline(src: string): Inline[] {
   const nodes: Node[] = [];
-  const brackets: Bracket[] = [];
+  const brackets: Opener[] = [];
+  const spans: SpanOpener[] = [];
   let text = '';
   const flush = () => {
-    if (text) nodes.push({ type: 'text', text });
+    if (text) nodes.push(textNode(text));
     text = '';
   };
   const push = (node: Node) => {
     flush();
     nodes.push(node);
+  };
+  /** Replaces the opener's placeholder at `at` with `make(everything after it)`, unless too deep. */
+  const close = (at: number, make: (children: Inline[]) => Parent, closing: string) => {
+    flush();
+    const children = literal(resolveEmphasis(nodes.splice(at + 1)));
+    // Openers of either kind left open inside can no longer close.
+    while ((brackets.at(-1)?.at ?? -1) > at) brackets.pop();
+    while ((spans.at(-1)?.at ?? -1) > at) spans.pop();
+    if (depthOf(children) >= MAX_NESTING) {
+      nodes.push(...children, textNode(closing));
+      return false;
+    }
+    nodes[at] = nest(make(children));
+    return true;
   };
 
   let i = 0;
@@ -61,7 +126,7 @@ export function parseInline(src: string): Inline[] {
     } else if (c === '\n') {
       const hard = / {2,}$/.test(text);
       text = text.replace(/ +$/, '');
-      push(hard ? { type: 'break' } : { type: 'text', text: '\n' });
+      push(hard ? { type: 'break' } : textNode('\n'));
       i++;
     } else if (c === '`') {
       const run = /^`+/.exec(src.slice(i))?.[0] as string;
@@ -74,10 +139,16 @@ export function parseInline(src: string): Inline[] {
       while (src[i] === c) i++;
       push(delim(c, i - start, src[start - 1] ?? '\n', src[i] ?? '\n'));
     } else if (c === '[' || (c === '!' && next === '[')) {
+      const ref = c === '[' ? FOOTNOTE_REF.exec(src.slice(i)) : null;
+      if (ref) {
+        push({ type: 'footnote', label: ref[1] as string });
+        i += ref[0].length;
+        continue;
+      }
       const image = c === '!';
       flush();
       brackets.push({ at: nodes.length, image, active: true });
-      nodes.push({ type: 'text', text: image ? '![' : '[' });
+      nodes.push(textNode(image ? '![' : '['));
       i += image ? 2 : 1;
     } else if (c === ']') {
       const bracket = brackets.pop();
@@ -87,38 +158,87 @@ export function parseInline(src: string): Inline[] {
         i++;
         continue;
       }
-      flush();
-      // The opening bracket's text node stays at `bracket.at`, to be replaced by the link.
-      const children = literal(resolveEmphasis(nodes.splice(bracket.at + 1)));
-      if (depthOf(children) >= MAX_NESTING) {
-        nodes.push(...children, textNode(src.slice(i, dest.end)));
-      } else {
-        const type = bracket.image ? 'image' : 'link';
-        nodes[bracket.at] = nest({ type, url: dest.url, title: dest.title, children });
-        // No links inside links: every earlier `[` can no longer become one.
-        if (!bracket.image) for (const b of brackets) if (!b.image) b.active = false;
-      }
+      const type = bracket.image ? 'image' : 'link';
+      const { url, title } = dest;
+      const linked = close(
+        bracket.at,
+        (children) => ({ type, url, title, children }),
+        src.slice(i, dest.end),
+      );
+      // No links inside links: every earlier `[` can no longer become one.
+      if (linked && !bracket.image) for (const b of brackets) if (!b.image) b.active = false;
       i = dest.end;
+    } else if (c === '{' && next === '{') {
+      const m = SPAN_OPEN.exec(src.slice(i));
+      if (m) {
+        flush();
+        spans.push({ at: nodes.length, attrs: attributes(m[1] as string) });
+        nodes.push(textNode(m[0]));
+      } else text += '{{';
+      i += m ? m[0].length : 2;
+    } else if (c === '}' && next === '}' && spans.length) {
+      const { at, attrs } = spans.pop() as SpanOpener;
+      close(at, (children) => ({ type: 'span', attrs, children }), '}}');
+      i += 2;
     } else {
-      const auto = c === '<' ? autolink(src.slice(i)) : null;
-      if (auto) push(auto.link);
+      const token =
+        c === '<'
+          ? autolink(src.slice(i))
+          : c === '$'
+            ? math(src, i)
+            : c === '{'
+              ? pending(src.slice(i))
+              : null;
+      if (token) push(token.node);
       else text += c;
-      i += auto ? auto.length : 1;
+      i += token ? token.length : 1;
     }
   }
   flush();
   return literal(resolveEmphasis(nodes));
 }
 
+type Token = { node: Node; length: number } | null;
+
 /** `<https://…>` or `<name@host>` at the start of `s`. */
-function autolink(s: string): { link: Inline; length: number } | null {
+function autolink(s: string): Token {
   const url = AUTOLINK.exec(s);
   const m = url ?? EMAIL.exec(s);
   if (!m) return null;
   const label = m[1] as string;
-  const children: Inline[] = [{ type: 'text', text: label }];
-  const link: Inline = { type: 'link', url: url ? label : `mailto:${label}`, title: '', children };
-  return { link, length: m[0].length };
+  const node: Inline = {
+    type: 'link',
+    url: url ? label : `mailto:${label}`,
+    title: '',
+    children: [textNode(label)],
+  };
+  return { node, length: m[0].length };
+}
+
+/**
+ * `$…$` or `$$…$$` at `src[i]`. As in Pandoc, inline math can't start or end with a
+ * space or be followed by a digit, so `$5 and $10` stays text.
+ */
+function math(src: string, i: number): Token {
+  const display = src[i + 1] === '$';
+  const fence = display ? '$$' : '$';
+  const start = i + fence.length;
+  let k = start;
+  while (k < src.length && !src.startsWith(fence, k)) k += src[k] === '\\' ? 2 : 1;
+  const tex = src.slice(start, k);
+  if (k >= src.length || !tex.trim()) return null;
+  if (!display && (/^\s|\s$/.test(tex) || /\d/.test(src[k + 1] ?? ''))) return null;
+  return { node: { type: 'math', display, tex: tex.trim() }, length: k + fence.length - i };
+}
+
+function pending(s: string): Token {
+  const m = ATTRS.exec(s);
+  return (
+    m && {
+      node: { type: 'attrs', attrs: attributes(m[1] as string), raw: m[0] },
+      length: m[0].length,
+    }
+  );
 }
 
 /** Index of the next backtick run of exactly `length`, or -1. */
@@ -198,8 +318,17 @@ function oddMatch(opener: Delim, closer: Delim): boolean {
   );
 }
 
-const opens = (node: Node | undefined, closer: Delim): node is Delim =>
-  node?.type === 'delim' && node.ch === closer.ch && node.open && !oddMatch(node, closer);
+const SPACELESS = new Set<Span>(['sub', 'sup']);
+const hasSpace = (n: Node) =>
+  n.type === 'break' || (n.type !== 'delim' && n.type !== 'attrs' && SPACE.test(plainText([n])));
+
+function opens(node: Node | undefined, closer: Delim): node is Delim {
+  if (node?.type !== 'delim' || node.ch !== closer.ch || !node.open) return false;
+  const rule = DELIMS[closer.ch];
+  return rule?.exact
+    ? node.n === closer.n && closer.n <= rule.tags.length
+    : !oddMatch(node, closer);
+}
 
 /**
  * Pairs delimiter runs into spans. Output is built as a stack, so matching only ever
@@ -220,12 +349,15 @@ function resolveEmphasis(nodes: Node[]): Node[] {
       let o = out.length - 1;
       while (o >= floor && !opens(out[o], closer)) o--;
       const opener = out[o];
-      if (o < floor || opener?.type !== 'delim') {
+      const tags = DELIMS[closer.ch]?.tags ?? [];
+      const use = opener?.type === 'delim' ? Math.min(opener.n, closer.n, tags.length) : 0;
+      // As in Pandoc, sub- and superscripts hold no spaces, so `x^2 + y^2` stays text.
+      // Any opener further back would span the same space, so none can match either.
+      const spaced = SPACELESS.has(tags[use - 1] as Span) && out.slice(o + 1).some(hasSpace);
+      if (o < floor || opener?.type !== 'delim' || spaced) {
         bottom.set(key, out.length);
         break;
       }
-      const tags = DELIMS[closer.ch]?.tags ?? [];
-      const use = Math.min(opener.n, closer.n, tags.length);
       opener.n -= use;
       closer.n -= use;
       const children = literal(out.splice(o + 1));
@@ -239,12 +371,27 @@ function resolveEmphasis(nodes: Node[]): Node[] {
   return out;
 }
 
-/** Unmatched delimiters become text, and neighbouring text merges. */
+/**
+ * Unmatched delimiters become text, a pending `{…}` attaches to the element right
+ * before it (or becomes its text), and neighbouring text merges.
+ */
 function literal(nodes: Node[]): Inline[] {
   const out: Inline[] = [];
   for (const n of nodes) {
-    const node: Inline = n.type === 'delim' ? textNode(n.ch.repeat(n.n)) : n;
     const last = out.at(-1);
+    if (
+      n.type === 'attrs' &&
+      last &&
+      last.type !== 'text' &&
+      last.type !== 'break' &&
+      last.type !== 'footnote' &&
+      !last.attrs
+    ) {
+      last.attrs = n.attrs;
+      continue;
+    }
+    const node: Inline =
+      n.type === 'delim' ? textNode(n.ch.repeat(n.n)) : n.type === 'attrs' ? textNode(n.raw) : n;
     if (node.type === 'text' && last?.type === 'text') last.text += node.text;
     else out.push(node.type === 'text' ? { ...node } : node);
   }

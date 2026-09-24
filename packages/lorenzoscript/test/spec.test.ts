@@ -6,13 +6,16 @@ import { parse, render } from '../src';
 const FENCE = '`'.repeat(8);
 type Example = { source: string; html: string };
 
-/** `␠` marks a trailing space and `→` a tab, so editors and hooks can't alter an example. */
+/**
+ * `␠` marks a trailing space and `⇥` a tab, so editors and hooks can't alter an example.
+ * (Not `→`, as in CommonMark's spec: math renders `\to` as a real one.)
+ */
 const text = (lines: string[]) =>
   lines
     .map((l) => `${l}\n`)
     .join('')
     .replace(/␠/g, ' ')
-    .replace(/→/g, '\t');
+    .replace(/⇥/g, '\t');
 
 function sections(spec: string): Map<string, Example[]> {
   const out = new Map<string, Example[]>();
@@ -82,5 +85,23 @@ describe('hostile input', () => {
   test('lazy lines in nested quotes stay linear', () => {
     const html = render(parse(`> > > > > a\n${'b\n'.repeat(2000)}`));
     expect(count(html, '<blockquote>')).toBe(5);
+  });
+
+  test('class blocks and spans nest at most MAX_NESTING deep', () => {
+    const blocks = render(parse(`${'{{.a\n'.repeat(5000)}x\n${'}}\n'.repeat(5000)}`));
+    const spans = render(parse(`${'{{.a '.repeat(5000)}x${'}}'.repeat(5000)}`));
+    expect(count(blocks, '<div')).toBe(32);
+    expect(count(spans, '<span')).toBe(32);
+  });
+
+  test('math nested past MAX_NESTING shows as code', () => {
+    const html = render(parse(`$${'{'.repeat(5000)}x${'}'.repeat(5000)}$`));
+    expect(html).toContain('<code class="ls-math">');
+  });
+
+  test('thousands of footnotes and equal headings stay linear', () => {
+    const chain = Array.from({ length: 5000 }, (_, k) => `[^${k}]: see[^${k + 1}]`).join('\n');
+    expect(count(render(parse(`${chain}\n\nstart[^0]`)), '<li id="ls-fn-')).toBe(5000);
+    expect(render(parse('# a\n'.repeat(5000)))).toContain('id="ls-a-5000"');
   });
 });
