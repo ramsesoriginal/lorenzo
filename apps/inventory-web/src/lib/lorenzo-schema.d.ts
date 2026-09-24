@@ -1154,9 +1154,8 @@ export interface paths {
          *     groups/{group_entity_id}/members - which groups this character belongs
          *     to, sparing a client from fetching every tenant group and
          *     cross-referencing membership client-side. Gated the same way as this
-         *     router's other two pre-existing GET routes (_require_tenant_member),
-         *     not routers/groups.py's own broader is_tenant_participant - consistency
-         *     with this router's own neighbors, not with groups.py.
+         *     router's other two GET routes, and the same require_tenant_participant
+         *     routers/groups.py itself uses.
          */
         get: operations["list_character_groups"];
         put?: never;
@@ -1276,6 +1275,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/payloads/{payload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Payload
+         * @description Replaces a description payload's text and/or locale - ADR 0101, the
+         *     endpoint RFC 0027's description editor needs. Check order: the payload
+         *     exists (404), sight of its Information row or authorship (404, like a
+         *     missing payload), standing over the entity (403), description kind
+         *     (409 - other kinds aren't editable yet), If-Match against the payload's
+         *     own updated_at (412).
+         *
+         *     The text goes through description_payloads.write_description, the one
+         *     write path for it; `content` is stored as given. Not logged (ADR 0084:
+         *     descriptive content).
+         */
+        patch: operations["update_payload"];
+        trace?: never;
+    };
     "/users/{user_id}/picture": {
         parameters: {
             query?: never;
@@ -1357,11 +1385,13 @@ export interface paths {
          *     see ADR 0038/RFC 0011. `entity_id` existence is checked first (404,
          *     non-enumerable), then self-or-managed authorization (403 - the caller
          *     already knows the entity exists, they just lack a specific write
-         *     permission over it), then a duplicate `type` for this entity (409,
-         *     Information's own UniqueConstraint(entity_id, type) - pre-checked
-         *     explicitly rather than relying on the constraint violation to surface,
-         *     matching MembershipAlreadyExistsError/PlayerAlreadyExistsError's own
-         *     established precedent, ADR 0036), then the write itself.
+         *     permission over it), then - under the entity's row lock (ADR 0101) - a
+         *     duplicate *singleton* `type` (409) and a taken explicit `order` (409),
+         *     pre-checked explicitly rather than relying on the constraint violation
+         *     to surface, matching MembershipAlreadyExistsError/
+         *     PlayerAlreadyExistsError's own established precedent (ADR 0036), then
+         *     the write itself. The description text goes through
+         *     description_payloads.write_description, the one write path for it.
          */
         post: operations["create_information"];
         delete?: never;
@@ -1646,10 +1676,26 @@ export interface paths {
         get: operations["get_information"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Information
+         * @description Removes the row with its payloads and knowledge links (cascade) -
+         *     ADR 0101/RFC 0015. Same gate as update_information. Logged (ADR 0084:
+         *     it changes what exists), entity id only - never title or content.
+         */
+        delete: operations["delete_information"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Information
+         * @description Edits title/type/is_public/order - ADR 0101/RFC 0015. Check order:
+         *     sight of the row (404), standing over its entity (403), If-Match
+         *     (412), then - under the entity's row lock - a singleton `type` the
+         *     entity already holds and a taken `order` (both 409).
+         *
+         *     Only a visibility change is logged (ADR 0084: it changes who can see
+         *     the row); title/type/order edits are descriptive content.
+         */
+        patch: operations["update_information"];
         trace?: never;
     };
     "/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}": {
@@ -1670,6 +1716,11 @@ export interface paths {
          *     granting knowledge about entity X needs the same standing as authoring
          *     information about X in the first place, not standing over whichever
          *     character/group is being granted it.
+         *
+         *     Also requires sight of the row, or authorship (ADR 0101,
+         *     routers/entities.authorize_information_edit): standing over an entity
+         *     alone must not let a player grant their own character a GM secret
+         *     about it.
          */
         put: operations["add_information_knower"];
         post?: never;
@@ -3226,15 +3277,14 @@ export interface components {
          *     EntityPrototype together), not two separate calls that could leave an
          *     Information row with no Payload yet.
          *
-         *     Deliberately description-only for this slice - payload_number/picture/
-         *     document creation is explicitly out of scope (RFC 0011's own flagged
-         *     "binary payload upload mechanics... not resolved here"; a JSON body
-         *     has nowhere to put raw bytes without base64 or multipart, neither
-         *     decided). `type` is Information's own free-text narrative category
+         *     Deliberately description-only - payload_number/picture/document
+         *     creation is still out of scope (RFC 0015 sub-slice 4's binary upload
+         *     question). `type` is Information's own free-text narrative category
          *     (RFC 0001: "a rumor, an official record, a GM note, ..."), not the
-         *     payload's kind - callers authoring more than one piece of information
-         *     about the same entity must give each a distinct `type`, since
-         *     Information carries UniqueConstraint(entity_id, type).
+         *     payload's kind. Only singleton types (information_type.is_singleton:
+         *     `description`, `main_picture`) are one per entity; every other type can
+         *     repeat (ADR 0101). `order` is the row's position among the entity's
+         *     information; omitted, the server appends it after the last one.
          */
         InformationCreate: {
             /** Title */
@@ -3253,6 +3303,8 @@ export interface components {
              * @default en-US
              */
             locale: string;
+            /** Order */
+            order?: number | null;
         };
         /**
          * InformationOut
@@ -3272,8 +3324,34 @@ export interface components {
             title: string;
             /** Type */
             type: string;
+            /** Is Public */
+            is_public: boolean;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /** Payloads */
             payloads: (components["schemas"]["PayloadDescriptionOut"] | components["schemas"]["PayloadNumberOut"] | components["schemas"]["PayloadPictureOut"] | components["schemas"]["PayloadDocumentOut"])[];
+        };
+        /**
+         * InformationUpdate
+         * @description PATCH /tenants/{tenant_id}/information/{information_id} - see ADR
+         *     0101. Merge-patch semantics (`exclude_unset`), like every other PATCH
+         *     in this API: an omitted field is left alone. Payload text is edited on
+         *     the payload itself (PATCH .../payloads/{id}), not here.
+         */
+        InformationUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Order */
+            order?: number | null;
         };
         /**
          * InviteCreate
@@ -4148,6 +4226,18 @@ export interface components {
         /** PayloadDescriptionOut */
         PayloadDescriptionOut: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -4157,8 +4247,33 @@ export interface components {
             /** Locale */
             locale: string;
         };
+        /**
+         * PayloadDescriptionUpdate
+         * @description PATCH /tenants/{tenant_id}/payloads/{payload_id} - see ADR 0101.
+         *     Description payloads only. Merge-patch semantics: an omitted field is
+         *     left alone. `content` is opaque text - no parsing or validation
+         *     (LorenzoScript, RFC 0027, is a client-side convention).
+         */
+        PayloadDescriptionUpdate: {
+            /** Content */
+            content?: string | null;
+            /** Locale */
+            locale?: string | null;
+        };
         /** PayloadDocumentOut */
         PayloadDocumentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -4174,6 +4289,18 @@ export interface components {
         /** PayloadNumberOut */
         PayloadNumberOut: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -4183,6 +4310,18 @@ export interface components {
         };
         /** PayloadPictureOut */
         PayloadPictureOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -9271,6 +9410,78 @@ export interface operations {
             };
         };
     };
+    update_payload: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayloadDescriptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayloadDescriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_user_picture: {
         parameters: {
             query?: never;
@@ -10375,6 +10586,144 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_information: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_information: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformationUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

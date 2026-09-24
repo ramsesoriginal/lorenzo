@@ -14,6 +14,7 @@ from lorenzo_api.models.entity_stat import EntityStat
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
 from lorenzo_api.models.group_member import GroupMember
 from lorenzo_api.models.information import Information
+from lorenzo_api.models.information_type import SINGLETON_INFORMATION_TYPES, InformationType
 from lorenzo_api.models.item import Item
 from lorenzo_api.models.item_instance import ItemInstance
 from lorenzo_api.models.knowledge import Knowledge
@@ -56,6 +57,8 @@ __all__ = [
     "EntityStatGroup",
     "GroupMember",
     "Information",
+    "InformationType",
+    "SINGLETON_INFORMATION_TYPES",
     "Item",
     "ItemInstance",
     "Knowledge",

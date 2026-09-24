@@ -20,21 +20,23 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
+from lorenzo_api.description_payloads import write_description
 from lorenzo_api.entity_access import can_self_manage_entity
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
     InformationAlreadyExistsError,
     InformationManagementForbiddenError,
     InformationNotFoundError,
+    InformationOrderConflictError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Containment,
     Entity,
     Information,
+    InformationType,
     Ownership,
     Payload,
-    PayloadDescription,
     VEffectiveStat,
 )
 from lorenzo_api.schemas.common import EntitySummary
@@ -183,6 +185,67 @@ async def authorize_entity_write(
     )
 
 
+async def lock_entity_information(
+    session: SessionDep, *, entity_id: uuid.UUID, tenant_id: uuid.UUID
+) -> None:
+    """Row-locks the entity (SELECT ... FOR UPDATE) for the rest of the
+    transaction - ADR 0101. Every singleton-type check and `order`
+    assignment on an entity's information runs under this lock, so two
+    concurrent writers can't both pass a pre-check and then collide on the
+    unique index/constraint (a 500 instead of a 409).
+    """
+    await session.execute(
+        select(Entity.id)
+        .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+        .with_for_update()
+    )
+
+
+async def require_singleton_type_free(
+    session: SessionDep,
+    *,
+    entity_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    type_: str,
+    exclude_information_id: uuid.UUID | None = None,
+) -> None:
+    """409 if `type_` is a singleton type (information_type.is_singleton,
+    ADR 0101) the entity already holds - other types repeat freely.
+    `exclude_information_id` is the row being PATCHed, which may keep its
+    own type.
+    """
+    is_singleton = await session.scalar(
+        select(InformationType.is_singleton).where(InformationType.name == type_)
+    )
+    if not is_singleton:
+        return
+    stmt = select(Information.id).where(
+        Information.entity_id == entity_id,
+        Information.type == type_,
+        Information.tenant_id == tenant_id,
+    )
+    if exclude_information_id is not None:
+        stmt = stmt.where(Information.id != exclude_information_id)
+    if (await session.execute(stmt)).first() is not None:
+        raise InformationAlreadyExistsError(
+            detail=f"Entity {entity_id} already has information of type {type_!r}"
+        )
+
+
+async def require_information_order_free(
+    session: SessionDep, *, entity_id: uuid.UUID, tenant_id: uuid.UUID, order: int
+) -> None:
+    stmt = select(Information.id).where(
+        Information.entity_id == entity_id,
+        Information.order == order,
+        Information.tenant_id == tenant_id,
+    )
+    if (await session.execute(stmt)).first() is not None:
+        raise InformationOrderConflictError(
+            detail=f"Entity {entity_id} already has information at position {order}"
+        )
+
+
 @router.post("/{entity_id}/information", status_code=201)
 async def create_information(
     tenant_id: uuid.UUID,
@@ -197,11 +260,13 @@ async def create_information(
     see ADR 0038/RFC 0011. `entity_id` existence is checked first (404,
     non-enumerable), then self-or-managed authorization (403 - the caller
     already knows the entity exists, they just lack a specific write
-    permission over it), then a duplicate `type` for this entity (409,
-    Information's own UniqueConstraint(entity_id, type) - pre-checked
-    explicitly rather than relying on the constraint violation to surface,
-    matching MembershipAlreadyExistsError/PlayerAlreadyExistsError's own
-    established precedent, ADR 0036), then the write itself.
+    permission over it), then - under the entity's row lock (ADR 0101) - a
+    duplicate *singleton* `type` (409) and a taken explicit `order` (409),
+    pre-checked explicitly rather than relying on the constraint violation
+    to surface, matching MembershipAlreadyExistsError/
+    PlayerAlreadyExistsError's own established precedent (ADR 0036), then
+    the write itself. The description text goes through
+    description_payloads.write_description, the one write path for it.
     """
     entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(entity_stmt)).first() is None:
@@ -209,14 +274,13 @@ async def create_information(
 
     await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
-    duplicate_stmt = select(Information.id).where(
-        Information.entity_id == entity_id,
-        Information.type == body.type,
-        Information.tenant_id == tenant_id,
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    await require_singleton_type_free(
+        session, entity_id=entity_id, tenant_id=tenant_id, type_=body.type
     )
-    if (await session.execute(duplicate_stmt)).first() is not None:
-        raise InformationAlreadyExistsError(
-            detail=f"Entity {entity_id} already has information of type {body.type!r}"
+    if body.order is not None:
+        await require_information_order_free(
+            session, entity_id=entity_id, tenant_id=tenant_id, order=body.order
         )
 
     information = Information(
@@ -225,17 +289,18 @@ async def create_information(
         title=body.title,
         type=body.type,
         is_public=body.is_public,
+        created_by=user.id,
     )
+    # Left unset, the database's BEFORE INSERT trigger appends it after the
+    # entity's last row (ADR 0101), serialized by the lock taken above. Not
+    # passed as order=None: an explicit None would be sent as NULL and not
+    # read back from the INSERT's RETURNING.
+    if body.order is not None:
+        information.order = body.order
     session.add(information)
     await session.flush()
     payload = Payload(tenant_id=tenant_id, information_id=information.id)
-    session.add(payload)
-    await session.flush()
-    session.add(
-        PayloadDescription(
-            payload_id=payload.id, tenant_id=tenant_id, locale=body.locale, content=body.content
-        )
-    )
+    await write_description(session, payload=payload, content=body.content, locale=body.locale)
     # Entity and visibility tier only - never the title, type, or content,
     # since a GM-only secret must not be readable from the activity log
     # (ADR 0084).
@@ -277,6 +342,10 @@ async def get_information_or_404(
             selectinload(Information.payloads).selectinload(Payload.document),
             selectinload(Information.knowledge_links),
         )
+        # A re-read after a write in the same session must see the stored
+        # row (updated_at is set by the database), not the stale identity-
+        # map copy expire_on_commit=False leaves behind.
+        .execution_options(populate_existing=True)
     )
     information = (await session.execute(stmt)).scalar_one_or_none()
     if information is None:
@@ -318,3 +387,33 @@ async def information_out_or_404(
                 detail=f"No information with id {information_id} in tenant {tenant_id}"
             )
     return InformationOut.from_information(information, request)
+
+
+async def authorize_information_edit(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, information: Information
+) -> None:
+    """ADR 0101's gate for changing an *existing* Information row (PATCH,
+    DELETE, its payloads, its knowers). Two parts, in this order:
+
+    1. Sight of the row: information_visibility.can_see, or being its
+       `created_by`. Otherwise 404, the same as a missing row - the row's
+       existence isn't revealed. Without this, self-or-managed alone would
+       let a player publish, delete, or self-grant the GM's secret about
+       their own sword. The authorship clause keeps a player able to edit a
+       restricted note they wrote, which has no knowers yet.
+    2. Standing over the entity it describes: authorize_entity_write, 403.
+
+    `information.knowledge_links` must be loaded (get_information_or_404
+    does).
+    """
+    if information.created_by != user.id:
+        visibility = await resolve_information_visibility(
+            session, user_id=user.id, tenant_id=tenant_id
+        )
+        if not visibility.can_see(information):
+            raise InformationNotFoundError(
+                detail=f"No information with id {information.id} in tenant {tenant_id}"
+            )
+    await authorize_entity_write(
+        session, tenant_id=tenant_id, user=user, entity_id=information.entity_id
+    )

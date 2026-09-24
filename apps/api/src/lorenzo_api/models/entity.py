@@ -71,6 +71,7 @@ class Entity(Base):
     )
     information: Mapped[list[Information]] = relationship(
         lazy="raise_on_sql",
+        order_by="Information.order",
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
