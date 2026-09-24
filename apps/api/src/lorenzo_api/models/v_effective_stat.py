@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from lorenzo_api.db import Base
 
 if TYPE_CHECKING:
+    from lorenzo_api.models.computed_stat import ComputedStat
     from lorenzo_api.models.stat_definition import StatDefinition
 
 
@@ -35,6 +36,10 @@ class VEffectiveStat(Base):
     value_text: Mapped[str | None]
     value_float: Mapped[float | None]
     value_bool: Mapped[bool | None]
+    # Set when a formula won (ADR 0104): the ancestor entity holding the
+    # computed_stat row. Every value_* column is then null - the value is
+    # computed in Python (stat_evaluation.evaluate), never read from here.
+    computed_entity_id: Mapped[uuid.UUID | None] = mapped_column()
 
     # No real ForeignKey (views have none) - primaryjoin/foreign_keys= spell
     # out the join explicitly instead of relying on a constraint to infer
@@ -43,5 +48,15 @@ class VEffectiveStat(Base):
         primaryjoin="VEffectiveStat.stat_definition_id == StatDefinition.id",
         foreign_keys=[stat_definition_id],
         viewonly=True,
+        lazy="raise_on_sql",
+    )
+    computed_stat: Mapped[ComputedStat | None] = relationship(
+        primaryjoin=(
+            "and_(VEffectiveStat.computed_entity_id == ComputedStat.entity_id, "
+            "VEffectiveStat.stat_definition_id == ComputedStat.stat_definition_id)"
+        ),
+        foreign_keys=[computed_entity_id, stat_definition_id],
+        viewonly=True,
+        uselist=False,
         lazy="raise_on_sql",
     )

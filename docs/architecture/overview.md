@@ -64,6 +64,15 @@ Stats gained three small conveniences ([ADR 0103](../adr/0103-stat-tags-enum-val
 - **Enum values.** An `enum` value type is stored as text and checked on write against a per-definition, tenant-scoped vocabulary (`stat_definition_enum_value`). The vocabulary is given when the definition is created and can grow or shrink later; a value still in use can't be removed.
 - **Mandatory groups.** `stat_group.mandatory` is a flag for clients to show a group even when it's empty. Nothing enforces it.
 
+Stats can now be computed ([ADR 0104](../adr/0104-computed-stats.md), accepting [RFC 0016](../rfcs/0016-stats-computed-values-and-crud-api.md) sub-slices 4 and 5). A `computed_stat` holds one of two formula kinds, each a fixed function with parameters and no interpreter:
+
+- **`linear`**: multiplier and offset with an explicit rounding mode. `floor` is what makes a D&D modifier right for odd scores below 10.
+- **`comparison`**: a bool result, or one of two text/enum values.
+
+`v_effective_stat` lets a formula win at a prototype hop exactly as a stored value does. A Python pass (`stat_evaluation.py`) then evaluates the winner against the resolved stats of the entity being read, following dependencies between formulas. Every Python reader goes through that pass: `GET /entities/{id}`, the item and character stat groups and tags, and the named `ItemOut` columns. The SQL-only named columns in `v_item`/`v_item_instance` still carry stored values only.
+
+Formulas are tenant-admin authored with `If-Match`. An entity holds a formula or a direct value for a stat, never both. Writes that would close a cycle are rejected: the graph is tenant-wide at the stat-definition level, separate from the prototype graph's own trigger. A dry-run preview evaluates an unsaved formula against a real entity, and `GET .../stat-definitions/{id}/dependents` answers "what reads this stat".
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

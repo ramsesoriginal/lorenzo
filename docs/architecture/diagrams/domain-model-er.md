@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-The merged, up-to-date picture of every table built so far: `feat/inventory-management` (sub-slices 1-7), `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+), the REST API surface built on top (ADR 0030-0049), and the tenant/user-management and notifications work since (profile pictures - ADR 0056, platform operations/activity log - ADR 0057/0063, notifications - ADR 0058-0061, campaign invite links - ADR 0092, the player-facing change feed - ADR 0099, editable information - ADR 0101, stat enum values and mandatory groups - ADR 0103). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`, `user_profile_picture`, `tenant_profile_picture`, `campaign_profile_picture`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `audit_log` and `notification` are the one exception worth calling out explicitly: both are append-only logs, so they carry `created_at` but deliberately no `updated_at` - a row is never mutated after creation. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
+The merged, up-to-date picture of every table built so far: `feat/inventory-management` (sub-slices 1-7), `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+), the REST API surface built on top (ADR 0030-0049), and the tenant/user-management and notifications work since (profile pictures - ADR 0056, platform operations/activity log - ADR 0057/0063, notifications - ADR 0058-0061, campaign invite links - ADR 0092, the player-facing change feed - ADR 0099, editable information - ADR 0101, stat enum values and mandatory groups - ADR 0103, computed stats - ADR 0104). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`, `user_profile_picture`, `tenant_profile_picture`, `campaign_profile_picture`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `audit_log` and `notification` are the one exception worth calling out explicitly: both are append-only logs, so they carry `created_at` but deliberately no `updated_at` - a row is never mutated after creation. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
 
 ```mermaid
 erDiagram
@@ -21,6 +21,10 @@ erDiagram
     ENTITY ||--o{ ENTITY_STAT : has
     STAT_DEFINITION ||--o{ ENTITY_STAT : "valued by"
     STAT_DEFINITION ||--o{ STAT_DEFINITION_ENUM_VALUE : allows
+    ENTITY ||--o{ COMPUTED_STAT : "computes"
+    STAT_DEFINITION ||--o{ COMPUTED_STAT : "computed by"
+    COMPUTED_STAT ||--o| COMPUTED_STAT_LINEAR : "is a"
+    COMPUTED_STAT ||--o| COMPUTED_STAT_COMPARISON : "is a"
     ENTITY }o--o{ ENTITY : "inherits from"
     ENTITY ||--o{ ENTITY : contains
     ENTITY ||--o{ INFORMATION : "described by"
@@ -115,6 +119,31 @@ erDiagram
         uuid stat_group_id FK
         string name
         enum value_type "int | text | float | bool | enum"
+    }
+    COMPUTED_STAT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+    }
+    COMPUTED_STAT_LINEAR {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+        numeric multiplier
+        numeric offset
+        text round_mode "none | floor | ceil | round | truncate"
+    }
+    COMPUTED_STAT_COMPARISON {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        uuid left_stat_definition_id FK
+        text comparator "lt | le | eq | ne | ge | gt"
+        uuid right_stat_definition_id FK "exactly one of this or right_constant"
+        numeric right_constant
+        text true_value "text/enum targets only"
+        text false_value "text/enum targets only"
     }
     STAT_DEFINITION_ENUM_VALUE {
         uuid id PK
@@ -293,6 +322,7 @@ A few things this single view makes clearer than any one sub-slice's diagram cou
 - **`campaign`'s dedicated `entity_id`** ([ADR 0030](../../adr/0030-tenant-campaign-read-api.md)) is a plain reference column, not class-table inheritance the way `item`/`item_instance`/`being` extend `entity` - `campaign` keeps its own surrogate `id`, so this is drawn as an ordinary `||--||` line rather than an `"is a"` label. Exists so a campaign can carry `Information`/`Knowledge` (GM notes, images) the same generic way any other entity does; not exposed over REST yet.
 - **`information.is_public` plus `knowledge` complete RFC 0001's four knower cases** ([ADR 0028](../../adr/0028-knowledge-and-group-membership.md)): character or group (`knowledge.knower_entity_id`), player (`knowledge.knower_player_id`), everyone (`is_public = true`, no `knowledge` row needed), or GM-only (the absence of both, the default). `group_member` reuses `character_player`'s bipartite shape (`group_entity_id -> entity.id`, `character_entity_id -> character.entity_id`, retargeted from `being.entity_id` by [ADR 0031](../../adr/0031-character-table-and-read-api.md)) - drawn as a plain `ENTITY }o--o{ CHARACTER` line, not a self-loop, and needs no box of its own for the same reason `entity_stat_group` doesn't.
 - **`information_type` is the one table with no `tenant_id` and no RLS on purpose** ([ADR 0101](../../adr/0101-editable-information-and-description-payloads.md)): a global catalog of the few `information.type` values the application treats specially, written only by migrations (the app role can read it, not write it). It's drawn unconnected: `information.type` isn't a foreign key to it, since free-form types a GM invents have no row. Its `is_singleton` rows are mirrored by hand in the partial unique index `information_singleton_type`, which can't read another table.
+- **`computed_stat` extends a stat's address, not an entity** ([ADR 0104](../../adr/0104-computed-stats.md)): it shares `entity_stat`'s `(entity_id, stat_definition_id)` key, and its two kinds extend it the way `payload`'s kinds extend `payload`. The source/left/right stat references (not drawn, to keep the diagram readable) point back at `stat_definition` without cascading, so a stat a formula reads can't disappear under it. `v_effective_stat` weighs `computed_stat` rows against `entity_stat` rows at every prototype hop; the formula itself is evaluated in Python.
 - **`knowledge` is the one join table that needed a surrogate `id` and two explicit `UNIQUE` constraints** rather than relying on a composite PK - its two knower columns are mutually exclusive and always one-null (`CHECK(num_nonnulls(...) = 1)`, same shape as `entity_stat`'s four value columns), and Postgres can't put a nullable column in a composite PK at all.
 - **`campaign_invite` is the one table readable by holding a secret rather than being someone** ([ADR 0092](../../adr/0092-campaign-invite-links.md)): besides the ordinary tenant policy it has a select-only policy keyed on `app.invite_token_hash`, which only the two public `/invites/{token}` routes set - a token holder can read that one row and nothing else, and can write nothing. Redeeming creates an ordinary `player` row; there is no separate "redemption" table, only `use_count` and an `audit_log` entry.
 - **`entity_change` is readable only by its recipient** ([ADR 0099](../../adr/0099-player-facing-change-feed.md)) - stricter than `notification`, which also admits anyone holding the tenant context. Rows are written by whoever made the change, inside that route's tenant context, so the app generates `id` and `occurred_at` itself: with nothing server-generated there is no `INSERT ... RETURNING` that the recipient-only read policy would reject. `entity_id` and `character_entity_id` are deliberately not foreign keys, so a `deleted` row outlives its item; like `audit_log`, a row is never updated after it is written.

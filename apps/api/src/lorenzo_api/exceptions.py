@@ -291,6 +291,43 @@ class InvalidStatGroupError(UnprocessableProblem):
     title = "Stat group id is not valid"
 
 
+class InvalidComputedStatError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula doesn't fit its
+    stats: an input that isn't a stat definition in this tenant, a stat
+    reading itself, operand or target types the kind doesn't support, an
+    int target without rounding, or text/enum results that are missing or
+    not allowed (ADR 0104).
+    """
+
+    title = "Invalid formula"
+
+
+class ComputedStatCycleError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula would close a
+    cycle in the tenant's formula dependencies (ADR 0104: checked at the
+    stat-definition level, across every entity). `detail` names the path.
+    """
+
+    title = "Formula would depend on itself"
+
+
+class ComputedStatConflictError(ConflictProblem):
+    """An entity can hold a formula or a direct value for a stat, not both
+    (ADR 0104) - setting either while the other exists. Clear the other
+    one first.
+    """
+
+    title = "This stat already has a value of the other kind on this entity"
+
+
+class ComputedStatNotFoundError(NotFoundProblem):
+    """DELETE .../entities/{id}/computed-stats/{stat_definition_id} - the
+    entity holds no formula of its own for that stat (ADR 0104).
+    """
+
+    title = "Formula not found"
+
+
 class InvalidStatValueError(UnprocessableProblem):
     """PUT .../entities/{id}/stats/{stat_definition_id} on an `enum` stat
     with a string that isn't one of its allowed values (ADR 0103).

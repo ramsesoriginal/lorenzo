@@ -31,6 +31,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
+    ComputedStat,
     Entity,
     EntityPrototype,
     Information,
@@ -68,7 +69,7 @@ router = APIRouter(
 
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption, ORMOption, ORMOption]:
+) -> tuple[ORMOption, ...]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
     `EntityViewMixin`'s six properties/methods (ADR 0019/0020), or they
@@ -107,6 +108,15 @@ def eager_load_options(
         .selectinload(Entity.effective_stats)
         .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
+        # A winning formula's parameters, for stat_evaluation (ADR 0104).
+        selectinload(view_entity_attr)
+        .selectinload(Entity.effective_stats)
+        .selectinload(VEffectiveStat.computed_stat)
+        .selectinload(ComputedStat.linear),
+        selectinload(view_entity_attr)
+        .selectinload(Entity.effective_stats)
+        .selectinload(VEffectiveStat.computed_stat)
+        .selectinload(ComputedStat.comparison),
         selectinload(view_entity_attr).selectinload(Entity.contained_links),
         selectinload(view_entity_attr).selectinload(Entity.prototype_links),
     )

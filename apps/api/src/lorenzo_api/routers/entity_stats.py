@@ -21,6 +21,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.entity_access import can_self_manage_entity
 from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
+    ComputedStatConflictError,
     EntityStatManagementForbiddenError,
     InvalidStatValueError,
     InvalidStatValueTypeError,
@@ -28,6 +29,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
+    ComputedStat,
     EntityStat,
     EntityStatGroup,
     Ownership,
@@ -193,12 +195,20 @@ async def _write_own_value(
     acquire_group: bool,
 ) -> None:
     """The one path that sets an entity's own entity_stat row - shared by
-    the stat PUT and ADR 0103's tag PUT/PATCH so they can't drift.
+    the stat PUT and ADR 0103's tag PUT/PATCH so they can't drift. 409 if
+    the entity holds a formula for this stat (ADR 0104: one or the other).
     `acquire_group` adds the stat's group to the entity (entity_stat_group)
     when missing: the tag routes do, closing ADR 0037's named gap for them;
     the generic stat PUT keeps its original behavior. The caller has
     already authorized and validated `value`.
     """
+    if await session.get(ComputedStat, (entity_id, stat_definition.id)) is not None:
+        raise ComputedStatConflictError(
+            detail=(
+                f"Entity {entity_id} has a formula for {stat_definition.name!r}; "
+                "delete it before setting a direct value"
+            )
+        )
     existing = await session.get(EntityStat, (entity_id, stat_definition.id))
     if existing is not None:
         check_if_match(if_match, updated_at=existing.updated_at)
