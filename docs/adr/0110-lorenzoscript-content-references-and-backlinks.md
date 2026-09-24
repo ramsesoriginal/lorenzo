@@ -29,6 +29,22 @@ A module in `apps/api` ports `@lorenzo/lorenzoscript`'s `parse` and `references`
 
 **Every example now checks references.** Both suites run every `SPEC.md` example, and an example with no references section must have none. One existing example needed a section, and new examples cover what the renderer's examples didn't: links inside code, footnote definitions, table cells, nested containers, and duplicates.
 
+### Hostile input, now on the server too
+
+Parsing on the server means any author's text costs API time, so every scan in both parsers must stay linear however the text is shaped. CodeQL flagged three patterns in the port, and probing found more that the TypeScript package shared. Each took seconds to minutes on inputs of 20 to 100 KB:
+
+- **Line breaks:** a run of blanks before a line break. The check is now a count, not a regex.
+- **Directives:** an unclosed `{{name …`. A lazy pattern there was cubic; it's now scanned.
+- **Code spans:** one with a single leading space.
+- **Trailing attributes:** blanks where a heading's `{…}` could start. Now the last `{` is checked.
+- **Link destinations:** `[a](` or `[a](<b` repeated. A bare destination now stops after 32 nested parentheses, as CommonMark allows an implementation to, and `<…>` stops at the next `<`.
+- **Link titles:** an unclosed one. A title scan that ran off the end is remembered, since any later one would too.
+- **Backtick runs:** runs of many different lengths. Every run is now found once, up front.
+
+Python also had two costs of its own: building text with `+=` on a stored string, and slicing the source.
+
+Behaviour doesn't change, with one exception: a destination with more than 32 nested parentheses isn't a link. `SPEC.md` records it. Both suites now test each of these inputs, and the TypeScript test doesn't finish against the old code.
+
 ### `content_reference`
 
 One row per reference, per description payload:
