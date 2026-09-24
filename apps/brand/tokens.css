@@ -16,7 +16,11 @@
  */
 
 :root {
-  color-scheme: light dark;
+  /* Tracks the theme actually applied, not the browser's preference: the
+     colors below only turn dark via [data-theme="dark"], so saying
+     "light dark" here would let a dark-preferring browser draw native
+     controls (checkboxes, selects, scrollbars) dark on a light page. */
+  color-scheme: light;
 
   /* Brand primitives (§6.1) — identity only, never referenced directly by product UI */
   --brand-ink: #08131f;
@@ -149,6 +153,8 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
+
   --surface-canvas: var(--brand-ink);
   --surface-default: color-mix(
     in srgb,
