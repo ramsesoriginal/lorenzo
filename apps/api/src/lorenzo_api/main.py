@@ -20,6 +20,7 @@ from lorenzo_api.routers.beings import router as beings_router
 from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
+from lorenzo_api.routers.computed_stats import router as computed_stats_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.groups import router as groups_router
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(pictures_router)
     app.include_router(entities_router)
     app.include_router(entity_stats_router)
+    app.include_router(computed_stats_router)
     app.include_router(groups_router)
     app.include_router(information_router)
     app.include_router(items_router)

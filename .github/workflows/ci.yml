@@ -137,6 +137,9 @@ jobs:
           base: base/apps/api/openapi.json
           revision: revision/apps/api/openapi.json
           fail-on: ERR
+          # Deliberately accepted breaks, each backed by an ADR - see the
+          # file's own header. Everything else still fails the job.
+          err-ignore: revision/apps/api/openapi-breaking-accepted.txt
 
   # apps/loot-bot's generated API client (src/lorenzo-schema.d.ts) is
   # committed, so it can silently fall behind apps/api's routes/schemas - the

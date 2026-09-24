@@ -14,6 +14,8 @@
 <style>
   :root {
     /* identity.md §6.6 — copied verbatim from the design-token starter */
+    color-scheme: light;
+
     --brand-ink: #08131f;
     --brand-archive-blue: #1769c2;
     --brand-astral-blue: #3b91e8;
@@ -79,6 +81,8 @@
   }
 
   [data-theme="dark"] {
+    color-scheme: dark;
+
     --surface-canvas: var(--brand-ink);
     --surface-muted: color-mix(in srgb, var(--brand-ink) 92%, var(--brand-paper) 8%);
     --text-primary: var(--brand-paper);

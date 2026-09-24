@@ -25,6 +25,9 @@ class StatGroup(Base):
     # Inheritance tie-break (RFC 0001) - unused until entity_prototype exists
     # and something actually resolves effective stats through it.
     priority: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    # Display-only (ADR 0103): lets a client show the group's fields even
+    # when empty. Nothing checks a mandatory group is filled in.
+    mandatory: Mapped[bool] = mapped_column(server_default=text("false"))
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
