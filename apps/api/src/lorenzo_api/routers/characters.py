@@ -22,6 +22,7 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_entity_or_404,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import controlled_character_entity_ids
@@ -31,7 +32,6 @@ from lorenzo_api.exceptions import (
     CharacterNotFoundError,
     InvalidUserError,
     PlayerNotFoundError,
-    TenantNotFoundError,
 )
 from lorenzo_api.models import (
     Being,
@@ -39,7 +39,6 @@ from lorenzo_api.models import (
     CharacterPlayer,
     Entity,
     GroupMember,
-    Membership,
     Player,
     User,
 )
@@ -69,11 +68,20 @@ CharacterOut.model_rebuild(_types_namespace={"PlayerContextOut": PlayerContextOu
 # precedent): a plain player rolling their own PC needs no tenant-wide
 # Membership row (ADR 0022) to reach POST/PUT/PATCH/DELETE below, so
 # gating the whole router on one would lock them out of self-service
-# entirely. The two pre-existing GET routes each re-add their own explicit
-# get_tenant_context-equivalent check instead (see _require_tenant_member),
-# preserving their original ADR 0031/RFC 0004 behavior unchanged - only
-# tenant-wide members reach them, same as before this revision. The write
-# routes use self-or-managed authorization, narrower still, per-route.
+# entirely. The three pre-existing GET routes each re-add their own
+# explicit require_tenant_participant check instead - broader than a bare
+# Membership row (a Player or CampaignGm row also qualifies, ADR 0022),
+# same as routers/entities.py/groups.py/item_instances.py/campaigns.py
+# already use. A previous revision of this router used a private,
+# Membership-only _require_tenant_member helper here instead, citing
+# "only tenant-wide members reach them" (ADR 0031/RFC 0004) - that
+# predates ADR 0022/0030 establishing Player/CampaignGm as valid tenant
+# participant tiers alongside Membership, and left a real gap: a player
+# invited to a campaign (a Player row, no tenant-wide Membership) got a
+# false "tenant not found" trying to view their own character roster,
+# the same class of bug already fixed for GET /tenants/{tenant_id}
+# itself. The write routes use self-or-managed authorization, narrower
+# still, per-route.
 router = APIRouter(
     prefix="/tenants/{tenant_id}/characters",
     tags=["characters"],
@@ -90,19 +98,6 @@ _detail_eager_load = (
     .selectinload(Character.being)
     .selectinload(Being.entity),
 )
-
-
-async def _require_tenant_member(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser
-) -> None:
-    """The membership half of get_tenant_context, without its redundant
-    tenant-existence check - get_tenant_or_404 (this router's own
-    dependency) already ran that. Preserves list_characters/get_character's
-    original ADR 0031/RFC 0004 behavior (only tenant-wide members reach
-    them) now that the router itself no longer enforces it up front.
-    """
-    if await session.get(Membership, (tenant_id, user.id)) is None:
-        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
 
 
 @router.get("")
@@ -126,7 +121,7 @@ async def list_characters(
     being with no character row doesn't appear here at all (ADR 0031/RFC
     0004).
     """
-    await _require_tenant_member(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = select(Character).where(Character.tenant_id == tenant_id)
     if mine:
         # Mirrors entity_access.py's own "resolve the caller's Player rows
@@ -161,7 +156,7 @@ async def list_characters(
 async def get_character(
     tenant_id: uuid.UUID, character_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> CharacterOut:
-    await _require_tenant_member(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     return await _character_out(tenant_id, character_id, session)
 
 
@@ -173,11 +168,10 @@ async def list_character_groups(
     groups/{group_entity_id}/members - which groups this character belongs
     to, sparing a client from fetching every tenant group and
     cross-referencing membership client-side. Gated the same way as this
-    router's other two pre-existing GET routes (_require_tenant_member),
-    not routers/groups.py's own broader is_tenant_participant - consistency
-    with this router's own neighbors, not with groups.py.
+    router's other two GET routes, and the same require_tenant_participant
+    routers/groups.py itself uses.
     """
-    await _require_tenant_member(session, tenant_id=tenant_id, user=user)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await _get_character_or_404(tenant_id, character_id, session)
 
     stmt = (

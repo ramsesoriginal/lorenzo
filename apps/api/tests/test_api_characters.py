@@ -231,15 +231,17 @@ async def test_list_characters_404_for_non_member(client: AsyncClient) -> None:
     await delete_tenant(tenant_id)
 
 
-async def test_list_characters_404_for_a_plain_player_without_tenant_membership(
+async def test_list_characters_200_for_a_plain_player_without_tenant_membership(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """The router's own gating dependency moved from get_tenant_context to
-    get_tenant_or_404 (ADR 0036/RFC 0007, so self-service writes can reach
-    it without a tenant-wide Membership row) - but list_characters/
-    get_character re-add their own explicit membership check, so a plain
-    player (no Membership) still can't browse the tenant's full roster,
-    same as before this change.
+    """A player invited to just one campaign (a Player row, no tenant-wide
+    Membership) can still list their own roster - require_tenant_participant
+    (ADR 0022/0030) is broader than a bare Membership row, same as
+    routers/entities.py/groups.py/item_instances.py/campaigns.py already
+    use. A previous revision gated this on Membership alone and 404'd here
+    instead - a real bug (reported via apps/inventory-web's board page,
+    which calls this with mine=true to build a player's character strip),
+    not the intended behavior this test used to assert.
     """
     async with admin_session_factory() as session:
         tenant = Tenant()
@@ -252,7 +254,8 @@ async def test_list_characters_404_for_a_plain_player_without_tenant_membership(
         await session.commit()
 
     response = await client.get(f"/tenants/{tenant_id}/characters")
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json()["items"] == []
 
     await delete_tenant(tenant_id)
 
