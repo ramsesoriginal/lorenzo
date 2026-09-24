@@ -32,7 +32,7 @@ RFC 0015 sub-slice 2 (`entity_slug`) is **not** part of this ADR. RFC 0027 took 
 
 ### `order` on create
 
-`InformationCreate` gains an optional `order`. If it is omitted, the server appends: `max(order) + 1` among the entity's rows, or `0` for the first row, under the same lock. An explicit `order` that is already taken returns `409 InformationOrderConflictError`. The single payload that `create_information` writes gets `order = 0`. A reorder endpoint (sub-slice 7) is not built. Swapping two rows means moving one to a free position first.
+`InformationCreate` gains an optional `order`. If it is omitted, the row is appended: a `BEFORE INSERT` trigger on each of `information` and `payload` sets `max(order) + 1` among the row's siblings, or `0` for the first. The rule sits in the database rather than the API so every writer gets it, including the test fixtures and seed scripts that insert rows directly. The trigger alone doesn't stop two concurrent appends colliding; the API takes the entity lock above first, so its own appends run one after the other. An explicit `order` that is already taken returns `409 InformationOrderConflictError`. A reorder endpoint (sub-slice 7) is not built. Swapping two rows means moving one to a free position first.
 
 ### Who may edit or delete an existing row
 
@@ -76,6 +76,7 @@ The payloads router used to require a tenant `Membership` at the router level (`
 - The rest of sub-slice 4: adding payloads to an existing row, non-description payload kinds, binary upload format, `payload_entity`.
 - Sub-slices 5 to 7: the per-entity information listing, player-knowers and knower listing, and the reorder endpoint.
 - Tiering authorship by visibility (who may *create* a GM-only row). This stays as ADR 0038 left it.
+- Letting an author *read* their own restricted row through `GET`. Authorship grants editing only. Read visibility stays exactly as [ADR 0028](0028-knowledge-and-group-membership.md)/[0096](0096-owner-joins-orga-in-the-information-visibility-bypass.md) define it, and a "player-authored" read tier is left for later.
 - Reporting information changes in the player change feed ([ADR 0099](0099-player-facing-change-feed.md) left these out).
 
 ## Consequences
