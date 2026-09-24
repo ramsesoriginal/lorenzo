@@ -1209,15 +1209,16 @@ A reference counts once per slug and hint, however it's written. A footnote's te
 ]
 ````````
 
-A link inside a link's text wins, so the outer one stays text. An image may hold a link; the image counts first, then what's inside it.
+A link inside a link's text wins, so the outer one stays text; a wikilink is a link too. An image may hold a link; the image counts first, then what's inside it.
 
 ```````` example
-[outer [inner](old-sword) text](ashfang) and ![a [b](the-lost-crown) picture](ashfang)
+[outer [inner](old-sword) text](ashfang), [around [[being/Old Sword]]](ashfang), and ![a [b](the-lost-crown) picture](ashfang)
 .
-<p>[outer <a href="/entity/old-sword" title="Old Sword" class="ls-entity">inner</a> text](ashfang) and <img src="/pictures/ashfang.png" alt="a b picture" title="Ashfang" class="ls-entity"></p>
+<p>[outer <a href="/entity/old-sword" title="Old Sword" class="ls-entity">inner</a> text](ashfang), [around <a href="/being/old-sword" title="Old Sword" class="ls-entity">Old Sword</a>](ashfang), and <img src="/pictures/ashfang.png" alt="a b picture" title="Ashfang" class="ls-entity"></p>
 .
 [
   {"kind": "entity", "hint": "", "slug": "old-sword"},
+  {"kind": "entity", "hint": "being", "slug": "old-sword"},
   {"kind": "image", "hint": "", "slug": "ashfang"},
   {"kind": "entity", "hint": "", "slug": "the-lost-crown"}
 ]
