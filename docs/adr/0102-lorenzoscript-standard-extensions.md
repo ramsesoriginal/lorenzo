@@ -50,6 +50,7 @@ GitHub's syntax. A header row and a delimiter row (which must contain `|`) with 
 ### Math: a TeX subset rendered to MathML Core
 
 Syntax:
+
 - `$…$` is inline math. Like Pandoc's, it can't start or end with a space, or be followed by a digit, so `$5 and $10` stays text.
 - `$$…$$` inside a paragraph is display math.
 - A line that is only `$$` opens a math block that runs to the next such line, and `$$…$$` alone on a line is a one-line block. The block form exists so an equation line starting with `-` or `+` can't be read as a list.
