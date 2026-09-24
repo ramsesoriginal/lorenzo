@@ -6,6 +6,13 @@ from lorenzo_api.models.campaign_invite import CampaignInvite
 from lorenzo_api.models.campaign_profile_picture import CampaignProfilePicture
 from lorenzo_api.models.character import Character
 from lorenzo_api.models.character_player import CharacterPlayer
+from lorenzo_api.models.computed_stat import (
+    Comparator,
+    ComputedStat,
+    ComputedStatComparison,
+    ComputedStatLinear,
+    RoundMode,
+)
 from lorenzo_api.models.containment import Containment
 from lorenzo_api.models.entity import Entity
 from lorenzo_api.models.entity_change import EntityChange
@@ -29,6 +36,7 @@ from lorenzo_api.models.payload_picture import PayloadPicture
 from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
+from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
 from lorenzo_api.models.stat_group import StatGroup
 from lorenzo_api.models.tenant import Tenant
 from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
@@ -49,7 +57,12 @@ __all__ = [
     "CampaignProfilePicture",
     "Character",
     "CharacterPlayer",
+    "Comparator",
+    "ComputedStat",
+    "ComputedStatComparison",
+    "ComputedStatLinear",
     "Containment",
+    "RoundMode",
     "Entity",
     "EntityChange",
     "EntityPrototype",
@@ -74,6 +87,7 @@ __all__ = [
     "Player",
     "ProfilePicture",
     "StatDefinition",
+    "StatDefinitionEnumValue",
     "StatGroup",
     "StatValueType",
     "Tenant",

@@ -291,10 +291,90 @@ class InvalidStatGroupError(UnprocessableProblem):
     title = "Stat group id is not valid"
 
 
+class InvalidComputedStatError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula doesn't fit its
+    stats: an input that isn't a stat definition in this tenant, a stat
+    reading itself, operand or target types the kind doesn't support, an
+    int target without rounding, or text/enum results that are missing or
+    not allowed (ADR 0104).
+    """
+
+    title = "Invalid formula"
+
+
+class ComputedStatCycleError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula would close a
+    cycle in the tenant's formula dependencies (ADR 0104: checked at the
+    stat-definition level, across every entity). `detail` names the path.
+    """
+
+    title = "Formula would depend on itself"
+
+
+class ComputedStatConflictError(ConflictProblem):
+    """An entity can hold a formula or a direct value for a stat, not both
+    (ADR 0104) - setting either while the other exists. Clear the other
+    one first.
+    """
+
+    title = "This stat already has a value of the other kind on this entity"
+
+
+class ComputedStatNotFoundError(NotFoundProblem):
+    """DELETE .../entities/{id}/computed-stats/{stat_definition_id} - the
+    entity holds no formula of its own for that stat (ADR 0104).
+    """
+
+    title = "Formula not found"
+
+
+class InvalidStatValueError(UnprocessableProblem):
+    """PUT .../entities/{id}/stats/{stat_definition_id} on an `enum` stat
+    with a string that isn't one of its allowed values (ADR 0103).
+    """
+
+    title = "Value is not allowed for this stat"
+
+
+class InvalidStatEnumValuesError(UnprocessableProblem):
+    """POST /stat-definitions or .../enum-values - enum_values given for a
+    non-enum stat, missing or empty for an enum one, or containing
+    duplicates; or an enum value added to a non-enum definition (ADR 0103).
+    """
+
+    title = "Invalid enum values for this stat definition"
+
+
+class StatEnumValueAlreadyExistsError(ConflictProblem):
+    """POST .../stat-definitions/{id}/enum-values - the value is already
+    allowed (UNIQUE(stat_definition_id, value), ADR 0103).
+    """
+
+    title = "This value is already allowed for this stat"
+
+
+class StatEnumValueInUseError(ConflictProblem):
+    """DELETE .../enum-values/{id} while an entity directly holds that
+    value - removing it would leave stored values outside the allowed set
+    (ADR 0103).
+    """
+
+    title = "This value is still in use"
+
+
+class StatEnumValueNotFoundError(NotFoundProblem):
+    """DELETE .../stat-definitions/{id}/enum-values/{id} - no such value on
+    that definition in this tenant (ADR 0103).
+    """
+
+    title = "Enum value not found"
+
+
 class InvalidStatValueTypeError(UnprocessableProblem):
     """PUT .../entities/{id}/stats/{stat_definition_id} - the request body's
     value isn't shaped like the target stat_definition's declared
-    value_type (int/text/float/bool). entity_stat's own CHECK constraint
+    value_type (int/text/float/bool/enum), or a tag route (ADR 0103) names
+    a stat that isn't bool. entity_stat's own CHECK constraint
     (ADR 0014) only enforces "exactly one value_* column is set," not which
     one matches the definition - this is that missing application-level
     check, surfaced as a real 422 instead of an opaque DB error. See ADR

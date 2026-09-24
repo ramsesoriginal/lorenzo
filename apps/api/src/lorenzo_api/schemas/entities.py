@@ -5,9 +5,10 @@ from fastapi import Request
 from pydantic import BaseModel
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, Information, StatValueType, VEffectiveStat
+from lorenzo_api.models import Entity, Information
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
+from lorenzo_api.stat_evaluation import evaluate
 
 
 class InformationCreate(BaseModel):
@@ -51,42 +52,15 @@ class InformationUpdate(BaseModel):
 
 class EntityStatValueOut(BaseModel):
     """A resolved stat value, keyed by its definition's name - see ADR 0020.
-
-    Reshaping, not a plain-column mapping, so built via a classmethod
-    rather than from_attributes: which value_* column actually holds the
-    value is chosen by reading StatDefinition.value_type first, not by
-    probing all four columns for non-null (the DB's own CHECK constraint
-    on entity_stat, and v_effective_stat's identical shape, already
-    guarantees exactly one is ever set).
+    Always the *effective* value (ADR 0039), prototype-inherited or
+    computed (ADR 0104) - built by _stats_out below from
+    stat_evaluation.evaluate, which picks the value_* column matching
+    StatDefinition.value_type for a stored winner and evaluates a formula
+    for a computed one.
     """
 
     name: str
     value: int | str | float | bool
-
-    @classmethod
-    def from_effective_stat(cls, stat: VEffectiveStat) -> EntityStatValueOut:
-        """Takes a v_effective_stat row (ADR 0039), not an EntityStat - this
-        always reflects prototype-inherited values, not just an entity's own
-        direct ones.
-        """
-        definition = stat.stat_definition
-        value: int | str | float | bool | None
-        if definition.value_type is StatValueType.INT:
-            value = stat.value_int
-        elif definition.value_type is StatValueType.TEXT:
-            value = stat.value_text
-        elif definition.value_type is StatValueType.FLOAT:
-            value = stat.value_float
-        elif definition.value_type is StatValueType.BOOL:
-            value = stat.value_bool
-        else:
-            raise ValueError(f"Unhandled StatValueType: {definition.value_type!r}")
-        if value is None:
-            raise ValueError(
-                f"VEffectiveStat({stat.entity_id}, {stat.stat_definition_id}) is declared "
-                f"{definition.value_type.value} but its value column is null"
-            )
-        return cls(name=definition.name, value=value)
 
 
 class InformationOut(BaseModel):
@@ -120,6 +94,18 @@ class InformationOut(BaseModel):
         )
 
 
+def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
+    """Every effective stat with a value, computed ones evaluated (ADR
+    0104). A computed stat whose inputs don't resolve is left out, like an
+    unset stat."""
+    values = evaluate(entity.effective_stats)
+    return [
+        EntityStatValueOut(name=stat.stat_definition.name, value=values[stat.stat_definition_id])
+        for stat in entity.effective_stats
+        if stat.stat_definition_id in values
+    ]
+
+
 class EntityDetailOut(BaseModel):
     """The full shape of a single entity - every relationship resolved and
     inlined. See ADR 0020. Deliberately not reused for the list endpoint,
@@ -149,7 +135,7 @@ class EntityDetailOut(BaseModel):
             name=entity.name,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
-            stats=[EntityStatValueOut.from_effective_stat(stat) for stat in entity.effective_stats],
+            stats=_stats_out(entity),
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
             # is typed for Entity specifically), reusing EntitySummary only
