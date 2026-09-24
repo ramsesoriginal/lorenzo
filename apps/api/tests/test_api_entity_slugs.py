@@ -259,8 +259,6 @@ async def test_an_item_instance_slug_must_be_free_across_all_entities(
 
     taken = await client.post(url, json={"prototype_id": str(prototype_id), "slug": "emberdeep"})
     assert taken.status_code == 409
-    invalid = await client.post(url, json={"prototype_id": str(prototype_id), "slug": "no spaces"})
-    assert invalid.status_code == 422
     created = await client.post(url, json={"prototype_id": str(prototype_id), "slug": "ashfang"})
     assert created.status_code == 201
     assert created.json()["slug"] == "ashfang"
@@ -268,4 +266,31 @@ async def test_an_item_instance_slug_must_be_free_across_all_entities(
         f"/tenants/{tenant_id}/entities/resolve", params={"slug": "ashfang"}
     )
     assert resolved.json()[0]["kinds"] == ["item_instance"]
+    await delete_tenant(tenant_id)
+
+
+async def test_item_instance_creation_keeps_its_old_slug_contract(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0107: only the new PUT .../slug enforces RFC 0027's grammar; an
+    existing client creating instances with any slug keeps working, and the
+    slug still resolves exactly."""
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        prototype = Entity(tenant_id=tenant_id, name="Longsword")
+        session.add(prototype)
+        await session.flush()
+        session.add(Item(entity_id=prototype.id, tenant_id=tenant_id))
+        await session.commit()
+        prototype_id = prototype.id
+
+    created = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(prototype_id), "slug": "the old sword"},
+    )
+    assert created.status_code == 201
+    resolved = await client.get(
+        f"/tenants/{tenant_id}/entities/resolve", params={"slug": "the old sword"}
+    )
+    assert [r["entity_id"] for r in resolved.json()] == [created.json()["entity_id"]]
     await delete_tenant(tenant_id)
