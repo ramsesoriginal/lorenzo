@@ -1,6 +1,6 @@
 # RFC: `information`/`payload` — a generic metadata container: types, ordering, and the rest of the CRUD surface
 
-Status: proposed; sub-slices 1 and 3 (and description edits from sub-slice 4) accepted by [ADR 0101](../adr/0101-editable-information-and-description-payloads.md); sub-slice 2 taken over by RFC 0027 stage 5
+Status: proposed; sub-slices 1 and 3 (and description edits from sub-slice 4) accepted by [ADR 0101](../adr/0101-editable-information-and-description-payloads.md); sub-slice 2 taken over by RFC 0027 stage 5; sub-slices 5 and 6 accepted by [ADR 0109](../adr/0109-player-knowers-knower-listing-and-information-list.md)
 
 *Originally numbered 0014 on this branch; renumbered to 0015 on merge into `main`, which had independently claimed 0014 for [RFC 0014](0014-account-hub-tenant-admin-and-roster-management.md) (account-hub's own tenant/campaign-admin RFC) in the meantime — the same renumbering precedent already established for ADR 0050/0054/0068/0069.*
 
