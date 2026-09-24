@@ -2,7 +2,7 @@
 
 LorenzoScript is Lorenzo's Markdown dialect, used for every description text ([RFC 0027](../../docs/rfcs/0027-lorenzoscript.md)). It follows [CommonMark](https://spec.commonmark.org/)'s structure, with the deviations listed at the end of this file.
 
-This file is both the definition and the test suite ([ADR 0100](../../docs/adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every `example` block below is run as a test: the LorenzoScript source, a line holding only `.`, then the HTML it must render to. Some add another `.` line and the JSON that `references()` must return for the source. In examples, `␠` stands for a trailing space and `⇥` for a tab.
+This file is both the definition and the test suite ([ADR 0100](../../docs/adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every `example` block below is run as a test: the LorenzoScript source, a line holding only `.`, then the HTML it must render to. An example that ends there has no references. The others add another `.` line and the JSON that `references()` must return for the source ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)). In examples, `␠` stands for a trailing space and `⇥` for a tab.
 
 Every example renders with `locale: 'en-GB'` and a fixture resolver:
 
@@ -676,6 +676,10 @@ b` and `unmatched
 [click](javascript:alert(1)) [data](data:text/html;base64,AAAA) [file](docs/readme)
 .
 <p>click data file</p>
+.
+[
+  {"kind": "entity", "hint": "docs", "slug": "readme"}
+]
 ````````
 
 ```````` example
@@ -1132,6 +1136,90 @@ We met [[Ashfang]].[^1]
   {"kind": "date", "date": "2026-09-24"},
   {"kind": "entity", "hint": "", "slug": "ashfang"},
   {"kind": "entity", "hint": "being", "slug": "ashfang"}
+]
+````````
+
+Code, math, and escaped brackets hold no references. Every other block does, however deeply it's nested: quotes, lists, tables, and class blocks.
+
+```````` example
+`[[Ashfang]]`, $[a](b)$ and \[[Ashfang]] hold no references.
+
+    [[old-sword]] in code
+
+> - [[Old Sword]] in a list in a quote
+>
+>   | Who | When |
+>   | --- | --- |
+>   | ![Ashfang](ashfang) | {{date 2026-09-24}} |
+
+{{.note
+A [note](item/old-sword) in a class block.
+}}
+.
+<p><code>[[Ashfang]]</code>, <math><mo>[</mo><mi>a</mi><mo>]</mo><mo>(</mo><mi>b</mi><mo>)</mo></math> and [[Ashfang]] hold no references.</p>
+<pre><code>[[old-sword]] in code
+</code></pre>
+<blockquote>
+<ul>
+<li>
+<p><a href="/entity/old-sword" title="Old Sword" class="ls-entity">Old Sword</a> in a list in a quote</p>
+<table>
+<thead>
+<tr>
+<th>Who</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="/pictures/ashfang.png" alt="Ashfang" title="Ashfang" class="ls-entity"></td>
+<td><time datetime="2026-09-24">24 September 2026</time></td>
+</tr>
+</tbody>
+</table>
+</li>
+</ul>
+</blockquote>
+<div class="note">
+<p>A <a href="/item/old-sword" title="Old Sword" class="ls-entity">note</a> in a class block.</p>
+</div>
+.
+[
+  {"kind": "entity", "hint": "", "slug": "old-sword"},
+  {"kind": "image", "hint": "", "slug": "ashfang"},
+  {"kind": "date", "date": "2026-09-24"},
+  {"kind": "entity", "hint": "item", "slug": "old-sword"}
+]
+````````
+
+A reference counts once per slug and hint, however it's written. A footnote's text counts even if nothing cites it, but only the first definition of a label is read.
+
+```````` example
+[[Ashfang]], [the sword](ashfang), and [[ashfang]] are one reference; [it](being/ashfang) is another.
+
+[^a]: Never cited, but still read: [[Old Sword]].
+[^A]: The same label again, so ignored: {{date 2026-01-01}}.
+.
+<p><a href="/entity/ashfang" title="Ashfang" class="ls-entity">Ashfang</a>, <a href="/entity/ashfang" title="Ashfang" class="ls-entity">the sword</a>, and <a href="/entity/ashfang" title="Ashfang" class="ls-entity">ashfang</a> are one reference; <a href="/being/ashfang" title="Ashfang" class="ls-entity">it</a> is another.</p>
+.
+[
+  {"kind": "entity", "hint": "", "slug": "ashfang"},
+  {"kind": "entity", "hint": "being", "slug": "ashfang"},
+  {"kind": "entity", "hint": "", "slug": "old-sword"}
+]
+````````
+
+A link inside a link's text wins, so the outer one stays text. An image may hold a link; the image counts first, then what's inside it.
+
+```````` example
+[outer [inner](old-sword) text](ashfang) and ![a [b](the-lost-crown) picture](ashfang)
+.
+<p>[outer <a href="/entity/old-sword" title="Old Sword" class="ls-entity">inner</a> text](ashfang) and <img src="/pictures/ashfang.png" alt="a b picture" title="Ashfang" class="ls-entity"></p>
+.
+[
+  {"kind": "entity", "hint": "", "slug": "old-sword"},
+  {"kind": "image", "hint": "", "slug": "ashfang"},
+  {"kind": "entity", "hint": "", "slug": "the-lost-crown"}
 ]
 ````````
 

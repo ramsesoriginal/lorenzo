@@ -73,7 +73,8 @@ for (const [section, examples] of sections(spec)) {
       ({ source, html, refs }) => {
         const doc = parse(source);
         expect(render(doc, OPTIONS)).toBe(html);
-        if (refs !== undefined) expect(references(doc)).toEqual(JSON.parse(refs));
+        // No references section means no references (ADR 0110).
+        expect(references(doc)).toEqual(JSON.parse(refs ?? '[]'));
       },
     );
   });
@@ -133,6 +134,14 @@ describe('hostile input', () => {
   test('lazy lines in nested quotes stay linear', () => {
     const html = render(parse(`> > > > > a\n${'b\n'.repeat(2000)}`));
     expect(count(html, '<blockquote>')).toBe(5);
+  });
+
+  test('a link whose text nests past MAX_NESTING is text, so no reference', () => {
+    const deep = `[${'*'.repeat(5000)}a${'*'.repeat(5000)}](ashfang)`;
+    expect(references(parse(deep))).toEqual([]);
+    expect(references(parse('[**a**](ashfang)'))).toEqual([
+      { kind: 'entity', hint: '', slug: 'ashfang' },
+    ]);
   });
 
   test('class blocks and spans nest at most MAX_NESTING deep', () => {
