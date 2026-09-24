@@ -26,10 +26,9 @@ class ItemInstance(Base):
     column. `v_item_instance` still exposes `owner_entity_id` for REST
     consumers, now derived via a join against `ownership` instead.
 
-    `slug` (ADR 0043) is optional and unique per tenant when set (a partial
-    unique index, not a table-level UniqueConstraint - see the migration's
-    own docstring) - a short, human-readable identifier a client can
-    resolve later without already knowing the instance's `entity_id`.
+    Its slug (ADR 0043) used to be a column here; since ADR 0107 every
+    entity's slug lives in `entity_slug`, and `v_item_instance` still
+    exposes it as `slug`.
     """
 
     __tablename__ = "item_instance"
@@ -38,6 +37,5 @@ class ItemInstance(Base):
         ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
     )
     tenant_id: Mapped[TenantFk]
-    slug: Mapped[str | None] = mapped_column(default=None)
 
     entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="item_instance")
