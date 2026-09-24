@@ -3,17 +3,29 @@
 import { describe, expect, test } from 'vitest';
 import { ACTIONS, type Action, date, indent, newline, type State } from '../src';
 
-const state = (marked: string): State => {
-  const cursor = marked.indexOf('|');
-  if (cursor >= 0) return { text: marked.replace('|', ''), start: cursor, end: cursor };
-  const start = marked.indexOf('[');
-  const end = marked.indexOf(']') - 1;
-  return { text: marked.replace('[', '').replace(']', ''), start, end };
-};
-const mark = ({ text, start, end }: State) =>
-  start === end
-    ? `${text.slice(0, start)}|${text.slice(start)}`
-    : `${text.slice(0, start)}[${text.slice(start, end)}]${text.slice(end)}`;
+/** `text` without the character at `i`. */
+const cut = (text: string, i: number) => text.slice(0, i) + text.slice(i + 1);
+
+/** A marked-up case as a state: `open`…`close` is the selection, `cursor` (if any) a cursor. */
+const read =
+  (open: string, close: string, cursor?: string) =>
+  (marked: string): State => {
+    const at = cursor ? marked.indexOf(cursor) : -1;
+    if (at >= 0) return { text: cut(marked, at), start: at, end: at };
+    const start = marked.indexOf(open);
+    const end = marked.indexOf(close) - 1;
+    return { text: cut(cut(marked, start), end), start, end };
+  };
+/** A state marked up the same way. */
+const write =
+  (open: string, close: string, cursor?: string) =>
+  ({ text, start, end }: State) =>
+    cursor && start === end
+      ? `${text.slice(0, start)}${cursor}${text.slice(start)}`
+      : `${text.slice(0, start)}${open}${text.slice(start, end)}${close}${text.slice(end)}`;
+
+const state = read('[', ']', '|');
+const mark = write('[', ']', '|');
 const check = (action: Action, cases: [string, string][]) =>
   test.each(cases)('%j → %j', (before, after) => expect(mark(action(state(before)))).toBe(after));
 
@@ -94,15 +106,10 @@ describe('indent', () => {
 });
 
 describe('with brackets in the text', () => {
-  // `⟨…⟩` marks the selection here, since the text itself holds `[` and `]`.
-  const at = (marked: string): State => {
-    const start = marked.indexOf('⟨');
-    const end = marked.indexOf('⟩') - 1;
-    const text = marked.replace('⟨', '').replace('⟩', '');
-    return start < 0 ? { text, start: text.length, end: text.length } : { text, start, end };
-  };
-  const show = ({ text, start, end }: State) =>
-    `${text.slice(0, start)}⟨${text.slice(start, end)}⟩${text.slice(end)}`;
+  // `⟨…⟩` marks the selection here, since the text itself holds `[`, `]`, and `|`;
+  // an empty `⟨⟩` is the cursor.
+  const at = read('⟨', '⟩');
+  const show = write('⟨', '⟩');
 
   test.each([
     ['link, selected text', ACTIONS.link.run, 'see ⟨the map⟩', 'see [the map](⟨url⟩)'],
