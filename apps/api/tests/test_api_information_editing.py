@@ -441,7 +441,9 @@ async def test_patch_description_payload_with_if_match(
     created = await _create(client, tenant_id, entity_id, type="description", content="Old.")
     payload = created["payloads"][0]
     url = f"/tenants/{tenant_id}/payloads/{payload['id']}"
-    etag = f'W/"{(await _payload_updated_at(uuid.UUID(payload["id"]))).isoformat()}"'
+    # Built from the response body, as a client does: no read returns a
+    # payload's own ETag header (ADR 0101/0108).
+    etag = f'W/"{payload["updated_at"]}"'
 
     stale = await client.patch(
         url, json={"content": "x"}, headers={"If-Match": 'W/"2000-01-01T00:00:00+00:00"'}
@@ -469,11 +471,6 @@ async def test_patch_description_payload_with_if_match(
         "information.created"
     ]
     await delete_tenant(tenant_id)
-
-
-async def _payload_updated_at(payload_id: uuid.UUID):  # type: ignore[no-untyped-def]
-    async with admin_session_factory() as session:
-        return (await session.get_one(Payload, payload_id)).updated_at
 
 
 async def test_patch_non_description_payload_is_409(
