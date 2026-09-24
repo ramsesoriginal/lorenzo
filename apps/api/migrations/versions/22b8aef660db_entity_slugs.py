@@ -1,7 +1,7 @@
 """entity slugs: entity_slug replaces item_instance.slug
 
 Revision ID: 22b8aef660db
-Revises: b28ed28ca209
+Revises: 5fade6f98352
 Create Date: 2026-09-24 23:39:03.424961
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "22b8aef660db"
-down_revision: str | None = "b28ed28ca209"
+down_revision: str | None = "5fade6f98352"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 

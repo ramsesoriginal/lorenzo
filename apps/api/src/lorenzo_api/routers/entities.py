@@ -39,6 +39,7 @@ from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Being,
     Character,
+    ComputedStat,
     Containment,
     Entity,
     EntitySlug,
@@ -115,6 +116,13 @@ async def get_entity_detail_or_404(
         .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
         .options(
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            # A winning formula's parameters, for stat_evaluation (ADR 0104).
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.computed_stat)
+            .selectinload(ComputedStat.linear),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.computed_stat)
+            .selectinload(ComputedStat.comparison),
             selectinload(Entity.stat_groups),
             selectinload(Entity.information)
             .selectinload(Information.payloads)

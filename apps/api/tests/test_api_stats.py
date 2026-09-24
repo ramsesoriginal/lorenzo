@@ -192,12 +192,15 @@ async def test_create_stat_definition_accepts_every_value_type(
     stat_group_id = await _make_stat_group(tenant_id)
 
     for value_type in StatValueType:
+        # An enum stat needs its allowed values up front (ADR 0103).
+        extra = {"enum_values": ["a"]} if value_type is StatValueType.ENUM else {}
         response = await client.post(
             f"/tenants/{tenant_id}/stat-definitions",
             json={
                 "name": f"stat-{value_type.value}",
                 "stat_group_id": str(stat_group_id),
                 "value_type": value_type.value,
+                **extra,
             },
         )
         assert response.status_code == 201, response.text
