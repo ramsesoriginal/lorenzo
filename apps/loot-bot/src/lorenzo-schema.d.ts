@@ -1377,7 +1377,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Entity Information
+         * @description An entity's information, paged, in `order` - see ADR 0109/RFC 0015.
+         *     Reachable by the same callers as GET /entities/{id} (tenant
+         *     participants), filtered to what the caller can see - in SQL, before
+         *     pagination (information_visibility.visible_information_clause), so a
+         *     page is never short and its total never counts rows the caller can't
+         *     see.
+         */
+        get: operations["list_entity_information"];
         put?: never;
         /**
          * Create Information
@@ -1866,6 +1875,59 @@ export interface paths {
          *     way routers/characters.py's roster-link endpoints already do).
          */
         delete: operations["remove_information_knower"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/player-knowers/{player_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add Information Player Knower
+         * @description Tells a player - the person's seat, not one of their characters -
+         *     about an Information row: the write side of player knowledge ADR 0028's
+         *     read side already honours. See ADR 0109. Identical in shape and gate to
+         *     add_information_knower: idempotent, ADR 0101's edit gate, 200 +
+         *     InformationOut, logged with ids only.
+         */
+        put: operations["add_information_player_knower"];
+        post?: never;
+        /**
+         * Remove Information Player Knower
+         * @description Un-tells a player - see ADR 0109 and remove_information_knower,
+         *     which this mirrors. Idempotent; 200 + the parent InformationOut.
+         */
+        delete: operations["remove_information_player_knower"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/knowers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Information Knowers
+         * @description Who has been told this: every knower of both kinds, oldest grant
+         *     first - see ADR 0109. Gated like editing (ADR 0101), not like reading:
+         *     who else knows a secret is itself a secret, so only callers who could
+         *     grant it may list its knowers. Unpaginated - bounded by one row's
+         *     grants.
+         */
+        get: operations["list_information_knowers"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4004,6 +4066,33 @@ export interface components {
             name?: string | null;
         };
         /**
+         * KnowerOut
+         * @description One knower of an Information row - see ADR 0109. `kind` says which
+         *     id is set: `entity` (a character or group, knower_entity_id) or
+         *     `player` (player_id). `name` is the entity's name, or the player's
+         *     user display name falling back to their nickname; either can be null.
+         *     A later per-knower `confidence` (RFC 0029) would be one more field
+         *     here.
+         */
+        KnowerOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "player";
+            /** Knower Entity Id */
+            knower_entity_id?: string | null;
+            /** Player Id */
+            player_id?: string | null;
+            /** Name */
+            name: string | null;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+        };
+        /**
          * KnowledgeEntryOut
          * @description GET /tenants/{tenant_id}/knowledge - see ADR 0085. One grant of one
          *     piece of information to one knower. Ids only, never content: this is an
@@ -4452,6 +4541,19 @@ export interface components {
         Page_EntitySummary_: {
             /** Items */
             items: components["schemas"]["EntitySummary"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[InformationOut] */
+        Page_InformationOut_: {
+            /** Items */
+            items: components["schemas"]["InformationOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -10093,6 +10195,79 @@ export interface operations {
             };
         };
     };
+    list_entity_information: {
+        parameters: {
+            query?: {
+                /** @description Only these Information.type values (repeatable). */
+                type?: string[] | null;
+                /** @description technical: types with an information_type row; gm_authored: free-form types, which never have one. */
+                category?: ("technical" | "gm_authored") | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_InformationOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     create_information: {
         parameters: {
             query?: never;
@@ -11828,6 +12003,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_information_player_knower: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_information_player_knower: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_information_knowers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowerOut"][];
                 };
             };
             /** @description Validation Error */

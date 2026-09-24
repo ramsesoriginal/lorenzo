@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import Request
 from pydantic import BaseModel
@@ -104,6 +105,22 @@ def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
         for stat in entity.effective_stats
         if stat.stat_definition_id in values
     ]
+
+
+class KnowerOut(BaseModel):
+    """One knower of an Information row - see ADR 0109. `kind` says which
+    id is set: `entity` (a character or group, knower_entity_id) or
+    `player` (player_id). `name` is the entity's name, or the player's
+    user display name falling back to their nickname; either can be null.
+    A later per-knower `confidence` (RFC 0029) would be one more field
+    here.
+    """
+
+    kind: Literal["entity", "player"]
+    knower_entity_id: uuid.UUID | None = None
+    player_id: uuid.UUID | None = None
+    name: str | None
+    granted_at: datetime
 
 
 class EntityDetailOut(BaseModel):

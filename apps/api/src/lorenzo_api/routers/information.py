@@ -12,8 +12,8 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match, etag_for
-from lorenzo_api.exceptions import EntityNotFoundError
-from lorenzo_api.models import Entity, Knowledge
+from lorenzo_api.exceptions import EntityNotFoundError, PlayerNotFoundError
+from lorenzo_api.models import Entity, Knowledge, Player, User
 from lorenzo_api.routers.entities import (
     authorize_information_edit,
     get_information_or_404,
@@ -22,7 +22,7 @@ from lorenzo_api.routers.entities import (
     require_information_order_free,
     require_singleton_type_free,
 )
-from lorenzo_api.schemas.entities import InformationOut, InformationUpdate
+from lorenzo_api.schemas.entities import InformationOut, InformationUpdate, KnowerOut
 
 # get_tenant_or_404, not get_tenant_context (ADR 0038/RFC 0011, matching
 # routers/entities.py's identical revision): GET here is gated by the
@@ -288,3 +288,163 @@ async def remove_information_knower(
     return await information_out_or_404(
         tenant_id, information_id, request, session, user=user, require_visible=False
     )
+
+
+async def _require_player_exists(
+    session: SessionDep, player_id: uuid.UUID, tenant_id: uuid.UUID
+) -> None:
+    """player_id must be a Player seat in this tenant - ADR 0109. Its
+    campaign isn't checked against the entity: the same looseness the
+    entity-knower route has for characters (ADR 0028's addendum)."""
+    stmt = select(Player.id).where(Player.id == player_id, Player.tenant_id == tenant_id)
+    if (await session.execute(stmt)).first() is None:
+        raise PlayerNotFoundError(detail=f"No player with id {player_id} in tenant {tenant_id}")
+
+
+async def _get_player_knowledge_link(
+    session: SessionDep, *, player_id: uuid.UUID, information_id: uuid.UUID, tenant_id: uuid.UUID
+) -> Knowledge | None:
+    stmt = select(Knowledge).where(
+        Knowledge.knower_player_id == player_id,
+        Knowledge.information_id == information_id,
+        Knowledge.tenant_id == tenant_id,
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+@router.put("/{information_id}/player-knowers/{player_id}")
+async def add_information_player_knower(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    player_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> InformationOut:
+    """Tells a player - the person's seat, not one of their characters -
+    about an Information row: the write side of player knowledge ADR 0028's
+    read side already honours. See ADR 0109. Identical in shape and gate to
+    add_information_knower: idempotent, ADR 0101's edit gate, 200 +
+    InformationOut, logged with ids only.
+    """
+    information = await get_information_or_404(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    await _require_player_exists(session, player_id, tenant_id)
+
+    existing = await _get_player_knowledge_link(
+        session, player_id=player_id, information_id=information_id, tenant_id=tenant_id
+    )
+    if existing is None:
+        session.add(
+            Knowledge(
+                tenant_id=tenant_id, knower_player_id=player_id, information_id=information_id
+            )
+        )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="information.knower_added",
+            target_type="information",
+            target_id=information_id,
+            detail=f"player={player_id}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    return await information_out_or_404(
+        tenant_id, information_id, request, session, user=user, require_visible=False
+    )
+
+
+@router.delete("/{information_id}/player-knowers/{player_id}")
+async def remove_information_player_knower(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    player_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> InformationOut:
+    """Un-tells a player - see ADR 0109 and remove_information_knower,
+    which this mirrors. Idempotent; 200 + the parent InformationOut."""
+    information = await get_information_or_404(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+
+    existing = await _get_player_knowledge_link(
+        session, player_id=player_id, information_id=information_id, tenant_id=tenant_id
+    )
+    if existing is not None:
+        await session.delete(existing)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="information.knower_removed",
+            target_type="information",
+            target_id=information_id,
+            detail=f"player={player_id}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    return await information_out_or_404(
+        tenant_id, information_id, request, session, user=user, require_visible=False
+    )
+
+
+@router.get("/{information_id}/knowers")
+async def list_information_knowers(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[KnowerOut]:
+    """Who has been told this: every knower of both kinds, oldest grant
+    first - see ADR 0109. Gated like editing (ADR 0101), not like reading:
+    who else knows a secret is itself a secret, so only callers who could
+    grant it may list its knowers. Unpaginated - bounded by one row's
+    grants.
+    """
+    information = await get_information_or_404(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    stmt = (
+        select(
+            Knowledge.knower_entity_id,
+            Knowledge.knower_player_id,
+            Knowledge.created_at,
+            Entity.name.label("entity_name"),
+            User.display_name,
+            User.nickname,
+        )
+        .outerjoin(Entity, Entity.id == Knowledge.knower_entity_id)
+        .outerjoin(Player, Player.id == Knowledge.knower_player_id)
+        .outerjoin(User, User.id == Player.user_id)
+        .where(Knowledge.information_id == information_id, Knowledge.tenant_id == tenant_id)
+        .order_by(Knowledge.created_at, Knowledge.id)
+    )
+    knowers: list[KnowerOut] = []
+    for row in (await session.execute(stmt)).all():
+        if row.knower_player_id is not None:
+            knowers.append(
+                KnowerOut(
+                    kind="player",
+                    player_id=row.knower_player_id,
+                    name=row.display_name or row.nickname,
+                    granted_at=row.created_at,
+                )
+            )
+        else:
+            knowers.append(
+                KnowerOut(
+                    kind="entity",
+                    knower_entity_id=row.knower_entity_id,
+                    name=row.entity_name,
+                    granted_at=row.created_at,
+                )
+            )
+    return knowers

@@ -73,6 +73,12 @@ Stats can now be computed ([ADR 0104](../adr/0104-computed-stats.md), accepting 
 
 Formulas are tenant-admin authored with `If-Match`. An entity holds a formula or a direct value for a stat, never both. Writes that would close a cycle are rejected: the graph is tenant-wide at the stat-definition level, separate from the prototype graph's own trigger. A dry-run preview evaluates an unsaved formula against a real entity, and `GET .../stat-definitions/{id}/dependents` answers "what reads this stat".
 
+Players can now be told things directly ([ADR 0109](../adr/0109-player-knowers-knower-listing-and-information-list.md), accepting [RFC 0015](../rfcs/0015-information-metadata-shape.md) sub-slices 5 and 6):
+
+- **Player knowers.** `PUT`/`DELETE .../information/{id}/player-knowers/{player_id}` write the player knowledge rows ADR 0028's read side always honoured, behind ADR 0101's edit gate.
+- **Who knows.** `GET .../information/{id}/knowers` lists both knower kinds. It's readable only by callers who could grant, because who else knows a secret is itself one.
+- **The information list.** `GET .../entities/{id}/information` is paged and filterable by `type` and `category`. Visibility is applied in SQL before pagination through `visible_information_clause`, which a parity test keeps identical to `can_see`.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
