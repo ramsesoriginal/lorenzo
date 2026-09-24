@@ -1,83 +1,42 @@
 /*
- * Reusable pieces: buttons, cards, pills, and small status/text
- * treatments. Built via document.createElement throughout this app
- * (ADR 0004 - plain script islands, not a component framework), so
- * nothing here needs Astro's scoped <style> at all - global stylesheets
- * apply the same way regardless of when/how an element was created.
+ * Domain-specific pieces only - buttons, chips, text inputs, tabs, fields,
+ * pre, and the .error-text/.item-detail dialog chrome all come from
+ * @lorenzo/brand's own components.css now (linked in
+ * src/layouts/Base.astro), which is a curated generic subset of what used
+ * to live in this file (ADR 0098). What's left here is item cards, board
+ * columns, catalog rows, and the item-detail dialog's own internal
+ * layout - the domain-specific pieces that package deliberately leaves
+ * local to each app.
+ *
+ * Built via document.createElement throughout this app (ADR 0004 - plain
+ * script islands, not a component framework), so nothing here needs
+ * Astro's scoped <style> at all - global stylesheets apply the same way
+ * regardless of when/how an element was created.
  */
-
-button {
-  font-family: var(--font-ui);
-  font-size: 14px;
-  background: var(--action);
-  color: var(--lorenzo-paper);
-  border: none;
-  border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-}
-
-button:hover {
-  opacity: 0.9;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.action-link {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-ui);
-  font-size: 14px;
-  color: var(--action);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-3);
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.action-link:hover {
-  background: var(--fill-soft);
-}
-
-.button-danger {
-  background: var(--lorenzo-burgundy);
-}
 
 .account a {
   font-family: var(--font-ui);
   font-size: 14px;
 }
 
-.error-text {
-  color: var(--lorenzo-burgundy);
-}
-
 .next-up {
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
 }
 
 .tenant-slug,
 .item-detail-slug {
   font-family: var(--font-mono);
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
+/* Layout only - border/radius/background/link-color reset come from
+   @lorenzo/brand's .card/a.card (markup adds class="card tenant-card"). */
 .tenant-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
   padding: var(--space-3);
-  text-decoration: none;
-  color: var(--fg);
-  font-family: var(--font-ui);
 }
 
 .tenant-card:hover {
@@ -86,45 +45,15 @@ button:disabled {
 
 .tenant-card-meta {
   font-size: 13px;
-  color: var(--fg-tertiary);
-}
-
-.tabs {
-  display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: var(--space-3);
-}
-
-.tab {
-  font-family: var(--font-ui);
-  font-size: 14px;
-  background: none;
-  color: var(--fg-secondary);
-  border: none;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--fg);
-  opacity: 1;
-}
-
-.tab[aria-selected="true"] {
-  color: var(--fg);
-  font-weight: 600;
-  border-bottom-color: var(--action);
+  color: var(--text-tertiary);
 }
 
 .character-pill {
   font-family: var(--font-ui);
   font-size: 14px;
   background: var(--fill-soft);
-  color: var(--fg);
-  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   padding: var(--space-1) var(--space-3);
   cursor: pointer;
@@ -133,7 +62,7 @@ button:disabled {
 .character-pill[aria-pressed="true"] {
   background: var(--action);
   border-color: var(--action);
-  color: var(--lorenzo-paper);
+  color: var(--text-inverse);
 }
 
 .board-column {
@@ -143,7 +72,7 @@ button:disabled {
   flex-direction: column;
   gap: var(--space-2);
   background: var(--fill-soft);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
   padding: var(--space-3);
   transition:
@@ -161,7 +90,7 @@ button:disabled {
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -173,7 +102,7 @@ button:disabled {
 }
 
 .column-empty {
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-style: italic;
 }
@@ -181,13 +110,13 @@ button:disabled {
 /* --item-accent is typed (@property, tokens.css) specifically so this can
    transition smoothly instead of snapping between colors. */
 .item-card {
-  --item-accent: var(--border);
+  --item-accent: var(--border-subtle);
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  background: var(--bg);
+  background: var(--surface-default);
   border: 1px solid var(--item-accent);
   border-radius: var(--radius-card);
   padding: var(--space-2) var(--space-3);
@@ -225,47 +154,23 @@ button:disabled {
 .item-card-qty {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
 }
 
 .item-card--selected {
-  --item-accent: var(--lorenzo-gold);
-  background: color-mix(in srgb, var(--lorenzo-gold) 10%, var(--bg));
+  --item-accent: var(--canonical);
+  background: color-mix(in srgb, var(--canonical) 10%, var(--surface-default));
 }
 
-/* Skeleton placeholders (catalog rows, board cards) shown while their real
-   content loads - a static filled block by default, upgraded to a pulse
-   only when motion is welcome (matches this file's own convention of
-   opting animation *in* under no-preference, e.g. .item-card:hover above,
-   rather than opting it back out under reduce). */
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
-}
-
-.skeleton {
-  pointer-events: none;
-  user-select: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .skeleton {
-    animation: skeleton-pulse 1.4s ease-in-out infinite;
-  }
-}
-
+/* @lorenzo/brand's motion.css (linked in Base.astro) provides the generic
+   .skeleton treatment (fill-soft background, reduced-motion-respecting
+   pulse) - these two just override what a skeleton needs to look right on
+   top of this app's own bordered card shapes. */
 .item-card.skeleton {
-  background: var(--fill-soft);
   border-color: transparent;
 }
 
 .catalog-row.skeleton {
-  background: var(--fill-soft);
   border-color: transparent;
   height: 44px;
 }
@@ -283,7 +188,7 @@ button:disabled {
   gap: var(--space-2);
   margin-top: var(--space-2);
   font-size: 13px;
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
 }
 
 .item-detail-actions {
@@ -309,7 +214,7 @@ button:disabled {
   width: 6px;
   height: 6px;
   border-radius: var(--radius-pill);
-  background: var(--lorenzo-gold);
+  background: var(--canonical);
 }
 
 @container (max-width: 220px) {
@@ -322,28 +227,12 @@ button:disabled {
   }
 }
 
-pre {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  background: var(--fill-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: var(--space-3);
-  overflow-x: auto;
-}
-
+/* A bare <dialog> already gets @lorenzo/brand's border/radius/padding/
+   background/shadow/::backdrop defaults - this app's own item-detail
+   dialog only needs to fill that default max-width rather than shrink to
+   its content. */
 .item-detail {
-  border: none;
-  border-radius: var(--radius-surface);
-  padding: var(--space-4);
-  background: var(--bg);
-  color: var(--fg);
-  max-width: min(480px, 92vw);
   width: 100%;
-}
-
-.item-detail::backdrop {
-  background: color-mix(in srgb, var(--lorenzo-ink) 50%, transparent);
 }
 
 .item-detail-content {
@@ -355,7 +244,7 @@ pre {
   top: 0;
   right: 0;
   background: transparent;
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
   border: none;
   font-size: 20px;
   line-height: 1;
@@ -364,13 +253,12 @@ pre {
 }
 
 .item-detail-close:hover {
-  color: var(--fg);
-  opacity: 1;
+  color: var(--text-primary);
 }
 
 .item-detail-qty {
   font-family: var(--font-mono);
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -382,7 +270,7 @@ pre {
 }
 
 .item-detail-stats dt {
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -393,7 +281,7 @@ pre {
 }
 
 .item-detail-flags {
-  color: var(--lorenzo-gold);
+  color: var(--canonical);
   font-size: 13px;
   font-weight: 600;
 }
@@ -401,13 +289,13 @@ pre {
 .item-detail-ancestry h3 {
   font-family: var(--font-ui);
   font-size: 13px;
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
   margin: var(--space-3) 0 var(--space-1);
 }
 
 .item-detail-ancestry ul {
   font-size: 13px;
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
 }
 
 /* The root <li> is the instance's own direct prototype - set apart from
@@ -416,7 +304,7 @@ pre {
    different parents (diamond inheritance) genuinely appears twice, once
    per real path, rather than being flattened into one misleading line. */
 .item-detail-ancestry > ul > li {
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
@@ -431,29 +319,13 @@ pre {
 
 .item-detail-ancestry ul ul li::before {
   content: "↳ ";
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
 }
 
 .item-detail-descriptions p {
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
-}
-
-.text-input {
-  font-family: var(--font-ui);
-  font-size: 14px;
-  color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-3);
-  width: 100%;
-}
-
-.text-input:focus-visible {
-  outline: 2px solid var(--action);
-  outline-offset: 1px;
 }
 
 .catalog-toolbar {
@@ -476,9 +348,9 @@ pre {
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--surface-default);
 }
 
 .catalog-row-header {
@@ -495,7 +367,7 @@ pre {
 .catalog-row-slug {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
 }
 
 .catalog-row-actions {
@@ -512,7 +384,7 @@ pre {
 .picker-status {
   margin-top: var(--space-2);
   font-size: 13px;
-  color: var(--fg-secondary);
+  color: var(--text-secondary);
 }
 
 .being-id-row {
@@ -527,7 +399,7 @@ pre {
 
 .field-note {
   font-size: 13px;
-  color: var(--fg-tertiary);
+  color: var(--text-tertiary);
   margin: 0;
 }
 
@@ -537,17 +409,6 @@ pre {
   gap: var(--space-4);
   max-width: 480px;
   margin-top: var(--space-3);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.field-label {
-  font-size: 13px;
-  color: var(--fg-secondary);
 }
 
 .combobox {
@@ -563,10 +424,10 @@ pre {
   flex-direction: column;
   max-height: 240px;
   overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--lorenzo-ink) 20%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-ink) 20%, transparent);
 }
 
 /* Anchor positioning (progressive enhancement): once the browser supports
@@ -593,7 +454,7 @@ pre {
   display: block;
   width: 100%;
   background: none;
-  color: var(--fg);
+  color: var(--text-primary);
   text-align: left;
   font-size: 14px;
   border-radius: 0;
@@ -602,37 +463,10 @@ pre {
 
 .combobox-suggestion button:hover {
   background: var(--fill-soft);
-  opacity: 1;
 }
 
 .chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  background: var(--fill-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: var(--space-1) var(--space-2);
-  font-size: 13px;
-}
-
-.chip-remove {
-  background: none;
-  color: var(--fg-tertiary);
-  padding: 0;
-  width: 16px;
-  height: 16px;
-  line-height: 1;
-  border-radius: 50%;
-}
-
-.chip-remove:hover {
-  background: var(--border);
-  opacity: 1;
 }

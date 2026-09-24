@@ -60,7 +60,7 @@ import Base from '../layouts/Base.astro';
     function renderTenantCard(tenant: TenantSummary): HTMLLIElement {
       const item = document.createElement('li');
       const link = document.createElement('a');
-      link.className = 'tenant-card';
+      link.className = 'card tenant-card';
       link.href = `/board/?tenant=${tenant.id}`;
 
       const name = document.createElement('strong');

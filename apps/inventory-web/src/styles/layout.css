@@ -1,55 +1,10 @@
 /*
- * Structural arrangement: the page shell and the big grids/rows each
- * section is built from. Visual skin (color, border, radius) for
- * individual pieces lives in components.css.
+ * Domain-specific structural layout only - the page shell, brand lockup,
+ * and shared spacing rhythm all come from @lorenzo/brand's own layout.css
+ * now (linked in src/layouts/Base.astro). These three grids are genuinely
+ * local to this app's board/catalog screens (ADR 0098's "don't generalize
+ * before a second consumer needs it" rule).
  */
-
-.site-header {
-  display: flex;
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-}
-
-.brand-mark {
-  display: block;
-  /* identity.md §4.7: horizontal lockup minimum width is 220px. */
-  width: 220px;
-  height: auto;
-}
-
-.brand-mark--dark {
-  display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  .brand-mark--light {
-    display: none;
-  }
-
-  .brand-mark--dark {
-    display: block;
-  }
-}
-
-main {
-  padding: var(--space-4);
-}
-
-/* Shared section-spacing utility - every section on a page is one of
-   these two rhythms, rather than each inventing its own margin-top. */
-.section {
-  margin-top: var(--space-5);
-}
-
-.section-lg {
-  margin-top: var(--space-6);
-}
 
 .tenant-grid {
   display: grid;
