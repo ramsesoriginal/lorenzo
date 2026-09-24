@@ -56,5 +56,15 @@ The two write paths share one helper for setting a value, so they can't drift.
 ## Consequences
 
 - Adding a value to the `stat_value_type` Postgres enum is easy; removing one isn't. The downgrade rebuilds the type and refuses to run while any `enum` definition exists.
-- Typed API clients see a new `value_type` member. A client that switches exhaustively on it needs an `enum` branch, which for display is the same as `text`.
+- Typed API clients see a new `value_type` member. A client that switches exhaustively on it needs an `enum` branch, which for display is the same as `text`. This is a breaking change to the API contract; see the addendum.
 - Tags now have a way to stay tied to their group, but the generic stat `PUT` still doesn't acquire groups. The two write paths differ in that one respect, on purpose, until the unified bundle endpoint (sub-slice 6) decides it for every stat.
+
+## Addendum: accepted as a breaking change
+
+This ADR first assumed that adding `enum` to `value_type` would only draw a warning from CI's `openapi-diff` job. It doesn't. oasdiff reports a new value in a *response* enum as an error (`response-property-enum-value-added`): a client written against the old contract may not handle a value it was told could never appear. That's true here: `StatDefinitionOut.value_type` is returned by `GET`/`POST /stat-definitions` and `GET /stat-definitions/{id}`.
+
+The alternative was to model an enum stat as a `text` stat with a non-empty `enum_values` list, which would leave `value_type` responses unchanged. The maintainer chose to keep the design above and accept the break:
+
+- **`apps/api/openapi-breaking-accepted.txt`** lists the three findings, and CI passes it to oasdiff as `err-ignore`. Only those exact findings are ignored; any other breaking change still fails the job. Every entry names the ADR that accepted it.
+- **Versioning.** The change ships in a commit with a `BREAKING CHANGE:` footer. `apps/api` is at 0.7.0 and release-please isn't configured with `bump-minor-pre-major`, so its next release is 1.0.0.
+- **Repo clients.** loot-bot, inventory-web, and account-hub don't branch on `value_type`, and their typed clients are regenerated in the same change.
