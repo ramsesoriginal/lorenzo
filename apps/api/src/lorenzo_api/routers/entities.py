@@ -1,8 +1,8 @@
 import uuid
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from fastapi_pagination import Page
+from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
 from sqlalchemy import delete, exists, select
@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     Character,
     ComputedStat,
     Containment,
+    ContentReference,
     Entity,
     EntitySlug,
     Information,
@@ -53,6 +54,7 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import (
+    BacklinkOut,
     EntityDetailOut,
     EntityKind,
     EntitySlugOut,
@@ -247,6 +249,65 @@ async def get_entity(
     return await entity_detail_out(
         session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
     )
+
+
+@router.get("/{entity_id}/backlinks")
+async def list_backlinks(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    params: ParamsDep,
+) -> Page[BacklinkOut]:
+    """What links here (ADR 0110): each piece of information whose
+    description names this entity's slug, in a link or a picture. Same gate
+    as GET /{entity_id}, then only information the caller can see - filtered
+    before paging, so pages are full and `total` counts nothing hidden. The
+    entity's own information isn't listed.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    slug = await session.scalar(
+        select(EntitySlug.slug).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.entity_id == entity_id
+        )
+    )
+    backlinks: list[BacklinkOut] = []
+    if slug is not None:
+        visibility = await resolve_information_visibility(
+            session, user_id=user.id, tenant_id=tenant_id
+        )
+        linking = (
+            select(Payload.information_id)
+            .join(ContentReference, ContentReference.payload_id == Payload.id)
+            .where(
+                ContentReference.tenant_id == tenant_id,
+                ContentReference.kind.in_(("entity", "image")),
+                ContentReference.target == slug,
+            )
+        )
+        kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
+        stmt = (
+            select(Information, Entity.name, *kinds)
+            .join(Entity, Entity.id == Information.entity_id)
+            .where(Information.id.in_(linking), Information.entity_id != entity_id)
+            .options(selectinload(Information.knowledge_links))
+            .order_by(Entity.name, Information.order, Information.id)
+        )
+        for info, name, *flags in (await session.execute(stmt)).tuples():
+            if visibility.can_see(info):
+                backlinks.append(
+                    BacklinkOut(
+                        entity_id=info.entity_id,
+                        name=name,
+                        kinds=[kind for (kind, _), flag in zip(_KINDS, flags, strict=True) if flag],
+                        information_id=info.id,
+                        title=info.title,
+                        type=info.type,
+                    )
+                )
+    # paginate is typed to return Any (fastapi_pagination's own signature).
+    return cast(Page[BacklinkOut], paginate(backlinks, params))
 
 
 @router.put("/{entity_id}/slug")

@@ -38,6 +38,21 @@ class ResolvedSlugOut(BaseModel):
     kinds: list[EntityKind]
 
 
+class BacklinkOut(BaseModel):
+    """One entry of GET .../entities/{id}/backlinks - see ADR 0110: a piece
+    of information, visible to the caller, whose description links to the
+    entity or shows its picture. `entity_id`, `name` and `kinds` are the
+    entity that information is about, so a client can link to it.
+    """
+
+    entity_id: uuid.UUID
+    name: str
+    kinds: list[EntityKind]
+    information_id: uuid.UUID
+    title: str
+    type: str
+
+
 class InformationCreate(BaseModel):
     """POST /tenants/{tenant_id}/entities/{entity_id}/information - see ADR
     0038/RFC 0011. One call creates the Information row plus exactly one
