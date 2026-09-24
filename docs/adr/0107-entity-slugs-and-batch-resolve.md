@@ -25,15 +25,19 @@ The migration:
 2. Drops the column and its index.
 3. Recreates `v_item_instance` to read the slug from `entity_slug`.
 
-`ItemInstanceOut.slug`, `GET .../item-instances/by-slug/{slug}`, and `ItemInstanceCreate.slug` behave as before from the outside. Creating an instance with a slug now writes an `entity_slug` row, and its uniqueness now spans every entity in the tenant, not only item instances.
+`ItemInstanceOut.slug` and `GET .../item-instances/by-slug/{slug}` behave as before from the outside. Creating an instance with a slug now writes an `entity_slug` row. Its uniqueness now spans every entity in the tenant, not only item instances, and it follows the grammar below.
 
 ### What a slug is
 
-A slug matches `[A-Za-z0-9][A-Za-z0-9_-]*` and is at most 100 characters: RFC 0027 §3's grammar, so every slug can appear in `[text](slug)`. It's case-sensitive and matched exactly.
+A slug matches `[A-Za-z0-9][A-Za-z0-9_-]*` and is at most 100 characters: RFC 0027 §3's grammar, so every slug can appear in `[text](slug)`. It's case-sensitive and matched exactly. The grammar is checked on every write: the new `PUT .../slug`, and `ItemInstanceCreate.slug` too.
 
-The grammar is checked by the new `PUT .../slug` only. `ItemInstanceCreate.slug` keeps ADR 0043's contract and accepts any string. The first draft of this ADR tightened that field too, since no client in this repo sets it. CI's breaking-change check (oasdiff) rightly rejected adding a pattern and a maximum length to an existing request field: a client outside this repo may rely on it, the same reasoning [ADR 0042](0042-concurrency-token-on-reads.md) applied to `If-Match`.
+For `ItemInstanceCreate.slug` that's a breaking change. ADR 0043 accepted any string, and CI's `openapi-diff` job reports the new pattern and maximum length on an existing request field as errors. The maintainer chose one grammar for every write over keeping that contract, and the break is accepted the way [ADR 0103](0103-stat-tags-enum-values-and-mandatory-groups.md)'s addendum accepted its new enum value:
 
-So a slug outside the grammar can exist: existing ones, and new ones set at creation. It still resolves by exact match through every lookup here. It just can't be written as a LorenzoScript link, and it can't be set again through `PUT`.
+- **`apps/api/openapi-breaking-accepted.txt`** lists the two findings, so any other breaking change still fails the job.
+- **Versioning.** The change ships in a commit with a `BREAKING CHANGE:` footer. ADR 0103 already makes `apps/api`'s next release 1.0.0, so this adds a changelog entry, not another major version.
+- **Repo clients.** None sets a slug when creating an instance, and their typed clients are regenerated in the same change.
+
+Existing slugs aren't re-validated. One that doesn't fit still resolves by exact match; it just can't be written as a link, or set again.
 
 ### Endpoints
 
@@ -63,7 +67,7 @@ RFC 0027 §3 wants an entity a reader can't see to resolve exactly like one that
 
 ## Consequences
 
-- The one non-additive part is the migration's change to `item_instance`, as RFC 0015 said. Its downgrade restores item instances' slugs from `entity_slug`; slugs on other entities have nowhere to go and are dropped.
+- Two parts aren't additive. One is the grammar on `ItemInstanceCreate.slug`, above. The other is the migration's change to `item_instance`, as RFC 0015 said. Its downgrade restores item instances' slugs from `entity_slug`; slugs on other entities have nowhere to go and are dropped.
 - Any entity, a being or a place-to-be, can now be linked from text by slug, and `kinds` lets a client decide where that link goes.
-- Other open branches also add migrations on top of the same head, `b28ed28ca209`. Whichever merges second re-parents its migration onto the first, the usual Alembic single-head rule.
+- The migration was written on top of `b28ed28ca209`, like ADR 0103's and ADR 0104's. Those reached `main` first, so it's re-parented onto `5fade6f98352`, the usual Alembic single-head rule.
 - The OpenAPI schema grows, so the typed clients (`apps/loot-bot`, `apps/inventory-web`) are regenerated in the same change.
