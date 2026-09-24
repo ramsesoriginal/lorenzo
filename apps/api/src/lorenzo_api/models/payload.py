@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import FetchedValue, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
@@ -25,12 +25,19 @@ class Payload(Base):
     """
 
     __tablename__ = "payload"
+    __table_args__ = (
+        UniqueConstraint("information_id", "order", name="payload_information_order"),
+    )
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
     information_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("information.id", ondelete="CASCADE"), index=True
     )
+    # Position within its Information bundle (ADR 0101) - unique, not dense.
+    # Left unset on insert, a BEFORE INSERT trigger appends it after the
+    # last sibling (ADR 0101); FetchedValue makes the ORM read it back.
+    order: Mapped[int] = mapped_column(server_default=FetchedValue())
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

@@ -85,13 +85,14 @@ async def test_create_information_self_service_public_description(
     body = response.json()
     assert body["title"] == "An ornate sword"
     assert body["type"] == "description"
-    assert body["payloads"] == [
-        {
-            "kind": "description",
-            "content": "An ornate sword with a blackened steel blade.",
-            "locale": "en-US",
-        }
-    ]
+    assert body["is_public"] is True
+    assert body["order"] == 0
+    [payload] = body["payloads"]
+    assert payload["kind"] == "description"
+    assert payload["content"] == "An ornate sword with a blackened steel blade."
+    assert payload["locale"] == "en-US"
+    assert payload["order"] == 0
+    assert {"id", "updated_at"} <= payload.keys()
     assert response.headers["location"].endswith(f"/tenants/{tenant_id}/information/{body['id']}")
 
     await delete_tenant(tenant_id)
