@@ -73,7 +73,8 @@ class EntityStatValueOut(BaseModel):
         value: int | str | float | bool | None
         if definition.value_type is StatValueType.INT:
             value = stat.value_int
-        elif definition.value_type is StatValueType.TEXT:
+        elif definition.value_type in (StatValueType.TEXT, StatValueType.ENUM):
+            # An enum value is stored as text (ADR 0103).
             value = stat.value_text
         elif definition.value_type is StatValueType.FLOAT:
             value = stat.value_float

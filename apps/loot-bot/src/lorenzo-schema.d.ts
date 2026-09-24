@@ -1427,7 +1427,7 @@ export interface paths {
          *     stat_definition - 404, existence hidden, ADR 0032's own convention),
          *     then authorization (403 - the caller can already see both by this
          *     point, they may just lack a specific write permission), then the body's
-         *     value type (422), then If-Match (412) against the entity_stat row's own
+         *     value (422), then If-Match (412) against the entity_stat row's own
          *     updated_at if one already exists. Deliberately not the exact order
          *     routers/item_instances.py's writes use (If-Match before authorization)
          *     - that order relies on the write's target (Entity) always already
@@ -1443,6 +1443,44 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Entity Tag
+         * @description Sets a bool stat to `true` on this entity itself, and adds the
+         *     stat's group to the entity if missing - ADR 0103/RFC 0016. No body.
+         *     Same checks, order, and authorization as set_entity_stat; a non-bool
+         *     stat is 422. Not logged (ADR 0084: stat values).
+         */
+        put: operations["set_entity_tag"];
+        post?: never;
+        /**
+         * Clear Entity Tag
+         * @description Removes this entity's own value for a bool stat, so it's inherited
+         *     through the prototype chain again - ADR 0103. Idempotent: nothing to
+         *     remove is still 200. Returns the entity (like the stat PUT), not 204,
+         *     so the caller sees the inherited value it now resolves to. Leaves
+         *     group acquisition alone - other stats in the group may still need it.
+         */
+        delete: operations["clear_entity_tag"];
+        options?: never;
+        head?: never;
+        /**
+         * Unset Entity Tag
+         * @description Sets a bool stat to an explicit `false` on this entity itself - an
+         *     override of whatever a prototype says, not silence (ADR 0103: the door
+         *     built on the `wood` prototype but since rebuilt in metal). Otherwise
+         *     identical to set_entity_tag, group acquisition included.
+         */
+        patch: operations["unset_entity_tag"];
         trace?: never;
     };
     "/tenants/{tenant_id}/groups": {
@@ -2370,7 +2408,9 @@ export interface paths {
          * Create Stat Definition
          * @description stat_group_id must resolve to a stat group in this tenant (422
          *     InvalidStatGroupError otherwise) - mirrors create_item_instance's own
-         *     prototype_id validation (ADR 0032).
+         *     prototype_id validation (ADR 0032). An enum stat's allowed values are
+         *     created in the same transaction (ADR 0103): required, non-empty, and
+         *     duplicate-free for value_type=enum, and rejected for any other type.
          */
         post: operations["create_stat_definition"];
         delete?: never;
@@ -2391,6 +2431,52 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Stat Enum Value
+         * @description Adds one allowed value to an enum stat - ADR 0103. Tenant-admin tier
+         *     like the rest of this router. 422 for a non-enum definition, 409 for a
+         *     value already allowed. An omitted sort_order goes after the last.
+         *     Returns the whole definition, whose enum_values now include it. Not
+         *     logged: vocabulary, not structure (ADR 0084).
+         */
+        post: operations["add_stat_enum_value"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Stat Enum Value
+         * @description Removes one allowed value - ADR 0103. 409 while any entity directly
+         *     holds it: removing it would leave stored values outside the allowed
+         *     set. Returns the definition, like the add route.
+         */
+        delete: operations["remove_stat_enum_value"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4583,7 +4669,8 @@ export interface components {
          * @description PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}
          *     - see ADR 0037/RFC 0008. `value`'s Python type must match the target
          *     stat_definition's declared value_type exactly (int/str/float/bool, no
-         *     int<->float coercion) - checked explicitly by the route
+         *     int<->float coercion; an `enum` stat takes a string that must be one of
+         *     its allowed values, ADR 0103) - checked explicitly by the route
          *     (422 InvalidStatValueTypeError otherwise), not left to entity_stat's own
          *     CHECK constraint (which only enforces "exactly one value_* column is
          *     set," not which one).
@@ -4648,11 +4735,14 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Enum Values */
+            enum_values?: string[] | null;
         };
         /**
          * StatDefinitionOut
-         * @description Constructed via .model_validate(stat_definition) at call sites - same
-         *     reasoning as StatGroupOut above.
+         * @description Built via from_definition: `enum_values` flattens the
+         *     StatDefinitionEnumValue rows (already ordered by sort_order, value) to
+         *     their plain strings. Requires stat_definition.enum_values loaded.
          */
         StatDefinitionOut: {
             /**
@@ -4668,6 +4758,8 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Enum Values */
+            enum_values: string[];
             /**
              * Created At
              * Format: date-time
@@ -4678,6 +4770,17 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * StatEnumValueCreate
+         * @description POST .../stat-definitions/{id}/enum-values - see ADR 0103. An
+         *     omitted sort_order places the value after the last one.
+         */
+        StatEnumValueCreate: {
+            /** Value */
+            value: string;
+            /** Sort Order */
+            sort_order?: number | null;
         };
         /**
          * StatGroupCreate
@@ -4694,6 +4797,11 @@ export interface components {
              * @default 0
              */
             priority: number;
+            /**
+             * Mandatory
+             * @default false
+             */
+            mandatory: boolean;
         };
         /**
          * StatGroupOut
@@ -4711,6 +4819,8 @@ export interface components {
             name: string;
             /** Priority */
             priority: number;
+            /** Mandatory */
+            mandatory: boolean;
             /**
              * Created At
              * Format: date-time
@@ -4738,7 +4848,7 @@ export interface components {
          * @description Which of entity_stat's value_* columns a stat's value lives in.
          * @enum {string}
          */
-        StatValueType: "int" | "text" | "float" | "bool";
+        StatValueType: "int" | "text" | "float" | "bool" | "enum";
         /**
          * SuspendUserRequest
          * @description PUT /admin/users/{id}/suspend body - see ADR 0057.
@@ -9824,6 +9934,213 @@ export interface operations {
             };
         };
     };
+    set_entity_tag: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_entity_tag: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unset_entity_tag: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_groups: {
         parameters: {
             query?: {
@@ -13124,6 +13441,143 @@ export interface operations {
             path: {
                 tenant_id: string;
                 stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_stat_enum_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatEnumValueCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_stat_enum_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+                enum_value_id: string;
             };
             cookie?: never;
         };
