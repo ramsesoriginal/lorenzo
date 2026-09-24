@@ -96,7 +96,7 @@ Dev tooling only: TypeScript, vitest, biome, and esbuild, which is already in th
 
 ### 6. One spec, shared test files
 
-`packages/lorenzoscript/SPEC.md` is the detailed, living definition of the syntax. `packages/lorenzoscript/spec/**/<case>.md` files, each paired with the expected `.html`, test the renderer. From stage 3 on, a `.refs.json` file with the expected references is added too. Every implementation must pass them. That includes stage 7's Python extractor, which exists because `apps/api` is Python and must extract references itself rather than trusting a client.
+`packages/lorenzoscript/SPEC.md` is the detailed, living definition of the syntax, and its embedded examples are the test suite: each has LorenzoScript source and the expected HTML, and from stage 3 on the expected references too (the format is in [ADR 0100](../adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every implementation must pass them. That includes stage 7's Python extractor, which exists because `apps/api` is Python and must extract references itself rather than trusting a client.
 
 The parser follows CommonMark's architecture: block structure, then inlines, with its delimiter algorithm for emphasis. It doesn't chase full CommonMark compliance; the shared test files, not the CommonMark spec, define what LorenzoScript does.
 
