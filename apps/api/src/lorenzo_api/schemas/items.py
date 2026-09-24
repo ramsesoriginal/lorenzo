@@ -190,6 +190,24 @@ def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
     return sorted((link.prototype_id for link in entity.prototype_links), key=str)
 
 
+def _named_int(view: VItem | VItemInstance, name: str, column: int | None) -> int | None:
+    """A named v_item/v_item_instance column holds stored values only - SQL
+    can't evaluate a formula - so a computed winner comes from the Python
+    pass instead (ADR 0104)."""
+    if column is not None:
+        return column
+    value = view.resolved_value_by_name(name)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _named_bool(view: VItem | VItemInstance, name: str, column: bool | None) -> bool | None:
+    """See _named_int."""
+    if column is not None:
+        return column
+    value = view.resolved_value_by_name(name)
+    return value if isinstance(value, bool) else None
+
+
 def _common_item_fields(
     view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
 ) -> dict[str, Any]:
@@ -203,17 +221,17 @@ def _common_item_fields(
     return dict(
         entity_id=view.entity_id,
         title=_title_out(view.title, name=view.entity.name),
-        weight=view.weight,
-        height=view.height,
-        price=view.price,
-        rarity=view.rarity,
-        hp=view.hp,
-        armor=view.armor,
+        weight=_named_int(view, "weight", view.weight),
+        height=_named_int(view, "height", view.height),
+        price=_named_int(view, "price", view.price),
+        rarity=_named_int(view, "rarity", view.rarity),
+        hp=_named_int(view, "hp", view.hp),
+        armor=_named_int(view, "armor", view.armor),
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
         prototype_ids=_prototype_ids_out(view.entity),
-        is_magical=view.is_magical,
-        is_cursed=view.is_cursed,
+        is_magical=_named_bool(view, "is_magical", view.is_magical),
+        is_cursed=_named_bool(view, "is_cursed", view.is_cursed),
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
         descriptions=_descriptions_out(view.descriptions(visibility)),
         pictures=_picture_refs(view.entity, request, visibility),
