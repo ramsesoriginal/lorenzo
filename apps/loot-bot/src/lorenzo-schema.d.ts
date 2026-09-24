@@ -1154,9 +1154,8 @@ export interface paths {
          *     groups/{group_entity_id}/members - which groups this character belongs
          *     to, sparing a client from fetching every tenant group and
          *     cross-referencing membership client-side. Gated the same way as this
-         *     router's other two pre-existing GET routes (_require_tenant_member),
-         *     not routers/groups.py's own broader is_tenant_participant - consistency
-         *     with this router's own neighbors, not with groups.py.
+         *     router's other two GET routes, and the same require_tenant_participant
+         *     routers/groups.py itself uses.
          */
         get: operations["list_character_groups"];
         put?: never;
