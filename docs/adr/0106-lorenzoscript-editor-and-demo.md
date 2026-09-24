@@ -30,13 +30,13 @@ This ADR decides the rest: the API, which keys do what, where the styling lives,
 
 `createEditor({ textarea, toolbar?, layout?, render?, delay? })` enhances an existing `<textarea>`. It wraps it with a toolbar and a preview pane, moves nothing out of its form, and changes nothing about its name or value, so the page works as a plain textarea without JavaScript.
 
-- **Edits.** An action's result is applied as the smallest changed range, through `execCommand('insertText')`, so native undo and redo keep working. Where that isn't supported, `setRangeText` plus an `input` event is the fallback.
+- **Edits.** An action's result is applied as the smallest changed range, through `execCommand('insertText')`, so native undo and redo keep working. Where that isn't supported, the fallback sets the value directly and fires an `input` event: the same result, without native undo.
 - **Keys.**
   - `Mod-B`, `Mod-I`, and `Mod-K` for bold, italic, and link.
   - Enter continues a list, task list, or quote, and ends it on an empty item.
   - Tab and Shift-Tab indent and outdent by 4 spaces, the RFC's list-continuation width.
   - **Escape, then Tab, leaves the editor.** Taking over Tab would otherwise trap keyboard users inside the textarea.
-- **Preview.** `layout` is `'split'` (side by side, stacked on narrow screens) or `'tabs'` (Write/Preview). The preview re-renders on a short debounce. `render` defaults to `render(parse(source))`. An app passes its own (possibly `async`) function to prefetch `references()` and supply a resolver; a slower, older result never overwrites a newer one.
+- **Preview.** `layout` is `'split'` (side by side, stacked when the editor itself is narrow, by container query rather than viewport) or `'tabs'` (Write/Preview). The preview re-renders on a short debounce. `render` defaults to `render(parse(source))`. An app passes its own (possibly `async`) function to prefetch `references()` and supply a resolver; a slower, older result never overwrites a newer one.
 
 ### Styling belongs to the brand
 
