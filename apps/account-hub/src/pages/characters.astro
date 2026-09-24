@@ -55,7 +55,7 @@ import Base from '../layouts/Base.astro';
       container.append(label);
 
       const list = document.createElement('ul');
-      list.className = 'roster-list';
+      list.className = 'list';
       for (const character of reusable) {
         const item = document.createElement('li');
         const nameEl = document.createElement('span');
@@ -109,7 +109,7 @@ import Base from '../layouts/Base.astro';
         section.append(none);
       } else {
         const list = document.createElement('ul');
-        list.className = 'roster-list';
+        list.className = 'list';
         for (const character of player.characters) {
           list.append(
             renderRenameableItem(character.name, (newName) =>

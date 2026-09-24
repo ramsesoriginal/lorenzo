@@ -1,11 +1,10 @@
 /*
- * Single entry point, imported once from Base.astro. Order matters
- * (ITCSS-style): reset -> tokens -> base element defaults -> structural
- * layout -> reusable components.
+ * Everything genuinely account-hub-specific, layered on top of the whole
+ * @lorenzo/brand package (normalize/tokens/fonts/base/layout/components/
+ * motion, ADR 0098 - linked directly from Base.astro's <head> via
+ * BRANDING_CSS_URL, not imported here). Order matters: layout, then
+ * components, same ITCSS-style split brand itself uses.
  */
 
-@import "./normalize.css";
-@import "./tokens.css";
-@import "./base.css";
 @import "./layout.css";
 @import "./components.css";

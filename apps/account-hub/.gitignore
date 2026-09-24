@@ -2,6 +2,8 @@
 dist/
 # generated types
 .astro/
+# copied from @lorenzo/brand by scripts/copy-branding.mjs - see ADR 0098
+public/branding/
 # Playwright output
 test-results/
 playwright-report/

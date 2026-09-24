@@ -24,7 +24,7 @@ export async function renderActivityLog(tenant: TenantSummaryOut): Promise<HTMLE
   }
 
   const list = document.createElement('ul');
-  list.className = 'roster-list';
+  list.className = 'list';
   for (const entry of entries.items) {
     const item = document.createElement('li');
     const summary = document.createElement('span');
