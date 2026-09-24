@@ -2,9 +2,9 @@
 
 LorenzoScript is Lorenzo's Markdown dialect, used for every description text ([RFC 0027](../../docs/rfcs/0027-lorenzoscript.md)). It follows [CommonMark](https://spec.commonmark.org/)'s structure, with the deviations listed at the end of this file.
 
-This file is both the definition and the test suite ([ADR 0100](../../docs/adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every `example` block below is run as a test: the LorenzoScript source, a line holding only `.`, then the HTML it must render to. In examples, `␠` stands for a trailing space and `→` for a tab.
+This file is both the definition and the test suite ([ADR 0100](../../docs/adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every `example` block below is run as a test: the LorenzoScript source, a line holding only `.`, then the HTML it must render to. In examples, `␠` stands for a trailing space and `⇥` for a tab.
 
-This file currently covers the core syntax (RFC 0027 stage 1). Extensions get their own sections as later stages land.
+This file covers the core syntax (RFC 0027 stage 1) followed by the standard extensions (stage 2, [ADR 0102](../../docs/adr/0102-lorenzoscript-standard-extensions.md)), from [Strikethrough, subscript, superscript](#strikethrough-subscript-superscript) on. Lorenzo's own extensions get their sections as later stages land.
 
 ## Paragraphs
 
@@ -68,9 +68,9 @@ One to six `#`, then a space. Closing `#`s are dropped when a space precedes the
 ## two
 ###### six
 .
-<h1>one</h1>
-<h2>two</h2>
-<h6>six</h6>
+<h1 id="ls-one">one</h1>
+<h2 id="ls-two">two</h2>
+<h6 id="ls-six">six</h6>
 ````````
 
 ```````` example
@@ -86,14 +86,14 @@ One to six `#`, then a space. Closing `#`s are dropped when a space precedes the
 ## closing ##
 # foo#
 .
-<h2>closing</h2>
-<h1>foo#</h1>
+<h2 id="ls-closing">closing</h2>
+<h1 id="ls-foo">foo#</h1>
 ````````
 
 ```````` example
 # An *emphasized* title
 .
-<h1>An <em>emphasized</em> title</h1>
+<h1 id="ls-an-emphasized-title">An <em>emphasized</em> title</h1>
 ````````
 
 ```````` example
@@ -109,7 +109,21 @@ text
 # heading
 .
 <p>text</p>
-<h1>heading</h1>
+<h1 id="ls-heading">heading</h1>
+````````
+
+Every heading gets an id, for in-document links and `{{TOC}}`: its explicit `{#id}` (see [Attributes](#attributes)), or else its text as a slug (accents dropped, lowercase ASCII, hyphenated), with `-2`, `-3` added to repeats. Text with no ASCII letters or digits becomes `section`. Like every author id, it carries the `ls-` prefix.
+
+```````` example
+# Café au lait
+## Café au lait
+# Über uns {#about .wide}
+# 日本
+.
+<h1 id="ls-cafe-au-lait">Café au lait</h1>
+<h2 id="ls-cafe-au-lait-2">Café au lait</h2>
+<h1 id="ls-about" class="wide">Über uns</h1>
+<h1 id="ls-section">日本</h1>
 ````````
 
 ## Horizontal rules
@@ -225,6 +239,19 @@ text
 more text</p>
 ````````
 
+A tab at the start of a line indents to the next multiple of 4 columns.
+
+```````` example
+⇥code
+-⇥item
+.
+<pre><code>code
+</code></pre>
+<ul>
+<li>item</li>
+</ul>
+````````
+
 ## Blockquotes
 
 `>` at the start of each line, optionally followed by a space. Blockquotes nest and can hold any other block.
@@ -260,7 +287,7 @@ bar</p>
 > ```
 .
 <blockquote>
-<h1>Title</h1>
+<h1 id="ls-title">Title</h1>
 <ul>
 <li>item</li>
 </ul>
@@ -739,6 +766,257 @@ A backslash before any ASCII punctuation character makes it literal. Before anyt
 <p># not a heading</p>
 <p>- not a list</p>
 <p>1. not a list either</p>
+````````
+
+## Strikethrough, subscript, superscript
+
+`~~text~~` is struck through, `~text~` is subscript, and `^text^` is superscript. They pair only with a run of the same length, and work inside words.
+
+```````` example
+~~gone~~, H~2~O, 2^10^ and E = mc^2^
+.
+<p><del>gone</del>, H<sub>2</sub>O, 2<sup>10</sup> and E = mc<sup>2</sup></p>
+````````
+
+Sub- and superscripts can't contain spaces, and delimiters that aren't pressed against text stay text, so tildes and carets in ordinary writing stay what they are.
+
+```````` example
+~5 to ~10, a ~~~ b, x^2 + y^2, ~~a wider strike~~
+.
+<p>~5 to ~10, a ~~~ b, x^2 + y^2, <del>a wider strike</del></p>
+````````
+
+## Tables
+
+GitHub's syntax: a header row, a delimiter row of `-` with optional `:` for alignment, then body rows up to a blank line. Rows with too few cells are padded, and `\|` is a literal pipe.
+
+```````` example
+| Item | Cost | Weight |
+| :--- | ---: | :----: |
+| Rope | 1 gp | 10 lb |
+| Torch \| lantern | `2 cp` |
+.
+<table>
+<thead>
+<tr>
+<th align="left">Item</th>
+<th align="right">Cost</th>
+<th align="center">Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">Rope</td>
+<td align="right">1 gp</td>
+<td align="center">10 lb</td>
+</tr>
+<tr>
+<td align="left">Torch | lantern</td>
+<td align="right"><code>2 cp</code></td>
+<td align="center"></td>
+</tr>
+</tbody>
+</table>
+````````
+
+A table can start right under a paragraph line. The header and delimiter rows must have the same number of cells.
+
+```````` example
+Prices:
+| a | b |
+|---|---|
+
+| a | b |
+| --- |
+.
+<p>Prices:</p>
+<table>
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+</table>
+<p>| a | b |
+| --- |</p>
+````````
+
+## Footnotes
+
+`[^label]` refers to a footnote defined anywhere by `[^label]: text`, continued by lines indented 4 spaces. Labels ignore case. Footnotes are numbered in the order they're first referred to, and listed at the end with a link back. A reference to an undefined label is text, and a footnote nobody refers to isn't listed.
+
+```````` example
+Ashfang was forged in Emberdeep.[^forge] It remembers.[^Forge]
+
+[^forge]: By the smith *Oda*,
+    who never spoke of it again.
+.
+<p>Ashfang was forged in Emberdeep.<sup class="ls-fnref"><a href="#ls-fn-1" id="ls-fnref-1">1</a></sup> It remembers.<sup class="ls-fnref"><a href="#ls-fn-1" id="ls-fnref-1-2">1</a></sup></p>
+<section class="ls-footnotes">
+<ol>
+<li id="ls-fn-1">
+<p>By the smith <em>Oda</em>,
+who never spoke of it again. <a href="#ls-fnref-1" class="ls-backref" aria-label="Back to reference 1">↩</a></p>
+</li>
+</ol>
+</section>
+````````
+
+```````` example
+First[^b], second[^a], missing[^c].
+
+[^a]: Alpha.
+[^b]: Beta.
+[^unused]: Never cited.
+.
+<p>First<sup class="ls-fnref"><a href="#ls-fn-1" id="ls-fnref-1">1</a></sup>, second<sup class="ls-fnref"><a href="#ls-fn-2" id="ls-fnref-2">2</a></sup>, missing[^c].</p>
+<section class="ls-footnotes">
+<ol>
+<li id="ls-fn-1">
+<p>Beta. <a href="#ls-fnref-1" class="ls-backref" aria-label="Back to reference 1">↩</a></p>
+</li>
+<li id="ls-fn-2">
+<p>Alpha. <a href="#ls-fnref-2" class="ls-backref" aria-label="Back to reference 2">↩</a></p>
+</li>
+</ol>
+</section>
+````````
+
+## Abbreviations
+
+A line `*[term]: explanation`, anywhere in the text, marks every whole-word, same-case use of the term outside code.
+
+```````` example
+The HTML spec, not the HTMLX one, nor `HTML` in code.
+
+*[HTML]: Hyper Text Markup Language
+.
+<p>The <abbr title="Hyper Text Markup Language">HTML</abbr> spec, not the HTMLX one, nor <code>HTML</code> in code.</p>
+````````
+
+## Attributes
+
+`{#id .class}` gives an id and classes to the heading it ends, to a fenced code block (after its language), or to the inline element right before it: emphasis, a link, an image, code, or math. Anything else in braces is text, including attributes with values, so no style or event handler can be set.
+
+```````` example
+# Ashfang {#sword .relic}
+
+A *flaming*{.fire} blade, see [the forge](#forge){.quiet} and `lit`{#code}.
+
+![Sketch](https://example.com/ashfang.png){.wide}
+
+*unattached {.x}* {#y} *x*{onclick=alert(1)} *y*{.a"b}
+
+```js {.small #listing}
+burn();
+```
+.
+<h1 id="ls-sword" class="relic">Ashfang</h1>
+<p>A <em class="fire">flaming</em> blade, see <a href="#ls-forge" class="quiet">the forge</a> and <code id="ls-code">lit</code>.</p>
+<p><img src="https://example.com/ashfang.png" alt="Sketch" class="wide"></p>
+<p><em>unattached {.x}</em> {#y} <em>x</em>{onclick=alert(1)} <em>y</em>{.a&quot;b}</p>
+<pre id="ls-listing" class="small"><code class="language-js">burn();
+</code></pre>
+````````
+
+## Class blocks and spans
+
+A line holding only `{{` and classes or an id opens a block, closed by a line holding only `}}`. Class blocks nest and can contain anything. Inside a paragraph, `{{.class text}}` is a span. Classes only style text, they never hide it: who can read a text is decided by the information it belongs to, not by its markup.
+
+```````` example
+{{.monster .frame
+## Goblin
+Small, green, *cross*.
+
+{{.stats
+AC 15
+}}
+}}
+.
+<div class="monster frame">
+<h2 id="ls-goblin">Goblin</h2>
+<p>Small, green, <em>cross</em>.</p>
+<div class="stats">
+<p>AC 15</p>
+</div>
+</div>
+````````
+
+```````` example
+The door is {{.note #door trapped, DC 15}} and {{.x unclosed.
+.
+<p>The door is <span id="ls-door" class="note">trapped, DC 15</span> and {{.x unclosed.</p>
+````````
+
+## Table of contents
+
+`{{TOC}}` on its own line lists every heading in the text, nested by level, linking to each. Any other `{{name …}}` is text.
+
+```````` example
+{{TOC}}
+
+# Weapons
+## Swords
+### Ashfang
+## Bows
+# Armor
+
+{{unknown thing}}
+.
+<nav class="ls-toc">
+<ul>
+<li><a href="#ls-weapons">Weapons</a>
+<ul>
+<li><a href="#ls-swords">Swords</a>
+<ul>
+<li><a href="#ls-ashfang">Ashfang</a></li>
+</ul>
+</li>
+<li><a href="#ls-bows">Bows</a></li>
+</ul>
+</li>
+<li><a href="#ls-armor">Armor</a></li>
+</ul>
+</nav>
+<h1 id="ls-weapons">Weapons</h1>
+<h2 id="ls-swords">Swords</h2>
+<h3 id="ls-ashfang">Ashfang</h3>
+<h2 id="ls-bows">Bows</h2>
+<h1 id="ls-armor">Armor</h1>
+<p>{{unknown thing}}</p>
+````````
+
+## Math
+
+`$…$` is inline math and `$$…$$` is display math, written in a subset of TeX and rendered as MathML, which browsers draw natively. Inline math can't start or end with a space or be followed by a digit, so prices stay prices.
+
+```````` example
+The area is $\pi r^2$, and $5 and $10 are prices.
+.
+<p>The area is <math><mi>π</mi><msup><mi>r</mi><mn>2</mn></msup></math>, and $5 and $10 are prices.</p>
+````````
+
+A line holding only `$$` opens a math block, closed by the next such line, and `$$…$$` alone on its line is a one-line block. Inside a block, a line starting with `-` is still math, not a list.
+
+```````` example
+$$\sum_{i=1}^{n} \frac{1}{i^2} \le \sqrt[3]{x_1}$$
+
+$$
+P(\text{hit}) = \left( \frac{21 - AC}{20} \right), \binom{n}{k}, \Delta, \lim_{x \to 0} \sin x
+- 1
+$$
+.
+<math display="block"><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><mfrac><mn>1</mn><msup><mi>i</mi><mn>2</mn></msup></mfrac><mo>≤</mo><mroot><msub><mi>x</mi><mn>1</mn></msub><mn>3</mn></mroot></math>
+<math display="block"><mi>P</mi><mo>(</mo><mtext>hit</mtext><mo>)</mo><mo>=</mo><mrow><mo>(</mo><mfrac><mrow><mn>21</mn><mo>−</mo><mi>A</mi><mi>C</mi></mrow><mn>20</mn></mfrac><mo>)</mo></mrow><mo>,</mo><mrow><mo>(</mo><mfrac linethickness="0"><mi>n</mi><mi>k</mi></mfrac><mo>)</mo></mrow><mo>,</mo><mi mathvariant="normal">Δ</mi><mo>,</mo><munder><mo movablelimits="true" form="prefix">lim</mo><mrow><mi>x</mi><mo>→</mo><mn>0</mn></mrow></munder><mi>sin</mi><mi>x</mi><mo>−</mo><mn>1</mn></math>
+````````
+
+The subset covers letters and numbers, scripts (`^`, `_`, primes), `\frac`, `\binom`, `\sqrt`, `\left…\right`, Greek letters, the common relations, arrows, set and logic symbols, big operators with limits (`\sum`, `\prod`, `\int`, …), function names (`\sin`, `\log`, `\lim`, …), accents (`\hat`, `\bar`, `\vec`, …), spacing, `\text{…}`, and `\operatorname{…}`; see [ADR 0102](../../docs/adr/0102-lorenzoscript-standard-extensions.md) for the full list. A formula using anything else, such as `\\`, `&`, or `\begin`, is shown as its TeX source rather than half-rendered. Everything is escaped either way.
+
+```````` example
+Inline display $$x^2$$ works; $\begin{matrix} a \end{matrix}$ and $a \\ b$ don't, and $x < y$ and $\text{<b>}$ are safe.
+.
+<p>Inline display <math display="block"><msup><mi>x</mi><mn>2</mn></msup></math> works; <code class="ls-math">\begin{matrix} a \end{matrix}</code> and <code class="ls-math">a \\ b</code> don't, and <math><mi>x</mi><mo>&lt;</mo><mi>y</mi></math> and <math><mtext>&lt;b&gt;</mtext></math> are safe.</p>
 ````````
 
 ## Nesting limit
