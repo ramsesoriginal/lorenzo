@@ -3911,10 +3911,9 @@ export interface components {
          *     row if owner_character_id is given and/or a Containment row if
          *     container_entity_id is given. slug (ADR 0043) is optional, unique per
          *     tenant when set - across every entity since ADR 0107 - and resolvable
-         *     later via GET .../by-slug/{slug}. Deliberately not held to RFC 0027's
-         *     slug grammar the way PUT .../entities/{id}/slug is: tightening an
-         *     existing request field would break a client that relies on it (ADR
-         *     0107), so this keeps ADR 0043's contract.
+         *     later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
+         *     like every slug write (ADR 0107) - a deliberately accepted breaking
+         *     change to ADR 0043's unrestricted string.
          */
         ItemInstanceCreate: {
             /** Name */

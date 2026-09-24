@@ -269,12 +269,11 @@ async def test_an_item_instance_slug_must_be_free_across_all_entities(
     await delete_tenant(tenant_id)
 
 
-async def test_item_instance_creation_keeps_its_old_slug_contract(
+async def test_an_item_instance_slug_follows_the_same_grammar(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
-    """ADR 0107: only the new PUT .../slug enforces RFC 0027's grammar; an
-    existing client creating instances with any slug keeps working, and the
-    slug still resolves exactly."""
+    """ADR 0107: creating an instance checks its slug like PUT .../slug does.
+    A slug stored before that rule still resolves exactly."""
     tenant_id = await make_tenant(test_user_id)
     async with admin_session_factory() as session:
         prototype = Entity(tenant_id=tenant_id, name="Longsword")
@@ -284,13 +283,14 @@ async def test_item_instance_creation_keeps_its_old_slug_contract(
         await session.commit()
         prototype_id = prototype.id
 
-    created = await client.post(
+    rejected = await client.post(
         f"/tenants/{tenant_id}/item-instances",
         json={"prototype_id": str(prototype_id), "slug": "the old sword"},
     )
-    assert created.status_code == 201
+    assert rejected.status_code == 422
+    legacy = await _make_entity(tenant_id, "The old sword", slug="the old sword")
     resolved = await client.get(
         f"/tenants/{tenant_id}/entities/resolve", params={"slug": "the old sword"}
     )
-    assert [r["entity_id"] for r in resolved.json()] == [created.json()["entity_id"]]
+    assert [r["entity_id"] for r in resolved.json()] == [str(legacy)]
     await delete_tenant(tenant_id)
