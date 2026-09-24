@@ -28,6 +28,10 @@
     "packages/lorenzoscript": {
       "release-type": "node",
       "component": "lorenzoscript"
+    },
+    "packages/lorenzoscript-editor": {
+      "release-type": "node",
+      "component": "lorenzoscript-editor"
     }
   }
 }
