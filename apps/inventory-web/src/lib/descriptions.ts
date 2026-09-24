@@ -2,7 +2,7 @@
 // this tenant's entities resolved, and reading and writing the one the item
 // page's editor opens.
 import { parse, type Reference, type Resolver, references, render } from '@lorenzo/lorenzoscript';
-import { client, type components, unwrap } from './api';
+import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import { type EntityReference, entityHref, linkNote, type ResolvedSlug } from './entityLinks';
 import { viewerLocales } from './me';
 
@@ -184,5 +184,21 @@ export async function createDescription(
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
       body: { title: 'Description', type: 'description', is_public: isPublic, content, locale },
     }),
+  );
+}
+
+export type Backlink = components['schemas']['BacklinkOut'];
+
+/** The information whose descriptions link to an entity, as far as the viewer may see (ADR 0110). */
+export async function getBacklinks(tenantId: string, entityId: string): Promise<Backlink[]> {
+  return fetchAllPages(async (page) =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/entities/{entity_id}/backlinks', {
+        params: {
+          path: { tenant_id: tenantId, entity_id: entityId },
+          query: { page, size: MAX_PAGE_SIZE },
+        },
+      }),
+    ),
   );
 }

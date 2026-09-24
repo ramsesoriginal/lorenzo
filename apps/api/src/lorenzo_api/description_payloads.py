@@ -3,19 +3,25 @@
 Every creation or change of a `payload_description` row goes through
 `write_description`: `create_information` (routers/entities.py) and
 `PATCH .../payloads/{id}` (routers/payloads.py) both call it, and nothing
-else writes that table. RFC 0027 stage 7 hooks its reference extractor in
-here, so a new caller must not write PayloadDescription directly.
+else writes that table. It also keeps the payload's `content_reference`
+rows in step with the text (ADR 0110), so a new caller must not write
+PayloadDescription directly.
 
-`content` is stored exactly as given. LorenzoScript (RFC 0027) is a
-client-side convention; the server doesn't parse or validate it.
+`content` is stored exactly as given. The server reads it as LorenzoScript
+(RFC 0027) only to record its references; it never rejects or changes it.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import func
+from sqlalchemy import delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.models import Payload, PayloadDescription
+from lorenzo_api.lorenzoscript import references
+from lorenzo_api.models import ContentReference, Payload, PayloadDescription
+
+# No slug is longer (ADR 0107), so a longer target could never resolve, and
+# isn't kept (ADR 0110).
+_MAX_SLUG = 100
 
 
 async def write_description(
@@ -48,11 +54,16 @@ async def write_description(
         )
         payload.description = description
         session.add(payload)
+        session.add_all(_references(payload, content))
         return description
 
     changed = False
     if content is not None and content != description.content:
         description.content = content
+        await session.execute(
+            delete(ContentReference).where(ContentReference.payload_id == payload.id)
+        )
+        session.add_all(_references(payload, content))
         changed = True
     if locale is not None and locale != description.locale:
         description.locale = locale
@@ -60,3 +71,27 @@ async def write_description(
     if changed:
         payload.updated_at = func.now()
     return description
+
+
+def _references(payload: Payload, content: str) -> list[ContentReference]:
+    """`content`'s references as rows, in order of first use. Attached through
+    the relationship, like the description, so a new payload works too."""
+    rows: list[ContentReference] = []
+    for ref in references(content):
+        if ref["kind"] in ("entity", "image"):
+            hint, target = ref["hint"], ref["slug"]
+            if len(target) > _MAX_SLUG:
+                continue
+        else:
+            hint, target = "", ref.get("date") or ref["expression"]
+        rows.append(
+            ContentReference(
+                payload=payload,
+                position=len(rows),
+                tenant_id=payload.tenant_id,
+                kind=ref["kind"],
+                hint=hint,
+                target=target,
+            )
+        )
+    return rows

@@ -1413,6 +1413,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/backlinks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Backlinks
+         * @description What links here (ADR 0110): each piece of information whose
+         *     description names this entity's slug, in a link or a picture. Same gate
+         *     as GET /{entity_id}, then only information the caller can see - filtered
+         *     before paging, so pages are full and `total` counts nothing hidden. The
+         *     entity's own information isn't listed.
+         */
+        get: operations["list_backlinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/slug": {
         parameters: {
             query?: never;
@@ -2758,6 +2782,33 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * BacklinkOut
+         * @description One entry of GET .../entities/{id}/backlinks - see ADR 0110: a piece
+         *     of information, visible to the caller, whose description links to the
+         *     entity or shows its picture. `entity_id`, `name` and `kinds` are the
+         *     entity that information is about, so a client can link to it.
+         */
+        BacklinkOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
         };
         /**
          * BeingSummaryOut
@@ -4481,6 +4532,19 @@ export interface components {
         Page_AuditLogEntryOut_: {
             /** Items */
             items: components["schemas"]["AuditLogEntryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[BacklinkOut] */
+        Page_BacklinkOut_: {
+            /** Items */
+            items: components["schemas"]["BacklinkOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -10292,6 +10356,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_backlinks: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BacklinkOut_"];
                 };
             };
             /** @description Validation Error */

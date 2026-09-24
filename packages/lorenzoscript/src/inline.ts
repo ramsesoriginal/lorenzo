@@ -32,7 +32,7 @@ const WIKILINK = /^\[\[([^[\]|\n]+)(?:\|([^[\]\n]+))?\]\]/;
 /** A link target naming an entity (RFC 0027 §3): `slug` or `hint/slug`, no scheme or path. */
 const ENTITY_TARGET = /^(?:([a-z_]+)\/)?([A-Za-z0-9][A-Za-z0-9_-]*)$/;
 const HINTED = /^([a-z_]+)\/(.+)$/;
-const DIRECTIVE = /^\{\{([A-Za-z]+)[ \t]+([^{}\n]*?)[ \t]*\}\}/;
+const DIRECTIVE_NAME = /^\{\{([A-Za-z]+)[ \t]/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `#id` and `.class` tokens, the one attribute syntax every `{…}` and `{{…}}` shares. */
@@ -132,6 +132,9 @@ export function parseInline(src: string): Inline[] {
     nodes[at] = nest(make(children));
     return true;
   };
+  const closingRun = backtickCloser(src);
+  /** Per closing quote, where a title scan already ran off the end: any later one would too. */
+  const unclosedTitles = new Map<string, number>();
 
   let i = 0;
   while (i < src.length) {
@@ -143,13 +146,16 @@ export function parseInline(src: string): Inline[] {
       else text += next;
       i += 2;
     } else if (c === '\n') {
-      const hard = / {2,}$/.test(text);
-      text = text.replace(/ +$/, '');
+      // Counted, not matched: / {2,}$/ backtracks quadratically on a long run of spaces.
+      let end = text.length;
+      while (text[end - 1] === ' ') end--;
+      const hard = text.length - end >= 2;
+      text = text.slice(0, end);
       push(hard ? { type: 'break' } : textNode('\n'));
       i++;
     } else if (c === '`') {
       const run = /^`+/.exec(src.slice(i))?.[0] as string;
-      const end = closingRun(src, i + run.length, run.length);
+      const end = closingRun(i + run.length, run.length);
       if (end < 0) text += run;
       else push({ type: 'codespan', text: codeText(src.slice(i + run.length, end)) });
       i = end < 0 ? i + run.length : end + run.length;
@@ -173,7 +179,7 @@ export function parseInline(src: string): Inline[] {
       i += image ? 2 : 1;
     } else if (c === ']') {
       const bracket = brackets.pop();
-      const dest = bracket?.active ? destination(src, i + 1) : null;
+      const dest = bracket?.active ? destination(src, i + 1, unclosedTitles) : null;
       if (!bracket || !dest) {
         text += ']';
         i++;
@@ -250,18 +256,31 @@ const entityRef = (url: string) => {
   return m ? { hint: m[1] ?? '', slug: m[2] as string } : undefined;
 };
 
-/** `{{date YYYY-MM-DD}}` or `{{cal …}}`; any other name, or no arguments, stays text. */
+const blank = (c: string | undefined) => c === ' ' || c === '\t';
+
+/**
+ * `{{date YYYY-MM-DD}}` or `{{cal …}}`; any other name, or no arguments, stays text.
+ * Scanned rather than matched, since a lazy pattern here backtracks cubically on blanks.
+ */
 function directive(s: string): Token {
-  const m = DIRECTIVE.exec(s);
-  const name = m?.[1]?.toLowerCase();
-  const args = m?.[2] ?? '';
+  const m = DIRECTIVE_NAME.exec(s);
+  if (!m) return null;
+  let end = m[0].length;
+  while (end < s.length && s[end] !== '{' && s[end] !== '}' && s[end] !== '\n') end++;
+  if (!s.startsWith('}}', end)) return null;
+  let from = m[0].length;
+  let to = end;
+  while (from < to && blank(s[from])) from++;
+  while (to > from && blank(s[to - 1])) to--;
+  const name = (m[1] as string).toLowerCase();
+  const args = s.slice(from, to);
   const node: Inline | null =
     name === 'date' && isDate(args)
       ? { type: 'date', date: args }
       : name === 'cal' && args
         ? { type: 'calendar', expression: args }
         : null;
-  return m && node && { node, length: m[0].length };
+  return node && { node, length: end + 2 };
 }
 
 /** `<https://…>` or `<name@host>` at the start of `s`. */
@@ -305,17 +324,32 @@ function pending(s: string): Token {
   );
 }
 
-/** Index of the next backtick run of exactly `length`, or -1. */
-function closingRun(src: string, from: number, length: number): number {
-  const re = /`+/g;
-  re.lastIndex = from;
-  for (let m = re.exec(src); m; m = re.exec(src)) if (m[0].length === length) return m.index;
-  return -1;
+/**
+ * For `src`: the index of the next backtick run of exactly `length` at or after `from`, or
+ * -1. Every run is found once, up front; `from` only grows, so each length's list is walked
+ * once, rather than scanning the rest of the text for every unmatched run.
+ */
+function backtickCloser(src: string): (from: number, length: number) => number {
+  const runs = new Map<number, number[]>();
+  for (const m of src.matchAll(/`+/g)) {
+    const starts = runs.get(m[0].length) ?? [];
+    starts.push(m.index);
+    runs.set(m[0].length, starts);
+  }
+  const next = new Map<number, number>();
+  return (from, length) => {
+    const starts = runs.get(length) ?? [];
+    let k = next.get(length) ?? 0;
+    while (k < starts.length && (starts[k] as number) < from) k++;
+    next.set(length, k);
+    return starts[k] ?? -1;
+  };
 }
 
+/** Code span text: line endings become spaces, and one space goes from each end if both have one. */
 function codeText(raw: string): string {
   const s = raw.replace(/\n/g, ' ');
-  return /^ .*[^ ].* $/.test(s) ? s.slice(1, -1) : s;
+  return s.startsWith(' ') && s.endsWith(' ') && /[^ ]/.test(s) ? s.slice(1, -1) : s;
 }
 
 function delim(ch: string, n: number, before: string, after: string): Delim {
@@ -331,14 +365,23 @@ function delim(ch: string, n: number, before: string, after: string): Delim {
 
 type Destination = { url: string; title: string; end: number };
 
-/** `(url "title")` starting at `src[j]`, or null if it isn't one. */
-function destination(src: string, j: number): Destination | null {
+/**
+ * `(url "title")` starting at `src[j]`, or null if it isn't one. Every scan here stops early
+ * enough that `[a](` repeated stays linear: `<…>` at the next `<`, a bare URL at MAX_NESTING
+ * open parentheses (CommonMark allows a limit), and a title where an earlier one ran off.
+ */
+function destination(
+  src: string,
+  j: number,
+  unclosedTitles: Map<string, number>,
+): Destination | null {
   if (src[j] !== '(') return null;
   let k = skipSpace(src, j + 1);
   let url: string;
   if (src[k] === '<') {
-    const end = src.indexOf('>', k);
-    if (end < 0 || /[\n<]/.test(src.slice(k + 1, end))) return null;
+    let end = k + 1;
+    while (end < src.length && src[end] !== '>' && src[end] !== '<' && src[end] !== '\n') end++;
+    if (src[end] !== '>') return null;
     url = src.slice(k + 1, end);
     k = end + 1;
   } else {
@@ -347,7 +390,7 @@ function destination(src: string, j: number): Destination | null {
       const ch = src[k] as string;
       if (ch === '\\' && PUNCT.test(src[k + 1] ?? '')) k++;
       else if (SPACE.test(ch) || (ch === ')' && depth === 0)) break;
-      else if (ch === '(') depth++;
+      else if (ch === '(' && ++depth > MAX_NESTING) return null;
       else if (ch === ')') depth--;
     }
     url = src.slice(start, k);
@@ -358,9 +401,13 @@ function destination(src: string, j: number): Destination | null {
   const quote = src[k];
   if (k > afterUrl && (quote === '"' || quote === "'" || quote === '(')) {
     const close = quote === '(' ? ')' : quote;
+    if (k + 1 >= (unclosedTitles.get(close) ?? Infinity)) return null;
     let end = k + 1;
     while (end < src.length && src[end] !== close) end += src[end] === '\\' ? 2 : 1;
-    if (end >= src.length) return null;
+    if (end >= src.length) {
+      unclosedTitles.set(close, k + 1);
+      return null;
+    }
     title = src.slice(k + 1, end);
     k = skipSpace(src, end + 1);
   }

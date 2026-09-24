@@ -21,14 +21,17 @@ const VIEWS: View[] = [
   { kind: 'character', page: 'the board', href: board },
 ];
 
+/** What choosing a page needs to know about an entity: a resolved slug, or a backlink. */
+type Linkable = Pick<ResolvedSlug, 'entity_id' | 'kinds'>;
+
 // The hint's view if the entity is one, else the entity's first kind with a view.
-function viewFor(entity: ResolvedSlug, hint: string) {
+function viewFor(entity: Linkable, hint: string) {
   const views = VIEWS.filter(({ kind }) => entity.kinds.includes(kind));
   return views.find(({ kind }) => kind === hint) ?? views[0];
 }
 
 /** Where a link to `entity` leads, or null if it has no page here. */
-export function entityHref(tenantId: string, entity: ResolvedSlug, hint: string): string | null {
+export function entityHref(tenantId: string, entity: Linkable, hint = ''): string | null {
   return viewFor(entity, hint)?.href(tenantId, entity.entity_id) ?? null;
 }
 

@@ -73,7 +73,8 @@ for (const [section, examples] of sections(spec)) {
       ({ source, html, refs }) => {
         const doc = parse(source);
         expect(render(doc, OPTIONS)).toBe(html);
-        if (refs !== undefined) expect(references(doc)).toEqual(JSON.parse(refs));
+        // No references section means no references (ADR 0110).
+        expect(references(doc)).toEqual(JSON.parse(refs ?? '[]'));
       },
     );
   });
@@ -133,6 +134,34 @@ describe('hostile input', () => {
   test('lazy lines in nested quotes stay linear', () => {
     const html = render(parse(`> > > > > a\n${'b\n'.repeat(2000)}`));
     expect(count(html, '<blockquote>')).toBe(5);
+  });
+
+  test('no scan turns quadratic on unclosed or blank-heavy input', () => {
+    const inputs = [
+      `a${' '.repeat(100_000)}x\nb`, // blanks before a line break
+      `{{a${'\t'.repeat(20_000)}x`, // an unclosed directive
+      `\` ${'a'.repeat(100_000)}\``, // a code span with one leading space
+      `# a${' '.repeat(100_000)}b`, // blanks where attributes could start
+      '[a]('.repeat(25_000), // unclosed destinations
+      '[a](<b'.repeat(20_000), // unclosed <destinations>
+      '[a](b (x'.repeat(20_000), // unclosed titles
+      Array.from({ length: 1000 }, (_, k) => '`'.repeat(k + 1)).join(' '), // every run length
+    ];
+    for (const input of inputs) references(parse(input));
+  });
+
+  test('a link destination nests at most MAX_NESTING parentheses', () => {
+    const at = (n: number) => `[a](https://x.test/${'('.repeat(n)}x${')'.repeat(n)})`;
+    expect(render(parse(at(32)))).toContain('<a href=');
+    expect(render(parse(at(33)))).not.toContain('<a href=');
+  });
+
+  test('a link whose text nests past MAX_NESTING is text, so no reference', () => {
+    const deep = `[${'*'.repeat(5000)}a${'*'.repeat(5000)}](ashfang)`;
+    expect(references(parse(deep))).toEqual([]);
+    expect(references(parse('[**a**](ashfang)'))).toEqual([
+      { kind: 'entity', hint: '', slug: 'ashfang' },
+    ]);
   });
 
   test('class blocks and spans nest at most MAX_NESTING deep', () => {
