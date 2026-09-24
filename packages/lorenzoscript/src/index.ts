@@ -1,3 +1,5 @@
 export type * from './ast';
 export { parse } from './block';
-export { type RenderOptions, render } from './render';
+export { slugify } from './inline';
+export { references } from './references';
+export { type RenderOptions, type Resolver, render } from './render';

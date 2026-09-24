@@ -2,9 +2,20 @@
 
 LorenzoScript is Lorenzo's Markdown dialect, used for every description text ([RFC 0027](../../docs/rfcs/0027-lorenzoscript.md)). It follows [CommonMark](https://spec.commonmark.org/)'s structure, with the deviations listed at the end of this file.
 
-This file is both the definition and the test suite ([ADR 0100](../../docs/adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every `example` block below is run as a test: the LorenzoScript source, a line holding only `.`, then the HTML it must render to. In examples, `␠` stands for a trailing space and `⇥` for a tab.
+This file is both the definition and the test suite ([ADR 0100](../../docs/adr/0100-lorenzoscript-core-parser-and-renderer.md)). Every `example` block below is run as a test: the LorenzoScript source, a line holding only `.`, then the HTML it must render to. Some add another `.` line and the JSON that `references()` must return for the source. In examples, `␠` stands for a trailing space and `⇥` for a tab.
 
-This file covers the core syntax (RFC 0027 stage 1) followed by the standard extensions (stage 2, [ADR 0102](../../docs/adr/0102-lorenzoscript-standard-extensions.md)), from [Strikethrough, subscript, superscript](#strikethrough-subscript-superscript) on. Lorenzo's own extensions get their sections as later stages land.
+Every example renders with `locale: 'en-GB'` and a fixture resolver:
+
+- It knows two entities, `ashfang` (which has a picture) and `old-sword`.
+- A reference `hint/slug` links to `/hint/slug`, or to `/entity/slug` without a hint. The link is titled with the entity's name.
+- A picture is `/pictures/slug.png`.
+- It reads the calendar date `harptos 1492-mirtul-12` as "12 Mirtul 1492 DR".
+
+The sections cover three stages:
+
+- the core syntax (RFC 0027 stage 1)
+- the standard extensions (stage 2, [ADR 0102](../../docs/adr/0102-lorenzoscript-standard-extensions.md)), from [Strikethrough, subscript, superscript](#strikethrough-subscript-superscript) on
+- Lorenzo's own extensions (stage 3, [ADR 0105](../../docs/adr/0105-lorenzoscript-entity-references-and-resolver.md)), from [Entity links and images](#entity-links-and-images) on
 
 ## Paragraphs
 
@@ -647,7 +658,7 @@ b` and `unmatched
 
 ## Links
 
-`[text](url "title")`. Only `http`, `https`, `mailto`, and in-document `#fragment` links become links; any other target renders its text alone. Fragments are rewritten to the `ls-` prefix every author id carries.
+`[text](url "title")`. Only `http`, `https`, `mailto`, and in-document `#fragment` links become links; any other target renders its text alone. Fragments are rewritten to the `ls-` prefix every author id carries. A target that is a slug names an entity instead; see [Entity links and images](#entity-links-and-images).
 
 ```````` example
 [Lorenzo](https://example.com "The archive")
@@ -1017,6 +1028,111 @@ The subset covers letters and numbers, scripts (`^`, `_`, primes), `\frac`, `\bi
 Inline display $$x^2$$ works; $\begin{matrix} a \end{matrix}$ and $a \\ b$ don't, and $x < y$ and $\text{<b>}$ are safe.
 .
 <p>Inline display <math display="block"><msup><mi>x</mi><mn>2</mn></msup></math> works; <code class="ls-math">\begin{matrix} a \end{matrix}</code> and <code class="ls-math">a \\ b</code> don't, and <math><mi>x</mi><mo>&lt;</mo><mi>y</mi></math> and <math><mtext>&lt;b&gt;</mtext></math> are safe.</p>
+````````
+
+## Entity links and images
+
+A link whose target is a slug names an entity: `[text](ashfang)`. A view hint can go before the slug, as in `[text](being/ashfang)`. It says how to show the entity, not which one: a sentient sword can be opened as a being or as loot. Slugs here are used exactly as written.
+
+`[[Name]]` links by name. The slug is the name made lowercase, ASCII, and hyphenated, as for heading ids. `[[Name|text]]` changes the text, and `[[hint/Name]]` adds a hint.
+
+The resolver decides where a reference leads, with the viewer's own permissions. A reference it doesn't resolve renders as plain text, however it was written. Something that doesn't exist and something this viewer may not see look exactly alike.
+
+```````` example
+Ashfang ([[Ashfang]]) hangs by [the old sword](old-sword "Grandmother's").
+As a companion: [[being/Ashfang|the sword]]; as loot: [it](item_instance/ashfang).
+.
+<p>Ashfang (<a href="/entity/ashfang" title="Ashfang" class="ls-entity">Ashfang</a>) hangs by <a href="/entity/old-sword" title="Grandmother's" class="ls-entity">the old sword</a>.
+As a companion: <a href="/being/ashfang" title="Ashfang" class="ls-entity">the sword</a>; as loot: <a href="/item_instance/ashfang" title="Ashfang" class="ls-entity">it</a>.</p>
+.
+[
+  {"kind": "entity", "hint": "", "slug": "ashfang"},
+  {"kind": "entity", "hint": "", "slug": "old-sword"},
+  {"kind": "entity", "hint": "being", "slug": "ashfang"},
+  {"kind": "entity", "hint": "item_instance", "slug": "ashfang"}
+]
+````````
+
+A name with no letters or digits to slug stays text, brackets included. A relative link is an entity reference too, since Lorenzo text has no relative URLs. `references()` lists each reference once, in order of first use.
+
+```````` example
+[[Old Sword]], [[The Lost Crown]], [[日本]], [notes](page-2), and [[old sword]] again.
+.
+<p><a href="/entity/old-sword" title="Old Sword" class="ls-entity">Old Sword</a>, The Lost Crown, [[日本]], notes, and <a href="/entity/old-sword" title="Old Sword" class="ls-entity">old sword</a> again.</p>
+.
+[
+  {"kind": "entity", "hint": "", "slug": "old-sword"},
+  {"kind": "entity", "hint": "", "slug": "the-lost-crown"},
+  {"kind": "entity", "hint": "", "slug": "page-2"}
+]
+````````
+
+An image whose target is a slug shows that entity's picture, whatever `externalImages` says, since the picture isn't external.
+
+```````` example
+![Ashfang, drawn](ashfang) ![The crown](the-lost-crown) ![Map](https://example.com/map.png)
+.
+<p><img src="/pictures/ashfang.png" alt="Ashfang, drawn" title="Ashfang" class="ls-entity"> The crown <img src="https://example.com/map.png" alt="Map"></p>
+.
+[
+  {"kind": "image", "hint": "", "slug": "ashfang"},
+  {"kind": "image", "hint": "", "slug": "the-lost-crown"}
+]
+````````
+
+## Dates
+
+`{{date YYYY-MM-DD}}` is a real-world date, written the one unambiguous way and shown in the reader's own format. Something that isn't a day that exists stays text.
+
+```````` example
+The session is on {{date 2026-09-24}}; {{date 2026-02-30}} and {{date tomorrow}} aren't dates.
+.
+<p>The session is on <time datetime="2026-09-24">24 September 2026</time>; {{date 2026-02-30}} and {{date tomorrow}} aren't dates.</p>
+.
+[
+  {"kind": "date", "date": "2026-09-24"}
+]
+````````
+
+## Calendar dates
+
+`{{cal …}}` is a date in a world's own calendar. Calendars aren't modelled yet, so it shows as written unless the resolver can read it. A `{{cal}}` with nothing in it is text.
+
+```````` example
+The coronation was {{cal harptos 1492-mirtul-12}}, the siege {{cal harptos 1491-ches-3}}, and {{cal}} is text.
+.
+<p>The coronation was <span class="ls-cal">12 Mirtul 1492 DR</span>, the siege <span class="ls-cal">harptos 1491-ches-3</span>, and {{cal}} is text.</p>
+.
+[
+  {"kind": "calendar", "expression": "harptos 1492-mirtul-12"},
+  {"kind": "calendar", "expression": "harptos 1491-ches-3"}
+]
+````````
+
+References are collected from the whole text, headings and footnotes included.
+
+```````` example
+# Session {{date 2026-09-24}}
+
+We met [[Ashfang]].[^1]
+
+[^1]: Or rather, [[being/Ashfang]] met us.
+.
+<h1 id="ls-session-2026-09-24">Session <time datetime="2026-09-24">24 September 2026</time></h1>
+<p>We met <a href="/entity/ashfang" title="Ashfang" class="ls-entity">Ashfang</a>.<sup class="ls-fnref"><a href="#ls-fn-1" id="ls-fnref-1">1</a></sup></p>
+<section class="ls-footnotes">
+<ol>
+<li id="ls-fn-1">
+<p>Or rather, <a href="/being/ashfang" title="Ashfang" class="ls-entity">Ashfang</a> met us. <a href="#ls-fnref-1" class="ls-backref" aria-label="Back to reference 1">↩</a></p>
+</li>
+</ol>
+</section>
+.
+[
+  {"kind": "date", "date": "2026-09-24"},
+  {"kind": "entity", "hint": "", "slug": "ashfang"},
+  {"kind": "entity", "hint": "being", "slug": "ashfang"}
+]
 ````````
 
 ## Nesting limit

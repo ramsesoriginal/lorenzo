@@ -1,10 +1,32 @@
-// Runs every example embedded in SPEC.md (ADR 0100): the spec is the test suite.
+// Runs every example embedded in SPEC.md (ADR 0100, 0105): the spec is the test suite.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { parse, render } from '../src';
+import { parse, type RenderOptions, references, render } from '../src';
 
 const FENCE = '`'.repeat(8);
-type Example = { source: string; html: string };
+/** `refs`: the optional third section, the JSON `references()` must return. */
+type Example = { source: string; html: string; refs?: string };
+
+/** The fixture SPEC.md describes, which every example renders against. */
+const ENTITIES: Record<string, { name: string; picture?: true }> = {
+  ashfang: { name: 'Ashfang', picture: true },
+  'old-sword': { name: 'Old Sword' },
+};
+const OPTIONS: RenderOptions = {
+  locale: 'en-GB',
+  resolve: {
+    entity: ({ hint, slug }) => {
+      const entity = ENTITIES[slug];
+      return entity ? { href: `/${hint || 'entity'}/${slug}`, title: entity.name } : null;
+    },
+    image: ({ slug }) => {
+      const entity = ENTITIES[slug];
+      return entity?.picture ? { src: `/pictures/${slug}.png`, title: entity.name } : null;
+    },
+    calendar: (expression) =>
+      expression === 'harptos 1492-mirtul-12' ? '12 Mirtul 1492 DR' : null,
+  },
+};
 
 /**
  * `␠` marks a trailing space and `⇥` a tab, so editors and hooks can't alter an example.
@@ -23,8 +45,10 @@ function sections(spec: string): Map<string, Example[]> {
   let parts: string[][] | null = null;
   for (const line of spec.replace(/\r\n/g, '\n').split('\n')) {
     if (parts && line === FENCE) {
-      const [source = [], html = []] = parts;
-      out.get(section)?.push({ source: text(source), html: text(html) });
+      const [source = [], html = [], refs] = parts;
+      const example: Example = { source: text(source), html: text(html) };
+      if (refs) example.refs = refs.join('\n');
+      out.get(section)?.push(example);
       parts = null;
     } else if (parts) {
       if (line === '.') parts.push([]);
@@ -46,7 +70,11 @@ for (const [section, examples] of sections(spec)) {
   describe(section, () => {
     test.each(examples.map((ex, k) => ({ ...ex, name: `${k + 1}: ${ex.source.split('\n')[0]}` })))(
       '$name',
-      ({ source, html }) => expect(render(parse(source))).toBe(html),
+      ({ source, html, refs }) => {
+        const doc = parse(source);
+        expect(render(doc, OPTIONS)).toBe(html);
+        if (refs !== undefined) expect(references(doc)).toEqual(JSON.parse(refs));
+      },
     );
   });
 }
@@ -63,6 +91,26 @@ describe('outside SPEC.md', () => {
 
   test('CRLF and CR line endings behave like LF', () => {
     expect(render(parse('a\r\nb\rc'))).toBe(render(parse('a\nb\nc')));
+  });
+
+  test('without a resolver, entity references render as their text', () => {
+    const doc = parse('[[Ashfang]], [the sword](ashfang) and ![Ashfang](ashfang)');
+    expect(render(doc)).toBe('<p>Ashfang, the sword and Ashfang</p>\n');
+  });
+
+  test("a resolver's unsafe URL counts as unresolved", () => {
+    const resolve = {
+      entity: () => ({ href: 'javascript:alert(1)' }),
+      image: () => ({ src: 'data:image/svg+xml,<svg onload=alert(1)>' }),
+    };
+    const doc = parse('[[Ashfang]] ![Ashfang](ashfang)');
+    expect(render(doc, { resolve })).toBe('<p>Ashfang Ashfang</p>\n');
+  });
+
+  test('an unusable locale falls back to the runtime default', () => {
+    expect(render(parse('{{date 2026-09-24}}'), { locale: 'not a locale!' })).toContain(
+      '<time datetime="2026-09-24">',
+    );
   });
 });
 

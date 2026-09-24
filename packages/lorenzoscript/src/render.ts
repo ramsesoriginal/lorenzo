@@ -1,15 +1,30 @@
-// HTML renderer (ADR 0100, 0102). Output is built only from the syntax tree, with
+// HTML renderer (ADR 0100, 0102, 0105). Output is built only from the syntax tree, with
 // every text and attribute escaped, so it is safe to assign to innerHTML.
 // URL rules (RFC 0027 §5) are enforced here and nowhere else.
-import type { Attrs, Block, Document, Inline, Item } from './ast';
-import { headings } from './block';
+import type { Attrs, Block, Document, EntityRef, Inline, Item } from './ast';
+import { allBlocks } from './block';
 import { attr, escapeHtml } from './html';
 import { normalizeLabel, plainText } from './inline';
 import { mathml } from './math';
 
+/**
+ * Synchronous lookups over data the caller fetched beforehand (see `references()`),
+ * answered with the viewer's own permissions. Null, or a missing lookup, means unresolved:
+ * the reference renders as its plain text, exactly as if the entity didn't exist.
+ */
+export type Resolver = {
+  entity?: (ref: EntityRef) => { href: string; title?: string } | null;
+  /** The entity's main picture: `https:`, `blob:` (fetched with the viewer's token), or relative. */
+  image?: (ref: EntityRef) => { src: string; title?: string } | null;
+  calendar?: (expression: string) => string | null;
+};
+
 export type RenderOptions = {
   /** Render `https` images. When false, every image renders as its alt text. Default true. */
   externalImages?: boolean;
+  resolve?: Resolver;
+  /** For `{{date}}`: a BCP 47 locale or list of them, e.g. the viewer's. Default: the runtime's. */
+  locale?: string | string[];
 };
 
 const cr = (html: string) => (html.endsWith('\n') ? html : `${html}\n`);
@@ -24,6 +39,9 @@ const safeUrl = (url: string, schemes: RegExp) =>
   schemes.test(url) ? url.replace(/ /g, '%20') : null;
 const LINK_SCHEMES = /^(?:https?|mailto):/i;
 const IMAGE_SCHEMES = /^https:/i;
+/** What a resolver may hand back; anything else counts as unresolved. */
+const RESOLVED_LINKS = /^(?:https?:|[/?#])/i;
+const RESOLVED_IMAGES = /^(?:https:|blob:|\/)/i;
 
 export function render(doc: Document, options: RenderOptions = {}): string {
   const footnotes = new Map(doc.footnotes.map((f) => [f.label, f.children]));
@@ -31,6 +49,17 @@ export function render(doc: Document, options: RenderOptions = {}): string {
   const numbers = new Map<string, number>();
   const refs = new Map<string, number>();
   const text = abbreviator(doc);
+  let dates: Intl.DateTimeFormat | undefined;
+  /** In UTC, so a date never shifts by a time zone; an unusable locale falls back to the runtime's. */
+  const formatDate = (iso: string) => {
+    const style = { dateStyle: 'long', timeZone: 'UTC' } as const;
+    try {
+      dates ??= new Intl.DateTimeFormat(options.locale, style);
+    } catch {
+      dates = new Intl.DateTimeFormat(undefined, style);
+    }
+    return dates.format(new Date(`${iso}T00:00:00Z`));
+  };
 
   const inlines = (nodes: Inline[]): string => nodes.map(inline).join('');
 
@@ -46,20 +75,38 @@ export function render(doc: Document, options: RenderOptions = {}): string {
         return math(n.tex, n.display, n.attrs);
       case 'footnote':
         return footnoteRef(n.label);
+      case 'date':
+        return `<time datetime="${n.date}"${attrsHtml(n.attrs)}>${escapeHtml(formatDate(n.date))}</time>`;
+      case 'calendar': {
+        const shown = options.resolve?.calendar?.(n.expression) ?? n.expression;
+        return `<span${attrsHtml(n.attrs, 'ls-cal')}>${escapeHtml(shown)}</span>`;
+      }
       case 'link': {
-        // In-document fragments point at author ids, which always carry the prefix.
-        const href = n.url.startsWith('#') ? `#ls-${n.url.slice(1)}` : safeUrl(n.url, LINK_SCHEMES);
+        const target = n.ref ? options.resolve?.entity?.(n.ref) : null;
+        const href = n.ref
+          ? target && safeUrl(target.href, RESOLVED_LINKS)
+          : // In-document fragments point at author ids, which always carry the prefix.
+            n.url.startsWith('#')
+            ? `#ls-${n.url.slice(1)}`
+            : safeUrl(n.url, LINK_SCHEMES);
         const body = inlines(n.children);
-        return href === null
-          ? body
-          : `<a${attr('href', href)}${attr('title', n.title)}${attrsHtml(n.attrs)}>${body}</a>`;
+        const title = n.title || target?.title || '';
+        const attrs = attrsHtml(n.attrs, n.ref ? 'ls-entity' : '');
+        return href ? `<a${attr('href', href)}${attr('title', title)}${attrs}>${body}</a>` : body;
       }
       case 'image': {
         const alt = plainText(n.children);
-        const src = options.externalImages === false ? null : safeUrl(n.url, IMAGE_SCHEMES);
-        return src === null
-          ? escapeHtml(alt)
-          : `<img${attr('src', src)} alt="${escapeHtml(alt)}"${attr('title', n.title)}${attrsHtml(n.attrs)}>`;
+        const target = n.ref ? options.resolve?.image?.(n.ref) : null;
+        const src = n.ref
+          ? target && safeUrl(target.src, RESOLVED_IMAGES)
+          : options.externalImages === false
+            ? null
+            : safeUrl(n.url, IMAGE_SCHEMES);
+        const title = n.title || target?.title || '';
+        const attrs = attrsHtml(n.attrs, n.ref ? 'ls-entity' : '');
+        return src
+          ? `<img${attr('src', src)} alt="${escapeHtml(alt)}"${attr('title', title)}${attrs}>`
+          : escapeHtml(alt);
       }
       default:
         return `<${n.type}${attrsHtml(n.attrs)}>${inlines(n.children)}</${n.type}>`;
@@ -157,7 +204,8 @@ export function render(doc: Document, options: RenderOptions = {}): string {
     type Entry = { level: number; link: string; children: Entry[] };
     const root: Entry = { level: 0, link: '', children: [] };
     const path = [root];
-    for (const h of headings(doc.children)) {
+    for (const h of allBlocks(doc)) {
+      if (h.type !== 'heading') continue;
       while ((path.at(-1) as Entry).level >= h.level) path.pop();
       const link = `<a href="#ls-${escapeHtml(h.attrs.id)}">${escapeHtml(plainText(h.children))}</a>`;
       const entry: Entry = { level: h.level, link, children: [] };

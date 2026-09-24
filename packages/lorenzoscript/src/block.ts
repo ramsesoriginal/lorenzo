@@ -58,17 +58,17 @@ export function parse(source: string): Document {
     footnotes: [...footnotes.values()],
     abbreviations: [...abbreviations.values()],
   };
-  const footnoteBlocks = doc.footnotes.flatMap((f) => f.children);
-  assignIds([...doc.children, ...footnoteBlocks]);
+  assignIds(doc);
   return doc;
 }
 
 /** Every heading gets an id: its explicit one, else a de-duplicated slug of its text. */
-function assignIds(blocks: Block[]): void {
+function assignIds(doc: Document): void {
   const used = new Set<string>();
   /** Per slug, the last suffix tried, so a thousand equal headings don't retry -2, -3, …. */
   const suffix = new Map<string, number>();
-  for (const heading of headings(blocks)) {
+  for (const heading of allBlocks(doc, true)) {
+    if (heading.type !== 'heading') continue;
     if (!heading.attrs.id) {
       const base = slugify(plainText(heading.children)) || 'section';
       let id = base;
@@ -81,13 +81,20 @@ function assignIds(blocks: Block[]): void {
   }
 }
 
-/** Every heading, in document order, at any depth. */
-export function* headings(blocks: Block[]): Generator<Extract<Block, { type: 'heading' }>> {
-  for (const b of blocks) {
-    if (b.type === 'heading') yield b;
-    else if (b.type === 'blockquote' || b.type === 'div') yield* headings(b.children);
-    else if (b.type === 'list') for (const item of b.items) yield* headings(item.children);
-  }
+/**
+ * Every block in document order, at any depth; with `footnotes`, theirs follow. The one walk
+ * that heading ids, `{{TOC}}`, and `references()` share, so they can't disagree.
+ */
+export function* allBlocks(doc: Document, footnotes = false): Generator<Block> {
+  const walk = function* (blocks: Block[]): Generator<Block> {
+    for (const b of blocks) {
+      yield b;
+      if (b.type === 'blockquote' || b.type === 'div') yield* walk(b.children);
+      else if (b.type === 'list') for (const item of b.items) yield* walk(item.children);
+    }
+  };
+  yield* walk(doc.children);
+  if (footnotes) for (const f of doc.footnotes) yield* walk(f.children);
 }
 
 /** Leading tabs become spaces, to the next 4-column stop. */
