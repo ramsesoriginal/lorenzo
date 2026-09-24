@@ -28,12 +28,12 @@ Every table has `tenant_id` and the standard `tenant_isolation` policy with `FOR
   - `true_value`/`false_value` (text, nullable)
 
   The result is `true`/`false` when the target stat is `bool`. For a `text` or `enum` target it is `true_value` or `false_value`: "heavy"/"light", or "overloaded"/"fine".
-- Source-stat foreign keys are `ON DELETE RESTRICT`: a stat definition a formula reads can't be deleted out from under it (there is no stat-definition delete route today anyway).
+- Source-stat foreign keys don't cascade (`NO ACTION`): a stat definition a formula reads can't be deleted out from under it (there is no stat-definition delete route today anyway). `NO ACTION` rather than `RESTRICT`, so deleting a whole tenant, which removes both in one statement, still works.
 
 ### Types, checked at write time (422)
 
 - **Linear.** Source and target must be `int` or `float`. An `int` target needs a `round_mode` other than `none`.
-- **Comparison.** Left and right operands must be `int` or `float`. The target must be `bool`, `text`, or `enum`. `text`/`enum` targets need both result values, and for `enum` both must be allowed values. `bool` targets take neither.
+- **Comparison.** Exactly one right side, a stat or a constant (also a database `CHECK`). Left and right operands must be `int` or `float`. The target must be `bool`, `text`, or `enum`. `text`/`enum` targets need both result values, and for `enum` both must be allowed values. `bool` targets take neither.
 - **No stat reads itself.**
 
 ### Resolution
