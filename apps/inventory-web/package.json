@@ -22,6 +22,8 @@
   "dependencies": {
     "@authgear/web": "^6.0.0",
     "@lorenzo/brand": "workspace:*",
+    "@lorenzo/lorenzoscript": "workspace:*",
+    "@lorenzo/lorenzoscript-editor": "workspace:*",
     "astro": "^7.3.3",
     "openapi-fetch": "^0.13.4",
     "zod": "^3.24.1"

@@ -53,6 +53,12 @@ importers:
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@lorenzo/lorenzoscript':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript
+      '@lorenzo/lorenzoscript-editor':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript-editor
       astro:
         specifier: ^7.3.3
         version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)
