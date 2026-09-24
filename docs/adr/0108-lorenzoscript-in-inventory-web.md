@@ -52,7 +52,7 @@ A small pure function makes this choice, so it's unit-tested without a browser.
 - **Opening the editor.** "Edit description", or "Write a description" when there's none, fetches `GET .../entities/{id}`. It edits the first description payload, by `order`, of the entity's `description` information. The API only ever creates one; any others, from seeding, are left alone.
 - **Saving an existing description.** `PATCH .../payloads/{id}` with `{content}` and `If-Match` built from the payload's `updated_at` at the moment the editor opened.
   - `412` means someone saved in between. The editor stays open with the author's text, and says so.
-  - The page then reloads the item and re-renders.
+  - Otherwise the page shows the saved text straight away.
 - **Writing a new description.** `POST .../entities/{id}/information` with type `description`, title `Description`, the text, and the viewer's first locale.
   - A "Players can read this" checkbox, checked by default, sets `is_public`. inventory-web has no way to name knowers, so a private description written here would stay hidden from every player.
 - **While editing,** a short list below the editor names every link that won't work for readers: slugs nobody holds yet, hints the entity doesn't match, and entities with no page here. Readers never see these notes; for them, a broken link is simply plain text.
