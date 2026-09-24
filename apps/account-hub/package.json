@@ -7,9 +7,10 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "build-branding-package": "pnpm --filter @lorenzo/brand run build",
     "copy-branding": "node scripts/copy-branding.mjs",
-    "dev": "pnpm run copy-branding && astro dev",
-    "build": "pnpm run copy-branding && astro build",
+    "dev": "pnpm run build-branding-package && pnpm run copy-branding && astro dev",
+    "build": "pnpm run build-branding-package && pnpm run copy-branding && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
