@@ -47,6 +47,7 @@ from lorenzo_api.models import (
     Containment,
     Entity,
     EntityPrototype,
+    EntitySlug,
     Item,
     ItemInstance,
     Ownership,
@@ -603,8 +604,10 @@ async def create_item_instance(
     )
 
     if body.slug is not None:
-        slug_stmt = select(ItemInstance.entity_id).where(
-            ItemInstance.tenant_id == tenant_id, ItemInstance.slug == body.slug
+        # Every entity's slug lives in entity_slug since ADR 0107, so this is
+        # unique across the tenant, not only among item instances.
+        slug_stmt = select(EntitySlug.entity_id).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.slug == body.slug
         )
         if (await session.execute(slug_stmt)).first() is not None:
             raise ItemInstanceSlugConflictError(
@@ -619,7 +622,9 @@ async def create_item_instance(
     )
     session.add(entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
+    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+    if body.slug is not None:
+        session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
         EntityPrototype(entity_id=entity.id, prototype_id=body.prototype_id, tenant_id=tenant_id)
     )

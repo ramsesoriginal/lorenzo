@@ -1,14 +1,41 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import Request
 from pydantic import BaseModel
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, Information
-from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.stat_evaluation import evaluate
+
+
+class EntitySlugUpdate(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/slug - see ADR 0107."""
+
+    slug: Slug
+
+
+class EntitySlugOut(BaseModel):
+    entity_id: uuid.UUID
+    slug: str
+
+
+EntityKind = Literal["item", "item_instance", "being", "character"]
+
+
+class ResolvedSlugOut(BaseModel):
+    """One entry of GET .../entities/resolve - see ADR 0107. `kinds` says
+    what the entity is, so a client can honour a LorenzoScript view hint
+    (`being/ashfang`) and choose where the link leads.
+    """
+
+    slug: str
+    entity_id: uuid.UUID
+    name: str
+    kinds: list[EntityKind]
 
 
 class InformationCreate(BaseModel):
@@ -115,6 +142,8 @@ class EntityDetailOut(BaseModel):
 
     id: uuid.UUID
     name: str
+    # ADR 0107: how LorenzoScript text links to this entity, if it can.
+    slug: str | None
     created_at: datetime
     updated_at: datetime
     stats: list[EntityStatValueOut]
@@ -133,6 +162,7 @@ class EntityDetailOut(BaseModel):
         return cls(
             id=entity.id,
             name=entity.name,
+            slug=entity.slug.slug if entity.slug is not None else None,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
             stats=_stats_out(entity),

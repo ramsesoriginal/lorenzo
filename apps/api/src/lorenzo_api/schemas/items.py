@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
-from lorenzo_api.schemas.common import EntitySummary, ProblemOut
+from lorenzo_api.schemas.common import EntitySummary, ProblemOut, Slug
 
 __all__ = [
     "DescriptionOut",
@@ -312,14 +312,17 @@ class ItemInstanceCreate(BaseModel):
     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
     row if owner_character_id is given and/or a Containment row if
     container_entity_id is given. slug (ADR 0043) is optional, unique per
-    tenant when set, and resolvable later via GET .../by-slug/{slug}.
+    tenant when set - across every entity since ADR 0107 - and resolvable
+    later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
+    like every slug write (ADR 0107) - a deliberately accepted breaking
+    change to ADR 0043's unrestricted string.
     """
 
     name: str | None = None
     prototype_id: uuid.UUID
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
-    slug: str | None = None
+    slug: Slug | None = None
 
 
 class ItemInstanceUpdate(BaseModel):

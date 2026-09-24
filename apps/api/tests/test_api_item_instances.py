@@ -20,6 +20,7 @@ from lorenzo_api.models import (
     Containment,
     Entity,
     EntityPrototype,
+    EntitySlug,
     Information,
     Item,
     ItemInstance,
@@ -1093,8 +1094,7 @@ async def test_get_item_instance_by_slug_404_for_a_slug_the_caller_cannot_reach(
         tenant_id, test_user_id=test_user_id
     )
     async with admin_session_factory() as session:
-        bob_instance = await session.get_one(ItemInstance, bob_item_id)
-        bob_instance.slug = "bobs-dagger"
+        session.add(EntitySlug(entity_id=bob_item_id, tenant_id=tenant_id, slug="bobs-dagger"))
         await session.commit()
 
     response = await client.get(f"/tenants/{tenant_id}/item-instances/by-slug/bobs-dagger")

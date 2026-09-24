@@ -1350,6 +1350,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve Slugs
+         * @description Every slug a LorenzoScript text names, in one request (ADR 0107, RFC
+         *     0027 §7). Same gate as GET /{entity_id}, so a slug resolves for exactly
+         *     the readers who could open its entity. Slugs that don't resolve are
+         *     simply absent: a missing entity and a hidden one look alike.
+         */
+        get: operations["resolve_slugs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/by-slug/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entity By Slug
+         * @description GET /{entity_id}, addressed by slug (ADR 0107).
+         */
+        get: operations["get_entity_by_slug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}": {
         parameters: {
             query?: never;
@@ -1365,6 +1408,34 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/slug": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Entity Slug
+         * @description Sets or replaces the entity's one slug (ADR 0107). 404 for an unknown
+         *     entity, then the same self-or-managed tier as authoring its information
+         *     (403), then 409 if another entity in the tenant already has the slug.
+         *     Setting the entity's current slug again changes nothing.
+         */
+        put: operations["set_entity_slug"];
+        post?: never;
+        /**
+         * Clear Entity Slug
+         * @description Clears the entity's slug, if it has one (ADR 0107): 204 either way,
+         *     like this API's other idempotent sub-resource DELETEs (ADR 0064).
+         */
+        delete: operations["clear_entity_slug"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3408,6 +3479,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Slug */
+            slug: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3433,6 +3506,24 @@ export interface components {
             quantity: number | null;
             /** Children */
             children: components["schemas"]["EntitySummary"][];
+        };
+        /** EntitySlugOut */
+        EntitySlugOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Slug */
+            slug: string;
+        };
+        /**
+         * EntitySlugUpdate
+         * @description PUT /tenants/{tenant_id}/entities/{entity_id}/slug - see ADR 0107.
+         */
+        EntitySlugUpdate: {
+            /** Slug */
+            slug: string;
         };
         /**
          * EntityStatValueOut
@@ -3819,7 +3910,10 @@ export interface components {
          *     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
          *     row if owner_character_id is given and/or a Containment row if
          *     container_entity_id is given. slug (ADR 0043) is optional, unique per
-         *     tenant when set, and resolvable later via GET .../by-slug/{slug}.
+         *     tenant when set - across every entity since ADR 0107 - and resolvable
+         *     later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
+         *     like every slug write (ADR 0107) - a deliberately accepted breaking
+         *     change to ADR 0043's unrestricted string.
          */
         ItemInstanceCreate: {
             /** Name */
@@ -4946,6 +5040,25 @@ export interface components {
             name: string;
             /** Prototype Ids */
             prototype_ids: string[];
+        };
+        /**
+         * ResolvedSlugOut
+         * @description One entry of GET .../entities/resolve - see ADR 0107. `kinds` says
+         *     what the entity is, so a client can honour a LorenzoScript view hint
+         *     (`being/ashfang`) and choose where the link leads.
+         */
+        ResolvedSlugOut: {
+            /** Slug */
+            slug: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
         };
         /**
          * RoundMode
@@ -10027,6 +10140,139 @@ export interface operations {
             };
         };
     };
+    resolve_slugs: {
+        parameters: {
+            query: {
+                slug: string[];
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedSlugOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entity_by_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_entity: {
         parameters: {
             query?: never;
@@ -10047,6 +10293,140 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EntityDetailOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_entity_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntitySlugUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySlugOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_entity_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
