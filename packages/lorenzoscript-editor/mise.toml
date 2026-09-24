@@ -1,0 +1,33 @@
+# A pnpm workspace member like packages/lorenzoscript: every task depends on
+# `install`, since CI runs `mise run lint`/`test` here with no separate
+# install step. `build` bundles only the demo (ADR 0106); the package itself
+# ships its TypeScript source.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.build]
+description = "Bundle the demo (demo/demo.js, gitignored), then open demo/index.html"
+depends = ["install"]
+run = "pnpm run build"
+
+[tasks.dev]
+description = "Rebuild the demo bundle on every change"
+depends = ["install"]
+run = "pnpm run dev"
+
+[tasks.lint]
+description = "Biome + tsc --noEmit"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome autoformat"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run the action tests"
+depends = ["install"]
+run = "pnpm run test"

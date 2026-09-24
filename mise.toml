@@ -1,7 +1,7 @@
 monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/account-hub", "apps/api", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/brand", "packages/lorenzoscript"]
+config_roots = ["apps/account-hub", "apps/api", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/brand", "packages/lorenzoscript", "packages/lorenzoscript-editor"]
 
 [tools]
 node = "22"

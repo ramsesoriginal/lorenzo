@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>LorenzoScript editor — demo</title>
+    <link rel="stylesheet" href="../../../apps/brand/normalize.css" />
+    <link rel="stylesheet" href="../../../apps/brand/tokens.css" />
+    <link rel="stylesheet" href="../../../apps/brand/fonts.css" />
+    <link rel="stylesheet" href="../../../apps/brand/base.css" />
+    <link rel="stylesheet" href="../../../apps/brand/layout.css" />
+    <link rel="stylesheet" href="../../../apps/brand/components.css" />
+  </head>
+  <body>
+    <main>
+      <div class="wrap stack">
+        <h1 class="display">✧ LorenzoScript</h1>
+        <p class="lede">
+          The editor from <code>packages/lorenzoscript-editor</code>, over an
+          in-memory stand-in for Lorenzo: it knows <code>ashfang</code> and
+          <code>emberdeep</code>, and one date in the Harptos calendar.
+          Everything else resolves to nothing, as it would for a reader who may
+          not see it.
+        </p>
+        <p id="unbuilt" class="card card-body">
+          This page needs its script. Run
+          <code>mise run //packages/lorenzoscript-editor:build</code>, then
+          reload.
+        </p>
+
+        <div class="field">
+          <label for="layout">Preview</label>
+          <select id="layout" class="text-input">
+            <option value="split">Beside the text</option>
+            <option value="tabs">Behind a tab</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="description">Description of Ashfang</label>
+          <textarea id="description" name="description" rows="22">
+# Ashfang {#ashfang}
+
+{{TOC}}
+
+A *flaming* longsword, forged in [[Emberdeep]] in 1479 DR by the smith **Oda**.[^oda]
+As loot it's [a sword](item_instance/ashfang); as a companion, [[being/Ashfang|a mind of its own]].
+The [[Lost Crown]] is another story.
+
+![Ashfang, as the party sketched it](ashfang)
+
+## Properties
+
+| Property | Value | Note |
+| :--- | ---: | :---: |
+| Damage | 1d8 + 1d6 fire | ~~2d6~~ since the siege |
+| Weight | 3 lb | |
+
+- [x] Identified
+- [ ] Attuned
+- [ ] Named its price
+
+## Chances
+
+A natural 20 comes up with probability $p = \frac{1}{20}$, and at least once in $n$ rolls with
+
+$$
+P = 1 - \left( \frac{19}{20} \right)^n
+$$
+
+## History
+
+> The blade was quenched in a ghost's hum.
+> > From the Elfsong Tavern's chimney, allegedly.
+
+Last seen {{date 2026-09-24}}; in the world, {{cal harptos 1492-mirtul-12}}.
+
+{{.note
+Classes style text, they never hide it: who may read this is decided by the information it belongs to.
+}}
+
+*[DR]: Dale Reckoning
+
+[^oda]: Oda never spoke of it again.
+</textarea>
+        </div>
+
+        <section class="stack">
+          <h2>What this text refers to</h2>
+          <p>
+            What <code>references()</code> finds, and what the stand-in makes of
+            it: the list an app looks up before rendering, and the only place a
+            broken link shows.
+          </p>
+          <ul id="references"></ul>
+        </section>
+      </div>
+    </main>
+    <script src="demo.js"></script>
+  </body>
+</html>
