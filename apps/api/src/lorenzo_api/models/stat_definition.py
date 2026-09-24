@@ -11,6 +11,7 @@ from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity_stat import EntityStat
+    from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
 
@@ -22,6 +23,9 @@ class StatValueType(enum.Enum):
     TEXT = "text"
     FLOAT = "float"
     BOOL = "bool"
+    # Stored in value_text, one of stat_definition_enum_value's values for
+    # this definition (ADR 0103).
+    ENUM = "enum"
 
 
 class StatDefinition(Base):
@@ -49,6 +53,14 @@ class StatDefinition(Base):
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_definitions")
     stat_group: Mapped[StatGroup] = relationship(
         lazy="raise_on_sql", back_populates="stat_definitions"
+    )
+    # Empty unless value_type is ENUM (ADR 0103).
+    enum_values: Mapped[list[StatDefinitionEnumValue]] = relationship(
+        lazy="raise_on_sql",
+        back_populates="stat_definition",
+        order_by="(StatDefinitionEnumValue.sort_order, StatDefinitionEnumValue.value)",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     entity_stats: Mapped[list[EntityStat]] = relationship(
         lazy="raise_on_sql",
