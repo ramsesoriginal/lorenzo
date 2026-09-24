@@ -449,7 +449,7 @@ import Base from '../../layouts/Base.astro';
     // The standalone, shareable single-item page (its own "Copy link").
     function createViewLink(entityId: string, slug?: string | null): HTMLAnchorElement {
       const link = document.createElement('a');
-      link.className = 'action-link';
+      link.className = 'btn btn-secondary';
       link.textContent = 'View';
       link.href = slug
         ? `/item/?tenant=${tenantId}&slug=${encodeURIComponent(slug)}`
@@ -478,7 +478,7 @@ import Base from '../../layouts/Base.astro';
       instantiateButton.textContent = 'Create instance';
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
-      deleteButton.className = 'button-danger';
+      deleteButton.className = 'btn-danger';
       deleteButton.textContent = 'Delete';
       actions.append(viewLink, editButton, instantiateButton, deleteButton);
 
@@ -672,7 +672,7 @@ import Base from '../../layouts/Base.astro';
       unassignButton.hidden = !instance.owner_entity_id;
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
-      deleteButton.className = 'button-danger';
+      deleteButton.className = 'btn-danger';
       deleteButton.textContent = 'Delete';
       actions.append(viewLink, reassignButton, unassignButton, deleteButton);
       header.append(title, actions);

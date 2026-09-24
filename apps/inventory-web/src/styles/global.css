@@ -1,11 +1,11 @@
 /*
- * Single entry point, imported once from Base.astro. Order matters
- * (ITCSS-style): reset -> tokens -> base element defaults -> structural
- * layout -> reusable components.
+ * Single entry point, imported once from Base.astro - this app's own
+ * domain-specific tokens/layout/components only. The generic reset,
+ * design tokens, base element defaults, and reusable components come from
+ * @lorenzo/brand's stylesheets instead, <link>'d directly in Base.astro
+ * (ADR 0098) - they load first, so these rules apply on top.
  */
 
-@import "./normalize.css";
 @import "./tokens.css";
-@import "./base.css";
 @import "./layout.css";
 @import "./components.css";

@@ -9,7 +9,7 @@ hide = true
 
 [tasks.dev]
 description = "Run the Astro dev server"
-depends = ["install"]
+depends = ["install", "//packages/brand:build"]
 run = "pnpm run dev"
 
 [tasks.lint]
@@ -29,5 +29,5 @@ run = "pnpm run test"
 
 [tasks.build]
 description = "Build the static site to dist/"
-depends = ["install"]
+depends = ["install", "//packages/brand:build"]
 run = "pnpm run build"
