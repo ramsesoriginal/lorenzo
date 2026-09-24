@@ -476,9 +476,10 @@ class CharacterManagementForbiddenError(ForbiddenProblem):
 
 
 class InformationAlreadyExistsError(ConflictProblem):
-    """POST /tenants/{id}/entities/{id}/information - this entity already
-    has an Information row of the given `type` (Information's own
-    UniqueConstraint(entity_id, type), ADR 0017). Pre-checked explicitly
+    """POST /tenants/{id}/entities/{id}/information, or PATCH
+    .../information/{id} changing `type` - this entity already has an
+    Information row of a *singleton* type (information_type.is_singleton,
+    ADR 0101 - other types repeat freely). Pre-checked explicitly
     rather than relying on the constraint violation to surface, matching
     MembershipAlreadyExistsError/PlayerAlreadyExistsError's own established
     precedent (ADR 0036) for a real, easily-reachable duplicate-write case.
@@ -486,6 +487,24 @@ class InformationAlreadyExistsError(ConflictProblem):
     """
 
     title = "This entity already has information of this type"
+
+
+class InformationOrderConflictError(ConflictProblem):
+    """POST .../entities/{id}/information or PATCH .../information/{id}
+    with an explicit `order` another row of the same entity already holds
+    (ADR 0101: unique per entity, pre-checked under the entity's row lock).
+    """
+
+    title = "Another piece of information already has this position"
+
+
+class PayloadKindNotEditableError(ConflictProblem):
+    """PATCH .../payloads/{id} on a payload that isn't a description (ADR
+    0101) - number/picture/document authoring is still RFC 0015 sub-slice
+    4's open question.
+    """
+
+    title = "Only description payloads can be edited"
 
 
 class InformationNotFoundError(NotFoundProblem):
