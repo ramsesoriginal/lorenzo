@@ -1,6 +1,6 @@
 # RFC: `apps/account-hub` — roster view, tenant admin, and notification sending
 
-Status: proposed
+Status: accepted — landed in full across [ADR 0081](../adr/0081-account-hub-campaign-roster-search-and-leave.md) (a)/(b)/(c), [ADR 0082](../adr/0082-account-hub-tenant-creation-and-membership-admin.md) (d)/(e), and [ADR 0083](../adr/0083-account-hub-activity-log-and-notification-sending.md) (f)/(g)/(h); the separate cleanup named in Consequences landed as [ADR 0080](../adr/0080-account-hub-css-conventions-and-shared-dom-helpers.md)
 
 ## Context
 
