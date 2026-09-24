@@ -1,6 +1,7 @@
 /*
- * Reusable pieces: buttons, form controls, tabs, chips, badges/pills, and
- * small status/text treatments - the generic subset curated from
+ * Reusable pieces: buttons, form controls, tabs, chips, badges/pills,
+ * small status/text treatments, and the LorenzoScript editor and rendered
+ * text (.ls-editor, .ls-content; ADR 0106) - the generic subset curated from
  * apps/inventory-web's and apps/account-hub's own components.css.
  * Anything domain-specific (item cards, board columns, catalog rows,
  * tenant cards) stays local to the app that needs it, not here - see
@@ -621,4 +622,199 @@ input[type="image"]:focus-visible {
 .editor-content:empty::before {
   content: attr(data-placeholder);
   color: var(--text-tertiary);
+}
+
+/* The LorenzoScript editor (RFC 0027, ADR 0106): packages/lorenzoscript-editor
+   wraps a textarea and its preview in .card.ls-editor, after an .editor-toolbar.
+   data-layout is "split" (side by side, stacked when the editor itself is
+   narrow, whatever the viewport) or "tabs". */
+.ls-editor {
+  container-type: inline-size;
+}
+
+.ls-editor .editor-toolbar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ls-editor .editor-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ls-editor .editor-toolbar .tabs {
+  margin-inline-start: auto;
+  border-bottom: none;
+}
+
+/* Tabs are buttons too, but not the toolbar's square icon ones. */
+.ls-editor .editor-toolbar .tab {
+  width: auto;
+  height: auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 0;
+}
+
+.ls-editor-panes {
+  display: grid;
+}
+
+.ls-editor[data-layout="split"] .ls-editor-panes {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ls-editor[data-layout="split"] .ls-preview {
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+@container (max-width: 760px) {
+  .ls-editor[data-layout="split"] .ls-editor-panes {
+    grid-template-columns: 1fr;
+  }
+
+  .ls-editor[data-layout="split"] .ls-preview {
+    border-inline-start: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.ls-editor textarea.editor-content {
+  width: 100%;
+  min-height: 320px;
+  border: none;
+  border-radius: 0;
+  resize: vertical;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* A wide table scrolls the preview sideways instead of squeezing its words. */
+.ls-editor .ls-preview {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/* Rendered LorenzoScript, wherever it's shown: wrap the renderer's output
+   in .ls-content. Its own classes all start with ls-. Table cells keep the
+   renderer's align attribute, so nothing here sets their text-align. */
+.ls-content {
+  overflow-wrap: break-word;
+}
+
+.ls-content > :first-child {
+  margin-top: 0;
+}
+
+/* normalize.css strips every list's markers; written lists need theirs. */
+.ls-content ul,
+.ls-content ol {
+  margin-block: var(--space-2);
+  padding-inline-start: var(--space-5);
+}
+
+.ls-content ul {
+  list-style: disc;
+}
+
+.ls-content ol {
+  list-style: decimal;
+}
+
+.ls-content ul ul {
+  list-style: circle;
+}
+
+.ls-content blockquote {
+  margin-inline: 0;
+  padding-inline-start: var(--space-3);
+  border-inline-start: 3px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.ls-content hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin-block: var(--space-4);
+}
+
+.ls-content table {
+  border-collapse: collapse;
+  margin-block: var(--space-3);
+}
+
+.ls-content th,
+.ls-content td {
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-1) var(--space-2);
+}
+
+.ls-content th {
+  background: var(--surface-muted);
+}
+
+.ls-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ls-content abbr[title] {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.ls-content .ls-task {
+  list-style: none;
+}
+
+.ls-content .ls-task input {
+  margin-inline-end: var(--space-1);
+}
+
+.ls-content .ls-entity {
+  text-decoration-style: dotted;
+}
+
+.ls-content .ls-cal {
+  font-style: italic;
+}
+
+.ls-content math[display="block"] {
+  margin-block: var(--space-3);
+}
+
+.ls-content .ls-math {
+  color: var(--text-secondary);
+}
+
+.ls-content .ls-toc {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-2) var(--space-3);
+}
+
+.ls-content .ls-toc ul {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  list-style: none;
+}
+
+.ls-content .ls-toc > ul {
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.ls-content .ls-footnotes {
+  margin-top: var(--space-5);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.875em;
+  color: var(--text-secondary);
+}
+
+.ls-content .ls-fnref a,
+.ls-content .ls-backref {
+  text-decoration: none;
 }
