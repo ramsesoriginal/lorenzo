@@ -14,6 +14,8 @@ Numbered past ADR 0101, which the parallel description-editing work claimed firs
 
 `~` and `^` join `*` and `_` in the inline pass's per-character table, as ADR 0100 intended. They pair only with a run of the *same* length: `~sub~`, `~~del~~`, and `^sup^`. A run of three or more is text. Like `*`, they work inside words, so `H~2~O` and `2^10^` work, while flanking rules keep `~5 to ~10` literal. They render as `<sub>`, `<del>`, and `<sup>`.
 
+As in Pandoc, sub- and superscripts can't contain spaces; strikethrough can. Without that rule, `x^2 + y^2` would render as x<sup>2 + y</sup>2. This turned up while writing the examples, not in the RFC's discussion.
+
 ### Definitions are document data, not blocks
 
 Footnote definitions (`[^label]: text`, continued by lines indented 4, like a list item) and abbreviation definitions (`*[HTML]: …`) are collected while parsing into `Document.footnotes` and `Document.abbreviations`. They don't appear in the flow. The first definition of a label or term wins. Footnote labels match case-insensitively with whitespace collapsed, as CommonMark link labels do.
