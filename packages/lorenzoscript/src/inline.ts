@@ -27,6 +27,13 @@ const AUTOLINK = /^<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*)>/;
 const EMAIL =
   /^<([A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/;
 const FOOTNOTE_REF = /^\[\^([^\]\s][^\]]*)\]/;
+/** `[[hint/Name|text]]`: no brackets, bars, or line breaks inside. */
+const WIKILINK = /^\[\[([^[\]|\n]+)(?:\|([^[\]\n]+))?\]\]/;
+/** A link target naming an entity (RFC 0027 §3): `slug` or `hint/slug`, no scheme or path. */
+const ENTITY_TARGET = /^(?:([a-z_]+)\/)?([A-Za-z0-9][A-Za-z0-9_-]*)$/;
+const HINTED = /^([a-z_]+)\/(.+)$/;
+const DIRECTIVE = /^\{\{([A-Za-z]+)[ \t]+([^{}\n]*?)[ \t]*\}\}/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `#id` and `.class` tokens, the one attribute syntax every `{…}` and `{{…}}` shares. */
 export const ATTR_LIST = String.raw`[.#][A-Za-z][\w-]*(?:[ \t]+[.#][A-Za-z][\w-]*)*`;
@@ -57,20 +64,32 @@ export const slugify = (s: string) =>
     .replace(/^-|-$/g, '');
 
 /** Plain text of inline content, e.g. for an image's alt or a heading's slug. */
-export const plainText = (nodes: Inline[]): string =>
-  nodes
-    .map((n) =>
-      'children' in n
-        ? plainText(n.children)
-        : 'text' in n
-          ? n.text
-          : 'tex' in n
-            ? n.tex
-            : n.type === 'break'
-              ? ' '
-              : '',
-    )
-    .join('');
+export const plainText = (nodes: Inline[]): string => nodes.map(plainOf).join('');
+
+function plainOf(n: Inline): string {
+  if ('children' in n) return plainText(n.children);
+  switch (n.type) {
+    case 'text':
+    case 'codespan':
+      return n.text;
+    case 'math':
+      return n.tex;
+    case 'date':
+      return n.date;
+    case 'calendar':
+      return n.expression;
+    case 'break':
+      return ' ';
+    default:
+      return '';
+  }
+}
+
+/** Whether `iso` (`YYYY-MM-DD`) names a day that exists, so 2026-02-30 doesn't. */
+function isDate(iso: string): boolean {
+  const day = new Date(`${iso}T00:00:00Z`);
+  return ISO_DATE.test(iso) && !Number.isNaN(day.getTime()) && day.toISOString().startsWith(iso);
+}
 
 /**
  * Blocks and inline elements each nest at most this deep; anything deeper stays text.
@@ -139,10 +158,12 @@ export function parseInline(src: string): Inline[] {
       while (src[i] === c) i++;
       push(delim(c, i - start, src[start - 1] ?? '\n', src[i] ?? '\n'));
     } else if (c === '[' || (c === '!' && next === '[')) {
-      const ref = c === '[' ? FOOTNOTE_REF.exec(src.slice(i)) : null;
-      if (ref) {
-        push({ type: 'footnote', label: ref[1] as string });
-        i += ref[0].length;
+      const token = c === '[' ? (footnoteRef(src.slice(i)) ?? wikilink(src.slice(i))) : null;
+      if (token) {
+        push(token.node);
+        // A wikilink is a link, so no earlier `[` can become one around it.
+        if (token.node.type === 'link') for (const b of brackets) if (!b.image) b.active = false;
+        i += token.length;
         continue;
       }
       const image = c === '!';
@@ -160,9 +181,10 @@ export function parseInline(src: string): Inline[] {
       }
       const type = bracket.image ? 'image' : 'link';
       const { url, title } = dest;
+      const ref = entityRef(url);
       const linked = close(
         bracket.at,
-        (children) => ({ type, url, title, children }),
+        (children) => ({ type, url, title, ...(ref && { ref }), children }),
         src.slice(i, dest.end),
       );
       // No links inside links: every earlier `[` can no longer become one.
@@ -170,12 +192,14 @@ export function parseInline(src: string): Inline[] {
       i = dest.end;
     } else if (c === '{' && next === '{') {
       const m = SPAN_OPEN.exec(src.slice(i));
+      const token = m ? null : directive(src.slice(i));
       if (m) {
         flush();
         spans.push({ at: nodes.length, attrs: attributes(m[1] as string) });
         nodes.push(textNode(m[0]));
-      } else text += '{{';
-      i += m ? m[0].length : 2;
+      } else if (token) push(token.node);
+      else text += '{{';
+      i += m ? m[0].length : token ? token.length : 2;
     } else if (c === '}' && next === '}' && spans.length) {
       const { at, attrs } = spans.pop() as SpanOpener;
       close(at, (children) => ({ type: 'span', attrs, children }), '}}');
@@ -199,6 +223,46 @@ export function parseInline(src: string): Inline[] {
 }
 
 type Token = { node: Node; length: number } | null;
+
+function footnoteRef(s: string): Token {
+  const m = FOOTNOTE_REF.exec(s);
+  return m && { node: { type: 'footnote', label: m[1] as string }, length: m[0].length };
+}
+
+/** `[[Name]]` links to the name's slug, so `[[Old Sword]]` finds `old-sword`. No slug, no link. */
+function wikilink(s: string): Token {
+  const m = WIKILINK.exec(s);
+  const target = m?.[1]?.trim() ?? '';
+  const hinted = HINTED.exec(target);
+  const name = hinted?.[2] ?? target;
+  const slug = slugify(name);
+  if (!m || !slug) return null;
+  const ref = { hint: hinted?.[1] ?? '', slug };
+  const children = [textNode((m[2] ?? name).trim())];
+  return {
+    node: nest({ type: 'link', url: target, title: '', ref, children }),
+    length: m[0].length,
+  };
+}
+
+const entityRef = (url: string) => {
+  const m = ENTITY_TARGET.exec(url);
+  return m ? { hint: m[1] ?? '', slug: m[2] as string } : undefined;
+};
+
+/** `{{date YYYY-MM-DD}}` or `{{cal …}}`; any other name, or no arguments, stays text. */
+function directive(s: string): Token {
+  const m = DIRECTIVE.exec(s);
+  const name = m?.[1]?.toLowerCase();
+  const args = m?.[2] ?? '';
+  const node: Inline | null =
+    name === 'date' && isDate(args)
+      ? { type: 'date', date: args }
+      : name === 'cal' && args
+        ? { type: 'calendar', expression: args }
+        : null;
+  return m && node && { node, length: m[0].length };
+}
 
 /** `<https://…>` or `<name@host>` at the start of `s`. */
 function autolink(s: string): Token {
