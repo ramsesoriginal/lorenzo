@@ -1,0 +1,27 @@
+# A pnpm workspace member like apps/loot-bot: every task depends on
+# `install`, since CI runs `mise run lint`/`test` here with no separate
+# install step. No `build` task - the package ships its TypeScript source
+# (ADR 0100), so there is nothing to emit; `lint` already type-checks.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.dev]
+description = "Nothing to run - the editor package's demo page (RFC 0027 stage 4) will preview this"
+run = "echo 'packages/lorenzoscript has no dev server - run the tests, or see SPEC.md.'"
+
+[tasks.lint]
+description = "Biome + tsc --noEmit"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome autoformat"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run SPEC.md's examples"
+depends = ["install"]
+run = "pnpm run test"

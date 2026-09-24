@@ -24,6 +24,10 @@
     "packages/brand": {
       "release-type": "node",
       "component": "brand-package"
+    },
+    "packages/lorenzoscript": {
+      "release-type": "node",
+      "component": "lorenzoscript"
     }
   }
 }

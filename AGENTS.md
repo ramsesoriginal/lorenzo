@@ -17,7 +17,7 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 | `apps/inventory-web` | Static Astro frontend — GM item catalog/instance management, kanban-style container board |
 | `apps/account-hub` | Static Astro frontend — a user's own account: profile, notifications, tenant/campaign roster and admin |
 | `apps/*` (further) | One directory per deployable app, named by purpose (not type) — next one not yet started |
-| `packages/*` | Extracted generic libraries, each its own small, independently versioned package — none exist yet |
+| `packages/*` | Extracted generic libraries, each its own small, independently versioned package — `packages/brand` (shared brand CSS, ADR 0098) and `packages/lorenzoscript` (the LorenzoScript Markdown parser/renderer, RFC 0027) so far |
 | `docs/adr` | Why things are the way they are — read before proposing an architectural change |
 
 ## Commands
