@@ -54,7 +54,7 @@ Code block languages are kept only if they match `[\w+#.-]+`, as `class="languag
 
 ### The spec is the test suite
 
-RFC 0027 §6 originally named separate `spec/**/<case>.md`/`.html` files. Instead, `packages/lorenzoscript/SPEC.md` embeds its examples the way CommonMark's own `spec.txt` does: a fenced block with info string `example`, where source and expected HTML are separated by a line containing a single `.`. Stage 3 adds a third section for expected references. `␠` stands for a trailing space and `→` for a tab, so the repo's trailing-whitespace hook can't silently change an example. One vitest file runs every example. Stage 7's Python extractor reads the same file. The documentation and the tests can't drift, because they are the same file.
+RFC 0027 §6 originally named separate `spec/**/<case>.md`/`.html` files. Instead, `packages/lorenzoscript/SPEC.md` embeds its examples the way CommonMark's own `spec.txt` does: a fenced block with info string `example`, where source and expected HTML are separated by a line containing a single `.`. Stage 3 adds a third section for expected references. `␠` stands for a trailing space and `⇥` for a tab, so the repo's trailing-whitespace hook can't silently change an example. (Stage 1 used CommonMark's `→` for tabs, until stage 2's math rendered `\to` as a real `→`; no example had used it for a tab.) One vitest file runs every example. Stage 7's Python extractor reads the same file. The documentation and the tests can't drift, because they are the same file.
 
 ## Not in scope
 
