@@ -29,9 +29,11 @@ The migration:
 
 ### What a slug is
 
-A slug matches `[A-Za-z0-9][A-Za-z0-9_-]*` and is at most 100 characters: RFC 0027 §3's grammar, so every slug can appear in `[text](slug)`. It's case-sensitive and matched exactly. The grammar is checked on every write, `ItemInstanceCreate.slug` included; no client in this repo creates slugs today.
+A slug matches `[A-Za-z0-9][A-Za-z0-9_-]*` and is at most 100 characters: RFC 0027 §3's grammar, so every slug can appear in `[text](slug)`. It's case-sensitive and matched exactly.
 
-Existing slugs aren't re-validated. One that doesn't fit still resolves; it just can't be set again.
+The grammar is checked by the new `PUT .../slug` only. `ItemInstanceCreate.slug` keeps ADR 0043's contract and accepts any string. The first draft of this ADR tightened that field too, since no client in this repo sets it. CI's breaking-change check (oasdiff) rightly rejected adding a pattern and a maximum length to an existing request field: a client outside this repo may rely on it, the same reasoning [ADR 0042](0042-concurrency-token-on-reads.md) applied to `If-Match`.
+
+So a slug outside the grammar can exist: existing ones, and new ones set at creation. It still resolves by exact match through every lookup here. It just can't be written as a LorenzoScript link, and it can't be set again through `PUT`.
 
 ### Endpoints
 
