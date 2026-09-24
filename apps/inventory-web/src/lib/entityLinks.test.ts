@@ -37,6 +37,11 @@ describe('entityHref', () => {
     expect(entityHref('t1', entity(['being']), 'being')).toBeNull();
     expect(entityHref('t1', entity([]), '')).toBeNull();
   });
+
+  it('routes a backlink, which has kinds but no slug or hint', () => {
+    const backlink = { entity_id: 'e2', kinds: ['being' as const, 'character' as const] };
+    expect(entityHref('t1', backlink)).toBe('/board/?tenant=t1&character=e2');
+  });
 });
 
 describe('linkNote', () => {

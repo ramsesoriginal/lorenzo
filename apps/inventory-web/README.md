@@ -30,7 +30,10 @@ Every item instance also has its own standalone, shareable page
 for both a catalog item and an instance, with a "Copy link" button. There, a
 GM can also write or edit the item's description, in a LorenzoScript editor
 with a live preview that lists any links readers won't be able to follow
-([ADR 0108](../../docs/adr/0108-lorenzoscript-in-inventory-web.md)).
+([ADR 0108](../../docs/adr/0108-lorenzoscript-in-inventory-web.md)). The page
+also lists, under "Mentioned in", the entities whose descriptions link to the
+item, as far as the viewer may read them
+([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)).
 
 A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
