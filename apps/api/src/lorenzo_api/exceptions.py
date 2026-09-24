@@ -30,6 +30,9 @@ __all__ = [
     "CharacterNotFoundError",
     "EntityNotFoundError",
     "EntityPrototypeCycleError",
+    "EntitySlugConflictError",
+    "EntitySlugManagementForbiddenError",
+    "EntitySlugNotFoundError",
     "EntityStatManagementForbiddenError",
     "InvalidCharacterError",
     "InvalidGroupMemberError",
@@ -84,6 +87,32 @@ class TenantNotFoundError(NotFoundProblem):
 
 class EntityNotFoundError(NotFoundProblem):
     title = "Entity not found"
+
+
+class EntitySlugNotFoundError(NotFoundProblem):
+    """GET .../entities/by-slug/{slug} - see ADR 0107. Non-enumerable, like
+    ItemInstanceSlugNotFoundError: a slug in another tenant 404s the same.
+    """
+
+    title = "Entity not found"
+
+
+class EntitySlugConflictError(ConflictProblem):
+    """PUT .../entities/{id}/slug - another entity in this tenant already
+    has the slug (UNIQUE(tenant_id, slug), ADR 0107). Pre-checked, rather
+    than surfacing the constraint violation as a 500.
+    """
+
+    title = "Slug already in use"
+
+
+class EntitySlugManagementForbiddenError(ForbiddenProblem):
+    """Self-or-managed authorization failed for setting or clearing an
+    entity's slug - see ADR 0107, which reuses ADR 0038's tier. 403, not
+    404: the caller can already read the entity.
+    """
+
+    title = "Not authorized to manage this entity's slug"
 
 
 class CampaignNotFoundError(NotFoundProblem):
@@ -200,9 +229,9 @@ class InvalidSplitQuantityError(UnprocessableProblem):
 
 
 class ItemInstanceSlugConflictError(ConflictProblem):
-    """POST /item-instances - the given slug is already used by another item
-    instance in this tenant (the partial unique index on
-    (tenant_id, slug), ADR 0043). Pre-checked explicitly, matching
+    """POST /item-instances - the given slug is already used by another
+    entity in this tenant (entity_slug's UNIQUE(tenant_id, slug), ADR 0107;
+    item instances only, before that, ADR 0043). Pre-checked explicitly, matching
     MembershipAlreadyExistsError/PlayerAlreadyExistsError/SlugConflictError's
     own established precedent, rather than letting the constraint violation
     surface as a bare 500.
