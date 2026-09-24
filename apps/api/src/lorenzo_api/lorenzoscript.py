@@ -68,9 +68,10 @@ _EMAIL = re.compile(
 )
 _FOOTNOTE_REF = re.compile(rf"\[\^([^\]{_WS_CLASS}][^\]]*)\]")
 _WIKILINK = re.compile(r"\[\[([^\[\]|\n]+)(?:\|([^\[\]\n]+))?\]\]")
-_ENTITY_TARGET = re.compile(r"(?:([a-z_]+)/)?([A-Za-z0-9][A-Za-z0-9_-]*)")
+_HINT = re.compile(r"[a-z_]+")
+_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 _HINTED = re.compile(rf"([a-z_]+)/({_DOT}+)")
-_DIRECTIVE = re.compile(r"\{\{([A-Za-z]+)[ \t]+([^{}\n]*?)[ \t]*\}\}")
+_DIRECTIVE_NAME = re.compile(r"\{\{([A-Za-z]+)[ \t]")
 _ISO_DATE = re.compile(r"([0-9]{4})-([0-9]{2})-([0-9]{2})")
 _UNESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
 
@@ -162,12 +163,17 @@ class _Inline:
         self.nodes: list[Node] = []
         self.brackets: list[Node] = []  # {at, image, active}
         self.spans: list[Node] = []  # {at, attrs}
-        self.text = ""
+        # Pending text, joined once: `+=` on an attribute copies the whole string each time.
+        self.text: list[str] = []
+        self.closing_run = _backtick_closer(src)
+        # Per closing quote, where a title scan already ran off the end (see _destination).
+        self.unclosed_titles: dict[str, int] = {}
 
     def flush(self) -> None:
-        if self.text:
-            self.nodes.append(_text(self.text))
-        self.text = ""
+        text = "".join(self.text)
+        if text:
+            self.nodes.append(_text(text))
+        self.text = []
 
     def push(self, node: Node) -> None:
         self.flush()
@@ -204,18 +210,21 @@ class _Inline:
                 if nxt == "\n":
                     self.push({"type": "break"})
                 else:
-                    self.text += nxt
+                    self.text.append(nxt)
                 i += 2
             elif c == "\n":
-                hard = re.search(r" {2,}\Z", self.text) is not None
-                self.text = re.sub(r" +\Z", "", self.text)
-                self.push({"type": "break"} if hard else _text("\n"))
+                text = "".join(self.text)
+                kept = text.rstrip(" ")
+                self.text = [kept]
+                self.push({"type": "break"} if len(text) - len(kept) >= 2 else _text("\n"))
                 i += 1
             elif c == "`":
-                run = len(src) - len(src[i:].lstrip("`")) - i
-                end = _closing_run(src, i + run, run)
+                run = 1
+                while i + run < len(src) and src[i + run] == "`":
+                    run += 1
+                end = self.closing_run(i + run, run)
                 if end < 0:
-                    self.text += "`" * run
+                    self.text.append("`" * run)
                     i += run
                 else:
                     self.push({"type": "codespan", "text": _code_text(src[i + run : end])})
@@ -244,9 +253,13 @@ class _Inline:
                 i += 2 if image else 1
             elif c == "]":
                 bracket = self.brackets.pop() if self.brackets else None
-                dest = _destination(src, i + 1) if bracket and bracket["active"] else None
+                dest = (
+                    _destination(src, i + 1, self.unclosed_titles)
+                    if bracket and bracket["active"]
+                    else None
+                )
                 if not bracket or not dest:
-                    self.text += "]"
+                    self.text.append("]")
                     i += 1
                     continue
                 url, end = dest
@@ -270,7 +283,7 @@ class _Inline:
                     self.push(token[0])
                     i += token[1]
                 else:
-                    self.text += "{{"
+                    self.text.append("{{")
                     i += 2
             elif c == "}" and nxt == "}" and self.spans:
                 opener = self.spans.pop()
@@ -290,7 +303,7 @@ class _Inline:
                     self.push(token[0])
                     i += token[1]
                 else:
-                    self.text += c
+                    self.text.append(c)
                     i += 1
         self.flush()
         return _literal(_resolve_emphasis(self.nodes))
@@ -323,20 +336,30 @@ def _wikilink(src: str, i: int) -> Token:
 
 
 def _entity_ref(url: str) -> Node | None:
-    m = _ENTITY_TARGET.fullmatch(url)
-    return {"hint": m[1] or "", "slug": m[2]} if m else None
+    """`slug` or `hint/slug` (inline.ts ENTITY_TARGET), split at the one `/` it may hold."""
+    hint, slash, slug = url.rpartition("/")
+    if (slash and not _HINT.fullmatch(hint)) or not _SLUG.fullmatch(slug):
+        return None
+    return {"hint": hint, "slug": slug}
 
 
 def _directive(src: str, i: int) -> Token:
-    """`{{date YYYY-MM-DD}}` or `{{cal …}}`; any other name, or no arguments, stays text."""
-    m = _DIRECTIVE.match(src, i)
+    """`{{date YYYY-MM-DD}}` or `{{cal …}}`; any other name, or no arguments, stays text.
+    Scanned rather than matched, since a lazy pattern here backtracks cubically on blanks."""
+    m = _DIRECTIVE_NAME.match(src, i)
     if not m:
         return None
-    name, args = m[1].lower(), m[2]
+    end = m.end()
+    while end < len(src) and src[end] not in "{}\n":
+        end += 1
+    if not src.startswith("}}", end):
+        return None
+    name, args = m[1].lower(), src[m.end() : end].strip(" \t")
+    length = end + 2 - i
     if name == "date" and _is_date(args):
-        return {"type": "date", "date": args}, len(m[0])
+        return {"type": "date", "date": args}, length
     if name == "cal" and args:
-        return {"type": "calendar", "expression": args}, len(m[0])
+        return {"type": "calendar", "expression": args}, length
     return None
 
 
@@ -367,17 +390,30 @@ def _pending(src: str, i: int) -> Token:
     return ({"type": "attrs", "attrs": attributes(m[1]), "raw": m[0]}, len(m[0])) if m else None
 
 
-def _closing_run(src: str, start: int, length: int) -> int:
-    """Index of the next backtick run of exactly `length`, or -1."""
-    for m in re.finditer(r"`+", src[start:]):
-        if len(m[0]) == length:
-            return start + m.start()
-    return -1
+def _backtick_closer(src: str) -> Callable[[int, int], int]:
+    """For `src`: the index of the next backtick run of exactly `length` at or after `start`,
+    or -1. Every run is found once, up front; `start` only grows, so each length's list is
+    walked once (inline.ts backtickCloser)."""
+    runs: dict[int, list[int]] = {}
+    for m in re.finditer(r"`+", src):
+        runs.setdefault(len(m[0]), []).append(m.start())
+    walked: dict[int, int] = {}
+
+    def closing_run(start: int, length: int) -> int:
+        starts = runs.get(length, [])
+        k = walked.get(length, 0)
+        while k < len(starts) and starts[k] < start:
+            k += 1
+        walked[length] = k
+        return starts[k] if k < len(starts) else -1
+
+    return closing_run
 
 
 def _code_text(raw: str) -> str:
+    """Line endings become spaces, and one space goes from each end if both have one."""
     s = raw.replace("\n", " ")
-    return s[1:-1] if re.fullmatch(rf" {_DOT}*[^ ]{_DOT}* ", s) else s
+    return s[1:-1] if s.startswith(" ") and s.endswith(" ") and s.strip(" ") else s
 
 
 def _flanking(ch: str) -> tuple[bool, bool]:
@@ -399,14 +435,17 @@ def _delim(ch: str, n: int, before: str, after: str) -> Node:
     return {"type": "delim", "ch": ch, "n": n, "orig": n, "open": opens, "close": closes}
 
 
-def _destination(src: str, j: int) -> tuple[str, int] | None:
-    """`(url "title")` at `src[j]`: the unescaped url and the index after `)`."""
+def _destination(src: str, j: int, unclosed_titles: dict[str, int]) -> tuple[str, int] | None:
+    """`(url "title")` at `src[j]`: the unescaped url and the index after `)`. Every scan
+    stops early enough that `[a](` repeated stays linear (inline.ts destination)."""
     if src[j : j + 1] != "(":
         return None
     k = _skip_space(src, j + 1)
     if src[k : k + 1] == "<":
-        end = src.find(">", k)
-        if end < 0 or re.search(r"[\n<]", src[k + 1 : end]):
+        end = k + 1
+        while end < len(src) and src[end] not in "<>\n":
+            end += 1
+        if src[end : end + 1] != ">":
             return None
         url = src[k + 1 : end]
         k = end + 1
@@ -421,6 +460,8 @@ def _destination(src: str, j: int) -> tuple[str, int] | None:
                 break
             elif ch == "(":
                 depth += 1
+                if depth > MAX_NESTING:
+                    return None
             elif ch == ")":
                 depth -= 1
             k += 1
@@ -430,10 +471,14 @@ def _destination(src: str, j: int) -> tuple[str, int] | None:
     quote = src[k : k + 1]
     if k > after_url and quote in ('"', "'", "("):
         close = ")" if quote == "(" else quote
+        # A scan from here would run off the end as an earlier one did.
+        if k + 1 >= unclosed_titles.get(close, len(src) + 1):
+            return None
         end = k + 1
         while end < len(src) and src[end] != close:
             end += 2 if src[end] == "\\" else 1
         if end >= len(src):
+            unclosed_titles[close] = k + 1
             return None
         k = _skip_space(src, end + 1)
     if src[k : k + 1] != ")":
@@ -511,10 +556,18 @@ def _resolve_emphasis(nodes: list[Node]) -> list[Node]:
 
 def _literal(nodes: list[Node]) -> list[Node]:
     """Unmatched delimiters become text, a pending `{…}` attaches to the element before
-    it (or becomes its text), and neighbouring text merges."""
+    it (or becomes its text), and neighbouring text merges - collected and joined once,
+    since `+=` on a dict value copies the whole string each time."""
     out: list[Node] = []
+    text: list[str] = []  # text after out[-1], not yet a node
+
+    def flush() -> None:
+        if text:
+            out.append(_text("".join(text)))
+            text.clear()
+
     for n in nodes:
-        last = out[-1] if out else None
+        last = out[-1] if out and not text else None
         if (
             n["type"] == "attrs"
             and last is not None
@@ -522,18 +575,14 @@ def _literal(nodes: list[Node]) -> list[Node]:
             and "attrs" not in last
         ):
             last["attrs"] = n["attrs"]
-            continue
-        node = (
-            _text(n["ch"] * n["n"])
-            if n["type"] == "delim"
-            else _text(n["raw"])
-            if n["type"] == "attrs"
-            else n
-        )
-        if node["type"] == "text" and last is not None and last["type"] == "text":
-            last["text"] += node["text"]
+        elif n["type"] == "delim":
+            text.append(n["ch"] * n["n"])
+        elif n["type"] in ("attrs", "text"):
+            text.append(n["raw"] if n["type"] == "attrs" else n["text"])
         else:
-            out.append(dict(node) if node["type"] == "text" else node)
+            flush()
+            out.append(n)
+    flush()
     return out
 
 
@@ -553,7 +602,7 @@ _DIV_CLOSE = re.compile(r" {0,3}\}\}[ \t]*\Z")
 _FOOTNOTE = re.compile(rf" {{0,3}}\[\^([^\]]+)\]:[ \t]*({_DOT}*)\Z")
 _ABBREVIATION = re.compile(rf" {{0,3}}\*\[([^\]]+)\]:[ \t]*({_DOT}*)\Z")
 _TABLE_DELIM = re.compile(r" {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*\Z")
-_TRAILING_ATTRS = re.compile(rf"(?:^|[ \t]+)\{{[ \t]*({ATTR_LIST})[ \t]*\}}\Z")
+_ATTR_BLOCK = re.compile(rf"\{{[ \t]*({ATTR_LIST})[ \t]*\}}")
 _EXPAND = re.compile(r"[ \t]*")
 
 Match = re.Match[str]
@@ -674,9 +723,13 @@ def _expand_tabs(line: str) -> str:
 
 
 def _trailing_attrs(text: str) -> str:
-    """`text` without a trailing `{#id .class}`."""
-    m = _TRAILING_ATTRS.search(text)
-    return text[: m.start()] if m else text
+    """`text` without a trailing `{#id .class}` and the blanks before it. Attributes hold no
+    `{`, so it's the last one (block.ts trailingAttrs)."""
+    at = text.rfind("{")
+    if at < 0 or not _ATTR_BLOCK.fullmatch(text, at):
+        return text
+    rest = text[:at].rstrip(" \t")
+    return rest if len(rest) < at or at == 0 else text
 
 
 class _Parser:

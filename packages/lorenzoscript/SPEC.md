@@ -1226,7 +1226,7 @@ A link inside a link's text wins, so the outer one stays text; a wikilink is a l
 
 ## Nesting limit
 
-Blockquotes and lists nest at most 32 levels deep, and so do inline elements (emphasis, links, images). Anything deeper renders as text. Real text never gets near this. It exists because text is written by one person and rendered in someone else's browser, so no input may exhaust the renderer. The tests for it live next to the example runner, since 33 levels of nesting don't make a readable example.
+Blockquotes and lists nest at most 32 levels deep, and so do inline elements (emphasis, links, images). Anything deeper renders as text. A link's destination holds at most 32 levels of nested parentheses, as CommonMark allows an implementation to limit; with more, it isn't a link. Real text never gets near this. It exists because text is written by one person and rendered in someone else's browser, and read by the server, so no input may exhaust either: every scan must stay linear however the text is shaped ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)). The tests for it live next to the example runner, since 33 levels of nesting don't make a readable example.
 
 ## Deviations from CommonMark
 

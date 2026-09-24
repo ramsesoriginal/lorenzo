@@ -35,7 +35,7 @@ const DIV_CLOSE = /^ {0,3}\}\}[ \t]*$/;
 const FOOTNOTE = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/;
 const ABBREVIATION = /^ {0,3}\*\[([^\]]+)\]:[ \t]*(.*)$/;
 const TABLE_DELIM = /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
-const TRAILING_ATTRS = new RegExp(String.raw`(?:^|[ \t]+)\{[ \t]*(${ATTR_LIST})[ \t]*\}$`);
+const ATTR_BLOCK = new RegExp(String.raw`^\{[ \t]*(${ATTR_LIST})[ \t]*\}$`);
 
 const blank = (line: string) => line.trim() === '';
 const indent = (line: string) => line.length - line.trimStart().length;
@@ -226,10 +226,17 @@ function paragraph(lines: Lines, i: number): [Block, number] {
   return [{ type: 'paragraph', children: parseInline(text) }, j];
 }
 
-/** A trailing `{#id .class}` split off `text`. */
+/**
+ * A trailing `{#id .class}` split off `text`, with the blanks before it. Attributes hold no
+ * `{`, so it's the last one; searching for a blank-led match instead is quadratic in blanks.
+ */
 function trailingAttrs(text: string) {
-  const m = TRAILING_ATTRS.exec(text);
-  return { rest: m ? text.slice(0, m.index) : text, attrs: attributes(m?.[1] ?? '') };
+  const at = text.lastIndexOf('{');
+  const m = at < 0 ? null : ATTR_BLOCK.exec(text.slice(at));
+  let start = at;
+  while (start > 0 && (text[start - 1] === ' ' || text[start - 1] === '\t')) start--;
+  if (!m || (start === at && at > 0)) return { rest: text, attrs: attributes('') };
+  return { rest: text.slice(0, start), attrs: attributes(m[1] as string) };
 }
 
 function heading(_: Lines, i: number, m: RegExpExecArray): [Block, number] {

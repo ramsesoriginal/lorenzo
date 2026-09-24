@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from lorenzo_api.lorenzoscript import references
+from lorenzo_api.lorenzoscript import parse, references
 
 SPEC = Path(__file__).resolve().parents[3] / "packages" / "lorenzoscript" / "SPEC.md"
 FENCE = "`" * 8
@@ -63,6 +63,35 @@ def test_hostile_input_stays_fast() -> None:
     references(f"> > > > > a\n{'b\n' * 2000}")
     references(f"{'{{.a ' * 5000}x{'}}' * 5000}")
     references("\n".join(f"[^{k}]: see[^{k + 1}] [[e{k}]]" for k in range(2000)))
+
+
+# Every one of these took minutes before its scan was made linear (ADR 0110).
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(f"a{' ' * 100_000}x\nb", id="blanks before a line break"),
+        pytest.param(f"{{{{a{'\t' * 20_000}x", id="an unclosed directive"),
+        pytest.param(f"` {'a' * 100_000}`", id="a code span with one leading space"),
+        pytest.param(f"# a{' ' * 100_000}b", id="blanks where attributes could start"),
+        pytest.param("[a](" * 25_000, id="unclosed destinations"),
+        pytest.param("[a](<b" * 20_000, id="unclosed <destinations>"),
+        pytest.param("[a](b (x" * 20_000, id="unclosed titles"),
+        pytest.param(" ".join("`" * k for k in range(1, 1000)), id="every backtick run length"),
+        pytest.param("a" * 1_000_000, id="a long paragraph"),
+        pytest.param("a*" * 200_000, id="unmatched delimiters merging into text"),
+    ],
+)
+def test_no_scan_turns_quadratic(source: str) -> None:
+    references(source)
+
+
+def test_a_link_destination_nests_at_most_the_limit_of_parentheses() -> None:
+    def links(n: int) -> bool:
+        doc = parse(f"[a](https://x.test/{'(' * n}x{')' * n})")
+        return doc["children"][0]["children"][0]["type"] == "link"
+
+    assert links(32)
+    assert not links(33)
 
 
 def test_javascript_semantics_where_python_differs() -> None:
