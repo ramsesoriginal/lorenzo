@@ -10,11 +10,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Finds every apps/*/mise.toml - that file is the "this is a real,
-  # scaffolded app" marker (see docs/adr/0007-apps-layout-and-multiplicity.md).
-  # Currently discovers apps/api; a future app with no mise.toml yet simply
-  # isn't matched, so the test job's matrix below runs zero times for it,
-  # rather than failing.
+  # Finds every apps/*/mise.toml and packages/*/mise.toml - that file is the
+  # "this is a real, scaffolded app/package" marker (see
+  # docs/adr/0007-apps-layout-and-multiplicity.md; packages since ADR 0100).
+  # A future app with no mise.toml yet simply isn't matched, so the test
+  # job's matrix below runs zero times for it, rather than failing.
   discover:
     runs-on: ubuntu-latest
     outputs:
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v7
       - id: find
         run: |
-          apps=$(find apps -mindepth 2 -maxdepth 2 -name mise.toml | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          apps=$(find apps packages -mindepth 2 -maxdepth 2 -name mise.toml | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
           echo "Discovered apps: $apps"
           echo "apps=$apps" >> "$GITHUB_OUTPUT"
 
