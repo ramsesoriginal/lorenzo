@@ -15,7 +15,7 @@ It is the repo's first package with real code and tests. `packages/brand` ([ADR 
 - `packages/lorenzoscript`, published in the workspace as `@lorenzo/lorenzoscript`: `private`, versioned by release-please like `packages/brand`.
 - No runtime dependencies. Dev dependencies are the ones the apps already use: TypeScript, Biome 2, vitest.
 - **No build step.** `exports` points straight at `src/index.ts`. Every consumer in this repo already compiles TypeScript (Astro/Vite, vitest, tsup), and stage 4's demo bundles with esbuild. Shipping source keeps the package to what it actually is.
-- `mise.toml` has the usual `install`/`lint`/`format`/`test`/`build` tasks. `lint` runs Biome and `tsc --noEmit`, and `build` only type-checks, since there is nothing to emit.
+- `mise.toml` has the usual `install`/`dev`/`lint`/`format`/`test` tasks, and no `build`: there's nothing to emit, and `lint` already runs `tsc --noEmit` after Biome.
 - CI's `discover` finds `packages/*/mise.toml` too, so `packages/brand` also joins the matrix; its tasks are already no-op echoes. pre-commit gains Biome and `tsc` hooks for the package, matching `apps/loot-bot`'s.
 
 ### API
@@ -32,18 +32,20 @@ The syntax tree is a discriminated union: block nodes `paragraph`, `heading`, `b
 ### Parsing
 
 - **Two passes: blocks, then inlines.** Before parsing, line endings are normalized, leading tabs are expanded to 4-column stops, and NUL becomes U+FFFD.
-- **Containers are parsed by collecting their lines, stripping the container's marker or indent, and recursing.** A blockquote collects its `>` lines, and a list item collects the lines indented to its content column. This is simpler than CommonMark's single-pass container stack, and nests to any depth for free.
-- **Lazy continuation.** An unmarked, unindented line that continues a paragraph still belongs to the quote or item it's in, as in CommonMark.
-- **List items and indentation.** An item's content column is its marker width (`- ` is 2, `1. ` is 3), capped at 4. So both the RFC's "indent by 4" and the CommonMark-usual 2/3 continue an item.
+- **Containers are parsed by collecting their lines, stripping the container's marker or indent, and recursing.** A blockquote collects its `>` lines, and a list item collects the lines indented to its content column. This is simpler than CommonMark's single-pass container stack.
+- **Lazy continuation.** An unmarked, unindented line still belongs to the quote or item it's in if the line before it was paragraph text, judged with its nested quote and list markers set aside. That's tracked line by line as a container collects its lines. The first implementation re-parsed the collected lines to ask whether they ended in a paragraph, and that turned out to be exponential in nesting depth: five nested quotes with a thousand lazy lines never finished.
+- **Nesting limit.** Blocks and inline elements each nest at most 32 deep (`MAX_NESTING`), and anything deeper stays text, like markdown-it's `maxNesting`. Every consumer of the tree recurses, and text is written by one user and rendered in another's browser, so a hostile description must not be able to exhaust the stack. Before the limit, 5,000 nested `>` did. Container depth is counted during the block pass; inline depth is recorded per node as spans are built.
+- **List items and indentation.** An item's content column is where its text starts (2 after `-` and a space, 3 after `1.` and a space), capped at 4. So both the RFC's "indent by 4" and the CommonMark-usual 2/3 continue an item.
 - **Loose and tight lists.** A list is loose if a blank line separates two of its items, or two blocks directly inside one item; tight lists drop `<p>`. The recursion reports this per level, so a blank line inside a nested list doesn't loosen its parent.
 - **Block rules are an ordered internal table**, so later stages can add tables, footnotes, `{{ }}` blocks and `$$` math next to these without restructuring. It isn't a public plugin API.
-- **Inline emphasis** uses CommonMark's delimiter-run algorithm, including its flanking rules and its rule of 3. What each run length produces (`*` → `em`/`strong`, `_` → `i`/`b`) is kept in a per-character table, so stage 2's `~` and `^` are new rows, not new code.
+- **Inline emphasis** uses CommonMark's delimiter-run algorithm, including its flanking rules, its rule of 3, and its "openers bottom" so a closer never rescans openers already known not to fit. Output is built as a stack, so a match only ever cuts its tail: linear time. (Splicing matches into the middle of an array, the first version, took minutes on a megabyte of `*a*a*a`.) What each run length produces (`*` → `em`/`strong`, `_` → `i`/`b`) is kept in a per-character table, so stage 2's `~` and `^` are new rows, not new code.
 - **Inline links** use a bracket stack, and links can't contain links.
 - **Code spans** follow CommonMark (matching backtick runs, one space trimmed from each end). So do autolinks: `<scheme:…>`, and `<a@b.c>` becoming `mailto:`.
 
 ### Rendering
 
 HTML5 output (`<br>`, `<hr>`) with every piece of text and every attribute escaped. The URL rules from RFC 0027 §5 are enforced here and nowhere else:
+
 - Links are only for `http`, `https`, `mailto`, or `#fragment`, and a fragment is rewritten to the `ls-` id prefix.
 - Images are only for `https`.
 - Anything else renders its text content, not a link.
@@ -62,6 +64,7 @@ Everything in RFC 0027's extensions table, entity references, the resolver, and 
 
 - One source of truth for LorenzoScript's behaviour, readable as documentation and executed as tests.
 - Consumers must compile TypeScript. Every current one does; a plain-JS consumer would need a build step added then.
-- The collect-and-recurse block parser rescans a nested container's lines once per nesting level. That's quadratic only in nesting depth, which is harmless for description text.
-- The emphasis algorithm uses array splicing rather than a linked list: worst case quadratic in delimiters per paragraph. Fine at description size; revisit if a real document hits it.
+- The collect-and-recurse block parser rescans a nested container's lines once per nesting level. With the nesting limit, that's at most 32 passes.
+- Hostile input is covered by tests next to the example runner: 5,000-deep quotes and emphasis, and lazy lines in nested quotes. A regression there fails or visibly hangs CI rather than a reader's browser tab.
+- Lazy continuation judged from the previous line alone misses rare CommonMark corners (a paragraph continuation line indented 4 or more, inside a quote, followed by a lazy line). SPEC.md lists this as a deviation.
 - CI now tests packages as well as apps. `packages/brand` joins the matrix with its no-op tasks.
