@@ -29,7 +29,7 @@ function renderMembershipList(
   onChanged: () => void,
 ): HTMLElement {
   const list = document.createElement('ul');
-  list.className = 'roster-list';
+  list.className = 'list';
   for (const membership of memberships) {
     const item = document.createElement('li');
     const nameEl = document.createElement('span');
@@ -143,7 +143,7 @@ function renderBulkInviteForm(tenant: TenantSummaryOut, onChanged: () => void): 
   submitButton.type = 'button';
   submitButton.textContent = 'Send invites';
   const resultsEl = document.createElement('ul');
-  resultsEl.className = 'roster-list';
+  resultsEl.className = 'list';
   submitButton.addEventListener('click', async () => {
     if (pending.length === 0) return;
     const results = await bulkInviteMembers(

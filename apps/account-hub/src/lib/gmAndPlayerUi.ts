@@ -23,7 +23,7 @@ export function renderGmManagement(
   section.append(heading);
 
   const list = document.createElement('ul');
-  list.className = 'roster-list';
+  list.className = 'list';
   for (const userId of gms) {
     const item = document.createElement('li');
     const idEl = document.createElement('span');

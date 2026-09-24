@@ -28,7 +28,7 @@ export function renderCampaignRoster(
   }
 
   const list = document.createElement('ul');
-  list.className = 'roster-list';
+  list.className = 'list';
   for (const entry of entries) {
     const item = document.createElement('li');
     const nameEl = document.createElement('span');
@@ -36,7 +36,7 @@ export function renderCampaignRoster(
     item.append(nameEl);
 
     const roleBadge = document.createElement('span');
-    roleBadge.className = 'tenant-role';
+    roleBadge.className = 'badge';
     roleBadge.textContent = entry.kind;
     item.append(roleBadge);
 

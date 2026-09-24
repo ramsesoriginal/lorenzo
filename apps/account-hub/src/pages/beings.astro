@@ -101,7 +101,7 @@ import Base from '../layouts/Base.astro';
             listTenantRoster(tenantId),
           ]);
           const list = document.createElement('ul');
-          list.className = 'roster-list';
+          list.className = 'list';
           for (const player of existing.items) {
             const item = document.createElement('li');
             const idEl = document.createElement('span');
@@ -199,7 +199,7 @@ import Base from '../layouts/Base.astro';
           return;
         }
         const list = document.createElement('ul');
-        list.className = 'roster-list';
+        list.className = 'list';
         for (const being of beingsPage.items) {
           list.append(renderBeingItem(being, tenant.id, gmCampaigns, onChanged));
         }

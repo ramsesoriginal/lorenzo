@@ -14,7 +14,7 @@ export function renderPictureUpload(
   onDelete: () => Promise<void>,
 ): HTMLElement {
   const container = document.createElement('span');
-  container.className = 'picture-upload';
+  container.className = 'row';
 
   const img = document.createElement('img');
   img.src = url;

@@ -16,15 +16,9 @@ importers:
       '@authgear/web':
         specifier: ^6.0.0
         version: 6.0.0
-      '@fontsource-variable/geist':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource-variable/geist-mono':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@fontsource-variable/newsreader':
-        specifier: ^5.3.0
-        version: 5.3.0
+      '@lorenzo/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       astro:
         specifier: ^7.3.3
         version: 7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)

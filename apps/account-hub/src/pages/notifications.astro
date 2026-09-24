@@ -129,7 +129,7 @@ import Base from '../layouts/Base.astro';
       item.append(title, meta, body);
 
       const recipientList = document.createElement('ul');
-      recipientList.className = 'roster-list';
+      recipientList.className = 'list';
       for (const recipient of recipients) {
         const recipientItem = document.createElement('li');
         recipientItem.textContent = recipient.read_at
