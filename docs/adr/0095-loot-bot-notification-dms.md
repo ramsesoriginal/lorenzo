@@ -75,3 +75,7 @@ After any **slash command** has answered, if the user has `undelivered` notifica
 - **At-least-once at the edges.** If a DM is sent but recording it fails, the claim goes stale and a later run may send it again after ten minutes; and a banner shown but not recorded shows once more. Both are rare and harmless, and preferred to the alternative of losing one.
 - **Latency.** A notification arrives on the next five-minute tick, not instantly; the banner path is immediate on the user's next command.
 - Not built: a per-user opt-out, a channel-post option, retry backoff beyond the next tick, DMs for notifications from other tenants, and grouping by `batch_id` — each an easy follow-up if it turns out to matter.
+
+## Addendum (2026-09-24): `GET /me/notifications` does have a `since` filter ([ADR 0086](0086-managed-scope-aggregate-and-notifications-since-filter.md))
+
+The Context bullet above saying this route has no `since` filter described the branch this ADR was written on, which didn't yet include [ADR 0086](0086-managed-scope-aggregate-and-notifications-since-filter.md)'s `?since=` (inclusive `created_at >= since`, timezone-aware, composes with `unread_only`). On `main` it exists. The decision above is unchanged: the bridge still reads `unread_only=true` and applies the tenant, enrollment and seven-day cutoffs bot-side in `selectDeliverable`, and the ledger, not a timestamp, is what makes delivery exactly-once per notification. Passing `since` could narrow what each run reads; not done here.

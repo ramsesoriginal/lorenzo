@@ -1,6 +1,6 @@
 # RFC: `apps/account-hub` — tenant/campaign administration and roster reuse
 
-Status: proposed
+Status: accepted — landed in full across [ADR 0074](../adr/0074-account-hub-campaign-visibility-and-user-lookup.md) (a)/(b), [ADR 0076](../adr/0076-account-hub-tenant-admin-actions.md) (c)/(d)/(e), and [ADR 0079](../adr/0079-account-hub-roster-reuse-and-being-handoff.md) (f)/(g); ADR 0076's addendum also added editing an existing campaign, which "What this doesn't cover" below had left out until asked for
 
 ## Context
 
