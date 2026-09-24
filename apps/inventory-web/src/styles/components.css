@@ -322,10 +322,25 @@
   color: var(--text-tertiary);
 }
 
-.item-detail-descriptions p {
+/* Each description is rendered LorenzoScript (ADR 0108), laid out by
+   @lorenzo/brand's .ls-content; only the tone is this app's. */
+.item-detail-descriptions .ls-content {
   color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
+}
+
+/* The item page's description editor: the editor itself is
+   @lorenzo/brand's .ls-editor, this only spaces the form around it. */
+.description-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.description-notes {
+  margin: 0;
+  padding-inline-start: var(--space-4);
 }
 
 .catalog-toolbar {
