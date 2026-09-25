@@ -1,6 +1,6 @@
 // Descriptions as LorenzoScript (RFC 0027, ADR 0108): rendering them with
-// this tenant's entities resolved, and reading and writing the one the item
-// page's editor opens.
+// this tenant's entities resolved, and what links to an entity. Writing
+// them is information.ts's.
 import { parse, type Reference, type Resolver, references, render } from '@lorenzo/lorenzoscript';
 import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import { type EntityReference, entityHref, linkNote, type ResolvedSlug } from './entityLinks';
@@ -8,7 +8,6 @@ import { viewerLocales } from './me';
 
 type Entity = components['schemas']['EntityDetailOut'];
 type Payload = Entity['information'][number]['payloads'][number];
-export type DescriptionPayload = Extract<Payload, { kind: 'description' }>;
 
 /** One text's HTML, and what an author should know about links in it that won't work. */
 export type Rendered = { html: string; notes: string[] };
@@ -122,67 +121,29 @@ export function descriptionRenderer(tenantId: string): Renderer {
 // The render each container is waiting on, so a slow one can't replace a newer one.
 const pending = new WeakMap<HTMLElement, object>();
 
-/** Shows each text as its own `.ls-content` block in `container`. */
+/** A text to show, with what's said about it above, such as where it's inherited from. */
+export type Shown = { text: string; label?: Node | null };
+
+/** Shows each text as its own `.ls-content` block in `container`, its label first. */
 export async function showDescriptions(
   container: HTMLElement,
   renderer: Renderer,
-  texts: string[],
+  shown: Shown[],
 ): Promise<void> {
   const turn = {};
   pending.set(container, turn);
   container.replaceChildren();
-  const rendered = await renderer(texts);
+  const rendered = await renderer(shown.map(({ text }) => text));
   if (pending.get(container) !== turn) return;
   container.replaceChildren(
-    ...rendered.map(({ html }) => {
+    ...rendered.flatMap(({ html }, i) => {
       const block = document.createElement('div');
       block.className = 'ls-content';
       // Safe by construction: LorenzoScript escapes every text and allows
       // only vetted URLs (ADR 0100).
       block.innerHTML = html;
-      return block;
-    }),
-  );
-}
-
-/** The description the editor opens: the entity's first description payload, if it has one. */
-export async function getDescription(
-  tenantId: string,
-  entityId: string,
-): Promise<DescriptionPayload | null> {
-  return firstPayload(await getEntity(tenantId, entityId), 'description', 'description') ?? null;
-}
-
-/** Replaces a description's text, unless someone saved it since `payload` was read (412). */
-export async function saveDescription(
-  tenantId: string,
-  payload: DescriptionPayload,
-  content: string,
-): Promise<void> {
-  await unwrap(
-    await client.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
-      params: {
-        path: { tenant_id: tenantId, payload_id: payload.id },
-        // The server's ETag is the JSON updated_at (ADR 0101/0108).
-        header: { 'if-match': `W/"${payload.updated_at}"` },
-      },
-      body: { content },
-    }),
-  );
-}
-
-/** Gives an entity its first description, in the viewer's first language. */
-export async function createDescription(
-  tenantId: string,
-  entityId: string,
-  content: string,
-  isPublic: boolean,
-): Promise<void> {
-  const [locale = 'en-US'] = await viewerLocales();
-  await unwrap(
-    await client.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { title: 'Description', type: 'description', is_public: isPublic, content, locale },
+      const label = shown[i]?.label;
+      return label ? [label, block] : [block];
     }),
   );
 }
