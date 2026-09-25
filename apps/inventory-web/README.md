@@ -17,7 +17,12 @@ labelled), rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)
 
 From that detail view, or when multiple cards are multi-selected:
 
-- **Give** an item (or part of a stack) to another being
+- **Give** an item (or part of a stack) to another being; a player finds the
+  tenant's characters, a GM any being
+- **Note** it: add, edit, or delete notes, in LorenzoScript. A note is private
+  to the character that owns the item (and the campaign's GMs) unless
+  "Everyone can read this"; the item page shows them too
+  ([ADR 0113](../../docs/adr/0113-inventory-web-slugs-and-player-notes.md))
 - **Split** a stack into two, or **merge** two stacks of the same item back
   together
 - **Undo** the last give/move/split/merge (a short-lived, single-slot undo,
@@ -57,8 +62,9 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   player uses for their own characters
 
 Deliberately not built yet: naming who may read a private piece of
-information (ADR 0109's knowers), editing stat values other than tags, and
-uploading pictures — see the tracking issue for what's actually in flight.
+information (ADR 0109's knowers) beyond a note's own character, showing who
+wrote a note, editing stat values other than tags, and uploading pictures —
+see the tracking issue for what's actually in flight.
 
 ## Commands
 

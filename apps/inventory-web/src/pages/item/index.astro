@@ -19,6 +19,11 @@ import Base from '../../layouts/Base.astro';
       </button>
       <div id="description-mount"></div>
 
+      <section id="item-notes" class="section" aria-labelledby="item-notes-heading" hidden>
+        <h2 id="item-notes-heading">Notes</h2>
+        <div id="item-notes-list"></div>
+      </section>
+
       <div id="item-ancestry" class="item-detail-ancestry" hidden>
         <h2>Ancestry</h2>
         <ul id="item-ancestry-list"></ul>
@@ -72,7 +77,9 @@ import Base from '../../layouts/Base.astro';
       listItemsUsingPrototype,
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
+    import { listMyCharacters } from '../../lib/characters';
     import { isCampaignGm, isTenantMember } from '../../lib/me';
+    import { type Reader, renderNotes } from '../../lib/notes';
     import { renderSlugEditor, resolveSlugs } from '../../lib/slugs';
     import { renderTagEditor } from '../../lib/tagEditor';
     import type { ItemBase, ItemInstance } from '../../lib/types';
@@ -98,6 +105,8 @@ import Base from '../../layouts/Base.astro';
     const itemSlugEditor = byId('item-slug-editor');
     const itemTags = byId('item-tags');
     const itemInformation = byId('item-information');
+    const itemNotes = byId('item-notes');
+    const itemNotesList = byId('item-notes-list');
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant') as string;
@@ -111,6 +120,9 @@ import Base from '../../layouts/Base.astro';
     let isInstance = false;
     // Whether "From Longsword" labels link to the catalog, which only tenant members can read.
     let linkSources = false;
+    // Who writes here, and the character that reads a private note (ADR 0113).
+    let viewerIsGm = false;
+    let reader: Reader | null = null;
 
     copyLinkButton.addEventListener('click', async () => {
       try {
@@ -154,6 +166,35 @@ import Base from '../../layouts/Base.astro';
       );
     }
 
+    // An instance's notes, for everyone (ADR 0113). The GM's Information section lists them
+    // too, so a change in either shows in the other.
+    function showNotes() {
+      if (!isInstance) return;
+      itemNotes.hidden = false;
+      void renderNotes(itemNotesList, {
+        tenantId,
+        entityId: shown.entity_id,
+        renderer,
+        canWrite: viewerIsGm || reader !== null,
+        reader,
+        rowHeading: 'h3',
+        onChanged: () => viewerIsGm && showInformation(),
+      });
+    }
+
+    function showInformation() {
+      const onChanged = () => {
+        void refresh();
+        showNotes();
+      };
+      void renderInformationManager(itemInformation, {
+        tenantId,
+        entityId: shown.entity_id,
+        renderer,
+        onChanged,
+      });
+    }
+
     function showGmSections() {
       const entityId = shown.entity_id;
       itemGm.hidden = false;
@@ -166,7 +207,7 @@ import Base from '../../layouts/Base.astro';
         onSaved: showSlug,
       });
       void renderTagEditor(itemTags, { tenantId, entityId, onChanged });
-      void renderInformationManager(itemInformation, { tenantId, entityId, renderer, onChanged });
+      showInformation();
     }
 
     // The description, with its display title: the item's shown name (ADR 0019, 0112).
@@ -320,14 +361,23 @@ import Base from '../../layouts/Base.astro';
           );
         }
         void loadMentionedIn(entityId);
-        // GMs write here (ADR 0108, 0112); the API still decides.
-        void isCampaignGm(tenantId).then(
-          (gm) => {
-            descriptionEdit.hidden = !gm;
-            if (gm) showGmSections();
-          },
-          () => {},
-        );
+        // GMs write here (ADR 0108, 0112, 0113); a player writes notes on what their character
+        // owns. The API still decides.
+        const owner = 'owner_entity_id' in loaded.item ? loaded.item.owner_entity_id : null;
+        const [gm, mine] = await Promise.all([
+          isCampaignGm(tenantId).catch(() => false),
+          owner
+            ? listMyCharacters(tenantId).then(
+                (own) => own.items,
+                () => [],
+              )
+            : [],
+        ]);
+        viewerIsGm = gm;
+        reader = mine.find((character) => character.entity_id === owner) ?? null;
+        showNotes();
+        descriptionEdit.hidden = !gm;
+        if (gm) showGmSections();
       } catch (e) {
         status.hidden = false;
         page.hidden = true;

@@ -15,6 +15,10 @@ export type FieldsOptions = {
   textLabel?: string;
   showType?: boolean;
   showVisibility?: boolean;
+  /** The public checkbox's label, "Players can read this" unless given. */
+  visibilityLabel?: string;
+  /** Said under the checkbox, such as who can read it otherwise. */
+  visibilityNote?: string;
 };
 
 export type InfoFields = {
@@ -39,6 +43,8 @@ function field(label: string, control: HTMLElement): HTMLElement {
   return wrapper;
 }
 
+let visibilityNotes = 0;
+
 export function infoFields(options: FieldsOptions): InfoFields {
   const { initial, renderer } = options;
   const input = (value: string) =>
@@ -55,8 +61,16 @@ export function infoFields(options: FieldsOptions): InfoFields {
   });
   textarea.setAttribute('aria-label', options.textLabel ?? 'Text');
   const notes = make('ul', 'description-notes status-text');
-  const visibility = make('label', 'field-row');
-  visibility.append(isPublic, 'Players can read this');
+  const visibility = make('div', '');
+  const checkbox = make('label', 'field-row');
+  checkbox.append(isPublic, options.visibilityLabel ?? 'Players can read this');
+  visibility.append(checkbox);
+  if (options.visibilityNote) {
+    const note = make('p', 'field-note', options.visibilityNote);
+    note.id = `visibility-note-${++visibilityNotes}`;
+    isPublic.setAttribute('aria-describedby', note.id);
+    visibility.append(note);
+  }
 
   const element = make('div', 'info-fields');
   element.append(
