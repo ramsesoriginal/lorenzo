@@ -13,32 +13,16 @@ import Base from '../../layouts/Base.astro';
       <p id="item-qty" class="item-detail-qty" hidden></p>
       <button type="button" id="copy-link-button">Copy link</button>
 
-      <dl id="item-stats" class="item-detail-stats"></dl>
-      <p id="item-flags" class="item-detail-flags" hidden></p>
+      <div id="item-view" class="item-view"></div>
+      <button type="button" id="description-edit" class="btn btn-secondary" hidden>
+        Edit description
+      </button>
+      <div id="description-mount"></div>
 
       <div id="item-ancestry" class="item-detail-ancestry" hidden>
         <h2>Ancestry</h2>
         <ul id="item-ancestry-list"></ul>
       </div>
-
-      <div id="item-descriptions" class="item-detail-descriptions"></div>
-      <button type="button" id="description-edit" class="btn btn-secondary" hidden>
-        Edit description
-      </button>
-      <form id="description-form" class="description-form" hidden>
-        <textarea id="description-source" name="content" rows="12" aria-label="Description"
-        ></textarea>
-        <label id="description-public-field" class="field-row">
-          <input type="checkbox" id="description-public" checked />
-          Players can read this
-        </label>
-        <ul id="description-notes" class="description-notes status-text"></ul>
-        <div class="field-row">
-          <button type="submit" id="description-save">Save</button>
-          <button type="button" id="description-cancel" class="btn btn-secondary">Cancel</button>
-        </div>
-      </form>
-      <p id="description-status" class="status-text" role="status" hidden></p>
 
       <section id="item-mentioned-in" class="section" hidden>
         <h2>Mentioned in</h2>
@@ -49,74 +33,67 @@ import Base from '../../layouts/Base.astro';
         <h2>Used as a prototype by</h2>
         <ul id="item-used-by-list" class="chip-list"></ul>
       </section>
+
+      <section id="item-gm" class="section" hidden>
+        <h2>Tags</h2>
+        <div id="item-tags"></div>
+        <h2>Information</h2>
+        <div id="item-information"></div>
+      </section>
     </div>
   </div>
 
   <script>
-    import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
     import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { ApiError } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
-    import {
-      createDescription,
-      type DescriptionPayload,
-      descriptionRenderer,
-      getBacklinks,
-      getDescription,
-      saveDescription,
-      showDescriptions,
-    } from '../../lib/descriptions';
+    import { descriptionRenderer, getBacklinks } from '../../lib/descriptions';
     import { entityHref } from '../../lib/entityLinks';
+    import { infoForm } from '../../lib/infoForm';
+    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
+    import { renderInformationManager } from '../../lib/informationManager';
     import {
       getCatalogItem,
       getItemInstance,
       getItemInstanceBySlug,
       listItemsUsingPrototype,
     } from '../../lib/items';
+    import { renderItemView } from '../../lib/itemView';
     import { isCampaignGm } from '../../lib/me';
-    import type { ItemBase } from '../../lib/types';
+    import { renderTagEditor } from '../../lib/tagEditor';
+    import type { ItemBase, ItemInstance } from '../../lib/types';
 
-    const status = document.getElementById('status')!;
-    const page = document.getElementById('page')!;
-    const itemTitle = document.getElementById('item-title')!;
-    const itemSlug = document.getElementById('item-slug')!;
-    const itemQty = document.getElementById('item-qty')!;
-    const copyLinkButton = document.getElementById('copy-link-button') as HTMLButtonElement;
-    const itemStats = document.getElementById('item-stats')!;
-    const itemFlags = document.getElementById('item-flags')!;
-    const itemAncestry = document.getElementById('item-ancestry')!;
-    const itemAncestryList = document.getElementById('item-ancestry-list') as HTMLUListElement;
-    const itemDescriptions = document.getElementById('item-descriptions')!;
-    const itemUsedBy = document.getElementById('item-used-by')!;
-    const itemUsedByList = document.getElementById('item-used-by-list') as HTMLUListElement;
-    const itemMentionedIn = document.getElementById('item-mentioned-in')!;
-    const itemMentionedInList = document.getElementById(
-      'item-mentioned-in-list',
-    ) as HTMLUListElement;
-    const descriptionEdit = document.getElementById('description-edit') as HTMLButtonElement;
-    const descriptionForm = document.getElementById('description-form') as HTMLFormElement;
-    const descriptionSource = document.getElementById('description-source') as HTMLTextAreaElement;
-    const descriptionPublicField = document.getElementById('description-public-field')!;
-    const descriptionPublic = document.getElementById('description-public') as HTMLInputElement;
-    const descriptionNotes = document.getElementById('description-notes') as HTMLUListElement;
-    const descriptionSave = document.getElementById('description-save') as HTMLButtonElement;
-    const descriptionCancel = document.getElementById('description-cancel') as HTMLButtonElement;
-    const descriptionStatus = document.getElementById('description-status')!;
+    const byId = <T extends HTMLElement = HTMLElement>(id: string) =>
+      document.getElementById(id) as T;
+    const status = byId('status');
+    const page = byId('page');
+    const itemTitle = byId('item-title');
+    const itemSlug = byId('item-slug');
+    const itemQty = byId('item-qty');
+    const copyLinkButton = byId<HTMLButtonElement>('copy-link-button');
+    const itemView = byId('item-view');
+    const descriptionEdit = byId<HTMLButtonElement>('description-edit');
+    const descriptionMount = byId('description-mount');
+    const itemAncestry = byId('item-ancestry');
+    const itemAncestryList = byId<HTMLUListElement>('item-ancestry-list');
+    const itemUsedBy = byId('item-used-by');
+    const itemUsedByList = byId<HTMLUListElement>('item-used-by-list');
+    const itemMentionedIn = byId('item-mentioned-in');
+    const itemMentionedInList = byId<HTMLUListElement>('item-mentioned-in-list');
+    const itemGm = byId('item-gm');
+    const itemTags = byId('item-tags');
+    const itemInformation = byId('item-information');
 
     const params = new URLSearchParams(window.location.search);
-    const tenantId = params.get('tenant');
+    const tenantId = params.get('tenant') as string;
     const itemId = params.get('id');
     const itemSlugParam = params.get('slug');
-    const renderDescriptions = descriptionRenderer(tenantId as string);
+    const renderer = descriptionRenderer(tenantId);
 
-    // The shown item's entity and description texts, kept current by saves.
-    let entityId = '';
-    let descriptions: string[] = [];
-    // While editing: the description being replaced, or null when writing a new one.
-    let editing: DescriptionPayload | null = null;
-    let editor: Editor | undefined;
-    const STALE_DESCRIPTION =
-      'Someone saved this description after you opened it. Copy your text, reload the page, and make your changes again.';
+    // The shown item (set by show() before anything reads it), and which endpoint
+    // reads it again after a change.
+    let shown!: ItemBase;
+    let isInstance = false;
 
     copyLinkButton.addEventListener('click', async () => {
       try {
@@ -131,127 +108,69 @@ import Base from '../../layouts/Base.astro';
       }
     });
 
-    function populate(item: ItemBase, slug: string | null, quantity: number | null) {
+    function show(item: ItemBase | ItemInstance) {
+      shown = item;
       document.title = `${item.title} — Lorenzo`;
       itemTitle.textContent = item.title;
-
+      const slug = 'slug' in item ? item.slug : null;
       itemSlug.hidden = !slug;
       itemSlug.textContent = slug ?? '';
-
-      const showQty = Boolean(quantity && quantity > 1);
+      const showQty = Boolean(item.quantity && item.quantity > 1);
       itemQty.hidden = !showQty;
-      itemQty.textContent = showQty ? `×${quantity}` : '';
-
-      itemStats.replaceChildren();
-      const stats: [string, number | null][] = [
-        ['Weight', item.weight],
-        ['Height', item.height],
-        ['Price', item.price],
-        ['Rarity', item.rarity],
-        ['HP', item.hp],
-        ['Armor', item.armor],
-      ];
-      for (const [label, value] of stats) {
-        if (value === null) continue;
-        const dt = document.createElement('dt');
-        dt.textContent = label;
-        const dd = document.createElement('dd');
-        dd.textContent = String(value);
-        itemStats.append(dt, dd);
-      }
-
-      const flags = [item.is_magical && 'Magical', item.is_cursed && 'Cursed'].filter(Boolean);
-      itemFlags.hidden = flags.length === 0;
-      itemFlags.textContent = flags.join(' · ');
-
-      entityId = item.entity_id;
-      descriptions = item.descriptions.map((description) => description.content);
-      showItemDescriptions();
+      itemQty.textContent = showQty ? `×${item.quantity}` : '';
+      renderItemView(itemView, item, { tenantId, renderer });
+      const own = item.descriptions.some((description) => !description.from_entity);
+      descriptionEdit.textContent = own ? 'Edit description' : 'Write a description';
     }
 
-    function showItemDescriptions() {
-      void showDescriptions(itemDescriptions, renderDescriptions, descriptions);
-      descriptionEdit.textContent =
-        descriptions.length > 0 ? 'Edit description' : 'Write a description';
+    /** Reads the item again after a change and shows it, with the GM sections. */
+    async function refresh() {
+      const entityId = shown.entity_id;
+      show(
+        isInstance
+          ? await getItemInstance(tenantId, entityId)
+          : await getCatalogItem(tenantId, entityId),
+      );
     }
 
-    function setDescriptionStatus(text: string, isError = false) {
-      descriptionStatus.hidden = text === '';
-      descriptionStatus.textContent = text;
-      descriptionStatus.classList.toggle('error-text', isError);
+    function showGmSections() {
+      const entityId = shown.entity_id;
+      itemGm.hidden = false;
+      const onChanged = () => void refresh();
+      void renderTagEditor(itemTags, { tenantId, entityId, onChanged });
+      void renderInformationManager(itemInformation, { tenantId, entityId, renderer, onChanged });
     }
 
-    function toggleEditor(open: boolean) {
-      descriptionForm.hidden = !open;
-      descriptionEdit.hidden = open;
-      itemDescriptions.hidden = open;
-      if (!open) {
-        editor?.destroy();
-        editor = undefined;
-        descriptionNotes.replaceChildren();
-      }
-    }
-
+    // The description, with its display title: the item's shown name (ADR 0019, 0112).
     descriptionEdit.addEventListener('click', async () => {
       descriptionEdit.disabled = true;
-      setDescriptionStatus('');
+      const entityId = shown.entity_id;
       try {
-        editing = await getDescription(tenantId as string, entityId);
+        const info = await getDescription(tenantId, entityId);
+        let saved = false;
+        descriptionEdit.hidden = true;
+        descriptionMount.replaceChildren(
+          infoForm({
+            initial: descriptionDraft(info, shown.title),
+            renderer,
+            titleLabel: 'Display title',
+            textLabel: 'Description',
+            showVisibility: info === null,
+            onSubmit: async (draft) => {
+              await saveDescription(tenantId, entityId, info, draft, shown.title);
+              saved = true;
+            },
+            onClose: () => {
+              descriptionMount.replaceChildren();
+              descriptionEdit.hidden = false;
+              if (saved) void refresh().then(showGmSections);
+            },
+          }),
+        );
       } catch (e) {
-        setDescriptionStatus(e instanceof Error ? e.message : String(e), true);
-        return;
+        window.alert(e instanceof Error ? e.message : String(e));
       } finally {
         descriptionEdit.disabled = false;
-      }
-      descriptionSource.value = editing?.content ?? '';
-      descriptionPublicField.hidden = editing !== null;
-      toggleEditor(true);
-      editor = createEditor({
-        textarea: descriptionSource,
-        render: async (source) => {
-          const [rendered] = await renderDescriptions([source]);
-          descriptionNotes.replaceChildren(
-            ...(rendered?.notes ?? []).map((note) => {
-              const li = document.createElement('li');
-              li.textContent = note;
-              return li;
-            }),
-          );
-          return rendered?.html ?? '';
-        },
-      });
-      descriptionSource.focus();
-    });
-
-    descriptionCancel.addEventListener('click', () => {
-      const changed = descriptionSource.value !== (editing?.content ?? '');
-      if (changed && !window.confirm('Discard your changes to this description?')) return;
-      setDescriptionStatus('');
-      toggleEditor(false);
-    });
-
-    descriptionForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const content = descriptionSource.value;
-      descriptionSave.disabled = true;
-      setDescriptionStatus('Saving…');
-      try {
-        if (editing) {
-          await saveDescription(tenantId as string, editing, content);
-        } else {
-          await createDescription(tenantId as string, entityId, content, descriptionPublic.checked);
-        }
-        // The edited description is the first one shown (ADR 0108).
-        descriptions = editing ? [content, ...descriptions.slice(1)] : [content];
-        setDescriptionStatus('');
-        toggleEditor(false);
-        showItemDescriptions();
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        const stale = e instanceof ApiError && e.status === 412;
-        setDescriptionStatus(stale ? STALE_DESCRIPTION : message, true);
-      } finally {
-        descriptionSave.disabled = false;
       }
     });
 
@@ -261,7 +180,7 @@ import Base from '../../layouts/Base.astro';
       loading.textContent = 'Loading…';
       itemAncestryList.replaceChildren(loading);
       try {
-        const rootLi = await fetchAncestryTree(tenantId as string, directPrototypeId);
+        const rootLi = await fetchAncestryTree(tenantId, directPrototypeId);
         itemAncestryList.replaceChildren(rootLi);
       } catch {
         itemAncestry.hidden = true;
@@ -271,7 +190,7 @@ import Base from '../../layouts/Base.astro';
     async function loadUsedBy(entityId: string) {
       itemUsedBy.hidden = false;
       try {
-        const result = await listItemsUsingPrototype(tenantId as string, entityId);
+        const result = await listItemsUsingPrototype(tenantId, entityId);
         if (result.length === 0) {
           itemUsedBy.hidden = true;
           return;
@@ -293,12 +212,12 @@ import Base from '../../layouts/Base.astro';
     // What links here (ADR 0110): shown only when something does.
     async function loadMentionedIn(entityId: string) {
       try {
-        const backlinks = await getBacklinks(tenantId as string, entityId);
+        const backlinks = await getBacklinks(tenantId, entityId);
         itemMentionedInList.replaceChildren(
           ...backlinks.map((backlink) => {
             const li = document.createElement('li');
             li.className = 'chip';
-            const href = entityHref(tenantId as string, backlink);
+            const href = entityHref(tenantId, backlink);
             const label = href
               ? Object.assign(document.createElement('a'), { href })
               : document.createElement('span');
@@ -321,7 +240,7 @@ import Base from '../../layouts/Base.astro';
     } else {
       try {
         let asItem: ItemBase | null = null;
-        let asInstance: (ItemBase & { slug: string | null }) | null = null;
+        let asInstance: ItemInstance | null = null;
         if (itemSlugParam) {
           // A slug always resolves to an instance - catalog items don't
           // have one, so there's no item-vs-instance ambiguity to try
@@ -345,19 +264,21 @@ import Base from '../../layouts/Base.astro';
         page.hidden = false;
 
         if (asItem) {
-          populate(asItem, null, null);
+          show(asItem);
           void loadAncestry(asItem.entity_id);
           void loadUsedBy(asItem.entity_id);
         } else if (asInstance) {
-          populate(asInstance, asInstance.slug, asInstance.quantity);
+          isInstance = true;
+          show(asInstance);
           const directId = asInstance.prototype_ids[0];
           if (directId) void loadAncestry(directId);
         }
-        void loadMentionedIn(entityId);
-        // GMs write descriptions here (ADR 0108); the API still decides.
+        void loadMentionedIn(shown.entity_id);
+        // GMs write here (ADR 0108, 0112); the API still decides.
         void isCampaignGm().then(
           (gm) => {
             descriptionEdit.hidden = !gm;
+            if (gm) showGmSections();
           },
           () => {},
         );

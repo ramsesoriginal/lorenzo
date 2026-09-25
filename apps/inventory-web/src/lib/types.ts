@@ -49,6 +49,7 @@ export type ItemInstance = components['schemas']['ItemInstanceOut'];
 export type ItemBase = CatalogItem;
 
 export type EntitySummary = components['schemas']['EntitySummary'];
+export type EntityDetail = components['schemas']['EntityDetailOut'];
 export type OwnedGroup = components['schemas']['OwnedGroupOut'];
 export type OwnedByResponse = components['schemas']['OwnedByResponse'];
 export type PrototypeAncestor = components['schemas']['PrototypeAncestorOut'];

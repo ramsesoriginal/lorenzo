@@ -280,10 +280,96 @@
   font-size: 13px;
 }
 
-.item-detail-flags {
-  color: var(--canonical);
+/* The item view (ADR 0112), shared by the board's panel and the item page:
+   stat groups, tags, pictures, and descriptions, inherited ones labelled. */
+.item-view {
+  margin: var(--space-3) 0;
+}
+
+.item-view-group {
+  margin: 0;
+}
+
+.item-view-group h3 {
+  font-family: var(--font-ui);
   font-size: 13px;
+  color: var(--text-secondary);
+  margin: var(--space-3) 0 0;
+}
+
+.item-view-group .item-detail-stats {
+  margin: var(--space-1) 0 0;
+}
+
+.item-view-tags {
+  margin: var(--space-3) 0;
+}
+
+.item-view-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.item-view-pictures figure {
+  margin: 0;
+}
+
+.item-view-pictures img {
+  display: block;
+  max-width: 240px;
+  max-height: 240px;
+  border-radius: var(--radius-control);
+}
+
+.item-view-source {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+/* Writing information (ADR 0112): its fields, the tag editor, and the
+   item page's Information list. */
+.info-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tag-editor-tag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tag-editor-tag legend {
+  float: left;
+  min-width: 8rem;
   font-weight: 600;
+}
+
+.information-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.information-row h3 {
+  margin: 0;
 }
 
 .item-detail-ancestry h3 {
