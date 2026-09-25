@@ -42,7 +42,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_orga
@@ -52,6 +52,7 @@ from lorenzo_api.models import (
     CharacterPlayer,
     GroupMember,
     Information,
+    Knowledge,
     Player,
     TenantAdminCampaignOptOut,
 )
@@ -101,6 +102,33 @@ class InformationVisibility:
             or link.knower_entity_id in self.knower_entity_ids
             for link in info.knowledge_links
         )
+
+
+def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool]:
+    """The SQL form of InformationVisibility.can_see, for a WHERE over
+    `information` - see ADR 0109. A paginated list has to filter before
+    pagination (RFC 0029's BL10): filtering in Python afterwards returns
+    short pages and leaks how many hidden rows exist.
+
+    Built from the same resolved sets as can_see, in the same order; the
+    two must stay one definition, which tests/test_information_list.py's
+    parity test enforces over a fixed matrix of callers and rows.
+    """
+    if vis.is_admin:
+        return true()
+    knower_matches = []
+    if vis.player_ids:
+        knower_matches.append(Knowledge.knower_player_id.in_(vis.player_ids))
+    if vis.knower_entity_ids:
+        knower_matches.append(Knowledge.knower_entity_id.in_(vis.knower_entity_ids))
+    clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
+    if vis.gm_reachable_entity_ids:
+        clauses.append(Information.entity_id.in_(vis.gm_reachable_entity_ids))
+    if knower_matches:
+        clauses.append(
+            exists().where(Knowledge.information_id == Information.id, or_(*knower_matches))
+        )
+    return or_(false(), *clauses)
 
 
 async def resolve_information_visibility(

@@ -29,6 +29,7 @@ from lorenzo_api.models import (
     VItem,
     VItemInstance,
 )
+from lorenzo_api.models.entity_view_mixin import description_pairs
 
 # A trivial all-seeing visibility context (is_orga=True short-circuits
 # can_see unconditionally) - this file proves the eager-load recipe and
@@ -162,7 +163,9 @@ async def test_v_item_covers_only_the_item_table() -> None:
         assert sword_view.weight == 3
         assert sword_view.is_magical is True
         assert sword_view.container_entity_id == chest_id
-        assert sword_view.descriptions(_SEES_EVERYTHING) == [("A gleaming blade.", "en-US")]
+        assert description_pairs(sword_view.entity, _SEES_EVERYTHING) == [
+            ("A gleaming blade.", "en-US")
+        ]
         assert sword_view.physical_stats == [("weight", 3)]
         assert sword_view.tags == [("is_magical", True)]
         assert sword_view.economic_stats == []

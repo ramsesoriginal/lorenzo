@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
+    from lorenzo_api.models.entity_slug import EntitySlug
     from lorenzo_api.models.entity_stat import EntityStat
     from lorenzo_api.models.entity_stat_group import EntityStatGroup
     from lorenzo_api.models.group_member import GroupMember
@@ -71,6 +72,7 @@ class Entity(Base):
     )
     information: Mapped[list[Information]] = relationship(
         lazy="raise_on_sql",
+        order_by="Information.order",
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -88,6 +90,13 @@ class Entity(Base):
         passive_deletes=True,
     )
     being: Mapped[Being | None] = relationship(
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    # ADR 0107: the row, not the string - EntityDetailOut reads .slug.slug.
+    slug: Mapped[EntitySlug | None] = relationship(
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",

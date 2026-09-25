@@ -30,7 +30,9 @@ from lorenzo_api.exceptions import (
     ItemPrototypeInUseError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
+    ComputedStat,
     Entity,
     EntityPrototype,
     Information,
@@ -68,7 +70,7 @@ router = APIRouter(
 
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
-) -> tuple[ORMOption, ORMOption, ORMOption, ORMOption, ORMOption, ORMOption]:
+) -> tuple[ORMOption, ...]:
     """The exact eager-load recipe proven in `tests/test_v_item.py`'s own
     `_eager_load_options` - required before touching any of
     `EntityViewMixin`'s six properties/methods (ADR 0019/0020), or they
@@ -107,6 +109,15 @@ def eager_load_options(
         .selectinload(Entity.effective_stats)
         .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
+        # A winning formula's parameters, for stat_evaluation (ADR 0104).
+        selectinload(view_entity_attr)
+        .selectinload(Entity.effective_stats)
+        .selectinload(VEffectiveStat.computed_stat)
+        .selectinload(ComputedStat.linear),
+        selectinload(view_entity_attr)
+        .selectinload(Entity.effective_stats)
+        .selectinload(VEffectiveStat.computed_stat)
+        .selectinload(ComputedStat.comparison),
         selectinload(view_entity_attr).selectinload(Entity.contained_links),
         selectinload(view_entity_attr).selectinload(Entity.prototype_links),
     )
@@ -222,8 +233,17 @@ async def list_items(
     # the page (ADR 0028's addendum).
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
-    def _items_out(items: Sequence[VItem]) -> list[ItemOut]:
-        return [ItemOut.from_v_item(item, request, visibility=visibility) for item in items]
+    async def _items_out(items: Sequence[VItem]) -> list[ItemOut]:
+        # One ancestor walk for the whole page (ADR 0111).
+        ancestry = await prototype_ancestors(
+            session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
+        )
+        return [
+            ItemOut.from_v_item(
+                item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
+            )
+            for item in items
+        ]
 
     # apaginate is typed to return Any (fastapi_pagination's own signature) -
     # cast rather than suppress, the declared return type is otherwise
@@ -243,7 +263,12 @@ async def get_item(
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemOut.from_v_item(view, request, visibility=visibility)
+    return ItemOut.from_v_item(
+        view,
+        request,
+        visibility=visibility,
+        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+    )
 
 
 async def _get_v_item_or_404(
@@ -295,7 +320,12 @@ async def _item_out(
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     if response is not None:
         response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemOut.from_v_item(view, request, visibility=visibility)
+    return ItemOut.from_v_item(
+        view,
+        request,
+        visibility=visibility,
+        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+    )
 
 
 @router.post("", status_code=201)

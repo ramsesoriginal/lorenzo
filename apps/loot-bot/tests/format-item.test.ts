@@ -20,6 +20,11 @@ function entity(overrides: Partial<EntityDetailOut> = {}): EntityDetailOut {
   } as EntityDetailOut;
 }
 
+// Row metadata every InformationOut/PayloadOut carries (ADR 0101) - not
+// what these tests are about.
+const infoMeta = { is_public: false, order: 0, updated_at: "2026-01-01T00:00:00Z" };
+const payloadMeta = { id: "payload-1", order: 0, updated_at: "2026-01-01T00:00:00Z" };
+
 describe("formatItemEmbed", () => {
   it("uses the entity's name as the title", () => {
     const embed = formatItemEmbed(entity({ name: "Ashfang" }));
@@ -37,8 +42,8 @@ describe("formatItemEmbed", () => {
     const embed = formatItemEmbed(
       entity({
         stats: [
-          { name: "damage", value: 10 },
-          { name: "magical", value: true },
+          { name: "damage", value: 10, own: true },
+          { name: "magical", value: true, own: false },
         ],
       }),
     );
@@ -55,13 +60,19 @@ describe("formatItemEmbed", () => {
             id: "info-1",
             title: "Description",
             type: "description",
-            payloads: [{ kind: "description", content: "A flaming sword.", locale: "en-US" }],
+            ...infoMeta,
+            payloads: [
+              { ...payloadMeta, kind: "description", content: "A flaming sword.", locale: "en-US" },
+            ],
           },
           {
             id: "info-2",
             title: "GM notes",
             type: "note",
-            payloads: [{ kind: "description", content: "Secretly cursed.", locale: "en-US" }],
+            ...infoMeta,
+            payloads: [
+              { ...payloadMeta, kind: "description", content: "Secretly cursed.", locale: "en-US" },
+            ],
           },
         ],
       }),
@@ -79,8 +90,14 @@ describe("formatItemEmbed", () => {
             id: "info-1",
             title: "Portrait",
             type: "picture",
+            ...infoMeta,
             payloads: [
-              { kind: "picture", url: "https://example.test/sword.png", file_type: "image/png" },
+              {
+                ...payloadMeta,
+                kind: "picture",
+                url: "https://example.test/sword.png",
+                file_type: "image/png",
+              },
             ],
           },
         ],
@@ -98,8 +115,10 @@ describe("formatItemEmbed", () => {
             id: "info-1",
             title: "Lore",
             type: "document",
+            ...infoMeta,
             payloads: [
               {
+                ...payloadMeta,
                 kind: "document",
                 url: "https://example.test/lore.pdf",
                 filename: "lore.pdf",
@@ -120,7 +139,8 @@ describe("formatItemEmbed", () => {
       id: `info-${i}`,
       title: `Note ${i}`,
       type: "note",
-      payloads: [{ kind: "description" as const, content: "x", locale: "en-US" }],
+      ...infoMeta,
+      payloads: [{ ...payloadMeta, kind: "description" as const, content: "x", locale: "en-US" }],
     }));
 
     const embed = formatItemEmbed(entity({ information }));

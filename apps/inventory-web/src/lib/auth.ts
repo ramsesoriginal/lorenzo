@@ -55,9 +55,14 @@ export async function completeLogin(): Promise<void> {
   await authgear.finishAuthentication();
 }
 
+// A refresh-token session is revoked and cleared, but the SDK doesn't
+// redirect afterwards: it insists on a redirectURI and then ignores it. A
+// page that just logged out would go on showing the signed-in view, so this
+// goes home itself. `force` clears the session even if revoking it fails.
 export async function logout(): Promise<void> {
   await ensureConfigured();
-  await authgear.logout({ redirectURI: window.location.origin });
+  await authgear.logout({ redirectURI: window.location.origin, force: true });
+  window.location.assign('/');
 }
 
 export async function isAuthenticated(): Promise<boolean> {

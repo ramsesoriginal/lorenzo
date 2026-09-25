@@ -1,13 +1,56 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import Request
 from pydantic import BaseModel
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, Information, StatValueType, VEffectiveStat
-from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.models import Entity, Information
+from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
+from lorenzo_api.stat_evaluation import evaluate
+
+
+class EntitySlugUpdate(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/slug - see ADR 0107."""
+
+    slug: Slug
+
+
+class EntitySlugOut(BaseModel):
+    entity_id: uuid.UUID
+    slug: str
+
+
+EntityKind = Literal["item", "item_instance", "being", "character"]
+
+
+class ResolvedSlugOut(BaseModel):
+    """One entry of GET .../entities/resolve - see ADR 0107. `kinds` says
+    what the entity is, so a client can honour a LorenzoScript view hint
+    (`being/ashfang`) and choose where the link leads.
+    """
+
+    slug: str
+    entity_id: uuid.UUID
+    name: str
+    kinds: list[EntityKind]
+
+
+class BacklinkOut(BaseModel):
+    """One entry of GET .../entities/{id}/backlinks - see ADR 0110: a piece
+    of information, visible to the caller, whose description links to the
+    entity or shows its picture. `entity_id`, `name` and `kinds` are the
+    entity that information is about, so a client can link to it.
+    """
+
+    entity_id: uuid.UUID
+    name: str
+    kinds: list[EntityKind]
+    information_id: uuid.UUID
+    title: str
+    type: str
 
 
 class InformationCreate(BaseModel):
@@ -18,15 +61,14 @@ class InformationCreate(BaseModel):
     EntityPrototype together), not two separate calls that could leave an
     Information row with no Payload yet.
 
-    Deliberately description-only for this slice - payload_number/picture/
-    document creation is explicitly out of scope (RFC 0011's own flagged
-    "binary payload upload mechanics... not resolved here"; a JSON body
-    has nowhere to put raw bytes without base64 or multipart, neither
-    decided). `type` is Information's own free-text narrative category
+    Deliberately description-only - payload_number/picture/document
+    creation is still out of scope (RFC 0015 sub-slice 4's binary upload
+    question). `type` is Information's own free-text narrative category
     (RFC 0001: "a rumor, an official record, a GM note, ..."), not the
-    payload's kind - callers authoring more than one piece of information
-    about the same entity must give each a distinct `type`, since
-    Information carries UniqueConstraint(entity_id, type).
+    payload's kind. Only singleton types (information_type.is_singleton:
+    `description`, `main_picture`) are one per entity; every other type can
+    repeat (ADR 0101). `order` is the row's position among the entity's
+    information; omitted, the server appends it after the last one.
     """
 
     title: str
@@ -34,46 +76,36 @@ class InformationCreate(BaseModel):
     is_public: bool = False
     content: str
     locale: str = "en-US"
+    order: int | None = None
+
+
+class InformationUpdate(BaseModel):
+    """PATCH /tenants/{tenant_id}/information/{information_id} - see ADR
+    0101. Merge-patch semantics (`exclude_unset`), like every other PATCH
+    in this API: an omitted field is left alone. Payload text is edited on
+    the payload itself (PATCH .../payloads/{id}), not here.
+    """
+
+    title: str | None = None
+    type: str | None = None
+    is_public: bool | None = None
+    order: int | None = None
 
 
 class EntityStatValueOut(BaseModel):
     """A resolved stat value, keyed by its definition's name - see ADR 0020.
-
-    Reshaping, not a plain-column mapping, so built via a classmethod
-    rather than from_attributes: which value_* column actually holds the
-    value is chosen by reading StatDefinition.value_type first, not by
-    probing all four columns for non-null (the DB's own CHECK constraint
-    on entity_stat, and v_effective_stat's identical shape, already
-    guarantees exactly one is ever set).
+    Always the *effective* value (ADR 0039), prototype-inherited or
+    computed (ADR 0104) - built by _stats_out below from
+    stat_evaluation.evaluate, which picks the value_* column matching
+    StatDefinition.value_type for a stored winner and evaluates a formula
+    for a computed one.
     """
 
     name: str
     value: int | str | float | bool
-
-    @classmethod
-    def from_effective_stat(cls, stat: VEffectiveStat) -> EntityStatValueOut:
-        """Takes a v_effective_stat row (ADR 0039), not an EntityStat - this
-        always reflects prototype-inherited values, not just an entity's own
-        direct ones.
-        """
-        definition = stat.stat_definition
-        value: int | str | float | bool | None
-        if definition.value_type is StatValueType.INT:
-            value = stat.value_int
-        elif definition.value_type is StatValueType.TEXT:
-            value = stat.value_text
-        elif definition.value_type is StatValueType.FLOAT:
-            value = stat.value_float
-        elif definition.value_type is StatValueType.BOOL:
-            value = stat.value_bool
-        else:
-            raise ValueError(f"Unhandled StatValueType: {definition.value_type!r}")
-        if value is None:
-            raise ValueError(
-                f"VEffectiveStat({stat.entity_id}, {stat.stat_definition_id}) is declared "
-                f"{definition.value_type.value} but its value column is null"
-            )
-        return cls(name=definition.name, value=value)
+    # ADR 0111: the entity holds the winning value itself, stored or
+    # computed; false when it's inherited.
+    own: bool
 
 
 class InformationOut(BaseModel):
@@ -87,6 +119,11 @@ class InformationOut(BaseModel):
     id: uuid.UUID
     title: str
     type: str
+    is_public: bool
+    order: int
+    # ETag/If-Match source for PATCH/DELETE .../information/{id} (ADR
+    # 0042/0101). Each payload carries its own, separately.
+    updated_at: datetime
     payloads: list[PayloadOut]
 
     @classmethod
@@ -95,8 +132,46 @@ class InformationOut(BaseModel):
             id=information.id,
             title=information.title,
             type=information.type,
+            is_public=information.is_public,
+            order=information.order,
+            updated_at=information.updated_at,
             payloads=[payload_to_schema(payload, request) for payload in information.payloads],
         )
+
+
+def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
+    """Every effective stat with a value, computed ones evaluated (ADR
+    0104). A computed stat whose inputs don't resolve is left out, like an
+    unset stat. Needs entity.stats (the entity's own rows) loaded too: an
+    own row always wins at hop 0, and an entity never holds both a value
+    and a formula for one stat (ADR 0104), so `own` is either of those."""
+    values = evaluate(entity.effective_stats)
+    stored = {stat.stat_definition_id for stat in entity.stats}
+    return [
+        EntityStatValueOut(
+            name=stat.stat_definition.name,
+            value=values[stat.stat_definition_id],
+            own=stat.stat_definition_id in stored or stat.computed_entity_id == entity.id,
+        )
+        for stat in entity.effective_stats
+        if stat.stat_definition_id in values
+    ]
+
+
+class KnowerOut(BaseModel):
+    """One knower of an Information row - see ADR 0109. `kind` says which
+    id is set: `entity` (a character or group, knower_entity_id) or
+    `player` (player_id). `name` is the entity's name, or the player's
+    user display name falling back to their nickname; either can be null.
+    A later per-knower `confidence` (RFC 0029) would be one more field
+    here.
+    """
+
+    kind: Literal["entity", "player"]
+    knower_entity_id: uuid.UUID | None = None
+    player_id: uuid.UUID | None = None
+    name: str | None
+    granted_at: datetime
 
 
 class EntityDetailOut(BaseModel):
@@ -108,6 +183,8 @@ class EntityDetailOut(BaseModel):
 
     id: uuid.UUID
     name: str
+    # ADR 0107: how LorenzoScript text links to this entity, if it can.
+    slug: str | None
     created_at: datetime
     updated_at: datetime
     stats: list[EntityStatValueOut]
@@ -126,9 +203,10 @@ class EntityDetailOut(BaseModel):
         return cls(
             id=entity.id,
             name=entity.name,
+            slug=entity.slug.slug if entity.slug is not None else None,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
-            stats=[EntityStatValueOut.from_effective_stat(stat) for stat in entity.effective_stats],
+            stats=_stats_out(entity),
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
             # is typed for Entity specifically), reusing EntitySummary only

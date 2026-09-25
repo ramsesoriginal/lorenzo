@@ -148,6 +148,30 @@ repos:
         language: system
         files: ^apps/brand/.*\.(css|html)$
         pass_filenames: true
+      - id: biome-lorenzoscript
+        name: biome (packages/lorenzoscript)
+        entry: pnpm --dir packages/lorenzoscript exec biome check --write
+        language: system
+        files: ^packages/lorenzoscript/.*\.(ts|json)$
+        pass_filenames: false
+      - id: tsc-lorenzoscript
+        name: tsc --noEmit (packages/lorenzoscript)
+        entry: pnpm --dir packages/lorenzoscript exec tsc --noEmit
+        language: system
+        files: ^packages/lorenzoscript/.*\.ts$
+        pass_filenames: false
+      - id: biome-lorenzoscript-editor
+        name: biome (packages/lorenzoscript-editor)
+        entry: pnpm --dir packages/lorenzoscript-editor exec biome check --write
+        language: system
+        files: ^packages/lorenzoscript-editor/.*\.(ts|json)$
+        pass_filenames: false
+      - id: tsc-lorenzoscript-editor
+        name: tsc --noEmit (packages/lorenzoscript-editor)
+        entry: pnpm --dir packages/lorenzoscript-editor exec tsc --noEmit
+        language: system
+        files: ^packages/lorenzoscript-editor/.*\.ts$
+        pass_filenames: false
 
 # Further language-specific hooks get added here alongside the next app
 # that needs them - see docs/guides/adding-an-app.md.

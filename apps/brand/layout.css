@@ -83,14 +83,16 @@ body {
   display: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  .brand-mark--light {
-    display: none;
-  }
+/* Keyed off the applied theme, not prefers-color-scheme - the same
+   switch tokens.css uses - so the lockup always matches the surface it
+   sits on, even where a page lets the theme differ from the browser's
+   preference. */
+[data-theme="dark"] .brand-mark--light {
+  display: none;
+}
 
-  .brand-mark--dark {
-    display: block;
-  }
+[data-theme="dark"] .brand-mark--dark {
+  display: block;
 }
 
 main {

@@ -10,11 +10,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic import TypeAdapter
+
 from lorenzo_api.exceptions import PreconditionFailedError
+
+# The token holds `updated_at` exactly as a JSON response body writes it, so a
+# client can build If-Match from a read as well as echo an ETag header back
+# (ADR 0101/0108). isoformat() used to write `+00:00` where the body says `Z`.
+_TIMESTAMP = TypeAdapter(datetime)
 
 
 def etag_for(updated_at: datetime) -> str:
-    return f'W/"{updated_at.isoformat()}"'
+    return f'W/"{_TIMESTAMP.dump_python(updated_at, mode="json")}"'
 
 
 def check_if_match(if_match: str | None, *, updated_at: datetime) -> None:

@@ -9,13 +9,13 @@ import Base from '../../layouts/Base.astro';
   <div id="page" hidden>
     <h1 class="display" id="tenant-name"></h1>
 
-    <section class="section-lg">
-      <h2>New item</h2>
+    <section class="section-lg" aria-labelledby="new-item-heading">
+      <h2 id="new-item-heading">New item</h2>
       <div id="create-item-mount"></div>
     </section>
 
-    <section class="section-lg">
-      <h2>Catalog</h2>
+    <section class="section-lg" aria-labelledby="catalog-heading">
+      <h2 id="catalog-heading">Catalog</h2>
       <div class="catalog-toolbar">
         <input
           type="search"
@@ -31,8 +31,8 @@ import Base from '../../layouts/Base.astro';
       <ul id="catalog-list" class="catalog-list" hidden></ul>
     </section>
 
-    <section class="section-lg">
-      <h2>Instances</h2>
+    <section class="section-lg" aria-labelledby="instances-heading">
+      <h2 id="instances-heading">Instances</h2>
       <div class="field">
         <span class="field-label" id="browse-label">View a being's inventory</span>
         <div class="combobox" id="browse-combobox">
@@ -63,12 +63,15 @@ import Base from '../../layouts/Base.astro';
     import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
     import { listBeings } from '../../lib/beings';
     import { readCatalogCache, writeCatalogCache } from '../../lib/catalogCache';
+    import { descriptionRenderer } from '../../lib/descriptions';
+    import { infoFields } from '../../lib/infoForm';
+    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
     import {
       createCatalogItem,
       createItemInstance,
       deleteCatalogItem,
       deleteItemInstance,
-      getItemPrototypes,
+      getEntityDetail,
       getOwnedItemInstances,
       listCatalogItems,
       listItemsUsingPrototype,
@@ -78,6 +81,7 @@ import Base from '../../layouts/Base.astro';
       updateCatalogItem,
     } from '../../lib/items';
     import { isCampaignGm } from '../../lib/me';
+    import { saveSlug, slugField, slugProblem, suggestSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
@@ -97,6 +101,36 @@ import Base from '../../layouts/Base.astro';
     const catalogList = document.getElementById('catalog-list') as HTMLUListElement;
 
     const createItemMount = document.getElementById('create-item-mount')!;
+    const renderer = descriptionRenderer(
+      new URLSearchParams(window.location.search).get('tenant') as string,
+    );
+
+    // A description with its display title (ADR 0112), for the create form and the edit
+    // panel. Its title is the item's shown name (ADR 0019); `followName` keeps a new one's
+    // title in step with the name field until the GM edits it.
+    function descriptionFields(
+      info: Awaited<ReturnType<typeof getDescription>>,
+      name: string,
+      followName?: HTMLInputElement,
+    ) {
+      const fields = infoFields({
+        initial: descriptionDraft(info, name),
+        renderer,
+        titleLabel: 'Display title',
+        textLabel: 'Description',
+        showVisibility: info === null,
+      });
+      if (followName) {
+        let edited = false;
+        fields.title.addEventListener('input', () => {
+          edited = true;
+        });
+        followName.addEventListener('input', () => {
+          if (!edited) fields.title.value = followName.value.trim();
+        });
+      }
+      return fields;
+    }
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
@@ -172,6 +206,7 @@ import Base from '../../layouts/Base.astro';
         input.type = 'text';
         input.className = 'text-input';
         input.placeholder = 'Search items to inherit from…';
+        input.setAttribute('aria-label', 'Search items to inherit from');
         input.autocomplete = 'off';
         const suggestions = document.createElement('ul');
         suggestions.className = 'combobox-suggestions';
@@ -322,21 +357,22 @@ import Base from '../../layouts/Base.astro';
     // real paths: assign straight to a picked character, or create with no
     // owner at all (ItemInstanceCreate.owner_character_id is optional - an
     // instance doesn't have to have one). Both can carry an optional slug
-    // (ADR 0043), settable only here at creation time.
+    // (ADR 0043), left empty: filling it for every instance would crowd the
+    // tenant's one slug namespace with loot (ADR 0113). Its placeholder is the
+    // slug it would suggest, which the item page can set later.
     function renderInstantiatePanel(item: CatalogItem, onDone: () => void): HTMLElement {
       const panel = document.createElement('div');
       panel.className = 'character-picker-panel';
 
-      const slugField = document.createElement('label');
-      slugField.className = 'field';
-      const slugLabel = document.createElement('span');
-      slugLabel.className = 'field-label';
-      slugLabel.textContent = 'Slug (optional)';
-      const slugInput = document.createElement('input');
-      slugInput.type = 'text';
-      slugInput.className = 'text-input';
+      const slug = slugField('');
+      const slugInput = slug.input;
       slugInput.placeholder = 'e.g. iron-sword-1';
-      slugField.append(slugLabel, slugInput);
+      suggestSlug(tenantId as string, item.title, 'instance').then(
+        (suggestion) => {
+          if (suggestion) slugInput.placeholder = `e.g. ${suggestion}`;
+        },
+        () => {},
+      );
 
       const combobox = document.createElement('div');
       combobox.className = 'combobox';
@@ -344,6 +380,7 @@ import Base from '../../layouts/Base.astro';
       input.type = 'text';
       input.className = 'text-input';
       input.placeholder = 'Search beings…';
+      input.setAttribute('aria-label', 'Search beings');
       input.autocomplete = 'off';
       const suggestions = document.createElement('ul');
       suggestions.className = 'combobox-suggestions';
@@ -359,7 +396,7 @@ import Base from '../../layouts/Base.astro';
       statusEl.className = 'picker-status';
       statusEl.hidden = true;
 
-      panel.append(slugField, combobox, noOwnerButton, statusEl);
+      panel.append(slug.element, combobox, noOwnerButton, statusEl);
 
       let busy = false;
       async function finish(action: () => Promise<string>) {
@@ -429,18 +466,54 @@ import Base from '../../layouts/Base.astro';
       return panel;
     }
 
+    /** Throws if the slug field holds something that can't be a slug, before anything's saved. */
+    function checkSlug(input: HTMLInputElement) {
+      const problem = input.value.trim() && slugProblem(input.value.trim());
+      if (problem) throw new Error(problem);
+    }
+
+    const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
     function mountCreateItemForm() {
       const nameField = createNameField('');
       const parentsField = createParentsField({ initialParents: new Map(), editable: true });
+      const description = descriptionFields(null, '', nameField.input);
+      // The slug a wikilink to it looks for, from the title it's shown by (ADR 0113).
+      const slug = slugField('', {
+        inputs: [nameField.input, description.title],
+        title: () => description.title.value.trim() || nameField.input.value.trim(),
+        suggest: (title) => suggestSlug(tenantId as string, title, 'item'),
+      });
       const form = renderItemForm({
-        fields: [nameField.element, parentsField.element],
+        fields: [nameField.element, parentsField.element, description.element, slug.element],
         submitLabel: 'Create item',
         onSubmit: async () => {
           const name = nameField.input.value.trim();
           if (!name) throw new Error('Name is required.');
-          await createCatalogItem(tenantId as string, name, parentsField.getSelectedIds());
+          checkSlug(slug.input);
+          const item = await createCatalogItem(
+            tenantId as string,
+            name,
+            parentsField.getSelectedIds(),
+          );
+          // The item exists now, so a failed description or slug mustn't leave this form up
+          // to create it twice.
+          const failed = (
+            await Promise.all([
+              saveDescription(tenantId as string, item.entity_id, null, description.read(), name)
+                .then(() => null)
+                .catch((e: unknown) => `its description (${reason(e)})`),
+              saveSlug(tenantId as string, item.entity_id, null, slug.input.value)
+                .then(() => null)
+                .catch((e: unknown) => `its slug (${reason(e)})`),
+            ])
+          ).filter(Boolean);
+          description.destroy();
           await loadCatalog(search.value);
           mountCreateItemForm(); // fresh, empty form after a successful create
+          if (failed.length > 0) {
+            window.alert(`“${name}” was created, but not ${failed.join(' or ')}.`);
+          }
         },
       });
       createItemMount.replaceChildren(form);
@@ -497,7 +570,12 @@ import Base from '../../layouts/Base.astro';
         }
       });
 
+      // What an open edit panel needs undone when it closes: its description editor.
+      let closeEditor = () => {};
+
       function closePanels() {
+        closeEditor();
+        closeEditor = () => {};
         li.querySelector('.character-picker-panel')?.remove();
         li.querySelector('.edit-item-panel')?.remove();
         instantiateButton.textContent = 'Create instance';
@@ -516,20 +594,39 @@ import Base from '../../layouts/Base.astro';
         li.append(panel);
 
         try {
-          const [prototypes, usedBy] = await Promise.all([
-            getItemPrototypes(tenantId as string, item.entity_id),
+          const [entity, usedBy, info] = await Promise.all([
+            getEntityDetail(tenantId as string, item.entity_id),
             listItemsUsingPrototype(tenantId as string, item.entity_id),
+            getDescription(tenantId as string, item.entity_id),
           ]);
-          const initialParents = new Map(prototypes.map((p: EntitySummary) => [p.id, p.name]));
-          const nameField = createNameField(item.title);
+          const initialParents = new Map(
+            entity.prototypes.map((p: EntitySummary) => [p.id, p.name]),
+          );
+          // The entity's own name: `item.title` is its description's title (ADR 0019).
+          const nameField = createNameField(entity.name);
           const parentsField = createParentsField({ initialParents, editable: true });
+          const description = descriptionFields(info, entity.name);
+          closeEditor = description.destroy;
+          // Its slug, or the one it would be given (ADR 0113).
+          const slug = slugField(
+            entity.slug ??
+              (await suggestSlug(tenantId as string, item.title, 'item').catch(() => '')),
+          );
           const usedByField = renderUsedByField(usedBy);
           const form = renderItemForm({
-            fields: [nameField.element, parentsField.element, usedByField],
+            fields: [
+              nameField.element,
+              parentsField.element,
+              description.element,
+              slug.element,
+              usedByField,
+            ],
             submitLabel: 'Save',
             onSubmit: async () => {
               const name = nameField.input.value.trim();
               if (!name) throw new Error('Name is required.');
+              checkSlug(slug.input);
+              const draft = description.read();
               await Promise.all([
                 updateCatalogItem(tenantId as string, item.entity_id, name),
                 setItemPrototypes(
@@ -538,9 +635,11 @@ import Base from '../../layouts/Base.astro';
                   parentsField.getSelectedIds(),
                 ),
               ]);
-              item.title = name;
-              title.textContent = name;
+              await saveDescription(tenantId as string, item.entity_id, info, draft, name);
+              await saveSlug(tenantId as string, item.entity_id, entity.slug, slug.input.value);
               closePanels();
+              // The row's title is the display title, else the name (ADR 0067).
+              await loadCatalog(search.value);
             },
           });
           panel.replaceChildren(form);
@@ -810,8 +909,8 @@ import Base from '../../layouts/Base.astro';
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
       status.textContent = 'No tenant selected. Pick one to continue.';
-    } else if (!(await isCampaignGm())) {
-      status.textContent = "This page is for GMs only. You don't hold a GM grant in any campaign.";
+    } else if (!(await isCampaignGm(tenantId))) {
+      status.textContent = "This page is for GMs only. You don't GM a campaign in this tenant.";
     } else {
       try {
         const tenant = await getTenant(tenantId);

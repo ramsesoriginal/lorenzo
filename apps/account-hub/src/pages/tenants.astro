@@ -187,7 +187,7 @@ import Base from '../layouts/Base.astro';
       const heading = document.createElement('h2');
       heading.textContent = `${tenant.name} `;
       const roleBadge = document.createElement('span');
-      roleBadge.className = 'tenant-role';
+      roleBadge.className = 'badge';
       roleBadge.textContent = tenant.role;
       heading.append(roleBadge);
       item.append(heading);
@@ -227,7 +227,7 @@ import Base from '../layouts/Base.astro';
         );
 
         const list = document.createElement('ul');
-        list.className = 'roster-list';
+        list.className = 'list';
         for (const campaign of campaigns) {
           list.append(
             renderCampaign(tenant, campaign, me, roster?.items ?? null, gmsByCampaign, onChanged),

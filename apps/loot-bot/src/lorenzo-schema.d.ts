@@ -1154,9 +1154,8 @@ export interface paths {
          *     groups/{group_entity_id}/members - which groups this character belongs
          *     to, sparing a client from fetching every tenant group and
          *     cross-referencing membership client-side. Gated the same way as this
-         *     router's other two pre-existing GET routes (_require_tenant_member),
-         *     not routers/groups.py's own broader is_tenant_participant - consistency
-         *     with this router's own neighbors, not with groups.py.
+         *     router's other two GET routes, and the same require_tenant_participant
+         *     routers/groups.py itself uses.
          */
         get: operations["list_character_groups"];
         put?: never;
@@ -1276,6 +1275,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/payloads/{payload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Payload
+         * @description Replaces a description payload's text and/or locale - ADR 0101, the
+         *     endpoint RFC 0027's description editor needs. Check order: the payload
+         *     exists (404), sight of its Information row or authorship (404, like a
+         *     missing payload), standing over the entity (403), description kind
+         *     (409 - other kinds aren't editable yet), If-Match against the payload's
+         *     own updated_at (412).
+         *
+         *     The text goes through description_payloads.write_description, the one
+         *     write path for it; `content` is stored as given. Not logged (ADR 0084:
+         *     descriptive content).
+         */
+        patch: operations["update_payload"];
+        trace?: never;
+    };
     "/users/{user_id}/picture": {
         parameters: {
             query?: never;
@@ -1322,6 +1350,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve Slugs
+         * @description Every slug a LorenzoScript text names, in one request (ADR 0107, RFC
+         *     0027 §7). Same gate as GET /{entity_id}, so a slug resolves for exactly
+         *     the readers who could open its entity. Slugs that don't resolve are
+         *     simply absent: a missing entity and a hidden one look alike.
+         */
+        get: operations["resolve_slugs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/by-slug/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entity By Slug
+         * @description GET /{entity_id}, addressed by slug (ADR 0107).
+         */
+        get: operations["get_entity_by_slug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}": {
         parameters: {
             query?: never;
@@ -1342,7 +1413,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tenants/{tenant_id}/entities/{entity_id}/information": {
+    "/tenants/{tenant_id}/entities/{entity_id}/backlinks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Backlinks
+         * @description What links here (ADR 0110): each piece of information whose
+         *     description names this entity's slug, in a link or a picture. Same gate
+         *     as GET /{entity_id}, then only information the caller can see - filtered
+         *     before paging, so pages are full and `total` counts nothing hidden. The
+         *     entity's own information isn't listed.
+         */
+        get: operations["list_backlinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/slug": {
         parameters: {
             query?: never;
             header?: never;
@@ -1350,6 +1445,43 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
+        /**
+         * Set Entity Slug
+         * @description Sets or replaces the entity's one slug (ADR 0107). 404 for an unknown
+         *     entity, then the same self-or-managed tier as authoring its information
+         *     (403), then 409 if another entity in the tenant already has the slug.
+         *     Setting the entity's current slug again changes nothing.
+         */
+        put: operations["set_entity_slug"];
+        post?: never;
+        /**
+         * Clear Entity Slug
+         * @description Clears the entity's slug, if it has one (ADR 0107): 204 either way,
+         *     like this API's other idempotent sub-resource DELETEs (ADR 0064).
+         */
+        delete: operations["clear_entity_slug"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/information": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entity Information
+         * @description An entity's information, paged, in `order` - see ADR 0109/RFC 0015.
+         *     Reachable by the same callers as GET /entities/{id} (tenant
+         *     participants), filtered to what the caller can see - in SQL, before
+         *     pagination (information_visibility.visible_information_clause), so a
+         *     page is never short and its total never counts rows the caller can't
+         *     see.
+         */
+        get: operations["list_entity_information"];
         put?: never;
         /**
          * Create Information
@@ -1357,11 +1489,13 @@ export interface paths {
          *     see ADR 0038/RFC 0011. `entity_id` existence is checked first (404,
          *     non-enumerable), then self-or-managed authorization (403 - the caller
          *     already knows the entity exists, they just lack a specific write
-         *     permission over it), then a duplicate `type` for this entity (409,
-         *     Information's own UniqueConstraint(entity_id, type) - pre-checked
-         *     explicitly rather than relying on the constraint violation to surface,
-         *     matching MembershipAlreadyExistsError/PlayerAlreadyExistsError's own
-         *     established precedent, ADR 0036), then the write itself.
+         *     permission over it), then - under the entity's row lock (ADR 0101) - a
+         *     duplicate *singleton* `type` (409) and a taken explicit `order` (409),
+         *     pre-checked explicitly rather than relying on the constraint violation
+         *     to surface, matching MembershipAlreadyExistsError/
+         *     PlayerAlreadyExistsError's own established precedent (ADR 0036), then
+         *     the write itself. The description text goes through
+         *     description_payloads.write_description, the one write path for it.
          */
         post: operations["create_information"];
         delete?: never;
@@ -1397,7 +1531,7 @@ export interface paths {
          *     stat_definition - 404, existence hidden, ADR 0032's own convention),
          *     then authorization (403 - the caller can already see both by this
          *     point, they may just lack a specific write permission), then the body's
-         *     value type (422), then If-Match (412) against the entity_stat row's own
+         *     value (422), then If-Match (412) against the entity_stat row's own
          *     updated_at if one already exists. Deliberately not the exact order
          *     routers/item_instances.py's writes use (If-Match before authorization)
          *     - that order relies on the write's target (Entity) always already
@@ -1408,6 +1542,140 @@ export interface paths {
          *     there is no prior version to have gone stale relative to.
          */
         put: operations["set_entity_stat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Entity Tag
+         * @description Sets a bool stat to `true` on this entity itself, and adds the
+         *     stat's group to the entity if missing - ADR 0103/RFC 0016. No body.
+         *     Same checks, order, and authorization as set_entity_stat; a non-bool
+         *     stat is 422. Not logged (ADR 0084: stat values).
+         */
+        put: operations["set_entity_tag"];
+        post?: never;
+        /**
+         * Clear Entity Tag
+         * @description Removes this entity's own value for a bool stat, so it's inherited
+         *     through the prototype chain again - ADR 0103. Idempotent: nothing to
+         *     remove is still 200. Returns the entity (like the stat PUT), not 204,
+         *     so the caller sees the inherited value it now resolves to. Leaves
+         *     group acquisition alone - other stats in the group may still need it.
+         */
+        delete: operations["clear_entity_tag"];
+        options?: never;
+        head?: never;
+        /**
+         * Unset Entity Tag
+         * @description Sets a bool stat to an explicit `false` on this entity itself - an
+         *     override of whatever a prototype says, not silence (ADR 0103: the door
+         *     built on the `wood` prototype but since rebuilt in metal). Otherwise
+         *     identical to set_entity_tag, group acquisition included.
+         */
+        patch: operations["unset_entity_tag"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/computed-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entity Computed Stats
+         * @description The formulas this entity holds itself - not inherited ones (ADR
+         *     0104). Unpaginated: bounded by the tenant's stat definitions.
+         */
+        get: operations["list_entity_computed_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Computed Stat
+         * @description Creates or replaces this entity's formula for one stat - ADR 0104.
+         *     Check order: entity and stat definition (404), If-Match against the
+         *     existing formula (412), then the formula itself - inputs, types, the
+         *     direct-value conflict (409), and cycles (422). A kind change replaces
+         *     the concrete row.
+         */
+        put: operations["set_computed_stat"];
+        post?: never;
+        /**
+         * Delete Computed Stat
+         * @description Removes this entity's own formula; the stat is inherited (or
+         *     unset) again - ADR 0104. Check the dependents lookup first: other
+         *     formulas may read this stat.
+         */
+        delete: operations["delete_computed_stat"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Computed Stat
+         * @description Evaluates a stat on this entity without saving anything - ADR 0104.
+         *     With a formula, every write-time check runs first, then the unsaved
+         *     formula is evaluated in place of whatever would otherwise resolve.
+         *     Without one, it reports whatever currently resolves.
+         */
+        post: operations["preview_computed_stat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Stat Dependents
+         * @description Every formula in the tenant that reads this stat - check before
+         *     changing or removing it (ADR 0104, after ADR 0073's prototype reverse
+         *     lookup).
+         */
+        get: operations["list_stat_dependents"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1646,10 +1914,26 @@ export interface paths {
         get: operations["get_information"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Information
+         * @description Removes the row with its payloads and knowledge links (cascade) -
+         *     ADR 0101/RFC 0015. Same gate as update_information. Logged (ADR 0084:
+         *     it changes what exists), entity id only - never title or content.
+         */
+        delete: operations["delete_information"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Information
+         * @description Edits title/type/is_public/order - ADR 0101/RFC 0015. Check order:
+         *     sight of the row (404), standing over its entity (403), If-Match
+         *     (412), then - under the entity's row lock - a singleton `type` the
+         *     entity already holds and a taken `order` (both 409).
+         *
+         *     Only a visibility change is logged (ADR 0084: it changes who can see
+         *     the row); title/type/order edits are descriptive content.
+         */
+        patch: operations["update_information"];
         trace?: never;
     };
     "/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}": {
@@ -1670,6 +1954,11 @@ export interface paths {
          *     granting knowledge about entity X needs the same standing as authoring
          *     information about X in the first place, not standing over whichever
          *     character/group is being granted it.
+         *
+         *     Also requires sight of the row, or authorship (ADR 0101,
+         *     routers/entities.authorize_information_edit): standing over an entity
+         *     alone must not let a player grant their own character a GM secret
+         *     about it.
          */
         put: operations["add_information_knower"];
         post?: never;
@@ -1681,6 +1970,59 @@ export interface paths {
          *     way routers/characters.py's roster-link endpoints already do).
          */
         delete: operations["remove_information_knower"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/player-knowers/{player_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add Information Player Knower
+         * @description Tells a player - the person's seat, not one of their characters -
+         *     about an Information row: the write side of player knowledge ADR 0028's
+         *     read side already honours. See ADR 0109. Identical in shape and gate to
+         *     add_information_knower: idempotent, ADR 0101's edit gate, 200 +
+         *     InformationOut, logged with ids only.
+         */
+        put: operations["add_information_player_knower"];
+        post?: never;
+        /**
+         * Remove Information Player Knower
+         * @description Un-tells a player - see ADR 0109 and remove_information_knower,
+         *     which this mirrors. Idempotent; 200 + the parent InformationOut.
+         */
+        delete: operations["remove_information_player_knower"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/knowers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Information Knowers
+         * @description Who has been told this: every knower of both kinds, oldest grant
+         *     first - see ADR 0109. Gated like editing (ADR 0101), not like reading:
+         *     who else knows a secret is itself a secret, so only callers who could
+         *     grant it may list its knowers. Unpaginated - bounded by one row's
+         *     grants.
+         */
+        get: operations["list_information_knowers"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2319,7 +2661,9 @@ export interface paths {
          * Create Stat Definition
          * @description stat_group_id must resolve to a stat group in this tenant (422
          *     InvalidStatGroupError otherwise) - mirrors create_item_instance's own
-         *     prototype_id validation (ADR 0032).
+         *     prototype_id validation (ADR 0032). An enum stat's allowed values are
+         *     created in the same transaction (ADR 0103): required, non-empty, and
+         *     duplicate-free for value_type=enum, and rejected for any other type.
          */
         post: operations["create_stat_definition"];
         delete?: never;
@@ -2340,6 +2684,52 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Stat Enum Value
+         * @description Adds one allowed value to an enum stat - ADR 0103. Tenant-admin tier
+         *     like the rest of this router. 422 for a non-enum definition, 409 for a
+         *     value already allowed. An omitted sort_order goes after the last.
+         *     Returns the whole definition, whose enum_values now include it. Not
+         *     logged: vocabulary, not structure (ADR 0084).
+         */
+        post: operations["add_stat_enum_value"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Stat Enum Value
+         * @description Removes one allowed value - ADR 0103. 409 while any entity directly
+         *     holds it: removing it would leave stored values outside the allowed
+         *     set. Returns the definition, like the add route.
+         */
+        delete: operations["remove_stat_enum_value"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2454,6 +2844,33 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * BacklinkOut
+         * @description One entry of GET .../entities/{id}/backlinks - see ADR 0110: a piece
+         *     of information, visible to the caller, whose description links to the
+         *     entity or shows its picture. `entity_id`, `name` and `kinds` are the
+         *     entity that information is about, so a client can link to it.
+         */
+        BacklinkOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
         };
         /**
          * BeingSummaryOut
@@ -2961,6 +3378,142 @@ export interface components {
             owner_player_id?: string | null;
         };
         /**
+         * Comparator
+         * @enum {string}
+         */
+        Comparator: "lt" | "le" | "eq" | "ne" | "ge" | "gt";
+        /**
+         * ComparisonFormulaBody
+         * @description `left <comparator> right`, right being another stat or a constant -
+         *     exactly one of the two (ADR 0104). A bool target gets the outcome; a
+         *     text/enum target needs true_value and false_value.
+         */
+        "ComparisonFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "comparison";
+            /**
+             * Left Stat Definition Id
+             * Format: uuid
+             */
+            left_stat_definition_id: string;
+            comparator: components["schemas"]["Comparator"];
+            /** Right Stat Definition Id */
+            right_stat_definition_id?: string | null;
+            /** Right Constant */
+            right_constant?: number | string | null;
+            /** True Value */
+            true_value?: string | null;
+            /** False Value */
+            false_value?: string | null;
+        };
+        /**
+         * ComparisonFormulaBody
+         * @description `left <comparator> right`, right being another stat or a constant -
+         *     exactly one of the two (ADR 0104). A bool target gets the outcome; a
+         *     text/enum target needs true_value and false_value.
+         */
+        "ComparisonFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "comparison";
+            /**
+             * Left Stat Definition Id
+             * Format: uuid
+             */
+            left_stat_definition_id: string;
+            comparator: components["schemas"]["Comparator"];
+            /** Right Stat Definition Id */
+            right_stat_definition_id?: string | null;
+            /** Right Constant */
+            right_constant?: string | null;
+            /** True Value */
+            true_value?: string | null;
+            /** False Value */
+            false_value?: string | null;
+        };
+        /**
+         * ComputedStatDependentOut
+         * @description One formula that reads a given stat (ADR 0104's reverse lookup).
+         */
+        ComputedStatDependentOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "linear" | "comparison";
+        };
+        /**
+         * ComputedStatOut
+         * @description One formula an entity holds itself - ADR 0104. `updated_at` is the
+         *     If-Match source for replacing or deleting it.
+         */
+        ComputedStatOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Formula */
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ComputedStatPreviewIn
+         * @description POST .../computed-stats/{id}/preview - an unsaved formula to try, or
+         *     nothing to evaluate whatever currently resolves (ADR 0104).
+         */
+        ComputedStatPreviewIn: {
+            /** Formula */
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"]) | null;
+        };
+        /**
+         * ComputedStatPreviewOut
+         * @description What a stat evaluates to on one entity, without saving anything.
+         *     `source` is `computed` (a formula - the candidate, if one was sent),
+         *     `direct` (a stored value wins), or `unset`. `inputs` are the values
+         *     the formula read, empty unless computed.
+         */
+        ComputedStatPreviewOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "computed" | "direct" | "unset";
+            /** Inputs */
+            inputs: components["schemas"]["PreviewInputOut"][];
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -2971,6 +3524,7 @@ export interface components {
             content: string;
             /** Locale */
             locale: string;
+            from_entity: components["schemas"]["EntitySummary"] | null;
         };
         /**
          * DuplicateGroupRequest
@@ -3039,6 +3593,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Slug */
+            slug: string | null;
             /**
              * Created At
              * Format: date-time
@@ -3065,22 +3621,40 @@ export interface components {
             /** Children */
             children: components["schemas"]["EntitySummary"][];
         };
+        /** EntitySlugOut */
+        EntitySlugOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Slug */
+            slug: string;
+        };
+        /**
+         * EntitySlugUpdate
+         * @description PUT /tenants/{tenant_id}/entities/{entity_id}/slug - see ADR 0107.
+         */
+        EntitySlugUpdate: {
+            /** Slug */
+            slug: string;
+        };
         /**
          * EntityStatValueOut
          * @description A resolved stat value, keyed by its definition's name - see ADR 0020.
-         *
-         *     Reshaping, not a plain-column mapping, so built via a classmethod
-         *     rather than from_attributes: which value_* column actually holds the
-         *     value is chosen by reading StatDefinition.value_type first, not by
-         *     probing all four columns for non-null (the DB's own CHECK constraint
-         *     on entity_stat, and v_effective_stat's identical shape, already
-         *     guarantees exactly one is ever set).
+         *     Always the *effective* value (ADR 0039), prototype-inherited or
+         *     computed (ADR 0104) - built by _stats_out below from
+         *     stat_evaluation.evaluate, which picks the value_* column matching
+         *     StatDefinition.value_type for a stored winner and evaluates a formula
+         *     for a computed one.
          */
         EntityStatValueOut: {
             /** Name */
             name: string;
             /** Value */
             value: number | string | boolean;
+            /** Own */
+            own: boolean;
         };
         /**
          * EntitySummary
@@ -3226,15 +3800,14 @@ export interface components {
          *     EntityPrototype together), not two separate calls that could leave an
          *     Information row with no Payload yet.
          *
-         *     Deliberately description-only for this slice - payload_number/picture/
-         *     document creation is explicitly out of scope (RFC 0011's own flagged
-         *     "binary payload upload mechanics... not resolved here"; a JSON body
-         *     has nowhere to put raw bytes without base64 or multipart, neither
-         *     decided). `type` is Information's own free-text narrative category
+         *     Deliberately description-only - payload_number/picture/document
+         *     creation is still out of scope (RFC 0015 sub-slice 4's binary upload
+         *     question). `type` is Information's own free-text narrative category
          *     (RFC 0001: "a rumor, an official record, a GM note, ..."), not the
-         *     payload's kind - callers authoring more than one piece of information
-         *     about the same entity must give each a distinct `type`, since
-         *     Information carries UniqueConstraint(entity_id, type).
+         *     payload's kind. Only singleton types (information_type.is_singleton:
+         *     `description`, `main_picture`) are one per entity; every other type can
+         *     repeat (ADR 0101). `order` is the row's position among the entity's
+         *     information; omitted, the server appends it after the last one.
          */
         InformationCreate: {
             /** Title */
@@ -3253,6 +3826,8 @@ export interface components {
              * @default en-US
              */
             locale: string;
+            /** Order */
+            order?: number | null;
         };
         /**
          * InformationOut
@@ -3272,8 +3847,34 @@ export interface components {
             title: string;
             /** Type */
             type: string;
+            /** Is Public */
+            is_public: boolean;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /** Payloads */
             payloads: (components["schemas"]["PayloadDescriptionOut"] | components["schemas"]["PayloadNumberOut"] | components["schemas"]["PayloadPictureOut"] | components["schemas"]["PayloadDocumentOut"])[];
+        };
+        /**
+         * InformationUpdate
+         * @description PATCH /tenants/{tenant_id}/information/{information_id} - see ADR
+         *     0101. Merge-patch semantics (`exclude_unset`), like every other PATCH
+         *     in this API: an omitted field is left alone. Payload text is edited on
+         *     the payload itself (PATCH .../payloads/{id}), not here.
+         */
+        InformationUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Order */
+            order?: number | null;
         };
         /**
          * InviteCreate
@@ -3425,7 +4026,10 @@ export interface components {
          *     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
          *     row if owner_character_id is given and/or a Containment row if
          *     container_entity_id is given. slug (ADR 0043) is optional, unique per
-         *     tenant when set, and resolvable later via GET .../by-slug/{slug}.
+         *     tenant when set - across every entity since ADR 0107 - and resolvable
+         *     later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
+         *     like every slug write (ADR 0107) - a deliberately accepted breaking
+         *     change to ADR 0043's unrestricted string.
          */
         ItemInstanceCreate: {
             /** Name */
@@ -3610,6 +4214,33 @@ export interface components {
             name?: string | null;
         };
         /**
+         * KnowerOut
+         * @description One knower of an Information row - see ADR 0109. `kind` says which
+         *     id is set: `entity` (a character or group, knower_entity_id) or
+         *     `player` (player_id). `name` is the entity's name, or the player's
+         *     user display name falling back to their nickname; either can be null.
+         *     A later per-knower `confidence` (RFC 0029) would be one more field
+         *     here.
+         */
+        KnowerOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "player";
+            /** Knower Entity Id */
+            knower_entity_id?: string | null;
+            /** Player Id */
+            player_id?: string | null;
+            /** Name */
+            name: string | null;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+        };
+        /**
          * KnowledgeEntryOut
          * @description GET /tenants/{tenant_id}/knowledge - see ADR 0085. One grant of one
          *     piece of information to one knower. Ids only, never content: this is an
@@ -3644,6 +4275,58 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * LinearFormulaBody
+         * @description `round(source × multiplier + offset)` - ADR 0104. A D&D ability
+         *     modifier is multiplier 0.5, offset -5, round_mode `floor`.
+         */
+        "LinearFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "linear";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /** Multiplier */
+            multiplier: number | string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * LinearFormulaBody
+         * @description `round(source × multiplier + offset)` - ADR 0104. A D&D ability
+         *     modifier is multiplier 0.5, offset -5, round_mode `floor`.
+         */
+        "LinearFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "linear";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /** Multiplier */
+            multiplier: string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
         };
         /**
          * ManagedCampaignOut
@@ -3950,6 +4633,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[BacklinkOut] */
+        Page_BacklinkOut_: {
+            /** Items */
+            items: components["schemas"]["BacklinkOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[BeingSummaryOut] */
         Page_BeingSummaryOut_: {
             /** Items */
@@ -4006,6 +4702,19 @@ export interface components {
         Page_EntitySummary_: {
             /** Items */
             items: components["schemas"]["EntitySummary"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[InformationOut] */
+        Page_InformationOut_: {
+            /** Items */
+            items: components["schemas"]["InformationOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -4148,6 +4857,18 @@ export interface components {
         /** PayloadDescriptionOut */
         PayloadDescriptionOut: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -4157,8 +4878,33 @@ export interface components {
             /** Locale */
             locale: string;
         };
+        /**
+         * PayloadDescriptionUpdate
+         * @description PATCH /tenants/{tenant_id}/payloads/{payload_id} - see ADR 0101.
+         *     Description payloads only. Merge-patch semantics: an omitted field is
+         *     left alone. `content` is opaque text - no parsing or validation
+         *     (LorenzoScript, RFC 0027, is a client-side convention).
+         */
+        PayloadDescriptionUpdate: {
+            /** Content */
+            content?: string | null;
+            /** Locale */
+            locale?: string | null;
+        };
         /** PayloadDocumentOut */
         PayloadDocumentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -4174,6 +4920,18 @@ export interface components {
         /** PayloadNumberOut */
         PayloadNumberOut: {
             /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
@@ -4183,6 +4941,18 @@ export interface components {
         };
         /** PayloadPictureOut */
         PayloadPictureOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Order */
+            order: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -4212,6 +4982,7 @@ export interface components {
             url: string;
             /** File Type */
             file_type: string;
+            from_entity: components["schemas"]["EntitySummary"] | null;
         };
         /**
          * PlayerContextOut
@@ -4354,6 +5125,18 @@ export interface components {
             /** Updated By */
             updated_by: string | null;
         };
+        /** PreviewInputOut */
+        PreviewInputOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | string | boolean | null;
+        };
         /**
          * ProblemOut
          * @description A plain-dict-shaped mirror of `fastapi_problem.error.Problem.
@@ -4429,6 +5212,33 @@ export interface components {
             prototype_ids: string[];
         };
         /**
+         * ResolvedSlugOut
+         * @description One entry of GET .../entities/resolve - see ADR 0107. `kinds` says
+         *     what the entity is, so a client can honour a LorenzoScript view hint
+         *     (`being/ashfang`) and choose where the link leads.
+         */
+        ResolvedSlugOut: {
+            /** Slug */
+            slug: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+        };
+        /**
+         * RoundMode
+         * @description How a linear formula's result is rounded (ADR 0104). `floor` and
+         *     `truncate` differ for negative results: floor((9 - 10) / 2) is -1 (the
+         *     right D&D modifier), truncation gives 0.
+         * @enum {string}
+         */
+        RoundMode: "none" | "floor" | "ceil" | "round" | "truncate";
+        /**
          * SetContainerRequest
          * @description PUT /item-instances/{id}/container body.
          */
@@ -4444,7 +5254,8 @@ export interface components {
          * @description PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}
          *     - see ADR 0037/RFC 0008. `value`'s Python type must match the target
          *     stat_definition's declared value_type exactly (int/str/float/bool, no
-         *     int<->float coercion) - checked explicitly by the route
+         *     int<->float coercion; an `enum` stat takes a string that must be one of
+         *     its allowed values, ADR 0103) - checked explicitly by the route
          *     (422 InvalidStatValueTypeError otherwise), not left to entity_stat's own
          *     CHECK constraint (which only enforces "exactly one value_* column is
          *     set," not which one).
@@ -4509,11 +5320,14 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Enum Values */
+            enum_values?: string[] | null;
         };
         /**
          * StatDefinitionOut
-         * @description Constructed via .model_validate(stat_definition) at call sites - same
-         *     reasoning as StatGroupOut above.
+         * @description Built via from_definition: `enum_values` flattens the
+         *     StatDefinitionEnumValue rows (already ordered by sort_order, value) to
+         *     their plain strings. Requires stat_definition.enum_values loaded.
          */
         StatDefinitionOut: {
             /**
@@ -4529,6 +5343,8 @@ export interface components {
              */
             stat_group_id: string;
             value_type: components["schemas"]["StatValueType"];
+            /** Enum Values */
+            enum_values: string[];
             /**
              * Created At
              * Format: date-time
@@ -4539,6 +5355,17 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * StatEnumValueCreate
+         * @description POST .../stat-definitions/{id}/enum-values - see ADR 0103. An
+         *     omitted sort_order places the value after the last one.
+         */
+        StatEnumValueCreate: {
+            /** Value */
+            value: string;
+            /** Sort Order */
+            sort_order?: number | null;
         };
         /**
          * StatGroupCreate
@@ -4555,6 +5382,11 @@ export interface components {
              * @default 0
              */
             priority: number;
+            /**
+             * Mandatory
+             * @default false
+             */
+            mandatory: boolean;
         };
         /**
          * StatGroupOut
@@ -4572,6 +5404,8 @@ export interface components {
             name: string;
             /** Priority */
             priority: number;
+            /** Mandatory */
+            mandatory: boolean;
             /**
              * Created At
              * Format: date-time
@@ -4599,7 +5433,7 @@ export interface components {
          * @description Which of entity_stat's value_* columns a stat's value lives in.
          * @enum {string}
          */
-        StatValueType: "int" | "text" | "float" | "bool";
+        StatValueType: "int" | "text" | "float" | "bool" | "enum";
         /**
          * SuspendUserRequest
          * @description PUT /admin/users/{id}/suspend body - see ADR 0057.
@@ -9271,6 +10105,78 @@ export interface operations {
             };
         };
     };
+    update_payload: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayloadDescriptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayloadDescriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_user_picture: {
         parameters: {
             query?: never;
@@ -9404,6 +10310,139 @@ export interface operations {
             };
         };
     };
+    resolve_slugs: {
+        parameters: {
+            query: {
+                slug: string[];
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedSlugOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entity_by_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_entity: {
         parameters: {
             query?: never;
@@ -9423,6 +10462,282 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_backlinks: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_BacklinkOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_entity_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntitySlugUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySlugOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_entity_slug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_entity_information: {
+        parameters: {
+            query?: {
+                /** @description Only these Information.type values (repeatable). */
+                type?: string[] | null;
+                /** @description technical: types with an information_type row; gm_authored: free-form types, which never have one. */
+                category?: ("technical" | "gm_authored") | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_InformationOut_"];
                 };
             };
             /** @description Validation Error */
@@ -9566,6 +10881,556 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_entity_tag: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_entity_tag: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unset_entity_tag: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_entity_computed_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputedStatOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_computed_stat: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputedStatOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_computed_stat: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    preview_computed_stat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ComputedStatPreviewIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputedStatPreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_stat_dependents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComputedStatDependentOut"][];
                 };
             };
             /** @description Validation Error */
@@ -10430,6 +12295,144 @@ export interface operations {
             };
         };
     };
+    delete_information: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_information: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     add_information_knower: {
         parameters: {
             query?: never;
@@ -10517,6 +12520,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_information_player_knower: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_information_player_knower: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_information_knowers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowerOut"][];
                 };
             };
             /** @description Validation Error */
@@ -12775,6 +14978,143 @@ export interface operations {
             path: {
                 tenant_id: string;
                 stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_stat_enum_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatEnumValueCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_stat_enum_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+                enum_value_id: string;
             };
             cookie?: never;
         };

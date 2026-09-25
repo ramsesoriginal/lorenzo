@@ -1,6 +1,6 @@
 # RFC: `apps/account-hub` — a user's own account surface
 
-Status: proposed
+Status: accepted — landed in `apps/account-hub` 1.0.0: the Foundation sub-slice as [ADR 0071](../adr/0071-account-hub-stack-auth-deploy.md), the other five directly against this RFC with no ADR of their own. The Beings sub-slice was scoped down in conversation when built: tenant-scoped rather than per campaign (a being has no campaign of its own) and name-only list/create/rename — the key/value stat editor in sub-slice 6 is not built. The notify-only `apps/loot-bot` push layer deferred below later landed separately, as [ADR 0095](../adr/0095-loot-bot-notification-dms.md)
 
 ## Context
 

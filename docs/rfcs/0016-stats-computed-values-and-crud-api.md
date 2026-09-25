@@ -1,6 +1,6 @@
 # RFC: Stats — enum values, computed stats, tags, and a real read/write API
 
-Status: proposed
+Status: proposed; sub-slices 1 to 3 accepted by [ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md), 4 and 5 by [ADR 0104](../adr/0104-computed-stats.md)
 
 ## Context
 

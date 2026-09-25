@@ -2,7 +2,7 @@ import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import type {
   BulkResultItem,
   CatalogItem,
-  EntitySummary,
+  EntityDetail,
   ItemInstance,
   OwnedByResponse,
   PrototypeAncestor,
@@ -175,19 +175,16 @@ export async function setItemPrototypes(
   );
 }
 
-// GET /tenants/{t}/entities/{id} - only used here for its `prototypes`
-// field (EntityDetailOut, with names), since ItemOut.prototype_ids is
-// id-only - this is what fills the edit panel's initial chips.
-export async function getItemPrototypes(
-  tenantId: string,
-  entityId: string,
-): Promise<EntitySummary[]> {
-  const entity = await unwrap(
+// GET /tenants/{t}/entities/{id} - what ItemOut doesn't carry: the entity's
+// own `name` (ItemOut.title is its description's title, ADR 0019), its
+// prototypes with names (ItemOut.prototype_ids is id-only), and its stats
+// with whether each is its own (ADR 0111).
+export async function getEntityDetail(tenantId: string, entityId: string): Promise<EntityDetail> {
+  return unwrap(
     await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
     }),
   );
-  return entity.prototypes;
 }
 
 // DELETE /tenants/{t}/items/{id} - 204 No Content on success.
@@ -266,18 +263,6 @@ export async function createItemInstance(
         ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
         ...(slug ? { slug } : {}),
       },
-    }),
-  );
-}
-
-// GET /tenants/{t}/item-instances/by-slug/{slug} (ADR 0043) - resolves a
-// slug straight to its instance, for the standalone item page's nicer,
-// more memorable alternative to a raw entity id. Path-param encoding is
-// openapi-fetch's own job now, not a manual encodeURIComponent here.
-export async function getItemInstanceBySlug(tenantId: string, slug: string): Promise<ItemInstance> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/item-instances/by-slug/{slug}', {
-      params: { path: { tenant_id: tenantId, slug } },
     }),
   );
 }

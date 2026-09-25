@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import uuid
+
     from lorenzo_api.information_visibility import InformationVisibility
     from lorenzo_api.models.entity import Entity
+    from lorenzo_api.stat_evaluation import Value
 
 
 class EntityViewMixin:
@@ -26,7 +29,7 @@ class EntityViewMixin:
     - VItem via `item`, VItemInstance via `item_instance`, VCharacter via
     `character`/`being`). Fully populating these properties requires
     eager-loading entity -> information -> payloads -> description, entity
-    -> information -> knowledge_links (needed by `descriptions` below - ADR
+    -> information -> knowledge_links (needed by `description_pairs` below - ADR
     0028), and entity -> effective_stats -> stat_definition -> stat_group;
     accessing them without doing so returns an empty list or raises, it
     does not silently lazy-load in this project's async setup (see ADR
@@ -37,9 +40,11 @@ class EntityViewMixin:
     own direct rows only) - so these agree with `weight`/`hp`/`armor`/etc.
     on the same view's plain columns instead of silently disagreeing with
     them for anything inherited, the gap ADR 0037 originally left open and
-    ADR 0039 closed.
+    ADR 0039 closed. Values go through stat_evaluation (ADR 0104), so a
+    computed stat shows its computed value; that also needs entity ->
+    effective_stats -> computed_stat -> linear/comparison eager-loaded.
 
-    No `pictures` here (unlike `descriptions`) - checked and confirmed
+    No `pictures` here (unlike `description_pairs`) - checked and confirmed
     unused: `schemas/items.py`'s `_picture_refs` needs the owning `Payload`
     row itself (for its id, to build a content URL), not just its bytes,
     so it always re-walked entity.information independently rather than
@@ -50,26 +55,39 @@ class EntityViewMixin:
 
     entity: Entity
 
-    def descriptions(self, visibility: InformationVisibility) -> list[tuple[str, str]]:
-        """Not a bare property - which descriptions are included depends on
-        the caller (ADR 0028's addendum: the same visibility-gating
-        GET /entities/{id} and GET /payloads/{id}/content already apply,
-        applied here too - this was a real, confirmed gap until that fix).
-        """
-        return [
-            (payload.description.content, payload.description.locale)
-            for info in self.entity.information
-            if info.type == "description" and visibility.can_see(info)
-            for payload in info.payloads
-            if payload.description is not None
-        ]
+    def resolved_stat_values(self) -> dict[uuid.UUID, Value]:
+        """Every effective stat's value, computed ones included (ADR 0104) -
+        see stat_evaluation.evaluate. Also needs entity -> effective_stats
+        -> computed_stat -> linear/comparison eager-loaded."""
+        # Imported here: stat_evaluation imports lorenzo_api.models, which
+        # imports this module.
+        from lorenzo_api.stat_evaluation import evaluate
+
+        return evaluate(self.entity.effective_stats)
+
+    def resolved_value_by_name(self, name: str) -> Value | None:
+        """The value of the effective stat called `name` - how the named
+        ItemOut columns (`weight`, ...) pick up a computed value their SQL
+        view column can't carry (ADR 0104)."""
+        values = self.resolved_stat_values()
+        for stat in self.entity.effective_stats:
+            if stat.stat_definition.name == name:
+                return values.get(stat.stat_definition_id)
+        return None
 
     def _stats_for_group(self, group_name: str) -> list[tuple[str, int | None]]:
-        return [
-            (stat.stat_definition.name, stat.value_int)
-            for stat in self.entity.effective_stats
-            if stat.stat_definition.stat_group.name == group_name
-        ]
+        # Int values only, as before: a stat of any other type in the
+        # group still appears, with None (ADR 0039's shape, unchanged).
+        values = self.resolved_stat_values()
+        pairs: list[tuple[str, int | None]] = []
+        for stat in self.entity.effective_stats:
+            if stat.stat_definition.stat_group.name != group_name:
+                continue
+            value = values.get(stat.stat_definition_id)
+            if isinstance(value, bool) or not isinstance(value, int):
+                value = None
+            pairs.append((stat.stat_definition.name, value))
+        return pairs
 
     @property
     def physical_stats(self) -> list[tuple[str, int | None]]:
@@ -89,8 +107,25 @@ class EntityViewMixin:
 
     @property
     def tags(self) -> list[tuple[str, bool | None]]:
-        return [
-            (stat.stat_definition.name, stat.value_bool)
-            for stat in self.entity.effective_stats
-            if stat.stat_definition.stat_group.name == "tags"
-        ]
+        values = self.resolved_stat_values()
+        pairs: list[tuple[str, bool | None]] = []
+        for stat in self.entity.effective_stats:
+            if stat.stat_definition.stat_group.name != "tags":
+                continue
+            value = values.get(stat.stat_definition_id)
+            pairs.append((stat.stat_definition.name, value if isinstance(value, bool) else None))
+        return pairs
+
+
+def description_pairs(entity: Entity, visibility: InformationVisibility) -> list[tuple[str, str]]:
+    """`entity`'s visible description texts as (content, locale): what
+    EntityViewMixin.descriptions returns for the view's own entity, and what
+    an item inherits from each ancestor (ADR 0111). Needs entity ->
+    information -> payloads -> description and knowledge_links loaded."""
+    return [
+        (payload.description.content, payload.description.locale)
+        for info in entity.information
+        if info.type == "description" and visibility.can_see(info)
+        for payload in info.payloads
+        if payload.description is not None
+    ]

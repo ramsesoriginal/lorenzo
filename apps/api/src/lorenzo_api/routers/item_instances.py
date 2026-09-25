@@ -43,10 +43,12 @@ from lorenzo_api.exceptions import (
     ItemInstanceSlugNotFoundError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
+from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
     Containment,
     Entity,
     EntityPrototype,
+    EntitySlug,
     Item,
     ItemInstance,
     Ownership,
@@ -221,9 +223,15 @@ async def list_item_instances(
             .order_by(VItemInstance.entity_id)
         )
 
-    def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
+    async def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
+        # One ancestor walk for the whole page (ADR 0111).
+        ancestry = await prototype_ancestors(
+            session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
+        )
         return [
-            ItemInstanceOut.from_v_item_instance(item, request, visibility=visibility)
+            ItemInstanceOut.from_v_item_instance(
+                item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
+            )
             for item in items
         ]
 
@@ -270,10 +278,15 @@ async def _grouped_by_container_response(
         ).scalars()
         containers = {entity.id: entity for entity in container_entities}
 
+    ancestry = await prototype_ancestors(
+        session, tenant_id=tenant_id, entity_ids=[view.entity_id for view, _ in rows]
+    )
     groups: dict[uuid.UUID | None, list[ItemInstanceOut]] = {}
     for view, container_id in rows:
         groups.setdefault(container_id, []).append(
-            ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
+            ItemInstanceOut.from_v_item_instance(
+                view, request, visibility=visibility, ancestors=ancestry[view.entity_id]
+            )
         )
 
     return OwnedByResponse(
@@ -398,7 +411,12 @@ async def get_item_instance_by_slug(
             detail=f"No item instance with slug {slug!r} in tenant {tenant_id}"
         )
     response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
+    return ItemInstanceOut.from_v_item_instance(
+        view,
+        request,
+        visibility=visibility,
+        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+    )
 
 
 @router.get("/{entity_id}")
@@ -437,7 +455,12 @@ async def get_item_instance(
         tenant_id, entity_id, session, extra_predicate=predicate
     )
     response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
+    return ItemInstanceOut.from_v_item_instance(
+        view,
+        request,
+        visibility=visibility,
+        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+    )
 
 
 async def _get_v_item_instance_or_404(
@@ -499,7 +522,12 @@ async def _item_instance_out(
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     if response is not None:
         response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemInstanceOut.from_v_item_instance(view, request, visibility=visibility)
+    return ItemInstanceOut.from_v_item_instance(
+        view,
+        request,
+        visibility=visibility,
+        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+    )
 
 
 async def _current_owner_character_id(
@@ -603,8 +631,10 @@ async def create_item_instance(
     )
 
     if body.slug is not None:
-        slug_stmt = select(ItemInstance.entity_id).where(
-            ItemInstance.tenant_id == tenant_id, ItemInstance.slug == body.slug
+        # Every entity's slug lives in entity_slug since ADR 0107, so this is
+        # unique across the tenant, not only among item instances.
+        slug_stmt = select(EntitySlug.entity_id).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.slug == body.slug
         )
         if (await session.execute(slug_stmt)).first() is not None:
             raise ItemInstanceSlugConflictError(
@@ -619,7 +649,9 @@ async def create_item_instance(
     )
     session.add(entity)
     await session.flush()
-    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
+    session.add(ItemInstance(entity_id=entity.id, tenant_id=tenant_id))
+    if body.slug is not None:
+        session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
         EntityPrototype(entity_id=entity.id, prototype_id=body.prototype_id, tenant_id=tenant_id)
     )

@@ -1,55 +1,9 @@
 /*
- * Structural arrangement: the page shell and the big grids/rows each
- * section is built from. Visual skin (color, border, radius) for
- * individual pieces lives in components.css.
+ * Structural arrangement genuinely specific to account-hub - the page
+ * shell, brand lockup, and shared section rhythm already come from
+ * @lorenzo/brand's own layout.css (ADR 0098). Only a tenant/campaign
+ * admin page's own subdivision layout lives here.
  */
-
-.site-header {
-  display: flex;
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-}
-
-.brand-mark {
-  display: block;
-  /* identity.md §4.7: horizontal lockup minimum width is 220px. */
-  width: 220px;
-  height: auto;
-}
-
-.brand-mark--dark {
-  display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  .brand-mark--light {
-    display: none;
-  }
-
-  .brand-mark--dark {
-    display: block;
-  }
-}
-
-main {
-  padding: var(--space-4);
-}
-
-/* Shared section-spacing utility - every section on a page is one of
-   these two rhythms, rather than each inventing its own margin-top. */
-.section {
-  margin-top: var(--space-5);
-}
-
-.section-lg {
-  margin-top: var(--space-6);
-}
 
 /* One campaign's own area within a tenant section (/characters, /beings) -
    a light indent, not a full card, since it's a subdivision of the
@@ -57,7 +11,7 @@ main {
 .campaign-subsection {
   margin-top: var(--space-3);
   padding-left: var(--space-3);
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--border-subtle);
 }
 
 /* A self-contained admin/composer block within a tenant or campaign row
@@ -67,29 +21,5 @@ main {
 .panel {
   margin-top: var(--space-3);
   padding-left: var(--space-3);
-  border-left: 2px solid var(--border);
-}
-
-.tenant-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-
-.character-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-.board-columns {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 300px);
-  gap: var(--space-3);
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-bottom: var(--space-2);
+  border-left: 2px solid var(--border-subtle);
 }

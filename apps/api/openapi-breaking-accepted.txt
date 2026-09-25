@@ -1,0 +1,14 @@
+# Breaking changes to apps/api's OpenAPI contract that were accepted on purpose.
+# CI's openapi-diff job (oasdiff breaking, fail-on ERR) passes this file as
+# err-ignore; each line names a method, a path, and the finding's text.
+# Add a line here only with an ADR that records the decision, and ship it in a
+# commit with a BREAKING CHANGE footer so release-please versions it.
+
+# ADR 0103: stat_definition.value_type gains `enum`.
+GET /tenants/{tenant_id}/stat-definitions added the new `enum` enum value to the `items/items/value_type` response property for the response status `200`
+POST /tenants/{tenant_id}/stat-definitions added the new `enum` enum value to the `value_type` response property for the response status `201`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `enum` enum value to the `value_type` response property for the response status `200`
+
+# ADR 0107: an item instance's slug at creation follows RFC 0027's slug grammar.
+POST /tenants/{tenant_id}/item-instances the `slug/anyOf[subschema #1]/` request property's maxLength was set to `100`
+POST /tenants/{tenant_id}/item-instances added the pattern `^[A-Za-z0-9][A-Za-z0-9_-]*$` to the request property `slug/anyOf[subschema #1]/`

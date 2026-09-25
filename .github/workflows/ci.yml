@@ -10,11 +10,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Finds every apps/*/mise.toml - that file is the "this is a real,
-  # scaffolded app" marker (see docs/adr/0007-apps-layout-and-multiplicity.md).
-  # Currently discovers apps/api; a future app with no mise.toml yet simply
-  # isn't matched, so the test job's matrix below runs zero times for it,
-  # rather than failing.
+  # Finds every apps/*/mise.toml and packages/*/mise.toml - that file is the
+  # "this is a real, scaffolded app/package" marker (see
+  # docs/adr/0007-apps-layout-and-multiplicity.md; packages since ADR 0100).
+  # A future app with no mise.toml yet simply isn't matched, so the test
+  # job's matrix below runs zero times for it, rather than failing.
   discover:
     runs-on: ubuntu-latest
     outputs:
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v7
       - id: find
         run: |
-          apps=$(find apps -mindepth 2 -maxdepth 2 -name mise.toml | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
+          apps=$(find apps packages -mindepth 2 -maxdepth 2 -name mise.toml | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
           echo "Discovered apps: $apps"
           echo "apps=$apps" >> "$GITHUB_OUTPUT"
 
@@ -137,6 +137,9 @@ jobs:
           base: base/apps/api/openapi.json
           revision: revision/apps/api/openapi.json
           fail-on: ERR
+          # Deliberately accepted breaks, each backed by an ADR - see the
+          # file's own header. Everything else still fails the job.
+          err-ignore: revision/apps/api/openapi-breaking-accepted.txt
 
   # apps/loot-bot's generated API client (src/lorenzo-schema.d.ts) is
   # committed, so it can silently fall behind apps/api's routes/schemas - the
@@ -156,17 +159,60 @@ jobs:
       - run: mise run check-client
         working-directory: apps/loot-bot
 
+  # inventory-web's end-to-end tests (ADR 0114): the built site in a browser, against the real
+  # apps/api and a fake Authgear. Its own job rather than a `test` matrix entry, since it needs
+  # uv for the API and a browser besides Postgres.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lorenzo
+          POSTGRES_PASSWORD: lorenzo
+          POSTGRES_DB: lorenzo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/inventory-web
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/inventory-web
+      - run: mise run test-e2e
+        working-directory: apps/inventory-web
+        env:
+          E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
+          E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/inventory-web/playwright-report/
+            apps/inventory-web/test-results/
+          retention-days: 7
+
   # discover/test report no useful status if the matrix ever ends up empty
   # (test is skipped then, not failed) - this job always runs regardless, so
   # it can be the one required status check that's always meaningful. See
   # docs/operations/github-setup.md.
   ci-summary:
-    needs: [discover, test, openapi-diff, client-drift]
+    needs: [discover, test, openapi-diff, client-drift, e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - run: |
-          if [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.openapi-diff.result }}" = "failure" ] || [ "${{ needs.client-drift.result }}" = "failure" ]; then
+          if [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.openapi-diff.result }}" = "failure" ] || [ "${{ needs.client-drift.result }}" = "failure" ] || [ "${{ needs.e2e.result }}" = "failure" ]; then
             echo "A required job failed."
             exit 1
           fi

@@ -660,7 +660,7 @@ The `--visibility-restricted-*` and `--button-*` tokens are all aliases (`--visi
 
 ```css
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* Brand primitives (§6.1) — identity only, never referenced directly by product UI */
   --brand-ink: #08131f;
@@ -733,6 +733,8 @@ The `--visibility-restricted-*` and `--button-*` tokens are all aliases (`--visi
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
+
   --surface-canvas: var(--brand-ink);
   --surface-default: color-mix(in srgb, var(--brand-ink) 96%, var(--brand-paper) 4%);
   --surface-muted: color-mix(in srgb, var(--brand-ink) 92%, var(--brand-paper) 8%);

@@ -1,4 +1,5 @@
 ---
+import { BRANDING_CSS_URL } from '../lib/config';
 import '../styles/global.css';
 
 interface Props {
@@ -6,6 +7,20 @@ interface Props {
 }
 
 const { title = 'Lorenzo — Account' } = Astro.props;
+
+// The whole @lorenzo/brand package, in ITCSS order (ADR 0098): reset ->
+// tokens -> fonts -> base element defaults -> structural layout -> reusable
+// components -> motion. `global.css` (imported above) loads only what's
+// genuinely account-hub-specific and layers on top of these.
+const brandStylesheets = [
+  'normalize.css',
+  'tokens.css',
+  'fonts.css',
+  'base.css',
+  'layout.css',
+  'components.css',
+  'motion.css',
+];
 ---
 
 <!doctype html>
@@ -13,10 +28,24 @@ const { title = 'Lorenzo — Account' } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{title}</title>
+    {brandStylesheets.map((file) => <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${file}`} />)}
+    <script>
+      // tokens.css only styles [data-theme="dark"] explicitly (no
+      // prefers-color-scheme fallback of its own - see ADR 0098) - this app
+      // has no manual theme toggle, so it sets that attribute itself from
+      // the system preference on every load, same mechanism
+      // apps/brand/preview/*.html use for their own (toggleable) version.
+      // Inline and in <head> so it runs before first paint - no flash of
+      // the wrong theme.
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    </script>
   </head>
   <body>
     <header class="site-header">

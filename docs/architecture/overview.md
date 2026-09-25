@@ -56,6 +56,57 @@ The activity log stopped being a hand-picked slice: it is now defined as an acco
 
 Players now have a feed of what happened to their characters' belongings, across every tenant: `GET /me/changes` ([ADR 0099](../adr/0099-player-facing-change-feed.md), accepting [RFC 0022](../rfcs/0022-player-facing-change-feed-api.md)). Every item-instance write records one row per affected player, fanned out at write time like notifications: whoever held the item only afterwards is told it was `received`, whoever held it only before that it was `given_away`, and whoever kept it gets the change's own kind (`moved`, `split`, `merged`, `renamed`, `deleted`). A character holds whatever it owns, carries at any depth, or owns a container of. The actor is named only when it is another player - a GM's confiscation reads "taken from you" - and nobody is told about their own action. Rows are readable only by their recipient, stricter than notifications, and expire after 90 days, pruned when their owner reads the feed since there is no job runner. Information changes are not in the feed yet.
 
+Information became editable ([ADR 0101](../adr/0101-editable-information-and-description-payloads.md), accepting [RFC 0015](../rfcs/0015-information-metadata-shape.md) sub-slices 1 and 3). `PATCH`/`DELETE /tenants/{tenant_id}/information/{information_id}` and `PATCH /tenants/{tenant_id}/payloads/{payload_id}` (description text) all check `If-Match`. Only `description` and `main_picture` stay one per entity, through a small global `information_type` catalog and a partial unique index, so an entity can hold several notes or handouts. `information` and `payload` gained an `order`; when a writer omits it, a trigger appends the row after its last sibling. Editing an existing row needs the existing self-or-managed standing plus sight of the row, or having written it (a new `information.created_by`). That also closed a hole in the knower routes, where a player could grant their own character a GM secret about their own item. Every description write goes through one function, `description_payloads.write_description`, which RFC 0027's reference extractor will extend.
+
+Stats gained three small conveniences ([ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md), accepting [RFC 0016](../rfcs/0016-stats-computed-values-and-crud-api.md) sub-slices 1 to 3), none of which changes how a value is resolved:
+
+- **Tag endpoints.** `PUT`, `PATCH`, and `DELETE` on `.../entities/{id}/tags/{stat_definition_id}` set a bool stat to true, to an explicit false, or back to inherited. The first two also add the stat's group to the entity, closing ADR 0037's named gap for tags.
+- **Enum values.** An `enum` value type is stored as text and checked on write against a per-definition, tenant-scoped vocabulary (`stat_definition_enum_value`). The vocabulary is given when the definition is created and can grow or shrink later; a value still in use can't be removed.
+- **Mandatory groups.** `stat_group.mandatory` is a flag for clients to show a group even when it's empty. Nothing enforces it.
+
+Stats can now be computed ([ADR 0104](../adr/0104-computed-stats.md), accepting [RFC 0016](../rfcs/0016-stats-computed-values-and-crud-api.md) sub-slices 4 and 5). A `computed_stat` holds one of two formula kinds, each a fixed function with parameters and no interpreter:
+
+- **`linear`**: multiplier and offset with an explicit rounding mode. `floor` is what makes a D&D modifier right for odd scores below 10.
+- **`comparison`**: a bool result, or one of two text/enum values.
+
+`v_effective_stat` lets a formula win at a prototype hop exactly as a stored value does. A Python pass (`stat_evaluation.py`) then evaluates the winner against the resolved stats of the entity being read, following dependencies between formulas. Every Python reader goes through that pass: `GET /entities/{id}`, the item and character stat groups and tags, and the named `ItemOut` columns. The SQL-only named columns in `v_item`/`v_item_instance` still carry stored values only.
+
+Formulas are tenant-admin authored with `If-Match`. An entity holds a formula or a direct value for a stat, never both. Writes that would close a cycle are rejected: the graph is tenant-wide at the stat-definition level, separate from the prototype graph's own trigger. A dry-run preview evaluates an unsaved formula against a real entity, and `GET .../stat-definitions/{id}/dependents` answers "what reads this stat".
+
+Players can now be told things directly ([ADR 0109](../adr/0109-player-knowers-knower-listing-and-information-list.md), accepting [RFC 0015](../rfcs/0015-information-metadata-shape.md) sub-slices 5 and 6):
+
+- **Player knowers.** `PUT`/`DELETE .../information/{id}/player-knowers/{player_id}` write the player knowledge rows ADR 0028's read side always honoured, behind ADR 0101's edit gate.
+- **Who knows.** `GET .../information/{id}/knowers` lists both knower kinds. It's readable only by callers who could grant, because who else knows a secret is itself one.
+- **The information list.** `GET .../entities/{id}/information` is paged and filterable by `type` and `category`. Visibility is applied in SQL before pagination through `visible_information_clause`, which a parity test keeps identical to `can_see`.
+
+Descriptions are now written in LorenzoScript, Lorenzo's own Markdown dialect ([RFC 0027](../rfcs/0027-lorenzoscript.md)), built in seven stages:
+
+- **The language.** [`packages/lorenzoscript`](../../packages/lorenzoscript) parses and renders it: CommonMark's structure plus tables, footnotes, math, class blocks, and entity links by slug (`[[Ashfang]]`, `[text](being/ashfang)`). Its HTML is safe by construction, and its `SPEC.md` is both the definition and the test suite ([ADR 0100](../adr/0100-lorenzoscript-core-parser-and-renderer.md), [0102](../adr/0102-lorenzoscript-standard-extensions.md), [0105](../adr/0105-lorenzoscript-entity-references-and-resolver.md)).
+- **The editor.** [`packages/lorenzoscript-editor`](../../packages/lorenzoscript-editor) is a textarea with a configurable toolbar and a live preview, plus a static demo that needs no API ([ADR 0106](../adr/0106-lorenzoscript-editor-and-demo.md)).
+- **Slugs.** Any entity can have one, unique per tenant, in `entity_slug`, which replaced `item_instance.slug` (RFC 0015 sub-slice 2). `GET .../entities/resolve` resolves a whole text's slugs in one request. Item-instance creation now holds its slug to the same grammar, a deliberately accepted breaking change ([ADR 0107](../adr/0107-entity-slugs-and-batch-resolve.md)).
+- **inventory-web.** The item page and the board render descriptions as LorenzoScript, and GMs edit them on the item page. `ETag`s now carry the JSON `updated_at` text, so ADR 0101's `If-Match` rule works as written ([ADR 0108](../adr/0108-lorenzoscript-in-inventory-web.md)).
+- **References and backlinks.** The server extracts each description's references itself, with a Python port held to the same `SPEC.md` examples, into `content_reference`, keyed by slug. `GET .../entities/{id}/backlinks` pages what links to an entity, filtered to what the caller can see, and inventory-web shows it as "Mentioned in". Both parsers stay linear on hostile input ([ADR 0110](../adr/0110-lorenzoscript-content-references-and-backlinks.md)).
+
+Items now show what they inherit, and inventory-web shows and edits the whole item:
+
+- **Inherited descriptions and pictures.** `ItemOut.descriptions` and `pictures` list the item's own first, then every ancestor's through its prototypes, nearest first. Each ancestor's are visibility-checked and labelled with `from_entity`. Titles don't inherit. `EntityStatValueOut` gains `own`, true when a value is the entity's own rather than inherited ([ADR 0111](../adr/0111-inherited-descriptions-and-stat-value-sources.md)).
+- **One item view.** The board's panel and the item page draw an item the same way: all four stat groups, its tags, pictures, and its own and inherited descriptions.
+- **Editing.**
+  - The description editor gains a display title, which is also the item's shown name, and appears in Manage items' create form and edit panel too.
+  - GMs set tags to inherited, on, or off, and add, edit, or delete any of an item's information.
+  - This fixed descriptions written in inventory-web renaming their item "Description" ([ADR 0112](../adr/0112-inventory-web-the-whole-item.md)).
+
+inventory-web gained end-to-end tests, slugs, and players' notes:
+
+- **End-to-end tests.** Playwright drives the built site against the real `apps/api`, on a freshly migrated database, and a fake Authgear with real PKCE and RS256 tokens, so the unmodified SDK logs in through the app's own button. Each test builds its own tenant through the API. A CI `e2e` job gates merges ([ADR 0114](../adr/0114-inventory-web-end-to-end-tests.md)). The first run found real bugs, fixed in the same change:
+  - board cards couldn't be opened from the keyboard;
+  - GM tools leaked across tenants;
+  - players' give search found nobody, since `/beings` needs a membership;
+  - "From …" links led players to pages they can't open;
+  - Log out did nothing visible.
+- **Slugs.** GMs set an item's or instance's slug in Manage items and on the item page, prefilled with the first free one its title suggests, so `[[Title]]` links find it. `?slug=` resolves any entity ([ADR 0113](../adr/0113-inventory-web-slugs-and-player-notes.md)).
+- **Notes.** Players add, edit, and delete notes on items their characters own, from the board or the item page. A note is private to the owning character and the campaign's GMs unless "Everyone can read this", matching loot-bot's `/note`. The GM's Information section and the notes are one component.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

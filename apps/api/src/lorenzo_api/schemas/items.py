@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Literal, Self
 
@@ -9,7 +10,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
-from lorenzo_api.schemas.common import EntitySummary, ProblemOut
+from lorenzo_api.models.entity_view_mixin import description_pairs
+from lorenzo_api.schemas.common import EntitySummary, ProblemOut, Slug
 
 __all__ = [
     "DescriptionOut",
@@ -55,6 +57,8 @@ class DescriptionOut(BaseModel):
 
     content: str
     locale: str
+    # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
+    from_entity: EntitySummary | None
 
 
 class PictureRefOut(BaseModel):
@@ -73,10 +77,15 @@ class PictureRefOut(BaseModel):
 
     url: str
     file_type: str
+    # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
+    from_entity: EntitySummary | None
 
 
 def _picture_refs(
-    entity: Entity, request: Request, visibility: InformationVisibility
+    entity: Entity,
+    request: Request,
+    visibility: InformationVisibility,
+    from_entity: EntitySummary | None,
 ) -> list[PictureRefOut]:
     return [
         PictureRefOut(
@@ -86,6 +95,7 @@ def _picture_refs(
                 )
             ),
             file_type=payload.picture.file_type,
+            from_entity=from_entity,
         )
         for info in entity.information
         if info.type == "description" and visibility.can_see(info)
@@ -113,8 +123,31 @@ class TagValueOut(BaseModel):
     value: bool | None
 
 
-def _descriptions_out(pairs: list[tuple[str, str]]) -> list[DescriptionOut]:
-    return [DescriptionOut(content=content, locale=locale) for content, locale in pairs]
+def _described_out(
+    view: VItem | VItemInstance,
+    request: Request,
+    visibility: InformationVisibility,
+    ancestors: Sequence[Entity],
+) -> dict[str, Any]:
+    """`descriptions` and `pictures`: the item's own, then each ancestor's,
+    nearest first, each labelled with where it comes from (ADR 0111).
+    `ancestors` comes from inherited_information.prototype_ancestors."""
+    sources: list[tuple[EntitySummary | None, Entity]] = [
+        (None, view.entity),
+        *((EntitySummary(id=a.id, name=a.name), a) for a in ancestors),
+    ]
+    return dict(
+        descriptions=[
+            DescriptionOut(content=content, locale=locale, from_entity=source)
+            for source, entity in sources
+            for content, locale in description_pairs(entity, visibility)
+        ],
+        pictures=[
+            picture
+            for source, entity in sources
+            for picture in _picture_refs(entity, request, visibility, source)
+        ],
+    )
 
 
 def _stats_out(pairs: list[tuple[str, int | None]]) -> list[StatValueOut]:
@@ -190,8 +223,30 @@ def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
     return sorted((link.prototype_id for link in entity.prototype_links), key=str)
 
 
+def _named_int(view: VItem | VItemInstance, name: str, column: int | None) -> int | None:
+    """A named v_item/v_item_instance column holds stored values only - SQL
+    can't evaluate a formula - so a computed winner comes from the Python
+    pass instead (ADR 0104)."""
+    if column is not None:
+        return column
+    value = view.resolved_value_by_name(name)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _named_bool(view: VItem | VItemInstance, name: str, column: bool | None) -> bool | None:
+    """See _named_int."""
+    if column is not None:
+        return column
+    value = view.resolved_value_by_name(name)
+    return value if isinstance(value, bool) else None
+
+
 def _common_item_fields(
-    view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
+    view: VItem | VItemInstance,
+    request: Request,
+    *,
+    visibility: InformationVisibility,
+    ancestors: Sequence[Entity],
 ) -> dict[str, Any]:
     """Every field ItemOut and ItemInstanceOut share - both views expose the
     identical EntityViewMixin-backed surface (ADR 0019), differing only in
@@ -203,20 +258,19 @@ def _common_item_fields(
     return dict(
         entity_id=view.entity_id,
         title=_title_out(view.title, name=view.entity.name),
-        weight=view.weight,
-        height=view.height,
-        price=view.price,
-        rarity=view.rarity,
-        hp=view.hp,
-        armor=view.armor,
+        weight=_named_int(view, "weight", view.weight),
+        height=_named_int(view, "height", view.height),
+        price=_named_int(view, "price", view.price),
+        rarity=_named_int(view, "rarity", view.rarity),
+        hp=_named_int(view, "hp", view.hp),
+        armor=_named_int(view, "armor", view.armor),
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
         prototype_ids=_prototype_ids_out(view.entity),
-        is_magical=view.is_magical,
-        is_cursed=view.is_cursed,
+        is_magical=_named_bool(view, "is_magical", view.is_magical),
+        is_cursed=_named_bool(view, "is_cursed", view.is_cursed),
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
-        descriptions=_descriptions_out(view.descriptions(visibility)),
-        pictures=_picture_refs(view.entity, request, visibility),
+        **_described_out(view, request, visibility, ancestors),
         physical_stats=_stats_out(view.physical_stats),
         economic_stats=_stats_out(view.economic_stats),
         destroyable_stats=_stats_out(view.destroyable_stats),
@@ -282,9 +336,14 @@ class ItemOut(BaseModel):
 
     @classmethod
     def from_v_item(
-        cls, view: VItem, request: Request, *, visibility: InformationVisibility
+        cls,
+        view: VItem,
+        request: Request,
+        *,
+        visibility: InformationVisibility,
+        ancestors: Sequence[Entity],
     ) -> Self:
-        return cls(**_common_item_fields(view, request, visibility=visibility))
+        return cls(**_common_item_fields(view, request, visibility=visibility, ancestors=ancestors))
 
 
 class ItemInstanceCreate(BaseModel):
@@ -294,14 +353,17 @@ class ItemInstanceCreate(BaseModel):
     name if omitted) + ItemInstance + EntityPrototype, plus an Ownership
     row if owner_character_id is given and/or a Containment row if
     container_entity_id is given. slug (ADR 0043) is optional, unique per
-    tenant when set, and resolvable later via GET .../by-slug/{slug}.
+    tenant when set - across every entity since ADR 0107 - and resolvable
+    later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
+    like every slug write (ADR 0107) - a deliberately accepted breaking
+    change to ADR 0043's unrestricted string.
     """
 
     name: str | None = None
     prototype_id: uuid.UUID
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
-    slug: str | None = None
+    slug: Slug | None = None
 
 
 class ItemInstanceUpdate(BaseModel):
@@ -385,10 +447,15 @@ class ItemInstanceOut(ItemOut):
 
     @classmethod
     def from_v_item_instance(
-        cls, view: VItemInstance, request: Request, *, visibility: InformationVisibility
+        cls,
+        view: VItemInstance,
+        request: Request,
+        *,
+        visibility: InformationVisibility,
+        ancestors: Sequence[Entity],
     ) -> Self:
         return cls(
-            **_common_item_fields(view, request, visibility=visibility),
+            **_common_item_fields(view, request, visibility=visibility, ancestors=ancestors),
             owner_entity_id=view.owner_entity_id,
             slug=view.slug,
         )
