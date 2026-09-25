@@ -14,7 +14,7 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 | --- | --- |
 | `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth |
 | `apps/loot-bot` | Discord bot — talks to `apps/api`; account linking, inventory, loot-splitting, GM drops/claims |
-| `apps/inventory-web` | Static Astro frontend — GM item catalog/instance management, kanban-style container board, LorenzoScript descriptions |
+| `apps/inventory-web` | Static Astro frontend — GM item catalog/instance management, kanban-style container board, LorenzoScript descriptions, tag and information editing |
 | `apps/account-hub` | Static Astro frontend — a user's own account: profile, notifications, tenant/campaign roster and admin |
 | `apps/*` (further) | One directory per deployable app, named by purpose (not type) — next one not yet started |
 | `packages/*` | Extracted generic libraries, each its own small, independently versioned package — `packages/brand` (shared brand CSS, ADR 0098), `packages/lorenzoscript` (the LorenzoScript Markdown parser/renderer, RFC 0027), and `packages/lorenzoscript-editor` (its textarea editor) so far |
