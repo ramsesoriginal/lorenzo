@@ -117,10 +117,7 @@ test("gives an instance a numbered slug on its page, and it's found by it", asyn
   await expect(pia.getByRole('region', { name: 'Slug' })).toBeHidden();
 });
 
-test("a catalog item's slug opens its page, for those who can read the catalog", async ({
-  world,
-  as,
-}) => {
+test("a catalog item's slug opens its page, for a GM and a player alike", async ({ world, as }) => {
   const pouch = await world.item('Belt Pouch');
   await world.slug(pouch, 'belt-pouch');
   const page = await as(world.gm);
@@ -128,11 +125,10 @@ test("a catalog item's slug opens its page, for those who can read the catalog",
   await expect(page.getByRole('heading', { level: 1, name: 'Belt Pouch' })).toBeVisible();
   await expect(page.getByText('belt-pouch', { exact: true })).toBeVisible();
 
+  // Any participant reads a catalog item (ADR 0116).
   const pia = await as(world.pia);
   await pia.goto(`/item/?tenant=${world.tenantId}&slug=belt-pouch`);
-  await expect(
-    pia.getByText("There's no such item here, or it isn't one you can see."),
-  ).toBeVisible();
+  await expect(pia.getByRole('heading', { level: 1, name: 'Belt Pouch' })).toBeVisible();
 });
 
 test('clears a slug, and refuses a bad or taken one', async ({ world, as }) => {

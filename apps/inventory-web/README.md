@@ -18,7 +18,11 @@ labelled), rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)
 From that detail view, or when multiple cards are multi-selected:
 
 - **Give** an item (or part of a stack) to another being; a player finds the
-  tenant's characters, a GM any being
+  tenant's characters, a GM any being. **Hand it over** to take it out of its
+  container and into their hands too; otherwise it stays where it is, theirs
+  now ([ADR 0115](../../docs/adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md))
+- **Move** it between containers, or out of them and into the character's own
+  hands: a stack keeps its count
 - **Note** it: add, edit, or delete notes, in LorenzoScript. A note is private
   to the character that owns the item (and the campaign's GMs) unless
   "Everyone can read this"; the item page shows them too
@@ -47,12 +51,16 @@ The page also lists, under "Mentioned in", the entities whose descriptions link
 to the item, as far as the viewer may read them
 ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)).
 
+Anyone can open a catalog item's page, and `/items` ("Catalog" on the board)
+lists what they may browse: for a player, the items the GM put in the public
+catalog ([ADR 0116](../../docs/adr/0116-players-read-catalog-items-and-a-public-catalog.md)).
+
 A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
 - Full catalog CRUD — create/edit/delete items, with multi-parent prototype
   selection, a description and display title, a slug (a new item's follows its
-  title, so `[[Title]]` links find it), and a "used as a prototype by"
-  reverse lookup
+  title, so `[[Title]]` links find it), whether it's in the public catalog,
+  and a "used as a prototype by" reverse lookup
 - Instantiate a catalog item into a new instance, with an optional owner and
   slug
 - Browse/reassign/unassign/delete existing instances

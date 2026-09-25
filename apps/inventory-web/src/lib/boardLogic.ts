@@ -14,7 +14,13 @@ import type { BulkResultItem, ItemInstance } from './types';
 // deletes are deliberately not undoable - a multi-item reversal needs
 // per-item previous state, and a deleted instance's id is simply gone.
 export type UndoPayload =
-  | { kind: 'restore-owner'; entityId: string; previousOwnerId: string | null }
+  | {
+      kind: 'restore-owner';
+      entityId: string;
+      previousOwnerId: string | null;
+      /** Given when the give handed it over too (ADR 0115): where it was before. */
+      previousContainerId?: string | null;
+    }
   | { kind: 'restore-container'; entityId: string; previousContainerId: string | null }
   | {
       kind: 'undo-merge';
@@ -72,6 +78,14 @@ export function createUndoController(
     return pending;
   }
 
+  async function restoreContainer(entityId: string, previousContainerId: string | null) {
+    if (previousContainerId) {
+      await actions.setContainer(tenantId, entityId, previousContainerId);
+    } else {
+      await actions.clearContainer(tenantId, entityId);
+    }
+  }
+
   // Throws on failure - the caller (the board page) decides how to surface
   // that (showTransientError) and whether to reload. Succeeds silently;
   // the caller reloads on its own success path.
@@ -87,13 +101,12 @@ export function createUndoController(
         } else {
           await actions.unsetOwner(tenantId, payload.entityId);
         }
+        if (payload.previousContainerId !== undefined) {
+          await restoreContainer(payload.entityId, payload.previousContainerId);
+        }
         break;
       case 'restore-container':
-        if (payload.previousContainerId) {
-          await actions.setContainer(tenantId, payload.entityId, payload.previousContainerId);
-        } else {
-          await actions.clearContainer(tenantId, payload.entityId);
-        }
+        await restoreContainer(payload.entityId, payload.previousContainerId);
         break;
       case 'undo-merge':
         // The merged-away instance's id is gone - this recreates an

@@ -40,6 +40,11 @@ export async function isTenantMember(tenantId: string): Promise<boolean> {
   return (await getMe()).memberships.some((membership) => membership.tenant_id === tenantId);
 }
 
+/** The viewer's own user id. */
+export async function viewerId(): Promise<string> {
+  return (await getMe()).id;
+}
+
 /** The languages on the viewer's profile, else the browser's (ADR 0108). */
 export async function viewerLocales(): Promise<string[]> {
   const locales = await getMe().then(
