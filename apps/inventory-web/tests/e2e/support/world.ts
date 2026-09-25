@@ -24,7 +24,7 @@ export type ItemOptions = {
 
 export type InstanceOptions = { owner?: Player; container?: string; slug?: string };
 
-async function person(name: string, roles: string[] = []): Promise<Person> {
+export async function person(name: string, roles: string[] = []): Promise<Person> {
   const subject = `${name.toLowerCase()}-${randomUUID()}`;
   const api = await apiAs(subject, roles);
   const me = await ok(api.GET('/me'));
@@ -144,6 +144,52 @@ export async function buildWorld() {
     return created.entity_id;
   }
 
+  /** `count` of an item as one stack in `container` (a stack's count lives on its containment). */
+  async function stack(
+    itemId: string,
+    count: number,
+    options: InstanceOptions & { container: string },
+  ) {
+    const [first, ...rest] = await Promise.all(
+      Array.from({ length: count }, () => instance(itemId, options)),
+    );
+    for (const other of rest) {
+      await ok(
+        api.POST('/tenants/{tenant_id}/item-instances/{entity_id}/merge', {
+          params: { path: { tenant_id: tenant.id, entity_id: other } },
+          body: { into_entity_id: first as string },
+        }),
+      );
+    }
+    return first as string;
+  }
+
+  async function slug(entityId: string, value: string) {
+    await ok(
+      api.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+        params: { path: { tenant_id: tenant.id, entity_id: entityId } },
+        body: { slug: value },
+      }),
+    );
+  }
+
+  /** What `player`'s character carries, as the API says: `Container: Item ×n` lines, sorted. */
+  async function carried(player: Player): Promise<string[]> {
+    const owned = await ok(
+      api.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
+        params: { path: { tenant_id: tenant.id, owner_entity_id: player.character.entity_id } },
+      }),
+    );
+    return owned.groups
+      .flatMap((group) =>
+        group.item_instances.map((item) => {
+          const count = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';
+          return `${group.container?.name ?? '(none)'}: ${item.title}${count}`;
+        }),
+      )
+      .sort();
+  }
+
   return {
     tenantId: tenant.id,
     tenantName: tenant.name,
@@ -155,6 +201,9 @@ export async function buildWorld() {
     describe,
     item,
     instance,
+    stack,
+    slug,
+    carried,
   };
 }
 
