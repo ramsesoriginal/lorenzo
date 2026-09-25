@@ -46,7 +46,7 @@ export type ItemInstance = components['schemas']['ItemInstanceOut'];
 // The fields shared by both - the standalone item page doesn't know in
 // advance whether a given id/slug resolves to a catalog item or an
 // instance, and renders either through this common shape.
-export type ItemBase = CatalogItem;
+export type ItemBase = Omit<CatalogItem, 'in_public_catalog'>;
 
 export type EntitySummary = components['schemas']['EntitySummary'];
 export type EntityDetail = components['schemas']['EntityDetailOut'];

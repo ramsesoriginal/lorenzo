@@ -425,7 +425,8 @@ export function createLorenzoApiClient(baseUrl: string) {
             ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { owner_character_id: ownerCharacterId },
+          // ADR 0051: the owner only, the container untouched (not ADR 0115's hand-over).
+          body: { owner_character_id: ownerCharacterId, move_to_owner: false },
         },
       );
       if (error !== undefined) throw toApiError(error, response.status);
@@ -725,7 +726,7 @@ export function createLorenzoApiClient(baseUrl: string) {
       const { data, error, response } = await client.POST("/tenants/{tenant_id}/items", {
         params: { path: { tenant_id: tenantId } },
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { name, prototype_ids: [] },
+        body: { name, prototype_ids: [], in_public_catalog: false },
       });
       if (error !== undefined) throw toApiError(error, response.status);
       return data;

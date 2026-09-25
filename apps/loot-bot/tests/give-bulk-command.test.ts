@@ -168,8 +168,8 @@ describe("giveBulkCommand.onSelectMenu", () => {
     expect(bulkAssignItemInstances).toHaveBeenCalledWith(
       "tenant-1",
       [
-        { entity_id: "item-1", owner_character_id: "char-2" },
-        { entity_id: "item-2", owner_character_id: "char-2" },
+        { entity_id: "item-1", owner_character_id: "char-2", move_to_owner: false },
+        { entity_id: "item-2", owner_character_id: "char-2", move_to_owner: false },
       ],
       "token-123",
     );
