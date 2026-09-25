@@ -25,12 +25,60 @@ async function entity(world: World, id: string) {
   );
 }
 
-test('is for GMs only', async ({ world, as }) => {
+test('a player gets the public catalog, to look items up, and nothing to change', async ({
+  world,
+  as,
+}) => {
+  await world.item('Robe', { public: true });
+  await world.item('Backpack', { public: true });
+  await world.item('Crown of Ash');
   const page = await as(world.pia);
-  await page.goto(`/items/?tenant=${world.tenantId}`);
-  await expect(
-    page.getByText("This page is for GMs only. You don't GM a campaign in this tenant."),
-  ).toBeVisible();
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  await page.getByRole('link', { name: 'Catalog' }).click();
+
+  await expect(page).toHaveTitle('Catalog — Lorenzo');
+  await expect(page.getByText('Everything your GMs have put in the public catalog.')).toBeVisible();
+  await expect(row(catalogList(page), 'Robe')).toBeVisible();
+  await expect(row(catalogList(page), 'Backpack')).toBeVisible();
+  await expect(row(catalogList(page), 'Crown of Ash')).toBeHidden();
+  await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
+  await expect(page.getByRole('region', { name: 'Instances' })).toBeHidden();
+  await expect(row(catalogList(page), 'Robe').getByRole('button')).toHaveCount(0);
+
+  await page.getByRole('searchbox', { name: 'Search the item catalog' }).fill('back');
+  await expect(row(catalogList(page), 'Robe')).toBeHidden();
+  await row(catalogList(page), 'Backpack').getByRole('link', { name: 'View' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Backpack' })).toBeVisible();
+});
+
+test('a GM puts an item in the public catalog, and takes it out again', async ({ world, as }) => {
+  const page = await manageItems(as, world);
+  const form = page.getByRole('region', { name: 'New item' });
+  await form.getByLabel('Name').fill('Robe');
+  await form.getByLabel('In the public catalog').check();
+  await form.getByRole('button', { name: 'Create item' }).click();
+
+  const robeRow = row(catalogList(page), 'Robe');
+  await expect(robeRow.getByText('Public', { exact: true })).toBeVisible();
+  const [robe] = (
+    await ok(
+      world.gm.api.GET('/tenants/{tenant_id}/items', {
+        params: { path: { tenant_id: world.tenantId }, query: { q: 'Robe' } },
+      }),
+    )
+  ).items;
+  expect(robe?.in_public_catalog).toBe(true);
+
+  await robeRow.getByRole('button', { name: 'Edit' }).click();
+  await expect(robeRow.getByLabel('In the public catalog')).toBeChecked();
+  await robeRow.getByLabel('In the public catalog').uncheck();
+  await robeRow.getByRole('button', { name: 'Save' }).click();
+  await expect(robeRow.getByLabel('Name')).toBeHidden();
+  await expect(row(catalogList(page), 'Robe').getByText('Public', { exact: true })).toBeHidden();
+  expect((await entity(world, robe?.entity_id as string)).name).toBe('Robe');
+  const pia = await as(world.pia);
+  await pia.goto(`/items/?tenant=${world.tenantId}`);
+  await expect(pia.getByText('No items match.')).toBeVisible();
 });
 
 test('creates an item with parents, a description, and a display title', async ({ world, as }) => {

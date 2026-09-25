@@ -236,6 +236,33 @@ describe('createUndoController', () => {
     expect(actions.setOwner).not.toHaveBeenCalled();
   });
 
+  it('restore-owner: puts a handed-over item back in its container too (ADR 0115)', async () => {
+    const controller = createUndoController('tenant-1', actions as unknown as UndoActions);
+    controller.record(
+      {
+        kind: 'restore-owner',
+        entityId: 'item-1',
+        previousOwnerId: 'char-1',
+        previousContainerId: 'backpack',
+      },
+      vi.fn(),
+    );
+    await controller.apply();
+    expect(actions.setOwner).toHaveBeenCalledWith('tenant-1', 'item-1', 'char-1');
+    expect(actions.setContainer).toHaveBeenCalledWith('tenant-1', 'item-1', 'backpack');
+  });
+
+  it("restore-owner: leaves the container alone when the give didn't move it", async () => {
+    const controller = createUndoController('tenant-1', actions as unknown as UndoActions);
+    controller.record(
+      { kind: 'restore-owner', entityId: 'item-1', previousOwnerId: 'char-1' },
+      vi.fn(),
+    );
+    await controller.apply();
+    expect(actions.setContainer).not.toHaveBeenCalled();
+    expect(actions.clearContainer).not.toHaveBeenCalled();
+  });
+
   it('restore-container: calls setContainer when there was a previous container', async () => {
     const controller = createUndoController('tenant-1', actions as unknown as UndoActions);
     controller.record(

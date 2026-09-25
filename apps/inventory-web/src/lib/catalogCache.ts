@@ -14,15 +14,19 @@ import type { CatalogItem } from './types';
 // Page<CatalogItem> - v1's shape would otherwise cache a silently
 // truncated catalog. Bumped so a v1 entry from a previous session is
 // never misread as the new shape.
-const VERSION = 2;
+//
+// v3: per viewer as well as per tenant. Players list only the public
+// catalog (ADR 0116), so one cached for a GM mustn't paint for a player on
+// the same browser.
+const VERSION = 3;
 
-function storageKey(tenantId: string): string {
-  return `lorenzo:inventory-web:catalog:v${VERSION}:${tenantId}`;
+function storageKey(tenantId: string, viewerId: string): string {
+  return `lorenzo:inventory-web:catalog:v${VERSION}:${tenantId}:${viewerId}`;
 }
 
-export function readCatalogCache(tenantId: string): CatalogItem[] | null {
+export function readCatalogCache(tenantId: string, viewerId: string): CatalogItem[] | null {
   try {
-    const raw = window.localStorage.getItem(storageKey(tenantId));
+    const raw = window.localStorage.getItem(storageKey(tenantId, viewerId));
     if (!raw) return null;
     return JSON.parse(raw) as CatalogItem[];
   } catch {
@@ -30,9 +34,9 @@ export function readCatalogCache(tenantId: string): CatalogItem[] | null {
   }
 }
 
-export function writeCatalogCache(tenantId: string, items: CatalogItem[]): void {
+export function writeCatalogCache(tenantId: string, viewerId: string, items: CatalogItem[]): void {
   try {
-    window.localStorage.setItem(storageKey(tenantId), JSON.stringify(items));
+    window.localStorage.setItem(storageKey(tenantId, viewerId), JSON.stringify(items));
   } catch {
     // localStorage can throw (quota, private browsing, disabled) - purely
     // a perceived-speed optimization, so failing silently here is

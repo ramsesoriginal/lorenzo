@@ -78,7 +78,7 @@ import Base from '../../layouts/Base.astro';
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
     import { listMyCharacters } from '../../lib/characters';
-    import { isCampaignGm, isTenantMember } from '../../lib/me';
+    import { isCampaignGm } from '../../lib/me';
     import { type Reader, renderNotes } from '../../lib/notes';
     import { renderSlugEditor, resolveSlugs } from '../../lib/slugs';
     import { renderTagEditor } from '../../lib/tagEditor';
@@ -118,8 +118,6 @@ import Base from '../../layouts/Base.astro';
     // reads it again after a change.
     let shown!: ItemBase;
     let isInstance = false;
-    // Whether "From Longsword" labels link to the catalog, which only tenant members can read.
-    let linkSources = false;
     // Who writes here, and the character that reads a private note (ADR 0113).
     let viewerIsGm = false;
     let reader: Reader | null = null;
@@ -151,7 +149,7 @@ import Base from '../../layouts/Base.astro';
       const showQty = Boolean(item.quantity && item.quantity > 1);
       itemQty.hidden = !showQty;
       itemQty.textContent = showQty ? `×${item.quantity}` : '';
-      renderItemView(itemView, item, { tenantId, renderer, linkSources });
+      renderItemView(itemView, item, { tenantId, renderer });
       const own = item.descriptions.some((description) => !description.from_entity);
       descriptionEdit.textContent = own ? 'Edit description' : 'Write a description';
     }
@@ -304,10 +302,7 @@ import Base from '../../layouts/Base.astro';
 
     const nowhere = () => new Error("There's no such item here, or it isn't one you can see.");
 
-    /**
-     * The catalog item or instance the link names, by slug or by id. Only tenant members can
-     * read the catalog (ADR 0032), so anyone else only has the instances.
-     */
+    /** The catalog item or instance the link names, by slug or by id (ADR 0107, 0116). */
     async function load(): Promise<{ item: ItemBase | ItemInstance; instance: boolean }> {
       if (itemSlugParam) {
         // Any entity can hold a slug (ADR 0107); what it is says which endpoint shows it.
@@ -315,7 +310,7 @@ import Base from '../../layouts/Base.astro';
         if (found?.kinds.includes('item_instance')) {
           return { item: await getItemInstance(tenantId, found.entity_id), instance: true };
         }
-        if (found?.kinds.includes('item') && linkSources) {
+        if (found?.kinds.includes('item')) {
           return { item: await getCatalogItem(tenantId, found.entity_id), instance: false };
         }
         throw nowhere();
@@ -324,7 +319,7 @@ import Base from '../../layouts/Base.astro';
       // 404, so a network or auth error shows as itself.
       const id = itemId as string;
       try {
-        if (linkSources) return { item: await getCatalogItem(tenantId, id), instance: false };
+        return { item: await getCatalogItem(tenantId, id), instance: false };
       } catch (e) {
         if (!(e instanceof ApiError) || e.status !== 404) throw e;
       }
@@ -341,7 +336,6 @@ import Base from '../../layouts/Base.astro';
       status.textContent = "This link is incomplete — it's missing a tenant or item.";
     } else {
       try {
-        linkSources = await isTenantMember(tenantId);
         const loaded = await load();
         status.hidden = true;
         page.hidden = false;
