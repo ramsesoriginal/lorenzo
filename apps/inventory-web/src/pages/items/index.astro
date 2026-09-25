@@ -63,12 +63,15 @@ import Base from '../../layouts/Base.astro';
     import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
     import { listBeings } from '../../lib/beings';
     import { readCatalogCache, writeCatalogCache } from '../../lib/catalogCache';
+    import { descriptionRenderer } from '../../lib/descriptions';
+    import { infoFields } from '../../lib/infoForm';
+    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
     import {
       createCatalogItem,
       createItemInstance,
       deleteCatalogItem,
       deleteItemInstance,
-      getItemPrototypes,
+      getEntityDetail,
       getOwnedItemInstances,
       listCatalogItems,
       listItemsUsingPrototype,
@@ -97,6 +100,36 @@ import Base from '../../layouts/Base.astro';
     const catalogList = document.getElementById('catalog-list') as HTMLUListElement;
 
     const createItemMount = document.getElementById('create-item-mount')!;
+    const renderer = descriptionRenderer(
+      new URLSearchParams(window.location.search).get('tenant') as string,
+    );
+
+    // A description with its display title (ADR 0112), for the create form and the edit
+    // panel. Its title is the item's shown name (ADR 0019); `followName` keeps a new one's
+    // title in step with the name field until the GM edits it.
+    function descriptionFields(
+      info: Awaited<ReturnType<typeof getDescription>>,
+      name: string,
+      followName?: HTMLInputElement,
+    ) {
+      const fields = infoFields({
+        initial: descriptionDraft(info, name),
+        renderer,
+        titleLabel: 'Display title',
+        textLabel: 'Description',
+        showVisibility: info === null,
+      });
+      if (followName) {
+        let edited = false;
+        fields.title.addEventListener('input', () => {
+          edited = true;
+        });
+        followName.addEventListener('input', () => {
+          if (!edited) fields.title.value = followName.value.trim();
+        });
+      }
+      return fields;
+    }
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
@@ -432,15 +465,34 @@ import Base from '../../layouts/Base.astro';
     function mountCreateItemForm() {
       const nameField = createNameField('');
       const parentsField = createParentsField({ initialParents: new Map(), editable: true });
+      const description = descriptionFields(null, '', nameField.input);
       const form = renderItemForm({
-        fields: [nameField.element, parentsField.element],
+        fields: [nameField.element, parentsField.element, description.element],
         submitLabel: 'Create item',
         onSubmit: async () => {
           const name = nameField.input.value.trim();
           if (!name) throw new Error('Name is required.');
-          await createCatalogItem(tenantId as string, name, parentsField.getSelectedIds());
+          const item = await createCatalogItem(
+            tenantId as string,
+            name,
+            parentsField.getSelectedIds(),
+          );
+          // The item exists now, so a failed description mustn't leave this form up to
+          // create it twice.
+          const failed = await saveDescription(
+            tenantId as string,
+            item.entity_id,
+            null,
+            description.read(),
+            name,
+          ).then(
+            () => null,
+            (e: unknown) => (e instanceof Error ? e.message : String(e)),
+          );
+          description.destroy();
           await loadCatalog(search.value);
           mountCreateItemForm(); // fresh, empty form after a successful create
+          if (failed) window.alert(`“${name}” was created, but not its description: ${failed}`);
         },
       });
       createItemMount.replaceChildren(form);
@@ -497,7 +549,12 @@ import Base from '../../layouts/Base.astro';
         }
       });
 
+      // What an open edit panel needs undone when it closes: its description editor.
+      let closeEditor = () => {};
+
       function closePanels() {
+        closeEditor();
+        closeEditor = () => {};
         li.querySelector('.character-picker-panel')?.remove();
         li.querySelector('.edit-item-panel')?.remove();
         instantiateButton.textContent = 'Create instance';
@@ -516,20 +573,27 @@ import Base from '../../layouts/Base.astro';
         li.append(panel);
 
         try {
-          const [prototypes, usedBy] = await Promise.all([
-            getItemPrototypes(tenantId as string, item.entity_id),
+          const [entity, usedBy, info] = await Promise.all([
+            getEntityDetail(tenantId as string, item.entity_id),
             listItemsUsingPrototype(tenantId as string, item.entity_id),
+            getDescription(tenantId as string, item.entity_id),
           ]);
-          const initialParents = new Map(prototypes.map((p: EntitySummary) => [p.id, p.name]));
-          const nameField = createNameField(item.title);
+          const initialParents = new Map(
+            entity.prototypes.map((p: EntitySummary) => [p.id, p.name]),
+          );
+          // The entity's own name: `item.title` is its description's title (ADR 0019).
+          const nameField = createNameField(entity.name);
           const parentsField = createParentsField({ initialParents, editable: true });
+          const description = descriptionFields(info, entity.name);
+          closeEditor = description.destroy;
           const usedByField = renderUsedByField(usedBy);
           const form = renderItemForm({
-            fields: [nameField.element, parentsField.element, usedByField],
+            fields: [nameField.element, parentsField.element, description.element, usedByField],
             submitLabel: 'Save',
             onSubmit: async () => {
               const name = nameField.input.value.trim();
               if (!name) throw new Error('Name is required.');
+              const draft = description.read();
               await Promise.all([
                 updateCatalogItem(tenantId as string, item.entity_id, name),
                 setItemPrototypes(
@@ -538,9 +602,10 @@ import Base from '../../layouts/Base.astro';
                   parentsField.getSelectedIds(),
                 ),
               ]);
-              item.title = name;
-              title.textContent = name;
+              await saveDescription(tenantId as string, item.entity_id, info, draft, name);
               closePanels();
+              // The row's title is the display title, else the name (ADR 0067).
+              await loadCatalog(search.value);
             },
           });
           panel.replaceChildren(form);

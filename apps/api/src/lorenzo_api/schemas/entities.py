@@ -103,6 +103,9 @@ class EntityStatValueOut(BaseModel):
 
     name: str
     value: int | str | float | bool
+    # ADR 0111: the entity holds the winning value itself, stored or
+    # computed; false when it's inherited.
+    own: bool
 
 
 class InformationOut(BaseModel):
@@ -139,10 +142,17 @@ class InformationOut(BaseModel):
 def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     """Every effective stat with a value, computed ones evaluated (ADR
     0104). A computed stat whose inputs don't resolve is left out, like an
-    unset stat."""
+    unset stat. Needs entity.stats (the entity's own rows) loaded too: an
+    own row always wins at hop 0, and an entity never holds both a value
+    and a formula for one stat (ADR 0104), so `own` is either of those."""
     values = evaluate(entity.effective_stats)
+    stored = {stat.stat_definition_id for stat in entity.stats}
     return [
-        EntityStatValueOut(name=stat.stat_definition.name, value=values[stat.stat_definition_id])
+        EntityStatValueOut(
+            name=stat.stat_definition.name,
+            value=values[stat.stat_definition_id],
+            own=stat.stat_definition_id in stored or stat.computed_entity_id == entity.id,
+        )
         for stat in entity.effective_stats
         if stat.stat_definition_id in values
     ]

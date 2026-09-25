@@ -101,3 +101,26 @@ export async function fetchAllPages<T>(getPage: (page: number) => Promise<Page<T
 
 // The largest page size the API allows (ADR 0020) - fewest round trips.
 export const MAX_PAGE_SIZE = 100;
+
+const blobs = new Map<string, Promise<string>>();
+
+/**
+ * A file the API protects, such as a picture's `url`, as a `blob:` URL fetched with the
+ * viewer's token (ADR 0108, 0112). Each URL is fetched once per page; a failure isn't kept.
+ */
+export function blobUrl(url: string): Promise<string> {
+  const known = blobs.get(url);
+  if (known) return known;
+  const loading = (async () => {
+    const token = await getAccessToken();
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok)
+      throw new ApiError(`Couldn't load a file (${response.status}).`, response.status);
+    return URL.createObjectURL(await response.blob());
+  })();
+  loading.catch(() => blobs.delete(url));
+  blobs.set(url, loading);
+  return loading;
+}

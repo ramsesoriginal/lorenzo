@@ -10,8 +10,9 @@ static Astro app) and [docs/guides/adding-an-app.md](../../docs/guides/adding-an
 After logging in via Authgear and picking a tenant, a character's inventory
 renders as a kanban-style board — columns are the containers they own, cards
 are item instances, dragged between columns to move them. Clicking a card
-opens its detail view: stats, tags/flags, full prototype ancestry, and
-descriptions, rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)
+opens its detail view: every stat group, its tags, pictures, full prototype
+ancestry, and descriptions (its own and those it inherits from its prototypes,
+labelled), rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)
 (Lorenzo's Markdown dialect) with entity links and pictures resolved.
 
 From that detail view, or when multiple cards are multi-selected:
@@ -28,17 +29,21 @@ From that detail view, or when multiple cards are multi-selected:
 Every item instance also has its own standalone, shareable page
 (`/item/?tenant=…&id=…`, or `&slug=…` when the instance has one) — usable
 for both a catalog item and an instance, with a "Copy link" button. There, a
-GM can also write or edit the item's description, in a LorenzoScript editor
-with a live preview that lists any links readers won't be able to follow
-([ADR 0108](../../docs/adr/0108-lorenzoscript-in-inventory-web.md)). The page
-also lists, under "Mentioned in", the entities whose descriptions link to the
-item, as far as the viewer may read them
+GM can also write or edit the item's description and its display title, in a
+LorenzoScript editor with a live preview that lists any links readers won't be
+able to follow
+([ADR 0108](../../docs/adr/0108-lorenzoscript-in-inventory-web.md));
+set its tags (inherited, on, or off); and add, edit, or delete any of its
+information ([ADR 0112](../../docs/adr/0112-inventory-web-the-whole-item.md)).
+The page also lists, under "Mentioned in", the entities whose descriptions link
+to the item, as far as the viewer may read them
 ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)).
 
 A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
 - Full catalog CRUD — create/edit/delete items, with multi-parent prototype
-  selection and a "used as a prototype by" reverse lookup
+  selection, a description and display title, and a "used as a prototype by"
+  reverse lookup
 - Instantiate a catalog item into a new instance, with an optional owner and
   slug
 - Browse/reassign/unassign/delete existing instances
@@ -47,9 +52,9 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   browse everyone's unowned/unclaimed loot, both via the same board UI a
   player uses for their own characters
 
-Deliberately not built yet: notes beyond the description (GM/player-written,
-visibility-gated text), and naming who may read a private one — see the
-tracking issue for what's actually in flight.
+Deliberately not built yet: naming who may read a private piece of
+information (ADR 0109's knowers), editing stat values other than tags, and
+uploading pictures — see the tracking issue for what's actually in flight.
 
 ## Commands
 

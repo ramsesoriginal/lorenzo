@@ -3524,6 +3524,7 @@ export interface components {
             content: string;
             /** Locale */
             locale: string;
+            from_entity: components["schemas"]["EntitySummary"] | null;
         };
         /**
          * DuplicateGroupRequest
@@ -3652,6 +3653,8 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean;
+            /** Own */
+            own: boolean;
         };
         /**
          * EntitySummary
@@ -4979,6 +4982,7 @@ export interface components {
             url: string;
             /** File Type */
             file_type: string;
+            from_entity: components["schemas"]["EntitySummary"] | null;
         };
         /**
          * PlayerContextOut

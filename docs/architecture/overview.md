@@ -87,6 +87,15 @@ Descriptions are now written in LorenzoScript, Lorenzo's own Markdown dialect ([
 - **inventory-web.** The item page and the board render descriptions as LorenzoScript, and GMs edit them on the item page. `ETag`s now carry the JSON `updated_at` text, so ADR 0101's `If-Match` rule works as written ([ADR 0108](../adr/0108-lorenzoscript-in-inventory-web.md)).
 - **References and backlinks.** The server extracts each description's references itself, with a Python port held to the same `SPEC.md` examples, into `content_reference`, keyed by slug. `GET .../entities/{id}/backlinks` pages what links to an entity, filtered to what the caller can see, and inventory-web shows it as "Mentioned in". Both parsers stay linear on hostile input ([ADR 0110](../adr/0110-lorenzoscript-content-references-and-backlinks.md)).
 
+Items now show what they inherit, and inventory-web shows and edits the whole item:
+
+- **Inherited descriptions and pictures.** `ItemOut.descriptions` and `pictures` list the item's own first, then every ancestor's through its prototypes, nearest first. Each ancestor's are visibility-checked and labelled with `from_entity`. Titles don't inherit. `EntityStatValueOut` gains `own`, true when a value is the entity's own rather than inherited ([ADR 0111](../adr/0111-inherited-descriptions-and-stat-value-sources.md)).
+- **One item view.** The board's panel and the item page draw an item the same way: all four stat groups, its tags, pictures, and its own and inherited descriptions.
+- **Editing.**
+  - The description editor gains a display title, which is also the item's shown name, and appears in Manage items' create form and edit panel too.
+  - GMs set tags to inherited, on, or off, and add, edit, or delete any of an item's information.
+  - This fixed descriptions written in inventory-web renaming their item "Description" ([ADR 0112](../adr/0112-inventory-web-the-whole-item.md)).
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

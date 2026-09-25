@@ -42,8 +42,8 @@ describe("formatItemEmbed", () => {
     const embed = formatItemEmbed(
       entity({
         stats: [
-          { name: "damage", value: 10 },
-          { name: "magical", value: true },
+          { name: "damage", value: 10, own: true },
+          { name: "magical", value: true, own: false },
         ],
       }),
     );
