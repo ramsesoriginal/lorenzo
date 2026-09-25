@@ -10,7 +10,7 @@ Players can't write anything in inventory-web. The API already lets them add a n
 
 - `POST .../entities/{id}/information` uses the self-or-managed tier ([ADR 0038](0038-information-payload-knowledge-crud-api.md)): an item reachable from the caller's own characters is theirs to write about.
 - `note` is a free-form type ([ADR 0101](0101-editable-information-and-description-payloads.md)), so an item can have any number of notes.
-- ADR 0101's edit gate lets the author edit or delete what they wrote. [ADR 0109](0109-player-knowers-knower-listing-and-information-list.md)'s player knowers let the author make a restricted note readable to themselves.
+- ADR 0101's edit gate lets the author edit or delete what they wrote. A knower row (ADR 0038) lets them make a restricted note readable to their own character, as loot-bot's `/note` does.
 
 ## Decision
 
@@ -25,14 +25,14 @@ GMs get a **Slug** field in three places:
 The field is prefilled:
 
 - with the entity's current slug when it has one (read from `EntityDetailOut.slug`, since `ItemOut` has none);
-- otherwise with a suggestion. In the create form, the suggestion follows the name as it's typed, until the GM edits the slug, as the display title does.
+- otherwise with a suggestion. In the create form, the suggestion follows the name and the display title as they're typed, until the GM edits the slug.
 
-The suggestion is the first free candidate from [`slugify`](../../packages/lorenzoscript/src/inline.ts), shortened to fit 100 characters:
+The suggestion comes from the title the item is shown by: its display title, else its name ([ADR 0067](0067-item-title-falls-back-to-name.md)). That's what an author reads, and so what they write in `[[…]]`. It's the first free candidate from [`slugify`](../../packages/lorenzoscript/src/inline.ts) of that title, shortened to fit 100 characters:
 
-- **A catalog item** gets `slugify(name)`, then `-2`, `-3` and so on. That is the slug `[[Name]]` looks for, so a wikilink to the item works at once.
-- **An instance** gets `slugify(name)-1`, `-2` and so on. The bare name stays free for the catalog item, so `[[Iron Sword]]` keeps meaning the item even when only its instances have slugs.
+- **A catalog item** gets `slugify(title)`, then `-2`, `-3` and so on. That is the slug `[[Title]]` looks for, so a wikilink to the item works at once.
+- **An instance** gets `slugify(title)-1`, `-2` and so on. The bare title stays free for the catalog item, so `[[Iron Sword]]` keeps meaning the item even when only its instances have slugs.
 
-One `GET .../entities/resolve` request checks up to 20 candidates. A name `slugify` reduces to nothing gets no suggestion.
+One `GET .../entities/resolve` request checks up to 20 candidates. A title `slugify` reduces to nothing gets no suggestion.
 
 Saving follows the field:
 
@@ -44,7 +44,7 @@ The field checks ADR 0107's grammar before sending. A `409` becomes "Another ent
 
 The instance-creation field stays optional and empty. It now uses the real suggestion as its placeholder. Filling it by default would give every instance a slug, and the tenant's one slug namespace would fill up with loot.
 
-The item page's `?slug=` now reads `GET .../entities/by-slug/{slug}`. The entity's `kinds` then decide whether the item or the instance endpoint shows it, so a catalog item's slug addresses its page too. The item page shows the slug for catalog items as well as instances.
+The item page's `?slug=` now reads `GET .../entities/resolve?slug=…`, not `.../by-slug/{slug}`: only the resolve endpoint says an entity's `kinds`, and `EntityDetailOut` doesn't. The kinds decide whether the item or the instance endpoint shows it, so a catalog item's slug addresses its page too. Only tenant members can read the catalog ([ADR 0032](0032-item-and-item-instance-crud-api.md)), so for anyone else a catalog item's slug leads nowhere, like an unknown one. The item page shows the slug for catalog items as well as instances.
 
 ### Notes
 
@@ -57,14 +57,16 @@ The item page and the board's detail panel both get a **Notes** section:
 
 Notes are **private by default**, the maintainer's choice:
 
-- A checkbox, **Everyone can read this**, starts unchecked, with the note "Otherwise only you and the campaign's GMs can."
-- A private note is created with `is_public: false`. The author is then added as its reader with `PUT .../information/{id}/player-knowers/{player_id}`. That uses their own `Player` row in the tenant, preferring the one that plays the item's owner.
+- A checkbox, **Everyone can read this**, starts unchecked, with a note naming who can read it otherwise: "Otherwise only Ashfang's players and the campaign's GMs can."
+- A private note is created with `is_public: false`. The character that owns the item, when the author plays it, is then added as its reader with `PUT .../information/{id}/knowers/{character_entity_id}`.
 - If adding the reader fails, the new note is deleted again and the error shown. Otherwise the author would have written something they can't read.
-- A viewer with no `Player` row in the tenant, such as a GM who doesn't play, has no reader to add. Their private notes are read through GM sight, as a GM-only information row is.
+- A GM writing about an item none of their characters owns has no character to add. Their private notes are read through GM sight, as a GM-only information row is. The checkbox's note then says "Otherwise only the campaign's GMs can."
+
+The reader is the character, not the author's `Player` row (ADR 0109's player knowers), for one reason: loot-bot's `/note` already makes a private note readable by the author's character. "Private" then means the same in both apps, and a note written in one reads the same in the other. For a character with one player, the two are the same people. The difference shows only when a character has several players, or changes hands: then the note follows the character.
 
 The privacy promise is only as strong as the API's visibility rule. A campaign's GMs and tenant administrators can read every note on an item they can reach ([ADR 0035](0035-campaign-scoped-gm-visibility.md), [ADR 0096](0096-owner-joins-orga-in-the-information-visibility-bypass.md)). The checkbox's note says so. Hiding notes from GMs would need an API change, and the maintainer didn't choose it.
 
-Each note has **Edit** and **Delete** wherever "Add a note" shows. Both use ADR 0101's writes and `If-Match`. The API decides whose note may change: its author, or anyone who can both see it and write about the item. Making a public note private adds the author as a reader in the same way.
+Each note has **Edit** and **Delete** wherever "Add a note" shows. Both use ADR 0101's writes and `If-Match`. The API decides whose note may change: its author, or anyone who can both see it and write about the item. Making a public note private adds the owning character as a reader in the same way.
 
 ## Not in scope
 
