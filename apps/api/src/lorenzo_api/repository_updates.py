@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
@@ -447,9 +448,18 @@ class _Applier:
                     .select_from(model)
                     .where(model.entity_id == e, column == target, model.tenant_id == t)
                 )
-                if not exists:
-                    values = {"entity_id": e, "tenant_id": t, column.key: target}
-                    await s.execute(insert(model).values(**values))
+                if exists:
+                    continue
+                values = {"entity_id": e, "tenant_id": t, column.key: target}
+                try:
+                    # A savepoint: entity_prototype's own trigger (ADR 0015)
+                    # refuses an edge that would close a loop with one the
+                    # tenant added itself, and that mustn't sink the rest.
+                    async with s.begin_nested():
+                        await s.execute(insert(model).values(**values))
+                except DBAPIError:
+                    self.skip(row, name, "it would make a prototype loop here")
+                    ok = False
             return ok
         prefix, _, key = name.partition(":")
         definition = self.resolve("stat_definition", key)

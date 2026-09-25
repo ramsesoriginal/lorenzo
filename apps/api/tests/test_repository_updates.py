@@ -375,3 +375,41 @@ async def test_formulas_and_taking_upstream(
         assert {s["name"]: s["value"] for s in sword["stats"]} == {"Strength": 14, "Speed": 28}
     finally:
         await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+async def test_an_update_that_would_loop_prototypes_is_reported_not_applied(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """Upstream, Orc starts inheriting from Longsword; locally, the table's
+    Longsword already inherits from its Orc. Applying it would close a
+    loop: the edge is reported, not stored, and stays on offer."""
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    local = await _local(world)
+    try:
+        async with admin_session_factory() as session:
+            session.add(
+                EntityPrototype(
+                    entity_id=ids["Orc"], prototype_id=ids["Longsword"], tenant_id=world.repository
+                )
+            )
+            session.add(
+                EntityPrototype(
+                    entity_id=local[ids["Longsword"]],
+                    prototype_id=local[ids["Orc"]],
+                    tenant_id=world.table,
+                )
+            )
+            await session.commit()
+        applied = await gm.post(
+            f"{url}/updates",
+            json={"actions": [{"kind": "entity", "source_id": str(ids["Orc"]), "action": "apply"}]},
+        )
+        assert applied.status_code == 200, applied.text
+        assert [(n["field"], n["reason"]) for n in applied.json()["not_applied"]] == [
+            ("prototypes", "it would make a prototype loop here")
+        ]
+        still = _by_row((await gm.get(f"{url}/updates")).json())
+        assert "prototypes" in still["Orc"]
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
