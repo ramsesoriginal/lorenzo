@@ -67,7 +67,7 @@ test('opens an item to show all of it, with what it inherits labelled', async ({
   await expect(detail.getByRole('term').filter({ hasText: 'Weight' })).toBeVisible();
   await expect(detail.getByRole('listitem').filter({ hasText: 'Magical' })).toBeVisible();
 
-  // A player can't open catalog items (ADR 0078), so where it comes from isn't a link.
+  // A player can't open catalog items (ADR 0032), so where it comes from isn't a link.
   await expect(detail.getByText('From Spellbook').getByRole('link')).toHaveCount(0);
 });
 

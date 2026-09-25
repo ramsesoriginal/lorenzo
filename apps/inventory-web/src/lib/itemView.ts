@@ -33,7 +33,7 @@ const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, 
 export type ItemViewOptions = {
   tenantId: string;
   renderer: Renderer;
-  /** Whether the viewer can open catalog items, so "From Longsword" links there (ADR 0078). */
+  /** Whether the viewer can open catalog items, so "From Longsword" links there (ADR 0032). */
   linkSources: boolean;
 };
 

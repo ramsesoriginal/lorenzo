@@ -34,7 +34,7 @@ export async function isCampaignGm(tenantId: string): Promise<boolean> {
 
 /**
  * Whether the viewer holds a membership in the tenant (an owner or orga). The catalog and
- * the being search need one (ADR 0078); a player has a seat in a campaign instead.
+ * the being search need one (ADR 0032, 0078); a player has a seat in a campaign instead.
  */
 export async function isTenantMember(tenantId: string): Promise<boolean> {
   return (await getMe()).memberships.some((membership) => membership.tenant_id === tenantId);

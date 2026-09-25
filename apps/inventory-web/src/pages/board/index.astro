@@ -311,7 +311,7 @@ import Base from '../../layouts/Base.astro';
     // actions, not gated by this - the real authorization boundary is
     // each write's own server-side check either way.
     let userIsGm = false;
-    // Only tenant members can open catalog items (ADR 0078), so only they get links to them.
+    // Only tenant members can open catalog items (ADR 0032), so only they get links to them.
     let userIsMember = false;
 
     // How to refresh whatever board is currently shown - set by loadBoard/

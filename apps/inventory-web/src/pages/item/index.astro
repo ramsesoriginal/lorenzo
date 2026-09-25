@@ -252,7 +252,7 @@ import Base from '../../layouts/Base.astro';
       try {
         let asItem: ItemBase | null = null;
         let asInstance: ItemInstance | null = null;
-        // Only tenant members can read the catalog (ADR 0078).
+        // Only tenant members can read the catalog (ADR 0032).
         linkSources = await isTenantMember(tenantId);
         if (itemSlugParam) {
           // A slug always resolves to an instance - catalog items don't
