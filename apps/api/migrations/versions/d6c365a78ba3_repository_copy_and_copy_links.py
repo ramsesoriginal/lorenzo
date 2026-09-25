@@ -61,9 +61,6 @@ def upgrade() -> None:
         "repository_copy",
         sa.Column("tenant_id", sa.UUID(), nullable=False),
         sa.Column("repository_tenant_id", sa.UUID(), nullable=False),
-        # The name at copy time, so a copy of a since-deleted repository
-        # still has something to show.
-        sa.Column("repository_name", sa.Text(), server_default="", nullable=False),
         _now("copied_at"),
         sa.Column("copied_by", sa.UUID(), nullable=True),
         _now("synced_at"),
