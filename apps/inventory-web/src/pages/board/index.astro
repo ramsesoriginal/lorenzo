@@ -83,6 +83,7 @@ import Base from '../../layouts/Base.astro';
             id="gm-browse-raw-id"
             class="text-input"
             placeholder="or a being's entity id…"
+            aria-label="Being's entity id"
           />
           <button type="button" id="gm-browse-raw-id-button">View</button>
         </div>
@@ -113,6 +114,7 @@ import Base from '../../layouts/Base.astro';
           id="board-search"
           class="text-input"
           placeholder="Search this inventory…"
+          aria-label="Search this inventory"
         />
         <button type="button" id="select-mode-button">Select items</button>
       </div>
@@ -130,7 +132,7 @@ import Base from '../../layouts/Base.astro';
     </section>
   </div>
 
-  <dialog id="item-detail" class="item-detail">
+  <dialog id="item-detail" class="item-detail" aria-labelledby="item-detail-title">
     <div class="item-detail-content">
       <button type="button" id="item-detail-close" class="item-detail-close" aria-label="Close"
         >&times;</button
@@ -143,6 +145,10 @@ import Base from '../../layouts/Base.astro';
         <h3>Ancestry</h3>
         <ul id="item-detail-ancestry-list"></ul>
       </div>
+      <section class="item-detail-notes" aria-labelledby="item-detail-notes-heading">
+        <h3 id="item-detail-notes-heading">Notes</h3>
+        <div id="item-detail-notes"></div>
+      </section>
       <a id="item-detail-view-link" class="btn btn-secondary" href="">View standalone page</a>
 
       <div class="item-detail-actions">
@@ -183,8 +189,9 @@ import Base from '../../layouts/Base.astro';
       unsetOwner,
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
-    import { isCampaignGm } from '../../lib/me';
+    import { isCampaignGm, isTenantMember } from '../../lib/me';
     import { collectMoveTargets } from '../../lib/moveTargets';
+    import { renderNotes } from '../../lib/notes';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
@@ -299,6 +306,7 @@ import Base from '../../layouts/Base.astro';
       'item-detail-move-button',
     ) as HTMLButtonElement;
     const detailActionPanel = document.getElementById('item-detail-action-panel')!;
+    const detailNotes = document.getElementById('item-detail-notes')!;
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
@@ -309,6 +317,10 @@ import Base from '../../layouts/Base.astro';
     // actions, not gated by this - the real authorization boundary is
     // each write's own server-side check either way.
     let userIsGm = false;
+    // Only tenant members can open catalog items (ADR 0032), so only they get links to them.
+    let userIsMember = false;
+    // The viewer's own characters, once loaded: who reads their private notes (ADR 0113).
+    let myCharacters: CharacterSummary[] = [];
 
     // How to refresh whatever board is currently shown - set by loadBoard/
     // loadUnownedBoard, called after any action that might change what
@@ -408,6 +420,17 @@ import Base from '../../layouts/Base.astro';
       renderItemView(detailView, item, {
         tenantId: tenantId as string,
         renderer: renderDescriptions,
+        linkSources: userIsMember,
+      });
+      // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
+      const reader = myCharacters.find((c) => c.entity_id === item.owner_entity_id) ?? null;
+      void renderNotes(detailNotes, {
+        tenantId: tenantId as string,
+        entityId: item.entity_id,
+        renderer: renderDescriptions,
+        canWrite: userIsGm || reader !== null,
+        reader,
+        rowHeading: 'h4',
       });
 
       closeDetailActionPanels();
@@ -470,6 +493,14 @@ import Base from '../../layouts/Base.astro';
           card.style.viewTransitionName = `item-${card.dataset.entityId}`;
         }
       });
+    }
+
+    // After a give, split, merge or move: the panel shows the item as it was, or one that's
+    // gone, so it closes onto the board as it is now.
+    function finishAction() {
+      closeDetailActionPanels();
+      closeDetail();
+      reloadCurrentView?.();
     }
 
     document.getElementById('item-detail-close')?.addEventListener('click', () => closeDetail());
@@ -554,8 +585,7 @@ import Base from '../../layouts/Base.astro';
           return `Given to ${being.name}.`;
         },
         () => {
-          closeDetailActionPanels();
-          reloadCurrentView?.();
+          finishAction();
         },
         hasStack ? [quantityField] : [],
       );
@@ -615,8 +645,7 @@ import Base from '../../layouts/Base.astro';
           statusEl.classList.remove('error-text');
           statusEl.textContent = `Split off ${quantity}.`;
           window.setTimeout(() => {
-            closeDetailActionPanels();
-            reloadCurrentView?.();
+            finishAction();
           }, 1200);
         } catch (e) {
           statusEl.hidden = false;
@@ -687,8 +716,7 @@ import Base from '../../layouts/Base.astro';
               },
               `Merged into ${merged.title}.`,
             );
-            closeDetailActionPanels();
-            reloadCurrentView?.();
+            finishAction();
           } catch (e) {
             statusEl.hidden = false;
             statusEl.classList.add('error-text');
@@ -751,8 +779,7 @@ import Base from '../../layouts/Base.astro';
             { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
             `Moved ${item.title}.`,
           );
-          closeDetailActionPanels();
-          reloadCurrentView?.();
+          finishAction();
         } catch (e) {
           statusEl.hidden = false;
           statusEl.classList.add('error-text');
@@ -812,6 +839,7 @@ import Base from '../../layouts/Base.astro';
 
     function setCardSelected(card: HTMLLIElement, selected: boolean) {
       card.classList.toggle('item-card--selected', selected);
+      card.querySelector('.item-card-open')?.setAttribute('aria-pressed', String(selected));
       const entityId = card.dataset.entityId;
       if (!entityId) return;
       if (selected) selectedIds.add(entityId);
@@ -821,18 +849,25 @@ import Base from '../../layouts/Base.astro';
 
     function clearSelection() {
       for (const card of boardColumns.querySelectorAll<HTMLLIElement>('.item-card--selected')) {
-        card.classList.remove('item-card--selected');
+        setCardSelected(card, false);
       }
       selectedIds.clear();
       updateSelectionToolbar();
     }
 
-    selectModeButton.addEventListener('click', () => {
-      selectMode = !selectMode;
-      selectModeButton.textContent = selectMode ? 'Cancel selecting' : 'Select items';
-      selectModeButton.setAttribute('aria-pressed', String(selectMode));
-      if (!selectMode) clearSelection();
-    });
+    // While selecting, each card is a toggle; otherwise it opens the item.
+    function setSelectMode(on: boolean) {
+      selectMode = on;
+      selectModeButton.textContent = on ? 'Cancel selecting' : 'Select items';
+      selectModeButton.setAttribute('aria-pressed', String(on));
+      if (!on) clearSelection();
+      for (const open of boardColumns.querySelectorAll('.item-card-open')) {
+        if (on) open.setAttribute('aria-pressed', 'false');
+        else open.removeAttribute('aria-pressed');
+      }
+    }
+
+    selectModeButton.addEventListener('click', () => setSelectMode(!selectMode));
 
     selectionClearButton.addEventListener('click', () => clearSelection());
 
@@ -875,10 +910,7 @@ import Base from '../../layouts/Base.astro';
         () => {
           selectionGivePanel.replaceChildren();
           selectionGiveButton.textContent = 'Give selected to…';
-          clearSelection();
-          selectMode = false;
-          selectModeButton.textContent = 'Select items';
-          selectModeButton.setAttribute('aria-pressed', 'false');
+          setSelectMode(false);
           reloadCurrentView?.();
         },
       );
@@ -1002,10 +1034,7 @@ import Base from '../../layouts/Base.astro';
               }
               // Multi-item moves aren't undoable here (would need
               // per-item previous state) - deliberately not recorded.
-              clearSelection();
-              selectMode = false;
-              selectModeButton.textContent = 'Select items';
-              selectModeButton.setAttribute('aria-pressed', 'false');
+              setSelectMode(false);
             } else {
               recordUndo(
                 { kind: 'restore-container', entityId, previousContainerId },
@@ -1046,7 +1075,12 @@ import Base from '../../layouts/Base.astro';
         }
       });
 
-      li.addEventListener('click', () => {
+      // A button, so a card opens (or, while selecting, toggles) from the keyboard too.
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'item-card-open';
+      if (selectMode) open.setAttribute('aria-pressed', 'false');
+      open.addEventListener('click', () => {
         if (selectMode) {
           setCardSelected(li, !li.classList.contains('item-card--selected'));
           return;
@@ -1057,15 +1091,16 @@ import Base from '../../layouts/Base.astro';
       const title = document.createElement('span');
       title.className = 'item-card-title';
       title.textContent = item.title;
-      li.append(title);
+      open.append(title);
 
       if (item.quantity && item.quantity > 1) {
         const qty = document.createElement('span');
         qty.className = 'item-card-qty';
         qty.textContent = `×${item.quantity}`;
-        li.append(qty);
+        open.append(' ', qty);
       }
 
+      li.append(open);
       return li;
     }
 
@@ -1077,8 +1112,11 @@ import Base from '../../layouts/Base.astro';
         boardContainers.set(group.container.id, group.container);
       }
 
+      // Named by its heading, so each column is a region a reader can find.
       const heading = document.createElement('h3');
+      heading.id = `column-${group.container?.id ?? 'loose'}`;
       heading.textContent = group.container?.name ?? rootTitle;
+      section.setAttribute('aria-labelledby', heading.id);
       section.append(heading);
 
       const list = document.createElement('ul');
@@ -1246,6 +1284,7 @@ import Base from '../../layouts/Base.astro';
     async function loadCharacters(currentTenantId: string) {
       try {
         const page = await listMyCharacters(currentTenantId);
+        myCharacters = page.items;
         charactersLoading.hidden = true;
         if (page.items.length === 0) {
           charactersEmpty.hidden = false;
@@ -1329,10 +1368,11 @@ import Base from '../../layouts/Base.astro';
         status.hidden = true;
         tenantName.textContent = tenant.name;
         tenantSlug.textContent = tenant.slug;
+        userIsMember = await isTenantMember(tenantId);
         board.hidden = false;
         await loadCharacters(tenantId);
 
-        userIsGm = await isCampaignGm();
+        userIsGm = await isCampaignGm(tenantId);
         if (userIsGm) {
           const gmTools = document.getElementById('gm-tools')!;
           const manageItemsLink = document.getElementById('manage-items-link') as HTMLAnchorElement;

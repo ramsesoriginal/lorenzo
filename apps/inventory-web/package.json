@@ -17,7 +17,8 @@
     "lint": "biome check . && astro check && prettier --check \"**/*.astro\"",
     "format": "biome check --write . && prettier --write \"**/*.astro\"",
     "test": "vitest run",
-    "generate-client": "openapi-typescript ../api/openapi.json -o src/lib/lorenzo-schema.d.ts"
+    "generate-client": "openapi-typescript ../api/openapi.json -o src/lib/lorenzo-schema.d.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@authgear/web": "^6.0.0",
@@ -31,7 +32,11 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
     "@biomejs/biome": "^2.3.0",
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
     "openapi-typescript": "^7.5.2",
+    "pg": "^8.13.1",
     "prettier": "^3.6.0",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.9.0",

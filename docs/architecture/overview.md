@@ -96,6 +96,17 @@ Items now show what they inherit, and inventory-web shows and edits the whole it
   - GMs set tags to inherited, on, or off, and add, edit, or delete any of an item's information.
   - This fixed descriptions written in inventory-web renaming their item "Description" ([ADR 0112](../adr/0112-inventory-web-the-whole-item.md)).
 
+inventory-web gained end-to-end tests, slugs, and players' notes:
+
+- **End-to-end tests.** Playwright drives the built site against the real `apps/api`, on a freshly migrated database, and a fake Authgear with real PKCE and RS256 tokens, so the unmodified SDK logs in through the app's own button. Each test builds its own tenant through the API. A CI `e2e` job gates merges ([ADR 0114](../adr/0114-inventory-web-end-to-end-tests.md)). The first run found real bugs, fixed in the same change:
+  - board cards couldn't be opened from the keyboard;
+  - GM tools leaked across tenants;
+  - players' give search found nobody, since `/beings` needs a membership;
+  - "From …" links led players to pages they can't open;
+  - Log out did nothing visible.
+- **Slugs.** GMs set an item's or instance's slug in Manage items and on the item page, prefilled with the first free one its title suggests, so `[[Title]]` links find it. `?slug=` resolves any entity ([ADR 0113](../adr/0113-inventory-web-slugs-and-player-notes.md)).
+- **Notes.** Players add, edit, and delete notes on items their characters own, from the board or the item page. A note is private to the owning character and the campaign's GMs unless "Everyone can read this", matching loot-bot's `/note`. The GM's Information section and the notes are one component.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

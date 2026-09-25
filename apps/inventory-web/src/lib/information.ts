@@ -17,14 +17,18 @@ const ifMatch = (row: { updated_at: string }) => ({ 'if-match': `W/"${row.update
 export const textOf = (info: Information): TextPayload | undefined =>
   info.payloads.find((p): p is TextPayload => p.kind === 'description');
 
-/** Every piece of the entity's information the viewer may see, in order (ADR 0109). */
-export async function listInformation(tenantId: string, entityId: string): Promise<Information[]> {
+/** Every piece of the entity's information the viewer may see, in order, of `types` if given (ADR 0109). */
+export async function listInformation(
+  tenantId: string,
+  entityId: string,
+  types?: string[],
+): Promise<Information[]> {
   return fetchAllPages(async (page) =>
     unwrap(
       await client.GET('/tenants/{tenant_id}/entities/{entity_id}/information', {
         params: {
           path: { tenant_id: tenantId, entity_id: entityId },
-          query: { page, size: MAX_PAGE_SIZE },
+          query: { page, size: MAX_PAGE_SIZE, type: types },
         },
       }),
     ),
@@ -52,9 +56,9 @@ export async function createInformation(
   tenantId: string,
   entityId: string,
   draft: InformationDraft,
-): Promise<void> {
+): Promise<Information> {
   const [locale = 'en-US'] = await viewerLocales();
-  await unwrap(
+  return unwrap(
     await client.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
       body: {
@@ -115,6 +119,28 @@ export async function deleteInformation(tenantId: string, info: Information): Pr
     await client.DELETE('/tenants/{tenant_id}/information/{information_id}', {
       params: { path: { tenant_id: tenantId, information_id: info.id }, header: ifMatch(info) },
     }),
+  );
+}
+
+/** Lets a character or group read a restricted piece of information (ADR 0038); idempotent. */
+export async function addKnower(
+  tenantId: string,
+  informationId: string,
+  knowerEntityId: string,
+): Promise<void> {
+  await unwrap(
+    await client.PUT(
+      '/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}',
+      {
+        params: {
+          path: {
+            tenant_id: tenantId,
+            information_id: informationId,
+            knower_entity_id: knowerEntityId,
+          },
+        },
+      },
+    ),
   );
 }
 
