@@ -45,7 +45,7 @@ Recording follows the existing rules:
 ### inventory-web
 
 - **Give to…,** for one item or a selection, gets a **Hand it over** checkbox when what's given is in a container. Its note says the alternative: "Otherwise it stays in the Backpack, theirs now." It starts unchecked.
-- **Undo** of a handed-over give restores the container as well as the owner.
+- **Undo** of a handed-over give restores the container as well as the owner, for a GM. A player gets no Undo after handing something over: nothing of theirs holds it any more, so they have no standing to take it back ([ADR 0038](0038-information-payload-knowledge-crud-api.md)'s self-or-managed tier), and an Undo would only fail.
 - **"Remove from container",** and dropping cards on the character's own column, put the item into the character, so a stack keeps its count. On the board of unowned items there's no character to hold it. There the old `DELETE` stays, and the API refuses a stack with its message.
 - **The board** shows an item contained by its owner in the owner's column: the owned-by grouping above puts it there.
 
