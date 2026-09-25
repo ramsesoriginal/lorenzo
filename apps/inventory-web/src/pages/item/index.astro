@@ -24,22 +24,31 @@ import Base from '../../layouts/Base.astro';
         <ul id="item-ancestry-list"></ul>
       </div>
 
-      <section id="item-mentioned-in" class="section" hidden>
-        <h2>Mentioned in</h2>
+      <section
+        id="item-mentioned-in"
+        class="section"
+        aria-labelledby="item-mentioned-in-heading"
+        hidden
+      >
+        <h2 id="item-mentioned-in-heading">Mentioned in</h2>
         <ul id="item-mentioned-in-list" class="chip-list"></ul>
       </section>
 
-      <section id="item-used-by" class="section" hidden>
-        <h2>Used as a prototype by</h2>
+      <section id="item-used-by" class="section" aria-labelledby="item-used-by-heading" hidden>
+        <h2 id="item-used-by-heading">Used as a prototype by</h2>
         <ul id="item-used-by-list" class="chip-list"></ul>
       </section>
 
-      <section id="item-gm" class="section" hidden>
-        <h2>Tags</h2>
-        <div id="item-tags"></div>
-        <h2>Information</h2>
-        <div id="item-information"></div>
-      </section>
+      <div id="item-gm" hidden>
+        <section class="section" aria-labelledby="item-tags-heading">
+          <h2 id="item-tags-heading">Tags</h2>
+          <div id="item-tags"></div>
+        </section>
+        <section class="section" aria-labelledby="item-information-heading">
+          <h2 id="item-information-heading">Information</h2>
+          <div id="item-information"></div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -59,7 +68,7 @@ import Base from '../../layouts/Base.astro';
       listItemsUsingPrototype,
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
-    import { isCampaignGm } from '../../lib/me';
+    import { isCampaignGm, isTenantMember } from '../../lib/me';
     import { renderTagEditor } from '../../lib/tagEditor';
     import type { ItemBase, ItemInstance } from '../../lib/types';
 
@@ -94,6 +103,8 @@ import Base from '../../layouts/Base.astro';
     // reads it again after a change.
     let shown!: ItemBase;
     let isInstance = false;
+    // Whether "From Longsword" labels link to the catalog, which only tenant members can read.
+    let linkSources = false;
 
     copyLinkButton.addEventListener('click', async () => {
       try {
@@ -118,7 +129,7 @@ import Base from '../../layouts/Base.astro';
       const showQty = Boolean(item.quantity && item.quantity > 1);
       itemQty.hidden = !showQty;
       itemQty.textContent = showQty ? `×${item.quantity}` : '';
-      renderItemView(itemView, item, { tenantId, renderer });
+      renderItemView(itemView, item, { tenantId, renderer, linkSources });
       const own = item.descriptions.some((description) => !description.from_entity);
       descriptionEdit.textContent = own ? 'Edit description' : 'Write a description';
     }
@@ -241,6 +252,8 @@ import Base from '../../layouts/Base.astro';
       try {
         let asItem: ItemBase | null = null;
         let asInstance: ItemInstance | null = null;
+        // Only tenant members can read the catalog (ADR 0078).
+        linkSources = await isTenantMember(tenantId);
         if (itemSlugParam) {
           // A slug always resolves to an instance - catalog items don't
           // have one, so there's no item-vs-instance ambiguity to try
@@ -251,13 +264,19 @@ import Base from '../../layouts/Base.astro';
           // an instance - try the item endpoint first, fall back to the
           // instance one only on a real 404, not on e.g. a network/auth
           // error, which should surface directly rather than being
-          // masked by a second, differently-failing request.
+          // masked by a second, differently-failing request. A viewer
+          // who can't read the catalog only has the instances to try.
           try {
-            asItem = await getCatalogItem(tenantId, itemId as string);
+            if (linkSources) asItem = await getCatalogItem(tenantId, itemId as string);
           } catch (e) {
             if (!(e instanceof ApiError) || e.status !== 404) throw e;
-            asInstance = await getItemInstance(tenantId, itemId as string);
           }
+          asInstance = asItem
+            ? null
+            : await getItemInstance(tenantId, itemId as string).catch((e: unknown) => {
+                if (!(e instanceof ApiError) || e.status !== 404) throw e;
+                throw new Error("There's no such item here, or it isn't one you can see.");
+              });
         }
 
         status.hidden = true;
@@ -275,7 +294,7 @@ import Base from '../../layouts/Base.astro';
         }
         void loadMentionedIn(shown.entity_id);
         // GMs write here (ADR 0108, 0112); the API still decides.
-        void isCampaignGm().then(
+        void isCampaignGm(tenantId).then(
           (gm) => {
             descriptionEdit.hidden = !gm;
             if (gm) showGmSections();

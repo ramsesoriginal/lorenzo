@@ -9,13 +9,13 @@ import Base from '../../layouts/Base.astro';
   <div id="page" hidden>
     <h1 class="display" id="tenant-name"></h1>
 
-    <section class="section-lg">
-      <h2>New item</h2>
+    <section class="section-lg" aria-labelledby="new-item-heading">
+      <h2 id="new-item-heading">New item</h2>
       <div id="create-item-mount"></div>
     </section>
 
-    <section class="section-lg">
-      <h2>Catalog</h2>
+    <section class="section-lg" aria-labelledby="catalog-heading">
+      <h2 id="catalog-heading">Catalog</h2>
       <div class="catalog-toolbar">
         <input
           type="search"
@@ -31,8 +31,8 @@ import Base from '../../layouts/Base.astro';
       <ul id="catalog-list" class="catalog-list" hidden></ul>
     </section>
 
-    <section class="section-lg">
-      <h2>Instances</h2>
+    <section class="section-lg" aria-labelledby="instances-heading">
+      <h2 id="instances-heading">Instances</h2>
       <div class="field">
         <span class="field-label" id="browse-label">View a being's inventory</span>
         <div class="combobox" id="browse-combobox">
@@ -205,6 +205,7 @@ import Base from '../../layouts/Base.astro';
         input.type = 'text';
         input.className = 'text-input';
         input.placeholder = 'Search items to inherit from…';
+        input.setAttribute('aria-label', 'Search items to inherit from');
         input.autocomplete = 'off';
         const suggestions = document.createElement('ul');
         suggestions.className = 'combobox-suggestions';
@@ -377,6 +378,7 @@ import Base from '../../layouts/Base.astro';
       input.type = 'text';
       input.className = 'text-input';
       input.placeholder = 'Search beings…';
+      input.setAttribute('aria-label', 'Search beings');
       input.autocomplete = 'off';
       const suggestions = document.createElement('ul');
       suggestions.className = 'combobox-suggestions';
@@ -875,8 +877,8 @@ import Base from '../../layouts/Base.astro';
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
       status.textContent = 'No tenant selected. Pick one to continue.';
-    } else if (!(await isCampaignGm())) {
-      status.textContent = "This page is for GMs only. You don't hold a GM grant in any campaign.";
+    } else if (!(await isCampaignGm(tenantId))) {
+      status.textContent = "This page is for GMs only. You don't GM a campaign in this tenant.";
     } else {
       try {
         const tenant = await getTenant(tenantId);

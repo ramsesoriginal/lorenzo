@@ -60,6 +60,7 @@ export function renderBeingActionPanel(
   input.className = 'text-input';
   input.placeholder = 'Search beings…';
   input.autocomplete = 'off';
+  input.setAttribute('aria-label', 'Search beings');
   const suggestions = document.createElement('ul');
   suggestions.className = 'combobox-suggestions';
   suggestions.setAttribute('role', 'listbox');
@@ -72,6 +73,7 @@ export function renderBeingActionPanel(
   rawIdInput.type = 'text';
   rawIdInput.className = 'text-input';
   rawIdInput.placeholder = "or a being's entity id…";
+  rawIdInput.setAttribute('aria-label', "Being's entity id");
   const rawIdButton = document.createElement('button');
   rawIdButton.type = 'button';
   rawIdButton.textContent = 'Use ID';

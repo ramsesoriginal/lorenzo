@@ -30,26 +30,33 @@ export function statLabel(name: string): string {
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = '') =>
   Object.assign(document.createElement(tag), { className, textContent: text });
 
-/** "From Longsword", linking to it, for something an item inherits; nothing for its own. */
+export type ItemViewOptions = {
+  tenantId: string;
+  renderer: Renderer;
+  /** Whether the viewer can open catalog items, so "From Longsword" links there (ADR 0078). */
+  linkSources: boolean;
+};
+
+/** "From Longsword", linking to it if the viewer may follow, for something an item inherits. */
 function sourceLabel(
   source: Source,
-  tenantId: string,
+  options: ItemViewOptions,
   tag: 'p' | 'figcaption' = 'p',
 ): HTMLElement | null {
   if (!source) return null;
   const label = make(tag, 'item-view-source', 'From ');
+  if (!options.linkSources) {
+    label.append(source.name);
+    return label;
+  }
   const link = make('a', '', source.name);
-  link.href = `/item/?tenant=${tenantId}&id=${source.id}`;
+  link.href = `/item/?tenant=${options.tenantId}&id=${source.id}`;
   label.append(link);
   return label;
 }
 
 /** Renders `item` into `container`, replacing what was there. Descriptions render as LorenzoScript. */
-export function renderItemView(
-  container: HTMLElement,
-  item: Item,
-  options: { tenantId: string; renderer: Renderer },
-): void {
+export function renderItemView(container: HTMLElement, item: Item, options: ItemViewOptions): void {
   const sections: HTMLElement[] = [];
 
   for (const [heading, key] of GROUPS) {
@@ -84,7 +91,7 @@ export function renderItemView(
         },
         () => figure.remove(),
       );
-      const caption = sourceLabel(picture.from_entity, options.tenantId, 'figcaption');
+      const caption = sourceLabel(picture.from_entity, options, 'figcaption');
       figure.append(img, ...(caption ? [caption] : []));
       pictures.append(figure);
     }
@@ -99,7 +106,7 @@ export function renderItemView(
     options.renderer,
     item.descriptions.map((description) => ({
       text: description.content,
-      label: sourceLabel(description.from_entity, options.tenantId),
+      label: sourceLabel(description.from_entity, options),
     })),
   );
 }
