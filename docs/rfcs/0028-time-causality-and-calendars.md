@@ -1,6 +1,13 @@
-# RFC: How should in-fiction time, causal order, and calendars be modeled, so that "who knew what, as of when" always has exactly one answer?
+# RFC: How should in-fiction time, causal order, history, and calendars be modeled, so that "who knew what, and where everything was, as of when" always has exactly one answer?
 
 Status: proposed — Decision open
+
+This RFC has two parts, debated by the same four participants.
+
+- **Part 1** (most of this document) designs time itself: the causal order, clocks, knowledge "as of", and calendars.
+- **[Part 2](#part-2-history-of-containment-ownership-group-membership-and-existence)** was added at the requester's follow-up: "now that we have the possibility of having time for knowledge, we should also have the same for containment, group membership and ownership… and maybe even 'existence'". It extends part 1's history pattern to those four relations and amends part 1 in a few places. Each amendment is marked where it lands.
+
+The [Decision](#decision), [sub-slices](#proposed-sub-slices-once-decided), [Not in scope](#not-in-scope) and [Consequences](#consequences) sections cover both parts.
 
 ## Context
 
@@ -131,7 +138,7 @@ These held through round 3. Amendments added in round 3 are folded in and attrib
   - Timed changes (`learned | forgot`, Judy) go in a side table **anchored to a participation the knower actually has**. This is Ivan's "you can only learn something at a moment you lived", enforced by FK. A group knower must itself be a participant.
   - A `knowledge` row with no timed change answers `known, when: not modeled`, a third explicit value.
   - `knower_player_id` rows stay static.
-  - `group_member` has no history, so group knowledge uses today's roster. That strain is named.
+  - `group_member` has no history, so group knowledge uses today's roster. That strain is named. *Closed by Part 2's `membership_change` ([PB-groups](#groups-access-while-a-member)).*
 - **BL10: Branches.** A timeline frame (RFC 0026) plus `timeline_divergence(timeline, parent, at_event)`.
   - **history(B) is the prefix of the parent's order up to the divergence event, plus B's own events.** A prefix of a linear extension is closed downward under causality, so an effect can never appear without its cause. This is Judy's attack on Ivan's round-1, date-based history, conceded.
   - An event's timeline is an **explicit `entity_frame(axis='timeline')` row written on the event at insert**, reusing RFC 0026's table instead of adding a column.
@@ -162,9 +169,9 @@ These held through round 3. Amendments added in round 3 are folded in and attrib
 
    A connection traversal is a departure and arrival pair of events, so the two ends of a time rift carry different readings with no column on `connection_endpoint`. An optional `endpoint_anchor` ("this rift always lands in 1480 DR") is a later sub-slice, which satisfies "time attaches per endpoint".
 2. **Comparability.** There is one canonical order per tenant: the stored linear extension of recorded evidence, with every answer tagged by basis. Clocks relate to one another only through events that carry readings on both (sync points), never as the order. Rates are derived, as Δ/Δ between sync points, and never stored as a per-plane dilation formula.
-3. **History and events.** History lives in first-class events. Current-state tables are never time-versioned. Knowledge history is the `learned | forgot` side table. Placement history is a later `event_move` sub-slice.
+3. **History and events.** History lives in first-class events. Current-state tables are never time-versioned. Knowledge history is the `learned | forgot` side table. Placement, ownership, membership and existence history follow the same pattern, designed in [Part 2](#part-2-history-of-containment-ownership-group-membership-and-existence). That replaces the `event_move` sub-slice part 1 originally named.
 4. **Play order versus story order.** Play order is its own table, keyed by campaign and session ordinal, and excluded from the causal order.
-5. **What a branch reads before time exists.** history(B) is exact for *events* from the first slice. Until `event_move` ships, *placement* reads in a branch still show current state, a named strain every pitch shared. RFC 0026 found the same property in its own designs.
+5. **What a branch reads before time exists.** history(B) is exact for *events* from the first slice. Until Part 2's change tables ship, *placement* reads in a branch still show current state, a named strain every pitch shared. RFC 0026 found the same property in its own designs. Part 2 closes this for every recorded move: B shows the spellbook where it was before Prime moved it.
 
 ## Candidate designs
 
@@ -201,7 +208,8 @@ CREATE TABLE event_participant (
   entity_id        uuid NOT NULL,             -- a character, ship, letter, group…
   tenant_id        uuid NOT NULL,
   lived_pos        numeric NOT NULL,          -- this entity's own lived order: evidence, row-checked
-                                              --   against chronicle_key, never an FK target (Kevin)
+                                              --   against chronicle_key, never an FK target (Kevin);
+                                              --   Part 2's P2-D1 may add lived_claim ('lived'|'placed')
   clock_entity_id  uuid,                      -- BL8 snapshot of the clock they lived this leg on;
                                               --   any kind (a 'never' leg adds 0); NULL = not modeled
   UNIQUE (event_id, entity_id),               -- v1; relaxing it is Bridge 4's one-entity option
@@ -245,7 +253,7 @@ CREATE TABLE knowledge_change (               -- BL9: when an ADR 0028 knowledge
     REFERENCES knowledge (id, knower_entity_id, tenant_id) ON DELETE CASCADE,
   FOREIGN KEY (participant_id, knower_entity_id, tenant_id)          -- you can only learn at a moment
     REFERENCES event_participant (id, entity_id, tenant_id)          --   you actually lived
-    ON DELETE RESTRICT);                      -- D4: Kevin argues NO ACTION
+    ON DELETE NO ACTION);                     -- D4, resolved in Part 2 (PB6)
 
 CREATE TABLE event_session (                  -- play order (BL4); never read by causal queries
   event_id            uuid NOT NULL,
@@ -269,13 +277,13 @@ That is eight time tables and three calendar tables, and the count stays the sam
 
 - Any evidence path from a to b runs only through events whose keys lie between the two, so the walk that computes the basis is **bounded to that key interval**.
 - It is never a tenant-wide view and is never called on a hot read.
-- "What did K know as of E in timeline T" returns one of `known`, `not known` or `known, when: not modeled`. It reads K's `learned`/`forgot` changes within K's lived past as of E (by `lived_pos` and travel links) intersected with history(T).
+- "What did K know as of E in timeline T" returns one of `known`, `not known` or `known, when: not modeled`. It reads K's `learned`/`forgot` changes within K's lived past as of E, **computed through** history(T) and travel links (by `lived_pos`). It is not intersected with history(T): that would drop what Cora learned in Prime before she travelled into B. Judy caught this drafting error in part 2, and all four agreed. One `lived_past()` function serves knowledge and Part 2's history reads alike.
 
 **Conditions attached in round 3.** None of these was contested by another participant, except where a D-number says so.
 
 - *Ivan:*
   - **A1.** Participations get a surrogate `id`, so one entity at one event twice stays one additive step away (D2).
-  - **A2.** No endpoint ever writes `chronicle_key` directly. Rule R placements and GM drags are stored as `event_link(kind='order')` rulings, so the key is always rebuildable from evidence (modulo `entity_id` ties), and a property test pins `rebuild(evidence) = stored keys`. *Nobody else reviewed this condition. It is the first thing to check (see the Decision).*
+  - **A2.** No endpoint ever writes `chronicle_key` directly. Rule R placements and GM drags are stored as `event_link(kind='order')` rulings, so the key is always rebuildable from evidence (modulo `entity_id` ties), and a property test pins `rebuild(evidence) = stored keys`. *Nobody else reviewed this condition in part 1. It is the first thing to check (see the Decision).* **Amended in Part 2:** a date-suggested placement is stored as `event_link(kind='placed')` and reads as `linearized`, not as an `order` ruling. Liam's point: otherwise a bulk import turns thousands of date labels into ruling-strength evidence, and "ruled" masquerades as a GM decision nobody made. All four accept this. The key stays rebuildable from evidence, which is what A2 asked for.
   - **A3.** An inversion explained by a `travel` link is ordinary data: no 409 and no acknowledgement, and the continuity report lists it as travel, not as a slip.
   - **A4.** Loops use Bridge 3(a), never fork-only.
   - **A5.** A pair that only the key decides is tagged `linearized`, never `causal`.
@@ -498,7 +506,7 @@ Liam checked the donjon mapping against donjon's own `/fantasy/calendar/control/
 - **S4: branching.** `timeline_divergence(B, Prime, E)`.
   - history(B) is Prime's key prefix up to E, plus B's own events. The spellbook's later move in Prime is not in it.
   - Knowledge learned at or before E is shared; later learning is split per branch.
-  - **Strain:** until `event_move`, a *placement* read in B shows current containment, never a guess.
+  - **Strain in part 1 alone:** a *placement* read in B shows current containment, never a guess. Part 2 closes this: see [S11](#worked-scenarios-part-2).
 - **S5: time travel.**
   - Prime: Yorick learns X at Y95 (reading 1495), Cora at L (1500), and she departs at D.
   - Her arrival A in B carries reading 1480 and follows `event_link(D→A, 'travel')`. The inversion is explained by travel, so it gets no 409. She tells Yorick at T.
@@ -520,7 +528,7 @@ Liam checked the donjon mapping against donjon's own `/fantasy/calendar/control/
   - A Waterdeep viewer sees "Midsummer, 1492 DR". A Greyhawk City viewer sees "Godsday, Richfest 4, 576 CY" if the event carries a reading on a clock Greyhawk's calendar is reckoned on; otherwise the answer is "not reckoned on Oerth's clock", never a guessed date.
   - Moving the event's order changes nothing about its dates. Changing the viewer changes only *which* dates are shown.
 - **S8: knowledge queries.**
-  - (a) "As of E in B, did Alice's character know the Duke is a lich?" Look for a `learned` change within her lived past as of E, intersected with history(B), with no later `forgot`. The answer is `known`, `not known`, or `known, when: not modeled` for an untimed row.
+  - (a) "As of E in B, did Alice's character know the Duke is a lich?" Look for a `learned` change within her lived past as of E, computed through history(B) and travel links, with no later `forgot`. The answer is `known`, `not known`, or `known, when: not modeled` for an untimed row.
   - (b) "Who learned X first?" The minimum key over `learned` changes: one answer plus its basis. Ties mean the same event, reported as `same`.
   - (c) "Everything Bob knew on entering the Astral" is (a) over every information row, cut at his entry participation's `lived_pos`, with untimed rows listed separately.
 
@@ -605,7 +613,7 @@ Ivan and Liam accept (a) without taking a side on this.
 - Judy and Ivan specified `RESTRICT`, so an anchor is never silently dropped.
 - Kevin argues `NO ACTION`. Deleting a character cascades down two paths (`entity → knowledge → knowledge_change` and `entity → event_participant`). `RESTRICT` is checked immediately, so the delete fails or succeeds depending on which cascade Postgres runs first. `NO ACTION` is checked at the end of the statement, and still blocks a direct participant delete.
 
-Only Kevin has examined this. It should be settled by a `test_cascades.py` case, not by argument.
+Only Kevin had examined this in part 1. **Resolved in Part 2 ([PB6](#part-2-baseline-converged-all-four-accept)).** All four adopted `NO ACTION` for every history anchor, subject and target. Deleting a history-bearing subject becomes *end*, and `?purge=true` is the only erasure path. A `test_cascades.py` case, including a whole-tenant purge, still pins it.
 
 **D5: Smaller calendar questions** (Liam's open list):
 
@@ -644,14 +652,383 @@ Only Kevin has examined this. It should be settled by a `test_cascades.py` case,
 
 ## Open questions (genuinely open, beyond D1–D6)
 
-1. **`group_member` history.** Group knowledge "as of" uses today's roster. What does a group's learning give a member who joined later?
+1. **`group_member` history.** *Closed by Part 2:* group knowledge is access while a member, and memory is an explicit anchored `learned`. See [Groups](#groups-access-while-a-member).
 2. **Timed player-level knowledge.** `knower_player_id` rows are static. Should out-of-character knowledge ever anchor to play order?
-3. **Branch placement reads.** `event_move` or `containment_change`, and what B shows for the spellbook before it ships. This is the same limitation RFC 0026 names.
+3. **Branch placement reads.** *Closed by Part 2 for every recorded move:* `containment_change` with a captured `from`, read through history(B). See [S11](#worked-scenarios-part-2).
 4. **Cross-campaign and cross-cosmology `linearized` answers.** Show them, hide them, or scope the key per campaign? Every candidate puts two unrelated campaigns in one tenant into one order that nobody asked for.
 5. **RFC 0024 copies of events.** How a repository's canon history is spliced into a tenant that already has one, and who chooses the interleaving. Ivan notes that A2's rebuild-from-evidence would make an affine key splice unnecessary.
 6. **Key growth and re-key cost.** When and how fractional keys are renormalized in crowded gaps, under the lock. Whether Pearce–Kelly's O(window) holds on a realistic 200-session fixture. Whether the key-bounded basis walk ever needs a materialized reachability index. Measure before promising any of it.
 7. **The loop slice.** Exactly which answers get `basis: loop`, and D3's shape.
 8. **The self-meeting.** Bridge 4 and RFC 0026 D3, including how a variant's age is computed.
+
+## Part 2: history of containment, ownership, group membership, and existence
+
+### Why this belongs in the same RFC
+
+Part 1 gave *knowledge* a history: a `learned | forgot` side table anchored to a participation the knower actually lived. The requester's follow-up was to do the same for **containment, ownership and group membership, and maybe even existence**, as part of the same topic.
+
+Part 1 already pointed there:
+
+- its open question 1 (`group_member` history) and 3 (what a branch shows for the spellbook);
+- the `event_move` sub-slice it deferred;
+- [docs/domain/client-views.md](../domain/client-views.md)'s "ledger of ownership — tracking ownership provenance over time" as a future direction.
+
+Three things already in the codebase had to be reckoned with:
+
+- **[ADR 0099](../adr/0099-player-facing-change-feed.md)'s `entity_change` feed.** A real-world-time, per-recipient, 90-day notification log of item moves and hand-overs. It is not in-fiction history.
+- **Stacks that split and merge** ([ADR 0041](../adr/0041-containment-quantity-and-stacking.md), [ADR 0044](../adr/0044-loot-assignment-split-merge-bulk-assign.md)). A split mints a new entity; a merge deletes one.
+- **RFC 0026's baseline.** "Inventory is never filtered by timeline"; "'where is my stuff *now*' never takes a time argument"; its open D3 on "doesn't exist in this timeline".
+
+### How part 2 was produced
+
+The same four participants each started from their converged part-1 positions and ran the same three rounds:
+
+1. **Independent pitches**, each answering seven questions:
+   - H1: how history is represented;
+   - H2: whose "now" is authoritative;
+   - H3: existence;
+   - H4: cost and scope;
+   - H5: what absence means;
+   - H6: who can see history;
+   - H7: branches and travel.
+2. **Adversarial attacks**, with required pairings aimed at each other's weakest point.
+3. **Defence and convergence** against a moderator-synthesized design with five bridges.
+
+New stress scenarios extended part 1's eight:
+
+| # | Scenario |
+| --- | --- |
+| S9 | Zero cost: the cozy campaign again, plus a busy loot-bot campaign that never asks an as-of question. |
+| S10 | "Where was the Sword of Kas when Alice learned the Duke is a lich?" "Where was the *Kalte Mamsell* on day 40?" A 50-gold stack split 20/30 and partly merged back: what is the 20's provenance? |
+| S11 | Branch placement: the spellbook moves study → vault in Prime after divergence E. What does B show? Then a thief takes it from the study in B. |
+| S12 | Ownership ledger: who owned Ashfang before Alice? And the bootstrap watch: old Cora gives it to young Cora, who carries it back and gives it to *her* younger self. |
+| S13 | The Harpers learned X at G. Alice joins at J and leaves at K. What does she know, and when? |
+| S14 | Existence: the Duke dies, the tavern burns, Ashfang is forged in 1350 and destroyed in 1402, and Alice drinks a potion. In B the Duke never dies. |
+| S15 | Retroactive edits: "the ring was in the vault all along since 1400"; a move recorded at the wrong event. |
+| S16 | Drift: a loot-bot `/give` (a real-world write with no in-fiction event) moves a tracked item. |
+
+Round 1 converged unusually fast on the *shape*. All four independently proposed four per-relation change tables, rejected versioned rows, and kept current state authoritative for "now". Rounds 2 and 3 were about what makes that shape honest. Every participant moved on at least four points. Every bridge was accepted by all four, with amendments. What is left open is small, and it is named below.
+
+### Part-2 baseline (converged; all four accept)
+
+- **PB1: Four per-relation change tables.** They are `containment_change`, `ownership_change`, `membership_change` and `existence_change`.
+  - There is **no generic `relation_change`**. RFC 0026's "four semantics" argument (Frank) applies to history even more strongly:
+    - containment is single-parent with quantity arithmetic;
+    - ownership is single-valued;
+    - membership is a set;
+    - existence is a lifecycle with lineage.
+
+    Each has its own chain rule, and a generic table would lose them all.
+  - There are **no validity intervals.** In chronicle-key terms they would put order positions on placement rows (BL14), they would rot on every Bridge 2 re-key, and a shared branch prefix would need intervals duplicated per history.
+  - No existing table gains a column. BL14 holds, so RFC 0026's D2 primary key survives.
+- **PB2: `from` and `to` on every change, each with a declared state.** Liam originally proposed `into`/`out` rows with no `from`. Ivan showed that B could then only answer `not_modeled` for the spellbook, even though the server held "study" at write time. Liam conceded.
+  - **State values.** `from_state` and `to_state` are `contained | uncontained | unrecorded` (for ownership: `owned | unowned | unrecorded`). **`unrecorded` is a declared state, never a NULL**; this was Liam's attack, and all four accepted it.
+    - "Ashfang vanished from the vault in 1402 and resurfaced in Blackstaff Tower in 1480" is `vault → unrecorded`, then `unrecorded → tower`.
+    - That asserts neither "it lay loose for 78 years" nor "it moved vault → tower in 1480", the two lies a NULL-only schema forces.
+  - **Where `from` comes from.** On a *head* write, `from` is captured from the current row, at no authoring cost. On a retroactive or compiled insert, it comes from the lived-order predecessor's `to`. With no predecessor it is explicitly `unrecorded`, never borrowed from today's row: a 1350 span must not claim "moved from where it sits in 1492" (Liam, Kevin, Ivan).
+- **PB3: The current row is the head of the subject's *home history*.** This is Judy's design, adopted by the other three.
+  - **Home** is an explicit `entity_frame(axis='timeline')` row on the subject. It is untagged by default, which covers every tenant that never branches. It is never inherited.
+  - The "now" of any other history is **derived** from the ledger.
+  - This replaced Kevin's "last-written key wins, flagged `contested`". Judy showed that it let a timeline-B thief's bag appear in Prime's `/inventory`: a hot read stating a fact false in the reader's own history.
+  - It also replaced Ivan's v1 `worldline_fork` 409.
+- **PB4: Evented writes, and plain writes that stay plain.**
+  - **Evented writes.** Existing routes gain an optional `as_part_of=<event>`, or `at:`/`after:`. An evented write inserts the participation, the change row and the current row **in one transaction**, under BL11's lock. A head write **always** updates the current row.
+  - **Plain writes** (loot-bot, inventory-web) touch current state only, as today. They take no lock and write no history.
+  - A single-item plain write on a history-bearing subject returns `history: unrecorded_change`. Bulk routes skip that per-item probe, because the gap is structural anyway (Kevin).
+- **PB5: Retroactive inserts must chain.**
+  - A non-head insert that contradicts a recorded lived-order neighbour gets 409 `ledger_discontinuity`, naming the neighbour. `unrecorded` matches anything.
+  - In draft mode (the span compiler, "record the present"), the discontinuity becomes a `choices[]` entry instead of failing the batch (Liam).
+- **PB6: End is in-fiction; purge is erasure.**
+  - **Ending.** `existence_change(ended)` clears the subject's current containment, ownership and membership rows, **and its `item_instance` subtype row** (Kevin's trick). The `entity` row survives with its lore and its ledger. It drops out of `v_item_instance`, `owned-by`, `/inventory` and `/unowned` without a single hot query learning the word "exists". That honours "inventory is never filtered".
+  - **ADR 0044 changes:**
+    - a merge whose source has history *ends* it (`absorbed_into`) instead of `session.delete`-ing it, which would cascade the provenance away;
+    - `DELETE` of a history-bearing subject becomes *end*.
+
+    Subjects without history behave byte-identically to today.
+  - **`?purge=true` is the only erasure.** It computes the flip report from rows still present and writes it to `audit_log` and the continuity report *before* it removes anything.
+  - **Every FK is `NO ACTION`**: subject, target and anchor. It is checked at statement end, so tenant purges and multi-path cascades don't race. This resolves part 1's D4.
+  - **A target named in others' ledgers** can only be ended, never deleted.
+  - **Rejected alternatives:**
+    - Kevin's round-1 subject `CASCADE`. Judy showed that deleting the Harpers would silently flip Alice's as-of knowledge, with nothing left to report it from.
+    - Judy's round-1 `RESTRICT`. Kevin showed that it is checked immediately, so a tenant purge's outcome depended on cascade order.
+- **PB7: The kind of change is an event prototype.** "Forged", "burned", "consumed", "died" and "split" are never an enum (BL1). The only structural columns are `lineage_entity_id` and `lineage_kind` (`split_from | absorbed_into | diverged_from`).
+- **PB8: Visibility.**
+  - A change is visible to a player only if its **event** is visible to them under ADR 0028. Participation alone isn't enough: Bram, asleep in the room during the secret ring swap, saw nothing.
+  - Players **never receive `from` fields**. Otherwise a visible move *out of* a secret hiding place would reveal where it was (Judy).
+  - GMs see the full ledger.
+  - "Where Bram *thinks* the ring is" stays out of scope. Belief is authored `information` (RFC 0001's open question 1), not history.
+  - **Named strain** (Ivan, Judy): present-tense `/inventory` and ADR 0099's feed already reveal possession, so gated history can't make a theft *of Bram's* ring secret. Only a swap to a fake ring entity can.
+- **PB9: Opt-in per subject, and absence.**
+  - A subject has history if and only if it has change rows. There is no flag, nothing is seeded, and **nothing is backfilled**, on ADR 0099's precedent that unrecorded history can't be reconstructed.
+  - A draft-first "record the present at event E" action snapshots current rows.
+  - A subject with no rows answers `not_modeled`, with current state attached as a labelled hint, never asserted as of the cut.
+- **PB10: Liam's span compiler.** Authors don't hand-write change rows. They write spans:
+  - "the sword lay in the vault from c. 1350 to 1402 DR";
+  - "the Duke held the Open Lordship 1479–1488".
+
+  `POST …/history/spans?commit=false` (and a CSV/TSV `:import`) then works in five steps:
+  1. **Resolve names**, turning ambiguity into `choices[]`.
+  2. **Parse dates** through the calendar engine. `circa_years` defaults to 5, settling part 1's D5 item.
+  3. **Create one lore-less event per endpoint.** Chained spans share an endpoint.
+  4. **Write one `order` ruling per span**: the author's own "from … to". Every other placement is `event_link(kind='placed')`, which reads as `linearized` (the part-1 A2 amendment).
+  5. **Later, `absorb`** re-anchors placeholder events onto named ones ("left the vault *during the Heist*").
+
+  Offices are groups: "ruled Waterdeep" is membership in "Open Lord of Waterdeep".
+- **PB11: Existence.** "X exists as of cut C in T" means: the latest `existence_change` in X's lived past, computed through history(T) and travel links, at or before C, is `began`.
+  - It follows the **chronicle, never dates**: a watch forged in 1600 and carried back to 1480 exists in 1485.
+  - No record at all means `not_modeled`, never "always has".
+  - Knowledge *about* a thing that doesn't exist yet (a prophecy of Ashfang) is ordinary lore, because knowledge points at `information`.
+  - Stack provenance is **per-stack lineage, not per coin**: ADR 0041's units are indistinguishable by design.
+  - This also answers RFC 0026 D3's *temporal* half. "Absent in B" is "no `began`, or an `ended`, within history(B)". Variants remain for "differs in B".
+- **PB12: Travel carries its contents.** This was Judy's idea. Ivan stole it, Kevin and Liam conceded, and all four accept it.
+  - **The rule.** At a `travel` write, every *history-bearing* entity transitively contained in the traveller becomes a participant of both departure and arrival. It is one `INSERT … SELECT` over `entity_access`'s recursive descendant walk (depth 50, cycle guard), under the lock. For a retroactive travel, the contents come from `state_as_of` at the departure (Kevin's amendments).
+  - **Why.** Without it, a watch Cora buys in Prime *after* divergence E, then carries into B, has its purchase filtered out of history(B). As-of reads would put it back in the shop while `/inventory` says her pocket. That contradiction sank "rides its container" and the plain `event_id` anchor.
+- **PB13: `entity_change` (ADR 0099) is a sibling.** History shares its call sites (`record_change`, beside `record_activity`), never its rows. An evented head write still calls `record_change`, because *now* changed.
+- **PB14: What part 2 closes.** Part 1's open questions 1 and 3, the `event_move` sub-slice (replaced), part 1's D4 (resolved), and part 1's A2 (amended to `placed`).
+
+### Schema
+
+```sql
+-- after RFC 0026 B0 and part-1 slices 2–3. Every table: tenant_id NOT NULL, ENABLE + FORCE RLS,
+-- composite (…, tenant_id) FKs, listed in RFC 0024's lists. EVERY FK NO ACTION (PB6). Nothing seeded.
+CREATE TABLE containment_change (
+  participant_id         uuid PRIMARY KEY,     -- the SUBJECT's own participation (anchor, below);
+                                               --   the key's exact shape follows part 1's D2
+  subject_entity_id      uuid NOT NULL,
+  tenant_id              uuid NOT NULL,
+  from_state             text NOT NULL CHECK (from_state IN ('contained','uncontained','unrecorded')),
+  from_parent_entity_id  uuid,
+  from_quantity          int,
+  to_state               text NOT NULL CHECK (to_state   IN ('contained','uncontained','unrecorded')),
+  to_parent_entity_id    uuid,
+  to_quantity            int,
+  -- split so no comparison can evaluate to NULL (a NULL CHECK passes): Liam's catch
+  CHECK ((from_state = 'contained') = (from_parent_entity_id IS NOT NULL)),
+  CHECK ((from_state = 'contained') = (from_quantity IS NOT NULL)),
+  CHECK (from_quantity >= 1),
+  CHECK ((to_state = 'contained') = (to_parent_entity_id IS NOT NULL)),
+  CHECK ((to_state = 'contained') = (to_quantity IS NOT NULL)),
+  CHECK (to_quantity >= 1),
+  FOREIGN KEY (participant_id, subject_entity_id, tenant_id)
+    REFERENCES event_participant (id, entity_id, tenant_id),        -- it moved at a moment it was there
+  FOREIGN KEY (from_parent_entity_id, tenant_id) REFERENCES entity (id, tenant_id),
+  FOREIGN KEY (to_parent_entity_id,   tenant_id) REFERENCES entity (id, tenant_id));
+CREATE INDEX ON containment_change (subject_entity_id);
+CREATE INDEX ON containment_change (to_parent_entity_id) WHERE to_state = 'contained';   -- "what was in the vault"
+
+-- ownership_change:  same anchor; from_/to_state IN ('owned','unowned','unrecorded') + from_/to_owner_entity_id
+--                    (ADR 0025: an owner is any entity); the same split CHECKs.
+-- membership_change: anchored to the MEMBER's participation; group_entity_id; change IN ('joined','left').
+-- existence_change:  same anchor; change IN ('began','ended'); lineage_entity_id, lineage_kind
+--                    ('split_from','absorbed_into','diverged_from'), both-or-neither. Quantities of a split
+--                    live on the two containment_change rows, not here.
+```
+
+**The anchor is always the subject's own participation.** This generalizes part 1's BL9 FK: a thing can only be moved, change hands, join, leave, begin or end at an event it took part in. Kevin and Liam started from a bare `event_id` anchor and moved, for three reasons:
+
+1. "The ring moved during the royal wedding" while it sat in Undermountain becomes an FK violation.
+2. Only participations import a traveller's past through a rift (PB12).
+3. Kevin's own part-1 rule, that a linearized flip must never reorder one entity's lived order, needs the subject's changes on its lived line.
+
+The cost is one participation row per change. Liam's example is 600 rows for a 300-row pasted timeline, and all four accepted it.
+
+**Reads.** `state_as_of(subject_ids uuid[], cut_event uuid, timeline uuid)` is one batched `SECURITY INVOKER` function.
+
+- **Per subject and relation,** it takes the latest change in the subject's lived past (through history(T) and travel links) at or before the cut. For containment it then walks up the parent chain *as of the cut*, with part 1's cycle guard and depth cap.
+- **Cost:** O(each subject's own changes). Never tenant-wide, never on a hot read.
+- **Endpoints:** GM `GET …/entities/{id}/history`, `…/address?as_of=` and `…/whereabouts?as_of=`, plus player reads gated by PB8.
+- **Every answer carries a basis:**
+  - `ledger`: a recorded change covers the cut.
+  - `inferred`: the cut precedes the first change, so the answer is that change's `from`.
+  - `unrecorded_window`: a drift gap covers the cut (see below). The answer is the last recorded state, flagged.
+  - `not_modeled`: there are no changes at all.
+  - A **declared** `unrecorded` state answers "whereabouts unrecorded". That is the author saying *unknown*, and it is distinct from a detected drift (Kevin, Liam).
+
+### Drift: record the truth, never fabricate a moment
+
+This was the hardest part-2 fight. Judy's round-1 **seam** put a deferred constraint trigger on `containment`, `ownership` and `group_member`, so the current row could never differ from the ledger head. To satisfy it, a loot-bot `/give` on a tracked item would auto-create an "offscreen transfer" event. Three attacks landed:
+
+- **Kevin: hot-path cost.** A 40-item loot-bot bulk-move would write an entity, an event and 40 participations and change rows, and block on the per-tenant lock behind any GM re-key. Postgres has no deferred *statement*-level constraint trigger, so "one probe per write" is one probe per row at commit, cascaded deletes included.
+- **Liam: `created_at` in costume.** The offscreen event's participations enter everyone's lived order, and lived order is `causal` evidence. So a Discord click on a Tuesday night could decide a causal knowledge answer. That is Judy's own part-1 no-go.
+- **Kevin: it hijacks placement.** The fabricated event becomes the characters' "latest lived event", so the GM's next scene is placed after a click.
+
+Judy conceded all three and withdrew offscreen events. The converged rule (Bridge 6):
+
+- A plain write moves current state only.
+- The next evented **head** write takes `from` from the current row and **always** updates the current row. That drops Kevin's round-1 "update only if current still equals the old tip", which Judy showed freezes the row out of the story forever after one off-record `/give`.
+- So an unrecorded drift is **structural**: the previous change's `to` ≠ this change's `from`. An as-of cut inside that window gets **one** answer, the last recorded state, tagged `unrecorded_window`, and the continuity report lists the window.
+- The seam holds at every evented write by construction (one transaction), plus Ivan's property test `heads(ledger) = current` for every subject without a reported gap.
+- A plain write on a tracked subject can instead say `?as=correction` (Judy). It rewrites the head's `to` rather than opening a gap, for "the loot-bot entry was a typo, not a move".
+
+### Groups: access while a member
+
+Part 1's BL9 used today's roster for group knowledge. Part 2 split 2–2 on what `membership_change` should mean, then converged 4–0 on **access**:
+
+- **The rule.** Alice knows X "via the Harpers" as of cut C exactly when the Harpers knew X as of C *and* she is a member as of C. This mirrors today's `information_visibility.py`, so the as-of answer and the present-tense visibility read can't disagree.
+- **Why not memory.** Judy's and Kevin's round-1 "memory" said she keeps what the group knew after leaving. Ivan's attack settled it: after she leaves, none of *her* participations anchors X, which breaks part 1's "learn only at a moment you lived". It also makes a one-scene double agent download every group secret for good.
+- **Memory is always an explicit, anchored `learned`.** On `left`, the UI offers a draft "record what she takes with her" (Liam).
+- **A leave is recorded, never silent.** It is a `membership_change`, so any as-of answer it changes is caused by a recorded fact and listed in the continuity report. That is Bridge 2's flip report extended to roster changes, and it answers Judy's "a roster change silently flips a knowledge answer".
+- A group with no membership history keeps today's roster, tagged `basis: roster_not_modeled`.
+
+### Worked scenarios (part 2)
+
+- **S9: zero cost.** Both campaigns have zero rows in all four tables. Loot-bot writes run today's statements: no lock, no event, no trigger. `/inventory`'s SQL is unchanged. The only addition anywhere is one indexed `EXISTS` on the merge and delete paths, deciding end versus delete.
+- **S10: where was it?**
+  - **The Sword of Kas when Alice learned the secret:**
+    1. The cut is her `learned` participation.
+    2. The sword's latest change at or before it gives the vault (`ledger`).
+    3. The vault's own change gives Undermountain. A hop with no record ends the path with `not_modeled`.
+  - **The *Kalte Mamsell* on day 40:** "day 40 on the ship's clock" becomes an explicit cut at the last event whose reading is ≤ 40 (Rule R). The response *names* that event, so the date chose a prefix and ordered nothing. Docked is containment. In flight is RFC 0026's `spatial_position`, whose `spatial_position_change` is the same anchored pattern, added in that slice.
+  - **The 20 coins:**
+    - The split writes `existence_change(S20, began, split_from S50)` plus containment changes `∅ → pouch, 20` and `50 → 30`.
+    - A "partial merge back" is ADR 0044's split-then-full-merge: S5 splits off S20, then S5 `ended absorbed_into` S30.
+    - So the provenance of the 20 is a lineage walk: 15 still in S20, 5 absorbed into S30. It is per stack, honestly not per coin.
+- **S11: branch placement.**
+  - Prime records M, study → vault, after E. M's `from` was captured from the current row.
+  - **B as of E, and B now:** M ∉ history(B), so the answer is **the study**, `basis: inferred`.
+  - **The thief in B:** event T is tagged B. It writes the thief's and the spellbook's participations and `containment_change(from: study (B's state), to: thief's bag)`. No clone, no new slug, no copied lore, no current-row change, because the book's home history is the trunk.
+  - B-now is the bag, derived from the ledger. Prime-now and Alice's `/inventory` still show the vault. The letter and bookmark inside it need no rows: in B they are still in the book.
+- **S12: the ownership ledger.**
+  - **Ashfang:** `GET …/entities/{ashfang}/history` lists `ownership_change` rows in lived order. The row whose `to` is Alice has `from` Bram, at event G ("the duel of 1398 DR", a label).
+  - **The bootstrap watch in v1** (young Cora is an NPC, part 1's Bridge 4):
+    - old Cora → young-Cora-NPC at Z₁;
+    - that NPC later travels, carrying the watch (PB12), and gives it to a younger NPC at Z₂.
+
+    That is an unrolled chain, never contradictory, but one turn of a circle stored as a line, which Ivan's part-1 dissent names. With a one-entity self-meeting plus part 1's Bridge 3(a), the watch would be owned and carried by Cora throughout, with `origin_of = bootstrap`.
+- **S13: group membership.** The Harpers learned X at G, Alice joins at J and leaves at K.
+  - **As of J:** `known, basis: via_group(Harpers)`.
+  - **Before J:** not known, unless she learned it herself.
+  - **After K:** group access ends. The leave is recorded, and the continuity report lists the flipped answer. If the GM recorded her briefing at J as her own `learned`, she keeps X.
+- **S14: existence.**
+  - **The Duke:** `ended` at D, tagged Prime. D ∉ history(B), so in B he exists.
+    - Kevin, Ivan and Liam record death as `ended`. If the corpse matters, it is a new entity with a `began` whose event prototype is, say, "Remains".
+    - Judy's alternative: a death is a state change (lore), the corpse is still him, and only an explicit `ended` makes him stop existing.
+    - Both are expressible, since the event prototype carries the meaning. Which one to use is a per-table authoring choice, not a schema one.
+  - **The tavern:** `ended`. Its contents are **not** moved silently. As-of reads flag "parent ended at F", and the span compiler offers to move them to the ruins.
+  - **Ashfang:** `began` 1350 and `ended` 1402, with the dates as labels. "Exists as of E?" is a key cut.
+  - **Alice's potion:** drinking one of three is a quantity change, 3 → 2. Drinking the last one is `ended` at "Alice drinks" (both participate). That clears its containment, ownership and subtype rows, so it leaves her `/inventory`. The ledger still says "Alice's, until she drank it". ADR 0099's feed shows `deleted` until it gains a `consumed` kind.
+- **S15: retroactive edits.**
+  - **"In the vault all along since 1400"** is an explicit `order` ruling, the author's own claim, at a new event V. V's change must chain with its lived-order neighbours. A recorded 1410 move *out of the chest* contradicts it, so the write gets 409 `ledger_discontinuity`, naming that change. The retcon endpoint applies the fix as one batch (insert V, rewrite the neighbour's `from`), and the deferred checks validate the final state.
+  - **A move recorded at the wrong event** is re-anchored under the lock.
+  - Either way, the continuity report lists every ledger edit, every participation inside the rewritten window ("anyone who saw it in the chest in 1405"), and every as-of answer that flipped.
+- **S16: drift.** A `/give` is a plain write: current state and an ADR 0099 row, with no history, no event and no lock. Containment writes **never** have to name an event. The next evented head write exposes the gap structurally, and `POST …/history/anchor` can pin it to a real event later.
+
+### Scoring (part 2)
+
+Final round-3 scores for the converged design (simple / flexible / pragmatic / best-practice / future-proof / innovative / fits what's built):
+
+| Scorer | Converged design |
+| --- | --- |
+| Ivan | 3 / 4 / 5 / 4 / 4 / 4 / 4 |
+| Judy | 3 / 4 / 4 / 4 / 4 / 4 / 4 |
+| Kevin | 3 / 5 / 4 / 4 / 4 / 4 / 4 |
+| Liam | 3 / 5 / 4 / 4 / 4 / 4 / 4 |
+| **Median** | **3 / 4.5 / 4 / 4 / 4 / 4 / 4** |
+
+All four score *simple* at 3. That is the honest cost of declared states, chain rules, carried contents and home histories on top of four small tables.
+
+Where the round-1 pitches started (self-score, then the median of the other three participants' round-2 scores):
+
+| Pitch | Shape | Self | Peers (median) |
+| --- | --- | --- | --- |
+| Judy, "a ledger that must balance" | `from`/`to` anchored to participations; chain, bounds and a DB **seam trigger** on the hot tables; offscreen events | 3/4/3/4/5/4/4 | 3/4/2/3/4/4/3 |
+| Kevin, "mirror logs, current state stays king" | event-anchored mirrors; drift detected at read time; subject CASCADE; subtype-row removal on end | 4/4/5/4/4/3/5 | 4/3/5/3/4/3/5 |
+| Ivan, "things have worldlines too" | participation anchor; `from` witness; one-worldline-one-entity counterparts; purge | 3/5/4/4/4/5/4 | 3/5/3/4/4/5/4 |
+| Liam, "four ledgers, one verb" | event-anchored `into`/`out` with no `from`; the span compiler; `placed` links | 4/4/5/4/4/4/4 | 4/4/5/3/4/4/4 |
+
+The converged design takes Ivan's anchor, Judy's `from`/`to` and home history, Kevin's end mechanics and plain-write discipline, and Liam's compiler and declared `unrecorded`.
+
+### Designs considered and dropped (part 2)
+
+- **Validity intervals on the relation rows** (bitemporal-style). Nobody pitched them, and all four rejected them on the grounds in PB1.
+- **A generic `relation_change` table.** Rejected by all four in round 1 (PB1).
+- **Deriving current state from the ledger** (event sourcing). It would put a replay on every hot read, and force the loot-bot to name an event on every `/give`, breaking S9, S16, BL1 and BL14.
+- **An `event_id` anchor for objects** (Kevin, Liam). It loses a rift-carried watch in B (Ivan, Judy), and it lets a thing change at an event it wasn't part of. Both moved to the participation anchor.
+- **No `from` column** (Liam, round 1). It discarded the S11 baseline the server held at write time.
+- **A DB seam trigger on `containment`/`ownership`/`group_member`, plus offscreen events** (Judy, round 1). See [Drift](#drift-record-the-truth-never-fabricate-a-moment).
+- **"Update the current row only if it still equals the old tip"** (Kevin, round 1, briefly adopted by Liam). It freezes the row after one off-record write.
+- **"The table's now is the last-written branch, flagged `contested`"** (Kevin, round 1). It lets another timeline's fact reach a hot read.
+- **Subject `CASCADE`** (Kevin) and **`RESTRICT`** (Judy, Liam). See PB6.
+- **Group knowledge as memory after leaving** (Judy, Kevin). See [Groups](#groups-access-while-a-member).
+- **"Things carried through a rift need no record"** (Ivan, Kevin, Liam). See PB12.
+- **NULL as "uncontained" in history** (all three `from`/`to` schemas in round 1). It can't store "whereabouts unknown"; see PB2.
+- **Copy-on-write counterparts in v1** (Ivan, round 1). Withdrawn; it survives only as a proposal for RFC 0026 D3 (P2-D2 below).
+
+### Unresolved disagreements (part 2)
+
+**P2-D1: How a date-placed participation avoids becoming lived-order evidence.** All four agree the *goal*: under the participation anchor, a pasted timeline's endpoints must not order each other by date. Otherwise "Bram acquired Ashfang before it left the vault" returns `causal`, decided by two labels, which is part 1's rejected Candidate B coming back through a foreign key (Liam's attack). They disagree on the mechanism.
+
+- **Tied `lived_pos`** (the moderator's Bridge 5), amended two ways:
+  - Judy: ties only *across* relations.
+  - Kevin: a tie only where the chain rule holds in either order; otherwise assert an order or 409.
+- **`event_participant.lived_claim text NOT NULL CHECK (lived_claim IN ('lived','placed'))`** (Liam). A `placed` participation makes **no lived-order claim at all**. Only `lived` participations feed the key's evidence and Kevin's never-reorder rule. `state_as_of` takes "latest at or before the cut" by key.
+
+Liam's counter-example is decisive against the tie as written. Ashfang has two independent chains: vault-start < vault-end, and Bram-acquires < Bram-relinquishes. No single tie assignment leaves every cross pair unordered while keeping both within-chain orders, because a total preorder can't represent two incomparable chains. The moderator has checked this and agrees. Judy's and Kevin's amendments restrict *where* ties may occur, and don't escape it.
+
+Liam's column has **not yet been reviewed by the other three**. Kevin should check it against part 1's row-check of `lived_pos` against `chronicle_key`. It is the first thing to review in part 2.
+
+**P2-D2: Copy-on-write counterparts, as the rule for RFC 0026 D3.** Ivan proposes "a counterpart iff a worldline forks *and needs its own present*":
+
+- it is minted lazily, on the first *present-tense* write for a subject in a non-home history, never on a ledger-only or span write;
+- it gets a new slug and an `entity_prototype(counterpart IS-A origin)` link, so lore is inherited, not copied;
+- contents are resolved through RFC 0026 shadows during containment walks, never cloned.
+
+Judy adopts the rule. Kevin and Liam hold their attacks:
+
+- subtree clones and duplicate listings in unfiltered hot lists (`/item-instances`, `owned-by`, inventory-web's board);
+- a bulk import touching B minting one counterpart per subject;
+- Kevin's condition: "no counterpart gets minted until someone shows the row count for a spellbook with contents".
+
+Not part of this design. Recorded for RFC 0026's slice 7.
+
+**P2-D3: A cold-path guarantee for the evented seam** (Judy's "minimum", round 3). This is a deferred constraint trigger on the **`*_change` tables only**, never on the hot tables. It fires only on evented writes, which already run at GM pace under the lock, and asserts at commit that:
+
+1. a head change's `to` equals the current row;
+2. a gap opens only where `from` equals the pre-write current row.
+
+This would make the evented path DB-guaranteed rather than property-tested. It arrived in round 3, and **the others have not reviewed it**. Kevin's dissent forbids triggers on the three hot tables only, so this trigger doesn't obviously conflict with it.
+
+**P2-D4: The first `from` of a compiled span.** Chain it from the nearest recorded neighbour, or always `unrecorded`? This is Liam's open question.
+
+**P2-D5: Part 1's D2 gains weight.** Every change table references a participation. Whether the key is a surrogate `id` or `(event_id, entity_id)` now also decides whether the bootstrap watch can stand at one event twice (Kevin, Ivan).
+
+### Dissents (part 2, verbatim)
+
+> **Ivan (time-travel GM):** "History here is what I asked for: things' own lived lines, and a watch that went through a rift lived the jump. My dissent is about the present. One current row per entity is a convenience of the table, not a fact of the fiction. When the party lives in timeline B, the spellbook's *now* there is real, not a derived afterthought. I ask RFC 0026's D3 to adopt 'a counterpart iff a worldline forks and needs its own present': minted lazily on the first present-tense write in B, never on history-only writes, with contents resolved through shadows, never cloned."
+
+<!-- -->
+
+> **Judy (continuity guardian):** "I accepted that a loot-bot click may move a tracked thing without a story moment. The ledger then has a hole, and every as-of answer inside it says so: one value, labelled `unrecorded_window`. That is honest only while every hole is visible and only a recorded plain write can open one. If a later slice lets any write open a gap silently, lets `unrecorded` paper over a contradiction instead of an unknown, or lets current state be read as history, 'never contradictory' becomes a promise the ledger no longer keeps."
+
+<!-- -->
+
+> **Kevin (engineer):** "The loot-bot path is the one I get paged for. Keep it plain forever: no trigger on `containment`, `ownership` or `group_member`, no tenant lock, and no event invented by a click. Drift is a true fact about a real-world write; record it as a gap and never hide it behind fiction. Every history write that is allowed to be slow is evented, locked and chained. Every read that is allowed to be slow is an as-of read, batched and bounded by one subject's own changes. No counterpart gets minted on a write until someone shows me the row count for a spellbook with contents."
+
+<!-- -->
+
+> **Liam (calendar and authoring pragmatist):** "A participation claims the thing *lived* that moment, in that order. A span endpoint claims no such thing: it is an author's date, placed once. If any later slice lets a `placed` participation's `lived_pos` decide a basis stronger than `linearized`, whether by tie, default or backfill, then dates have become evidence again. That is part 1's rejected Candidate B, back through a foreign key. Keep 'unrecorded' a declared state, never a NULL. And keep paste-a-timeline free of confirmation storms."
+
+### What each participant gave up (part 2)
+
+| Persona | Gave up |
+| --- | --- |
+| Ivan | Counterparts in v1, and his `worldline_fork` 409. "Things carried through a rift need no record". "Now" as each subject's latest lived change, in favour of the home-history head. `RESTRICT`, for `NO ACTION`. His `how` column, for event prototypes. A `from` chained from the ledger, which could be false. NULL as "uncontained". A2's `order` for date placements. |
+| Judy | The DB seam trigger on the hot tables. "Every current-state write must extend the ledger". Offscreen events ("fabrication", as Liam and Kevin said). `RESTRICT`. Group knowledge persisting after leaving. Date-ordered distinct `lived_pos`. NULL as the only "not contained". |
+| Kevin | The `event_id` anchor. Subject `CASCADE` as erasure. "Last key wins + `contested`". "Apply only if current equals the old tip". Group knowledge as memory. Participation-only player visibility. Report-only gaps for retroactive inserts, which now chain or 409. "Rides its container" across a branch. |
+| Liam | The `event_id` anchor; authors pay one participation row per change. "Rides its container". `into`/`out` without `from`. One tenant-wide present with `apply_to_now`. `RESTRICT`. Kevin's "only if old tip", adopted then dropped. Participation-gated player visibility. His `(event_id, child)` key, and `quantity` on existence. |
+
+### Open questions (part 2)
+
+1. **How long an `unrecorded_window` may stay open.** Should the continuity report escalate, and should there be a bulk "anchor all drift since E to event X"? (Judy)
+2. **Travel-carry cost for huge trees.** A Bag of Holding or a ship with 10,000 items. Kevin's "history-bearing contents only" bounds it; measure it on a fixture. Do stacks count as units? (all four)
+3. **Home history for a B-native subject.** Something first created in B: is it tagged B at birth? When else may a subject's home change: only through a retcon endpoint, or when it permanently crosses into B? (Ivan, Kevin)
+4. **Display after end.** An ended item loses its `item_instance` row. Does it need a `former_kind`, and what happens to its slug? (Kevin; Judy's round 1 proposed `former_kind`)
+5. **A disbanded group.** What an *ended* group means for group-knowledge access at later cuts, and whether a group acting in two branches keeps one membership ledger per history. (Kevin, Ivan)
+6. **`possessions?as_of=` reverse lookups** ("everything Alice owned at E"): their index shape and cost on a 200-session fixture. (Judy)
+7. **Whether players see gaps.** Should `unrecorded_window`, or a declared "lost 1402–1480", ever reach a player? Under PB8, only if the event is visible. (Ivan, Liam)
+8. **`absorb` across timelines**, when the named event sits in a different timeline than the placeholder. (Liam)
+9. **Bridge 3 for objects.** How a declared loop closes the watch's *ledger* chain, and what `origin_of` returns for an object. (Ivan)
+10. **Position and frame history.** `spatial_position_change` and `entity_frame_change`, once RFC 0026's slices land. The same anchored pattern, one table each.
 
 ## Decision
 
@@ -660,9 +1037,12 @@ Open. To reach one, decide these in this order:
 1. **Accept the shared baseline (BL1–BL14) and the calendar layer.** Both are prerequisites whichever candidate wins. So is RFC 0026's B0 (composite tenant FKs), which is itself still undecided there.
 2. **Review Ivan's A2 on its own.** A2 says no endpoint writes the key, and the key is rebuildable from evidence. Only its author has checked it. If accepted, the stored-versus-derived half of D1 goes away.
 3. **D1, Candidate A or B.** Narrowed to dates as order evidence and a v1-native self-meeting. Judy proposes measuring write cost on a 200-session fixture rather than arguing it.
-4. **D2, the participation's identity.** Needed before timed knowledge (sub-slice 3).
-5. **D4.** Settle by a cascade test in sub-slice 3's ADR.
-6. D3, Bridge 4 and D5 can wait for their own slices.
+4. **D2, the participation's identity.** Needed before timed knowledge (sub-slice 3). Part 2 raises the stakes (P2-D5): every change table anchors on it.
+5. **D4** is resolved by Part 2's PB6 (`NO ACTION` everywhere, plus `?purge=true`). Pin it with a cascade test, including a tenant purge, in sub-slice 3's ADR.
+6. **Accept the part-2 baseline (PB1–PB14).** Before part-2 slice H1, review the two round-3 proposals only their authors have checked:
+   - Liam's `lived_claim` column (P2-D1);
+   - Judy's cold-path trigger on the `*_change` tables (P2-D3).
+7. D3, Bridge 4, D5, P2-D2 (counterparts, with RFC 0026 slice 7) and P2-D4 can wait for their own slices.
 
 ## Proposed sub-slices (once decided)
 
@@ -692,17 +1072,39 @@ Following this repo's smallest-tested-vertical-slice practice, each is its own A
 8. **Later, each its own RFC or ADR:**
    - the self-meeting (Bridge 4, with RFC 0026 D3);
    - `endpoint_anchor`;
-   - `event_move` with `/address?as_of=`;
    - declared loops (Bridge 3, deciding D3).
+
+   Part 1's original `event_move` item is replaced by the part-2 slices below.
+
+**Part-2 slices** (Kevin's round-3 plan). These come after part-1 slices 2–3, and each is its own ADR and milestone.
+
+- **H1. Containment and ownership ledgers.**
+  - `containment_change` and `ownership_change`, anchored to participations, with declared from/to states and the chain check.
+  - `as_part_of` on the existing routes, and GM `GET …/entities/{id}/history`.
+  - Tests:
+    - `NO ACTION` holds, including a tenant purge;
+    - `heads(ledger) = current` for subjects without drift;
+    - **the loot-bot path makes zero extra queries**;
+    - the split CHECKs reject a `contained` row with a NULL quantity.
+  - Decides P2-D1 and P2-D3 first.
+- **H2. As-of reads.** `state_as_of`, GM `/address?as_of=` and `/whereabouts?as_of=`, with the basis tags.
+- **H3. Existence.** `existence_change`; end by default; subtype-row removal; merge and delete turned into end; `?purge=true` with its flip report. Amends ADR 0044.
+- **H4. Groups.** `membership_change`, group-knowledge as-of access, and the roster flip report.
+- **H5. Player reads.** Gated by event visibility; never return `from`.
+- **H6. The span compiler and bulk import.** `placed` links (the A2 amendment), `absorb`, and "record the present". This can run in parallel with H2 or later.
+- **H7. Travel carries contents** (PB12). After part-1 slice 7 (branches).
+- **H8. Later.** P2-D2 counterparts with RFC 0026 D3; `spatial_position_change` and `entity_frame_change` with RFC 0026's own slices.
 
 ## Not in scope
 
 - **Relativistic or any other physical time math.** Rates are derived only, as Δ/Δ between sync points, and interpolation is a flagged hint, never stored truth.
 - **Any web or bot UI** for placing events, authoring calendars, or reading the continuity report. This RFC fixes the data model and the read contracts, not the authoring surfaces.
-- **Placement history** (`event_move`), timed `group_member`, and timed player-level knowledge.
-- **Declared loops and the self-meeting.** Shaped here, deferred to their own slices.
+- **Timed player-level knowledge** (`knower_player_id`). Placement, ownership, membership and existence history *are* in scope, in Part 2.
+- **Belief:** "where Bram *thinks* the ring is". That is authored `information` (RFC 0001's open question 1), not history.
+- **Position-in-space and frame history** (`spatial_position_change`, `entity_frame_change`). Same pattern, added with RFC 0026's own slices.
+- **Declared loops, the self-meeting, and branch counterparts** (P2-D2). Shaped here, deferred to their own slices.
 - **Merging or splicing two repositories' canon histories** (RFC 0024), beyond naming the question.
-- **Any change to `containment`, `entity_frame`, `spatial_position` or `connection_endpoint`.** This RFC adds no column to any of them.
+- **Any column on `containment`, `ownership`, `group_member`, `entity_frame`, `spatial_position` or `connection_endpoint`,** and any trigger on the first three. History lives in separate tables. Part 2 changes only ADR 0044's merge and delete *behaviour*, and only for history-bearing subjects.
 
 ## Consequences
 
@@ -711,11 +1113,16 @@ Easier:
 - "Did my character know that yet?" gets exactly one answer, with its basis, across branches, time travel, dilation and timeless planes.
 - Knowledge can only be recorded at a moment the knower actually lived, and the database enforces it.
 - Every place can render dates in its own calendars, including Gregorian-shaped, festival-heavy and multi-moon ones, and calendars can be imported rather than typed.
-- A cozy single-setting story pays nothing.
+- **"Where was it, who owned it, who belonged, and did it exist, as of then" all get one answer** with a basis, per timeline, including things carried through a rift (Part 2). Every recorded change is anchored to a moment the thing itself took part in.
+- **An ownership ledger, stack lineage, and "vanished from 1402 until 1480"** become ordinary data. A worldbuilder can paste a wiki timeline instead of hand-authoring events.
+- **Destroyed and consumed things leave inventories without a hot query changing.** Their lore and history survive.
+- A cozy single-setting story pays nothing, and neither does the loot-bot's write path.
 
 Harder:
 
-- **Eight new time tables and three calendar tables.** Each is small, but the as-of read semantics (lived past crossed with branch history) take real care to get right.
+- **Eight new time tables, three calendar tables, and four history tables.** Each is small, but the as-of read semantics (lived past crossed with branch history) take real care to get right.
+- **History-bearing subjects behave differently on delete and merge.** They end instead of vanishing, `?purge=true` is the only erasure, and a thing other ledgers name can only be ended. That is an ADR 0044 behaviour change, although subjects without history are byte-identical.
+- **Drift is allowed and recorded, not prevented.** A plain write on a tracked thing opens an `unrecorded_window` that the continuity report lists until someone anchors it. That is Judy's honest cost, in her part-2 dissent.
 - **Writes carry the complexity.** Re-keys under a per-tenant lock, flip reports and the continuity report all live on the write path. Their cost has to be measured, not assumed.
 - **Calendars can now be wrong within a timeline.** Judy's honest cost of Bridge 1: an acknowledged inversion stays on the record rather than being refused.
 
@@ -723,11 +1130,16 @@ Given up by the design, whichever candidate wins:
 
 - A cycle inside the order, ever. Declared loops live beside it.
 - `concurrent` as an answer. Unrelated events are ordered, and say they were only `linearized`.
-- Dates deciding order, under Candidate A.
-- A native self-meeting and stable loops in v1.
+- Dates deciding order, under Candidate A, and in part 2 through the back door of date-placed participations (P2-D1 decides how).
+- A native self-meeting, stable loops, and a branch's own "present" row in v1.
+- Per-coin provenance for stacks.
 
 Gained:
 
 - **One `compare` for every client.** The debate replaced three competing ordering primitives with one stored linear extension of recorded evidence, carrying a basis tag.
 - **A verified donjon import path, and a bug caught before shipping.** The import mapping is based on donjon's actual code, and the moon-epoch offset bug would have passed a Greyhawk-only test.
 - **A new column type, flagged openly.** The schema's first `jsonb` column is called out rather than slipped in.
+- **Three defects in the moderator's own drafts, caught by participants.**
+  - A drafting error in part 1's knowledge as-of rule ("intersected with" history, which would have dropped a traveller's past). Caught by Judy.
+  - A three-valued-logic hole in a `CHECK` that let a `contained` history row with no quantity through. Caught by Liam.
+  - A proof that a single tied `lived_pos` can't keep date-placed spans unordered. Also Liam.
