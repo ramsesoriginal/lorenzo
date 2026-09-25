@@ -27,14 +27,17 @@ From that detail view, or when multiple cards are multi-selected:
   (the bulk-assign/bulk-move endpoints, not one request per item)
 
 Every item instance also has its own standalone, shareable page
-(`/item/?tenant=…&id=…`, or `&slug=…` when the instance has one) — usable
+(`/item/?tenant=…&id=…`, or `&slug=…` when it has one) — usable
 for both a catalog item and an instance, with a "Copy link" button. There, a
 GM can also write or edit the item's description and its display title, in a
 LorenzoScript editor with a live preview that lists any links readers won't be
 able to follow
 ([ADR 0108](../../docs/adr/0108-lorenzoscript-in-inventory-web.md));
-set its tags (inherited, on, or off); and add, edit, or delete any of its
-information ([ADR 0112](../../docs/adr/0112-inventory-web-the-whole-item.md)).
+set its tags (inherited, on, or off); add, edit, or delete any of its
+information ([ADR 0112](../../docs/adr/0112-inventory-web-the-whole-item.md));
+and set its slug, the name links use, prefilled with the first free one its
+title suggests
+([ADR 0113](../../docs/adr/0113-inventory-web-slugs-and-player-notes.md)).
 The page also lists, under "Mentioned in", the entities whose descriptions link
 to the item, as far as the viewer may read them
 ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)).
@@ -42,7 +45,8 @@ to the item, as far as the viewer may read them
 A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
 - Full catalog CRUD — create/edit/delete items, with multi-parent prototype
-  selection, a description and display title, and a "used as a prototype by"
+  selection, a description and display title, a slug (a new item's follows its
+  title, so `[[Title]]` links find it), and a "used as a prototype by"
   reverse lookup
 - Instantiate a catalog item into a new instance, with an optional owner and
   slug

@@ -123,7 +123,7 @@ test('creates instances: for a character, with a slug, and for nobody', async ({
 
   const bookRow = row(catalogList(page), 'Book');
   await bookRow.getByRole('button', { name: 'Create instance' }).click();
-  await bookRow.getByLabel('Slug (optional)').fill('ashfangs-book');
+  await bookRow.getByLabel('Slug').fill('ashfangs-book');
   await bookRow.getByLabel('Search beings').fill('Ashf');
   await bookRow.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
   await expect(bookRow.getByText('Created and assigned to Ashfang.')).toBeVisible();

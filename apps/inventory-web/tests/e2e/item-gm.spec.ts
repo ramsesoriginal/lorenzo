@@ -26,7 +26,7 @@ test('writes a description with a display title, keeping the name', async ({ wor
   await expect(page.getByLabel('Display title')).toHaveValue('Lantern');
   await page.getByLabel('Display title').fill('Hooded Lantern');
   await page.getByRole('textbox', { name: 'Description' }).fill('Shutters on *three* sides.');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Hooded Lantern' })).toBeVisible();
   await expect(page.locator('#item-view').getByText('Shutters on three sides.')).toBeVisible();
@@ -37,7 +37,7 @@ test('writes a description with a display title, keeping the name', async ({ wor
     'Shutters on *three* sides.',
   );
   await page.getByRole('textbox', { name: 'Description' }).fill('Shutters on four sides.');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('#item-view').getByText('Shutters on four sides.')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1, name: 'Hooded Lantern' })).toBeVisible();
 });
@@ -50,7 +50,7 @@ test('a description only its GMs may read stays hidden from players', async ({ w
   await page.getByRole('button', { name: 'Write a description' }).click();
   await page.getByRole('textbox', { name: 'Description' }).fill('Its flame is a bound spirit.');
   await page.getByLabel('Players can read this').uncheck();
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('#item-view').getByText('Its flame is a bound spirit.')).toBeVisible();
 
   const pia = await as(world.pia);

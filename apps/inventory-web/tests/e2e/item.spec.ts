@@ -18,6 +18,7 @@ test('a player reads the whole of an item they carry', async ({ world, as }) => 
   await expect(page.getByRole('button', { name: 'Edit description' })).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Tags' })).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Information' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Slug' })).toBeHidden();
 });
 
 test('a GM follows where a description comes from, up the prototypes', async ({ world, as }) => {

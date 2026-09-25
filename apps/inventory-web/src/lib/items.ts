@@ -267,18 +267,6 @@ export async function createItemInstance(
   );
 }
 
-// GET /tenants/{t}/item-instances/by-slug/{slug} (ADR 0043) - resolves a
-// slug straight to its instance, for the standalone item page's nicer,
-// more memorable alternative to a raw entity id. Path-param encoding is
-// openapi-fetch's own job now, not a manual encodeURIComponent here.
-export async function getItemInstanceBySlug(tenantId: string, slug: string): Promise<ItemInstance> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/item-instances/by-slug/{slug}', {
-      params: { path: { tenant_id: tenantId, slug } },
-    }),
-  );
-}
-
 // POST /item-instances/{id}/split (ADR 0041/0044) - splits `quantity`
 // units *off* into a new sibling instance; the source must currently hold
 // strictly more than that. ownerCharacterId is optional - given, the new

@@ -81,6 +81,7 @@ import Base from '../../layouts/Base.astro';
       updateCatalogItem,
     } from '../../lib/items';
     import { isCampaignGm } from '../../lib/me';
+    import { saveSlug, slugField, slugProblem, suggestSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
@@ -356,21 +357,22 @@ import Base from '../../layouts/Base.astro';
     // real paths: assign straight to a picked character, or create with no
     // owner at all (ItemInstanceCreate.owner_character_id is optional - an
     // instance doesn't have to have one). Both can carry an optional slug
-    // (ADR 0043), settable only here at creation time.
+    // (ADR 0043), left empty: filling it for every instance would crowd the
+    // tenant's one slug namespace with loot (ADR 0113). Its placeholder is the
+    // slug it would suggest, which the item page can set later.
     function renderInstantiatePanel(item: CatalogItem, onDone: () => void): HTMLElement {
       const panel = document.createElement('div');
       panel.className = 'character-picker-panel';
 
-      const slugField = document.createElement('label');
-      slugField.className = 'field';
-      const slugLabel = document.createElement('span');
-      slugLabel.className = 'field-label';
-      slugLabel.textContent = 'Slug (optional)';
-      const slugInput = document.createElement('input');
-      slugInput.type = 'text';
-      slugInput.className = 'text-input';
+      const slug = slugField('');
+      const slugInput = slug.input;
       slugInput.placeholder = 'e.g. iron-sword-1';
-      slugField.append(slugLabel, slugInput);
+      suggestSlug(tenantId as string, item.title, 'instance').then(
+        (suggestion) => {
+          if (suggestion) slugInput.placeholder = `e.g. ${suggestion}`;
+        },
+        () => {},
+      );
 
       const combobox = document.createElement('div');
       combobox.className = 'combobox';
@@ -394,7 +396,7 @@ import Base from '../../layouts/Base.astro';
       statusEl.className = 'picker-status';
       statusEl.hidden = true;
 
-      panel.append(slugField, combobox, noOwnerButton, statusEl);
+      panel.append(slug.element, combobox, noOwnerButton, statusEl);
 
       let busy = false;
       async function finish(action: () => Promise<string>) {
@@ -464,37 +466,54 @@ import Base from '../../layouts/Base.astro';
       return panel;
     }
 
+    /** Throws if the slug field holds something that can't be a slug, before anything's saved. */
+    function checkSlug(input: HTMLInputElement) {
+      const problem = input.value.trim() && slugProblem(input.value.trim());
+      if (problem) throw new Error(problem);
+    }
+
+    const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
     function mountCreateItemForm() {
       const nameField = createNameField('');
       const parentsField = createParentsField({ initialParents: new Map(), editable: true });
       const description = descriptionFields(null, '', nameField.input);
+      // The slug a wikilink to it looks for, from the title it's shown by (ADR 0113).
+      const slug = slugField('', {
+        inputs: [nameField.input, description.title],
+        title: () => description.title.value.trim() || nameField.input.value.trim(),
+        suggest: (title) => suggestSlug(tenantId as string, title, 'item'),
+      });
       const form = renderItemForm({
-        fields: [nameField.element, parentsField.element, description.element],
+        fields: [nameField.element, parentsField.element, description.element, slug.element],
         submitLabel: 'Create item',
         onSubmit: async () => {
           const name = nameField.input.value.trim();
           if (!name) throw new Error('Name is required.');
+          checkSlug(slug.input);
           const item = await createCatalogItem(
             tenantId as string,
             name,
             parentsField.getSelectedIds(),
           );
-          // The item exists now, so a failed description mustn't leave this form up to
-          // create it twice.
-          const failed = await saveDescription(
-            tenantId as string,
-            item.entity_id,
-            null,
-            description.read(),
-            name,
-          ).then(
-            () => null,
-            (e: unknown) => (e instanceof Error ? e.message : String(e)),
-          );
+          // The item exists now, so a failed description or slug mustn't leave this form up
+          // to create it twice.
+          const failed = (
+            await Promise.all([
+              saveDescription(tenantId as string, item.entity_id, null, description.read(), name)
+                .then(() => null)
+                .catch((e: unknown) => `its description (${reason(e)})`),
+              saveSlug(tenantId as string, item.entity_id, null, slug.input.value)
+                .then(() => null)
+                .catch((e: unknown) => `its slug (${reason(e)})`),
+            ])
+          ).filter(Boolean);
           description.destroy();
           await loadCatalog(search.value);
           mountCreateItemForm(); // fresh, empty form after a successful create
-          if (failed) window.alert(`“${name}” was created, but not its description: ${failed}`);
+          if (failed.length > 0) {
+            window.alert(`“${name}” was created, but not ${failed.join(' or ')}.`);
+          }
         },
       });
       createItemMount.replaceChildren(form);
@@ -588,13 +607,25 @@ import Base from '../../layouts/Base.astro';
           const parentsField = createParentsField({ initialParents, editable: true });
           const description = descriptionFields(info, entity.name);
           closeEditor = description.destroy;
+          // Its slug, or the one it would be given (ADR 0113).
+          const slug = slugField(
+            entity.slug ??
+              (await suggestSlug(tenantId as string, item.title, 'item').catch(() => '')),
+          );
           const usedByField = renderUsedByField(usedBy);
           const form = renderItemForm({
-            fields: [nameField.element, parentsField.element, description.element, usedByField],
+            fields: [
+              nameField.element,
+              parentsField.element,
+              description.element,
+              slug.element,
+              usedByField,
+            ],
             submitLabel: 'Save',
             onSubmit: async () => {
               const name = nameField.input.value.trim();
               if (!name) throw new Error('Name is required.');
+              checkSlug(slug.input);
               const draft = description.read();
               await Promise.all([
                 updateCatalogItem(tenantId as string, item.entity_id, name),
@@ -605,6 +636,7 @@ import Base from '../../layouts/Base.astro';
                 ),
               ]);
               await saveDescription(tenantId as string, item.entity_id, info, draft, name);
+              await saveSlug(tenantId as string, item.entity_id, entity.slug, slug.input.value);
               closePanels();
               // The row's title is the display title, else the name (ADR 0067).
               await loadCatalog(search.value);

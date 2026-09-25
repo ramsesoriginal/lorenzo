@@ -40,6 +40,10 @@ import Base from '../../layouts/Base.astro';
       </section>
 
       <div id="item-gm" hidden>
+        <section class="section" aria-labelledby="item-slug-heading">
+          <h2 id="item-slug-heading">Slug</h2>
+          <div id="item-slug-editor"></div>
+        </section>
         <section class="section" aria-labelledby="item-tags-heading">
           <h2 id="item-tags-heading">Tags</h2>
           <div id="item-tags"></div>
@@ -63,12 +67,13 @@ import Base from '../../layouts/Base.astro';
     import { renderInformationManager } from '../../lib/informationManager';
     import {
       getCatalogItem,
+      getEntityDetail,
       getItemInstance,
-      getItemInstanceBySlug,
       listItemsUsingPrototype,
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
     import { isCampaignGm, isTenantMember } from '../../lib/me';
+    import { renderSlugEditor, resolveSlugs } from '../../lib/slugs';
     import { renderTagEditor } from '../../lib/tagEditor';
     import type { ItemBase, ItemInstance } from '../../lib/types';
 
@@ -90,6 +95,7 @@ import Base from '../../layouts/Base.astro';
     const itemMentionedIn = byId('item-mentioned-in');
     const itemMentionedInList = byId<HTMLUListElement>('item-mentioned-in-list');
     const itemGm = byId('item-gm');
+    const itemSlugEditor = byId('item-slug-editor');
     const itemTags = byId('item-tags');
     const itemInformation = byId('item-information');
 
@@ -119,13 +125,17 @@ import Base from '../../layouts/Base.astro';
       }
     });
 
+    function showSlug(slug: string | null) {
+      itemSlug.hidden = !slug;
+      itemSlug.textContent = slug ?? '';
+    }
+
     function show(item: ItemBase | ItemInstance) {
       shown = item;
       document.title = `${item.title} — Lorenzo`;
       itemTitle.textContent = item.title;
-      const slug = 'slug' in item ? item.slug : null;
-      itemSlug.hidden = !slug;
-      itemSlug.textContent = slug ?? '';
+      // An instance carries its slug; a catalog item's is read from its entity (ADR 0113).
+      if ('slug' in item) showSlug(item.slug);
       const showQty = Boolean(item.quantity && item.quantity > 1);
       itemQty.hidden = !showQty;
       itemQty.textContent = showQty ? `×${item.quantity}` : '';
@@ -148,6 +158,13 @@ import Base from '../../layouts/Base.astro';
       const entityId = shown.entity_id;
       itemGm.hidden = false;
       const onChanged = () => void refresh();
+      void renderSlugEditor(itemSlugEditor, {
+        tenantId,
+        entityId,
+        title: shown.title,
+        kind: isInstance ? 'instance' : 'item',
+        onSaved: showSlug,
+      });
       void renderTagEditor(itemTags, { tenantId, entityId, onChanged });
       void renderInformationManager(itemInformation, { tenantId, entityId, renderer, onChanged });
     }
@@ -244,55 +261,65 @@ import Base from '../../layouts/Base.astro';
       }
     }
 
+    const nowhere = () => new Error("There's no such item here, or it isn't one you can see.");
+
+    /**
+     * The catalog item or instance the link names, by slug or by id. Only tenant members can
+     * read the catalog (ADR 0032), so anyone else only has the instances.
+     */
+    async function load(): Promise<{ item: ItemBase | ItemInstance; instance: boolean }> {
+      if (itemSlugParam) {
+        // Any entity can hold a slug (ADR 0107); what it is says which endpoint shows it.
+        const [found] = await resolveSlugs(tenantId, [itemSlugParam]);
+        if (found?.kinds.includes('item_instance')) {
+          return { item: await getItemInstance(tenantId, found.entity_id), instance: true };
+        }
+        if (found?.kinds.includes('item') && linkSources) {
+          return { item: await getCatalogItem(tenantId, found.entity_id), instance: false };
+        }
+        throw nowhere();
+      }
+      // An id could be either: the catalog is tried first, and the instances only on a real
+      // 404, so a network or auth error shows as itself.
+      const id = itemId as string;
+      try {
+        if (linkSources) return { item: await getCatalogItem(tenantId, id), instance: false };
+      } catch (e) {
+        if (!(e instanceof ApiError) || e.status !== 404) throw e;
+      }
+      try {
+        return { item: await getItemInstance(tenantId, id), instance: true };
+      } catch (e) {
+        throw e instanceof ApiError && e.status === 404 ? nowhere() : e;
+      }
+    }
+
     if (!(await isAuthenticated())) {
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId || !(itemId || itemSlugParam)) {
       status.textContent = "This link is incomplete — it's missing a tenant or item.";
     } else {
       try {
-        let asItem: ItemBase | null = null;
-        let asInstance: ItemInstance | null = null;
-        // Only tenant members can read the catalog (ADR 0032).
         linkSources = await isTenantMember(tenantId);
-        if (itemSlugParam) {
-          // A slug always resolves to an instance - catalog items don't
-          // have one, so there's no item-vs-instance ambiguity to try
-          // both ways for, unlike the id case below.
-          asInstance = await getItemInstanceBySlug(tenantId, itemSlugParam);
-        } else {
-          // Not knowing in advance whether this id is a catalog item or
-          // an instance - try the item endpoint first, fall back to the
-          // instance one only on a real 404, not on e.g. a network/auth
-          // error, which should surface directly rather than being
-          // masked by a second, differently-failing request. A viewer
-          // who can't read the catalog only has the instances to try.
-          try {
-            if (linkSources) asItem = await getCatalogItem(tenantId, itemId as string);
-          } catch (e) {
-            if (!(e instanceof ApiError) || e.status !== 404) throw e;
-          }
-          asInstance = asItem
-            ? null
-            : await getItemInstance(tenantId, itemId as string).catch((e: unknown) => {
-                if (!(e instanceof ApiError) || e.status !== 404) throw e;
-                throw new Error("There's no such item here, or it isn't one you can see.");
-              });
-        }
-
+        const loaded = await load();
         status.hidden = true;
         page.hidden = false;
 
-        if (asItem) {
-          show(asItem);
-          void loadAncestry(asItem.entity_id);
-          void loadUsedBy(asItem.entity_id);
-        } else if (asInstance) {
-          isInstance = true;
-          show(asInstance);
-          const directId = asInstance.prototype_ids[0];
+        isInstance = loaded.instance;
+        show(loaded.item);
+        const entityId = loaded.item.entity_id;
+        if (isInstance) {
+          const directId = loaded.item.prototype_ids[0];
           if (directId) void loadAncestry(directId);
+        } else {
+          void loadAncestry(entityId);
+          void loadUsedBy(entityId);
+          void getEntityDetail(tenantId, entityId).then(
+            (entity) => showSlug(entity.slug),
+            () => {},
+          );
         }
-        void loadMentionedIn(shown.entity_id);
+        void loadMentionedIn(entityId);
         // GMs write here (ADR 0108, 0112); the API still decides.
         void isCampaignGm(tenantId).then(
           (gm) => {
