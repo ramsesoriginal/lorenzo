@@ -5,11 +5,12 @@
 // the test named in the SUBJECT_COOKIE cookie.
 import { createHash, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto';
 import http from 'node:http';
-import { AUTHGEAR_URL, SUBJECT_COOKIE } from './env.ts';
+import { AUTHGEAR_URL, SITE_URL, SUBJECT_COOKIE } from './env.ts';
 
 type Account = { email: string; roles: string[] };
 
 const ROLES_CLAIM = 'https://authgear.com/claims/user/roles';
+const SITE_ORIGIN = new URL(SITE_URL).origin;
 // A new key id per run: the API caches keys by id, so a restarted fake must not reuse one.
 const KID = `e2e-${randomBytes(4).toString('hex')}`;
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -103,11 +104,25 @@ function token(form: URLSearchParams): Reply {
   return { status: 200, body: tokenResponse(pending.subject) };
 }
 
+/**
+ * A redirect target on the site, rebuilt from the site's own origin, or null. Like a real
+ * provider with one registered client, this one sends browsers back to that client only.
+ */
+function onSite(target: string | null): URL | null {
+  if (!URL.canParse(target ?? '')) return null;
+  const parsed = new URL(target as string);
+  return parsed.origin === SITE_ORIGIN ? new URL(`${SITE_ORIGIN}${parsed.pathname}`) : null;
+}
+
 function authorize(url: URL, cookies: string): Reply {
   const subject = new URLSearchParams(cookies.replaceAll('; ', '&')).get(SUBJECT_COOKIE);
   const redirectUri = url.searchParams.get('redirect_uri');
-  if (!subject || !redirectUri) {
-    return { status: 400, body: { error: `name a subject in the ${SUBJECT_COOKIE} cookie` } };
+  const back = onSite(redirectUri);
+  if (!subject || !redirectUri || !back) {
+    return {
+      status: 400,
+      body: { error: `name a subject in the ${SUBJECT_COOKIE} cookie, and return to the site` },
+    };
   }
   const code = opaque();
   codes.set(code, {
@@ -115,7 +130,6 @@ function authorize(url: URL, cookies: string): Reply {
     challenge: url.searchParams.get('code_challenge') ?? '',
     redirectUri,
   });
-  const back = new URL(redirectUri);
   back.searchParams.set('code', code);
   const state = url.searchParams.get('state');
   if (state) back.searchParams.set('state', state);
@@ -159,8 +173,10 @@ async function route(req: http.IncomingMessage, url: URL, body: string): Promise
     case 'POST /oauth2/revoke':
       refreshTokens.delete(new URLSearchParams(body).get('token') ?? '');
       return { status: 200, body: {} };
-    case 'GET /oauth2/end_session':
-      return { status: 302, location: url.searchParams.get('post_logout_redirect_uri') ?? '/' };
+    case 'GET /oauth2/end_session': {
+      const back = onSite(url.searchParams.get('post_logout_redirect_uri'));
+      return { status: 302, location: back?.href ?? SITE_URL };
+    }
     // The tests' own door: registers who a subject is and hands back a token for seeding.
     case 'POST /e2e/accounts': {
       const { subject, email, roles } = JSON.parse(body);
@@ -176,10 +192,9 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', AUTHGEAR_URL);
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
-  // The SDK calls the token and userinfo endpoints with credentials from the site's origin.
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('access-control-allow-origin', origin);
+  // The SDK calls the token and userinfo endpoints with credentials, from the site only.
+  if (req.headers.origin === SITE_ORIGIN) {
+    res.setHeader('access-control-allow-origin', SITE_ORIGIN);
     res.setHeader('access-control-allow-credentials', 'true');
     res.setHeader('vary', 'Origin');
   }
