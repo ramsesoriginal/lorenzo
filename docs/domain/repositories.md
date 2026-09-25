@@ -7,7 +7,7 @@ A **repository** is a reusable setting: a published campaign setting, a homebrew
 - Multiple games can relate to the same repository in different ways:
   - Several campaigns can **read the same repository live** — if the repository's own content is updated (new lore, a correction, an added NPC), every campaign still referencing it sees the update next time it's read.
   - Several campaigns can each get their **own instance** of the same starting repository, diverging independently from there — a copy that no longer sees later updates to the source repository.
-- Repositories are read-only from a campaign's (or tenant's) point of view: **no campaign or game ever writes into a repository**. Updating a repository's own content is a separate authorship process, not something that happens as a side effect of play — not designed yet, a future problem.
+- Repositories are read-only from a campaign's (or tenant's) point of view: **no campaign or game ever writes into a repository**. Updating a repository's own content is a separate authorship process, not something that happens as a side effect of play: its authors are the members of the repository itself, and campaigns that copied it take its changes one by one, when they choose to (see [RFC 0024](../rfcs/0024-repositories.md)).
 - Repositories aren't tied to one game system — content from one system's repository can end up referenced inside a game running a completely different system.
 
 ## Why this matters for the data model
