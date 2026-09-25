@@ -29,7 +29,7 @@ class EntityViewMixin:
     - VItem via `item`, VItemInstance via `item_instance`, VCharacter via
     `character`/`being`). Fully populating these properties requires
     eager-loading entity -> information -> payloads -> description, entity
-    -> information -> knowledge_links (needed by `descriptions` below - ADR
+    -> information -> knowledge_links (needed by `description_pairs` below - ADR
     0028), and entity -> effective_stats -> stat_definition -> stat_group;
     accessing them without doing so returns an empty list or raises, it
     does not silently lazy-load in this project's async setup (see ADR
@@ -44,7 +44,7 @@ class EntityViewMixin:
     computed stat shows its computed value; that also needs entity ->
     effective_stats -> computed_stat -> linear/comparison eager-loaded.
 
-    No `pictures` here (unlike `descriptions`) - checked and confirmed
+    No `pictures` here (unlike `description_pairs`) - checked and confirmed
     unused: `schemas/items.py`'s `_picture_refs` needs the owning `Payload`
     row itself (for its id, to build a content URL), not just its bytes,
     so it always re-walked entity.information independently rather than
@@ -54,20 +54,6 @@ class EntityViewMixin:
     """
 
     entity: Entity
-
-    def descriptions(self, visibility: InformationVisibility) -> list[tuple[str, str]]:
-        """Not a bare property - which descriptions are included depends on
-        the caller (ADR 0028's addendum: the same visibility-gating
-        GET /entities/{id} and GET /payloads/{id}/content already apply,
-        applied here too - this was a real, confirmed gap until that fix).
-        """
-        return [
-            (payload.description.content, payload.description.locale)
-            for info in self.entity.information
-            if info.type == "description" and visibility.can_see(info)
-            for payload in info.payloads
-            if payload.description is not None
-        ]
 
     def resolved_stat_values(self) -> dict[uuid.UUID, Value]:
         """Every effective stat's value, computed ones included (ADR 0104) -
@@ -129,3 +115,17 @@ class EntityViewMixin:
             value = values.get(stat.stat_definition_id)
             pairs.append((stat.stat_definition.name, value if isinstance(value, bool) else None))
         return pairs
+
+
+def description_pairs(entity: Entity, visibility: InformationVisibility) -> list[tuple[str, str]]:
+    """`entity`'s visible description texts as (content, locale): what
+    EntityViewMixin.descriptions returns for the view's own entity, and what
+    an item inherits from each ancestor (ADR 0111). Needs entity ->
+    information -> payloads -> description and knowledge_links loaded."""
+    return [
+        (payload.description.content, payload.description.locale)
+        for info in entity.information
+        if info.type == "description" and visibility.can_see(info)
+        for payload in info.payloads
+        if payload.description is not None
+    ]

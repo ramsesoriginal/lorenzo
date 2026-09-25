@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Literal, Self
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
+from lorenzo_api.models.entity_view_mixin import description_pairs
 from lorenzo_api.schemas.common import EntitySummary, ProblemOut, Slug
 
 __all__ = [
@@ -55,6 +57,8 @@ class DescriptionOut(BaseModel):
 
     content: str
     locale: str
+    # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
+    from_entity: EntitySummary | None
 
 
 class PictureRefOut(BaseModel):
@@ -73,10 +77,15 @@ class PictureRefOut(BaseModel):
 
     url: str
     file_type: str
+    # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
+    from_entity: EntitySummary | None
 
 
 def _picture_refs(
-    entity: Entity, request: Request, visibility: InformationVisibility
+    entity: Entity,
+    request: Request,
+    visibility: InformationVisibility,
+    from_entity: EntitySummary | None,
 ) -> list[PictureRefOut]:
     return [
         PictureRefOut(
@@ -86,6 +95,7 @@ def _picture_refs(
                 )
             ),
             file_type=payload.picture.file_type,
+            from_entity=from_entity,
         )
         for info in entity.information
         if info.type == "description" and visibility.can_see(info)
@@ -113,8 +123,31 @@ class TagValueOut(BaseModel):
     value: bool | None
 
 
-def _descriptions_out(pairs: list[tuple[str, str]]) -> list[DescriptionOut]:
-    return [DescriptionOut(content=content, locale=locale) for content, locale in pairs]
+def _described_out(
+    view: VItem | VItemInstance,
+    request: Request,
+    visibility: InformationVisibility,
+    ancestors: Sequence[Entity],
+) -> dict[str, Any]:
+    """`descriptions` and `pictures`: the item's own, then each ancestor's,
+    nearest first, each labelled with where it comes from (ADR 0111).
+    `ancestors` comes from inherited_information.prototype_ancestors."""
+    sources: list[tuple[EntitySummary | None, Entity]] = [
+        (None, view.entity),
+        *((EntitySummary(id=a.id, name=a.name), a) for a in ancestors),
+    ]
+    return dict(
+        descriptions=[
+            DescriptionOut(content=content, locale=locale, from_entity=source)
+            for source, entity in sources
+            for content, locale in description_pairs(entity, visibility)
+        ],
+        pictures=[
+            picture
+            for source, entity in sources
+            for picture in _picture_refs(entity, request, visibility, source)
+        ],
+    )
 
 
 def _stats_out(pairs: list[tuple[str, int | None]]) -> list[StatValueOut]:
@@ -209,7 +242,11 @@ def _named_bool(view: VItem | VItemInstance, name: str, column: bool | None) -> 
 
 
 def _common_item_fields(
-    view: VItem | VItemInstance, request: Request, *, visibility: InformationVisibility
+    view: VItem | VItemInstance,
+    request: Request,
+    *,
+    visibility: InformationVisibility,
+    ancestors: Sequence[Entity],
 ) -> dict[str, Any]:
     """Every field ItemOut and ItemInstanceOut share - both views expose the
     identical EntityViewMixin-backed surface (ADR 0019), differing only in
@@ -233,8 +270,7 @@ def _common_item_fields(
         is_magical=_named_bool(view, "is_magical", view.is_magical),
         is_cursed=_named_bool(view, "is_cursed", view.is_cursed),
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
-        descriptions=_descriptions_out(view.descriptions(visibility)),
-        pictures=_picture_refs(view.entity, request, visibility),
+        **_described_out(view, request, visibility, ancestors),
         physical_stats=_stats_out(view.physical_stats),
         economic_stats=_stats_out(view.economic_stats),
         destroyable_stats=_stats_out(view.destroyable_stats),
@@ -300,9 +336,14 @@ class ItemOut(BaseModel):
 
     @classmethod
     def from_v_item(
-        cls, view: VItem, request: Request, *, visibility: InformationVisibility
+        cls,
+        view: VItem,
+        request: Request,
+        *,
+        visibility: InformationVisibility,
+        ancestors: Sequence[Entity],
     ) -> Self:
-        return cls(**_common_item_fields(view, request, visibility=visibility))
+        return cls(**_common_item_fields(view, request, visibility=visibility, ancestors=ancestors))
 
 
 class ItemInstanceCreate(BaseModel):
@@ -406,10 +447,15 @@ class ItemInstanceOut(ItemOut):
 
     @classmethod
     def from_v_item_instance(
-        cls, view: VItemInstance, request: Request, *, visibility: InformationVisibility
+        cls,
+        view: VItemInstance,
+        request: Request,
+        *,
+        visibility: InformationVisibility,
+        ancestors: Sequence[Entity],
     ) -> Self:
         return cls(
-            **_common_item_fields(view, request, visibility=visibility),
+            **_common_item_fields(view, request, visibility=visibility, ancestors=ancestors),
             owner_entity_id=view.owner_entity_id,
             slug=view.slug,
         )
