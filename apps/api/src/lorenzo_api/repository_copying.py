@@ -326,9 +326,22 @@ class _Planner:
             return origin if origin in self.existing[kind] else None
         return None
 
-    def plan_step(self, step: Step) -> None:
+    def plan_step(
+        self,
+        step: Step,
+        *,
+        only: dict[str, set[uuid.UUID]] | None = None,
+        record_copy: bool = True,
+    ) -> None:
+        """Plans copying one repository's own rows. `only` narrows it to the
+        rows named, per kind - ADR 0121's additions, where everything else
+        was copied before and resolves through the tenant's links."""
         c = step.content
         assert c is not None
+
+        def copies(kind: str, row_id: uuid.UUID) -> bool:
+            return c.own(kind, row_id) and (only is None or row_id in only.get(kind, set()))
+
         repository_id, tenant_id, user_id = step.repository_id, self.tenant_id, self.user_id
 
         def drop(kind: str, source_id: uuid.UUID, reason: str) -> None:
@@ -336,7 +349,7 @@ class _Planner:
 
         # Stat groups.
         for g in sorted(
-            (g for g in c.groups if c.own("stat_group", g)), key=lambda g: c.groups[g]["name"]
+            (g for g in c.groups if copies("stat_group", g)), key=lambda g: c.groups[g]["name"]
         ):
             group = c.groups[g]
             name = group["name"]
@@ -384,7 +397,7 @@ class _Planner:
         # Stat definitions.
         namer = origin_namer(c)
         for d in sorted(
-            (d for d in c.definitions if c.own("stat_definition", d)),
+            (d for d in c.definitions if copies("stat_definition", d)),
             key=lambda d: c.definitions[d]["name"],
         ):
             definition = c.definitions[d]
@@ -447,7 +460,7 @@ class _Planner:
             step.stat_definitions += 1
 
         # Entities, and everything that belongs to one.
-        own = [e for e in c.entities if c.own("entity", e)]
+        own = [e for e in c.entities if copies("entity", e)]
         for e in own:
             self.local["entity"][e] = uuid.uuid4()
         index = index_entities(c)
@@ -500,7 +513,7 @@ class _Planner:
             step.entities += 1
 
         for e, p in c.prototypes:
-            if e in self.local["entity"] and c.own("entity", e):
+            if copies("entity", e):
                 target = self._local(c, "entity", p)
                 if target is None:
                     drop("entity_prototype", e, "its prototype wasn't copied")
@@ -513,7 +526,7 @@ class _Planner:
                     }
                 )
         for e, g in c.entity_groups:
-            if not c.own("entity", e):
+            if not copies("entity", e):
                 continue
             target = self._local(c, "stat_group", g)
             if target is None:
@@ -527,7 +540,7 @@ class _Planner:
                 }
             )
         for (e, d), stat_value in c.stats.items():
-            if not c.own("entity", e):
+            if not copies("entity", e):
                 continue
             target = self._local(c, "stat_definition", d)
             if target is None:
@@ -545,7 +558,7 @@ class _Planner:
                 }
             )
         for (e, d), formula in c.formulas.items():
-            if not c.own("entity", e):
+            if not copies("entity", e):
                 continue
             target = self._local(c, "stat_definition", d)
             inputs = {i: self._local(c, "stat_definition", i) for i in formula.inputs()}
@@ -582,7 +595,7 @@ class _Planner:
                     }
                 )
         for child, (parent, quantity) in c.containment.items():
-            if not c.own("entity", child):
+            if not copies("entity", child):
                 continue
             target = self._local(c, "entity", parent)
             if target is None:
@@ -597,7 +610,7 @@ class _Planner:
                 }
             )
         for owned, owner in c.ownership.items():
-            if not c.own("entity", owned):
+            if not copies("entity", owned):
                 continue
             target = self._local(c, "entity", owner)
             if target is None:
@@ -611,7 +624,7 @@ class _Planner:
                 }
             )
         for group_entity, member in c.group_members:
-            if not c.own("entity", group_entity):
+            if not copies("entity", group_entity):
                 continue
             target = self._local(c, "entity", member)
             if target is None:
@@ -628,7 +641,7 @@ class _Planner:
         # Information, its payloads, and who knows it.
         local_information: dict[uuid.UUID, uuid.UUID] = {}
         for info_id, info in c.information.items():
-            if not c.own("entity", info.entity_id):
+            if not copies("entity", info.entity_id):
                 continue
             new = uuid.uuid4()
             local_information[info_id] = new
@@ -687,9 +700,14 @@ class _Planner:
                 {"tenant_id": tenant_id, "knower_entity_id": target, "information_id": known}
             )
 
-        self.rows["repository_copy"].append(
-            {"tenant_id": tenant_id, "repository_tenant_id": repository_id, "copied_by": user_id}
-        )
+        if record_copy:
+            self.rows["repository_copy"].append(
+                {
+                    "tenant_id": tenant_id,
+                    "repository_tenant_id": repository_id,
+                    "copied_by": user_id,
+                }
+            )
 
     def _link(
         self,

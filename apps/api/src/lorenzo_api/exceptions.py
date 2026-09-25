@@ -86,6 +86,9 @@ __all__ = [
     "RepositoryCopyFormulaCycleError",
     "RepositoryCopyNeedsChoicesError",
     "RepositoryCopyNeedsGrantsError",
+    "InvalidRepositoryUpdateError",
+    "RepositoryNotCopiedError",
+    "RepositoryUpdateNeedsChoicesError",
 ]
 
 
@@ -793,3 +796,26 @@ class RepositoryCopyFormulaCycleError(ConflictProblem):
     in a loop - ADR 0119. Nothing is copied."""
 
     title = "The copy would make formulas loop"
+
+
+class RepositoryNotCopiedError(ConflictProblem):
+    """Checking or applying updates for a repository this tenant hasn't
+    copied - ADR 0121. Copy it first."""
+
+    title = "This repository hasn't been copied here"
+
+
+class RepositoryUpdateNeedsChoicesError(ConflictProblem):
+    """Applying an update where this tenant changed a field too, without
+    saying whether to keep its own value or take the repository's - ADR
+    0121. Carries `conflicts`: name each in `keep_local` or
+    `take_upstream`."""
+
+    title = "Some changes conflict with your own edits"
+
+
+class InvalidRepositoryUpdateError(UnprocessableProblem):
+    """An update action for a row that has nothing of that kind to do -
+    ADR 0121."""
+
+    title = "That update can't be applied"

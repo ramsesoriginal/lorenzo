@@ -12,7 +12,7 @@ Two sides, both under /tenants/{tenant_id}: the repository's own
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Annotated, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Response
 from fastapi_pagination import Page
@@ -54,7 +54,16 @@ from lorenzo_api.models import (
 from lorenzo_api.notifications import create_tenant_members_notification
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_copying import Plan, Resolution, Step, apply_plan, plan_copy
+from lorenzo_api.repository_updates import (
+    COLLISION_KIND,
+    UpdateAction,
+    apply_updates,
+    compute_updates,
+)
 from lorenzo_api.schemas.repositories import (
+    AddedOut,
+    ApplyUpdatesOut,
+    ApplyUpdatesRequest,
     CollisionOut,
     CopyOut,
     CopyPlanOut,
@@ -62,12 +71,17 @@ from lorenzo_api.schemas.repositories import (
     CopyStepOut,
     DroppedOut,
     EntityKindName,
+    FieldChangeOut,
+    NotAppliedOut,
     RepositoryEntityOut,
     RepositoryStatDefinitionOut,
     RepositoryStatGroupOut,
     RepositorySummaryOut,
+    RowChangeOut,
+    RowRefOut,
     SubscriberOut,
     SubscriptionOut,
+    UpdatesOut,
 )
 from lorenzo_api.schemas.tenants import TenantOut
 
@@ -592,3 +606,124 @@ async def copy_repository(
     await apply_plan(session, plan, user_id=user.id)
     await session.commit()
     return CopyOut(steps=[_step_out(s) for s in plan.to_copy])
+
+
+# --- Updates (ADR 0121) ---------------------------------------------------------
+
+
+def _collision_out(c: Any) -> CollisionOut | None:
+    if c is None:
+        return None
+    return CollisionOut(
+        repository_id=c.repository_id,
+        kind=c.kind,
+        source_id=c.source_id,
+        name=c.name,
+        local_id=c.local_id,
+        choices=c.choices,
+    )
+
+
+@router.get("/repositories/{repository_id}/updates")
+async def list_repository_updates(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+) -> UpdatesOut:
+    """What a copied repository changed since this tenant copied or last
+    synced it, row by row, beside this tenant's own copy (ADR 0121).
+    Reads the repository through the gated read, so it must still be
+    granted and published."""
+    updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
+    return UpdatesOut(
+        repository_id=repository_id,
+        changed=[
+            RowChangeOut(
+                kind=row.kind,
+                source_id=row.source_id,
+                local_id=row.local_id,
+                name=row.name,
+                fields=[
+                    FieldChangeOut(
+                        field=f.field,
+                        label=f.label,
+                        state=f.state,
+                        base=f.base,
+                        upstream=f.upstream,
+                        local=f.local,
+                        added=f.added,
+                        removed=f.removed,
+                    )
+                    for f in row.fields
+                ],
+            )
+            for row in updates.changed
+        ],
+        removed=[
+            RowRefOut(kind=r.kind, source_id=r.source_id, local_id=r.local_id, name=r.name)
+            for r in updates.removed
+        ],
+        deleted_locally=[
+            RowRefOut(kind=r.kind, source_id=r.source_id, local_id=r.local_id, name=r.name)
+            for r in updates.deleted_locally
+        ],
+        added=[
+            AddedOut(
+                kind=a.kind,
+                source_id=a.source_id,
+                name=a.name,
+                collision=_collision_out(a.collision),
+            )
+            for a in updates.added
+        ],
+    )
+
+
+@router.post("/repositories/{repository_id}/updates")
+async def apply_repository_updates(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    body: ApplyUpdatesRequest,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ApplyUpdatesOut:
+    """Applies the listed updates, row by row, in one transaction (ADR
+    0121). Anything not listed stays as it is. `409` while a conflict is
+    named in neither `keep_local` nor `take_upstream`."""
+    actions = [
+        UpdateAction(
+            kind=a.kind,
+            source_id=a.source_id,
+            action=a.action,
+            keep_local=a.keep_local or [],
+            take_upstream=a.take_upstream or [],
+            resolution=(
+                Resolution(
+                    kind=COLLISION_KIND[a.kind],
+                    source_id=a.source_id,
+                    action=a.resolution.action,
+                    name=a.resolution.name,
+                )
+                if a.resolution
+                else None
+            ),
+        )
+        for a in body.actions
+    ]
+    result = await apply_updates(
+        session,
+        tenant_id=tenant_id,
+        repository_id=repository_id,
+        user_id=user.id,
+        actions=actions,
+    )
+    await session.commit()
+    return ApplyUpdatesOut(
+        applied=result.applied,
+        added=result.added,
+        detached=result.detached,
+        not_applied=[
+            NotAppliedOut(kind=n.kind, source_id=n.source_id, field=n.field, reason=n.reason)
+            for n in result.not_applied
+        ],
+    )

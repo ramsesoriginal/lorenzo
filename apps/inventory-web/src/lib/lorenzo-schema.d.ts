@@ -888,6 +888,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/repositories/{repository_id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repository Updates
+         * @description What a copied repository changed since this tenant copied or last
+         *     synced it, row by row, beside this tenant's own copy (ADR 0121).
+         *     Reads the repository through the gated read, so it must still be
+         *     granted and published.
+         */
+        get: operations["list_repository_updates"];
+        put?: never;
+        /**
+         * Apply Repository Updates
+         * @description Applies the listed updates, row by row, in one transaction (ADR
+         *     0121). Anything not listed stays as it is. `409` while a conflict is
+         *     named in neither `keep_local` nor `take_upstream`.
+         */
+        post: operations["apply_repository_updates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns": {
         parameters: {
             query?: never;
@@ -2989,6 +3018,26 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AddedOut
+         * @description A row the repository added since, with the collision copying it
+         *     would hit, if any.
+         */
+        AddedOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Name */
+            name: string;
+            collision: components["schemas"]["CollisionOut"] | null;
+        };
+        /**
          * AdminNotificationCreate
          * @description POST /admin/notifications - platform scope requires an explicit
          *     recipient; no broadcast-to-every-user-on-the-platform mechanism exists
@@ -3044,6 +3093,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ApplyUpdatesOut */
+        ApplyUpdatesOut: {
+            /** Applied */
+            applied: number;
+            /** Added */
+            added: number;
+            /** Detached */
+            detached: number;
+            /** Not Applied */
+            not_applied: components["schemas"]["NotAppliedOut"][];
+        };
+        /** ApplyUpdatesRequest */
+        ApplyUpdatesRequest: {
+            /** Actions */
+            actions: components["schemas"]["UpdateActionIn"][];
         };
         /**
          * AuditLogEntryOut
@@ -4018,6 +4083,37 @@ export interface components {
             quantity?: number | null;
         };
         /**
+         * FieldChangeOut
+         * @description One field the repository changed since this tenant copied or last
+         *     synced it. `field` is its name, or `stats:<id>`/`formulas:<id>` for one
+         *     stat, `label` then naming the stat. Values name other rows by their
+         *     origin id. `clean`: the tenant hasn't changed it, so it can simply be
+         *     taken; `conflict`: the tenant changed it too; `not_applicable`: shown,
+         *     but changed by hand. Sets (`prototypes`, `stat_groups`, `enum_values`)
+         *     list what upstream `added` and `removed`, and are always clean.
+         */
+        FieldChangeOut: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "clean" | "conflict" | "not_applicable";
+            /** Base */
+            base: unknown;
+            /** Upstream */
+            upstream: unknown;
+            /** Local */
+            local: unknown;
+            /** Added */
+            added: unknown[] | null;
+            /** Removed */
+            removed: unknown[] | null;
+        };
+        /**
          * GmOut
          * @description One row of GET .../campaigns/{id}/gms - campaign_id/tenant_id are
          *     already in the path, no need to repeat them per row. See ADR 0031/RFC
@@ -4832,6 +4928,23 @@ export interface components {
              * Format: uuid
              */
             into_entity_id: string;
+        };
+        /**
+         * NotAppliedOut
+         * @description A field that couldn't be applied, and why. It keeps being offered.
+         */
+        NotAppliedOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Field */
+            field: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * NotificationCreate
@@ -5696,6 +5809,45 @@ export interface components {
          * @enum {string}
          */
         RoundMode: "none" | "floor" | "ceil" | "round" | "truncate";
+        /** RowChangeOut */
+        RowChangeOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Local Id
+             * Format: uuid
+             */
+            local_id: string;
+            /** Name */
+            name: string;
+            /** Fields */
+            fields: components["schemas"]["FieldChangeOut"][];
+        };
+        /** RowRefOut */
+        RowRefOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Local Id */
+            local_id: string | null;
+            /** Name */
+            name: string;
+        };
         /**
          * SetContainerRequest
          * @description PUT /item-instances/{id}/container body.
@@ -6059,6 +6211,67 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
+        };
+        /**
+         * UpdateActionIn
+         * @description One row's update. `apply` takes every clean field, and each
+         *     conflicting field named in `take_upstream`; one named in `keep_local`
+         *     stays. Every conflict must be named in one or the other. `add` copies
+         *     an added row, with `resolution` for its collision; `detach` drops a
+         *     removed row's link.
+         */
+        UpdateActionIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "apply" | "add" | "detach";
+            /** Keep Local */
+            keep_local?: string[] | null;
+            /** Take Upstream */
+            take_upstream?: string[] | null;
+            resolution?: components["schemas"]["UpdateResolutionIn"] | null;
+        };
+        /** UpdateResolutionIn */
+        UpdateResolutionIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "rename" | "merge" | "skip";
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * UpdatesOut
+         * @description `GET .../repositories/{id}/updates` - ADR 0121. `removed` rows are
+         *     gone upstream and only ever detached, never deleted here;
+         *     `deleted_locally` rows are ones this tenant deleted itself.
+         */
+        UpdatesOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Changed */
+            changed: components["schemas"]["RowChangeOut"][];
+            /** Removed */
+            removed: components["schemas"]["RowRefOut"][];
+            /** Deleted Locally */
+            deleted_locally: components["schemas"]["RowRefOut"][];
+            /** Added */
+            added: components["schemas"]["AddedOut"][];
         };
         /**
          * UserRefOut
@@ -8933,6 +9146,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CopyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_repository_updates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    apply_repository_updates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyUpdatesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyUpdatesOut"];
                 };
             };
             /** @description Validation Error */
