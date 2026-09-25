@@ -17,7 +17,26 @@ For any member of the subscribing tenant, the same tier that authors stat defini
 - `GET /tenants/{tenant_id}/repositories/{repository_id}/copy-plan` writes nothing. It returns what a copy would do: how many entities, stat groups, stat definitions, and pieces of information it would bring in, plus every collision that needs a choice.
 - `POST /tenants/{tenant_id}/repositories/{repository_id}/copy` copies, in one transaction. It answers `201` with the same counts, plus anything it had to leave out and why.
 
-A repository that has already been copied answers `409 repository-already-copied`. Later changes come in through ADR 0121's updates, not a second copy.
+A repository that has already been copied answers `409 repository-already-copied`, unless the request says to copy it again (below). Later changes normally come in through ADR 0121's updates, not a second copy.
+
+### Dry runs
+
+`POST .../copy` with `"dry_run": true` does everything a real copy does, every check included (collisions, grants, the formula-cycle check, the database's own constraints), then rolls the transaction back. It answers `200` with what the copy would have done, marked `"dry_run": true`, or the same `409`/`422` a real copy would. It's the way to try a set of collision choices without committing to them. `copy-plan` stays the cheap, choice-free preview.
+
+### Copying again
+
+`"again"` on `POST .../copy`, for a repository this tenant has already copied. It applies to the requested repository only; dependencies already copied are still reused (ADR 0120).
+
+- **`keep`** forgets the earlier copy: its copy record and links are deleted, and everything it created stays as the tenant's own ordinary rows, no longer linked to the repository. Then the repository is copied afresh, alongside. Its names collide with the old copies, so expect choices to make.
+- **`purge`** deletes what the earlier copy created, then copies afresh. Only rows the copy created go: entities, and stat groups and definitions linked as `copied`. Rows linked as `merged` are the tenant's own, so they stay. Deleting a row takes with it whatever hangs off it, including the tenant's own additions: a definition it added to a copied group, a stat value it set with a copied definition, an edge or containment from one of its own entities to a copied one. The response counts those under `also_removed`, per kind, so a dry run shows exactly what a purge would cost before anyone commits to it.
+
+Either way the activity log records it, and the old copy's records are gone, so ADR 0121 compares against the new copy from then on. A bridge copied on top of a purged repository loses the references its rows had into it (they're among `also_removed`); its own updates offer them back.
+
+### What a copy contributed
+
+- `GET /tenants/{tenant_id}/repositories` lists every repository the tenant holds a grant for *or* has copied, so a copy stays visible after its grant is gone (RFC 0024 §6). Each entry carries counts of what the copy contributed: entities, stat groups, and stat definitions, copied and merged. `granted_at` is null once the grant is gone.
+- `GET /tenants/{tenant_id}/repositories/{repository_id}/contributions` pages the rows themselves, filterable by `kind`, each with its local id (null if the tenant deleted it), its source id, its name, and for groups and definitions, whether it was copied or merged. It reads only the tenant's own data, so it works without a grant.
+- `repository_copy` also records the repository's `name` at copy time, so a copy of a repository that has since been deleted still has a name to show.
 
 ### What is copied
 
@@ -67,7 +86,7 @@ After the copy, the tenant's formula graph is checked for cycles, as when a form
 
 ### What is recorded
 
-- **`repository_copy (tenant_id, repository_tenant_id, copied_at, copied_by, synced_at)`**: one row per repository a tenant has copied. It belongs to the subscriber and is kept when a grant is removed.
+- **`repository_copy (tenant_id, repository_tenant_id, repository_name, copied_at, copied_by, synced_at)`**: one row per repository a tenant has copied. It belongs to the subscriber and is kept when a grant is removed.
 - **Copy links**, one table each: `repository_copy_link_entity`, `repository_copy_link_stat_group`, and `repository_copy_link_stat_definition`. Each has `(tenant_id, <local id>, source_tenant_id, source_id, snapshot, copied_at)`, and the group and definition links also carry `mode` (`copied` or `merged`).
   - **The local side is a composite foreign key** (ADR 0117). Deleting the local row keeps the link with the local id set to null, so ADR 0121 can tell "deleted here" from "new upstream".
   - **The source side is a plain id**, not a foreign key. It is another tenant's row and may disappear.
