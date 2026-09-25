@@ -6,6 +6,7 @@ This RFC has two parts, debated by the same four participants.
 
 - **Part 1** (most of this document) designs time itself: the causal order, clocks, knowledge "as of", and calendars.
 - **[Part 2](#part-2-history-of-containment-ownership-group-membership-and-existence)** was added at the requester's follow-up: "now that we have the possibility of having time for knowledge, we should also have the same for containment, group membership and ownership… and maybe even 'existence'". It extends part 1's history pattern to those four relations and amends part 1 in a few places. Each amendment is marked where it lands.
+- **[Amendment: declared clock relations](#amendment-declared-clock-relations)** was added after both debates, at the requester's request, and **was not debated**. It lets a GM declare "plane X runs twice as fast as clock Y", optionally with an anchor ("day 0 here is day 0 there"), so a crossing's readings on the other clock are filled in automatically.
 
 The [Decision](#decision), [sub-slices](#proposed-sub-slices-once-decided), [Not in scope](#not-in-scope) and [Consequences](#consequences) sections cover both parts.
 
@@ -496,7 +497,7 @@ Liam checked the donjon mapping against donjon's own `/fantasy/calendar/control/
   - Departure: Earth 0, ship 0. Return: Earth 40y, ship 2y. Two sync points.
   - The letter's send S reads Earth 10y. The GM records its receipt Q on the ship at, say, 1.5y (the letter chased the ship). The API offers ≈0.5y by interpolation between sync points, flagged `approximate`. `event_link(S→Q, 'causes')` enforces S ≺ Q.
   - Ageing sums Δreading over each participant's snapshot clock: 2 years for the crew, 40 for Earth. A crewman who later disembarks still reads 2, because the snapshot is per leg.
-  - There is no dilation formula anywhere.
+  - There is no physics formula anywhere. If the GM *knows* the ratio ("20 Earth years per ship year"), they can declare it once as a [clock relation](#amendment-declared-clock-relations). The receipt's missing reading is then derived exactly, instead of offered as an interpolation hint.
 - **S3: outside time.** The Astral gets `clock(runs='never')`.
   - The FK makes readings there impossible. The Astral is not a NULL.
   - Enter (reading Toril t) ≺ duel ≺ secret ≺ exit (Toril t+3d), by the participants' `lived_pos` and the key.
@@ -660,6 +661,111 @@ Only Kevin had examined this in part 1. **Resolved in Part 2 ([PB6](#part-2-base
 6. **Key growth and re-key cost.** When and how fractional keys are renormalized in crowded gaps, under the lock. Whether Pearce–Kelly's O(window) holds on a realistic 200-session fixture. Whether the key-bounded basis walk ever needs a materialized reachability index. Measure before promising any of it.
 7. **The loop slice.** Exactly which answers get `basis: loop`, and D3's shape.
 8. **The self-meeting.** Bridge 4 and RFC 0026 D3, including how a variant's age is computed.
+
+## Amendment: declared clock relations
+
+*Added after both debates, at the requester's request. **Not debated or reviewed by the four participants.** Treat it as a proposal on the same footing as an unreviewed round-3 condition (see the [Decision](#decision)).*
+
+### The gap it fills
+
+Part 1 relates two clocks only through **sync points**: events that carry a reading on both clocks. It derives a rate as Δ/Δ between two or more of them, and offers interpolation only as a flagged hint. So in the requester's example:
+
+- the party leaves on day 17 of clock 1;
+- they spend six days on a plane whose clock runs twice as fast;
+- they come back.
+
+Nothing fills in "day 20" on clock 1. There is only one sync point, so there is no rate to derive, and the GM has to type it. A GM who *knows* how two clocks relate has had no way to say so once.
+
+### The relation
+
+```sql
+-- after part-1 slice 5 (clock, event_reading). tenant_id NOT NULL, ENABLE + FORCE RLS,
+-- composite (…, tenant_id) FKs, RFC 0024 lists, all FKs NO ACTION (PB6). Nothing seeded.
+ALTER TABLE clock ADD directed boolean GENERATED ALWAYS AS (runs IN ('forward','backward')) STORED,
+                  ADD UNIQUE (entity_id, tenant_id, directed);        -- clock is itself a new RFC 0028 table
+
+CREATE TABLE clock_relation (
+  clock_entity_id            uuid NOT NULL,     -- e.g. plane X
+  reference_clock_entity_id  uuid NOT NULL,     -- e.g. clock 1 (the Material Plane)
+  tenant_id                  uuid NOT NULL,
+  rate                       numeric NOT NULL CHECK (rate <> 0),
+                                                -- days on this clock per day on the reference:
+                                                --   2.0 = X runs twice as fast; negative = runs against it
+  anchor_reading             numeric,           -- OPTIONAL anchor: this clock reads anchor_reading
+  anchor_reference_reading   numeric,           --   when the reference reads anchor_reference_reading
+  clock_directed             boolean NOT NULL DEFAULT true CHECK (clock_directed),
+  reference_directed         boolean NOT NULL DEFAULT true CHECK (reference_directed),
+  CHECK ((anchor_reading IS NULL) = (anchor_reference_reading IS NULL)),
+  CHECK (clock_entity_id <> reference_clock_entity_id),
+  PRIMARY KEY (clock_entity_id, reference_clock_entity_id),
+  FOREIGN KEY (clock_entity_id, tenant_id, clock_directed)
+    REFERENCES clock (entity_id, tenant_id, directed),
+  FOREIGN KEY (reference_clock_entity_id, tenant_id, reference_directed)
+    REFERENCES clock (entity_id, tenant_id, directed));
+```
+
+- **Rate only** says how fast two clocks run relative to each other. **Rate plus anchor** also pins their day counts together. "Day 0 here is day 0 there" is `anchor_reading = 0, anchor_reference_reading = 0`.
+- **Only directed clocks** (`forward`, `backward`) can be related, and the composite FKs enforce it:
+  - a `free` clock promises no rate, which is the whole point of `free` (Feywild drift);
+  - a `never` clock has no readings at all.
+
+  The service checks that the rate's sign agrees with the two clocks' declared directions.
+- **One relation per ordered pair.** The reverse direction is implied (rate 1/r, anchor swapped), and the service refuses to store both directions.
+
+### How readings get derived
+
+When an event has a reading on one clock and a read asks for it on a related clock, the reading is **derived at read time, never stored**. Fixing a wrong rate therefore corrects every derived date at once. The sources, strongest first:
+
+1. **An explicit reading** on that clock. It always wins.
+2. **The nearest sync point, plus the rate.** Take the latest event in the traveller's lived past (computed through history(T) and travel links) that carries readings on both clocks. Add the elapsed time since then, multiplied by the rate. A portal crossing whose GM gave both sides' dates is such a sync point. So a **rate-only** relation becomes fully automatic after one crossing has been dated on both sides.
+3. **The anchor, plus the rate**, when there is no nearer sync point. With an anchor, derivation is automatic from the very first event.
+4. **Part 1's interpolation hint** (Δ/Δ between sync points, flagged `approximate`), when no relation exists.
+5. Otherwise, **not reckoned** on that clock. The value is never guessed.
+
+Derived readings keep their range: `reading_lo` and `reading_hi` are each converted. Responses tag them `derived`, as interpolation is tagged `approximate`, and calendars render them like any other reading.
+
+**Chains compose.** X → Y and Y → Z give X → Z: rates multiply, and anchors map through. `derive_reading(event_ids uuid[], clock uuid)` is a batched `SECURITY INVOKER` function with a depth cap. It uses a direct relation first, else the shortest path. If two paths between the same pair of clocks disagree, the answer is flagged and listed in the continuity report, never silently picked.
+
+**Explicit readings that disagree.** When an entered reading and the derived value disagree (their ranges don't overlap), the write gets Bridge 1's treatment: a 409 `reading_relation_mismatch`, acknowledgeable with `?acknowledge=`, and listed in the continuity report. No database constraint ever enforces it.
+
+### What it does not change
+
+- **Order.** Readings, derived or not, still never decide order (BL7). Rule R may *suggest* a placement from a derived reading, which is stored as `placed` and reads `linearized`, like any other date.
+- **Ageing.** It still sums Δreading over the clock each participant actually lived on (BL8). Derived readings simply fill legs that would otherwise count as `unrecorded_legs`. The party in the example ages six days; the friends they left behind age three.
+- **Calendars.** Unchanged. They render a reading on a reckoned clock whether it was entered or derived.
+- **Anything, when unused.** No relation rows means part 1's behaviour exactly.
+
+### The requester's example
+
+```text
+clock 1: Material Plane (forward)        plane X: its own clock (forward)
+clock_relation(X → clock 1, rate 2.0, anchor 0 = 0)       -- "twice as fast; day 0 = day 0"
+
+Departure from the Material Plane / arrival on X:  clock 1 = 17 (entered) → X = 34 (derived, anchor)
+Six days on X ("+6 days" on the party's clock X):   X = 40
+Return to the Material Plane:                        clock 1 = 17 + 6 ÷ 2 = 20 (derived)
+```
+
+**Without the anchor (rate only):**
+
+- The first crossing needs X's own date once (say, X day 1 at arrival). That makes it a sync point.
+- The return is then derived as 17 + (7 − 1) ÷ 2 = **day 20**, and every later trip is automatic.
+
+### Scope change, stated plainly
+
+This reverses one line of part 1's Not-in-scope list: "rates are derived only". It does **not** reverse the part-1 no-gos behind that line:
+
+- It is not physics math.
+- It is not a bespoke formula per plane (Kevin's no-go). It is one linear relation per clock pair, in one table.
+- It never makes a date into order evidence (Liam's).
+
+### Open (for whoever reviews this)
+
+1. **A rate that changes over time** ("the rift slowed after the Sundering"). Options:
+   - v1 keeps one constant relation per pair, and a GM uses sync points or a `free` clock;
+   - a later version adds validity between events.
+2. **Trip-relative durations with no absolute count on X at all** ("they were gone six days of *their* time", when X has no calendar and no anchor). This may need a duration-only authoring shortcut that doesn't invent X's date.
+3. **Whether a derived reading may serve as a sync point** for further derivation, or only explicit readings may. It is safest to allow only explicit readings, so derivation never builds on itself.
 
 ## Part 2: history of containment, ownership, group membership, and existence
 
@@ -1043,6 +1149,7 @@ Open. To reach one, decide these in this order:
    - Liam's `lived_claim` column (P2-D1);
    - Judy's cold-path trigger on the `*_change` tables (P2-D3).
 7. D3, Bridge 4, D5, P2-D2 (counterparts, with RFC 0026 slice 7) and P2-D4 can wait for their own slices.
+8. **Review the [declared clock relations](#amendment-declared-clock-relations) amendment** before slice 5b, since it was never debated. Its three open points (changing rates, trip-relative durations, derived readings as sync points) go into that slice's ADR.
 
 ## Proposed sub-slices (once decided)
 
@@ -1067,6 +1174,9 @@ Following this repo's smallest-tested-vertical-slice practice, each is its own A
    - `clock`, `event_reading` and `calendar_reckoning`.
    - Bridge 1, date-suggested placement, ageing, and `GET …/events/{id}/dates`.
    - Pins the generated-column FK with a test.
+   - **5b, optional and its own ADR:** [declared clock relations](#amendment-declared-clock-relations).
+     - `clock_relation`, `clock.directed`, and `derive_reading(uuid[], clock)` with the `derived` tag.
+     - Tests: the requester's day-17 → day-20 example, both with and without an anchor; a chain X → Y → Z; a disagreeing path; and a mismatch 409.
 6. **Importers.** donjon and Fantasy-Calendar, draft-first.
 7. **Branches.** `timeline_divergence`, history(B), and the `travel` link kind. After RFC 0026's frames slice.
 8. **Later, each its own RFC or ADR:**
@@ -1097,7 +1207,7 @@ Following this repo's smallest-tested-vertical-slice practice, each is its own A
 
 ## Not in scope
 
-- **Relativistic or any other physical time math.** Rates are derived only, as Δ/Δ between sync points, and interpolation is a flagged hint, never stored truth.
+- **Relativistic or any other physical time math.** A rate is either derived (Δ/Δ between sync points, with interpolation as a flagged hint) or **declared by the GM** as one linear relation per clock pair ([amendment](#amendment-declared-clock-relations)). It is never computed from physics.
 - **Any web or bot UI** for placing events, authoring calendars, or reading the continuity report. This RFC fixes the data model and the read contracts, not the authoring surfaces.
 - **Timed player-level knowledge** (`knower_player_id`). Placement, ownership, membership and existence history *are* in scope, in Part 2.
 - **Belief and confidence:** "where Bram *thinks* the ring is", and how sure he is. That is authored `information` (RFC 0001's open question 1), not history. Epistemic kind and certainty are [RFC 0029](0029-epistemic-status-of-information.md)'s subject.
