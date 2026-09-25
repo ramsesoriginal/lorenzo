@@ -1,5 +1,5 @@
 import uuid
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi_pagination import Page, paginate
@@ -35,7 +35,10 @@ from lorenzo_api.exceptions import (
     InformationNotFoundError,
     InformationOrderConflictError,
 )
-from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.information_visibility import (
+    resolve_information_visibility,
+    visible_information_clause,
+)
 from lorenzo_api.models import (
     Being,
     Character,
@@ -375,6 +378,77 @@ async def clear_entity_slug(
     await session.commit()
 
 
+_INFORMATION_LOAD_OPTIONS = (
+    selectinload(Information.payloads).selectinload(Payload.description),
+    selectinload(Information.payloads).selectinload(Payload.number),
+    selectinload(Information.payloads).selectinload(Payload.picture),
+    selectinload(Information.payloads).selectinload(Payload.document),
+    selectinload(Information.knowledge_links),
+)
+
+
+@router.get("/{entity_id}/information")
+async def list_entity_information(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    params: ParamsDep,
+    session: SessionDep,
+    user: CurrentUser,
+    type_: Annotated[
+        list[str] | None,
+        Query(alias="type", description="Only these Information.type values (repeatable)."),
+    ] = None,
+    category: Annotated[
+        Literal["technical", "gm_authored"] | None,
+        Query(
+            description=(
+                "technical: types with an information_type row; "
+                "gm_authored: free-form types, which never have one."
+            )
+        ),
+    ] = None,
+) -> Page[InformationOut]:
+    """An entity's information, paged, in `order` - see ADR 0109/RFC 0015.
+    Reachable by the same callers as GET /entities/{id} (tenant
+    participants), filtered to what the caller can see - in SQL, before
+    pagination (information_visibility.visible_information_clause), so a
+    page is never short and its total never counts rows the caller can't
+    see.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+
+    stmt = (
+        select(Information)
+        .where(
+            Information.entity_id == entity_id,
+            Information.tenant_id == tenant_id,
+            visible_information_clause(visibility),
+        )
+        .options(*_INFORMATION_LOAD_OPTIONS)
+        .order_by(Information.order, Information.id)
+    )
+    if type_:
+        stmt = stmt.where(Information.type.in_(type_))
+    if category is not None:
+        catalogued = (
+            select(InformationType.name).where(InformationType.name == Information.type).exists()
+        )
+        stmt = stmt.where(catalogued if category == "technical" else ~catalogued)
+
+    page: Page[InformationOut] = await apaginate(
+        session,
+        stmt,
+        params,
+        transformer=lambda rows: [InformationOut.from_information(row, request) for row in rows],
+    )
+    return page
+
+
 async def authorize_entity_write(
     session: SessionDep,
     *,
@@ -576,13 +650,7 @@ async def get_information_or_404(
     stmt = (
         select(Information)
         .where(Information.id == information_id, Information.tenant_id == tenant_id)
-        .options(
-            selectinload(Information.payloads).selectinload(Payload.description),
-            selectinload(Information.payloads).selectinload(Payload.number),
-            selectinload(Information.payloads).selectinload(Payload.picture),
-            selectinload(Information.payloads).selectinload(Payload.document),
-            selectinload(Information.knowledge_links),
-        )
+        .options(*_INFORMATION_LOAD_OPTIONS)
         # A re-read after a write in the same session must see the stored
         # row (updated_at is set by the database), not the stale identity-
         # map copy expire_on_commit=False leaves behind.

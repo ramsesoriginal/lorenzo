@@ -148,6 +148,22 @@ def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     ]
 
 
+class KnowerOut(BaseModel):
+    """One knower of an Information row - see ADR 0109. `kind` says which
+    id is set: `entity` (a character or group, knower_entity_id) or
+    `player` (player_id). `name` is the entity's name, or the player's
+    user display name falling back to their nickname; either can be null.
+    A later per-knower `confidence` (RFC 0029) would be one more field
+    here.
+    """
+
+    kind: Literal["entity", "player"]
+    knower_entity_id: uuid.UUID | None = None
+    player_id: uuid.UUID | None = None
+    name: str | None
+    granted_at: datetime
+
+
 class EntityDetailOut(BaseModel):
     """The full shape of a single entity - every relationship resolved and
     inlined. See ADR 0020. Deliberately not reused for the list endpoint,
