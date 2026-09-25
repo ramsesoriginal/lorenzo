@@ -30,6 +30,7 @@ The description editor gains a **Display title** field: the description's title,
 - It's prefilled with the current title, which is the item's name when it has none. Clearing it shows the name again ([ADR 0067](0067-item-title-falls-back-to-name.md)). This was the maintainer's choice, over leaving the title empty or copying the name silently.
 - A changed title is saved with `PATCH .../information/{id}`, using `If-Match`. Text and title are two writes. If one fails, the editor stays open and says which one.
 - Items renamed "Description" by the old editor get their name back through this field.
+- The edit panel's Name field now reads the entity's own name. It used to show the display title, so saving the panel could copy that title onto the name.
 
 The same editor appears in three places:
 
@@ -46,6 +47,8 @@ GMs get a tag editor on the item page. It lists every `bool` stat definition in 
 - **Off** uses `PATCH`.
 
 The current state comes from `EntityDetailOut.stats`: the effective value, and ADR 0111's `own` flag. The editor also shows the effective value an inherited tag resolves to.
+
+Listing stat definitions needs tenant membership (`get_tenant_context`), but writing a tag only needs standing over the entity. A GM who isn't a tenant member therefore sees a note instead of the editor. Opening the list to every participant would be a small API change for later.
 
 ### Managing information
 
