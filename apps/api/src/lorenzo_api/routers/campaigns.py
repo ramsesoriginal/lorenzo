@@ -25,8 +25,18 @@ from lorenzo_api.exceptions import (
     CampaignNotEmptyError,
     CampaignNotFoundError,
     InvalidUserError,
+    RepositoryHasNoCampaignsError,
 )
-from lorenzo_api.models import Campaign, CampaignGm, Entity, Player, TenantAdminCampaignOptOut, User
+from lorenzo_api.models import (
+    Campaign,
+    CampaignGm,
+    Entity,
+    Player,
+    Tenant,
+    TenantAdminCampaignOptOut,
+    TenantKind,
+    User,
+)
 from lorenzo_api.notifications import create_campaign_notification
 from lorenzo_api.profile_pictures import (
     delete_campaign_profile_picture,
@@ -151,6 +161,10 @@ async def create_campaign(
     Entity (RFC 0003) server-side, in the same transaction - entity_id is
     never accepted from the client.
     """
+    if (await session.get_one(Tenant, tenant_id)).kind is TenantKind.REPOSITORY:
+        raise RepositoryHasNoCampaignsError(
+            detail="A repository is a setting other tenants copy from; nobody plays in it."
+        )
     entity = Entity(tenant_id=tenant_id, name=body.name, created_by=user.id, updated_by=user.id)
     session.add(entity)
     await session.flush()

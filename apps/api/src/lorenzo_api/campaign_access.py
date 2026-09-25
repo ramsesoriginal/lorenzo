@@ -51,6 +51,16 @@ async def is_tenant_admin(
     return membership is not None and membership.role in (MembershipRole.OWNER, MembershipRole.ORGA)
 
 
+async def is_tenant_owner(
+    session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Whether a user holds the tenant-wide OWNER role - what managing
+    memberships (ADR 0036) and a repository's grants and publishing (ADR
+    0118) require."""
+    membership = await session.get(Membership, (tenant_id, user_id))
+    return membership is not None and membership.role is MembershipRole.OWNER
+
+
 async def is_tenant_participant(
     session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:

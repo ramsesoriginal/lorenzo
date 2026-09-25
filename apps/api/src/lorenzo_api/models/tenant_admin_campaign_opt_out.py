@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, CreatedBy
+from lorenzo_api.db import Base, CreatedAt, CreatedBy, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign import Campaign
@@ -31,6 +31,14 @@ class TenantAdminCampaignOptOut(Base):
     """
 
     __tablename__ = "tenant_admin_campaign_opt_out"
+    __table_args__ = (
+        same_tenant_fk(
+            "tenant_admin_campaign_opt_out_campaign_id_fkey",
+            ["campaign_id"],
+            "campaign",
+            ondelete="CASCADE",
+        ),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("tenant.id", ondelete="CASCADE"), primary_key=True
@@ -38,9 +46,7 @@ class TenantAdminCampaignOptOut(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("app_user.id", ondelete="CASCADE"), primary_key=True
     )
-    campaign_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("campaign.id", ondelete="CASCADE"), primary_key=True
-    )
+    campaign_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[CreatedAt]
     created_by: Mapped[CreatedBy]
 
@@ -53,5 +59,7 @@ class TenantAdminCampaignOptOut(Base):
         back_populates="tenant_admin_campaign_opt_outs",
     )
     campaign: Mapped[Campaign] = relationship(
-        lazy="raise_on_sql", back_populates="tenant_admin_opt_outs"
+        foreign_keys="TenantAdminCampaignOptOut.campaign_id",
+        lazy="raise_on_sql",
+        back_populates="tenant_admin_opt_outs",
     )

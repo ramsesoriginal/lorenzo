@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk, same_tenant_fk
 
 
 class CampaignInvite(Base):
@@ -28,12 +28,15 @@ class CampaignInvite(Base):
     """
 
     __tablename__ = "campaign_invite"
+    __table_args__ = (
+        same_tenant_fk(
+            "campaign_invite_campaign_id_fkey", ["campaign_id"], "campaign", ondelete="CASCADE"
+        ),
+    )
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
-    campaign_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("campaign.id", ondelete="CASCADE"), index=True
-    )
+    campaign_id: Mapped[uuid.UUID] = mapped_column(index=True)
     token_hash: Mapped[str] = mapped_column(unique=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("app_user.id", ondelete="SET NULL")

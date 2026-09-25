@@ -678,6 +678,245 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/published": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Publish Repository
+         * @description Publishes a repository, or announces an update to one already
+         *     published: either way `published_at` becomes now, and every granted
+         *     tenant's members are told (ADR 0118). Until the first publish, no
+         *     subscriber can see anything of it.
+         */
+        put: operations["publish_repository"];
+        post?: never;
+        /**
+         * Unpublish Repository
+         * @description Back to draft: subscribers can no longer browse, copy, or check
+         *     for updates. What they already copied is theirs and stays (RFC 0024
+         *     §6).
+         */
+        delete: operations["unpublish_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/subscribers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Subscribers
+         * @description The tenants this repository is granted to, for any of its members.
+         */
+        get: operations["list_subscribers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Grant Repository
+         * @description Grants another tenant access (ADR 0118): `201` for a new grant,
+         *     `200` if it already had one. The tenant is named by its id, which its
+         *     own members pass on; there's no directory of tenants to pick from.
+         *     Its members are told.
+         */
+        put: operations["grant_repository"];
+        post?: never;
+        /**
+         * Revoke Repository
+         * @description Revokes a grant. What the tenant already copied stays theirs (RFC
+         *     0024 §6).
+         */
+        delete: operations["revoke_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repositories
+         * @description The repositories granted to this tenant, published or not, for any
+         *     of its members.
+         */
+        get: operations["list_repositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Repository
+         * @description Gives up a grant from the subscribing side, OWNER only. Nothing
+         *     already copied is touched (RFC 0024 §6).
+         */
+        delete: operations["remove_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse Repository Entities
+         * @description A granted, published repository's entities, before copying: each
+         *     one's name, kinds, and prototypes, never its text (ADR 0118). `q`
+         *     filters by name.
+         */
+        get: operations["browse_repository_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/stat-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse Repository Stat Groups
+         * @description A granted, published repository's stat groups and their definitions,
+         *     before copying (ADR 0118).
+         */
+        get: operations["browse_repository_stat_groups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/copy-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Repository Copy
+         * @description What copying a granted, published repository would do, writing
+         *     nothing (ADR 0119): its manifest - dependencies first, each with
+         *     whether it's granted, published, and already copied here (ADR 0120) -
+         *     how much each step brings in, and every collision that needs a choice.
+         */
+        get: operations["plan_repository_copy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Repository
+         * @description Copies a repository, and whatever of its dependencies this tenant
+         *     hasn't copied yet, in one transaction (ADR 0119, 0120). Refused with
+         *     `409` while a collision has no choice, a step lacks a grant or isn't
+         *     published, or it's already been copied. The copied rows are this
+         *     tenant's own from then on; the tenant-admin tier, like authoring stat
+         *     definitions.
+         */
+        post: operations["copy_repository"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repository Updates
+         * @description What a copied repository changed since this tenant copied or last
+         *     synced it, row by row, beside this tenant's own copy (ADR 0121).
+         *     Reads the repository through the gated read, so it must still be
+         *     granted and published.
+         */
+        get: operations["list_repository_updates"];
+        put?: never;
+        /**
+         * Apply Repository Updates
+         * @description Applies the listed updates, row by row, in one transaction (ADR
+         *     0121). Anything not listed stays as it is. `409` while a conflict is
+         *     named in neither `keep_local` nor `take_upstream`.
+         */
+        post: operations["apply_repository_updates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns": {
         parameters: {
             query?: never;
@@ -2779,6 +3018,26 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AddedOut
+         * @description A row the repository added since, with the collision copying it
+         *     would hit, if any.
+         */
+        AddedOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Name */
+            name: string;
+            collision: components["schemas"]["CollisionOut"] | null;
+        };
+        /**
          * AdminNotificationCreate
          * @description POST /admin/notifications - platform scope requires an explicit
          *     recipient; no broadcast-to-every-user-on-the-platform mechanism exists
@@ -2834,6 +3093,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ApplyUpdatesOut */
+        ApplyUpdatesOut: {
+            /** Applied */
+            applied: number;
+            /** Added */
+            added: number;
+            /** Detached */
+            detached: number;
+            /** Not Applied */
+            not_applied: components["schemas"]["NotAppliedOut"][];
+        };
+        /** ApplyUpdatesRequest */
+        ApplyUpdatesRequest: {
+            /** Actions */
+            actions: components["schemas"]["UpdateActionIn"][];
         };
         /**
          * AuditLogEntryOut
@@ -3404,6 +3679,34 @@ export interface components {
             owner_player_id?: string | null;
         };
         /**
+         * CollisionOut
+         * @description Something a copy would bring in whose name or slug is taken here -
+         *     `local_id` is the stat group or definition it collides with, if any.
+         */
+        CollisionOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stat_group" | "stat_definition" | "slug";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Local Id */
+            local_id: string | null;
+            /** Choices */
+            choices: ("rename" | "merge" | "skip")[];
+        };
+        /**
          * Comparator
          * @enum {string}
          */
@@ -3540,6 +3843,59 @@ export interface components {
             inputs: components["schemas"]["PreviewInputOut"][];
         };
         /**
+         * CopyOut
+         * @description What a copy did: one entry per repository it copied.
+         */
+        CopyOut: {
+            /** Steps */
+            steps: components["schemas"]["CopyStepOut"][];
+        };
+        /**
+         * CopyPlanOut
+         * @description What `POST .../copy` would do, with nothing written (ADR 0119).
+         */
+        CopyPlanOut: {
+            /** Steps */
+            steps: components["schemas"]["CopyStepOut"][];
+            /** Collisions */
+            collisions: components["schemas"]["CollisionOut"][];
+        };
+        /** CopyRequest */
+        CopyRequest: {
+            /** Resolutions */
+            resolutions?: components["schemas"]["ResolutionIn"][] | null;
+        };
+        /**
+         * CopyStepOut
+         * @description One repository in a copy's manifest (ADR 0120): its dependencies in
+         *     order, then the repository itself.
+         */
+        CopyStepOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Name */
+            name: string;
+            /** Granted */
+            granted: boolean;
+            /** Published */
+            published: boolean;
+            /** Already Copied */
+            already_copied: boolean;
+            /** Entities */
+            entities: number;
+            /** Stat Groups */
+            stat_groups: number;
+            /** Stat Definitions */
+            stat_definitions: number;
+            /** Information */
+            information: number;
+            /** Dropped */
+            dropped: components["schemas"]["DroppedOut"][];
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -3551,6 +3907,22 @@ export interface components {
             /** Locale */
             locale: string;
             from_entity: components["schemas"]["EntitySummary"] | null;
+        };
+        /**
+         * DroppedOut
+         * @description A row a copy leaves out, because something it points at wasn't
+         *     copied (usually by the tenant's own choice to skip it).
+         */
+        DroppedOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * DuplicateGroupRequest
@@ -3709,6 +4081,37 @@ export interface components {
             name: string;
             /** Quantity */
             quantity?: number | null;
+        };
+        /**
+         * FieldChangeOut
+         * @description One field the repository changed since this tenant copied or last
+         *     synced it. `field` is its name, or `stats:<id>`/`formulas:<id>` for one
+         *     stat, `label` then naming the stat. Values name other rows by their
+         *     origin id. `clean`: the tenant hasn't changed it, so it can simply be
+         *     taken; `conflict`: the tenant changed it too; `not_applicable`: shown,
+         *     but changed by hand. Sets (`prototypes`, `stat_groups`, `enum_values`)
+         *     list what upstream `added` and `removed`, and are always clean.
+         */
+        FieldChangeOut: {
+            /** Field */
+            field: string;
+            /** Label */
+            label: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "clean" | "conflict" | "not_applicable";
+            /** Base */
+            base: unknown;
+            /** Upstream */
+            upstream: unknown;
+            /** Local */
+            local: unknown;
+            /** Added */
+            added: unknown[] | null;
+            /** Removed */
+            removed: unknown[] | null;
         };
         /**
          * GmOut
@@ -4389,6 +4792,7 @@ export interface components {
             slug: string;
             /** Role */
             role: ("owner" | "orga") | null;
+            kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
         };
@@ -4524,6 +4928,23 @@ export interface components {
              * Format: uuid
              */
             into_entity_id: string;
+        };
+        /**
+         * NotAppliedOut
+         * @description A field that couldn't be applied, and why. It keeps being offered.
+         */
+        NotAppliedOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Field */
+            field: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * NotificationCreate
@@ -4819,6 +5240,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[RepositoryEntityOut] */
+        Page_RepositoryEntityOut_: {
+            /** Items */
+            items: components["schemas"]["RepositoryEntityOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[StatDefinitionOut] */
         Page_StatDefinitionOut_: {
             /** Items */
@@ -4836,6 +5270,32 @@ export interface components {
         Page_StatGroupOut_: {
             /** Items */
             items: components["schemas"]["StatGroupOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[SubscriberOut] */
+        Page_SubscriberOut_: {
+            /** Items */
+            items: components["schemas"]["SubscriberOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[SubscriptionOut] */
+        Page_SubscriptionOut_: {
+            /** Items */
+            items: components["schemas"]["SubscriptionOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -5229,6 +5689,100 @@ export interface components {
             prototype_ids: string[];
         };
         /**
+         * RepositoryEntityOut
+         * @description An entity in a repository, as browsed before copying: structure,
+         *     not text (ADR 0118).
+         */
+        RepositoryEntityOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /** Prototype Ids */
+            prototype_ids: string[];
+        };
+        /** RepositoryStatDefinitionOut */
+        RepositoryStatDefinitionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            value_type: components["schemas"]["StatValueType"];
+            /** Enum Values */
+            enum_values: string[];
+        };
+        /**
+         * RepositoryStatGroupOut
+         * @description A repository's stat group with its definitions, as browsed before
+         *     copying (ADR 0118).
+         */
+        RepositoryStatGroupOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Priority */
+            priority: number;
+            /** Mandatory */
+            mandatory: boolean;
+            /** Definitions */
+            definitions: components["schemas"]["RepositoryStatDefinitionOut"][];
+        };
+        /**
+         * RepositorySummaryOut
+         * @description A repository as a tenant granted it sees it - ADR 0118.
+         */
+        RepositorySummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Description */
+            description: string;
+            /** Published At */
+            published_at: string | null;
+        };
+        /**
+         * ResolutionIn
+         * @description A choice for one collision (ADR 0119). `name` is the new name, or
+         *     the new slug, for `rename`.
+         */
+        ResolutionIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stat_group" | "stat_definition" | "slug";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "rename" | "merge" | "skip";
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * ResolvedSlugOut
          * @description One entry of GET .../entities/resolve - see ADR 0107. `kinds` says
          *     what the entity is, so a client can honour a LorenzoScript view hint
@@ -5255,6 +5809,45 @@ export interface components {
          * @enum {string}
          */
         RoundMode: "none" | "floor" | "ceil" | "round" | "truncate";
+        /** RowChangeOut */
+        RowChangeOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Local Id
+             * Format: uuid
+             */
+            local_id: string;
+            /** Name */
+            name: string;
+            /** Fields */
+            fields: components["schemas"]["FieldChangeOut"][];
+        };
+        /** RowRefOut */
+        RowRefOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Local Id */
+            local_id: string | null;
+            /** Name */
+            name: string;
+        };
         /**
          * SetContainerRequest
          * @description PUT /item-instances/{id}/container body.
@@ -5459,6 +6052,47 @@ export interface components {
          */
         StatValueType: "int" | "text" | "float" | "bool" | "enum";
         /**
+         * SubscriberOut
+         * @description A tenant granted a repository, as its owners see it - ADR 0118.
+         */
+        SubscriberOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /** Granted By */
+            granted_by: string | null;
+        };
+        /**
+         * SubscriptionOut
+         * @description One repository granted to a tenant - `GET .../repositories`, ADR
+         *     0118. `copied_at`/`synced_at` are null until it's copied (ADR 0119);
+         *     `repository.published_at` later than `synced_at` means it has
+         *     published since (ADR 0121).
+         */
+        SubscriptionOut: {
+            repository: components["schemas"]["RepositorySummaryOut"];
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /** Copied At */
+            copied_at: string | null;
+            /** Synced At */
+            synced_at: string | null;
+        };
+        /**
          * SuspendUserRequest
          * @description PUT /admin/users/{id}/suspend body - see ADR 0057.
          */
@@ -5497,7 +6131,15 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
+            kind?: components["schemas"]["TenantKind"] | null;
         };
+        /**
+         * TenantKind
+         * @description What a tenant is for - see ADR 0118/RFC 0024. Never changes once
+         *     the tenant exists (a trigger enforces it).
+         * @enum {string}
+         */
+        TenantKind: "play" | "repository";
         /**
          * TenantOut
          * @description GET /tenants/{id} - the full detail shape. No role here: the caller
@@ -5521,6 +6163,9 @@ export interface components {
             name: string;
             /** Description */
             description: string;
+            kind: components["schemas"]["TenantKind"];
+            /** Published At */
+            published_at: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -5549,6 +6194,7 @@ export interface components {
              * @enum {string}
              */
             role: "owner" | "orga" | "participant";
+            kind: components["schemas"]["TenantKind"];
         };
         /**
          * TenantUpdate
@@ -5565,6 +6211,67 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
+        };
+        /**
+         * UpdateActionIn
+         * @description One row's update. `apply` takes every clean field, and each
+         *     conflicting field named in `take_upstream`; one named in `keep_local`
+         *     stays. Every conflict must be named in one or the other. `add` copies
+         *     an added row, with `resolution` for its collision; `detach` drops a
+         *     removed row's link.
+         */
+        UpdateActionIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "apply" | "add" | "detach";
+            /** Keep Local */
+            keep_local?: string[] | null;
+            /** Take Upstream */
+            take_upstream?: string[] | null;
+            resolution?: components["schemas"]["UpdateResolutionIn"] | null;
+        };
+        /** UpdateResolutionIn */
+        UpdateResolutionIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "rename" | "merge" | "skip";
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * UpdatesOut
+         * @description `GET .../repositories/{id}/updates` - ADR 0121. `removed` rows are
+         *     gone upstream and only ever detached, never deleted here;
+         *     `deleted_locally` rows are ones this tenant deleted itself.
+         */
+        UpdatesOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Changed */
+            changed: components["schemas"]["RowChangeOut"][];
+            /** Removed */
+            removed: components["schemas"]["RowRefOut"][];
+            /** Deleted Locally */
+            deleted_locally: components["schemas"]["RowRefOut"][];
+            /** Added */
+            added: components["schemas"]["AddedOut"][];
         };
         /**
          * UserRefOut
@@ -6879,6 +7586,7 @@ export interface operations {
     list_tenants: {
         parameters: {
             query?: {
+                kind?: components["schemas"]["TenantKind"] | null;
                 page?: number;
                 size?: number;
             };
@@ -7706,6 +8414,874 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    publish_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unpublish_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_subscribers: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SubscriberOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    grant_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscriber_tenant_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    revoke_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscriber_tenant_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_repositories: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SubscriptionOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    browse_repository_entities: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RepositoryEntityOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    browse_repository_stat_groups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryStatGroupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    plan_repository_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    copy_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CopyRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_repository_updates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    apply_repository_updates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyUpdatesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyUpdatesOut"];
                 };
             };
             /** @description Validation Error */

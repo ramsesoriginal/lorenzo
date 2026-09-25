@@ -37,10 +37,17 @@ from lorenzo_api.models.payload_number import PayloadNumber
 from lorenzo_api.models.payload_picture import PayloadPicture
 from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
+from lorenzo_api.models.repository_copy import (
+    RepositoryCopy,
+    RepositoryCopyLinkEntity,
+    RepositoryCopyLinkStatDefinition,
+    RepositoryCopyLinkStatGroup,
+)
+from lorenzo_api.models.repository_subscription import RepositorySubscription
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
 from lorenzo_api.models.stat_group import StatGroup
-from lorenzo_api.models.tenant import Tenant
+from lorenzo_api.models.tenant import Tenant, TenantKind
 from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 from lorenzo_api.models.tenant_profile_picture import TenantProfilePicture
 from lorenzo_api.models.user import User
@@ -90,11 +97,17 @@ __all__ = [
     "PayloadPicture",
     "Player",
     "ProfilePicture",
+    "RepositoryCopy",
+    "RepositoryCopyLinkEntity",
+    "RepositoryCopyLinkStatDefinition",
+    "RepositoryCopyLinkStatGroup",
+    "RepositorySubscription",
     "StatDefinition",
     "StatDefinitionEnumValue",
     "StatGroup",
     "StatValueType",
     "Tenant",
+    "TenantKind",
     "TenantAdminCampaignOptOut",
     "TenantProfilePicture",
     "User",

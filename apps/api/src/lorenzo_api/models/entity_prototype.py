@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
@@ -21,15 +21,17 @@ class EntityPrototype(Base):
 
     __tablename__ = "entity_prototype"
     __table_args__ = (
+        same_tenant_fk(
+            "entity_prototype_entity_id_fkey", ["entity_id"], "entity", ondelete="CASCADE"
+        ),
+        same_tenant_fk(
+            "entity_prototype_prototype_id_fkey", ["prototype_id"], "entity", ondelete="CASCADE"
+        ),
         CheckConstraint("entity_id <> prototype_id", name="entity_prototype_no_self_loop"),
     )
 
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
-    )
-    prototype_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
-    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    prototype_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
 
     entity: Mapped[Entity] = relationship(

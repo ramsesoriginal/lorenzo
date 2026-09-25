@@ -1,9 +1,9 @@
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Sequence
 from datetime import datetime
 from typing import Annotated
 
-from sqlalchemy import DateTime, ForeignKey, Text, text
+from sqlalchemy import DateTime, ForeignKey, ForeignKeyConstraint, Text, text
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncSession,
@@ -59,6 +59,33 @@ CreatedBy = Annotated[
 UpdatedBy = Annotated[
     uuid.UUID | None, mapped_column(ForeignKey("app_user.id", ondelete="SET NULL"), index=True)
 ]
+
+
+def same_tenant_fk(
+    name: str,
+    columns: Sequence[str],
+    target: str,
+    target_columns: Sequence[str] = ("id",),
+    *,
+    ondelete: str | None = None,
+) -> ForeignKeyConstraint:
+    """A foreign key to another tenant table, composite with tenant_id so
+    both ends always share a tenant (ADR 0117). A foreign-key check ignores
+    RLS, so this, not a router's tenant_id filter, is what makes a
+    cross-tenant reference impossible. Every tenant-to-tenant key is
+    declared through this, in __table_args__, never as a bare ForeignKey on
+    the column.
+
+    Relationships over these keys name their own id column in
+    foreign_keys=, so the ORM still joins on the id alone and no two
+    relationships both claim to populate tenant_id.
+    """
+    return ForeignKeyConstraint(
+        [*columns, "tenant_id"],
+        [f"{target}.{c}" for c in (*target_columns, "tenant_id")],
+        name=name,
+        ondelete=ondelete,
+    )
 
 
 # pool_recycle: the deploy target (Neon, ADR 0011) fronts Postgres with its

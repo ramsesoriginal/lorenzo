@@ -3,10 +3,9 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
@@ -19,14 +18,29 @@ class EntityStatGroup(Base):
     """
 
     __tablename__ = "entity_stat_group"
+    __table_args__ = (
+        same_tenant_fk(
+            "entity_stat_group_entity_id_fkey", ["entity_id"], "entity", ondelete="CASCADE"
+        ),
+        same_tenant_fk(
+            "entity_stat_group_stat_group_id_fkey",
+            ["stat_group_id"],
+            "stat_group",
+            ondelete="CASCADE",
+        ),
+    )
 
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
-    )
-    stat_group_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("stat_group.id", ondelete="CASCADE"), primary_key=True
-    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_group_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
 
-    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="stat_group_links")
-    stat_group: Mapped[StatGroup] = relationship(lazy="raise_on_sql", back_populates="entity_links")
+    entity: Mapped[Entity] = relationship(
+        foreign_keys="EntityStatGroup.entity_id",
+        lazy="raise_on_sql",
+        back_populates="stat_group_links",
+    )
+    stat_group: Mapped[StatGroup] = relationship(
+        foreign_keys="EntityStatGroup.stat_group_id",
+        lazy="raise_on_sql",
+        back_populates="entity_links",
+    )

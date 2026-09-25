@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, CreatedBy
+from lorenzo_api.db import Base, CreatedAt, CreatedBy, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign import Campaign
@@ -31,6 +31,11 @@ class CampaignGm(Base):
     """
 
     __tablename__ = "campaign_gm"
+    __table_args__ = (
+        same_tenant_fk(
+            "campaign_gm_campaign_id_fkey", ["campaign_id"], "campaign", ondelete="CASCADE"
+        ),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("tenant.id", ondelete="CASCADE"), primary_key=True
@@ -38,9 +43,7 @@ class CampaignGm(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("app_user.id", ondelete="CASCADE"), primary_key=True
     )
-    campaign_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("campaign.id", ondelete="CASCADE"), primary_key=True
-    )
+    campaign_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[CreatedAt]
     created_by: Mapped[CreatedBy]
 
@@ -50,4 +53,6 @@ class CampaignGm(Base):
     user: Mapped[User] = relationship(
         lazy="raise_on_sql", foreign_keys=[user_id], back_populates="campaign_gms"
     )
-    campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="gms")
+    campaign: Mapped[Campaign] = relationship(
+        foreign_keys="CampaignGm.campaign_id", lazy="raise_on_sql", back_populates="gms"
+    )

@@ -163,7 +163,9 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
     for tenant_id in set(admin_role_by_tenant) | set(gm_campaign_ids_by_tenant):
         await set_tenant_rls_context(session, tenant_id)
         tenant_row = (
-            await session.execute(select(Tenant.name, Tenant.slug).where(Tenant.id == tenant_id))
+            await session.execute(
+                select(Tenant.name, Tenant.slug, Tenant.kind).where(Tenant.id == tenant_id)
+            )
         ).one()
         gm_campaign_ids = gm_campaign_ids_by_tenant.get(tenant_id, set())
         campaign_stmt = (
@@ -186,6 +188,7 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
                 name=tenant_row.name,
                 slug=tenant_row.slug,
                 role=role.value if role is not None else None,
+                kind=tenant_row.kind,
                 campaigns=campaigns,
             )
         )

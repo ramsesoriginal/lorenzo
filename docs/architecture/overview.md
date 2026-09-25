@@ -113,6 +113,17 @@ Giving can hand an item over, and players read the catalog:
 - **Stacks keep their count.** A character now carries what's in no container of theirs, so a stack leaving a container goes into its owner and keeps its count. The owned-by listing shows such items as loose. `DELETE .../container` refuses a stack instead of silently dropping its count, fixing inventory-web's "Remove from container".
 - **The catalog for players.** Any tenant participant reads a catalog item and its ancestry. A GM-set `item.in_public_catalog` decides what non-members can list and search. inventory-web links players to catalog pages again, and shows them the public catalog at `/items` ([ADR 0116](../adr/0116-players-read-catalog-items-and-a-public-catalog.md)).
 
+Repositories exist ([RFC 0024](../rfcs/0024-repositories.md), accepted with an amendment):
+
+- **Same-tenant references.** Every foreign key between two tenant tables now includes `tenant_id`, so no row can point into another tenant, whatever the code writing it does ([ADR 0117](../adr/0117-same-tenant-references-by-composite-foreign-keys.md)).
+- **Repository tenants.** A tenant is for play or a repository, fixed at creation. A repository holds no campaigns, and its owners publish it, or publish again to announce an update. Its owners grant other tenants access by id, and either side can end a grant ([ADR 0118](../adr/0118-repository-tenants-subscriptions-and-a-gated-read.md)).
+- **The gated read.** A granted tenant reads a published repository only inside requests that ask to, through a select-only policy on every content table. Ordinary requests never see a repository's rows, so nothing that relies on RLS alone, such as `v_effective_stat`, is affected. Granted tenants can browse a repository's entities and stat groups before copying.
+- **Copying.** Play runs on a copy: a repository's own rows, with fresh ids, become the tenant's ordinary data, independent of the repository from then on. Names and slugs that collide need a rename, merge, or skip choice first ([ADR 0119](../adr/0119-copying-a-repository-into-a-tenant.md)).
+- **Bridges.** A repository that copied others, such as `dnd_faerun` joining Faerûn and D&D 5e, is copied with its dependencies in one call. Its own rows' references land on the tenant's own copies of the dependencies, and dependencies copied before are reused ([ADR 0120](../adr/0120-bridge-repositories-and-dependency-manifests.md)).
+- **Updates.** Each copied entity, stat group, and definition keeps a snapshot, so a tenant sees what a repository changed since, field by field, beside its own edits, and applies it row by row. Conflicts with its own edits are always named, never resolved silently ([ADR 0121](../adr/0121-repository-updates-and-re-sync.md)).
+
+API only: screens for repositories in the web apps are separate, later work. Authoring a repository's content uses the same routes and screens as any tenant.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

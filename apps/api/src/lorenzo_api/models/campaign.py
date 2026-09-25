@@ -3,10 +3,19 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UpdatedBy, UuidPk
+from lorenzo_api.db import (
+    Base,
+    CreatedAt,
+    CreatedBy,
+    TenantFk,
+    UpdatedAt,
+    UpdatedBy,
+    UuidPk,
+    same_tenant_fk,
+)
 
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign_gm import CampaignGm
@@ -27,7 +36,12 @@ class Campaign(Base):
     # UNIQUE(tenant_id, name) precedent), not global like tenant.slug - two
     # unrelated tenants both running a "the-ashen-crown" campaign isn't a
     # conflict.
-    __table_args__ = (UniqueConstraint("tenant_id", "slug"),)
+    __table_args__ = (
+        # ADR 0117: what same-tenant keys into this table reference.
+        UniqueConstraint("id", "tenant_id", name="campaign_id_tenant_id_key"),
+        same_tenant_fk("campaign_entity_id_fkey", ["entity_id"], "entity", ondelete="RESTRICT"),
+        UniqueConstraint("tenant_id", "slug"),
+    )
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
@@ -55,29 +69,32 @@ class Campaign(Base):
     # governs the referencing row when the *referenced* row disappears, so
     # this only actually fires if someone deletes the Entity directly,
     # out of band.
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="RESTRICT"), unique=True
-    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(unique=True)
     created_by: Mapped[CreatedBy]
     updated_by: Mapped[UpdatedBy]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="campaigns")
-    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="campaign")
+    entity: Mapped[Entity] = relationship(
+        foreign_keys="Campaign.entity_id", lazy="raise_on_sql", back_populates="campaign"
+    )
     players: Mapped[list[Player]] = relationship(
+        foreign_keys="Player.campaign_id",
         lazy="raise_on_sql",
         back_populates="campaign",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     gms: Mapped[list[CampaignGm]] = relationship(
+        foreign_keys="CampaignGm.campaign_id",
         lazy="raise_on_sql",
         back_populates="campaign",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     tenant_admin_opt_outs: Mapped[list[TenantAdminCampaignOptOut]] = relationship(
+        foreign_keys="TenantAdminCampaignOptOut.campaign_id",
         lazy="raise_on_sql",
         back_populates="campaign",
         cascade="all, delete-orphan",

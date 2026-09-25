@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-The merged, up-to-date picture of every table built so far: `feat/inventory-management` (sub-slices 1-7), `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+), the REST API surface built on top (ADR 0030-0049), and the tenant/user-management and notifications work since (profile pictures - ADR 0056, platform operations/activity log - ADR 0057/0063, notifications - ADR 0058-0061, campaign invite links - ADR 0092, the player-facing change feed - ADR 0099, editable information - ADR 0101, stat enum values and mandatory groups - ADR 0103, computed stats - ADR 0104, entity slugs - ADR 0107, content references - ADR 0110, the public catalog - ADR 0116). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `entity_slug`, `content_reference`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`, `user_profile_picture`, `tenant_profile_picture`, `campaign_profile_picture`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `audit_log` and `notification` are the one exception worth calling out explicitly: both are append-only logs, so they carry `created_at` but deliberately no `updated_at` - a row is never mutated after creation. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
+The merged, up-to-date picture of every table built so far: `feat/inventory-management` (sub-slices 1-7), `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+), the REST API surface built on top (ADR 0030-0049), and the tenant/user-management and notifications work since (profile pictures - ADR 0056, platform operations/activity log - ADR 0057/0063, notifications - ADR 0058-0061, campaign invite links - ADR 0092, the player-facing change feed - ADR 0099, editable information - ADR 0101, stat enum values and mandatory groups - ADR 0103, computed stats - ADR 0104, entity slugs - ADR 0107, content references - ADR 0110, the public catalog - ADR 0116, and repositories - ADR 0117-0121). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `entity_slug`, `content_reference`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`, `user_profile_picture`, `tenant_profile_picture`, `campaign_profile_picture`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `audit_log` and `notification` are the one exception worth calling out explicitly: both are append-only logs, so they carry `created_at` but deliberately no `updated_at` - a row is never mutated after creation. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
 
 ```mermaid
 erDiagram
@@ -62,6 +62,12 @@ erDiagram
     APP_USER ||--o{ CAMPAIGN_INVITE : creates
     TENANT ||--o{ ENTITY_CHANGE : scopes
     APP_USER ||--o{ ENTITY_CHANGE : receives
+    TENANT ||--o{ REPOSITORY_SUBSCRIPTION : "grants (as repository)"
+    TENANT ||--o{ REPOSITORY_SUBSCRIPTION : "is granted"
+    TENANT ||--o{ REPOSITORY_COPY : "has copied"
+    ENTITY |o--o{ REPOSITORY_COPY_LINK_ENTITY : "copied as"
+    STAT_GROUP |o--o{ REPOSITORY_COPY_LINK_STAT_GROUP : "copied or merged as"
+    STAT_DEFINITION |o--o{ REPOSITORY_COPY_LINK_STAT_DEFINITION : "copied or merged as"
 
     APP_USER {
         uuid id PK
@@ -82,6 +88,8 @@ erDiagram
         string name
         string slug "globally unique, URL-safe"
         string description
+        enum kind "play | repository - never changes"
+        timestamptz published_at "nullable; a repository's draft/published state"
     }
     MEMBERSHIP {
         uuid tenant_id PK,FK
@@ -323,6 +331,37 @@ erDiagram
         boolean actor_visible "false for GMs and tenant administrators"
         timestamptz occurred_at "app-generated, 90-day retention"
     }
+    REPOSITORY_SUBSCRIPTION {
+        uuid repository_tenant_id PK,FK "must be a repository"
+        uuid subscriber_tenant_id PK,FK
+    }
+    REPOSITORY_COPY {
+        uuid tenant_id PK,FK "the copying tenant"
+        uuid repository_tenant_id PK "not a foreign key"
+        timestamptz copied_at
+        timestamptz synced_at
+    }
+    REPOSITORY_COPY_LINK_ENTITY {
+        uuid tenant_id PK,FK
+        uuid source_id PK "the origin row, not a foreign key"
+        uuid source_tenant_id "not a foreign key"
+        uuid entity_id FK "nullable: null once the copy is deleted"
+        jsonb snapshot "what was copied, in origin ids"
+    }
+    REPOSITORY_COPY_LINK_STAT_GROUP {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid stat_group_id FK "nullable"
+        string mode "copied | merged"
+        jsonb snapshot
+    }
+    REPOSITORY_COPY_LINK_STAT_DEFINITION {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid stat_definition_id FK "nullable"
+        string mode "copied | merged"
+        jsonb snapshot
+    }
 ```
 
 A few things this single view makes clearer than any one sub-slice's diagram could:
@@ -343,6 +382,9 @@ A few things this single view makes clearer than any one sub-slice's diagram cou
 - **`knowledge` is the one join table that needed a surrogate `id` and two explicit `UNIQUE` constraints** rather than relying on a composite PK - its two knower columns are mutually exclusive and always one-null (`CHECK(num_nonnulls(...) = 1)`, same shape as `entity_stat`'s four value columns), and Postgres can't put a nullable column in a composite PK at all.
 - **`campaign_invite` is the one table readable by holding a secret rather than being someone** ([ADR 0092](../../adr/0092-campaign-invite-links.md)): besides the ordinary tenant policy it has a select-only policy keyed on `app.invite_token_hash`, which only the two public `/invites/{token}` routes set - a token holder can read that one row and nothing else, and can write nothing. Redeeming creates an ordinary `player` row; there is no separate "redemption" table, only `use_count` and an `audit_log` entry.
 - **`entity_change` is readable only by its recipient** ([ADR 0099](../../adr/0099-player-facing-change-feed.md)) - stricter than `notification`, which also admits anyone holding the tenant context. Rows are written by whoever made the change, inside that route's tenant context, so the app generates `id` and `occurred_at` itself: with nothing server-generated there is no `INSERT ... RETURNING` that the recipient-only read policy would reject. `entity_id` and `character_entity_id` are deliberately not foreign keys, so a `deleted` row outlives its item; like `audit_log`, a row is never updated after it is written.
+- **Every foreign key between two tenant tables includes `tenant_id`** ([ADR 0117](../../adr/0117-same-tenant-references-by-composite-foreign-keys.md)), so a row can never point into another tenant. The lines above draw each key by its id column alone; each referenced table carries a `UNIQUE (id, tenant_id)` for the composite key to point at.
+- **A repository is a tenant of `kind = repository`** ([ADR 0118](../../adr/0118-repository-tenants-subscriptions-and-a-gated-read.md)) and holds no campaigns (a trigger). `repository_subscription` is the one table spanning two tenants, so it has no `tenant_id`: either side reads or removes a grant, only the repository's side creates one. Every content table has a second, `FOR SELECT` policy, `repository_read`, true only for the rows of a granted, published repository that the current request asked to read (`app.repository_tenant_id`, set only by `repository_access.reading_repository`).
+- **The copy tables belong to the copying tenant** ([ADR 0119](../../adr/0119-copying-a-repository-into-a-tenant.md)): `repository_copy` says it copied a repository, and each link says which origin row a local row came from, with a snapshot [ADR 0121](../../adr/0121-repository-updates-and-re-sync.md) diffs against. The source side is a plain id, so the copy outlives the repository; the local side nulls on delete, so a deleted copy stays distinguishable from a row new upstream.
 - **`content_reference` points at a slug, not at an entity** ([ADR 0110](../../adr/0110-lorenzoscript-content-references-and-backlinks.md)) - the dotted line to `entity_slug` is a match on `target`, resolved when read, not a foreign key. So a reference to a slug nobody holds yet is kept and counts once the slug exists. Rows are derived from description text by `write_description` and never written any other way.
 
 Not shown: the partial `UNIQUE(entity_id, type) WHERE type IN ('description', 'main_picture')` on `information` plus `UNIQUE(entity_id, order)` on it and `UNIQUE(information_id, order)` on `payload` ([ADR 0101](../../adr/0101-editable-information-and-description-payloads.md)), `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)`, `UNIQUE(email)` and `UNIQUE(nickname)` on `app_user`, `UNIQUE(campaign_id, user_id)` on `player`, `UNIQUE(tenant_id, slug)` on `campaign` and `entity_slug`, `UNIQUE` (global) on `tenant.slug` and `campaign_invite.token_hash`, and on `knowledge`, `UNIQUE(knower_entity_id, information_id)`/`UNIQUE(knower_player_id, information_id)` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0054](../../adr/0054-user-identity-email-and-nickname.md) app_user email/nickname, [0057](../../adr/0057-platform-operations.md) app_user suspension, [0060](../../adr/0060-user-profile-expansion.md) app_user profile, [0024](../../adr/0024-campaign-and-player.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md)/[0031](../../adr/0031-character-table-and-read-api.md) being/character/character_player/ownership, [0026](../../adr/0026-campaign-gm-orga-and-access-rule.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign_gm/tenant_admin_campaign_opt_out, [0028](../../adr/0028-knowledge-and-group-membership.md)/[0031](../../adr/0031-character-table-and-read-api.md) knowledge/group_member/information.is_public, [0029](../../adr/0029-attribution-created-by-updated-by.md) created_by/updated_by, [0056](../../adr/0056-profile-pictures.md) profile_picture/user_profile_picture/tenant_profile_picture/campaign_profile_picture, [0057](../../adr/0057-platform-operations.md)/[0063](../../adr/0063-tenant-activity-log.md) audit_log, [0058](../../adr/0058-notifications.md)-[0061](../../adr/0061-notification-sender-read-receipts.md) notification, [0092](../../adr/0092-campaign-invite-links.md) campaign_invite, [0099](../../adr/0099-player-facing-change-feed.md) entity_change, [0107](../../adr/0107-entity-slugs-and-batch-resolve.md) entity_slug, [0110](../../adr/0110-lorenzoscript-content-references-and-backlinks.md) content_reference.

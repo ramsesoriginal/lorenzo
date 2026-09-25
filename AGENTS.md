@@ -12,7 +12,7 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 
 | Path | Purpose |
 | --- | --- |
-| `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth |
+| `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth, repositories (RFC 0024: tenants other tenants are granted, copy from, and sync with) |
 | `apps/loot-bot` | Discord bot — talks to `apps/api`; account linking, inventory, loot-splitting, GM drops/claims |
 | `apps/inventory-web` | Static Astro frontend — GM item catalog/instance management, kanban-style container board, LorenzoScript descriptions, tag, information and slug editing, players' notes, handing items over, a public catalog for players; end-to-end tests against the real API (`mise run //apps/inventory-web:test-e2e`, ADR 0114) |
 | `apps/account-hub` | Static Astro frontend — a user's own account: profile, notifications, tenant/campaign roster and admin |
@@ -39,6 +39,7 @@ mise run check                                          # lint + test - the full
 - Merge PRs with a merge commit, never squash/rebase (see [ADR 0005](docs/adr/0005-git-branching-and-merge-strategy.md)) — branch history is kept deliberately.
 - No `utils`/misc grab-bags — generic code becomes its own package under `packages/`.
 - Any table that stores tenant data needs a `tenant_id` column and an RLS policy with `FORCE ROW LEVEL SECURITY` (see [ADR 0002](docs/adr/0002-multi-tenancy-shared-schema-rls.md); every table since [ADR 0012](docs/adr/0012-entity-table.md) follows this). Never rely on application-level filtering alone. The app's own DB role used to be a superuser, which bypasses RLS unconditionally regardless of policy correctness — fixed by a restricted, non-superuser role ([ADR 0021](docs/adr/0021-restricted-app-role-for-rls-enforcement.md)), rotated and confirmed in production too, not just deployed (see [docs/operations/deployment-setup.md](docs/operations/deployment-setup.md)) — if you're working against an older checkout and not sure whether it has this fix, check for a `lorenzo_app` role and a `migrations_database_url` split in `config.py`.
+- Every foreign key between two tenant tables includes `tenant_id` (declare it with `db.same_tenant_fk`, ADR 0117), and every new tenant table goes in one of `repository_access`'s two lists, content a repository can hold or not (ADR 0118). Tests fail on either one missed.
 - Formatting/linting is enforced by pre-commit + CI, not by convention.
 
 ## Planning: RFC/ADR, Issues, and Milestones

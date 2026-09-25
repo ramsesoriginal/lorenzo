@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.character import Character
@@ -36,16 +36,30 @@ class GroupMember(Base):
 
     __tablename__ = "group_member"
     __table_args__ = (
+        same_tenant_fk(
+            "group_member_character_entity_id_fkey",
+            ["character_entity_id"],
+            "character",
+            ["entity_id"],
+            ondelete="CASCADE",
+        ),
+        same_tenant_fk(
+            "group_member_group_entity_id_fkey", ["group_entity_id"], "entity", ondelete="CASCADE"
+        ),
         CheckConstraint("group_entity_id <> character_entity_id", name="group_member_no_self_loop"),
     )
 
-    group_entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
-    )
-    character_entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("character.entity_id", ondelete="CASCADE"), primary_key=True
-    )
+    group_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    character_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
 
-    group: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="group_member_links")
-    character: Mapped[Character] = relationship(lazy="raise_on_sql", back_populates="group_links")
+    group: Mapped[Entity] = relationship(
+        foreign_keys="GroupMember.group_entity_id",
+        lazy="raise_on_sql",
+        back_populates="group_member_links",
+    )
+    character: Mapped[Character] = relationship(
+        foreign_keys="GroupMember.character_entity_id",
+        lazy="raise_on_sql",
+        back_populates="group_links",
+    )

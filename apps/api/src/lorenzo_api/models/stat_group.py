@@ -17,7 +17,11 @@ class StatGroup(Base):
     """Clusters related stat_definitions - see ADR 0014 and RFC 0001."""
 
     __tablename__ = "stat_group"
-    __table_args__ = (UniqueConstraint("tenant_id", "name"),)
+    __table_args__ = (
+        # ADR 0117: what same-tenant keys into this table reference.
+        UniqueConstraint("id", "tenant_id", name="stat_group_id_tenant_id_key"),
+        UniqueConstraint("tenant_id", "name"),
+    )
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
@@ -33,12 +37,14 @@ class StatGroup(Base):
 
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_groups")
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
+        foreign_keys="StatDefinition.stat_group_id",
         lazy="raise_on_sql",
         back_populates="stat_group",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     entity_links: Mapped[list[EntityStatGroup]] = relationship(
+        foreign_keys="EntityStatGroup.stat_group_id",
         lazy="raise_on_sql",
         back_populates="stat_group",
         cascade="all, delete-orphan",

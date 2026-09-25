@@ -3,10 +3,9 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.character import Character
@@ -30,14 +29,30 @@ class CharacterPlayer(Base):
     """
 
     __tablename__ = "character_player"
+    __table_args__ = (
+        same_tenant_fk(
+            "character_player_character_entity_id_fkey",
+            ["character_entity_id"],
+            "character",
+            ["entity_id"],
+            ondelete="CASCADE",
+        ),
+        same_tenant_fk(
+            "character_player_player_id_fkey", ["player_id"], "player", ondelete="CASCADE"
+        ),
+    )
 
-    character_entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("character.entity_id", ondelete="CASCADE"), primary_key=True
-    )
-    player_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("player.id", ondelete="CASCADE"), primary_key=True
-    )
+    character_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    player_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
 
-    character: Mapped[Character] = relationship(lazy="raise_on_sql", back_populates="player_links")
-    player: Mapped[Player] = relationship(lazy="raise_on_sql", back_populates="character_links")
+    character: Mapped[Character] = relationship(
+        foreign_keys="CharacterPlayer.character_entity_id",
+        lazy="raise_on_sql",
+        back_populates="player_links",
+    )
+    player: Mapped[Player] = relationship(
+        foreign_keys="CharacterPlayer.player_id",
+        lazy="raise_on_sql",
+        back_populates="character_links",
+    )

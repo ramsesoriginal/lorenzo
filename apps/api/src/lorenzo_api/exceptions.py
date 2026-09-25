@@ -43,6 +43,7 @@ __all__ = [
     "InformationManagementForbiddenError",
     "InformationNotFoundError",
     "InvalidSplitQuantityError",
+    "InvalidSubscriberError",
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
@@ -65,9 +66,14 @@ __all__ = [
     "PlatformOperatorRoleRequiredError",
     "PlayerAlreadyExistsError",
     "PlayerNotFoundError",
+    "NotARepositoryError",
     "PreconditionFailedError",
+    "RepositoryHasNoCampaignsError",
+    "RepositoryManagementForbiddenError",
+    "RepositoryNotFoundError",
     "ProfilePictureNotFoundError",
     "SlugConflictError",
+    "SubscriptionNotFoundError",
     "StackNeedsContainerError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
@@ -75,6 +81,14 @@ __all__ = [
     "TooManyRequestsError",
     "TenantNotFoundError",
     "UserNotFoundError",
+    "InvalidRepositoryCopyChoiceError",
+    "RepositoryAlreadyCopiedError",
+    "RepositoryCopyFormulaCycleError",
+    "RepositoryCopyNeedsChoicesError",
+    "RepositoryCopyNeedsGrantsError",
+    "InvalidRepositoryUpdateError",
+    "RepositoryNotCopiedError",
+    "RepositoryUpdateNeedsChoicesError",
 ]
 
 
@@ -703,3 +717,105 @@ class TooManyRequestsError(StatusProblem):
 
     status = 429
     title = "Too many requests"
+
+
+class RepositoryHasNoCampaignsError(ConflictProblem):
+    """POST .../campaigns on a repository tenant - ADR 0118. A repository
+    is a reusable setting nobody plays in; a trigger on `campaign` refuses
+    the row too, this just answers first and plainly."""
+
+    title = "A repository holds no campaigns"
+
+
+class NotARepositoryError(ConflictProblem):
+    """A repository-only action (publishing, granting access) on a play
+    tenant - ADR 0118."""
+
+    title = "This tenant isn't a repository"
+
+
+class RepositoryManagementForbiddenError(ForbiddenProblem):
+    """Publishing a repository or granting access to it takes the
+    repository tenant's OWNER role; removing a grant from the subscribing
+    side takes that tenant's OWNER role - ADR 0118."""
+
+    title = "Only a tenant's owners can do this"
+
+
+class RepositoryNotFoundError(NotFoundProblem):
+    """A repository this tenant holds no grant for, or one that isn't
+    published - ADR 0118. Both answer the same, so a draft's existence
+    doesn't leak."""
+
+    title = "Repository not found"
+
+
+class SubscriptionNotFoundError(NotFoundProblem):
+    """Removing a grant that doesn't exist - ADR 0118."""
+
+    title = "No such grant"
+
+
+class InvalidSubscriberError(UnprocessableProblem):
+    """Granting a repository to itself - ADR 0118."""
+
+    title = "A repository can't be granted to itself"
+
+
+class RepositoryAlreadyCopiedError(ConflictProblem):
+    """A second copy of a repository - ADR 0119. Later changes come in as
+    updates (ADR 0121), not as another copy."""
+
+    title = "This repository has already been copied"
+
+
+class RepositoryCopyNeedsChoicesError(ConflictProblem):
+    """A copy would collide with names or slugs already in use - ADR 0119.
+    Carries `collisions`, each with the choices it allows; send one
+    `resolution` per collision."""
+
+    title = "Some names are already in use here"
+
+
+class RepositoryCopyNeedsGrantsError(ConflictProblem):
+    """A copy needs a repository this tenant holds no grant for, or one
+    that isn't published - ADR 0120. Carries `missing`."""
+
+    title = "This copy needs access to more repositories"
+
+
+class InvalidRepositoryCopyChoiceError(UnprocessableProblem):
+    """A collision choice that can't work: a rename onto a name that's
+    taken, a merge across value types, a malformed slug - ADR 0119."""
+
+    title = "That choice can't be applied"
+
+
+class RepositoryCopyFormulaCycleError(ConflictProblem):
+    """A copy whose merged stats would make formulas depend on each other
+    in a loop - ADR 0119. Nothing is copied."""
+
+    title = "The copy would make formulas loop"
+
+
+class RepositoryNotCopiedError(ConflictProblem):
+    """Checking or applying updates for a repository this tenant hasn't
+    copied - ADR 0121. Copy it first."""
+
+    title = "This repository hasn't been copied here"
+
+
+class RepositoryUpdateNeedsChoicesError(ConflictProblem):
+    """Applying an update where this tenant changed a field too, without
+    saying whether to keep its own value or take the repository's - ADR
+    0121. Carries `conflicts`: name each in `keep_local` or
+    `take_upstream`."""
+
+    title = "Some changes conflict with your own edits"
+
+
+class InvalidRepositoryUpdateError(UnprocessableProblem):
+    """An update action for a row that has nothing of that kind to do -
+    ADR 0121."""
+
+    title = "That update can't be applied"

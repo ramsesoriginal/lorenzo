@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import FetchedValue, ForeignKey, Index, UniqueConstraint, text
+from sqlalchemy import FetchedValue, Index, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UuidPk
+from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UuidPk, same_tenant_fk
 from lorenzo_api.models.information_type import SINGLETON_INFORMATION_TYPES
 
 if TYPE_CHECKING:
@@ -25,6 +25,9 @@ class Information(Base):
     # ADR 0101: only the singleton types (information_type.is_singleton)
     # are one per entity; every other type repeats.
     __table_args__ = (
+        # ADR 0117: what same-tenant keys into this table reference.
+        UniqueConstraint("id", "tenant_id", name="information_id_tenant_id_key"),
+        same_tenant_fk("information_entity_id_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
         Index(
             "information_singleton_type",
             "entity_id",
@@ -39,9 +42,7 @@ class Information(Base):
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), index=True
-    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(index=True)
     title: Mapped[str]
     type: Mapped[str]
     # False by default - GM-only is the default, not a separate flag
@@ -59,8 +60,11 @@ class Information(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="information")
+    entity: Mapped[Entity] = relationship(
+        foreign_keys="Information.entity_id", lazy="raise_on_sql", back_populates="information"
+    )
     payloads: Mapped[list[Payload]] = relationship(
+        foreign_keys="Payload.information_id",
         lazy="raise_on_sql",
         order_by="Payload.order",
         back_populates="information",
@@ -68,6 +72,7 @@ class Information(Base):
         passive_deletes=True,
     )
     knowledge_links: Mapped[list[Knowledge]] = relationship(
+        foreign_keys="Knowledge.information_id",
         lazy="raise_on_sql",
         back_populates="information",
         cascade="all, delete-orphan",
