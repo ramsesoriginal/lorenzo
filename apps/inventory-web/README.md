@@ -66,8 +66,42 @@ repo root:
 | `mise run dev` | Start the dev server at `localhost:4321` |
 | `mise run lint` | Biome + `astro check` + Prettier (`.astro`) |
 | `mise run format` | Autoformat |
-| `mise run test` | Run the test suite |
+| `mise run test` | Run the unit tests (Vitest, `src/lib/`) |
+| `mise run test-e2e` | Run the end-to-end tests (Playwright) |
 | `mise run build` | Build the static site to `dist/` |
+
+## End-to-end tests
+
+`tests/e2e/` drives the built site in Chromium against the real `apps/api`
+and a fake Authgear ([ADR 0114](../../docs/adr/0114-inventory-web-end-to-end-tests.md)).
+Playwright starts all three:
+
+- the fake Authgear (`tests/e2e/support/fake-authgear.ts`), which signs in
+  whoever a test names, with no login form;
+- the API on its own database, `lorenzo_e2e`, which is dropped, recreated, and
+  migrated on every run;
+- the site, built against the two.
+
+Each test builds its own tenant through the API (`tests/e2e/support/world.ts`),
+so tests run in parallel and never share data.
+
+Locally, start Postgres first
+(`docker compose -f infra/docker-compose.yml up -d`). Then run:
+
+```bash
+mise run test-e2e
+```
+
+Environment variables, all optional:
+
+- `E2E_POSTGRES_URL` and `E2E_APP_POSTGRES_URL`: another Postgres, as its
+  privileged and restricted roles.
+- `E2E_BROWSER_CHANNEL`: an installed browser, such as `msedge` or `chrome`,
+  instead of Playwright's own download (`pnpm exec playwright install
+  chromium`).
+
+Servers that are already running are reused, which speeds up a second run.
+Stop them to pick up a changed build. CI runs these tests in its `e2e` job.
 
 ## Deploy
 

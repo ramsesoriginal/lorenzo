@@ -27,6 +27,14 @@ description = "Run the test suite"
 depends = ["install"]
 run = "pnpm run test"
 
+# Not part of `test`: it needs Postgres (infra/docker-compose.yml locally, a service in CI)
+# and uv for apps/api. Playwright starts the API, a fake Authgear, and the built site itself.
+# CI runs it in its own `e2e` job - see ADR 0114.
+[tasks.test-e2e]
+description = "Run the end-to-end tests (Playwright against the real API) — see ADR 0114"
+depends = ["install"]
+run = "pnpm run test:e2e"
+
 [tasks.build]
 description = "Build the static site to dist/"
 depends = ["install"]

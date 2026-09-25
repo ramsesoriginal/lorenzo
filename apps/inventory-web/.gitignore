@@ -24,3 +24,7 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Playwright (ADR 0114)
+test-results/
+playwright-report/
