@@ -103,6 +103,42 @@ async def create_tenant_notification(
     return notifications
 
 
+async def create_tenant_members_notification(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    type: str,
+    title: str,
+    body: str,
+    created_by: uuid.UUID | None,
+) -> list[Notification]:
+    """scope="tenant", to the tenant's members (Membership rows) only, not
+    its whole roster: ADR 0118's repository notices are for the people who
+    run a tenant, not its players. Membership is read under RLS, so
+    `app.tenant_id` must be `tenant_id` when this runs.
+    """
+    member_ids = (
+        await session.execute(select(Membership.user_id).where(Membership.tenant_id == tenant_id))
+    ).scalars()
+    batch_id = uuid.uuid4()
+    notifications = [
+        _build(
+            batch_id=batch_id,
+            user_id=user_id,
+            tenant_id=tenant_id,
+            scope="tenant",
+            source_id=None,
+            type=type,
+            title=title,
+            body=body,
+            created_by=created_by,
+        )
+        for user_id in member_ids
+    ]
+    session.add_all(notifications)
+    return notifications
+
+
 async def create_campaign_notification(
     session: AsyncSession,
     *,

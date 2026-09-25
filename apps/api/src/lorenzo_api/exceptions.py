@@ -43,6 +43,7 @@ __all__ = [
     "InformationManagementForbiddenError",
     "InformationNotFoundError",
     "InvalidSplitQuantityError",
+    "InvalidSubscriberError",
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
@@ -69,8 +70,10 @@ __all__ = [
     "PreconditionFailedError",
     "RepositoryHasNoCampaignsError",
     "RepositoryManagementForbiddenError",
+    "RepositoryNotFoundError",
     "ProfilePictureNotFoundError",
     "SlugConflictError",
+    "SubscriptionNotFoundError",
     "StackNeedsContainerError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
@@ -729,3 +732,23 @@ class RepositoryManagementForbiddenError(ForbiddenProblem):
     side takes that tenant's OWNER role - ADR 0118."""
 
     title = "Only a tenant's owners can do this"
+
+
+class RepositoryNotFoundError(NotFoundProblem):
+    """A repository this tenant holds no grant for, or one that isn't
+    published - ADR 0118. Both answer the same, so a draft's existence
+    doesn't leak."""
+
+    title = "Repository not found"
+
+
+class SubscriptionNotFoundError(NotFoundProblem):
+    """Removing a grant that doesn't exist - ADR 0118."""
+
+    title = "No such grant"
+
+
+class InvalidSubscriberError(UnprocessableProblem):
+    """Granting a repository to itself - ADR 0118."""
+
+    title = "A repository can't be granted to itself"
