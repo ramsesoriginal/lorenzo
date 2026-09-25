@@ -1,6 +1,6 @@
 # RFC: Repositories — packaging canonical game systems and world content for reuse across tenants
 
-Status: proposed
+Status: accepted, with the [amendment](#amendment-decided-with-the-maintainer-2026-09-25) at the end, decided with the maintainer on 2026-09-25. Built as [ADR 0117](../adr/0117-same-tenant-references-by-composite-foreign-keys.md) (same-tenant references), [ADR 0118](../adr/0118-repository-tenants-subscriptions-and-a-gated-read.md) (repository tenants, grants, and the gated read), [ADR 0119](../adr/0119-copying-a-repository-into-a-tenant.md) (the copy), [ADR 0120](../adr/0120-bridge-repositories-and-dependency-manifests.md) (bridges), and [ADR 0121](../adr/0121-repository-updates-and-re-sync.md) (updates and re-sync). Where the amendment and the sections above disagree, the amendment wins.
 
 ## Context
 
@@ -135,3 +135,58 @@ Per [ADR 0079](../adr/0079-account-hub-roster-reuse-and-being-handoff.md), roste
 - The activity log ([ADR 0063](../adr/0063-tenant-activity-log.md)/[ADR 0084](../adr/0084-activity-log-coverage-and-member-removal-notice.md)) should cover repository-tenant mutations through its existing mechanism — no second audit system is proposed or needed.
 - A tenant owner needs one screen listing every repository their tenant is subscribed to and what each one contributed — the same "one place tells me what's actually true about my tenant" shape this project's own admin surfaces already converge on elsewhere. Not designed here; named so it doesn't get lost the way it nearly did between the debate that agreed on it and this document.
 - This RFC deliberately reopens the same underlying primitive ("an authenticated read across a tenant RLS boundary") that an earlier, unscoped version of "cross-tenant repositories" was fenced off from building. The fence was against building that primitive undesigned; this document is the design the fence was waiting for — narrowly scoped, grant-gated at the data layer, SELECT-only, and audited — not a way around it.
+
+## Amendment: decided with the maintainer, 2026-09-25
+
+*Added when this RFC was accepted. The design was checked against the code as it stood on `main` that day. Several ADRs had landed in the two days since the debate, and two of the RFC's claims no longer held. Each point below names what changed and why. Where it disagrees with a section above, this wins.*
+
+### A1. The read policy is gated, never always on (replaces part of §4)
+
+§4 says the second policy is "additive purely at the policy layer — invisible to every query and view that already exists". That isn't true of this codebase. `v_effective_stat` starts from an unfiltered `FROM entity e` and relies on RLS alone to scope it; so does the prototype-cycle trigger. An always-on policy would make every stat read in a subscriber tenant also walk every subscribed repository's prototype graph, and any query that leans on RLS alone would start seeing repository rows.
+
+So the policy only applies inside a request that has asked for it. The code that browses, plans, copies, or diffs a repository sets a second, transaction-local setting, `app.repository_tenant_id`. The policy lets a row through only when its `tenant_id` is that repository, the current tenant holds a grant for it, and the repository is published. An ordinary request never sets it, so §5's "live reads never power gameplay" is enforced by the database, not by discipline. Everything else §4 asks for stays: `FOR SELECT` only, grant-gated, and the per-table isolation tests. See ADR 0118.
+
+### A2. References stay inside one tenant by construction (new prerequisite)
+
+Every foreign key between two tenant tables is single-column today (`entity_prototype.prototype_id → entity.id`, and so on). Only application code keeps both ends in one tenant, and a foreign-key check bypasses RLS. Once repository rows are readable, a single existence check that relies on RLS alone could let a subscriber store an edge into a repository — exactly the cross-tenant row at rest that §5 promises can't exist. Every such foreign key becomes composite, `(…, tenant_id)`, before any cross-tenant read exists. See ADR 0117.
+
+### A3. The table list, brought up to date (extends §4)
+
+Tables that landed after the debate and hold repository content: `computed_stat`, `computed_stat_linear`, `computed_stat_comparison` (ADR 0104), `stat_definition_enum_value` (ADR 0103), `entity_slug` (ADR 0107), and `content_reference` (ADR 0110). `content_reference` is derived from description text, so it is recomputed after a copy rather than copied. `information_type` (ADR 0101) is a global catalog with no `tenant_id` and needs nothing. `entity_change` (ADR 0099) and `campaign_invite` (ADR 0092) are player- or campaign-relative and are excluded by §4's own principle. `item.in_public_catalog` (ADR 0116) is copied as the author set it. The provenance and copy-record tables this design adds join the list too, because a bridge's subscribers need to read them (A8).
+
+### A4. Collisions start at the first copy, not at re-sync (extends §7)
+
+`stat_group` and `stat_definition` names are unique per tenant, and so are slugs. A tenant that already has a "Strength" collides the moment it copies a system repository. §7's explicit rename / merge / skip choice therefore belongs in the first copy, and a copy with an unresolved collision is refused with the list of choices it needs. See ADR 0119.
+
+### A5. Published is a real state (gives §8 a place in the schema)
+
+`tenant.published_at`, null until the repository's owner publishes it. The read policy requires it. Publishing again later is how an owner announces an update (A7).
+
+### A6. The cross-system roster guard is deferred (replaces §11's interim guard)
+
+`campaign.game_system` is required free text. A guard comparing it would reject "D&D 5e" against "dnd5e" today, before any repository exists, and would change ADR 0079's behaviour for every existing user. The guard moves to the same follow-up as making `game_system` a real reference, which §11 already names. Until then cross-system reuse behaves exactly as it does now.
+
+### A7. Updates are found by comparing snapshots, not timestamps (replaces §6's `source_updated_at`)
+
+§6 and §7 compare a copy link's recorded `source_updated_at` with the source row's current `updated_at`. That misses most real changes. `entity.updated_at` only moves when the `entity` row itself is written. A changed stat value moves `entity_stat.updated_at`, and an added or removed prototype edge moves nothing at all, since `entity_prototype` has no timestamps. So each copy link records a snapshot of what was copied instead: the row's own fields plus, for an entity, its prototypes, stat groups, stat values, formulas, and slug, with every id translated to its origin. Re-sync compares three versions: the snapshot, the source now, and the local copy now. That gives the real diff §7 asks for and tells an upstream correction from a local edit. See ADR 0121.
+
+§6's own scoping is kept: `information`, `payload`, `containment`, `ownership`, `group_member`, and `knowledge` are copied once and are not offered for re-sync in this version.
+
+### A8. Bridges carry only what they authored, and every dependency needs its own grant (makes §3, §5, and §9 concrete)
+
+- **What a bridge carries.** A repository's "own" rows are the ones that aren't copies. A subscriber copies only a repository's own rows. Where an own row points at a copied one (Blackstaff (D&D 5e)'s prototype edge to the bridge's copy of Staff), the reference is re-targeted onto the subscriber's own copy of the same origin row. A bridge's edits to its copies of its dependencies don't travel downstream. To change how an upstream entity behaves under a system, the bridge authors a new entity inheriting from it, which is §9's mechanism anyway.
+- **Every copy link points at an origin.** Because only own rows are ever copied, every copy link names the row's origin, never a copy of a copy. Re-targeting is one lookup, however deep the chain.
+- **Grants aren't transitive.** A bridge's owner can't grant access to a repository somebody else owns. The dependency manifest lists every repository a copy needs and whether the subscriber holds a grant for each. A copy with a missing grant is refused, naming the repository. What stays "one confirmed action" is the copy: one call copies everything the manifest still needs, in dependency order, and reuses dependencies the subscriber already copied.
+
+See ADR 0120.
+
+### A9. Copied world content and campaign GMs (maintainer's decision on the "facts" question)
+
+Accepted for this version as a known gap, not a blocker: until a campaign's characters reach copied content, a campaign GM doesn't see its GM-only text. Only the tenant's OWNER and ORGA do (ADR 0035/0046/0096). The "facts" mechanism stays open (RFC 0001 question 4).
+
+### A10. Smaller decisions
+
+- **`tenant.kind` can never change.** A trigger rejects any update to it, not "settable while empty", so the check is trivially sound.
+- **Campaigns can't exist in a repository.** Checked by a trigger on `campaign`, not just in the application, since an immutable `kind` makes that sound from the start. Players, GM grants, and invites all hang off a campaign, so they're impossible too.
+- **Grants are a repository-side act.** The repository's OWNER grants a tenant access by its id, and either side can remove the grant. The subscribing tenant's members are notified. What a copy produced is recorded on the subscriber's side, in its own table, so it survives the grant being removed (§6).
+- **This implementation is API only.** Screens for repositories in `apps/account-hub` and `apps/inventory-web` are a later, separately scoped piece of work. Authoring a repository's content needs nothing new: a repository is a tenant, so its members use the same catalog, stat, and information screens as anywhere else.
