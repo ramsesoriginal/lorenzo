@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from lorenzo_api.models import TenantKind
+
 __all__ = ["ManagedCampaignOut", "ManagedScopeOut", "ManagedTenantOut"]
 
 
@@ -27,6 +29,8 @@ class ManagedTenantOut(BaseModel):
     name: str
     slug: str
     role: Literal["owner", "orga"] | None
+    # ADR 0118: a repository's authors run it too, but it has no campaigns.
+    kind: TenantKind
     campaigns: list[ManagedCampaignOut]
 
 

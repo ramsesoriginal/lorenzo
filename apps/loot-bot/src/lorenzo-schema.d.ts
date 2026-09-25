@@ -678,6 +678,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/published": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Publish Repository
+         * @description Publishes a repository, or announces an update to one already
+         *     published: either way `published_at` becomes now (ADR 0118). Until the
+         *     first publish, no subscriber can see anything of it.
+         */
+        put: operations["publish_repository"];
+        post?: never;
+        /**
+         * Unpublish Repository
+         * @description Back to draft: subscribers can no longer browse, copy, or check
+         *     for updates. What they already copied is theirs and stays (RFC 0024
+         *     §6).
+         */
+        delete: operations["unpublish_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns": {
         parameters: {
             query?: never;
@@ -4389,6 +4417,7 @@ export interface components {
             slug: string;
             /** Role */
             role: ("owner" | "orga") | null;
+            kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
         };
@@ -5497,7 +5526,15 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
+            kind?: components["schemas"]["TenantKind"] | null;
         };
+        /**
+         * TenantKind
+         * @description What a tenant is for - see ADR 0118/RFC 0024. Never changes once
+         *     the tenant exists (a trigger enforces it).
+         * @enum {string}
+         */
+        TenantKind: "play" | "repository";
         /**
          * TenantOut
          * @description GET /tenants/{id} - the full detail shape. No role here: the caller
@@ -5521,6 +5558,9 @@ export interface components {
             name: string;
             /** Description */
             description: string;
+            kind: components["schemas"]["TenantKind"];
+            /** Published At */
+            published_at: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -5549,6 +5589,7 @@ export interface components {
              * @enum {string}
              */
             role: "owner" | "orga" | "participant";
+            kind: components["schemas"]["TenantKind"];
         };
         /**
          * TenantUpdate
@@ -6879,6 +6920,7 @@ export interface operations {
     list_tenants: {
         parameters: {
             query?: {
+                kind?: components["schemas"]["TenantKind"] | null;
                 page?: number;
                 size?: number;
             };
@@ -7706,6 +7748,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    publish_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unpublish_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantOut"];
                 };
             };
             /** @description Validation Error */

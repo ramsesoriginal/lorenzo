@@ -1,9 +1,10 @@
 import uuid
+from datetime import datetime
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lorenzo_api.models import CampaignGm, Membership, Player, Tenant
+from lorenzo_api.models import CampaignGm, Membership, Player, Tenant, TenantKind
 from lorenzo_api.schemas.characters import CharacterSummaryOut
 from lorenzo_api.schemas.common import ProblemOut
 
@@ -55,6 +56,9 @@ class TenantCreate(BaseModel):
     name: str
     slug: Annotated[str | None, Field(pattern=_SLUG_PATTERN)] = None
     description: str | None = None
+    # ADR 0118: fixed at creation, never changed afterwards. Omitted means
+    # `play`.
+    kind: TenantKind | None = None
 
 
 class TenantUpdate(BaseModel):
@@ -82,10 +86,11 @@ class TenantSummaryOut(BaseModel):
     slug: str
     name: str
     role: TenantRole
+    kind: TenantKind
 
     @classmethod
     def from_tenant(cls, tenant: Tenant, *, role: TenantRole) -> Self:
-        return cls(id=tenant.id, slug=tenant.slug, name=tenant.name, role=role)
+        return cls(id=tenant.id, slug=tenant.slug, name=tenant.name, role=role, kind=tenant.kind)
 
 
 class TenantOut(BaseModel):
@@ -105,6 +110,10 @@ class TenantOut(BaseModel):
     slug: str
     name: str
     description: str
+    # ADR 0118: `repository` tenants hold no campaigns; `published_at` is a
+    # repository's draft/published state, always null for a play tenant.
+    kind: TenantKind
+    published_at: datetime | None
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 

@@ -65,7 +65,10 @@ __all__ = [
     "PlatformOperatorRoleRequiredError",
     "PlayerAlreadyExistsError",
     "PlayerNotFoundError",
+    "NotARepositoryError",
     "PreconditionFailedError",
+    "RepositoryHasNoCampaignsError",
+    "RepositoryManagementForbiddenError",
     "ProfilePictureNotFoundError",
     "SlugConflictError",
     "StackNeedsContainerError",
@@ -703,3 +706,26 @@ class TooManyRequestsError(StatusProblem):
 
     status = 429
     title = "Too many requests"
+
+
+class RepositoryHasNoCampaignsError(ConflictProblem):
+    """POST .../campaigns on a repository tenant - ADR 0118. A repository
+    is a reusable setting nobody plays in; a trigger on `campaign` refuses
+    the row too, this just answers first and plainly."""
+
+    title = "A repository holds no campaigns"
+
+
+class NotARepositoryError(ConflictProblem):
+    """A repository-only action (publishing, granting access) on a play
+    tenant - ADR 0118."""
+
+    title = "This tenant isn't a repository"
+
+
+class RepositoryManagementForbiddenError(ForbiddenProblem):
+    """Publishing a repository or granting access to it takes the
+    repository tenant's OWNER role; removing a grant from the subscribing
+    side takes that tenant's OWNER role - ADR 0118."""
+
+    title = "Only a tenant's owners can do this"

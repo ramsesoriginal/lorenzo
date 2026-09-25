@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import enum
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import text
+from sqlalchemy import Enum, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, UuidPk
@@ -13,6 +15,16 @@ if TYPE_CHECKING:
     from lorenzo_api.models.membership import Membership
     from lorenzo_api.models.stat_definition import StatDefinition
     from lorenzo_api.models.stat_group import StatGroup
+
+
+class TenantKind(enum.Enum):
+    """What a tenant is for - see ADR 0118/RFC 0024. Never changes once
+    the tenant exists (a trigger enforces it)."""
+
+    PLAY = "play"
+    # A reusable setting other tenants copy from; nobody plays in it, so it
+    # holds no campaigns (a trigger on campaign enforces that).
+    REPOSITORY = "repository"
 
 
 class Tenant(Base):
@@ -45,6 +57,17 @@ class Tenant(Base):
     # throughout this schema.
     slug: Mapped[str] = mapped_column(unique=True, server_default=text("gen_random_uuid()::text"))
     description: Mapped[str] = mapped_column(server_default=text("''"))
+    kind: Mapped[TenantKind] = mapped_column(
+        Enum(
+            TenantKind,
+            name="tenant_kind",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        server_default=text("'play'"),
+    )
+    # A repository's draft/published state (ADR 0118): null while it's a
+    # draft, invisible to every subscriber. Always null for a play tenant.
+    published_at: Mapped[datetime | None]
     # ADR 0029's attribution pair, landing here alongside created_at/
     # updated_at themselves (ADR 0033/RFC 0012) - unlike every other table
     # ADR 0018 covers, `tenant`'s original bootstrap (ADR 0013) predates

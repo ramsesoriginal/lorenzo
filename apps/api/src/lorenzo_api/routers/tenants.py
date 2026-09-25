@@ -11,6 +11,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.campaign_access import is_tenant_owner
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -40,6 +41,7 @@ from lorenzo_api.models import (
     MembershipRole,
     Player,
     Tenant,
+    TenantKind,
     User,
 )
 from lorenzo_api.notifications import create_tenant_notification
@@ -124,7 +126,10 @@ async def _check_slug_available_for_update(
 
 @router.get("")
 async def list_tenants(
-    user: CurrentUser, session: SessionDep, params: ParamsDep
+    user: CurrentUser,
+    session: SessionDep,
+    params: ParamsDep,
+    kind: TenantKind | None = None,
 ) -> Page[TenantSummaryOut]:
     """Every tenant the caller belongs to in *any* capacity - a Membership
     row, a Player row, or a CampaignGm row, anywhere in it (ADR 0030/RFC
@@ -143,6 +148,9 @@ async def list_tenants(
         )
         .order_by(Tenant.name, Tenant.id)
     )
+    # ADR 0118: a client picking where to run a game asks for `play` only.
+    if kind is not None:
+        stmt = stmt.where(Tenant.kind == kind)
     # Resolved once per request, not once per row - mirrors
     # resolve_information_visibility's own precedent. A user's own
     # Membership rows are small in practice, so this doesn't need scoping
@@ -232,7 +240,13 @@ async def create_tenant(
     who created it.
     """
     slug = await _resolve_create_slug(session, body.slug, body.name)
-    tenant = Tenant(name=body.name, slug=slug, created_by=user.id, updated_by=user.id)
+    tenant = Tenant(
+        name=body.name,
+        slug=slug,
+        kind=body.kind or TenantKind.PLAY,
+        created_by=user.id,
+        updated_by=user.id,
+    )
     if body.description is not None:
         tenant.description = body.description
     session.add(tenant)
@@ -444,8 +458,7 @@ async def _require_owner(session: SessionDep, *, tenant_id: uuid.UUID, user_id: 
     dead-but-documented-intent shape get_tenant's own re-fetch and
     routers/campaigns.py's is_tenant_admin check already use.
     """
-    membership = await session.get(Membership, (tenant_id, user_id))
-    if membership is None or membership.role is not MembershipRole.OWNER:
+    if not await is_tenant_owner(session, tenant_id=tenant_id, user_id=user_id):
         raise MembershipManagementForbiddenError(
             detail=f"Not authorized to manage memberships in tenant {tenant_id}"
         )
