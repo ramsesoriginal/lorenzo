@@ -599,7 +599,14 @@ describe("dropCommand.onButton — apply claims", () => {
     expect(splitItemInstance).not.toHaveBeenCalled();
     expect(bulkAssignItemInstances).toHaveBeenCalledWith(
       "tenant-1",
-      [{ entity_id: "item-1", owner_character_id: "char-1", if_match: "etag-1" }],
+      [
+        {
+          entity_id: "item-1",
+          owner_character_id: "char-1",
+          move_to_owner: false,
+          if_match: "etag-1",
+        },
+      ],
       "gm-token",
     );
     expect(markLootDropApplied).toHaveBeenCalledWith("drop-1");
@@ -651,8 +658,19 @@ describe("dropCommand.onButton — apply claims", () => {
     expect(bulkAssignItemInstances).toHaveBeenCalledWith(
       "tenant-1",
       [
-        { entity_id: "item-1", owner_character_id: "char-1", quantity: 2, if_match: "etag-1" },
-        { entity_id: "item-1", owner_character_id: "char-2", if_match: "etag-1" },
+        {
+          entity_id: "item-1",
+          owner_character_id: "char-1",
+          move_to_owner: false,
+          quantity: 2,
+          if_match: "etag-1",
+        },
+        {
+          entity_id: "item-1",
+          owner_character_id: "char-2",
+          move_to_owner: false,
+          if_match: "etag-1",
+        },
       ],
       "gm-token",
     );
@@ -720,7 +738,14 @@ describe("dropCommand.onButton — apply claims", () => {
     // even though the greed claim was made first (ADR 0068).
     expect(bulkAssignItemInstances).toHaveBeenCalledWith(
       "tenant-1",
-      [{ entity_id: "item-1", owner_character_id: "char-need", if_match: "etag-1" }],
+      [
+        {
+          entity_id: "item-1",
+          owner_character_id: "char-need",
+          move_to_owner: false,
+          if_match: "etag-1",
+        },
+      ],
       "gm-token",
     );
   });

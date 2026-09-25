@@ -41,6 +41,7 @@ from lorenzo_api.exceptions import (
     ItemInstanceNotFoundError,
     ItemInstanceSlugConflictError,
     ItemInstanceSlugNotFoundError,
+    StackNeedsContainerError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
@@ -266,7 +267,12 @@ async def _grouped_by_container_response(
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(Containment.parent_entity_id, VItemInstance.entity_id)
     )
-    rows = (await session.execute(stmt)).all()
+    # Something contained by its own owner is carried in no container of
+    # theirs (ADR 0115): it's listed with the loose things, the None group.
+    rows = [
+        (view, None if container_id == view.owner_entity_id else container_id)
+        for view, container_id in (await session.execute(stmt)).all()
+    ]
 
     container_ids = {container_id for _, container_id in rows if container_id is not None}
     containers: dict[uuid.UUID, Entity] = {}
@@ -824,6 +830,9 @@ async def set_item_instance_owner(
     relationship (ownership already enforces at most one owner per entity
     at the schema level, ADR 0025), giving "transfer to a new owner" and
     "set an owner for the first time" the same call shape.
+
+    move_to_owner (ADR 0115) hands it over: it's also contained by its new
+    owner, out of any container it was in, its stack count riding along.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
@@ -836,6 +845,12 @@ async def set_item_instance_owner(
         entity_id=entity_id,
         owner_character_id=body.owner_character_id,
     )
+    moved = body.move_to_owner and await _perform_set_container(
+        session,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        container_entity_id=body.owner_character_id,
+    )
     if changed:
         await record_activity(
             session,
@@ -846,11 +861,24 @@ async def set_item_instance_owner(
             target_id=entity_id,
             detail=f"owner={body.owner_character_id}",
         )
+    if moved:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.container_set",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=f"container={body.owner_character_id}",
+        )
+    if changed or moved:
         await record_change(
             session,
             tenant_id=tenant_id,
             actor_id=user.id,
-            changes=[Change(entity_id=entity_id, before=before, both_kind=None)],
+            changes=[
+                Change(entity_id=entity_id, before=before, both_kind=None if changed else "moved")
+            ],
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -984,11 +1012,23 @@ async def clear_item_instance_container(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> ItemInstanceOut:
+    """Takes it out of every container. Refused for a stack of more than one
+    (409, ADR 0115): its count lives on the containment row (ADR 0041), so
+    deleting the row would drop it. A stack leaves a container into its
+    owner instead, with PUT .../container.
+    """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
     existing = await session.get(Containment, entity_id)
+    if existing is not None and existing.quantity > 1:
+        raise StackNeedsContainerError(
+            detail=(
+                f"Item instance {entity_id} is a stack of {existing.quantity}: out of every "
+                "container it would lose its count. Move it into its owner instead."
+            )
+        )
     if existing is not None:
         before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
         await session.delete(existing)
@@ -1047,6 +1087,7 @@ async def _perform_split(
     quantity: int,
     owner_character_id: uuid.UUID | None,
     user: CurrentUser,
+    into_owner: bool = False,
 ) -> uuid.UUID:
     """Core split mechanics only - no auth, no If-Match, no response
     shaping, no commit - shared by the single-item POST .../split route and
@@ -1062,6 +1103,8 @@ async def _perform_split(
     accumulated entity_stat overrides, Information, or attribution trail.
     `owner_character_id` (ADR 0044): the new instance's owner if given,
     else the source's own current owner (ADR 0041's original behavior).
+    `into_owner` (ADR 0115): the new stack is contained by that owner rather
+    than sitting beside the source.
     """
     entity_id = entity.id
     source_containment = await session.get(Containment, entity_id)
@@ -1112,7 +1155,11 @@ async def _perform_split(
     session.add(
         Containment(
             child_entity_id=new_entity.id,
-            parent_entity_id=source_containment.parent_entity_id,
+            parent_entity_id=(
+                new_owner_id
+                if into_owner and new_owner_id is not None
+                else source_containment.parent_entity_id
+            ),
             tenant_id=tenant_id,
             quantity=quantity,
         )
@@ -1319,6 +1366,7 @@ async def bulk_assign_item_instances(
                         quantity=item.quantity,
                         owner_character_id=item.owner_character_id,
                         user=user,
+                        into_owner=item.move_to_owner,
                     )
                     changes = [
                         Change(
@@ -1335,10 +1383,22 @@ async def bulk_assign_item_instances(
                         entity_id=item.entity_id,
                         owner_character_id=item.owner_character_id,
                     )
+                    moved = item.move_to_owner and await _perform_set_container(
+                        session,
+                        tenant_id=tenant_id,
+                        entity_id=item.entity_id,
+                        container_entity_id=item.owner_character_id,
+                    )
                     result_entity_id = item.entity_id
                     changes = (
-                        [Change(entity_id=item.entity_id, before=before, both_kind=None)]
-                        if changed
+                        [
+                            Change(
+                                entity_id=item.entity_id,
+                                before=before,
+                                both_kind=None if changed else "moved",
+                            )
+                        ]
+                        if changed or moved
                         else []
                     )
                 # Inside the savepoint: a failed item rolls back its feed rows too.

@@ -106,7 +106,7 @@ export async function buildWorld() {
     const created = await ok(
       api.POST('/tenants/{tenant_id}/items', {
         ...t,
-        body: { name, prototype_ids: options.prototypes ?? [] },
+        body: { name, prototype_ids: options.prototypes ?? [], in_public_catalog: false },
       }),
     );
     const entity = { tenant_id: tenant.id, entity_id: created.entity_id };

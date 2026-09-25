@@ -3,8 +3,9 @@
 // inherits from its prototypes (ADR 0111).
 import { blobUrl, type components } from './api';
 import { type Renderer, showDescriptions } from './descriptions';
+import type { ItemBase } from './types';
 
-type Item = components['schemas']['ItemOut'];
+type Item = ItemBase;
 type Source = components['schemas']['EntitySummary'] | null;
 
 const GROUPS = [

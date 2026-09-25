@@ -67,7 +67,7 @@ export async function setOwner(
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { owner_character_id: ownerCharacterId },
+      body: { owner_character_id: ownerCharacterId, move_to_owner: false },
     }),
   );
 }
@@ -137,7 +137,7 @@ export async function createCatalogItem(
   return unwrap(
     await client.POST('/tenants/{tenant_id}/items', {
       params: { path: { tenant_id: tenantId } },
-      body: { name, prototype_ids: prototypeIds },
+      body: { name, prototype_ids: prototypeIds, in_public_catalog: false },
     }),
   );
 }
@@ -316,6 +316,7 @@ export async function bulkAssignItemInstances(
       body: items.map((item) => ({
         entity_id: item.entityId,
         owner_character_id: item.ownerCharacterId,
+        move_to_owner: false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
     }),
