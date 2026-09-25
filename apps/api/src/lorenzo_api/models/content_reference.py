@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, text
+from sqlalchemy import CheckConstraint, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.payload import Payload
@@ -25,6 +25,9 @@ class ContentReference(Base):
 
     __tablename__ = "content_reference"
     __table_args__ = (
+        same_tenant_fk(
+            "content_reference_payload_id_fkey", ["payload_id"], "payload", ondelete="CASCADE"
+        ),
         CheckConstraint(
             "kind IN ('entity', 'image', 'date', 'calendar')", name="content_reference_kind"
         ),
@@ -37,9 +40,7 @@ class ContentReference(Base):
         ),
     )
 
-    payload_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("payload.id", ondelete="CASCADE"), primary_key=True
-    )
+    payload_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     position: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     kind: Mapped[str]
@@ -48,4 +49,6 @@ class ContentReference(Base):
     # The slug, the ISO date (text order is date order), or the expression.
     target: Mapped[str]
 
-    payload: Mapped[Payload] = relationship(lazy="raise_on_sql")
+    payload: Mapped[Payload] = relationship(
+        foreign_keys="ContentReference.payload_id", lazy="raise_on_sql"
+    )

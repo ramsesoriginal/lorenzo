@@ -3,10 +3,9 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
@@ -27,13 +26,20 @@ class Ownership(Base):
     """
 
     __tablename__ = "ownership"
+    __table_args__ = (
+        same_tenant_fk(
+            "ownership_owned_entity_id_fkey", ["owned_entity_id"], "entity", ondelete="CASCADE"
+        ),
+        same_tenant_fk(
+            "ownership_owner_character_id_fkey",
+            ["owner_character_id"],
+            "entity",
+            ondelete="CASCADE",
+        ),
+    )
 
-    owned_entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
-    )
-    owner_character_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), index=True
-    )
+    owned_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    owner_character_id: Mapped[uuid.UUID] = mapped_column(index=True)
     tenant_id: Mapped[TenantFk]
 
     owned_entity: Mapped[Entity] = relationship(

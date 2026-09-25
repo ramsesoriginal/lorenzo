@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UpdatedBy, UuidPk
@@ -29,6 +30,10 @@ class Entity(Base):
     """The universal domain table - see ADR 0012 and RFC 0001."""
 
     __tablename__ = "entity"
+    __table_args__ = (
+        # ADR 0117: what same-tenant keys into this table reference.
+        UniqueConstraint("id", "tenant_id", name="entity_id_tenant_id_key"),
+    )
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
@@ -46,12 +51,14 @@ class Entity(Base):
 
     tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="entities")
     stats: Mapped[list[EntityStat]] = relationship(
+        foreign_keys="EntityStat.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     stat_group_links: Mapped[list[EntityStatGroup]] = relationship(
+        foreign_keys="EntityStatGroup.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",
@@ -71,6 +78,7 @@ class Entity(Base):
         lazy="raise_on_sql",
     )
     information: Mapped[list[Information]] = relationship(
+        foreign_keys="Information.entity_id",
         lazy="raise_on_sql",
         order_by="Information.order",
         back_populates="entity",
@@ -78,18 +86,21 @@ class Entity(Base):
         passive_deletes=True,
     )
     item: Mapped[Item | None] = relationship(
+        foreign_keys="Item.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     item_instance: Mapped[ItemInstance | None] = relationship(
+        foreign_keys="ItemInstance.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     being: Mapped[Being | None] = relationship(
+        foreign_keys="Being.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",
@@ -97,6 +108,7 @@ class Entity(Base):
     )
     # ADR 0107: the row, not the string - EntityDetailOut reads .slug.slug.
     slug: Mapped[EntitySlug | None] = relationship(
+        foreign_keys="EntitySlug.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",
@@ -109,7 +121,9 @@ class Entity(Base):
     # deleting this Entity should implicitly delete the Campaign owning it,
     # or vice versa (that's an explicit two-step application concern, RFC
     # 0006, not an ORM cascade).
-    campaign: Mapped[Campaign | None] = relationship(lazy="raise_on_sql", back_populates="entity")
+    campaign: Mapped[Campaign | None] = relationship(
+        foreign_keys="Campaign.entity_id", lazy="raise_on_sql", back_populates="entity"
+    )
 
     # ownership: ADR 0025's generic ownership table has two independent FKs
     # to this table (owned_entity_id and owner_character_id), same
@@ -171,6 +185,7 @@ class Entity(Base):
     # group_member: this entity, used as a group knower (RFC 0001/ADR 0028)
     # - membership rows naming it as the group side.
     group_member_links: Mapped[list[GroupMember]] = relationship(
+        foreign_keys="GroupMember.group_entity_id",
         lazy="raise_on_sql",
         back_populates="group",
         cascade="all, delete-orphan",
@@ -180,6 +195,7 @@ class Entity(Base):
     # see ADR 0028), not information *about* this entity (that's the
     # `information` relationship above).
     knowledge_links: Mapped[list[Knowledge]] = relationship(
+        foreign_keys="Knowledge.knower_entity_id",
         lazy="raise_on_sql",
         back_populates="knower_entity",
         cascade="all, delete-orphan",
@@ -199,7 +215,11 @@ class Entity(Base):
     # dependent_links/containment/contained_links, or the association
     # classes directly - never through these.
     stat_groups: Mapped[list[StatGroup]] = relationship(
-        lazy="raise_on_sql", secondary="entity_stat_group", viewonly=True
+        lazy="raise_on_sql",
+        secondary="entity_stat_group",
+        primaryjoin="Entity.id == EntityStatGroup.entity_id",
+        secondaryjoin="StatGroup.id == EntityStatGroup.stat_group_id",
+        viewonly=True,
     )
     prototypes: Mapped[list[Entity]] = relationship(
         lazy="raise_on_sql",

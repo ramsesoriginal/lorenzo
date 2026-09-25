@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk
+from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
@@ -43,6 +43,15 @@ class Knowledge(Base):
 
     __tablename__ = "knowledge"
     __table_args__ = (
+        same_tenant_fk(
+            "knowledge_information_id_fkey", ["information_id"], "information", ondelete="CASCADE"
+        ),
+        same_tenant_fk(
+            "knowledge_knower_entity_id_fkey", ["knower_entity_id"], "entity", ondelete="CASCADE"
+        ),
+        same_tenant_fk(
+            "knowledge_knower_player_id_fkey", ["knower_player_id"], "player", ondelete="CASCADE"
+        ),
         CheckConstraint(
             "num_nonnulls(knower_entity_id, knower_player_id) = 1",
             name="knowledge_exactly_one_knower",
@@ -57,24 +66,24 @@ class Knowledge(Base):
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
-    knower_entity_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), index=True
-    )
-    knower_player_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("player.id", ondelete="CASCADE"), index=True
-    )
-    information_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("information.id", ondelete="CASCADE"), index=True
-    )
+    knower_entity_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    knower_player_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    information_id: Mapped[uuid.UUID] = mapped_column(index=True)
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
     knower_entity: Mapped[Entity | None] = relationship(
-        lazy="raise_on_sql", back_populates="knowledge_links"
+        foreign_keys="Knowledge.knower_entity_id",
+        lazy="raise_on_sql",
+        back_populates="knowledge_links",
     )
     knower_player: Mapped[Player | None] = relationship(
-        lazy="raise_on_sql", back_populates="knowledge_links"
+        foreign_keys="Knowledge.knower_player_id",
+        lazy="raise_on_sql",
+        back_populates="knowledge_links",
     )
     information: Mapped[Information] = relationship(
-        lazy="raise_on_sql", back_populates="knowledge_links"
+        foreign_keys="Knowledge.information_id",
+        lazy="raise_on_sql",
+        back_populates="knowledge_links",
     )

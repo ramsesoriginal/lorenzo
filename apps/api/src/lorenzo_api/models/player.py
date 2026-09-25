@@ -6,7 +6,16 @@ from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, UpdatedBy, UuidPk
+from lorenzo_api.db import (
+    Base,
+    CreatedAt,
+    CreatedBy,
+    TenantFk,
+    UpdatedAt,
+    UpdatedBy,
+    UuidPk,
+    same_tenant_fk,
+)
 
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign import Campaign
@@ -26,15 +35,18 @@ class Player(Base):
     """
 
     __tablename__ = "player"
-    __table_args__ = (UniqueConstraint("campaign_id", "user_id"),)
+    __table_args__ = (
+        # ADR 0117: what same-tenant keys into this table reference.
+        UniqueConstraint("id", "tenant_id", name="player_id_tenant_id_key"),
+        same_tenant_fk("player_campaign_id_fkey", ["campaign_id"], "campaign", ondelete="CASCADE"),
+        UniqueConstraint("campaign_id", "user_id"),
+    )
 
     id: Mapped[UuidPk]
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("app_user.id", ondelete="CASCADE"), index=True
     )
-    campaign_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("campaign.id", ondelete="CASCADE"), index=True
-    )
+    campaign_id: Mapped[uuid.UUID] = mapped_column(index=True)
     tenant_id: Mapped[TenantFk]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
@@ -54,7 +66,9 @@ class Player(Base):
     user: Mapped[User] = relationship(
         lazy="raise_on_sql", foreign_keys=[user_id], back_populates="players"
     )
-    campaign: Mapped[Campaign] = relationship(lazy="raise_on_sql", back_populates="players")
+    campaign: Mapped[Campaign] = relationship(
+        foreign_keys="Player.campaign_id", lazy="raise_on_sql", back_populates="players"
+    )
     # owned_characters: SET NULL, not CASCADE (ADR 0025) - passive_deletes=True
     # so a deleted player leaves its characters player-less via the DB's own
     # ON DELETE SET NULL, rather than the ORM loading and updating them.
@@ -63,15 +77,20 @@ class Player(Base):
     # Character (ADR 0031/RFC 0004) - a plain being was never a valid
     # target, so nothing meaningful is lost, just made accurate.
     owned_characters: Mapped[list[Character]] = relationship(
-        lazy="raise_on_sql", back_populates="owner_player", passive_deletes=True
+        foreign_keys="Character.owner_player_id",
+        lazy="raise_on_sql",
+        back_populates="owner_player",
+        passive_deletes=True,
     )
     character_links: Mapped[list[CharacterPlayer]] = relationship(
+        foreign_keys="CharacterPlayer.player_id",
         lazy="raise_on_sql",
         back_populates="player",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     knowledge_links: Mapped[list[Knowledge]] = relationship(
+        foreign_keys="Knowledge.knower_player_id",
         lazy="raise_on_sql",
         back_populates="knower_player",
         cascade="all, delete-orphan",

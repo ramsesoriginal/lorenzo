@@ -3,10 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from lorenzo_api.db import Base, TenantFk
+from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 
 if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
@@ -21,12 +21,15 @@ class EntitySlug(Base):
     """
 
     __tablename__ = "entity_slug"
-    __table_args__ = (UniqueConstraint("tenant_id", "slug"),)
-
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("entity.id", ondelete="CASCADE"), primary_key=True
+    __table_args__ = (
+        same_tenant_fk("entity_slug_entity_id_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
+        UniqueConstraint("tenant_id", "slug"),
     )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     slug: Mapped[str]
 
-    entity: Mapped[Entity] = relationship(lazy="raise_on_sql", back_populates="slug")
+    entity: Mapped[Entity] = relationship(
+        foreign_keys="EntitySlug.entity_id", lazy="raise_on_sql", back_populates="slug"
+    )
