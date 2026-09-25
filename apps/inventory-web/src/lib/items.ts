@@ -59,15 +59,18 @@ export async function clearContainer(tenantId: string, entityId: string): Promis
 // PUT /item-instances/{id}/owner - "assign to a being" (ADR: owner as a
 // singular sub-resource, not an RPC verb - replaces whoever owned it
 // before, same shape whether this is a first assignment or a reassign).
+// moveToOwner hands it over (ADR 0115): out of its container and into
+// the new owner, a stack keeping its count.
 export async function setOwner(
   tenantId: string,
   entityId: string,
   ownerCharacterId: string,
+  moveToOwner = false,
 ): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { owner_character_id: ownerCharacterId },
+      body: { owner_character_id: ownerCharacterId, move_to_owner: moveToOwner },
     }),
   );
 }
@@ -128,33 +131,34 @@ export async function listItemsUsingPrototype(
 // POST /tenants/{t}/items - creates a catalog item (prototype), with zero
 // or more existing catalog items as its own prototypes (multi-parent
 // inheritance - Entity + Item + one EntityPrototype row per parent, one
-// transaction server-side).
+// transaction server-side). inPublicCatalog lets players list it too (ADR 0116).
 export async function createCatalogItem(
   tenantId: string,
   name: string,
   prototypeIds: string[],
+  inPublicCatalog = false,
 ): Promise<CatalogItem> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/items', {
       params: { path: { tenant_id: tenantId } },
-      body: { name, prototype_ids: prototypeIds },
+      body: { name, prototype_ids: prototypeIds, in_public_catalog: inPublicCatalog },
     }),
   );
 }
 
-// PATCH /tenants/{t}/items/{id} - only `name` is mutable through this
-// endpoint (apps/api's own ItemUpdate docstring: "nothing else on a bare
-// Item row exists to update"). Prototypes are a separate sub-resource
+// PATCH /tenants/{t}/items/{id} - its name, and whether it's in the public
+// catalog (ADR 0116). Prototypes are a separate sub-resource
 // (setItemPrototypes below, ADR 0072).
 export async function updateCatalogItem(
   tenantId: string,
   entityId: string,
   name: string,
+  inPublicCatalog: boolean,
 ): Promise<CatalogItem> {
   return unwrap(
     await client.PATCH('/tenants/{tenant_id}/items/{entity_id}', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { name },
+      body: { name, in_public_catalog: inPublicCatalog },
     }),
   );
 }
@@ -308,7 +312,7 @@ export async function mergeItemInstance(
 // player's stack away while the rest stays put.
 export async function bulkAssignItemInstances(
   tenantId: string,
-  items: { entityId: string; ownerCharacterId: string; quantity?: number }[],
+  items: { entityId: string; ownerCharacterId: string; quantity?: number; moveToOwner?: boolean }[],
 ): Promise<BulkResultItem[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-assign', {
@@ -316,6 +320,7 @@ export async function bulkAssignItemInstances(
       body: items.map((item) => ({
         entity_id: item.entityId,
         owner_character_id: item.ownerCharacterId,
+        move_to_owner: item.moveToOwner ?? false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
     }),

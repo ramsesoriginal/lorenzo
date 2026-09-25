@@ -729,7 +729,7 @@ describe("setItemInstanceOwner", () => {
     const client = createLorenzoApiClient(BASE_URL);
     const result = await client.setItemInstanceOwner(TENANT_ID, "item-1", "char-2", "test-token");
 
-    expect(receivedBody).toEqual({ owner_character_id: "char-2" });
+    expect(receivedBody).toEqual({ owner_character_id: "char-2", move_to_owner: false });
     expect(result.owner_entity_id).toBe("char-2");
   });
 
@@ -993,15 +993,30 @@ describe("bulkAssignItemInstances", () => {
     const results = await client.bulkAssignItemInstances(
       TENANT_ID,
       [
-        { entity_id: "item-1", owner_character_id: CHARACTER_ID, if_match: 'W/"a"' },
-        { entity_id: "item-2", owner_character_id: CHARACTER_ID, quantity: 2 },
+        {
+          entity_id: "item-1",
+          owner_character_id: CHARACTER_ID,
+          if_match: 'W/"a"',
+          move_to_owner: false,
+        },
+        {
+          entity_id: "item-2",
+          owner_character_id: CHARACTER_ID,
+          quantity: 2,
+          move_to_owner: false,
+        },
       ],
       "test-token",
     );
 
     expect(receivedBody).toEqual([
-      { entity_id: "item-1", owner_character_id: CHARACTER_ID, if_match: 'W/"a"' },
-      { entity_id: "item-2", owner_character_id: CHARACTER_ID, quantity: 2 },
+      {
+        entity_id: "item-1",
+        owner_character_id: CHARACTER_ID,
+        if_match: 'W/"a"',
+        move_to_owner: false,
+      },
+      { entity_id: "item-2", owner_character_id: CHARACTER_ID, quantity: 2, move_to_owner: false },
     ]);
     expect(results).toHaveLength(2);
     expect(results[0]).toMatchObject({ status: "ok" });
@@ -1110,7 +1125,7 @@ describe("createItem", () => {
     const client = createLorenzoApiClient(BASE_URL);
     const item = await client.createItem(TENANT_ID, "Sack", "test-token");
 
-    expect(receivedBody).toEqual({ name: "Sack", prototype_ids: [] });
+    expect(receivedBody).toEqual({ name: "Sack", prototype_ids: [], in_public_catalog: false });
     expect(item.entity_id).toBe("item-9");
   });
 });

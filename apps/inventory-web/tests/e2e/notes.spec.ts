@@ -15,7 +15,7 @@ async function giveToBrisk(world: World, id: string) {
   await ok(
     world.gm.api.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
       params: { path: { tenant_id: world.tenantId, entity_id: id } },
-      body: { owner_character_id: world.oskar.character.entity_id },
+      body: { owner_character_id: world.oskar.character.entity_id, move_to_owner: false },
     }),
   );
 }

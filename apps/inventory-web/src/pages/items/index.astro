@@ -9,13 +9,16 @@ import Base from '../../layouts/Base.astro';
   <div id="page" hidden>
     <h1 class="display" id="tenant-name"></h1>
 
-    <section class="section-lg" aria-labelledby="new-item-heading">
+    <section id="new-item" class="section-lg" aria-labelledby="new-item-heading" hidden>
       <h2 id="new-item-heading">New item</h2>
       <div id="create-item-mount"></div>
     </section>
 
     <section class="section-lg" aria-labelledby="catalog-heading">
       <h2 id="catalog-heading">Catalog</h2>
+      <p id="catalog-intro" class="field-note" hidden>
+        Everything your GMs have put in the public catalog.
+      </p>
       <div class="catalog-toolbar">
         <input
           type="search"
@@ -31,7 +34,7 @@ import Base from '../../layouts/Base.astro';
       <ul id="catalog-list" class="catalog-list" hidden></ul>
     </section>
 
-    <section class="section-lg" aria-labelledby="instances-heading">
+    <section id="instances" class="section-lg" aria-labelledby="instances-heading" hidden>
       <h2 id="instances-heading">Instances</h2>
       <div class="field">
         <span class="field-label" id="browse-label">View a being's inventory</span>
@@ -80,7 +83,7 @@ import Base from '../../layouts/Base.astro';
       unsetOwner,
       updateCatalogItem,
     } from '../../lib/items';
-    import { isCampaignGm } from '../../lib/me';
+    import { isCampaignGm, isTenantMember, viewerId } from '../../lib/me';
     import { saveSlug, slugField, slugProblem, suggestSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
     import type {
@@ -91,7 +94,12 @@ import Base from '../../layouts/Base.astro';
       OwnedGroup,
     } from '../../lib/types';
 
+    const byId = (id: string) => document.getElementById(id) as HTMLElement;
     const status = document.getElementById('status')!;
+    // Set once the page loads: whether this is Manage items or a read-only catalog, and whose
+    // catalog the cache holds.
+    let viewerIsGm = false;
+    let viewer = '';
     const page = document.getElementById('page')!;
     const tenantName = document.getElementById('tenant-name')!;
 
@@ -316,6 +324,21 @@ import Base from '../../layouts/Base.astro';
       return field;
     }
 
+    // Whether players can browse and search for it too (ADR 0116).
+    function createPublicField(initial: boolean): {
+      element: HTMLElement;
+      input: HTMLInputElement;
+    } {
+      const field = document.createElement('label');
+      field.className = 'field-row';
+      const input = Object.assign(document.createElement('input'), {
+        type: 'checkbox',
+        checked: initial,
+      });
+      field.append(input, 'In the public catalog: players can browse and search for it');
+      return { element: field, input };
+    }
+
     function renderItemForm(options: {
       fields: HTMLElement[];
       submitLabel: string;
@@ -484,8 +507,15 @@ import Base from '../../layouts/Base.astro';
         title: () => description.title.value.trim() || nameField.input.value.trim(),
         suggest: (title) => suggestSlug(tenantId as string, title, 'item'),
       });
+      const publicField = createPublicField(false);
       const form = renderItemForm({
-        fields: [nameField.element, parentsField.element, description.element, slug.element],
+        fields: [
+          nameField.element,
+          parentsField.element,
+          description.element,
+          slug.element,
+          publicField.element,
+        ],
         submitLabel: 'Create item',
         onSubmit: async () => {
           const name = nameField.input.value.trim();
@@ -495,6 +525,7 @@ import Base from '../../layouts/Base.astro';
             tenantId as string,
             name,
             parentsField.getSelectedIds(),
+            publicField.input.checked,
           );
           // The item exists now, so a failed description or slug mustn't leave this form up
           // to create it twice.
@@ -539,6 +570,16 @@ import Base from '../../layouts/Base.astro';
       const title = document.createElement('span');
       title.className = 'catalog-row-title';
       title.textContent = item.title;
+      // Beside the title, not in it: the title stays the item's name alone.
+      const name = document.createElement('span');
+      name.append(title);
+      if (viewerIsGm && item.in_public_catalog) {
+        const chip = Object.assign(document.createElement('span'), {
+          className: 'chip',
+          textContent: 'Public',
+        });
+        name.append(' ', chip);
+      }
 
       const actions = document.createElement('div');
       actions.className = 'catalog-row-actions';
@@ -553,9 +594,13 @@ import Base from '../../layouts/Base.astro';
       deleteButton.type = 'button';
       deleteButton.className = 'btn-danger';
       deleteButton.textContent = 'Delete';
-      actions.append(viewLink, editButton, instantiateButton, deleteButton);
+      // Only a GM changes the catalog; anyone else looks items up (ADR 0116).
+      actions.append(
+        viewLink,
+        ...(viewerIsGm ? [editButton, instantiateButton, deleteButton] : []),
+      );
 
-      header.append(title, actions);
+      header.append(name, actions);
       li.append(header);
 
       deleteButton.addEventListener('click', async () => {
@@ -612,6 +657,7 @@ import Base from '../../layouts/Base.astro';
             entity.slug ??
               (await suggestSlug(tenantId as string, item.title, 'item').catch(() => '')),
           );
+          const publicField = createPublicField(item.in_public_catalog);
           const usedByField = renderUsedByField(usedBy);
           const form = renderItemForm({
             fields: [
@@ -619,6 +665,7 @@ import Base from '../../layouts/Base.astro';
               parentsField.element,
               description.element,
               slug.element,
+              publicField.element,
               usedByField,
             ],
             submitLabel: 'Save',
@@ -628,7 +675,12 @@ import Base from '../../layouts/Base.astro';
               checkSlug(slug.input);
               const draft = description.read();
               await Promise.all([
-                updateCatalogItem(tenantId as string, item.entity_id, name),
+                updateCatalogItem(
+                  tenantId as string,
+                  item.entity_id,
+                  name,
+                  publicField.input.checked,
+                ),
                 setItemPrototypes(
                   tenantId as string,
                   item.entity_id,
@@ -698,7 +750,7 @@ import Base from '../../layouts/Base.astro';
       // wrong write.
       let paintedFromCache = false;
       if (!query) {
-        const cached = readCatalogCache(tenantId as string);
+        const cached = readCatalogCache(tenantId as string, viewer);
         if (cached) {
           renderCatalogList(cached);
           paintedFromCache = true;
@@ -710,7 +762,7 @@ import Base from '../../layouts/Base.astro';
         const result = await listCatalogItems(tenantId as string, query);
         if (thisRequest !== requestId) return; // a newer search superseded this one
         renderCatalogList(result);
-        if (!query) writeCatalogCache(tenantId as string, result);
+        if (!query) writeCatalogCache(tenantId as string, viewer, result);
       } catch (e) {
         if (thisRequest !== requestId) return;
         catalogList.removeAttribute('aria-busy');
@@ -909,15 +961,20 @@ import Base from '../../layouts/Base.astro';
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
       status.textContent = 'No tenant selected. Pick one to continue.';
-    } else if (!(await isCampaignGm(tenantId))) {
-      status.textContent = "This page is for GMs only. You don't GM a campaign in this tenant.";
     } else {
       try {
+        // GMs manage the catalog here; anyone else browses what they may list: the public
+        // catalog, for players (ADR 0116).
+        [viewerIsGm, viewer] = await Promise.all([isCampaignGm(tenantId), viewerId()]);
         const tenant = await getTenant(tenantId);
         status.hidden = true;
         tenantName.textContent = tenant.name;
+        document.title = viewerIsGm ? 'Manage items — Lorenzo' : 'Catalog — Lorenzo';
+        byId('new-item').hidden = !viewerIsGm;
+        byId('instances').hidden = !viewerIsGm;
+        byId('catalog-intro').hidden = viewerIsGm || (await isTenantMember(tenantId));
         page.hidden = false;
-        mountCreateItemForm();
+        if (viewerIsGm) mountCreateItemForm();
         await loadCatalog('');
       } catch (e) {
         status.textContent = e instanceof Error ? e.message : String(e);

@@ -2051,6 +2051,9 @@ export interface paths {
          *     already established for containment (ADR 0065); recursive without
          *     prototype_id is a no-op, not an error, matching that same route's own
          *     treatment of recursive without container_id.
+         *
+         *     A member lists the whole catalog; any other tenant participant lists
+         *     only the items in the public catalog (ADR 0116), every filter included.
          */
         get: operations["list_items"];
         put?: never;
@@ -2074,7 +2077,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Item */
+        /**
+         * Get Item
+         * @description Any tenant participant reads a catalog item, public or not (ADR
+         *     0116); its information stays filtered to what they may see.
+         */
         get: operations["get_item"];
         put?: never;
         post?: never;
@@ -2092,9 +2099,11 @@ export interface paths {
         head?: never;
         /**
          * Update Item
-         * @description A rename - deliberately not recorded in the activity log (ADR 0084:
+         * @description A rename, and putting it in or out of the public catalog (ADR 0116).
+         *     A rename is deliberately not recorded in the activity log (ADR 0084:
          *     descriptive-content edits are excluded; `updated_by` already says who
-         *     last touched it).
+         *     last touched it); a catalog change is, since it changes who can list
+         *     the item.
          */
         patch: operations["update_item"];
         trace?: never;
@@ -2144,7 +2153,8 @@ export interface paths {
          *     prototypes), not just the direct set ItemOut.prototype_ids already
          *     exposes. See ADR 0073. Not paginated - prototype graphs are shallow by
          *     construction (ADR 0015), the same "bounded, no pagination needed"
-         *     reasoning OwnedByResponse already uses.
+         *     reasoning OwnedByResponse already uses. Readable by any tenant
+         *     participant, like the item itself (ADR 0116).
          */
         get: operations["get_item_prototype_ancestry"];
         put?: never;
@@ -2401,6 +2411,9 @@ export interface paths {
          *     relationship (ownership already enforces at most one owner per entity
          *     at the schema level, ADR 0025), giving "transfer to a new owner" and
          *     "set an owner for the first time" the same call shape.
+         *
+         *     move_to_owner (ADR 0115) hands it over: it's also contained by its new
+         *     owner, out of any container it was in, its stack count riding along.
          */
         put: operations["set_item_instance_owner"];
         post?: never;
@@ -2427,7 +2440,13 @@ export interface paths {
         /** Set Item Instance Container */
         put: operations["set_item_instance_container"];
         post?: never;
-        /** Clear Item Instance Container */
+        /**
+         * Clear Item Instance Container
+         * @description Takes it out of every container. Refused for a stack of more than one
+         *     (409, ADR 0115): its count lives on the containment row (ADR 0041), so
+         *     deleting the row would drop it. A stack leaves a container into its
+         *     owner instead, with PUT .../container.
+         */
         delete: operations["clear_item_instance_container"];
         options?: never;
         head?: never;
@@ -2956,7 +2975,9 @@ export interface components {
          *     omitted delegates to the plain owner-PUT path (reassigning entity_id
          *     itself). if_match is optional, exactly like every other write in this
          *     router - honored per item, a stale claim becomes that item's own
-         *     "error" entry rather than failing the whole batch.
+         *     "error" entry rather than failing the whole batch. move_to_owner (ADR
+         *     0115): as SetOwnerRequest's - with a quantity, the split-off stack goes
+         *     into its new owner.
          */
         BulkAssignItem: {
             /**
@@ -2973,6 +2994,11 @@ export interface components {
             quantity?: number | null;
             /** If Match */
             if_match?: string | null;
+            /**
+             * Move To Owner
+             * @default false
+             */
+            move_to_owner: boolean;
         };
         /**
          * BulkAssignResultItem
@@ -4008,6 +4034,7 @@ export interface components {
          * ItemCreate
          * @description POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
          *     EntityPrototype row per id in prototype_ids, one transaction.
+         *     in_public_catalog (ADR 0116): whether players may list it too.
          */
         ItemCreate: {
             /** Name */
@@ -4017,6 +4044,11 @@ export interface components {
              * @default []
              */
             prototype_ids: string[];
+            /**
+             * In Public Catalog
+             * @default false
+             */
+            in_public_catalog: boolean;
         };
         /**
          * ItemInstanceCreate
@@ -4048,9 +4080,9 @@ export interface components {
         };
         /**
          * ItemInstanceOut
-         * @description A specific, ownable item ("My Shovel"), from `VItemInstance` -
-         *     identical to `ItemOut` plus `owner_entity_id`/`slug`. See ADR 0019/0020
-         *     and `ItemOut`'s docstring for the eager-load requirement.
+         * @description A specific, ownable item ("My Shovel"), from `VItemInstance` - the
+         *     fields every item has plus `owner_entity_id`/`slug`. See ADR 0019/0020
+         *     and `_ItemFields`'s docstring for the eager-load requirement.
          */
         ItemInstanceOut: {
             /**
@@ -4125,28 +4157,9 @@ export interface components {
         };
         /**
          * ItemOut
-         * @description A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
-         *     `title` is always populated - `VItem.title` itself is still nullable
-         *     (no "description" Information row authored at all), but `_title_out`
-         *     (ADR 0067) falls back to the entity's own `name` whenever it's empty,
-         *     so a client always has something to display without checking for
-         *     `None` first.
-         *
-         *     Constructing this requires the source `VItem` to already have its
-         *     entity->information->payloads->description/picture,
-         *     entity->information->knowledge_links (ADR 0028 - `descriptions` is
-         *     visibility-gated, not a bare property anymore),
-         *     entity->stats->stat_definition->stat_group, entity->contained_links
-         *     (ADR 0066 - `_is_container_out`'s own structural fallback), and
-         *     entity->prototype_links (ADR 0072 - `prototype_ids`) eager-loaded (see
-         *     `routers.items.eager_load_options`, the exact recipe proven in
-         *     `tests/test_v_item.py`) - the six wrapped properties/methods (plus
-         *     `contained_links`/`prototype_links` themselves) raise MissingGreenlet
-         *     otherwise, they do not silently lazy-load.
-         *
-         *     `ItemInstanceOut` below extends this directly - identical fields plus
-         *     `owner_entity_id`/`slug` - rather than repeating the field list a
-         *     second time.
+         * @description A base item type ("Shovel"), from `VItem` - see ADR 0019/0020 and
+         *     `_ItemFields` for the eager-load requirement, which here also includes
+         *     `VItem.entity -> Entity.item` for `in_public_catalog` (ADR 0116).
          */
         ItemOut: {
             /**
@@ -4203,15 +4216,19 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** In Public Catalog */
+            in_public_catalog: boolean;
         };
         /**
          * ItemUpdate
-         * @description PATCH /items/{id} - only Entity.name is mutable through this
-         *     endpoint; nothing else on a bare Item row exists to update.
+         * @description PATCH /items/{id} - Entity.name, and the Item row's own
+         *     in_public_catalog (ADR 0116). Either left out stays as it is.
          */
         ItemUpdate: {
             /** Name */
             name?: string | null;
+            /** In Public Catalog */
+            in_public_catalog?: boolean | null;
         };
         /**
          * KnowerOut
@@ -5266,7 +5283,9 @@ export interface components {
         };
         /**
          * SetOwnerRequest
-         * @description PUT /item-instances/{id}/owner body.
+         * @description PUT /item-instances/{id}/owner body. move_to_owner (ADR 0115): also
+         *     put it into its new owner, out of whatever container it's in, its stack
+         *     count kept; left false, only the owner changes (ADR 0051).
          */
         SetOwnerRequest: {
             /**
@@ -5274,6 +5293,11 @@ export interface components {
              * Format: uuid
              */
             owner_character_id: string;
+            /**
+             * Move To Owner
+             * @default false
+             */
+            move_to_owner: boolean;
         };
         /**
          * SetPrototypesRequest

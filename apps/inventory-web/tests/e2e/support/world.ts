@@ -20,6 +20,8 @@ export type ItemOptions = {
   /** Tags set on for this item. */
   tags?: Stat[];
   stats?: Partial<Record<Stat, number>>;
+  /** In the public catalog, for players to list (ADR 0116). */
+  public?: boolean;
 };
 
 export type InstanceOptions = { owner?: Player; container?: string; slug?: string };
@@ -106,7 +108,11 @@ export async function buildWorld() {
     const created = await ok(
       api.POST('/tenants/{tenant_id}/items', {
         ...t,
-        body: { name, prototype_ids: options.prototypes ?? [] },
+        body: {
+          name,
+          prototype_ids: options.prototypes ?? [],
+          in_public_catalog: options.public ?? false,
+        },
       }),
     );
     const entity = { tenant_id: tenant.id, entity_id: created.entity_id };

@@ -138,6 +138,7 @@ export const giveBulkCommand: Command = {
         pending.itemEntityIds.map((entityId) => ({
           entity_id: entityId,
           owner_character_id: targetCharacterId,
+          move_to_owner: false,
         })),
         accessToken,
       );

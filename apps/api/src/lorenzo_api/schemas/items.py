@@ -200,18 +200,21 @@ def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool
 class ItemCreate(BaseModel):
     """POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
     EntityPrototype row per id in prototype_ids, one transaction.
+    in_public_catalog (ADR 0116): whether players may list it too.
     """
 
     name: str
     prototype_ids: list[uuid.UUID] = []
+    in_public_catalog: bool = False
 
 
 class ItemUpdate(BaseModel):
-    """PATCH /items/{id} - only Entity.name is mutable through this
-    endpoint; nothing else on a bare Item row exists to update.
+    """PATCH /items/{id} - Entity.name, and the Item row's own
+    in_public_catalog (ADR 0116). Either left out stays as it is.
     """
 
     name: str | None = None
+    in_public_catalog: bool | None = None
 
 
 def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
@@ -282,8 +285,11 @@ def _common_item_fields(
     )
 
 
-class ItemOut(BaseModel):
-    """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020.
+class _ItemFields(BaseModel):
+    """Every field ItemOut and ItemInstanceOut share, from their views (ADR
+    0019). A base of both rather than ItemOut itself, since ItemOut has one
+    field of its own an instance doesn't: in_public_catalog (ADR 0116).
+
     `title` is always populated - `VItem.title` itself is still nullable
     (no "description" Information row authored at all), but `_title_out`
     (ADR 0067) falls back to the entity's own `name` whenever it's empty,
@@ -301,10 +307,6 @@ class ItemOut(BaseModel):
     `tests/test_v_item.py`) - the six wrapped properties/methods (plus
     `contained_links`/`prototype_links` themselves) raise MissingGreenlet
     otherwise, they do not silently lazy-load.
-
-    `ItemInstanceOut` below extends this directly - identical fields plus
-    `owner_entity_id`/`slug` - rather than repeating the field list a
-    second time.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -334,6 +336,15 @@ class ItemOut(BaseModel):
     updated_by: uuid.UUID | None
     updated_at: datetime
 
+
+class ItemOut(_ItemFields):
+    """A base item type ("Shovel"), from `VItem` - see ADR 0019/0020 and
+    `_ItemFields` for the eager-load requirement, which here also includes
+    `VItem.entity -> Entity.item` for `in_public_catalog` (ADR 0116).
+    """
+
+    in_public_catalog: bool
+
     @classmethod
     def from_v_item(
         cls,
@@ -343,7 +354,11 @@ class ItemOut(BaseModel):
         visibility: InformationVisibility,
         ancestors: Sequence[Entity],
     ) -> Self:
-        return cls(**_common_item_fields(view, request, visibility=visibility, ancestors=ancestors))
+        item = view.entity.item
+        return cls(
+            **_common_item_fields(view, request, visibility=visibility, ancestors=ancestors),
+            in_public_catalog=item is not None and item.in_public_catalog,
+        )
 
 
 class ItemInstanceCreate(BaseModel):
@@ -377,9 +392,13 @@ class ItemInstanceUpdate(BaseModel):
 
 
 class SetOwnerRequest(BaseModel):
-    """PUT /item-instances/{id}/owner body."""
+    """PUT /item-instances/{id}/owner body. move_to_owner (ADR 0115): also
+    put it into its new owner, out of whatever container it's in, its stack
+    count kept; left false, only the owner changes (ADR 0051).
+    """
 
     owner_character_id: uuid.UUID
+    move_to_owner: bool = False
 
 
 class SetContainerRequest(BaseModel):
@@ -427,19 +446,22 @@ class BulkAssignItem(BaseModel):
     omitted delegates to the plain owner-PUT path (reassigning entity_id
     itself). if_match is optional, exactly like every other write in this
     router - honored per item, a stale claim becomes that item's own
-    "error" entry rather than failing the whole batch.
+    "error" entry rather than failing the whole batch. move_to_owner (ADR
+    0115): as SetOwnerRequest's - with a quantity, the split-off stack goes
+    into its new owner.
     """
 
     entity_id: uuid.UUID
     owner_character_id: uuid.UUID
     quantity: int | None = None
     if_match: str | None = None
+    move_to_owner: bool = False
 
 
-class ItemInstanceOut(ItemOut):
-    """A specific, ownable item ("My Shovel"), from `VItemInstance` -
-    identical to `ItemOut` plus `owner_entity_id`/`slug`. See ADR 0019/0020
-    and `ItemOut`'s docstring for the eager-load requirement.
+class ItemInstanceOut(_ItemFields):
+    """A specific, ownable item ("My Shovel"), from `VItemInstance` - the
+    fields every item has plus `owner_entity_id`/`slug`. See ADR 0019/0020
+    and `_ItemFields`'s docstring for the eager-load requirement.
     """
 
     owner_entity_id: uuid.UUID | None

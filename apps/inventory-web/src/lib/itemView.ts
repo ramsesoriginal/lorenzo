@@ -3,8 +3,9 @@
 // inherits from its prototypes (ADR 0111).
 import { blobUrl, type components } from './api';
 import { type Renderer, showDescriptions } from './descriptions';
+import type { ItemBase } from './types';
 
-type Item = components['schemas']['ItemOut'];
+type Item = ItemBase;
 type Source = components['schemas']['EntitySummary'] | null;
 
 const GROUPS = [
@@ -30,14 +31,9 @@ export function statLabel(name: string): string {
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = '') =>
   Object.assign(document.createElement(tag), { className, textContent: text });
 
-export type ItemViewOptions = {
-  tenantId: string;
-  renderer: Renderer;
-  /** Whether the viewer can open catalog items, so "From Longsword" links there (ADR 0032). */
-  linkSources: boolean;
-};
+export type ItemViewOptions = { tenantId: string; renderer: Renderer };
 
-/** "From Longsword", linking to it if the viewer may follow, for something an item inherits. */
+/** "From Longsword", linking to it, for something an item inherits; any participant may follow (ADR 0116). */
 function sourceLabel(
   source: Source,
   options: ItemViewOptions,
@@ -45,10 +41,6 @@ function sourceLabel(
 ): HTMLElement | null {
   if (!source) return null;
   const label = make(tag, 'item-view-source', 'From ');
-  if (!options.linkSources) {
-    label.append(source.name);
-    return label;
-  }
   const link = make('a', '', source.name);
   link.href = `/item/?tenant=${options.tenantId}&id=${source.id}`;
   label.append(link);

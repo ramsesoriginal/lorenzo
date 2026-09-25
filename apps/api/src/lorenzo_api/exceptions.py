@@ -68,6 +68,7 @@ __all__ = [
     "PreconditionFailedError",
     "ProfilePictureNotFoundError",
     "SlugConflictError",
+    "StackNeedsContainerError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
@@ -104,6 +105,15 @@ class EntitySlugConflictError(ConflictProblem):
     """
 
     title = "Slug already in use"
+
+
+class StackNeedsContainerError(ConflictProblem):
+    """DELETE .../item-instances/{id}/container on a stack of more than one -
+    a stack's count lives on its containment row (ADR 0041), so deleting the
+    row would drop it. Move the stack into its owner instead (ADR 0115).
+    """
+
+    title = "A stack needs a container"
 
 
 class EntitySlugManagementForbiddenError(ForbiddenProblem):

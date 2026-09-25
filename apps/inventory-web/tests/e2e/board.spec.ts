@@ -67,8 +67,9 @@ test('opens an item to show all of it, with what it inherits labelled', async ({
   await expect(detail.getByRole('term').filter({ hasText: 'Weight' })).toBeVisible();
   await expect(detail.getByRole('listitem').filter({ hasText: 'Magical' })).toBeVisible();
 
-  // A player can't open catalog items (ADR 0032), so where it comes from isn't a link.
-  await expect(detail.getByText('From Spellbook').getByRole('link')).toHaveCount(0);
+  // Any participant opens a catalog item (ADR 0116), so where it comes from is a link.
+  await detail.getByText('From Spellbook').getByRole('link').click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Spellbook' })).toBeVisible();
 });
 
 test('closes the item with Escape', async ({ world, as }) => {
@@ -234,6 +235,7 @@ test('a player gets no GM tools', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
   await expect(page.getByRole('button', { name: 'Ashfang' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Manage items (GM)' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Catalog' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Browse a being' })).toBeHidden();
 });
 
@@ -271,8 +273,9 @@ test('someone who GMs another tenant is only a player here', async ({ world, as 
   await page.goto(`/board/?tenant=${world.tenantId}`);
   await expect(page.getByRole('heading', { name: world.tenantName })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Manage items (GM)' })).toBeHidden();
-  await page.goto(`/items/?tenant=${world.tenantId}`);
-  await expect(page.getByText('This page is for GMs only.')).toBeVisible();
+  await page.getByRole('link', { name: 'Catalog' }).click();
+  await expect(page.getByRole('region', { name: 'Catalog' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
 });
 
 test('a GM browses any being, and what nobody owns', async ({ world, as }) => {

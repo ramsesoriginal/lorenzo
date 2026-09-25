@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import CTE, delete, select
+from sqlalchemy import CTE, delete, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
@@ -20,6 +20,8 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_entity_or_404,
     get_tenant_context,
+    get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match, etag_for
@@ -38,6 +40,7 @@ from lorenzo_api.models import (
     Information,
     Item,
     ItemInstance,
+    Membership,
     Payload,
     StatDefinition,
     VEffectiveStat,
@@ -58,14 +61,22 @@ from lorenzo_api.schemas.items import (
     SetPrototypesRequest,
 )
 
-# get_tenant_context here, not per-route (ADR 0020's revised guidance) -
-# every route on this router needs it and none read its return value, the
-# textbook case FastAPI's own docs give for a router-level dependency.
+# Reading the catalog is for every tenant participant, writing it for members
+# (ADR 0032, 0116): the router only checks the tenant exists (and sets RLS),
+# the reads check participation themselves, and every write route declares
+# MEMBERS.
 router = APIRouter(
     prefix="/tenants/{tenant_id}/items",
     tags=["items"],
-    dependencies=[Depends(get_tenant_context)],
+    dependencies=[Depends(get_tenant_or_404)],
 )
+MEMBERS = [Depends(get_tenant_context)]
+
+
+async def _is_member(session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser) -> bool:
+    """A tenant-wide Membership (an owner or orga), who sees the whole
+    catalog; anyone else sees its public part (ADR 0116)."""
+    return await session.get(Membership, (tenant_id, user.id)) is not None
 
 
 def eager_load_options(
@@ -121,6 +132,13 @@ def eager_load_options(
         selectinload(view_entity_attr).selectinload(Entity.contained_links),
         selectinload(view_entity_attr).selectinload(Entity.prototype_links),
     )
+
+
+# ItemOut's own too: the item row, for in_public_catalog (ADR 0116).
+_ITEM_OPTIONS = (
+    *eager_load_options(VItem.entity),
+    selectinload(VItem.entity).selectinload(Entity.item),
+)
 
 
 def _prototype_descendants_cte(prototype_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
@@ -206,14 +224,22 @@ async def list_items(
     already established for containment (ADR 0065); recursive without
     prototype_id is a no-op, not an error, matching that same route's own
     treatment of recursive without container_id.
+
+    A member lists the whole catalog; any other tenant participant lists
+    only the items in the public catalog (ADR 0116), every filter included.
     """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = (
         select(VItem)
         .join(Entity, Entity.id == VItem.entity_id)
         .where(VItem.tenant_id == tenant_id)
-        .options(*eager_load_options(VItem.entity))
+        .options(*_ITEM_OPTIONS)
         .order_by(VItem.entity_id)
     )
+    if not await _is_member(session, tenant_id=tenant_id, user=user):
+        stmt = stmt.join(Item, Item.entity_id == VItem.entity_id).where(
+            Item.in_public_catalog.is_(True)
+        )
     if q is not None:
         stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
     if prototype_id is not None:
@@ -260,6 +286,9 @@ async def get_item(
     session: SessionDep,
     user: CurrentUser,
 ) -> ItemOut:
+    """Any tenant participant reads a catalog item, public or not (ADR
+    0116); its information stays filtered to what they may see."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     response.headers["ETag"] = etag_for(view.entity.updated_at)
@@ -277,7 +306,7 @@ async def _get_v_item_or_404(
     stmt = (
         select(VItem)
         .where(VItem.entity_id == entity_id, VItem.tenant_id == tenant_id)
-        .options(*eager_load_options(VItem.entity))
+        .options(*_ITEM_OPTIONS)
     )
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
@@ -328,7 +357,7 @@ async def _item_out(
     )
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, dependencies=MEMBERS)
 async def create_item(
     tenant_id: uuid.UUID,
     body: ItemCreate,
@@ -344,7 +373,9 @@ async def create_item(
     entity = Entity(tenant_id=tenant_id, name=body.name, created_by=user.id, updated_by=user.id)
     session.add(entity)
     await session.flush()
-    session.add(Item(entity_id=entity.id, tenant_id=tenant_id))
+    session.add(
+        Item(entity_id=entity.id, tenant_id=tenant_id, in_public_catalog=body.in_public_catalog)
+    )
     for prototype_id in body.prototype_ids:
         session.add(
             EntityPrototype(entity_id=entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
@@ -356,7 +387,8 @@ async def create_item(
         action="item.created",
         target_type="item",
         target_id=entity.id,
-        detail=f"prototypes={len(body.prototype_ids)}",
+        detail=f"prototypes={len(body.prototype_ids)}"
+        + (", in_public_catalog=True" if body.in_public_catalog else ""),
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -366,7 +398,7 @@ async def create_item(
     return await _item_out(tenant_id, entity.id, request, response, session, user)
 
 
-@router.patch("/{entity_id}")
+@router.patch("/{entity_id}", dependencies=MEMBERS)
 async def update_item(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
@@ -377,9 +409,11 @@ async def update_item(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> ItemOut:
-    """A rename - deliberately not recorded in the activity log (ADR 0084:
+    """A rename, and putting it in or out of the public catalog (ADR 0116).
+    A rename is deliberately not recorded in the activity log (ADR 0084:
     descriptive-content edits are excluded; `updated_by` already says who
-    last touched it).
+    last touched it); a catalog change is, since it changes who can list
+    the item.
     """
     entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
@@ -387,12 +421,29 @@ async def update_item(
     if "name" in update:
         entity.name = update["name"]
         entity.updated_by = user.id
+    public = update.get("in_public_catalog")
+    item = await session.get_one(Item, entity_id)
+    if public is not None and public != item.in_public_catalog:
+        item.in_public_catalog = public
+        # Touches the entity too, so its updated_at (the ETag) moves even when
+        # updated_by is already this user and nothing else on it changed.
+        entity.updated_by = user.id
+        entity.updated_at = func.now()
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item.public_catalog_set",
+            target_type="item",
+            target_id=entity_id,
+            detail=f"in_public_catalog={public}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_out(tenant_id, entity_id, request, response, session, user)
 
 
-@router.put("/{entity_id}/prototypes")
+@router.put("/{entity_id}/prototypes", dependencies=MEMBERS)
 async def replace_item_prototypes(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
@@ -480,13 +531,16 @@ async def get_item_prototype_ancestry(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     session: SessionDep,
+    user: CurrentUser,
 ) -> list[PrototypeAncestorOut]:
     """Every transitive ancestor of entity_id (direct and indirect
     prototypes), not just the direct set ItemOut.prototype_ids already
     exposes. See ADR 0073. Not paginated - prototype graphs are shallow by
     construction (ADR 0015), the same "bounded, no pagination needed"
-    reasoning OwnedByResponse already uses.
+    reasoning OwnedByResponse already uses. Readable by any tenant
+    participant, like the item itself (ADR 0116).
     """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await _get_item_entity_or_404(tenant_id, entity_id, session)
 
     cte = _prototype_ancestors_cte(entity_id, tenant_id)
@@ -514,7 +568,7 @@ async def get_item_prototype_ancestry(
     ]
 
 
-@router.delete("/{entity_id}", status_code=204)
+@router.delete("/{entity_id}", status_code=204, dependencies=MEMBERS)
 async def delete_item(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
@@ -612,7 +666,7 @@ async def _validate_prototype_ids_exist(
         )
 
 
-@router.post("/bulk-reparent-prototype")
+@router.post("/bulk-reparent-prototype", dependencies=MEMBERS)
 async def bulk_reparent_item_prototype(
     tenant_id: uuid.UUID,
     body: BulkReparentPrototypeRequest,
@@ -711,7 +765,7 @@ async def bulk_reparent_item_prototype(
     return results
 
 
-@router.post("/bulk-add-prototype")
+@router.post("/bulk-add-prototype", dependencies=MEMBERS)
 async def bulk_add_item_prototype(
     tenant_id: uuid.UUID,
     body: BulkAddPrototypeRequest,
@@ -785,7 +839,7 @@ async def bulk_add_item_prototype(
     return results
 
 
-@router.post("/bulk-remove-prototype")
+@router.post("/bulk-remove-prototype", dependencies=MEMBERS)
 async def bulk_remove_item_prototype(
     tenant_id: uuid.UUID,
     body: BulkRemovePrototypeRequest,

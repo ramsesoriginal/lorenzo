@@ -8,7 +8,7 @@ import Base from '../../layouts/Base.astro';
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
     <p id="tenant-slug" class="tenant-slug"></p>
-    <p id="gm-tools" hidden><a id="manage-items-link" href="">Manage items (GM)</a></p>
+    <p id="catalog-links" hidden><a id="catalog-link" href="">Catalog</a></p>
 
     <section id="picker-section" class="section">
       <div
@@ -189,7 +189,7 @@ import Base from '../../layouts/Base.astro';
       unsetOwner,
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
-    import { isCampaignGm, isTenantMember } from '../../lib/me';
+    import { isCampaignGm } from '../../lib/me';
     import { collectMoveTargets } from '../../lib/moveTargets';
     import { renderNotes } from '../../lib/notes';
     import { getTenant } from '../../lib/tenants';
@@ -317,8 +317,6 @@ import Base from '../../layouts/Base.astro';
     // actions, not gated by this - the real authorization boundary is
     // each write's own server-side check either way.
     let userIsGm = false;
-    // Only tenant members can open catalog items (ADR 0032), so only they get links to them.
-    let userIsMember = false;
     // The viewer's own characters, once loaded: who reads their private notes (ADR 0113).
     let myCharacters: CharacterSummary[] = [];
 
@@ -326,6 +324,9 @@ import Base from '../../layouts/Base.astro';
     // loadUnownedBoard, called after any action that might change what
     // belongs here (give, split, merge, undo).
     let reloadCurrentView: (() => void) | null = null;
+    // The being whose board this is, who carries what's in no container of theirs (ADR
+    // 0115); null on the board of unowned things.
+    let boardOwnerId: string | null = null;
 
     // entity_id -> its ItemInstance, for everything currently rendered -
     // lets the merge panel's "other stacks of this" lookup and the bulk
@@ -367,6 +368,17 @@ import Base from '../../layouts/Base.astro';
       undoController.record(payload, () => {
         undoBanner.hidden = true;
       });
+    }
+
+    // After a give that handed something over (ADR 0115): a player no longer holds it at all,
+    // so has no standing to take it back, and gets no Undo that would fail. A GM keeps theirs.
+    function recordGiveUndo(handedOver: boolean, payload: UndoPayload, description: string) {
+      if (!handedOver || userIsGm) {
+        recordUndo(payload, description);
+        return;
+      }
+      undoController.clear();
+      undoBanner.hidden = true;
     }
 
     async function applyUndo() {
@@ -420,7 +432,6 @@ import Base from '../../layouts/Base.astro';
       renderItemView(detailView, item, {
         tenantId: tenantId as string,
         renderer: renderDescriptions,
-        linkSources: userIsMember,
       });
       // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
       const reader = myCharacters.find((c) => c.entity_id === item.owner_entity_id) ?? null;
@@ -520,6 +531,39 @@ import Base from '../../layouts/Base.astro';
       }
     });
 
+    // The container an item is in, if any. Its owner carrying it isn't one (ADR 0115).
+    function containerOf(item: ItemInstance): { id: string; name: string } | null {
+      const id = item.container_entity_id;
+      if (!id || id === item.owner_entity_id) return null;
+      return boardContainers.get(id) ?? { id, name: 'container' };
+    }
+
+    // Out of every container: into its owner, who carries it, so a stack keeps its count
+    // (ADR 0115). Something nobody owns has no one to hold it; the API refuses a stack then.
+    function takeOut(entityId: string, ownerId: string | null) {
+      return ownerId
+        ? setContainer(tenantId as string, entityId, ownerId)
+        : clearContainer(tenantId as string, entityId);
+    }
+
+    // "Hand it over" (ADR 0115): out of its container and into the recipient's hands. Only
+    // offered for what's in a container; left unchecked, a give changes the owner alone.
+    let handOverFields = 0;
+    function handOverField(label: string, otherwise: string) {
+      const input = Object.assign(document.createElement('input'), { type: 'checkbox' });
+      const row = document.createElement('label');
+      row.className = 'field-row';
+      row.append(input, label);
+      const note = document.createElement('p');
+      note.className = 'field-note';
+      note.id = `hand-over-note-${++handOverFields}`;
+      note.textContent = otherwise;
+      input.setAttribute('aria-describedby', note.id);
+      const element = document.createElement('div');
+      element.append(row, note);
+      return { element, input };
+    }
+
     // Give to… - a player action, always available, not GM-gated
     // (ownership already accepts any entity id server-side, no
     // character-only validation). An optional quantity splits off part of
@@ -547,18 +591,25 @@ import Base from '../../layouts/Base.astro';
       quantityField.append(quantityLabel, quantityInput);
 
       const previousOwnerId = item.owner_entity_id;
+      const previousContainerId = item.container_entity_id;
+      const where = containerOf(item);
+      const handOver = where
+        ? handOverField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
+        : null;
       const panel = renderBeingActionPanel(
         tenantId as string,
         async (being) => {
           const rawQuantity = quantityInput.value.trim();
           const requestedQuantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
           const plan = planGive(item, requestedQuantity);
+          const moveToOwner = handOver?.input.checked ?? false;
           if (plan.mode === 'partial') {
             const [result] = await bulkAssignItemInstances(tenantId as string, [
               {
                 entityId: item.entity_id,
                 ownerCharacterId: being.entity_id,
                 quantity: plan.quantity,
+                moveToOwner,
               },
             ]);
             if (result.status === 'error' || !result.item_instance) {
@@ -567,7 +618,8 @@ import Base from '../../layouts/Base.astro';
             // The split-off instance is a *new* entity - restore-owner
             // has nothing to restore it to; merging it back is the
             // honest inverse instead.
-            recordUndo(
+            recordGiveUndo(
+              moveToOwner,
               {
                 kind: 'undo-split',
                 splitOffEntityId: result.item_instance.entity_id,
@@ -576,9 +628,15 @@ import Base from '../../layouts/Base.astro';
               `Gave ${plan.quantity} ${item.title} to ${being.name}.`,
             );
           } else {
-            await setOwner(tenantId as string, item.entity_id, being.entity_id);
-            recordUndo(
-              { kind: 'restore-owner', entityId: item.entity_id, previousOwnerId },
+            await setOwner(tenantId as string, item.entity_id, being.entity_id, moveToOwner);
+            recordGiveUndo(
+              moveToOwner,
+              {
+                kind: 'restore-owner',
+                entityId: item.entity_id,
+                previousOwnerId,
+                ...(moveToOwner ? { previousContainerId } : {}),
+              },
               `Gave ${item.title} to ${being.name}.`,
             );
           }
@@ -587,7 +645,7 @@ import Base from '../../layouts/Base.astro';
         () => {
           finishAction();
         },
-        hasStack ? [quantityField] : [],
+        [...(hasStack ? [quantityField] : []), ...(handOver ? [handOver.element] : [])],
       );
       detailActionPanel.append(panel);
     });
@@ -750,8 +808,9 @@ import Base from '../../layouts/Base.astro';
       panel.className = 'character-picker-panel';
 
       const targets = collectMoveTargets(item, boardContainers.values(), boardItems.values());
+      const inContainer = containerOf(item) !== null;
 
-      if (targets.length === 0 && previousContainerId === null) {
+      if (targets.length === 0 && !inContainer) {
         const note = document.createElement('p');
         note.className = 'field-note';
         note.textContent = 'No other container is visible on the current board.';
@@ -773,7 +832,7 @@ import Base from '../../layouts/Base.astro';
           if (targetId) {
             await setContainer(tenantId as string, item.entity_id, targetId);
           } else {
-            await clearContainer(tenantId as string, item.entity_id);
+            await takeOut(item.entity_id, item.owner_entity_id);
           }
           recordUndo(
             { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
@@ -790,7 +849,7 @@ import Base from '../../layouts/Base.astro';
         }
       }
 
-      if (previousContainerId !== null) {
+      if (inContainer) {
         const clearButton = document.createElement('button');
         clearButton.type = 'button';
         clearButton.textContent = 'Remove from container';
@@ -881,12 +940,20 @@ import Base from '../../layouts/Base.astro';
 
       selectionGiveButton.textContent = 'Cancel';
       const ids = [...selectedIds];
+      const inContainers = ids.some((id) => {
+        const selected = boardItems.get(id);
+        return selected ? containerOf(selected) !== null : false;
+      });
+      const handOver = inContainers
+        ? handOverField('Hand them over', 'Otherwise they stay in their containers, theirs now.')
+        : null;
       const panel = renderBeingActionPanel(
         tenantId as string,
         async (being) => {
+          const moveToOwner = handOver?.input.checked ?? false;
           const results = await bulkAssignItemInstances(
             tenantId as string,
-            ids.map((entityId) => ({ entityId, ownerCharacterId: being.entity_id })),
+            ids.map((entityId) => ({ entityId, ownerCharacterId: being.entity_id, moveToOwner })),
           );
           // bulk-assign is never all-or-nothing (ADR 0044) - a total
           // failure means nothing changed, so it's safe to just throw
@@ -913,6 +980,7 @@ import Base from '../../layouts/Base.astro';
           setSelectMode(false);
           reloadCurrentView?.();
         },
+        handOver ? [handOver.element] : [],
       );
       selectionGivePanel.append(panel);
     });
@@ -921,18 +989,13 @@ import Base from '../../layouts/Base.astro';
     // moving within its own column), so a plain "leave clears the
     // highlight" handler flickers - a per-column counter fixes that.
     const dragDepth = new WeakMap<HTMLElement, number>();
-    // Which container (or null, meaning "no container") each column's own
-    // card list represents - looked up on drop to know a move's *previous*
-    // container for undo, and to know whether a bulk move is possible.
-    const listContainerId = new Map<HTMLUListElement, string | null>();
 
+    // containerEntityId is the column's container, or null for the owner's own column.
     function bindDropZone(
       column: HTMLElement,
       list: HTMLUListElement,
       containerEntityId: string | null,
     ) {
-      listContainerId.set(list, containerEntityId);
-
       column.addEventListener('dragenter', (event) => {
         event.preventDefault();
         dragDepth.set(column, (dragDepth.get(column) ?? 0) + 1);
@@ -978,7 +1041,11 @@ import Base from '../../layouts/Base.astro';
             boardColumns.querySelector<HTMLLIElement>(`.item-card[data-entity-id="${id}"]`),
           )
           .filter((c): c is HTMLLIElement => c !== null);
-        const previousContainerId = listContainerId.get(sourceList) ?? null;
+        // Where it really was: a card in the owner's own column may be carried by the owner.
+        const previousContainerId = boardItems.get(entityId)?.container_entity_id ?? null;
+        // The owner's own column puts things into the owner, who carries them (ADR 0115);
+        // only unowned things leave every container.
+        const target = containerEntityId ?? boardOwnerId;
 
         withReflow(() => {
           removePlaceholder(list);
@@ -993,8 +1060,8 @@ import Base from '../../layouts/Base.astro';
         // undefined for the single-item path, where any failure really is
         // total and handled by the outer .catch below instead.
         let request: Promise<{ failedIds: Set<string> } | undefined>;
-        if (isBulk && containerEntityId) {
-          request = bulkMoveItemInstances(tenantId as string, containerEntityId, idsToMove).then(
+        if (isBulk && target) {
+          request = bulkMoveItemInstances(tenantId as string, target, idsToMove).then(
             (results) => ({ failedIds: failedEntityIds(results) }),
           );
         } else if (isBulk) {
@@ -1012,8 +1079,8 @@ import Base from '../../layouts/Base.astro';
           }));
         } else {
           request = (
-            containerEntityId
-              ? setContainer(tenantId as string, entityId, containerEntityId)
+            target
+              ? setContainer(tenantId as string, entityId, target)
               : clearContainer(tenantId as string, entityId)
           ).then(() => undefined);
         }
@@ -1168,7 +1235,6 @@ import Base from '../../layouts/Base.astro';
     ) {
       boardItems.clear();
       boardContainers.clear();
-      listContainerId.clear();
       clearSelection();
       inventoryEmpty.hidden = true;
       inventoryError.hidden = true;
@@ -1227,6 +1293,7 @@ import Base from '../../layouts/Base.astro';
 
     async function loadBoard(entityId: string, rootTitle: string) {
       reloadCurrentView = () => void loadBoard(entityId, rootTitle);
+      boardOwnerId = entityId;
       const prefetched = prefetchedBoards.get(entityId);
       prefetchedBoards.delete(entityId);
       await loadBoardFromResponse(
@@ -1239,6 +1306,7 @@ import Base from '../../layouts/Base.astro';
     // GM-only: unclaimed loot, nobody's owned it yet (ADR 0077/#95).
     async function loadUnownedBoard() {
       reloadCurrentView = () => void loadUnownedBoard();
+      boardOwnerId = null;
       await loadBoardFromResponse(
         () => getUnownedItemInstances(tenantId as string),
         'Unowned',
@@ -1368,16 +1436,17 @@ import Base from '../../layouts/Base.astro';
         status.hidden = true;
         tenantName.textContent = tenant.name;
         tenantSlug.textContent = tenant.slug;
-        userIsMember = await isTenantMember(tenantId);
         board.hidden = false;
         await loadCharacters(tenantId);
 
         userIsGm = await isCampaignGm(tenantId);
+        // The same page either way: GMs manage the catalog there, anyone else browses what
+        // they may list of it (ADR 0116).
+        const catalogLink = document.getElementById('catalog-link') as HTMLAnchorElement;
+        catalogLink.href = `/items/?tenant=${tenantId}`;
+        catalogLink.textContent = userIsGm ? 'Manage items (GM)' : 'Catalog';
+        document.getElementById('catalog-links')!.hidden = false;
         if (userIsGm) {
-          const gmTools = document.getElementById('gm-tools')!;
-          const manageItemsLink = document.getElementById('manage-items-link') as HTMLAnchorElement;
-          manageItemsLink.href = `/items/?tenant=${tenantId}`;
-          gmTools.hidden = false;
           pickerTablist.hidden = false;
           tabBrowse.hidden = false;
           tabUnowned.hidden = false;
