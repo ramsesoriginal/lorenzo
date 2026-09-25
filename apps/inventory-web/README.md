@@ -11,7 +11,8 @@ After logging in via Authgear and picking a tenant, a character's inventory
 renders as a kanban-style board — columns are the containers they own, cards
 are item instances, dragged between columns to move them. Clicking a card
 opens its detail view: stats, tags/flags, full prototype ancestry, and
-descriptions.
+descriptions, rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)
+(Lorenzo's Markdown dialect) with entity links and pictures resolved.
 
 From that detail view, or when multiple cards are multi-selected:
 
@@ -26,7 +27,13 @@ From that detail view, or when multiple cards are multi-selected:
 
 Every item instance also has its own standalone, shareable page
 (`/item/?tenant=…&id=…`, or `&slug=…` when the instance has one) — usable
-for both a catalog item and an instance, with a "Copy link" button.
+for both a catalog item and an instance, with a "Copy link" button. There, a
+GM can also write or edit the item's description, in a LorenzoScript editor
+with a live preview that lists any links readers won't be able to follow
+([ADR 0108](../../docs/adr/0108-lorenzoscript-in-inventory-web.md)). The page
+also lists, under "Mentioned in", the entities whose descriptions link to the
+item, as far as the viewer may read them
+([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)).
 
 A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
@@ -40,9 +47,9 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   browse everyone's unowned/unclaimed loot, both via the same board UI a
   player uses for their own characters
 
-Deliberately not built yet: notes/description authoring (GM/player-written,
-visibility-gated text) — see the tracking issue for what's actually in
-flight.
+Deliberately not built yet: notes beyond the description (GM/player-written,
+visibility-gated text), and naming who may read a private one — see the
+tracking issue for what's actually in flight.
 
 ## Commands
 

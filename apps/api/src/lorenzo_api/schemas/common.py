@@ -1,8 +1,13 @@
 import uuid
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from lorenzo_api.models import Entity
+
+# ADR 0107: what LorenzoScript's `[text](slug)` can name (RFC 0027 §3),
+# checked on every write. Matched exactly, case included.
+Slug = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100)]
 
 
 class ProblemOut(BaseModel):

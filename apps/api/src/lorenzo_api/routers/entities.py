@@ -1,10 +1,11 @@
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from fastapi_pagination import Page
+from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import select
+from fastapi_problem.error import ForbiddenProblem
+from sqlalchemy import delete, exists, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -17,6 +18,7 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_entity_or_404,
     get_tenant_or_404,
     require_tenant_participant,
     set_tenant_rls_context,
@@ -25,6 +27,9 @@ from lorenzo_api.description_payloads import write_description
 from lorenzo_api.entity_access import can_self_manage_entity
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
+    EntitySlugConflictError,
+    EntitySlugManagementForbiddenError,
+    EntitySlugNotFoundError,
     InformationAlreadyExistsError,
     InformationManagementForbiddenError,
     InformationNotFoundError,
@@ -35,17 +40,32 @@ from lorenzo_api.information_visibility import (
     visible_information_clause,
 )
 from lorenzo_api.models import (
+    Being,
+    Character,
     ComputedStat,
     Containment,
+    ContentReference,
     Entity,
+    EntitySlug,
     Information,
     InformationType,
+    Item,
+    ItemInstance,
     Ownership,
     Payload,
     VEffectiveStat,
 )
 from lorenzo_api.schemas.common import EntitySummary
-from lorenzo_api.schemas.entities import EntityDetailOut, InformationCreate, InformationOut
+from lorenzo_api.schemas.entities import (
+    BacklinkOut,
+    EntityDetailOut,
+    EntityKind,
+    EntitySlugOut,
+    EntitySlugUpdate,
+    InformationCreate,
+    InformationOut,
+    ResolvedSlugOut,
+)
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0038/RFC 0011,
 # mirroring routers/item_instances.py's identical ADR 0032/RFC 0005
@@ -131,12 +151,92 @@ async def get_entity_detail_or_404(
             # need.
             selectinload(Entity.containment).selectinload(Containment.parent),
             selectinload(Entity.contained_links).selectinload(Containment.child),
+            selectinload(Entity.slug),
         )
     )
     entity = await session.scalar(stmt)
     if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     return entity
+
+
+async def entity_detail_out(
+    session: SessionDep,
+    request: Request,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    user: CurrentUser,
+) -> EntityDetailOut:
+    """What GET /{entity_id} and GET /by-slug/{slug} both return, the caller
+    already past require_tenant_participant."""
+    entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return EntityDetailOut.from_entity(entity, request, visibility=visibility)
+
+
+# Registered before /{entity_id}: that route's path would otherwise match
+# "resolve" and "by-slug" as an entity id (ADR 0043's routing-order note).
+_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], ...] = (
+    ("item", Item),
+    ("item_instance", ItemInstance),
+    ("being", Being),
+    ("character", Character),
+)
+
+
+@router.get("/resolve")
+async def resolve_slugs(
+    tenant_id: uuid.UUID,
+    slug: Annotated[list[str], Query(min_length=1, max_length=100)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[ResolvedSlugOut]:
+    """Every slug a LorenzoScript text names, in one request (ADR 0107, RFC
+    0027 §7). Same gate as GET /{entity_id}, so a slug resolves for exactly
+    the readers who could open its entity. Slugs that don't resolve are
+    simply absent: a missing entity and a hidden one look alike.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
+    stmt = (
+        select(EntitySlug.slug, Entity.id, Entity.name, *kinds)
+        .join(Entity, Entity.id == EntitySlug.entity_id)
+        .where(EntitySlug.tenant_id == tenant_id, EntitySlug.slug.in_(slug))
+    )
+    found = {row["slug"]: row for row in (await session.execute(stmt)).mappings()}
+    return [
+        ResolvedSlugOut(
+            slug=name,
+            entity_id=row["id"],
+            name=row["name"],
+            kinds=[kind for kind, _ in _KINDS if row[kind]],
+        )
+        for name in dict.fromkeys(slug)
+        if (row := found.get(name)) is not None
+    ]
+
+
+@router.get("/by-slug/{slug}")
+async def get_entity_by_slug(
+    tenant_id: uuid.UUID,
+    slug: str,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> EntityDetailOut:
+    """GET /{entity_id}, addressed by slug (ADR 0107)."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    entity_id = await session.scalar(
+        select(EntitySlug.entity_id).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.slug == slug
+        )
+    )
+    if entity_id is None:
+        raise EntitySlugNotFoundError(detail=f"No entity with slug {slug!r} in tenant {tenant_id}")
+    return await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
 
 
 @router.get("/{entity_id}")
@@ -149,9 +249,133 @@ async def get_entity(
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    return EntityDetailOut.from_entity(entity, request, visibility=visibility)
+    return await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+
+
+@router.get("/{entity_id}/backlinks")
+async def list_backlinks(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    params: ParamsDep,
+) -> Page[BacklinkOut]:
+    """What links here (ADR 0110): each piece of information whose
+    description names this entity's slug, in a link or a picture. Same gate
+    as GET /{entity_id}, then only information the caller can see - filtered
+    before paging, so pages are full and `total` counts nothing hidden. The
+    entity's own information isn't listed.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    slug = await session.scalar(
+        select(EntitySlug.slug).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.entity_id == entity_id
+        )
+    )
+    backlinks: list[BacklinkOut] = []
+    if slug is not None:
+        visibility = await resolve_information_visibility(
+            session, user_id=user.id, tenant_id=tenant_id
+        )
+        linking = (
+            select(Payload.information_id)
+            .join(ContentReference, ContentReference.payload_id == Payload.id)
+            .where(
+                ContentReference.tenant_id == tenant_id,
+                ContentReference.kind.in_(("entity", "image")),
+                ContentReference.target == slug,
+            )
+        )
+        kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
+        stmt = (
+            select(Information, Entity.name, *kinds)
+            .join(Entity, Entity.id == Information.entity_id)
+            .where(Information.id.in_(linking), Information.entity_id != entity_id)
+            .options(selectinload(Information.knowledge_links))
+            .order_by(Entity.name, Information.order, Information.id)
+        )
+        for info, name, *flags in (await session.execute(stmt)).tuples():
+            if visibility.can_see(info):
+                backlinks.append(
+                    BacklinkOut(
+                        entity_id=info.entity_id,
+                        name=name,
+                        kinds=[kind for (kind, _), flag in zip(_KINDS, flags, strict=True) if flag],
+                        information_id=info.id,
+                        title=info.title,
+                        type=info.type,
+                    )
+                )
+    # paginate is typed to return Any (fastapi_pagination's own signature).
+    return cast(Page[BacklinkOut], paginate(backlinks, params))
+
+
+@router.put("/{entity_id}/slug")
+async def set_entity_slug(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: EntitySlugUpdate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> EntitySlugOut:
+    """Sets or replaces the entity's one slug (ADR 0107). 404 for an unknown
+    entity, then the same self-or-managed tier as authoring its information
+    (403), then 409 if another entity in the tenant already has the slug.
+    Setting the entity's current slug again changes nothing.
+    """
+    await get_entity_or_404(session, entity_id, tenant_id)
+    await authorize_entity_write(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        forbidden=EntitySlugManagementForbiddenError(
+            detail=f"Not authorized to manage the slug of entity {entity_id}"
+        ),
+    )
+    holder = await session.scalar(
+        select(EntitySlug.entity_id).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.slug == body.slug
+        )
+    )
+    if holder is not None and holder != entity_id:
+        raise EntitySlugConflictError(
+            detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
+        )
+    current = await session.get(EntitySlug, entity_id)
+    if current is None:
+        session.add(EntitySlug(entity_id=entity_id, tenant_id=tenant_id, slug=body.slug))
+    else:
+        current.slug = body.slug
+    await session.commit()
+    return EntitySlugOut(entity_id=entity_id, slug=body.slug)
+
+
+@router.delete("/{entity_id}/slug", status_code=204)
+async def clear_entity_slug(
+    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> None:
+    """Clears the entity's slug, if it has one (ADR 0107): 204 either way,
+    like this API's other idempotent sub-resource DELETEs (ADR 0064)."""
+    await get_entity_or_404(session, entity_id, tenant_id)
+    await authorize_entity_write(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        forbidden=EntitySlugManagementForbiddenError(
+            detail=f"Not authorized to manage the slug of entity {entity_id}"
+        ),
+    )
+    await session.execute(
+        delete(EntitySlug).where(
+            EntitySlug.entity_id == entity_id, EntitySlug.tenant_id == tenant_id
+        )
+    )
+    await session.commit()
 
 
 _INFORMATION_LOAD_OPTIONS = (
@@ -226,7 +450,12 @@ async def list_entity_information(
 
 
 async def authorize_entity_write(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, entity_id: uuid.UUID
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    entity_id: uuid.UUID,
+    forbidden: ForbiddenProblem | None = None,
 ) -> None:
     """RFC 0011/ADR 0038's self-or-managed tier for authoring Information/
     Payload on an entity, and for granting/revoking a Knowledge row about
@@ -244,6 +473,9 @@ async def authorize_entity_write(
     leading underscore), unlike this router's other single-file-scoped
     helpers - matching entity_access.recursive_descendants_cte's own
     precedent for a name genuinely meant to be imported elsewhere.
+
+    `forbidden` is what to raise instead of InformationManagementForbiddenError,
+    for a write that isn't about information (an entity's slug, ADR 0107).
     """
     if await can_self_manage_entity(
         session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
@@ -263,7 +495,7 @@ async def authorize_entity_write(
             return
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
         return
-    raise InformationManagementForbiddenError(
+    raise forbidden or InformationManagementForbiddenError(
         detail=f"Not authorized to manage information on entity {entity_id}"
     )
 

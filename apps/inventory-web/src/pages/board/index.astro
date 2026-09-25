@@ -171,6 +171,7 @@ import Base from '../../layouts/Base.astro';
       type UndoPayload,
     } from '../../lib/boardLogic';
     import { listMyCharacters } from '../../lib/characters';
+    import { descriptionRenderer, showDescriptions } from '../../lib/descriptions';
     import {
       bulkAssignItemInstances,
       bulkMoveItemInstances,
@@ -304,6 +305,7 @@ import Base from '../../layouts/Base.astro';
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
+    const renderDescriptions = descriptionRenderer(tenantId as string);
 
     // Set once at init (see the bottom of this script) - gates the
     // GM-only "browse any being" section. Give/split/merge are player
@@ -428,12 +430,11 @@ import Base from '../../layouts/Base.astro';
       detailFlags.hidden = flags.length === 0;
       detailFlags.textContent = flags.join(' · ');
 
-      detailDescriptions.replaceChildren();
-      for (const description of item.descriptions) {
-        const p = document.createElement('p');
-        p.textContent = description.content;
-        detailDescriptions.append(p);
-      }
+      void showDescriptions(
+        detailDescriptions,
+        renderDescriptions,
+        item.descriptions.map((description) => description.content),
+      );
 
       closeDetailActionPanels();
       detailSplitButton.disabled = !(item.quantity && item.quantity > 1);

@@ -14,9 +14,11 @@ from lorenzo_api.models.computed_stat import (
     RoundMode,
 )
 from lorenzo_api.models.containment import Containment
+from lorenzo_api.models.content_reference import ContentReference
 from lorenzo_api.models.entity import Entity
 from lorenzo_api.models.entity_change import EntityChange
 from lorenzo_api.models.entity_prototype import EntityPrototype
+from lorenzo_api.models.entity_slug import EntitySlug
 from lorenzo_api.models.entity_stat import EntityStat
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
 from lorenzo_api.models.group_member import GroupMember
@@ -62,10 +64,12 @@ __all__ = [
     "ComputedStatComparison",
     "ComputedStatLinear",
     "Containment",
+    "ContentReference",
     "RoundMode",
     "Entity",
     "EntityChange",
     "EntityPrototype",
+    "EntitySlug",
     "EntityStat",
     "EntityStatGroup",
     "GroupMember",

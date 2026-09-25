@@ -8,3 +8,7 @@
 GET /tenants/{tenant_id}/stat-definitions added the new `enum` enum value to the `items/items/value_type` response property for the response status `200`
 POST /tenants/{tenant_id}/stat-definitions added the new `enum` enum value to the `value_type` response property for the response status `201`
 GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `enum` enum value to the `value_type` response property for the response status `200`
+
+# ADR 0107: an item instance's slug at creation follows RFC 0027's slug grammar.
+POST /tenants/{tenant_id}/item-instances the `slug/anyOf[subschema #1]/` request property's maxLength was set to `100`
+POST /tenants/{tenant_id}/item-instances added the pattern `^[A-Za-z0-9][A-Za-z0-9_-]*$` to the request property `slug/anyOf[subschema #1]/`

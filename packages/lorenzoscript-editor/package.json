@@ -1,0 +1,26 @@
+{
+  "name": "@lorenzo/lorenzoscript-editor",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "A textarea editor for LorenzoScript: configurable toolbar, keyboard helpers, live preview. See RFC 0027 and ADR 0106.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "esbuild demo/demo.ts --bundle --format=iife --target=es2022 --outfile=demo/demo.js",
+    "dev": "pnpm run build --watch",
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lorenzo/lorenzoscript": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -22,6 +22,28 @@ import Base from '../../layouts/Base.astro';
       </div>
 
       <div id="item-descriptions" class="item-detail-descriptions"></div>
+      <button type="button" id="description-edit" class="btn btn-secondary" hidden>
+        Edit description
+      </button>
+      <form id="description-form" class="description-form" hidden>
+        <textarea id="description-source" name="content" rows="12" aria-label="Description"
+        ></textarea>
+        <label id="description-public-field" class="field-row">
+          <input type="checkbox" id="description-public" checked />
+          Players can read this
+        </label>
+        <ul id="description-notes" class="description-notes status-text"></ul>
+        <div class="field-row">
+          <button type="submit" id="description-save">Save</button>
+          <button type="button" id="description-cancel" class="btn btn-secondary">Cancel</button>
+        </div>
+      </form>
+      <p id="description-status" class="status-text" role="status" hidden></p>
+
+      <section id="item-mentioned-in" class="section" hidden>
+        <h2>Mentioned in</h2>
+        <ul id="item-mentioned-in-list" class="chip-list"></ul>
+      </section>
 
       <section id="item-used-by" class="section" hidden>
         <h2>Used as a prototype by</h2>
@@ -31,15 +53,27 @@ import Base from '../../layouts/Base.astro';
   </div>
 
   <script>
+    import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
     import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { ApiError } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
+    import {
+      createDescription,
+      type DescriptionPayload,
+      descriptionRenderer,
+      getBacklinks,
+      getDescription,
+      saveDescription,
+      showDescriptions,
+    } from '../../lib/descriptions';
+    import { entityHref } from '../../lib/entityLinks';
     import {
       getCatalogItem,
       getItemInstance,
       getItemInstanceBySlug,
       listItemsUsingPrototype,
     } from '../../lib/items';
+    import { isCampaignGm } from '../../lib/me';
     import type { ItemBase } from '../../lib/types';
 
     const status = document.getElementById('status')!;
@@ -55,11 +89,34 @@ import Base from '../../layouts/Base.astro';
     const itemDescriptions = document.getElementById('item-descriptions')!;
     const itemUsedBy = document.getElementById('item-used-by')!;
     const itemUsedByList = document.getElementById('item-used-by-list') as HTMLUListElement;
+    const itemMentionedIn = document.getElementById('item-mentioned-in')!;
+    const itemMentionedInList = document.getElementById(
+      'item-mentioned-in-list',
+    ) as HTMLUListElement;
+    const descriptionEdit = document.getElementById('description-edit') as HTMLButtonElement;
+    const descriptionForm = document.getElementById('description-form') as HTMLFormElement;
+    const descriptionSource = document.getElementById('description-source') as HTMLTextAreaElement;
+    const descriptionPublicField = document.getElementById('description-public-field')!;
+    const descriptionPublic = document.getElementById('description-public') as HTMLInputElement;
+    const descriptionNotes = document.getElementById('description-notes') as HTMLUListElement;
+    const descriptionSave = document.getElementById('description-save') as HTMLButtonElement;
+    const descriptionCancel = document.getElementById('description-cancel') as HTMLButtonElement;
+    const descriptionStatus = document.getElementById('description-status')!;
 
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant');
     const itemId = params.get('id');
     const itemSlugParam = params.get('slug');
+    const renderDescriptions = descriptionRenderer(tenantId as string);
+
+    // The shown item's entity and description texts, kept current by saves.
+    let entityId = '';
+    let descriptions: string[] = [];
+    // While editing: the description being replaced, or null when writing a new one.
+    let editing: DescriptionPayload | null = null;
+    let editor: Editor | undefined;
+    const STALE_DESCRIPTION =
+      'Someone saved this description after you opened it. Copy your text, reload the page, and make your changes again.';
 
     copyLinkButton.addEventListener('click', async () => {
       try {
@@ -107,13 +164,96 @@ import Base from '../../layouts/Base.astro';
       itemFlags.hidden = flags.length === 0;
       itemFlags.textContent = flags.join(' · ');
 
-      itemDescriptions.replaceChildren();
-      for (const description of item.descriptions) {
-        const p = document.createElement('p');
-        p.textContent = description.content;
-        itemDescriptions.append(p);
+      entityId = item.entity_id;
+      descriptions = item.descriptions.map((description) => description.content);
+      showItemDescriptions();
+    }
+
+    function showItemDescriptions() {
+      void showDescriptions(itemDescriptions, renderDescriptions, descriptions);
+      descriptionEdit.textContent =
+        descriptions.length > 0 ? 'Edit description' : 'Write a description';
+    }
+
+    function setDescriptionStatus(text: string, isError = false) {
+      descriptionStatus.hidden = text === '';
+      descriptionStatus.textContent = text;
+      descriptionStatus.classList.toggle('error-text', isError);
+    }
+
+    function toggleEditor(open: boolean) {
+      descriptionForm.hidden = !open;
+      descriptionEdit.hidden = open;
+      itemDescriptions.hidden = open;
+      if (!open) {
+        editor?.destroy();
+        editor = undefined;
+        descriptionNotes.replaceChildren();
       }
     }
+
+    descriptionEdit.addEventListener('click', async () => {
+      descriptionEdit.disabled = true;
+      setDescriptionStatus('');
+      try {
+        editing = await getDescription(tenantId as string, entityId);
+      } catch (e) {
+        setDescriptionStatus(e instanceof Error ? e.message : String(e), true);
+        return;
+      } finally {
+        descriptionEdit.disabled = false;
+      }
+      descriptionSource.value = editing?.content ?? '';
+      descriptionPublicField.hidden = editing !== null;
+      toggleEditor(true);
+      editor = createEditor({
+        textarea: descriptionSource,
+        render: async (source) => {
+          const [rendered] = await renderDescriptions([source]);
+          descriptionNotes.replaceChildren(
+            ...(rendered?.notes ?? []).map((note) => {
+              const li = document.createElement('li');
+              li.textContent = note;
+              return li;
+            }),
+          );
+          return rendered?.html ?? '';
+        },
+      });
+      descriptionSource.focus();
+    });
+
+    descriptionCancel.addEventListener('click', () => {
+      const changed = descriptionSource.value !== (editing?.content ?? '');
+      if (changed && !window.confirm('Discard your changes to this description?')) return;
+      setDescriptionStatus('');
+      toggleEditor(false);
+    });
+
+    descriptionForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const content = descriptionSource.value;
+      descriptionSave.disabled = true;
+      setDescriptionStatus('Saving…');
+      try {
+        if (editing) {
+          await saveDescription(tenantId as string, editing, content);
+        } else {
+          await createDescription(tenantId as string, entityId, content, descriptionPublic.checked);
+        }
+        // The edited description is the first one shown (ADR 0108).
+        descriptions = editing ? [content, ...descriptions.slice(1)] : [content];
+        setDescriptionStatus('');
+        toggleEditor(false);
+        showItemDescriptions();
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        const stale = e instanceof ApiError && e.status === 412;
+        setDescriptionStatus(stale ? STALE_DESCRIPTION : message, true);
+      } finally {
+        descriptionSave.disabled = false;
+      }
+    });
 
     async function loadAncestry(directPrototypeId: string) {
       itemAncestry.hidden = false;
@@ -147,6 +287,30 @@ import Base from '../../layouts/Base.astro';
         }
       } catch {
         itemUsedBy.hidden = true;
+      }
+    }
+
+    // What links here (ADR 0110): shown only when something does.
+    async function loadMentionedIn(entityId: string) {
+      try {
+        const backlinks = await getBacklinks(tenantId as string, entityId);
+        itemMentionedInList.replaceChildren(
+          ...backlinks.map((backlink) => {
+            const li = document.createElement('li');
+            li.className = 'chip';
+            const href = entityHref(tenantId as string, backlink);
+            const label = href
+              ? Object.assign(document.createElement('a'), { href })
+              : document.createElement('span');
+            label.textContent = backlink.name;
+            label.title = backlink.title;
+            li.append(label);
+            return li;
+          }),
+        );
+        itemMentionedIn.hidden = backlinks.length === 0;
+      } catch {
+        itemMentionedIn.hidden = true;
       }
     }
 
@@ -189,6 +353,14 @@ import Base from '../../layouts/Base.astro';
           const directId = asInstance.prototype_ids[0];
           if (directId) void loadAncestry(directId);
         }
+        void loadMentionedIn(entityId);
+        // GMs write descriptions here (ADR 0108); the API still decides.
+        void isCampaignGm().then(
+          (gm) => {
+            descriptionEdit.hidden = !gm;
+          },
+          () => {},
+        );
       } catch (e) {
         status.hidden = false;
         page.hidden = true;

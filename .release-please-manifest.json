@@ -4,5 +4,7 @@
   "apps/loot-bot": "0.4.0",
   "apps/account-hub": "1.1.0",
   "apps/brand": "1.1.0",
-  "packages/brand": "1.1.0"
+  "packages/brand": "1.1.0",
+  "packages/lorenzoscript": "0.0.0",
+  "packages/lorenzoscript-editor": "0.0.0"
 }
