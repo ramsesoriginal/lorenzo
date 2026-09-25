@@ -756,7 +756,7 @@ Round 1 converged unusually fast on the *shape*. All four independently proposed
   - A change is visible to a player only if its **event** is visible to them under ADR 0028. Participation alone isn't enough: Bram, asleep in the room during the secret ring swap, saw nothing.
   - Players **never receive `from` fields**. Otherwise a visible move *out of* a secret hiding place would reveal where it was (Judy).
   - GMs see the full ledger.
-  - "Where Bram *thinks* the ring is" stays out of scope. Belief is authored `information` (RFC 0001's open question 1), not history.
+  - "Where Bram *thinks* the ring is" stays out of scope. Belief is authored `information` (RFC 0001's open question 1), not history. This matches [RFC 0029](0029-epistemic-status-of-information.md) (proposed separately), which puts a knower's certainty on the `knowledge` edge and a GM's belief in a GM-only `information` row. RFC 0029 relies on this RFC's `learned` changes for "as of when".
   - **Named strain** (Ivan, Judy): present-tense `/inventory` and ADR 0099's feed already reveal possession, so gated history can't make a theft *of Bram's* ring secret. Only a swap to a fake ring entity can.
 - **PB9: Opt-in per subject, and absence.**
   - A subject has history if and only if it has change rows. There is no flag, nothing is seeded, and **nothing is backfilled**, on ADR 0099's precedent that unrecorded history can't be reconstructed.
@@ -1100,7 +1100,7 @@ Following this repo's smallest-tested-vertical-slice practice, each is its own A
 - **Relativistic or any other physical time math.** Rates are derived only, as Δ/Δ between sync points, and interpolation is a flagged hint, never stored truth.
 - **Any web or bot UI** for placing events, authoring calendars, or reading the continuity report. This RFC fixes the data model and the read contracts, not the authoring surfaces.
 - **Timed player-level knowledge** (`knower_player_id`). Placement, ownership, membership and existence history *are* in scope, in Part 2.
-- **Belief:** "where Bram *thinks* the ring is". That is authored `information` (RFC 0001's open question 1), not history.
+- **Belief and confidence:** "where Bram *thinks* the ring is", and how sure he is. That is authored `information` (RFC 0001's open question 1), not history. Epistemic kind and certainty are [RFC 0029](0029-epistemic-status-of-information.md)'s subject.
 - **Position-in-space and frame history** (`spatial_position_change`, `entity_frame_change`). Same pattern, added with RFC 0026's own slices.
 - **Declared loops, the self-meeting, and branch counterparts** (P2-D2). Shaped here, deferred to their own slices.
 - **Merging or splicing two repositories' canon histories** (RFC 0024), beyond naming the question.
