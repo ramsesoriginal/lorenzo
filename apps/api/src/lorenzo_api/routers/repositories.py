@@ -12,12 +12,12 @@ Two sides, both under /tenants/{tenant_id}: the repository's own
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Response
-from fastapi_pagination import Page
+from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -33,6 +33,7 @@ from lorenzo_api.exceptions import (
     InvalidSubscriberError,
     NotARepositoryError,
     RepositoryManagementForbiddenError,
+    RepositoryNotCopiedError,
     RepositoryNotFoundError,
     SubscriptionNotFoundError,
     TenantNotFoundError,
@@ -45,6 +46,9 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     RepositoryCopy,
+    RepositoryCopyLinkEntity,
+    RepositoryCopyLinkStatDefinition,
+    RepositoryCopyLinkStatGroup,
     RepositorySubscription,
     StatDefinition,
     StatGroup,
@@ -53,7 +57,14 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.notifications import create_tenant_members_notification
 from lorenzo_api.repository_access import reading_repository
-from lorenzo_api.repository_copying import Plan, Resolution, Step, apply_plan, plan_copy
+from lorenzo_api.repository_copying import (
+    Plan,
+    Resolution,
+    Step,
+    apply_plan,
+    forget_copy,
+    plan_copy,
+)
 from lorenzo_api.repository_updates import (
     COLLISION_KIND,
     UpdateAction,
@@ -65,6 +76,8 @@ from lorenzo_api.schemas.repositories import (
     ApplyUpdatesOut,
     ApplyUpdatesRequest,
     CollisionOut,
+    ContributionCountsOut,
+    ContributionOut,
     CopyOut,
     CopyPlanOut,
     CopyRequest,
@@ -73,6 +86,7 @@ from lorenzo_api.schemas.repositories import (
     EntityKindName,
     FieldChangeOut,
     NotAppliedOut,
+    PreviousCopyOut,
     RepositoryEntityOut,
     RepositoryStatDefinitionOut,
     RepositoryStatGroupOut,
@@ -335,49 +349,167 @@ async def revoke_repository(
 # --- A granted tenant's side --------------------------------------------------
 
 
+async def _contribution_counts(
+    session: SessionDep, tenant_id: uuid.UUID
+) -> dict[uuid.UUID, ContributionCountsOut]:
+    counts: dict[uuid.UUID, dict[str, int]] = {}
+
+    def bump(repository: uuid.UUID, key: str, n: int) -> None:
+        counts.setdefault(repository, {}).setdefault(key, 0)
+        counts[repository][key] += n
+
+    for repository, n in await session.execute(
+        select(RepositoryCopyLinkEntity.source_tenant_id, func.count())
+        .where(
+            RepositoryCopyLinkEntity.tenant_id == tenant_id,
+            RepositoryCopyLinkEntity.entity_id.is_not(None),
+        )
+        .group_by(RepositoryCopyLinkEntity.source_tenant_id)
+    ):
+        bump(repository, "entities", n)
+    for model, local, name in (
+        (RepositoryCopyLinkStatGroup, RepositoryCopyLinkStatGroup.stat_group_id, "stat_groups"),
+        (
+            RepositoryCopyLinkStatDefinition,
+            RepositoryCopyLinkStatDefinition.stat_definition_id,
+            "stat_definitions",
+        ),
+    ):
+        for repository, mode, n in await session.execute(
+            select(model.source_tenant_id, model.mode, func.count())
+            .where(model.tenant_id == tenant_id, local.is_not(None))
+            .group_by(model.source_tenant_id, model.mode)
+        ):
+            bump(repository, f"{name}_{mode}", n)
+    return {
+        repository: ContributionCountsOut(
+            entities=c.get("entities", 0),
+            stat_groups_copied=c.get("stat_groups_copied", 0),
+            stat_groups_merged=c.get("stat_groups_merged", 0),
+            stat_definitions_copied=c.get("stat_definitions_copied", 0),
+            stat_definitions_merged=c.get("stat_definitions_merged", 0),
+        )
+        for repository, c in counts.items()
+    }
+
+
 @router.get("/repositories")
 async def list_repositories(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[SubscriptionOut]:
-    """The repositories granted to this tenant, published or not, for any
-    of its members."""
-    stmt = (
-        select(RepositorySubscription, Tenant, RepositoryCopy)
-        .join(Tenant, Tenant.id == RepositorySubscription.repository_tenant_id)
-        .outerjoin(
-            RepositoryCopy,
-            (RepositoryCopy.tenant_id == tenant_id)
-            & (RepositoryCopy.repository_tenant_id == Tenant.id),
+    """Every repository granted to this tenant, published or not, and
+    every one it has copied, granted or not (ADR 0118, 0119), with what
+    each copy contributed. For any of its members."""
+    grants = {
+        s.repository_tenant_id: s
+        for s in await session.scalars(
+            select(RepositorySubscription).where(
+                RepositorySubscription.subscriber_tenant_id == tenant_id
+            )
         )
-        .where(RepositorySubscription.subscriber_tenant_id == tenant_id)
-        .order_by(Tenant.name, Tenant.id)
-    )
-
-    def _rows_out(
-        rows: Sequence[tuple[RepositorySubscription, Tenant, RepositoryCopy | None]],
-    ) -> list[SubscriptionOut]:
-        return [
+    }
+    copies = {
+        c.repository_tenant_id: c
+        for c in await session.scalars(
+            select(RepositoryCopy).where(RepositoryCopy.tenant_id == tenant_id)
+        )
+    }
+    ids = set(grants) | set(copies)
+    repositories = {
+        r.id: r for r in await session.scalars(select(Tenant).where(Tenant.id.in_(ids)))
+    }
+    counts = await _contribution_counts(session, tenant_id)
+    rows: list[SubscriptionOut] = []
+    for repository_id in ids:
+        repository, grant, copy = (
+            repositories.get(repository_id),
+            grants.get(repository_id),
+            copies.get(repository_id),
+        )
+        rows.append(
             SubscriptionOut(
                 repository=RepositorySummaryOut(
-                    id=repository.id,
-                    name=repository.name,
-                    slug=repository.slug,
-                    description=repository.description,
-                    published_at=repository.published_at,
+                    id=repository_id,
+                    name=repository.name if repository else (copy.repository_name if copy else ""),
+                    slug=repository.slug if repository else "",
+                    description=repository.description if repository else "",
+                    published_at=repository.published_at if repository else None,
                 ),
-                granted_at=subscription.created_at,
+                granted_at=grant.created_at if grant else None,
                 copied_at=copy.copied_at if copy else None,
                 synced_at=copy.synced_at if copy else None,
+                contributed=(
+                    counts.get(
+                        repository_id,
+                        ContributionCountsOut(
+                            entities=0,
+                            stat_groups_copied=0,
+                            stat_groups_merged=0,
+                            stat_definitions_copied=0,
+                            stat_definitions_merged=0,
+                        ),
+                    )
+                    if copy
+                    else None
+                ),
             )
-            for subscription, repository, copy in rows
-        ]
+        )
+    rows.sort(key=lambda r: (r.repository.name, str(r.repository.id)))
+    return cast(Page[SubscriptionOut], paginate(rows, params))
 
-    return cast(
-        Page[SubscriptionOut],
-        await apaginate(session, stmt, params, transformer=_rows_out, unique=False),
-    )
+
+@router.get("/repositories/{repository_id}/contributions")
+async def list_repository_contributions(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+    params: ParamsDep,
+    kind: Literal["entity", "stat_group", "stat_definition"] | None = None,
+) -> Page[ContributionOut]:
+    """The rows a copy of this repository contributed, still here or
+    deleted since (ADR 0119). Reads only this tenant's own data, so it
+    works without a grant. `409` if it was never copied."""
+    if await session.get(RepositoryCopy, (tenant_id, repository_id)) is None:
+        raise RepositoryNotCopiedError(detail=f"Repository {repository_id} wasn't copied here")
+    rows: list[ContributionOut] = []
+    sources: list[tuple[Any, Any, Any, Any]] = [
+        ("entity", RepositoryCopyLinkEntity, RepositoryCopyLinkEntity.entity_id, Entity),
+        (
+            "stat_group",
+            RepositoryCopyLinkStatGroup,
+            RepositoryCopyLinkStatGroup.stat_group_id,
+            StatGroup,
+        ),
+        (
+            "stat_definition",
+            RepositoryCopyLinkStatDefinition,
+            RepositoryCopyLinkStatDefinition.stat_definition_id,
+            StatDefinition,
+        ),
+    ]
+    for row_kind, model, local, target in sources:
+        if kind is not None and kind != row_kind:
+            continue
+        mode = getattr(model, "mode", None)
+        stmt = (
+            select(local, model.source_id, model.snapshot, target.name, *([mode] if mode else []))
+            .outerjoin(target, (target.id == local) & (target.tenant_id == tenant_id))
+            .where(model.tenant_id == tenant_id, model.source_tenant_id == repository_id)
+        )
+        for row in await session.execute(stmt):
+            rows.append(
+                ContributionOut(
+                    kind=row_kind,
+                    local_id=row[0],
+                    source_id=row[1],
+                    name=row[3] if row[3] is not None else str(row[2].get("name", "")),
+                    mode=row[4] if mode else None,
+                )
+            )
+    rows.sort(key=lambda r: (r.kind, r.name, str(r.source_id)))
+    return cast(Page[ContributionOut], paginate(rows, params))
 
 
 @router.delete("/repositories/{repository_id}", status_code=204)
@@ -581,6 +713,7 @@ async def plan_repository_copy(
 async def copy_repository(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     repository_id: uuid.UUID,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
     body: CopyRequest | None = None,
@@ -588,10 +721,22 @@ async def copy_repository(
     """Copies a repository, and whatever of its dependencies this tenant
     hasn't copied yet, in one transaction (ADR 0119, 0120). Refused with
     `409` while a collision has no choice, a step lacks a grant or isn't
-    published, or it's already been copied. The copied rows are this
-    tenant's own from then on; the tenant-admin tier, like authoring stat
-    definitions.
+    published, or it's already been copied - unless `again` says to copy
+    it afresh. `dry_run` does all of it, checks included, and rolls back,
+    answering `200`. The copied rows are this tenant's own from then on;
+    the tenant-admin tier, like authoring stat definitions.
     """
+    dry_run = bool(body and body.dry_run)
+    again = body.again if body else None
+    previous = None
+    if again and await session.get(RepositoryCopy, (tenant_id, repository_id)) is not None:
+        previous = await forget_copy(
+            session,
+            tenant_id=tenant_id,
+            repository_id=repository_id,
+            purge=again == "purge",
+            user_id=user.id,
+        )
     resolutions = [
         Resolution(kind=r.kind, source_id=r.source_id, action=r.action, name=r.name)
         for r in (body.resolutions if body and body.resolutions else [])
@@ -604,8 +749,26 @@ async def copy_repository(
         resolutions=resolutions,
     )
     await apply_plan(session, plan, user_id=user.id)
-    await session.commit()
-    return CopyOut(steps=[_step_out(s) for s in plan.to_copy])
+    if dry_run:
+        await session.rollback()
+        response.status_code = 200
+    else:
+        await session.commit()
+    return CopyOut(
+        steps=[_step_out(s) for s in plan.to_copy],
+        dry_run=dry_run,
+        previous=(
+            PreviousCopyOut(
+                mode=previous.mode,
+                entities=previous.entities,
+                stat_groups=previous.stat_groups,
+                stat_definitions=previous.stat_definitions,
+                also_removed=previous.also_removed,
+            )
+            if previous
+            else None
+        ),
+    )
 
 
 # --- Updates (ADR 0121) ---------------------------------------------------------
@@ -689,7 +852,8 @@ async def apply_repository_updates(
 ) -> ApplyUpdatesOut:
     """Applies the listed updates, row by row, in one transaction (ADR
     0121). Anything not listed stays as it is. `409` while a conflict is
-    named in neither `keep_local` nor `take_upstream`."""
+    named in neither `keep_local` nor `take_upstream`. `dry_run` applies
+    everything and rolls it back."""
     actions = [
         UpdateAction(
             kind=a.kind,
@@ -717,8 +881,12 @@ async def apply_repository_updates(
         user_id=user.id,
         actions=actions,
     )
-    await session.commit()
+    if body.dry_run:
+        await session.rollback()
+    else:
+        await session.commit()
     return ApplyUpdatesOut(
+        dry_run=bool(body.dry_run),
         applied=result.applied,
         added=result.added,
         detached=result.detached,
