@@ -12,7 +12,7 @@ This ADR is the foundation: what makes a tenant a repository, how access is gran
 
 ### A tenant is either for play or a repository
 
-- **`tenant.kind`**, an enum, `play` (the default) or `repository`. `POST /tenants` accepts it, behind the same `tenant-creator` role as any tenant ([ADR 0033](0033-tenant-creation-and-update-api.md)). `TenantOut` shows it, and `GET /tenants` takes an optional `?kind=` filter.
+- **`tenant.kind`**, an enum, `play` (the default) or `repository`. `POST /tenants` accepts it (omitted means `play`), behind the same `tenant-creator` role as any tenant ([ADR 0033](0033-tenant-creation-and-update-api.md)). `TenantOut`, `GET /tenants`' rows, and `GET /me/managed` show it, and `GET /tenants` takes an optional `?kind=` filter.
 - **It never changes.** A trigger rejects any update to it. Publishing always means creating a new tenant, so a live play tenant can't be relabelled into a repository.
 - **A repository holds no campaigns.** A trigger on `campaign` refuses a row in a repository tenant, and `POST .../campaigns` answers `409 repository-has-no-campaigns` before it gets that far. Players, GM grants, and invite links all hang off a campaign, so none of them can exist either.
 - **Authoring is membership.** Whoever holds a Membership in a repository tenant edits its content through the same routes as anywhere else. Its OWNERs grant access and publish.
@@ -20,8 +20,8 @@ This ADR is the foundation: what makes a tenant a repository, how access is gran
 ### Published or draft
 
 - **`tenant.published_at`**, null while the repository is a draft.
-- `PUT /tenants/{tenant_id}/published` publishes (OWNER only) and `DELETE` withdraws it. Both answer `409 not-a-repository` on a play tenant.
-- Publishing again sets a new `published_at`. That is how an owner announces an update: every subscribing tenant's members get a notification ("Faerûn has published an update"). The first publish notifies nobody but the tenants already granted.
+- `PUT /tenants/{tenant_id}/published` publishes (OWNER only) and `DELETE` withdraws it. Both return the tenant, and answer `409 not-a-repository` on a play tenant. A CHECK keeps `published_at` null on a play tenant.
+- Publishing again sets a new `published_at`. That is how an owner announces an update: every subscribing tenant's members get a notification ("Faerûn has published an update"). The first publish notifies nobody but the tenants already granted. "Members" here, and for every repository notice, means the tenant's Membership rows, not its players: these are for the people who run a tenant.
 - A draft is invisible to every subscriber, whatever grants exist.
 
 ### The grant

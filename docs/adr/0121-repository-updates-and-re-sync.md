@@ -25,17 +25,19 @@ The amendment's A7 replaces the RFC's timestamp comparison with snapshots. `enti
 - **`deleted_locally`**: rows the subscriber deleted, whose link now has a null local id. Shown for completeness; nothing to apply.
 - **`added`**: own rows of the repository with no link here. Each is shown with any collision it would hit, exactly as a first copy would (ADR 0119).
 
+A field the local copy already matches upstream on isn't reported: there's nothing to do.
+
 Rows copied with `mode = merged` are the subscriber's own rows, so they are never offered for update.
 
 ### The fields that are compared
 
 | Row | Fields |
 | --- | --- |
-| entity | name, `in_public_catalog`, slug, each stat value, each formula, prototypes, stat groups |
+| entity | name, `in_public_catalog`, slug, each stat value, each formula, prototypes, stat groups (not its kinds: they're what it is) |
 | stat group | name, priority, `mandatory` |
 | stat definition | name, group, enum values, value type |
 
-- **Scalars** (a name, a value, a formula) are compared three ways, as above.
+- **Scalars** (a name, a value, a formula) are compared three ways, as above. A stat value or formula is its own field, `stats:<origin id>` or `formulas:<origin id>`, labelled with the stat's name.
 - **Sets** (prototypes, stat groups, enum values) are merged element by element, so they never conflict. Whatever upstream added is added, whatever upstream removed is removed, and whatever the subscriber added stays.
 - **A changed value type** is shown but can't be applied, since the subscriber's values would have to be converted. It has to be changed by hand.
 
@@ -43,13 +45,13 @@ Information, payloads, containment, ownership, group membership, and knowledge a
 
 ### Applying
 
-`POST /tenants/{tenant_id}/repositories/{repository_id}/updates`, same tier, one transaction. The body lists what to do, row by row:
+`POST /tenants/{tenant_id}/repositories/{repository_id}/updates`, same tier, one transaction. The body is `{"actions": [...]}`, one entry per row:
 
-- `{"kind": "entity", "source_id": …, "action": "apply", "keep_local": ["name"]}` takes upstream's value for every clean field, and for every conflicting field not named in `keep_local`. Naming a conflict in neither is refused with `409` and the conflicts listed.
-- `{"kind": …, "source_id": …, "action": "add", "resolution": …}` copies an added row, exactly as ADR 0119 would, with a collision choice where one is needed.
-- `{"kind": …, "source_id": …, "action": "detach"}` drops a removed row's link.
+- `{"kind": "entity", "source_id": …, "action": "apply", "keep_local": ["name"], "take_upstream": ["stats:…"]}` takes upstream's value for every clean field. Every conflicting field must be named in `keep_local` or `take_upstream`. A conflict named in neither makes the whole call `409 repository-update-needs-choices`, listing each one, so a tenant's own edit is never overwritten without being named.
+- `{"kind": …, "source_id": …, "action": "add", "resolution": {"action": …, "name": …}}` copies an added row, exactly as ADR 0119 would, with a collision choice where one is needed. Additions are written before any `apply`, so an applied change can point at a row added in the same call.
+- `{"kind": …, "source_id": …, "action": "detach"}` drops a removed row's link. The local row stays.
 
-Anything not listed is left as it is. Once a row is applied, its snapshot becomes the upstream version, including the fields kept local. So the same difference isn't reported again, while a later upstream change still is. `repository_copy.synced_at` records the time. An applied row's references are re-targeted as in [ADR 0120](0120-bridge-repositories-and-dependency-manifests.md), and anything unresolvable is reported rather than stored. The formula-cycle check runs as in ADR 0119. The activity log records one entry per call, with counts.
+Anything not listed is left as it is. Once a row is applied, its snapshot becomes the upstream version, including the fields kept local. So the same difference isn't reported again, while a later upstream change still is. Two kinds of field keep their base instead, so they're still offered next time: one that couldn't be applied (listed in the response's `not_applied`, with why: a slug taken here, a stat that wasn't copied, an enum value still in use), and a value type, until the local copy is changed to match by hand. `repository_copy.synced_at` records the time. An applied row's references are re-targeted as in [ADR 0120](0120-bridge-repositories-and-dependency-manifests.md). The formula-cycle check runs as in ADR 0119. The activity log records one entry per call, with counts.
 
 ### Being told
 

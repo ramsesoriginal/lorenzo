@@ -35,6 +35,8 @@ Only a repository's own rows are copied. When one of them refers to a row the re
 
 If the origin belongs to the subscriber itself, which happens when two tenants have copied each other, the local id is the origin id. If the subscriber skipped the origin, or has deleted its copy, that one row is dropped and reported, as in ADR 0119.
 
+A stat group or definition a repository merged into one of its own (ADR 0119's `merged`) counts downstream as a copy of the origin it was merged with, not as the repository's own row. The merge said "this is the same Strength", so a subscriber's references land on its own copy of that Strength.
+
 ### What a bridge doesn't carry
 
 - **Its edits to its copies of its dependencies.** If `dnd_faerun` renamed its copy of Waterdeep, or gave it a stat value, that stays in `dnd_faerun`. Subscribers get Waterdeep from `Faerûn` directly. To make an upstream entity behave differently under a system, the bridge authors a new entity that inherits from it.
