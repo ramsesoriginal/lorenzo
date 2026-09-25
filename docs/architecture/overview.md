@@ -107,6 +107,12 @@ inventory-web gained end-to-end tests, slugs, and players' notes:
 - **Slugs.** GMs set an item's or instance's slug in Manage items and on the item page, prefilled with the first free one its title suggests, so `[[Title]]` links find it. `?slug=` resolves any entity ([ADR 0113](../adr/0113-inventory-web-slugs-and-player-notes.md)).
 - **Notes.** Players add, edit, and delete notes on items their characters own, from the board or the item page. A note is private to the owning character and the campaign's GMs unless "Everyone can read this", matching loot-bot's `/note`. The GM's Information section and the notes are one component.
 
+Giving can hand an item over, and players read the catalog:
+
+- **Hand-over.** `move_to_owner` on a give, "Hand it over" in inventory-web, also takes the item, or a split-off part of a stack, out of the giver's container and into the recipient's hands. It's opt-in: a plain give still changes only the owner ([ADR 0051](../adr/0051-loot-bot-give-command.md)). A GM can undo a hand-over; a player no longer holds the item afterwards, so gets no undo ([ADR 0115](../adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md)).
+- **Stacks keep their count.** A character now carries what's in no container of theirs, so a stack leaving a container goes into its owner and keeps its count. The owned-by listing shows such items as loose. `DELETE .../container` refuses a stack instead of silently dropping its count, fixing inventory-web's "Remove from container".
+- **The catalog for players.** Any tenant participant reads a catalog item and its ancestry. A GM-set `item.in_public_catalog` decides what non-members can list and search. inventory-web links players to catalog pages again, and shows them the public catalog at `/items` ([ADR 0116](../adr/0116-players-read-catalog-items-and-a-public-catalog.md)).
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
