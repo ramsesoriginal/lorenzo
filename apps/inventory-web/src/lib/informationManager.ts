@@ -1,6 +1,7 @@
 // The item page's Information section for GMs (ADR 0112): every piece of the
 // entity's information, rendered, with adding, editing, and deleting it
-// (ADR 0101, 0109).
+// (ADR 0101, 0109). Notes (ADR 0113) are the same list narrowed to one type,
+// with their own words: see notes.ts.
 import { type Renderer, showDescriptions } from './descriptions';
 import { infoForm, saveError } from './infoForm';
 import {
@@ -12,6 +13,41 @@ import {
   textOf,
   updateInformation,
 } from './information';
+
+/** What a list shows and how it writes. The GM's whole Information section unless given. */
+export type ManagerKind = {
+  /** Only information of these types. */
+  types?: string[];
+  /** Whether the viewer gets Add, Edit and Delete; the API still decides. */
+  canWrite: boolean;
+  /** What a new piece starts as. */
+  initial: InformationDraft;
+  showType: boolean;
+  addLabel: string;
+  /** Said when there's nothing to list. */
+  empty: string;
+  visibilityLabel: string;
+  visibilityNote?: string;
+  /** What a row says about itself: its type, who can read it. */
+  describe: (info: Information) => string;
+  rowHeading: 'h3' | 'h4';
+  /** After a create or an edit is saved. If it throws after a create, the new piece is deleted. */
+  afterSave?: (
+    saved: { id: string; isPublic: boolean },
+    before: Information | null,
+  ) => Promise<void>;
+};
+
+const INFORMATION: ManagerKind = {
+  canWrite: true,
+  initial: { title: '', type: 'note', isPublic: false, content: '' },
+  showType: true,
+  addLabel: 'Add information',
+  empty: '',
+  visibilityLabel: 'Players can read this',
+  describe: (info) => `${info.type} · ${info.is_public ? 'Players can read this' : 'Private'}`,
+  rowHeading: 'h3',
+};
 
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = '') =>
   Object.assign(document.createElement(tag), { className, textContent: text });
@@ -33,23 +69,41 @@ const needsTitle = (draft: InformationDraft) => {
 /** Renders the section into `container`. `onChanged` runs after any save or delete. */
 export async function renderInformationManager(
   container: HTMLElement,
-  options: { tenantId: string; entityId: string; renderer: Renderer; onChanged: () => void },
+  options: {
+    tenantId: string;
+    entityId: string;
+    renderer: Renderer;
+    onChanged: () => void;
+    kind?: Partial<ManagerKind>;
+  },
 ): Promise<void> {
   const { tenantId, entityId, renderer } = options;
+  const kind: ManagerKind = { ...INFORMATION, ...options.kind };
   const list = make('ul', 'information-list');
+  const empty = Object.assign(make('p', 'status-text', kind.empty), { hidden: true });
   const status = make('p', 'status-text');
   status.setAttribute('role', 'status');
-  const add = button('Add information');
+  const add = button(kind.addLabel);
+  add.hidden = !kind.canWrite;
   const addMount = make('div', '');
-  container.replaceChildren(list, addMount, add, status);
+  container.replaceChildren(list, empty, addMount, add, status);
 
+  const formOptions = {
+    renderer,
+    showType: kind.showType,
+    showVisibility: true,
+    visibilityLabel: kind.visibilityLabel,
+    visibilityNote: kind.visibilityNote,
+  };
   const fail = (e: unknown) => {
     status.classList.add('error-text');
     status.textContent = saveError(e);
   };
   const reload = async () => {
     try {
-      list.replaceChildren(...(await listInformation(tenantId, entityId)).map(row));
+      const rows = (await listInformation(tenantId, entityId, kind.types)).map(row);
+      list.replaceChildren(...rows);
+      empty.hidden = rows.length > 0 || !kind.empty;
     } catch (e) {
       fail(e);
     }
@@ -63,33 +117,32 @@ export async function renderInformationManager(
 
   function row(info: Information): HTMLLIElement {
     const li = make('li', 'information-row');
-    const visibility = info.is_public ? 'Players can read this' : 'Private';
     const text = make('div', 'item-detail-descriptions');
+    li.append(
+      make(kind.rowHeading, '', info.title || '(untitled)'),
+      make('p', 'status-text', kind.describe(info)),
+      text,
+    );
+    const content = textOf(info)?.content;
+    if (content) void showDescriptions(text, renderer, [{ text: content }]);
+    if (!kind.canWrite) return li;
+
     const edit = button('Edit');
     const remove = button('Delete', 'btn-danger');
     const actions = make('div', 'field-row');
     actions.append(edit, remove);
-    li.append(
-      make('h3', '', info.title || '(untitled)'),
-      make('p', 'status-text', `${info.type} · ${visibility}`),
-      text,
-      actions,
-    );
-    const content = textOf(info)?.content;
-    if (content) void showDescriptions(text, renderer, [{ text: content }]);
-
+    li.append(actions);
     edit.addEventListener('click', () => {
       let saved = false;
       li.replaceChildren(
         infoForm({
+          ...formOptions,
           initial: draftOf(info),
-          renderer,
-          showType: true,
-          showVisibility: true,
           onSubmit: async (draft) => {
             needsTitle(draft);
             await updateInformation(tenantId, info, draft);
             saved = true;
+            await kind.afterSave?.({ id: info.id, isPublic: draft.isPublic }, info);
           },
           onClose: () => void (saved ? afterWrite() : reload()),
         }),
@@ -114,13 +167,18 @@ export async function renderInformationManager(
     let saved = false;
     addMount.replaceChildren(
       infoForm({
-        initial: { title: '', type: 'note', isPublic: false, content: '' },
-        renderer,
-        showType: true,
-        showVisibility: true,
+        ...formOptions,
+        initial: kind.initial,
         onSubmit: async (draft) => {
           needsTitle(draft);
-          await createInformation(tenantId, entityId, draft);
+          const created = await createInformation(tenantId, entityId, draft);
+          try {
+            await kind.afterSave?.({ id: created.id, isPublic: draft.isPublic }, null);
+          } catch (e) {
+            // Kept, it could be something its author can't read.
+            await deleteInformation(tenantId, created).catch(() => {});
+            throw new Error(`It wasn't kept: ${saveError(e)}`);
+          }
           saved = true;
         },
         onClose: () => {
