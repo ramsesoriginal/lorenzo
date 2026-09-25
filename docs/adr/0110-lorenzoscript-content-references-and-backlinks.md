@@ -80,7 +80,7 @@ It returns `Page[BacklinkOut]`: one row per piece of information whose descripti
 - Rows are ordered by that entity's name, then the information's `order`, then its id.
 - **Access.** The same as `GET /entities/{id}`: any tenant participant, and `404` for an unknown entity.
 - **Visibility.** Only information the caller can see (`InformationVisibility.can_see`) is listed.
-- **Paging.** Rows are filtered in Python before paging, so pages are full and `total` counts only visible rows. That meets ADR 0109's concern ([PR #229](https://github.com/ramsesoriginal/lorenzo/pull/229), in review) about short pages that reveal hidden counts. Once its SQL visibility clause exists, it can replace the Python filter without changing the response.
+- **Paging.** Rows are filtered in Python before paging, so pages are full and `total` counts only visible rows. That meets [ADR 0109](0109-player-knowers-knower-listing-and-information-list.md)'s concern about short pages that reveal hidden counts. Its SQL form of the same check, `visible_information_clause`, landed alongside this ADR and can replace the Python filter without changing the response.
 - An entity without a slug has no backlinks. The entity's own information linking to itself isn't listed.
 
 ### inventory-web: "Mentioned in"
