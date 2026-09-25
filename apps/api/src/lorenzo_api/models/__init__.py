@@ -37,6 +37,12 @@ from lorenzo_api.models.payload_number import PayloadNumber
 from lorenzo_api.models.payload_picture import PayloadPicture
 from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
+from lorenzo_api.models.repository_copy import (
+    RepositoryCopy,
+    RepositoryCopyLinkEntity,
+    RepositoryCopyLinkStatDefinition,
+    RepositoryCopyLinkStatGroup,
+)
 from lorenzo_api.models.repository_subscription import RepositorySubscription
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
@@ -91,6 +97,10 @@ __all__ = [
     "PayloadPicture",
     "Player",
     "ProfilePicture",
+    "RepositoryCopy",
+    "RepositoryCopyLinkEntity",
+    "RepositoryCopyLinkStatDefinition",
+    "RepositoryCopyLinkStatGroup",
     "RepositorySubscription",
     "StatDefinition",
     "StatDefinitionEnumValue",

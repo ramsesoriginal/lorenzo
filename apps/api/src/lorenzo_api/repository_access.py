@@ -52,6 +52,12 @@ REPOSITORY_CONTENT_TABLES = frozenset(
         "payload_document",
         "knowledge",
         "content_reference",
+        # ADR 0119's copy records, which a bridge's subscribers read (ADR
+        # 0120).
+        "repository_copy",
+        "repository_copy_link_entity",
+        "repository_copy_link_stat_group",
+        "repository_copy_link_stat_definition",
     }
 )
 

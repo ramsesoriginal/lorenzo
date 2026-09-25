@@ -840,6 +840,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/repositories/{repository_id}/copy-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Repository Copy
+         * @description What copying a granted, published repository would do, writing
+         *     nothing (ADR 0119): its manifest - dependencies first, each with
+         *     whether it's granted, published, and already copied here (ADR 0120) -
+         *     how much each step brings in, and every collision that needs a choice.
+         */
+        get: operations["plan_repository_copy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Repository
+         * @description Copies a repository, and whatever of its dependencies this tenant
+         *     hasn't copied yet, in one transaction (ADR 0119, 0120). Refused with
+         *     `409` while a collision has no choice, a step lacks a grant or isn't
+         *     published, or it's already been copied. The copied rows are this
+         *     tenant's own from then on; the tenant-admin tier, like authoring stat
+         *     definitions.
+         */
+        post: operations["copy_repository"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns": {
         parameters: {
             query?: never;
@@ -3566,6 +3614,34 @@ export interface components {
             owner_player_id?: string | null;
         };
         /**
+         * CollisionOut
+         * @description Something a copy would bring in whose name or slug is taken here -
+         *     `local_id` is the stat group or definition it collides with, if any.
+         */
+        CollisionOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stat_group" | "stat_definition" | "slug";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Local Id */
+            local_id: string | null;
+            /** Choices */
+            choices: ("rename" | "merge" | "skip")[];
+        };
+        /**
          * Comparator
          * @enum {string}
          */
@@ -3702,6 +3778,59 @@ export interface components {
             inputs: components["schemas"]["PreviewInputOut"][];
         };
         /**
+         * CopyOut
+         * @description What a copy did: one entry per repository it copied.
+         */
+        CopyOut: {
+            /** Steps */
+            steps: components["schemas"]["CopyStepOut"][];
+        };
+        /**
+         * CopyPlanOut
+         * @description What `POST .../copy` would do, with nothing written (ADR 0119).
+         */
+        CopyPlanOut: {
+            /** Steps */
+            steps: components["schemas"]["CopyStepOut"][];
+            /** Collisions */
+            collisions: components["schemas"]["CollisionOut"][];
+        };
+        /** CopyRequest */
+        CopyRequest: {
+            /** Resolutions */
+            resolutions?: components["schemas"]["ResolutionIn"][] | null;
+        };
+        /**
+         * CopyStepOut
+         * @description One repository in a copy's manifest (ADR 0120): its dependencies in
+         *     order, then the repository itself.
+         */
+        CopyStepOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Name */
+            name: string;
+            /** Granted */
+            granted: boolean;
+            /** Published */
+            published: boolean;
+            /** Already Copied */
+            already_copied: boolean;
+            /** Entities */
+            entities: number;
+            /** Stat Groups */
+            stat_groups: number;
+            /** Stat Definitions */
+            stat_definitions: number;
+            /** Information */
+            information: number;
+            /** Dropped */
+            dropped: components["schemas"]["DroppedOut"][];
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -3713,6 +3842,22 @@ export interface components {
             /** Locale */
             locale: string;
             from_entity: components["schemas"]["EntitySummary"] | null;
+        };
+        /**
+         * DroppedOut
+         * @description A row a copy leaves out, because something it points at wasn't
+         *     copied (usually by the tenant's own choice to skip it).
+         */
+        DroppedOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * DuplicateGroupRequest
@@ -5501,6 +5646,30 @@ export interface components {
             published_at: string | null;
         };
         /**
+         * ResolutionIn
+         * @description A choice for one collision (ADR 0119). `name` is the new name, or
+         *     the new slug, for `rename`.
+         */
+        ResolutionIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "stat_group" | "stat_definition" | "slug";
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "rename" | "merge" | "skip";
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * ResolvedSlugOut
          * @description One entry of GET .../entities/resolve - see ADR 0107. `kinds` says
          *     what the entity is, so a client can honour a LorenzoScript view hint
@@ -5755,7 +5924,9 @@ export interface components {
         /**
          * SubscriptionOut
          * @description One repository granted to a tenant - `GET .../repositories`, ADR
-         *     0118.
+         *     0118. `copied_at`/`synced_at` are null until it's copied (ADR 0119);
+         *     `repository.published_at` later than `synced_at` means it has
+         *     published since (ADR 0121).
          */
         SubscriptionOut: {
             repository: components["schemas"]["RepositorySummaryOut"];
@@ -5764,6 +5935,10 @@ export interface components {
              * Format: date-time
              */
             granted_at: string;
+            /** Copied At */
+            copied_at: string | null;
+            /** Synced At */
+            synced_at: string | null;
         };
         /**
          * SuspendUserRequest
@@ -8622,6 +8797,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepositoryStatGroupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    plan_repository_copy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    copy_repository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CopyRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CopyOut"];
                 };
             };
             /** @description Validation Error */

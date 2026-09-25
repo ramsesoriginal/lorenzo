@@ -73,10 +73,12 @@ async def write_description(
     return description
 
 
-def _references(payload: Payload, content: str) -> list[ContentReference]:
-    """`content`'s references as rows, in order of first use. Attached through
-    the relationship, like the description, so a new payload works too."""
-    rows: list[ContentReference] = []
+def reference_values(content: str) -> list[tuple[str, str, str]]:
+    """`content`'s references as `(kind, hint, target)`, in order of first
+    use - what a content_reference row holds (ADR 0110). Shared by
+    `_references` below and the repository copy (ADR 0119), which writes
+    rows for payloads it inserts in bulk."""
+    values: list[tuple[str, str, str]] = []
     for ref in references(content):
         if ref["kind"] in ("entity", "image"):
             hint, target = ref["hint"], ref["slug"]
@@ -84,14 +86,21 @@ def _references(payload: Payload, content: str) -> list[ContentReference]:
                 continue
         else:
             hint, target = "", ref.get("date") or ref["expression"]
-        rows.append(
-            ContentReference(
-                payload=payload,
-                position=len(rows),
-                tenant_id=payload.tenant_id,
-                kind=ref["kind"],
-                hint=hint,
-                target=target,
-            )
+        values.append((ref["kind"], hint, target))
+    return values
+
+
+def _references(payload: Payload, content: str) -> list[ContentReference]:
+    """`content`'s references as rows, in order of first use. Attached through
+    the relationship, like the description, so a new payload works too."""
+    return [
+        ContentReference(
+            payload=payload,
+            position=position,
+            tenant_id=payload.tenant_id,
+            kind=kind,
+            hint=hint,
+            target=target,
         )
-    return rows
+        for position, (kind, hint, target) in enumerate(reference_values(content))
+    ]

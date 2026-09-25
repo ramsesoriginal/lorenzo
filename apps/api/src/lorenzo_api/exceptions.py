@@ -81,6 +81,11 @@ __all__ = [
     "TooManyRequestsError",
     "TenantNotFoundError",
     "UserNotFoundError",
+    "InvalidRepositoryCopyChoiceError",
+    "RepositoryAlreadyCopiedError",
+    "RepositoryCopyFormulaCycleError",
+    "RepositoryCopyNeedsChoicesError",
+    "RepositoryCopyNeedsGrantsError",
 ]
 
 
@@ -752,3 +757,39 @@ class InvalidSubscriberError(UnprocessableProblem):
     """Granting a repository to itself - ADR 0118."""
 
     title = "A repository can't be granted to itself"
+
+
+class RepositoryAlreadyCopiedError(ConflictProblem):
+    """A second copy of a repository - ADR 0119. Later changes come in as
+    updates (ADR 0121), not as another copy."""
+
+    title = "This repository has already been copied"
+
+
+class RepositoryCopyNeedsChoicesError(ConflictProblem):
+    """A copy would collide with names or slugs already in use - ADR 0119.
+    Carries `collisions`, each with the choices it allows; send one
+    `resolution` per collision."""
+
+    title = "Some names are already in use here"
+
+
+class RepositoryCopyNeedsGrantsError(ConflictProblem):
+    """A copy needs a repository this tenant holds no grant for, or one
+    that isn't published - ADR 0120. Carries `missing`."""
+
+    title = "This copy needs access to more repositories"
+
+
+class InvalidRepositoryCopyChoiceError(UnprocessableProblem):
+    """A collision choice that can't work: a rename onto a name that's
+    taken, a merge across value types, a malformed slug - ADR 0119."""
+
+    title = "That choice can't be applied"
+
+
+class RepositoryCopyFormulaCycleError(ConflictProblem):
+    """A copy whose merged stats would make formulas depend on each other
+    in a loop - ADR 0119. Nothing is copied."""
+
+    title = "The copy would make formulas loop"

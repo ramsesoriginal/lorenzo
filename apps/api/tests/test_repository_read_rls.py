@@ -36,7 +36,7 @@ async def world() -> AsyncIterator[_World]:
         stranger = Tenant(name="Somebody Else")
         session.add_all([repository, subscriber, stranger])
         await session.flush()
-        await seed_every_content_table(session, repository.id)
+        await seed_every_content_table(session, repository.id, with_copy_records=True)
         await session.commit()
         ids = _World(repository.id, subscriber.id, stranger.id)
     yield ids

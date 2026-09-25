@@ -44,6 +44,7 @@ from lorenzo_api.models import (
     EntityPrototype,
     Item,
     ItemInstance,
+    RepositoryCopy,
     RepositorySubscription,
     StatDefinition,
     StatGroup,
@@ -52,7 +53,14 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.notifications import create_tenant_members_notification
 from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_copying import Plan, Resolution, Step, apply_plan, plan_copy
 from lorenzo_api.schemas.repositories import (
+    CollisionOut,
+    CopyOut,
+    CopyPlanOut,
+    CopyRequest,
+    CopyStepOut,
+    DroppedOut,
     EntityKindName,
     RepositoryEntityOut,
     RepositoryStatDefinitionOut,
@@ -322,13 +330,20 @@ async def list_repositories(
     """The repositories granted to this tenant, published or not, for any
     of its members."""
     stmt = (
-        select(RepositorySubscription, Tenant)
+        select(RepositorySubscription, Tenant, RepositoryCopy)
         .join(Tenant, Tenant.id == RepositorySubscription.repository_tenant_id)
+        .outerjoin(
+            RepositoryCopy,
+            (RepositoryCopy.tenant_id == tenant_id)
+            & (RepositoryCopy.repository_tenant_id == Tenant.id),
+        )
         .where(RepositorySubscription.subscriber_tenant_id == tenant_id)
         .order_by(Tenant.name, Tenant.id)
     )
 
-    def _rows_out(rows: Sequence[tuple[RepositorySubscription, Tenant]]) -> list[SubscriptionOut]:
+    def _rows_out(
+        rows: Sequence[tuple[RepositorySubscription, Tenant, RepositoryCopy | None]],
+    ) -> list[SubscriptionOut]:
         return [
             SubscriptionOut(
                 repository=RepositorySummaryOut(
@@ -339,8 +354,10 @@ async def list_repositories(
                     published_at=repository.published_at,
                 ),
                 granted_at=subscription.created_at,
+                copied_at=copy.copied_at if copy else None,
+                synced_at=copy.synced_at if copy else None,
             )
-            for subscription, repository in rows
+            for subscription, repository, copy in rows
         ]
 
     return cast(
@@ -489,3 +506,89 @@ async def browse_repository_stat_groups(
         )
         for g in groups
     ]
+
+
+# --- Copying (ADR 0119, 0120) ---------------------------------------------------
+
+
+def _step_out(step: Step) -> CopyStepOut:
+    return CopyStepOut(
+        repository_id=step.repository_id,
+        name=step.name,
+        granted=step.granted,
+        published=step.published,
+        already_copied=step.already_copied,
+        entities=step.entities,
+        stat_groups=step.stat_groups,
+        stat_definitions=step.stat_definitions,
+        information=step.information,
+        dropped=[
+            DroppedOut(kind=d.kind, source_id=d.source_id, reason=d.reason) for d in step.dropped
+        ],
+    )
+
+
+def _plan_out(plan: Plan) -> CopyPlanOut:
+    return CopyPlanOut(
+        steps=[_step_out(s) for s in plan.steps],
+        collisions=[
+            CollisionOut(
+                repository_id=c.repository_id,
+                kind=c.kind,
+                source_id=c.source_id,
+                name=c.name,
+                local_id=c.local_id,
+                choices=c.choices,
+            )
+            for c in plan.collisions
+        ],
+    )
+
+
+@router.get("/repositories/{repository_id}/copy-plan")
+async def plan_repository_copy(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> CopyPlanOut:
+    """What copying a granted, published repository would do, writing
+    nothing (ADR 0119): its manifest - dependencies first, each with
+    whether it's granted, published, and already copied here (ADR 0120) -
+    how much each step brings in, and every collision that needs a choice.
+    """
+    plan = await plan_copy(
+        session, tenant_id=tenant_id, repository_id=repository_id, user_id=user.id, resolutions=[]
+    )
+    return _plan_out(plan)
+
+
+@router.post("/repositories/{repository_id}/copy", status_code=201)
+async def copy_repository(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    body: CopyRequest | None = None,
+) -> CopyOut:
+    """Copies a repository, and whatever of its dependencies this tenant
+    hasn't copied yet, in one transaction (ADR 0119, 0120). Refused with
+    `409` while a collision has no choice, a step lacks a grant or isn't
+    published, or it's already been copied. The copied rows are this
+    tenant's own from then on; the tenant-admin tier, like authoring stat
+    definitions.
+    """
+    resolutions = [
+        Resolution(kind=r.kind, source_id=r.source_id, action=r.action, name=r.name)
+        for r in (body.resolutions if body and body.resolutions else [])
+    ]
+    plan = await plan_copy(
+        session,
+        tenant_id=tenant_id,
+        repository_id=repository_id,
+        user_id=user.id,
+        resolutions=resolutions,
+    )
+    await apply_plan(session, plan, user_id=user.id)
+    await session.commit()
+    return CopyOut(steps=[_step_out(s) for s in plan.to_copy])

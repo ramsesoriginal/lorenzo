@@ -31,6 +31,10 @@ from lorenzo_api.models import (
     PayloadDocument,
     PayloadNumber,
     PayloadPicture,
+    RepositoryCopy,
+    RepositoryCopyLinkEntity,
+    RepositoryCopyLinkStatDefinition,
+    RepositoryCopyLinkStatGroup,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -38,8 +42,14 @@ from lorenzo_api.models import (
 )
 
 
-async def seed_every_content_table(session: AsyncSession, tenant_id: uuid.UUID) -> None:
-    """Flushes, doesn't commit."""
+async def seed_every_content_table(
+    session: AsyncSession, tenant_id: uuid.UUID, *, with_copy_records: bool = False
+) -> None:
+    """Flushes, doesn't commit. `with_copy_records` adds a copy record and
+    one copy link of each kind, as if this tenant had copied something -
+    for the RLS tests, which need a row in every table; a tenant copying
+    this one would then see those rows as copies, not its own.
+    """
 
     def entity(name: str) -> Entity:
         e = Entity(tenant_id=tenant_id, name=name)
@@ -160,6 +170,25 @@ async def seed_every_content_table(session: AsyncSession, tenant_id: uuid.UUID) 
                 target="elminster",
             ),
             Knowledge(tenant_id=tenant_id, knower_entity_id=elminster.id, information_id=info.id),
+        ]
+    )
+    if not with_copy_records:
+        await session.flush()
+        return
+    # As if this tenant had copied something itself (ADR 0119): a bridge's
+    # copy records are content its subscribers read (ADR 0120).
+    upstream = uuid.uuid4()
+    link = {"tenant_id": tenant_id, "source_tenant_id": upstream, "snapshot": {}}
+    session.add_all(
+        [
+            RepositoryCopy(tenant_id=tenant_id, repository_tenant_id=upstream),
+            RepositoryCopyLinkEntity(**link, entity_id=chest.id, source_id=uuid.uuid4()),
+            RepositoryCopyLinkStatGroup(
+                **link, stat_group_id=group.id, source_id=uuid.uuid4(), mode="copied"
+            ),
+            RepositoryCopyLinkStatDefinition(
+                **link, stat_definition_id=strength.id, source_id=uuid.uuid4(), mode="copied"
+            ),
         ]
     )
     await session.flush()
