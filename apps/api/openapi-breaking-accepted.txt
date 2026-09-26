@@ -12,3 +12,6 @@ GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id} added the new `en
 # ADR 0107: an item instance's slug at creation follows RFC 0027's slug grammar.
 POST /tenants/{tenant_id}/item-instances the `slug/anyOf[subschema #1]/` request property's maxLength was set to `100`
 POST /tenants/{tenant_id}/item-instances added the pattern `^[A-Za-z0-9][A-Za-z0-9_-]*$` to the request property `slug/anyOf[subschema #1]/`
+
+# ADR 0119: a copied repository stays listed after its grant is gone, with no grant date.
+GET /tenants/{tenant_id}/repositories response property `items/items/granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
