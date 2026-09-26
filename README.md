@@ -43,7 +43,7 @@ This repository is the monorepo for the whole project. `apps/api` exists with it
 | Discord bot(s) | Talks to the API | [`apps/loot-bot`](apps/loot-bot) — Discord account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding (see [ADR 0050](docs/adr/0050-loot-bot-stack-linking-and-isolation.md)/[0051](docs/adr/0051-loot-bot-give-command.md)/[0052](docs/adr/0052-loot-bot-loot-drop-and-claims.md)), deployed on Google Cloud Run over Discord's HTTP Interactions Endpoint ([ADR 0053](docs/adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)) |
 | Mobile app(s) | Talks to the API | none yet — can be more than one |
 
-Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). Code more than one app uses lives under `packages/`: the shared brand CSS, and LorenzoScript, Lorenzo's Markdown dialect for description text, with its editor ([RFC 0027](docs/rfcs/0027-lorenzoscript.md)).
+Each app lives under [`apps/`](apps/README.md) once it exists — see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md). Code more than one app uses lives under `packages/`: the shared brand CSS; LorenzoScript, Lorenzo's Markdown dialect for description text, with its editor ([RFC 0027](docs/rfcs/0027-lorenzoscript.md)); and the typed `apps/api` client loot-bot and inventory-web share ([ADR 0122](docs/adr/0122-api-client-package.md)).
 
 ## Quick start
 

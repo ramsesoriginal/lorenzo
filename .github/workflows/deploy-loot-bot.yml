@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'apps/loot-bot/**'
+      # Bundled into the bot's image (ADR 0122).
+      - 'packages/api-client/**'
   workflow_dispatch:
 
 concurrency:

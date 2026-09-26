@@ -1,10 +1,9 @@
 // The tests' own way into the API (ADR 0114): typed calls as a given person, holding a token
-// the fake Authgear minted for them, over the app's generated schema.
-import createClient from 'openapi-fetch';
-import type { paths } from '../../../src/lib/lorenzo-schema';
+// the fake Authgear minted for them, over the shared client package (ADR 0122).
+import { createLorenzoClient, type LorenzoClient } from '@lorenzo/api-client';
 import { API_URL, AUTHGEAR_URL } from './env.ts';
 
-export type Api = ReturnType<typeof createClient<paths>>;
+export type Api = LorenzoClient;
 
 /** Registers `subject` with the fake Authgear, and returns an API client acting as them. */
 export async function apiAs(subject: string, roles: string[] = []): Promise<Api> {
@@ -13,10 +12,7 @@ export async function apiAs(subject: string, roles: string[] = []): Promise<Api>
     body: JSON.stringify({ subject, roles }),
   });
   const { access_token } = (await response.json()) as { access_token: string };
-  return createClient<paths>({
-    baseUrl: API_URL,
-    headers: { Authorization: `Bearer ${access_token}` },
-  });
+  return createLorenzoClient({ baseUrl: API_URL, getAccessToken: () => access_token });
 }
 
 /** A call's data; a failed call throws with the API's problem, so a broken seed says why. */
