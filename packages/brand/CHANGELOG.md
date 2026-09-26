@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-package-v1.1.0...brand-package-v1.2.0) (2026-09-26)
+
+
+### Features
+
+* **inventory-web:** consume @lorenzo/brand for shared branding CSS ([4731ad2](https://github.com/ramsesoriginal/lorenzo/commit/4731ad29ba5e29009c1fd7eec0714b0dde63570a))
+
+
+### Bug Fixes
+
+* **inventory-web:** make packages/brand buildable without mise ([28d9458](https://github.com/ramsesoriginal/lorenzo/commit/28d9458271ce4b5f5530002d7fb29c83da4a0531))
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-package-v1.0.0...brand-package-v1.1.0) (2026-09-23)
 
 
