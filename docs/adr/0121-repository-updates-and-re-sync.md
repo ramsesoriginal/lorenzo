@@ -45,7 +45,7 @@ Information, payloads, containment, ownership, group membership, and knowledge a
 
 ### Applying
 
-`POST /tenants/{tenant_id}/repositories/{repository_id}/updates`, same tier, one transaction. The body is `{"actions": [...]}`, one entry per row:
+`POST /tenants/{tenant_id}/repositories/{repository_id}/updates`, same tier, one transaction. The body is `{"actions": [...]}`, one entry per row, and optionally `"dry_run": true`, which applies everything and rolls it back, as ADR 0119's dry run does for a copy:
 
 - `{"kind": "entity", "source_id": …, "action": "apply", "keep_local": ["name"], "take_upstream": ["stats:…"]}` takes upstream's value for every clean field. Every conflicting field must be named in `keep_local` or `take_upstream`. A conflict named in neither makes the whole call `409 repository-update-needs-choices`, listing each one, so a tenant's own edit is never overwritten without being named.
 - `{"kind": …, "source_id": …, "action": "add", "resolution": {"action": …, "name": …}}` copies an added row, exactly as ADR 0119 would, with a collision choice where one is needed. Additions are written before any `apply`, so an applied change can point at a row added in the same call.
