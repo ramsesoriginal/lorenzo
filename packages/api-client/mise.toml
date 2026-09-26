@@ -1,0 +1,46 @@
+# A pnpm workspace member like packages/lorenzoscript: every task depends on
+# `install`, since CI runs `mise run lint`/`test` here with no separate
+# install step. No `build` task - the package ships its TypeScript source
+# (ADR 0122), so there is nothing to emit; `lint` already type-checks.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.dev]
+description = "Nothing to run - loot-bot and inventory-web use this package"
+run = "echo 'packages/api-client has no dev server - run the tests, or an app that uses it.'"
+
+[tasks.lint]
+description = "Biome + tsc --noEmit"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome autoformat"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run the tests"
+depends = ["install"]
+run = "pnpm run test"
+
+[tasks.generate-schema]
+description = "Regenerate src/schema.d.ts from apps/api's OpenAPI schema (dump it first: mise run //apps/api:openapi-schema)"
+depends = ["install"]
+run = "pnpm run generate-schema"
+
+[tasks.check-schema]
+description = "Fail if src/schema.d.ts is stale against apps/api's current OpenAPI schema"
+# apps/api/openapi.json is gitignored, so this dumps a fresh one first rather
+# than trusting whatever's lying around. `git diff` is the comparison: the
+# generated file is committed and Biome-ignored (biome.json), so any byte of
+# difference means someone changed apps/api's routes/schemas without running
+# `mise run generate-schema`. One check covers every app that uses this package.
+run = [
+  "mise run //apps/api:openapi-schema",
+  "pnpm install --frozen-lockfile",
+  "pnpm run generate-schema",
+  "git diff --exit-code --stat -- src/schema.d.ts || { echo 'src/schema.d.ts is stale - run `mise run //apps/api:openapi-schema` then `mise run //packages/api-client:generate-schema`, and commit the result.'; exit 1; }",
+]

@@ -1,20 +1,12 @@
-// Thin aliases over the generated schema (lorenzo-schema.d.ts, from
-// apps/api's own OpenAPI schema - see api.ts and package.json's
-// generate-client script), kept under these existing names so the rest of
-// this app didn't need touching when the client itself was generated
-// rather than hand-written. `Page<T>` stays hand-written: the schema
-// generates one concrete `Page_<Schema>_` type per T rather than a
-// reusable generic, and its own shape (items/total/page/size/pages) is
-// stable, low-risk boilerplate untouched by a backend field rename.
+// Thin aliases over the generated schema (@lorenzo/api-client's schema.d.ts,
+// from apps/api's own OpenAPI schema - ADR 0091, ADR 0122), kept under these
+// existing names so the rest of this app didn't need touching when the
+// client itself was generated rather than hand-written. `Page<T>` is the
+// package's hand-written generic: the schema generates one concrete
+// `Page_<Schema>_` type per T rather than a reusable one.
 import type { components } from './api';
 
-export interface Page<T> {
-  items: T[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-}
+export type { Page } from '@lorenzo/api-client';
 
 export type TenantSummary = components['schemas']['TenantSummaryOut'];
 export type TenantRole = TenantSummary['role'];
