@@ -212,6 +212,7 @@ async def test_finding_and_applying_updates(
         applied = await gm.post(f"{url}/updates", json={"actions": actions})
         assert applied.status_code == 200, applied.text
         assert applied.json() == {
+            "dry_run": False,
             "applied": 5,
             "added": 1,
             "detached": 1,

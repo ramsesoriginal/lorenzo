@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from lorenzo_api.models import StatValueType
 
 __all__ = [
+    "ContributionCountsOut",
+    "ContributionOut",
+    "PreviousCopyOut",
     "AddedOut",
     "ApplyUpdatesOut",
     "ApplyUpdatesRequest",
@@ -55,16 +58,41 @@ class RepositorySummaryOut(BaseModel):
     published_at: datetime | None
 
 
+class ContributionCountsOut(BaseModel):
+    """What a copy contributed that's still here (ADR 0119)."""
+
+    entities: int
+    stat_groups_copied: int
+    stat_groups_merged: int
+    stat_definitions_copied: int
+    stat_definitions_merged: int
+
+
 class SubscriptionOut(BaseModel):
-    """One repository granted to a tenant - `GET .../repositories`, ADR
-    0118. `copied_at`/`synced_at` are null until it's copied (ADR 0119);
+    """One repository granted to or copied by a tenant - `GET
+    .../repositories`, ADR 0118/0119. `granted_at` is null once the grant
+    is gone; `copied_at`/`synced_at`/`contributed` until it's copied.
     `repository.published_at` later than `synced_at` means it has
-    published since (ADR 0121)."""
+    published since (ADR 0121). A repository deleted since it was copied
+    shows the name it had, and no slug."""
 
     repository: RepositorySummaryOut
-    granted_at: datetime
+    granted_at: datetime | None
     copied_at: datetime | None
     synced_at: datetime | None
+    contributed: ContributionCountsOut | None
+
+
+class ContributionOut(BaseModel):
+    """One row a copy contributed (ADR 0119). `local_id` is null if this
+    tenant deleted it; `mode` is `copied` or `merged` for a stat group or
+    definition, null for an entity."""
+
+    kind: Literal["entity", "stat_group", "stat_definition"]
+    local_id: uuid.UUID | None
+    source_id: uuid.UUID
+    name: str
+    mode: Literal["copied", "merged"] | None
 
 
 class RepositoryEntityOut(BaseModel):
@@ -110,7 +138,14 @@ class ResolutionIn(BaseModel):
 
 
 class CopyRequest(BaseModel):
+    """`dry_run` does everything, checks included, and rolls it back.
+    `again` copies an already-copied repository afresh: `keep` leaves the
+    earlier copy as unlinked local rows, `purge` deletes what it created
+    first (ADR 0119)."""
+
     resolutions: list[ResolutionIn] | None = None
+    dry_run: bool | None = None
+    again: Literal["keep", "purge"] | None = None
 
 
 class CollisionOut(BaseModel):
@@ -157,10 +192,24 @@ class CopyPlanOut(BaseModel):
     collisions: list[CollisionOut]
 
 
+class PreviousCopyOut(BaseModel):
+    """What copying again did to the earlier copy. `also_removed` counts,
+    per kind, rows of the tenant's own that went with a purge."""
+
+    mode: Literal["keep", "purge"]
+    entities: int
+    stat_groups: int
+    stat_definitions: int
+    also_removed: dict[str, int]
+
+
 class CopyOut(BaseModel):
-    """What a copy did: one entry per repository it copied."""
+    """What a copy did, or with `dry_run`, would have done: one entry per
+    repository it copied."""
 
     steps: list[CopyStepOut]
+    dry_run: bool
+    previous: PreviousCopyOut | None
 
 
 # --- Updates (ADR 0121) ---------------------------------------------------------
@@ -245,7 +294,10 @@ class UpdateActionIn(BaseModel):
 
 
 class ApplyUpdatesRequest(BaseModel):
+    """`dry_run` applies everything and rolls it back (ADR 0121)."""
+
     actions: list[UpdateActionIn]
+    dry_run: bool | None = None
 
 
 class NotAppliedOut(BaseModel):
@@ -258,6 +310,7 @@ class NotAppliedOut(BaseModel):
 
 
 class ApplyUpdatesOut(BaseModel):
+    dry_run: bool
     applied: int
     added: int
     detached: int

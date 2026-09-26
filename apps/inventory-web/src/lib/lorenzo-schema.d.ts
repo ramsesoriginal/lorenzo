@@ -764,10 +764,33 @@ export interface paths {
         };
         /**
          * List Repositories
-         * @description The repositories granted to this tenant, published or not, for any
-         *     of its members.
+         * @description Every repository granted to this tenant, published or not, and
+         *     every one it has copied, granted or not (ADR 0118, 0119), with what
+         *     each copy contributed. For any of its members.
          */
         get: operations["list_repositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repository Contributions
+         * @description The rows a copy of this repository contributed, still here or
+         *     deleted since (ADR 0119). Reads only this tenant's own data, so it
+         *     works without a grant. `409` if it was never copied.
+         */
+        get: operations["list_repository_contributions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -877,9 +900,10 @@ export interface paths {
          * @description Copies a repository, and whatever of its dependencies this tenant
          *     hasn't copied yet, in one transaction (ADR 0119, 0120). Refused with
          *     `409` while a collision has no choice, a step lacks a grant or isn't
-         *     published, or it's already been copied. The copied rows are this
-         *     tenant's own from then on; the tenant-admin tier, like authoring stat
-         *     definitions.
+         *     published, or it's already been copied - unless `again` says to copy
+         *     it afresh. `dry_run` does all of it, checks included, and rolls back,
+         *     answering `200`. The copied rows are this tenant's own from then on;
+         *     the tenant-admin tier, like authoring stat definitions.
          */
         post: operations["copy_repository"];
         delete?: never;
@@ -908,7 +932,8 @@ export interface paths {
          * Apply Repository Updates
          * @description Applies the listed updates, row by row, in one transaction (ADR
          *     0121). Anything not listed stays as it is. `409` while a conflict is
-         *     named in neither `keep_local` nor `take_upstream`.
+         *     named in neither `keep_local` nor `take_upstream`. `dry_run` applies
+         *     everything and rolls it back.
          */
         post: operations["apply_repository_updates"];
         delete?: never;
@@ -3096,6 +3121,8 @@ export interface components {
         };
         /** ApplyUpdatesOut */
         ApplyUpdatesOut: {
+            /** Dry Run */
+            dry_run: boolean;
             /** Applied */
             applied: number;
             /** Added */
@@ -3105,10 +3132,15 @@ export interface components {
             /** Not Applied */
             not_applied: components["schemas"]["NotAppliedOut"][];
         };
-        /** ApplyUpdatesRequest */
+        /**
+         * ApplyUpdatesRequest
+         * @description `dry_run` applies everything and rolls it back (ADR 0121).
+         */
         ApplyUpdatesRequest: {
             /** Actions */
             actions: components["schemas"]["UpdateActionIn"][];
+            /** Dry Run */
+            dry_run?: boolean | null;
         };
         /**
          * AuditLogEntryOut
@@ -3843,12 +3875,56 @@ export interface components {
             inputs: components["schemas"]["PreviewInputOut"][];
         };
         /**
+         * ContributionCountsOut
+         * @description What a copy contributed that's still here (ADR 0119).
+         */
+        ContributionCountsOut: {
+            /** Entities */
+            entities: number;
+            /** Stat Groups Copied */
+            stat_groups_copied: number;
+            /** Stat Groups Merged */
+            stat_groups_merged: number;
+            /** Stat Definitions Copied */
+            stat_definitions_copied: number;
+            /** Stat Definitions Merged */
+            stat_definitions_merged: number;
+        };
+        /**
+         * ContributionOut
+         * @description One row a copy contributed (ADR 0119). `local_id` is null if this
+         *     tenant deleted it; `mode` is `copied` or `merged` for a stat group or
+         *     definition, null for an entity.
+         */
+        ContributionOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition";
+            /** Local Id */
+            local_id: string | null;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Mode */
+            mode: ("copied" | "merged") | null;
+        };
+        /**
          * CopyOut
-         * @description What a copy did: one entry per repository it copied.
+         * @description What a copy did, or with `dry_run`, would have done: one entry per
+         *     repository it copied.
          */
         CopyOut: {
             /** Steps */
             steps: components["schemas"]["CopyStepOut"][];
+            /** Dry Run */
+            dry_run: boolean;
+            previous: components["schemas"]["PreviousCopyOut"] | null;
         };
         /**
          * CopyPlanOut
@@ -3860,10 +3936,20 @@ export interface components {
             /** Collisions */
             collisions: components["schemas"]["CollisionOut"][];
         };
-        /** CopyRequest */
+        /**
+         * CopyRequest
+         * @description `dry_run` does everything, checks included, and rolls it back.
+         *     `again` copies an already-copied repository afresh: `keep` leaves the
+         *     earlier copy as unlinked local rows, `purge` deletes what it created
+         *     first (ADR 0119).
+         */
         CopyRequest: {
             /** Resolutions */
             resolutions?: components["schemas"]["ResolutionIn"][] | null;
+            /** Dry Run */
+            dry_run?: boolean | null;
+            /** Again */
+            again?: ("keep" | "purge") | null;
         };
         /**
          * CopyStepOut
@@ -5123,6 +5209,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[ContributionOut] */
+        Page_ContributionOut_: {
+            /** Items */
+            items: components["schemas"]["ContributionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[EntityChangeOut] */
         Page_EntityChangeOut_: {
             /** Items */
@@ -5615,6 +5714,28 @@ export interface components {
             value: number | string | boolean | null;
         };
         /**
+         * PreviousCopyOut
+         * @description What copying again did to the earlier copy. `also_removed` counts,
+         *     per kind, rows of the tenant's own that went with a purge.
+         */
+        PreviousCopyOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "keep" | "purge";
+            /** Entities */
+            entities: number;
+            /** Stat Groups */
+            stat_groups: number;
+            /** Stat Definitions */
+            stat_definitions: number;
+            /** Also Removed */
+            also_removed: {
+                [key: string]: number;
+            };
+        };
+        /**
          * ProblemOut
          * @description A plain-dict-shaped mirror of `fastapi_problem.error.Problem.
          *     marshal()` - see ADR 0044. Used inside a bulk operation's per-item
@@ -6075,22 +6196,22 @@ export interface components {
         };
         /**
          * SubscriptionOut
-         * @description One repository granted to a tenant - `GET .../repositories`, ADR
-         *     0118. `copied_at`/`synced_at` are null until it's copied (ADR 0119);
+         * @description One repository granted to or copied by a tenant - `GET
+         *     .../repositories`, ADR 0118/0119. `granted_at` is null once the grant
+         *     is gone; `copied_at`/`synced_at`/`contributed` until it's copied.
          *     `repository.published_at` later than `synced_at` means it has
-         *     published since (ADR 0121).
+         *     published since (ADR 0121). A repository deleted since it was copied
+         *     shows the name it had, and no slug.
          */
         SubscriptionOut: {
             repository: components["schemas"]["RepositorySummaryOut"];
-            /**
-             * Granted At
-             * Format: date-time
-             */
-            granted_at: string;
+            /** Granted At */
+            granted_at: string | null;
             /** Copied At */
             copied_at: string | null;
             /** Synced At */
             synced_at: string | null;
+            contributed: components["schemas"]["ContributionCountsOut"] | null;
         };
         /**
          * SuspendUserRequest
@@ -8810,6 +8931,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_SubscriptionOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_repository_contributions: {
+        parameters: {
+            query?: {
+                kind?: ("entity" | "stat_group" | "stat_definition") | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ContributionOut_"];
                 };
             };
             /** @description Validation Error */

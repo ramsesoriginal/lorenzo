@@ -28,6 +28,8 @@ class RepositoryCopy(Base):
 
     tenant_id: Mapped[uuid.UUID] = _tenant_pk()
     repository_tenant_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    # The repository's name at copy time, refreshed on sync (ADR 0119).
+    repository_name: Mapped[str] = mapped_column(server_default=text("''"))
     copied_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
     copied_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("app_user.id", ondelete="SET NULL"), index=True

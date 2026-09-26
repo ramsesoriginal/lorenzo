@@ -17,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from sqlalchemy import insert, select
+from sqlalchemy import delete, exists, func, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
@@ -705,6 +705,7 @@ class _Planner:
                 {
                     "tenant_id": tenant_id,
                     "repository_tenant_id": repository_id,
+                    "repository_name": step.name,
                     "copied_by": user_id,
                 }
             )
@@ -915,3 +916,183 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
                 f"dropped={len(step.dropped)}"
             ),
         )
+
+
+# --- Copying again (ADR 0119) ----------------------------------------------------
+
+
+@dataclass
+class Previous:
+    """What happened to an earlier copy before copying again."""
+
+    mode: Literal["keep", "purge"]
+    entities: int
+    stat_groups: int
+    stat_definitions: int
+    # Rows of the tenant's own that went with a purge, per kind.
+    also_removed: dict[str, int] = field(default_factory=dict)
+
+
+async def _count(session: AsyncSession, model: Any, *where: Any) -> int:
+    return int(await session.scalar(select(func.count()).select_from(model).where(*where)) or 0)
+
+
+async def forget_copy(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    repository_id: uuid.UUID,
+    purge: bool,
+    user_id: uuid.UUID,
+) -> Previous:
+    """Drops the tenant's copy record and links for a repository, so it can
+    be copied afresh. With `purge`, first deletes the rows the copy
+    created - entities, and groups and definitions linked as `copied` -
+    and counts what of the tenant's own goes with them. Doesn't commit."""
+    t = tenant_id
+
+    async def local_ids(model: Any, column: Any, copied_only: bool) -> set[uuid.UUID]:
+        stmt = select(column).where(
+            model.tenant_id == t, model.source_tenant_id == repository_id, column.is_not(None)
+        )
+        if copied_only:
+            stmt = stmt.where(model.mode == "copied")
+        return set(await session.scalars(stmt))
+
+    entities = await local_ids(RepositoryCopyLinkEntity, RepositoryCopyLinkEntity.entity_id, False)
+    groups = await local_ids(
+        RepositoryCopyLinkStatGroup, RepositoryCopyLinkStatGroup.stat_group_id, True
+    )
+    definitions = await local_ids(
+        RepositoryCopyLinkStatDefinition, RepositoryCopyLinkStatDefinition.stat_definition_id, True
+    )
+    previous = Previous("purge" if purge else "keep", len(entities), len(groups), len(definitions))
+
+    if purge:
+        # The tenant's own definitions inside a purged group go with it.
+        own_definitions = set(
+            await session.scalars(
+                select(StatDefinition.id).where(
+                    StatDefinition.tenant_id == t,
+                    StatDefinition.stat_group_id.in_(groups),
+                    StatDefinition.id.not_in(definitions),
+                )
+            )
+        )
+        all_definitions = definitions | own_definitions
+        uses_definition = or_(
+            ComputedStat.stat_definition_id.in_(all_definitions),
+            exists().where(
+                ComputedStatLinear.entity_id == ComputedStat.entity_id,
+                ComputedStatLinear.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatLinear.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatComparison.entity_id == ComputedStat.entity_id,
+                ComputedStatComparison.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatComparison.left_stat_definition_id.in_(all_definitions),
+                    ComputedStatComparison.right_stat_definition_id.in_(all_definitions),
+                ),
+            ),
+        )
+        own_formulas = (ComputedStat.tenant_id == t) & ComputedStat.entity_id.not_in(entities)
+        also = {
+            "stat_definition": len(own_definitions),
+            "entity_stat": await _count(
+                session,
+                EntityStat,
+                EntityStat.tenant_id == t,
+                EntityStat.stat_definition_id.in_(all_definitions),
+                EntityStat.entity_id.not_in(entities),
+            ),
+            "computed_stat": await _count(session, ComputedStat, own_formulas, uses_definition),
+            "entity_stat_group": await _count(
+                session,
+                EntityStatGroup,
+                EntityStatGroup.tenant_id == t,
+                EntityStatGroup.stat_group_id.in_(groups),
+                EntityStatGroup.entity_id.not_in(entities),
+            ),
+            "entity_prototype": await _count(
+                session,
+                EntityPrototype,
+                EntityPrototype.tenant_id == t,
+                EntityPrototype.prototype_id.in_(entities),
+                EntityPrototype.entity_id.not_in(entities),
+            ),
+            "containment": await _count(
+                session,
+                Containment,
+                Containment.tenant_id == t,
+                Containment.parent_entity_id.in_(entities),
+                Containment.child_entity_id.not_in(entities),
+            ),
+            "ownership": await _count(
+                session,
+                Ownership,
+                Ownership.tenant_id == t,
+                Ownership.owner_character_id.in_(entities),
+                Ownership.owned_entity_id.not_in(entities),
+            ),
+            "group_member": await _count(
+                session,
+                GroupMember,
+                GroupMember.tenant_id == t,
+                GroupMember.character_entity_id.in_(entities),
+                GroupMember.group_entity_id.not_in(entities),
+            ),
+            "knowledge": await _count(
+                session,
+                Knowledge,
+                Knowledge.tenant_id == t,
+                Knowledge.knower_entity_id.in_(entities),
+                Knowledge.information_id.in_(
+                    select(Information.id).where(
+                        Information.tenant_id == t, Information.entity_id.not_in(entities)
+                    )
+                ),
+            ),
+        }
+        previous.also_removed = {kind: n for kind, n in also.items() if n}
+        # Formula inputs don't cascade (ADR 0104), so the tenant's own
+        # formulas reading a purged definition go first; everything else
+        # cascades from the rows themselves.
+        await session.execute(delete(ComputedStat).where(own_formulas, uses_definition))
+        await session.execute(delete(Entity).where(Entity.tenant_id == t, Entity.id.in_(entities)))
+        await session.execute(
+            delete(StatDefinition).where(
+                StatDefinition.tenant_id == t, StatDefinition.id.in_(all_definitions)
+            )
+        )
+        await session.execute(
+            delete(StatGroup).where(StatGroup.tenant_id == t, StatGroup.id.in_(groups))
+        )
+
+    for model in (
+        RepositoryCopyLinkEntity,
+        RepositoryCopyLinkStatGroup,
+        RepositoryCopyLinkStatDefinition,
+    ):
+        await session.execute(
+            delete(model).where(model.tenant_id == t, model.source_tenant_id == repository_id)
+        )
+    await session.execute(
+        delete(RepositoryCopy).where(
+            RepositoryCopy.tenant_id == t, RepositoryCopy.repository_tenant_id == repository_id
+        )
+    )
+    await record_activity(
+        session,
+        tenant_id=t,
+        actor_id=user_id,
+        action="repository.copy_purged" if purge else "repository.copy_forgotten",
+        target_type="tenant",
+        target_id=repository_id,
+        detail=(
+            f"entities={previous.entities},stat_groups={previous.stat_groups},"
+            f"stat_definitions={previous.stat_definitions},"
+            f"also_removed={sum(previous.also_removed.values())}"
+        ),
+    )
+    return previous

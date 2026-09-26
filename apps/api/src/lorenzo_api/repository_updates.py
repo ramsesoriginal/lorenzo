@@ -46,6 +46,7 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
+    Tenant,
 )
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
@@ -747,7 +748,10 @@ async def apply_updates(
             RepositoryCopy.tenant_id == tenant_id,
             RepositoryCopy.repository_tenant_id == repository_id,
         )
-        .values(synced_at=datetime.now(UTC))
+        .values(
+            synced_at=datetime.now(UTC),
+            repository_name=(await session.get_one(Tenant, repository_id)).name,
+        )
     )
     await check_formula_cycles(session, tenant_id)
     await record_activity(
