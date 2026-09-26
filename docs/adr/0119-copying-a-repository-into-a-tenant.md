@@ -34,7 +34,7 @@ Either way the activity log records it, and the old copy's records are gone, so 
 
 ### What a copy contributed
 
-- `GET /tenants/{tenant_id}/repositories` lists every repository the tenant holds a grant for *or* has copied, so a copy stays visible after its grant is gone (RFC 0024 §6). Each entry carries counts of what the copy contributed: entities, stat groups, and stat definitions, copied and merged. `granted_at` is null once the grant is gone.
+- `GET /tenants/{tenant_id}/repositories` lists every repository the tenant holds a grant for *or* has copied, so a copy stays visible after its grant is gone (RFC 0024 §6). Each entry carries counts of what the copy contributed: entities, stat groups, and stat definitions, copied and merged. `granted_at` is null once the grant is gone. That widens a response field that was never null before, which oasdiff counts as breaking; it's accepted in `apps/api/openapi-breaking-accepted.txt`, since the listing shipped the day before with no client reading `granted_at` yet.
 - `GET /tenants/{tenant_id}/repositories/{repository_id}/contributions` pages the rows themselves, filterable by `kind`, each with its local id (null if the tenant deleted it), its source id, its name, and for groups and definitions, whether it was copied or merged. It reads only the tenant's own data, so it works without a grant.
 - `repository_copy` also records the repository's `name` at copy time, so a copy of a repository that has since been deleted still has a name to show.
 
