@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.1.0...account-hub-v1.2.0) (2026-09-26)
+
+
+### Features
+
+* **account-hub:** consume @lorenzo/brand, drop hand-copied CSS ([caa1ce9](https://github.com/ramsesoriginal/lorenzo/commit/caa1ce989147725c9fdc32402052e93c0b304b78))
+* **account-hub:** consume @lorenzo/brand, drop hand-copied CSS ([7f95979](https://github.com/ramsesoriginal/lorenzo/commit/7f959794c93b3c8b2bdd3c7d100c5b10af445693))
+
+
+### Bug Fixes
+
+* **account-hub:** build @lorenzo/brand before consuming it, fixing Cloudflare Pages ([41811f9](https://github.com/ramsesoriginal/lorenzo/commit/41811f9b23491932129910d149bf766e29b19160))
+* **account-hub:** build @lorenzo/brand before consuming it, fixing Cloudflare Pages ([3f358e9](https://github.com/ramsesoriginal/lorenzo/commit/3f358e9ec87281a14824c9624e658235d302f2ab))
+* **account-hub:** go home after logout instead of staying signed-in ([3770fae](https://github.com/ramsesoriginal/lorenzo/commit/3770fae38d1a0f540eda0036161d9bf31dca7103))
+* **account-hub:** go home after logout instead of staying signed-in ([8952548](https://github.com/ramsesoriginal/lorenzo/commit/8952548e5246ebf40105d25789f3361dfe8ecc64))
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.0.0...account-hub-v1.1.0) (2026-09-23)
 
 

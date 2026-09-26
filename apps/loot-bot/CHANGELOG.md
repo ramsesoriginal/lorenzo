@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v1.0.0) (2026-09-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** `slug` on POST /tenants/{tenant_id}/item-instances must now match `^[A-Za-z0-9][A-Za-z0-9_-]*$` and be at most 100 characters; anything else is a 422. Slugs already stored are untouched and still resolve.
+
+### Features
+
+* **api:** computed stats - linear and comparison formulas (ADR 0104) ([ef4953a](https://github.com/ramsesoriginal/lorenzo/commit/ef4953a71f707408f822ae41dc23837c27935b58))
+* **api:** computed stats - linear and comparison formulas (ADR 0104) ([67ba505](https://github.com/ramsesoriginal/lorenzo/commit/67ba5052617fa6ec7960d8d049a261d275576d1b)), closes [#217](https://github.com/ramsesoriginal/lorenzo/issues/217)
+* **api:** copy a repository into a tenant, bridges included (ADR 0119, 0120) ([ede5c93](https://github.com/ramsesoriginal/lorenzo/commit/ede5c9354f7d78cacd2190976b8ea7474d42e6d1))
+* **api:** editable information and description payloads (ADR 0101) ([348f3b6](https://github.com/ramsesoriginal/lorenzo/commit/348f3b668ca6f084074419f9dd4df1633b3d757e))
+* **api:** editable information and description payloads (ADR 0101) ([fda8ee9](https://github.com/ramsesoriginal/lorenzo/commit/fda8ee933f4080561225c7426718300308e369b6)), closes [#213](https://github.com/ramsesoriginal/lorenzo/issues/213)
+* **api:** entity slugs and batch slug resolve (RFC 0027 stage 5) ([689b13b](https://github.com/ramsesoriginal/lorenzo/commit/689b13b6d4b4b158fcd2f87551d87e98a80c65de))
+* **api:** hand over on give, stacks leave containers into their owner, players read the catalog (ADR 0115, 0116) ([9a895fb](https://github.com/ramsesoriginal/lorenzo/commit/9a895fbcdaad73abcae8d87f7f06d026a5012697))
+* **api:** hold item-instance creation slugs to RFC 0027's grammar ([516ee49](https://github.com/ramsesoriginal/lorenzo/commit/516ee4960381adafc3223ead76cb441f1c072032))
+* **api:** items inherit descriptions and pictures; stats say if they are own (ADR 0111) ([512cd2a](https://github.com/ramsesoriginal/lorenzo/commit/512cd2ac3af46a449b4fff875e26a46f6d69863f))
+* **api:** player knowers, knower listing, and the entity information list (ADR 0109) ([1178ae7](https://github.com/ramsesoriginal/lorenzo/commit/1178ae77af0cd8f519b6e1046d4a9b30e251e364))
+* **api:** player knowers, knower listing, and the entity information list (ADR 0109) ([0e15cb9](https://github.com/ramsesoriginal/lorenzo/commit/0e15cb9ea16f49758264e134ab51fbb2a6130d4c)), closes [#230](https://github.com/ramsesoriginal/lorenzo/issues/230)
+* **api:** repositories — grants, gated read, copy, bridges, updates (RFC 0024, ADR 0117-0121) ([d3b7644](https://github.com/ramsesoriginal/lorenzo/commit/d3b7644caf8fc731324363b9133bbed8a30751d9))
+* **api:** repository contributions, dry runs, and copying again (ADR 0119, 0121) ([9b1d1a4](https://github.com/ramsesoriginal/lorenzo/commit/9b1d1a4472e735c42b433cd373429e313453e66e))
+* **api:** repository contributions, dry runs, and copying again (ADR 0119, 0121) ([a6ab1d0](https://github.com/ramsesoriginal/lorenzo/commit/a6ab1d05fab2c5215b091279946608b19abec488))
+* **api:** repository grants and the gated cross-tenant read (ADR 0118) ([8002569](https://github.com/ramsesoriginal/lorenzo/commit/800256995e8a39d2a3537a0234d8395df9682f97)), closes [#265](https://github.com/ramsesoriginal/lorenzo/issues/265)
+* **api:** repository tenants - immutable kind, no campaigns, publishing (ADR 0118) ([14cde84](https://github.com/ramsesoriginal/lorenzo/commit/14cde84b13ab772cf8449909c9b9c87967cc40bb)), closes [#265](https://github.com/ramsesoriginal/lorenzo/issues/265)
+* **api:** repository updates and re-sync (ADR 0121) ([1037204](https://github.com/ramsesoriginal/lorenzo/commit/1037204d00950963b7b72c3a03fd8e88d3e1b7ad)), closes [#268](https://github.com/ramsesoriginal/lorenzo/issues/268)
+* **api:** stat tag endpoints, enum values, and mandatory groups (ADR 0103) ([92298fd](https://github.com/ramsesoriginal/lorenzo/commit/92298fdfd120f2f227ca0f739f6d7a154ff28da1))
+* **api:** stat tag endpoints, enum values, and mandatory groups (ADR 0103) ([eb574fc](https://github.com/ramsesoriginal/lorenzo/commit/eb574fcb509ea9656acd24f9ae6e1f2ce8d97489)), closes [#216](https://github.com/ramsesoriginal/lorenzo/issues/216)
+* hand items over on give, stacks leave containers whole, players read the catalog (ADR 0115, 0116) ([8bc12a1](https://github.com/ramsesoriginal/lorenzo/commit/8bc12a17e9319efd16d86e1f2c5ebbf17a61c1e7))
+* **inventory-web:** hand items over, carry stacks out of containers, and the catalog for players (ADR 0115, 0116) ([903727b](https://github.com/ramsesoriginal/lorenzo/commit/903727bdc1440a70993619ef2390ce19b0b398a0))
+* **loot-bot:** switch /changes to the API's own change feed ([07bccd4](https://github.com/ramsesoriginal/lorenzo/commit/07bccd4268d7cc78d081ce08cb4d1f97ee64a90e))
+* **loot-bot:** switch /changes to the API's own change feed ([665f412](https://github.com/ramsesoriginal/lorenzo/commit/665f412faebc6e893d28ecb972092f4c1bd512d4))
+* LorenzoScript - Markdown for descriptions, editor, slugs, and backlinks (RFC 0027) ([e1877c5](https://github.com/ramsesoriginal/lorenzo/commit/e1877c577fad6c684d692726b3819c43cb172dd2))
+* LorenzoScript references and backlinks (RFC 0027 stage 7) ([d9e7ca9](https://github.com/ramsesoriginal/lorenzo/commit/d9e7ca949569a5b3942032aace3ee9541a65ed2b))
+* the whole item - inherited descriptions, one item view, and editing in inventory-web (ADR 0111, 0112) ([b26e3f2](https://github.com/ramsesoriginal/lorenzo/commit/b26e3f2d82288895a163bb1913102d313a55e0fd))
+
+
+### Bug Fixes
+
+* **api:** character roster routes accept a Player, not just Membership ([6403a8c](https://github.com/ramsesoriginal/lorenzo/commit/6403a8cfb9c55c186fe5faa57d2e82a4b5acac95))
+* **api:** keep ItemInstanceCreate.slug's existing contract ([6d05826](https://github.com/ramsesoriginal/lorenzo/commit/6d05826878a9b6d88fa2962b15b52ba884c92c05))
+* **loot-bot:** format the new migration's JSON with Biome ([bbd9bfc](https://github.com/ramsesoriginal/lorenzo/commit/bbd9bfc5fc27772c422f1b138f3d7a5132bd446b))
+
 ## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.3.0...loot-bot-v0.4.0) (2026-09-23)
 
 
