@@ -188,6 +188,7 @@ describe("reassignCommand.execute", () => {
   it.each([
     [403, "reachable from any campaign you GM"],
     [404, "Couldn't find that item"],
+    [409, "boom"],
     [412, "Someone else changed that item"],
     [422, "Couldn't do that"],
   ])("gives a specific message for a %i error", async (status, expectedText) => {

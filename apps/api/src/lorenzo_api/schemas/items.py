@@ -179,7 +179,7 @@ def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool
     """`is_container` as a first-class field, mirroring whatever `tags`
     already carries for that name - see ADR 0066. Not a new stat_definition
     lookup of its own and not a new `v_item`/`v_item_instance` SQL column
-    like `is_magical`/`is_cursed`'s hardcoded whitelist (ADR 0037/0039) -
+    (ADR 0037/0039; the views' old boolean columns are gone, ADR 0129) -
     purely a convenience read of the same already-resolved `tags` list
     `_tags_out` above wraps unchanged, so a client reading the generic
     `tags` array still sees the identical entry.
@@ -240,14 +240,6 @@ def _named_int(view: VItem | VItemInstance, name: str, column: int | None) -> in
     return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
-def _named_bool(view: VItem | VItemInstance, name: str, column: bool | None) -> bool | None:
-    """See _named_int."""
-    if column is not None:
-        return column
-    value = view.resolved_value_by_name(name)
-    return value if isinstance(value, bool) else None
-
-
 def _common_item_fields(
     view: VItem | VItemInstance,
     request: Request,
@@ -274,8 +266,6 @@ def _common_item_fields(
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
         prototype_ids=_prototype_ids_out(view.entity),
-        is_magical=_named_bool(view, "is_magical", view.is_magical),
-        is_cursed=_named_bool(view, "is_cursed", view.is_cursed),
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
         **_described_out(view, request, visibility, ancestors),
         physical_stats=_stats_out(view.physical_stats),
@@ -326,8 +316,6 @@ class _ItemFields(BaseModel):
     container_entity_id: uuid.UUID | None
     quantity: int | None
     prototype_ids: list[uuid.UUID]
-    is_magical: bool | None
-    is_cursed: bool | None
     is_container: bool | None
     descriptions: list[DescriptionOut]
     pictures: list[PictureRefOut]
@@ -405,16 +393,20 @@ class SetOwnerRequest(BaseModel):
 
     owner_character_id: uuid.UUID
     move_to_owner: bool = False
-    # ADR 0128: the item's GM moves it anyway, past capacity.
+    # ADR 0128, 0129: the item's GM gives or moves it anyway, past capacity
+    # and binding; and lifts its binding for good.
     override: bool = False
+    lift_binding: bool = False
 
 
 class SetContainerRequest(BaseModel):
-    """PUT /item-instances/{id}/container body. `override` (ADR 0128): the
-    item's GM moves it anyway, past capacity."""
+    """PUT /item-instances/{id}/container body. `override` (ADR 0128,
+    0129): the item's GM moves it anyway, past capacity and binding.
+    `lift_binding` (ADR 0129): and lifts its binding for good."""
 
     container_entity_id: uuid.UUID
     override: bool = False
+    lift_binding: bool = False
 
 
 class SetPrototypesRequest(BaseModel):
@@ -469,8 +461,11 @@ class BulkAssignItem(BaseModel):
     # ADR 0125: also give everything inside it, at any depth, that the caller
     # may give. Nothing moves.
     with_contents: bool = False
-    # ADR 0128: the item's GM hands it over anyway, past capacity.
+    # ADR 0128, 0129: the item's GM gives or hands it over anyway, past
+    # capacity and binding; and lifts its binding for good. What's given
+    # along with it stays bound either way.
     override: bool = False
+    lift_binding: bool = False
 
     @model_validator(mode="after")
     def _whole_to_give_contents(self) -> Self:
@@ -481,12 +476,15 @@ class BulkAssignItem(BaseModel):
 
 class ItemInstanceOut(_ItemFields):
     """A specific, ownable item ("My Shovel"), from `VItemInstance` - the
-    fields every item has plus `owner_entity_id`/`slug`. See ADR 0019/0020
-    and `_ItemFields`'s docstring for the eager-load requirement.
+    fields every item has plus `owner_entity_id`/`slug`, and whether it's
+    `bound` (ADR 0129). See ADR 0019/0020 and `_ItemFields`'s docstring for
+    the eager-load requirement.
     """
 
     owner_entity_id: uuid.UUID | None
     slug: str | None
+    # ADR 0129: its owner can't change, and it can't leave what binds it.
+    bound: bool
 
     @classmethod
     def from_v_item_instance(
@@ -497,10 +495,14 @@ class ItemInstanceOut(_ItemFields):
         visibility: InformationVisibility,
         ancestors: Sequence[Entity],
     ) -> Self:
+        """Requires binding.attach_bound run on `view` first."""
+        if view.bound is None:
+            raise RuntimeError(f"bound wasn't attached to item instance {view.entity_id}")
         return cls(
             **_common_item_fields(view, request, visibility=visibility, ancestors=ancestors),
             owner_entity_id=view.owner_entity_id,
             slug=view.slug,
+            bound=view.bound,
         )
 
 
@@ -581,8 +583,10 @@ class BulkMoveContainerRequest(BaseModel):
     to_container_entity_id: uuid.UUID
     from_container_entity_id: uuid.UUID | None = None
     items: list[BulkMoveItem] | None = None
-    # ADR 0128: the GM moves them all anyway, past capacity.
+    # ADR 0128, 0129: the GM moves them all anyway, past capacity and
+    # binding; and lifts each one's binding for good.
     override: bool = False
+    lift_binding: bool = False
 
     @model_validator(mode="after")
     def _exactly_one_source(self) -> Self:

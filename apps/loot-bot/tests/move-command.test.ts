@@ -75,7 +75,15 @@ function fakeButton(customId: string) {
   };
 }
 
-const FORCE = buildMoveAnywayCustomId({ itemEntityId: "item-1", containerEntityId: "container-1" });
+const MOVE = { itemEntityId: "item-1", containerEntityId: "container-1" };
+const FORCE = buildMoveAnywayCustomId({ ...MOVE, lift: false });
+const LIFT = buildMoveAnywayCustomId({ ...MOVE, lift: true });
+
+const bound = new LorenzoApiError(
+  "Ring is bound to Alice (binds on equip), so it can't be taken off Alice.",
+  409,
+  "item-bound",
+);
 
 const tooMuch = new LorenzoApiError(
   "Backpack can carry 20, and this would make it 26.",
@@ -144,7 +152,7 @@ describe("moveCommand.execute", () => {
       "container-1",
       "token-123",
       "etag-1",
-      { override: false },
+      { override: false, liftBinding: false },
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Moved Torch.");
     expect(recordUndo).toHaveBeenCalledWith("user-1", {
@@ -235,7 +243,7 @@ describe("moveCommand, when it doesn't fit", () => {
       "container-1",
       "token-123",
       "etag-1",
-      { override: true },
+      { override: true, liftBinding: false },
     );
     expect(button.editReply).toHaveBeenCalledWith("Moved Anvil anyway.");
     expect(recordUndo).toHaveBeenCalledWith("user-1", {
@@ -251,7 +259,7 @@ describe("moveCommand, when it doesn't fit", () => {
       new LorenzoApiError(
         "Only a GM of this item's campaign can move it anyway.",
         403,
-        "capacity-override-forbidden",
+        "override-forbidden",
       ),
     );
     const button = fakeButton(FORCE);
@@ -261,6 +269,41 @@ describe("moveCommand, when it doesn't fit", () => {
     expect(button.editReply).toHaveBeenCalledWith(
       "Only a GM of this item's campaign can move it anyway.",
     );
+  });
+
+  it("offers a GM lifting a binding, too, when it's bound", async () => {
+    movable();
+    setItemInstanceContainer.mockRejectedValue(bound);
+    isCampaignGm.mockResolvedValue(true);
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "container-1",
+    );
+
+    await moveCommand.execute(interaction, { config, logger: {} as never });
+
+    const reply = interaction.editReply.mock.calls[0]?.[0];
+    expect(reply.content).toBe(bound.message);
+    const buttons = reply.components[0].toJSON().components;
+    expect(buttons.map((b: { custom_id: string }) => b.custom_id)).toEqual([FORCE, LIFT]);
+  });
+
+  it("moves and lifts the binding on the lift button", async () => {
+    movable();
+    setItemInstanceContainer.mockResolvedValue({ entity_id: "item-1", title: "Ring" });
+    const button = fakeButton(LIFT);
+
+    await moveCommand.onButton?.(button, { config, logger: {} as never });
+
+    expect(setItemInstanceContainer).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-1",
+      "container-1",
+      "token-123",
+      "etag-1",
+      { override: true, liftBinding: true },
+    );
+    expect(button.editReply).toHaveBeenCalledWith("Moved Ring, and lifted its binding.");
   });
 
   it("refuses a button it can't read, without moving anything", async () => {

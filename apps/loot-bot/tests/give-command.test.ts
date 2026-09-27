@@ -224,6 +224,7 @@ describe("giveCommand.execute (the confirmation prompt)", () => {
   it.each([
     [403, "reachable from any of your characters"],
     [404, "Couldn't find that item"],
+    [409, "boom"],
     [422, "Couldn't do that"],
   ])(
     "gives a specific message when reading the item fails with %i",
@@ -339,6 +340,7 @@ describe("giveCommand.execute for a container (ADR 0125)", () => {
           move_to_owner: false,
           with_contents: true,
           override: false,
+          lift_binding: false,
         },
       ],
       "token-123",
@@ -446,6 +448,7 @@ describe("giveCommand.onButton, giving with what's inside (ADR 0125)", () => {
           move_to_owner: false,
           with_contents: true,
           override: false,
+          lift_binding: false,
           if_match: "etag-1",
         },
       ],
@@ -702,6 +705,7 @@ describe("giveCommand.onButton (the confirmed transfer)", () => {
   it.each([
     [403, "reachable from any of your characters"],
     [404, "Couldn't find that item"],
+    [409, "boom"],
     [422, "Couldn't do that"],
   ])("gives a specific message for a %i error", async (status, expectedText) => {
     getValidAccessToken.mockResolvedValue("token-123");

@@ -38,6 +38,11 @@ export const undoCommand: Command = {
         );
         return;
       }
+      // What's bound or doesn't fit, in the API's words (ADR 0128, 0129).
+      if (error instanceof LorenzoApiError && error.status === 409) {
+        await interaction.editReply(error.message);
+        return;
+      }
       throw error;
     }
 

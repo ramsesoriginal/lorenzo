@@ -176,8 +176,9 @@ async def test_get_item_returns_full_wrapped_shape(
     assert body["title"] == "A fine sword"
     assert body["weight"] == 3
     assert body["height"] is None
-    assert body["is_magical"] is True
-    assert body["is_cursed"] is None
+    # ADR 0129: no named boolean columns anymore - a tag is just a tag.
+    assert "is_magical" not in body
+    assert "is_cursed" not in body
     assert body["container_entity_id"] == str(chest_id)
     # ADR 0041: an ordinary containment link (no explicit quantity given by
     # _make_full_item) defaults to a stack of one, not null.
@@ -200,8 +201,8 @@ async def test_get_item_returns_full_wrapped_shape(
     assert content_response.content == b"\x89PNG"
     assert body["physical_stats"] == [{"name": "weight", "value": 3}]
     assert body["tags"] == [{"name": "is_magical", "value": True}]
-    # ADR 0066: no is_container tag defined at all here - unset, not False,
-    # the same "no such stat resolved" meaning is_magical/is_cursed use.
+    # ADR 0066: no is_container tag defined at all here - unset, not False:
+    # no such stat resolved.
     assert body["is_container"] is None
     assert body["economic_stats"] == []
     assert body["destroyable_stats"] == []

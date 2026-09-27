@@ -263,4 +263,20 @@ describe("buildApplySummaryEmbed", () => {
     expect(embed.data.description).toContain("already taken");
     expect(embed.data.description).toContain("not enough left");
   });
+
+  it("gives a refusal's own reason", () => {
+    const embed = buildApplySummaryEmbed([
+      {
+        discordUserId: "user-1",
+        itemTitle: "Ring",
+        status: "refused",
+        quantity: null,
+        reason: "Ring is bound to Gerold (binds when owned), so it can't change hands.",
+      },
+    ]);
+
+    expect(embed.data.description).toBe(
+      "<@user-1>'s claim on **Ring** couldn't be honored (Ring is bound to Gerold (binds when owned), so it can't change hands).",
+    );
+  });
 });

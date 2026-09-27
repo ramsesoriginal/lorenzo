@@ -141,6 +141,7 @@ export const giveBulkCommand: Command = {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
         })),
         accessToken,
       );
@@ -165,7 +166,19 @@ function formatBulkGiveSummary(
   const failed = results.filter((result) => result.status !== "ok").length;
   const lines = [`Gave ${succeeded} item${succeeded === 1 ? "" : "s"} to ${targetName}.`];
   if (failed > 0) {
-    lines.push(`${failed} couldn't be given — they may no longer be reachable from you.`);
+    // The API's own reasons, such as what's bound (ADR 0129).
+    const reasons = [
+      ...new Set(
+        results.flatMap((result) =>
+          result.status !== "ok" && result.problem?.detail ? [result.problem.detail] : [],
+        ),
+      ),
+    ];
+    lines.push(
+      reasons.length > 0
+        ? `${failed} couldn't be given: ${reasons.join(" ")}`
+        : `${failed} couldn't be given — they may no longer be reachable from you.`,
+    );
   }
   return lines.join("\n");
 }

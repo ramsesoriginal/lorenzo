@@ -19,6 +19,7 @@ async function giveToBrisk(world: World, id: string) {
         owner_character_id: world.oskar.character.entity_id,
         move_to_owner: false,
         override: false,
+        lift_binding: false,
       },
     }),
   );

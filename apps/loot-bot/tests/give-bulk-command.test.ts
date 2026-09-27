@@ -150,6 +150,37 @@ describe("giveBulkCommand.onSelectMenu", () => {
     );
   });
 
+  it("says why, in the API's words, when it can", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    consumePendingBulkGive.mockReturnValue({
+      discordUserId: "discord-user-1",
+      itemEntityIds: ["item-1", "item-2"],
+    });
+    bulkAssignItemInstances.mockResolvedValue([
+      { entity_id: "item-1", status: "ok" },
+      {
+        entity_id: "item-2",
+        status: "error",
+        problem: {
+          type: "item-bound",
+          title: "Bound to its owner",
+          status: 409,
+          detail: "Ring is bound to Frodo (binds on equip), so it can't change hands.",
+        },
+      },
+    ]);
+    getCharacterName.mockResolvedValue("Sam");
+    const interaction = fakeSelectMenu("give-bulk:pick-target:token-abc", ["char-2"]);
+
+    await giveBulkCommand.onSelectMenu?.(interaction, { config, logger: {} as never });
+
+    expect(interaction.update).toHaveBeenCalledWith({
+      content:
+        "Gave 1 item to Sam.\n1 couldn't be given: Ring is bound to Frodo (binds on equip), so it can't change hands.",
+      components: [],
+    });
+  });
+
   it("applies the bulk-assign once a target is chosen and summarizes the outcome", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     consumePendingBulkGive.mockReturnValue({
@@ -174,6 +205,7 @@ describe("giveBulkCommand.onSelectMenu", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
         },
         {
           entity_id: "item-2",
@@ -181,6 +213,7 @@ describe("giveBulkCommand.onSelectMenu", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
         },
       ],
       "token-123",

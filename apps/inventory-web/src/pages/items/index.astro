@@ -84,6 +84,7 @@ import Base from '../../layouts/Base.astro';
       updateCatalogItem,
     } from '../../lib/items';
     import { isCampaignGm, isTenantMember, viewerId } from '../../lib/me';
+    import { giveOrAsk } from '../../lib/moveAnyway';
     import { saveSlug, slugField, slugProblem, suggestSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
     import type {
@@ -832,7 +833,11 @@ import Base from '../../layouts/Base.astro';
       unassignButton.addEventListener('click', async () => {
         unassignButton.disabled = true;
         try {
-          await unsetOwner(tenantId as string, instance.entity_id);
+          // A bound item's GM is asked to take it anyway (ADR 0129).
+          await giveOrAsk((flags) => unsetOwner(tenantId as string, instance.entity_id, flags), {
+            canOverride: viewerIsGm,
+            ask: (question) => window.confirm(question),
+          });
           // Unowned items don't show up under any character's view.
           if (currentCharacter) void loadInstancesFor(currentCharacter);
         } catch (e) {
@@ -852,7 +857,11 @@ import Base from '../../layouts/Base.astro';
         const panel = renderBeingActionPanel(
           tenantId as string,
           async (being) => {
-            await setOwner(tenantId as string, instance.entity_id, being.entity_id);
+            await giveOrAsk(
+              (flags) =>
+                setOwner(tenantId as string, instance.entity_id, being.entity_id, false, flags),
+              { canOverride: viewerIsGm, ask: (question) => window.confirm(question) },
+            );
             return `Reassigned to ${being.name}.`;
           },
           () => {

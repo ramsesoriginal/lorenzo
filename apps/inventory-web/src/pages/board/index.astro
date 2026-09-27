@@ -142,6 +142,7 @@ import Base from '../../layouts/Base.astro';
       <h2 id="item-detail-title" class="display"></h2>
       <p id="item-detail-slug" class="item-detail-slug" hidden></p>
       <p id="item-detail-qty" class="item-detail-qty" hidden></p>
+      <p id="item-detail-bound" class="item-detail-bound" hidden>Bound to its owner</p>
       <div id="item-detail-view" class="item-view"></div>
       <div id="item-detail-ancestry" class="item-detail-ancestry" hidden>
         <h3>Ancestry</h3>
@@ -192,7 +193,9 @@ import Base from '../../layouts/Base.astro';
     import { listMyCharacters } from '../../lib/characters';
     import { descriptionRenderer } from '../../lib/descriptions';
     import { groupsOf } from '../../lib/groups';
+    import { LorenzoApiError } from '../../lib/api';
     import {
+      type AnywayFlags,
       bulkAssignItemInstances,
       bulkMoveItemInstances,
       clearContainer,
@@ -209,9 +212,10 @@ import Base from '../../layouts/Base.astro';
     import { isCampaignGm } from '../../lib/me';
     import {
       bulkMoveAnywayQuestion,
+      giveOrAsk,
       type MoveAnywayOptions,
       moveOrAsk,
-      overCapacityIds,
+      overridableIds,
     } from '../../lib/moveAnyway';
     import { collectMoveTargets } from '../../lib/moveTargets';
     import {
@@ -319,6 +323,7 @@ import Base from '../../layouts/Base.astro';
     const detailTitle = document.getElementById('item-detail-title')!;
     const detailSlug = document.getElementById('item-detail-slug')!;
     const detailQty = document.getElementById('item-detail-qty')!;
+    const detailBound = document.getElementById('item-detail-bound')!;
     const detailView = document.getElementById('item-detail-view')!;
     const detailAncestry = document.getElementById('item-detail-ancestry')!;
     const detailAncestryList = document.getElementById(
@@ -494,6 +499,11 @@ import Base from '../../layouts/Base.astro';
         rowHeading: 'h4',
       });
 
+      // Bound to its owner (ADR 0129): only a GM may give it away.
+      detailBound.hidden = !item.bound;
+      detailGiveButton.disabled = item.bound && !userIsGm;
+      detailGiveButton.title = detailGiveButton.disabled ? "It's bound to its owner." : '';
+
       closeDetailActionPanels();
       detailSplitButton.disabled = !(item.quantity && item.quantity > 1);
       // Only a container the board shows something inside (ADR 0125).
@@ -595,13 +605,14 @@ import Base from '../../layouts/Base.astro';
     // keeps its count (ADR 0115, 0124). On a group's board, or the board of unowned things,
     // there's no one to hold it; out of every container, it's with its owner, and the API
     // refuses a stack.
-    function takeOut(entityId: string, override = false) {
+    function takeOut(entityId: string, flags: AnywayFlags = {}) {
       return boardOwnerId
-        ? setContainer(tenantId as string, entityId, boardOwnerId, { override })
-        : clearContainer(tenantId as string, entityId);
+        ? setContainer(tenantId as string, entityId, boardOwnerId, flags)
+        : clearContainer(tenantId as string, entityId, flags);
     }
 
-    // A GM whose move doesn't fit is asked, and may move it anyway (ADR 0128).
+    // A GM whose move or give is refused, because it doesn't fit or something is bound, is
+    // asked, and may do it anyway (ADR 0128, 0129).
     function moveAnyway(): MoveAnywayOptions {
       return { canOverride: userIsGm, ask: (question) => window.confirm(question) };
     }
@@ -678,31 +689,36 @@ import Base from '../../layouts/Base.astro';
             return giveWithContents(item, being, moveToOwner);
           }
           if (plan.mode === 'partial') {
-            const [result] = await bulkAssignItemInstances(tenantId as string, [
-              {
-                entityId: item.entity_id,
-                ownerCharacterId: being.entity_id,
-                quantity: plan.quantity,
-                moveToOwner,
-              },
-            ]);
-            if (result.status === 'error' || !result.item_instance) {
-              throw new Error(result.problem?.title ?? 'Could not give that.');
-            }
+            let splitOffEntityId = '';
+            await giveOrAsk(async (flags) => {
+              const [result] = await bulkAssignItemInstances(tenantId as string, [
+                {
+                  entityId: item.entity_id,
+                  ownerCharacterId: being.entity_id,
+                  quantity: plan.quantity,
+                  moveToOwner,
+                  ...flags,
+                },
+              ]);
+              if (result.status === 'error' || !result.item_instance) {
+                throw problemError(result.problem);
+              }
+              splitOffEntityId = result.item_instance.entity_id;
+            }, moveAnyway());
             // The split-off instance is a *new* entity - restore-owner
             // has nothing to restore it to; merging it back is the
             // honest inverse instead.
             recordGiveUndo(
               being.entity_id,
-              {
-                kind: 'undo-split',
-                splitOffEntityId: result.item_instance.entity_id,
-                intoEntityId: item.entity_id,
-              },
+              { kind: 'undo-split', splitOffEntityId, intoEntityId: item.entity_id },
               `Gave ${plan.quantity} ${item.title} to ${being.name}.`,
             );
           } else {
-            await setOwner(tenantId as string, item.entity_id, being.entity_id, moveToOwner);
+            await giveOrAsk(
+              (flags) =>
+                setOwner(tenantId as string, item.entity_id, being.entity_id, moveToOwner, flags),
+              moveAnyway(),
+            );
             recordGiveUndo(
               being.entity_id,
               {
@@ -751,6 +767,12 @@ import Base from '../../layouts/Base.astro';
 
     function problemText(problem: ProblemOut | null | undefined): string {
       return problem?.detail ?? problem?.title ?? 'Could not give that.';
+    }
+
+    // A bulk result's problem as the error a single write would throw, so a GM can be
+    // asked to give anyway (ADR 0129).
+    function problemError(problem: ProblemOut | null | undefined): LorenzoApiError {
+      return new LorenzoApiError(problemText(problem), problem?.status ?? 500, problem?.type);
     }
 
     // Give what's inside… (ADR 0125): everything inside, not the container, after asking
@@ -963,12 +985,11 @@ import Base from '../../layouts/Base.astro';
         try {
           if (targetId) {
             await moveOrAsk(
-              (override) =>
-                setContainer(tenantId as string, item.entity_id, targetId, { override }),
+              (flags) => setContainer(tenantId as string, item.entity_id, targetId, flags),
               moveAnyway(),
             );
           } else {
-            await moveOrAsk((override) => takeOut(item.entity_id, override), moveAnyway());
+            await moveOrAsk((flags) => takeOut(item.entity_id, flags), moveAnyway());
           }
           recordUndo(
             { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
@@ -1208,7 +1229,7 @@ import Base from '../../layouts/Base.astro';
               const retried = await bulkMoveItemInstances(
                 tenantId as string,
                 target,
-                overCapacityIds(results),
+                overridableIds(results),
                 { override: true },
               );
               const merged = results.map(
@@ -1231,13 +1252,12 @@ import Base from '../../layouts/Base.astro';
             ),
           }));
         } else {
-          request = (
-            target
-              ? moveOrAsk(
-                  (override) => setContainer(tenantId as string, entityId, target, { override }),
-                  moveAnyway(),
-                )
-              : clearContainer(tenantId as string, entityId)
+          request = moveOrAsk(
+            (flags) =>
+              target
+                ? setContainer(tenantId as string, entityId, target, flags)
+                : clearContainer(tenantId as string, entityId, flags),
+            moveAnyway(),
           ).then(() => undefined);
         }
 
@@ -1330,6 +1350,14 @@ import Base from '../../layouts/Base.astro';
         owner.className = 'item-card-owner';
         owner.textContent = mark;
         open.append(' ', owner);
+      }
+
+      // Bound to its owner (ADR 0129).
+      if (item.bound) {
+        const bound = document.createElement('span');
+        bound.className = 'item-card-bound';
+        bound.textContent = 'Bound';
+        open.append(' ', bound);
       }
 
       li.append(open);
