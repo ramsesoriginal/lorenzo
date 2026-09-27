@@ -89,14 +89,15 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         </nav>
       </div>
       <div class="row">
-        <select
-          id="tenant-switcher"
-          aria-label="Tenant"
-          hidden
-          class="text-input"
-          style="width: auto;"></select>
+        <div id="tenant-switcher-group" class="account row-tight" hidden>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
+          </svg>
+          <select id="tenant-switcher" aria-label="Library" class="text-input" style="width: auto;"
+          ></select>
+        </div>
 
-        <div class="account row">
+        <div class="account row-tight">
           <p id="account-loading">Checking your session&hellip;</p>
           <p id="account-error" class="error-text" hidden></p>
           <div id="account-signed-out" class="row" hidden>
@@ -175,7 +176,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         const switcher = document.getElementById('tenant-switcher') as HTMLSelectElement;
         const current = currentTenant();
         if (!tenants.some((tenant) => tenant.id === current)) {
-          switcher.append(new Option('Choose a tenant…', '', true, true));
+          switcher.append(new Option('Choose a library…', '', true, true));
         }
         for (const tenant of tenants) {
           switcher.append(new Option(tenant.name, tenant.id, false, tenant.id === current));
@@ -188,7 +189,8 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
             : '/board/';
           window.location.assign(`${path}?tenant=${encodeURIComponent(switcher.value)}`);
         });
-        switcher.hidden = false;
+        // The whole group, icon included - not a lone icon without its switcher.
+        document.getElementById('tenant-switcher-group')!.hidden = false;
       }
 
       // Account: who's signed in, with log in/out - on every page. The auth

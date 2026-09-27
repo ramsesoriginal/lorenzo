@@ -51,6 +51,10 @@ icon-location: map-pinned
 icon-visibility: fence
 icon-eye: eye
 icon-eye-off: eye-off
+icon-library: library
+icon-library-plus: library-plus
+icon-library-minus: library-minus
+icon-library-photo: library-photo
 
 # Aliases - reuse an existing symbol id above, not a new one:
 #   icon-remove            -> icon-close   (removing a chip/tag)
