@@ -66,6 +66,8 @@ from lorenzo_api.schemas.items import (
     BulkAssignResultItem,
     BulkMoveContainerRequest,
     BulkMoveResultItem,
+    ContentsResultItem,
+    GiveContentsRequest,
     HeldByResponse,
     HeldGroupOut,
     ItemInstanceCreate,
@@ -1287,11 +1289,22 @@ async def _record_bulk_activity(
 ) -> None:
     """One entry per bulk call, counts only (ADR 0084) - the per-item
     outcome is already in the call's own response. Nothing is written when
-    no item succeeded, since then nothing changed.
+    no item succeeded, since then nothing changed. What was given along with
+    a container (ADR 0125) is counted too, when there was any.
     """
     ok = sum(1 for result in results if result.status == "ok")
     if ok == 0:
         return
+    detail = f"{ok} ok, {len(results) - ok} failed"
+    contents = [
+        content
+        for result in results
+        if isinstance(result, BulkAssignResultItem)
+        for content in result.contents
+    ]
+    if contents:
+        given = sum(1 for content in contents if content.status == "ok")
+        detail += f"; inside: {given} given along, {len(contents) - given} kept"
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1299,7 +1312,7 @@ async def _record_bulk_activity(
         action=action,
         target_type="item_instance",
         target_id=target_id,
-        detail=f"{ok} ok, {len(results) - ok} failed",
+        detail=detail,
     )
 
 
@@ -1553,6 +1566,112 @@ async def merge_item_instance(
     )
 
 
+async def _give_contents(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    container_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    recursive: bool,
+) -> tuple[list[ContentsResultItem], list[Change]]:
+    """Gives what's inside container_id to owner_id (ADR 0125), each thing
+    on its own savepoint, bulk-assign's never-all-or-nothing way: given, or
+    kept by its owner with ADR 0124's refusal. What's already owner_id's is
+    left alone and not reported. Nothing moves.
+
+    A being inside it (a passenger in a carriage) isn't the container's to
+    give, and neither is anything it carries, so the walk stops there.
+
+    Deepest first: a thing's holders depend only on what's around it, so
+    each one's are taken before anything around it changes. The feed
+    changes are returned rather than recorded, so bulk-assign can record
+    them after it has given the container too.
+    """
+    descendants = recursive_descendants_cte(frozenset({container_id}), tenant_id)
+    paths: dict[uuid.UUID, list[uuid.UUID]] = {
+        child: list(path)
+        for child, path in await session.execute(
+            select(descendants.c.child_entity_id, descendants.c.path)
+        )
+        # A path starts at the container: [container, child] is directly inside.
+        if recursive or len(path) == 2
+    }
+    if not paths:
+        return [], []
+    beings = set(
+        (
+            await session.execute(
+                select(Being.entity_id).where(
+                    Being.entity_id.in_(paths), Being.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    inside = {child for child, path in paths.items() if beings.isdisjoint(path[1:])}
+    views = (
+        (
+            await session.execute(
+                select(VItemInstance)
+                .where(VItemInstance.entity_id.in_(inside), VItemInstance.tenant_id == tenant_id)
+                .options(*eager_load_options(VItemInstance.entity))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    to_give = sorted(
+        (view for view in views if view.owner_entity_id != owner_id),
+        key=lambda view: (-len(paths[view.entity_id]), str(view.entity_id)),
+    )
+
+    problems: dict[uuid.UUID, ProblemOut | None] = {}
+    changes: list[Change] = []
+    for entity_id in [view.entity_id for view in to_give]:
+        try:
+            async with session.begin_nested():
+                await _authorize_instance_write(
+                    session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+                )
+                before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
+                await _perform_set_owner(
+                    session, tenant_id=tenant_id, entity_id=entity_id, owner_character_id=owner_id
+                )
+        except Problem as exc:
+            problems[entity_id] = ProblemOut(**exc.marshal())
+            continue
+        problems[entity_id] = None
+        changes.append(Change(entity_id=entity_id, before=before, both_kind=None))
+
+    # Who owns each afterwards. A kept thing's owner is unchanged; the views
+    # are too, since a rolled-back savepoint only expires what it modified.
+    owner_after = {
+        view.entity_id: owner_id if problems[view.entity_id] is None else view.owner_entity_id
+        for view in to_give
+    }
+    owners = {
+        entity.id: EntitySummary.from_entity(entity)
+        for entity in (
+            await session.execute(
+                select(Entity).where(
+                    Entity.id.in_({o for o in owner_after.values() if o is not None}),
+                    Entity.tenant_id == tenant_id,
+                )
+            )
+        ).scalars()
+    }
+    # Outermost first, the way a board reads.
+    return [
+        ContentsResultItem.from_v_item_instance(
+            view,
+            status="ok" if problems[view.entity_id] is None else "kept",
+            owner=None if (o := owner_after[view.entity_id]) is None else owners.get(o),
+            problem=problems[view.entity_id],
+        )
+        for view in reversed(to_give)
+    ], changes
+
+
 @router.post("/bulk-assign")
 async def bulk_assign_item_instances(
     tenant_id: uuid.UUID,
@@ -1560,6 +1679,7 @@ async def bulk_assign_item_instances(
     request: Request,
     session: SessionDep,
     user: CurrentUser,
+    dry_run: Annotated[bool, Query()] = False,
 ) -> list[BulkAssignResultItem]:
     """Assigns several already-decided items to characters in one call
     (ADR 0044) - a GM's own "resolve a whole loot session" step. quantity
@@ -1579,9 +1699,15 @@ async def bulk_assign_item_instances(
     here and fails the whole request as a 500 - this only ever gracefully
     handles anticipated, typed failure modes, matching this codebase's
     general practice.
+
+    with_contents (ADR 0125) also gives everything inside the entry's item,
+    before the item itself: whether someone may give an ownerless thing
+    inside depends on reaching it, which handing the container over could
+    end. dry_run does all of it and rolls it back.
     """
     results: list[BulkAssignResultItem] = []
     for item in body:
+        contents: list[ContentsResultItem] = []
         try:
             async with session.begin_nested():
                 entity = await _get_item_instance_entity_or_404(tenant_id, item.entity_id, session)
@@ -1618,6 +1744,16 @@ async def bulk_assign_item_instances(
                         )
                     ]
                 else:
+                    content_changes: list[Change] = []
+                    if item.with_contents:
+                        contents, content_changes = await _give_contents(
+                            session,
+                            tenant_id=tenant_id,
+                            user=user,
+                            container_id=item.entity_id,
+                            owner_id=item.owner_character_id,
+                            recursive=True,
+                        )
                     changed = await _perform_set_owner(
                         session,
                         tenant_id=tenant_id,
@@ -1641,7 +1777,7 @@ async def bulk_assign_item_instances(
                         ]
                         if changed or moved
                         else []
-                    )
+                    ) + content_changes
                 # Inside the savepoint: a failed item rolls back its feed rows too.
                 await record_change(session, tenant_id=tenant_id, actor_id=user.id, changes=changes)
         except Problem as exc:
@@ -1659,10 +1795,17 @@ async def bulk_assign_item_instances(
         )
         results.append(
             BulkAssignResultItem(
-                entity_id=item.entity_id, status="ok", item_instance=item_instance, problem=None
+                entity_id=item.entity_id,
+                status="ok",
+                item_instance=item_instance,
+                problem=None,
+                contents=contents,
             )
         )
 
+    if dry_run:
+        await session.rollback()
+        return results
     await _record_bulk_activity(
         session,
         tenant_id=tenant_id,
@@ -1673,6 +1816,52 @@ async def bulk_assign_item_instances(
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
+    return results
+
+
+@router.post("/{entity_id}/give-contents")
+async def give_item_instance_contents(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: GiveContentsRequest,
+    session: SessionDep,
+    user: CurrentUser,
+    dry_run: Annotated[bool, Query()] = False,
+) -> list[ContentsResultItem]:
+    """Gives everything inside a container, not the container itself (ADR
+    0125) - one answer per thing, given or kept, never all-or-nothing. The
+    caller must be able to move the container: one they can't reach isn't
+    one whose contents they may look into. dry_run does all of it and rolls
+    it back.
+    """
+    await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
+    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await get_entity_or_404(session, body.owner_character_id, tenant_id)
+
+    results, changes = await _give_contents(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        container_id=entity_id,
+        owner_id=body.owner_character_id,
+        recursive=body.recursive,
+    )
+    if dry_run:
+        await session.rollback()
+        return results
+    await record_change(session, tenant_id=tenant_id, actor_id=user.id, changes=changes)
+    given = sum(1 for result in results if result.status == "ok")
+    if given:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.contents_given",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=(f"owner={body.owner_character_id}; {given} given, {len(results) - given} kept"),
+        )
+    await session.commit()
     return results
 
 

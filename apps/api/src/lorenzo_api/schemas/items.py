@@ -28,6 +28,8 @@ __all__ = [
     "OwnedByResponse",
     "HeldGroupOut",
     "HeldByResponse",
+    "ContentsResultItem",
+    "GiveContentsRequest",
     "SetOwnerRequest",
     "SetContainerRequest",
     "SetPrototypesRequest",
@@ -458,6 +460,15 @@ class BulkAssignItem(BaseModel):
     quantity: int | None = None
     if_match: str | None = None
     move_to_owner: bool = False
+    # ADR 0125: also give everything inside it, at any depth, that the caller
+    # may give. Nothing moves.
+    with_contents: bool = False
+
+    @model_validator(mode="after")
+    def _whole_to_give_contents(self) -> Self:
+        if self.with_contents and self.quantity is not None:
+            raise ValueError("Giving part of a stack gives nothing inside it: drop with_contents")
+        return self
 
 
 class ItemInstanceOut(_ItemFields):
@@ -496,6 +507,48 @@ class BulkAssignResultItem(BaseModel):
     status: Literal["ok", "error"]
     item_instance: ItemInstanceOut | None = None
     problem: ProblemOut | None = None
+    # ADR 0125: with with_contents, what happened to each thing inside.
+    contents: list[ContentsResultItem] = []
+
+
+class ContentsResultItem(BaseModel):
+    """One thing inside a container that was given with it, or whose
+    contents were given (ADR 0125): given along ("ok"), or kept by whoever
+    owns it ("kept"), with the refusal in `problem`. `owner` is who owns it
+    afterwards, so a client can say whose a kept thing stays.
+    """
+
+    entity_id: uuid.UUID
+    title: str
+    status: Literal["ok", "kept"]
+    owner: EntitySummary | None = None
+    problem: ProblemOut | None = None
+
+    @classmethod
+    def from_v_item_instance(
+        cls,
+        view: VItemInstance,
+        *,
+        status: Literal["ok", "kept"],
+        owner: EntitySummary | None,
+        problem: ProblemOut | None = None,
+    ) -> ContentsResultItem:
+        return cls(
+            entity_id=view.entity_id,
+            title=_title_out(view.title, name=view.entity.name),
+            status=status,
+            owner=owner,
+            problem=problem,
+        )
+
+
+class GiveContentsRequest(BaseModel):
+    """POST /item-instances/{id}/give-contents (ADR 0125): everything inside
+    the container, not the container itself. `recursive` false gives only
+    what's directly inside."""
+
+    owner_character_id: uuid.UUID
+    recursive: bool = True
 
 
 class BulkMoveItem(BaseModel):

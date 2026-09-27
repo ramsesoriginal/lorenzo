@@ -2830,8 +2830,37 @@ export interface paths {
          *     here and fails the whole request as a 500 - this only ever gracefully
          *     handles anticipated, typed failure modes, matching this codebase's
          *     general practice.
+         *
+         *     with_contents (ADR 0125) also gives everything inside the entry's item,
+         *     before the item itself: whether someone may give an ownerless thing
+         *     inside depends on reaching it, which handing the container over could
+         *     end. dry_run does all of it and rolls it back.
          */
         post: operations["bulk_assign_item_instances"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/{entity_id}/give-contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Item Instance Contents
+         * @description Gives everything inside a container, not the container itself (ADR
+         *     0125) - one answer per thing, given or kept, never all-or-nothing. The
+         *     caller must be able to move the container: one they can't reach isn't
+         *     one whose contents they may look into. dry_run does all of it and rolls
+         *     it back.
+         */
+        post: operations["give_item_instance_contents"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3334,6 +3363,11 @@ export interface components {
              * @default false
              */
             move_to_owner: boolean;
+            /**
+             * With Contents
+             * @default false
+             */
+            with_contents: boolean;
         };
         /**
          * BulkAssignResultItem
@@ -3355,6 +3389,11 @@ export interface components {
             status: "ok" | "error";
             item_instance?: components["schemas"]["ItemInstanceOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
+            /**
+             * Contents
+             * @default []
+             */
+            contents: components["schemas"]["ContentsResultItem"][];
         };
         /**
          * BulkMembershipResultItem
@@ -3903,6 +3942,29 @@ export interface components {
             inputs: components["schemas"]["PreviewInputOut"][];
         };
         /**
+         * ContentsResultItem
+         * @description One thing inside a container that was given with it, or whose
+         *     contents were given (ADR 0125): given along ("ok"), or kept by whoever
+         *     owns it ("kept"), with the refusal in `problem`. `owner` is who owns it
+         *     afterwards, so a client can say whose a kept thing stays.
+         */
+        ContentsResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "kept";
+            owner?: components["schemas"]["EntitySummary"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /**
          * ContributionCountsOut
          * @description What a copy contributed that's still here (ADR 0119).
          */
@@ -4226,6 +4288,24 @@ export interface components {
             added: unknown[] | null;
             /** Removed */
             removed: unknown[] | null;
+        };
+        /**
+         * GiveContentsRequest
+         * @description POST /item-instances/{id}/give-contents (ADR 0125): everything inside
+         *     the container, not the container itself. `recursive` false gives only
+         *     what's directly inside.
+         */
+        GiveContentsRequest: {
+            /**
+             * Owner Character Id
+             * Format: uuid
+             */
+            owner_character_id: string;
+            /**
+             * Recursive
+             * @default true
+             */
+            recursive: boolean;
         };
         /**
          * GmOut
@@ -16348,7 +16428,9 @@ export interface operations {
     };
     bulk_assign_item_instances: {
         parameters: {
-            query?: never;
+            query?: {
+                dry_run?: boolean;
+            };
             header?: never;
             path: {
                 tenant_id: string;
@@ -16368,6 +16450,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkAssignResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    give_item_instance_contents: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiveContentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentsResultItem"][];
                 };
             };
             /** @description Validation Error */
