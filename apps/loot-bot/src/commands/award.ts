@@ -107,6 +107,9 @@ export const awardCommand: Command = {
 
 function describeAwardError(error: LorenzoApiError): string {
   switch (error.status) {
+    case 409:
+      // What doesn't fit, in the API's words (ADR 0128).
+      return `Couldn't do that: ${error.message}`;
     case 403:
       return "You can't award to that character — you're not a GM of any campaign it's in.";
     case 404:

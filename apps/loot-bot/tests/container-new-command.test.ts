@@ -261,6 +261,25 @@ describe("containerNewCommand.execute", () => {
     );
   });
 
+  it("shows the API's reason when the sack doesn't fit", async () => {
+    setUpSack();
+    createItemInstance.mockRejectedValue(
+      new LorenzoApiError(
+        "Frodo can carry 30, and this would make it 31.",
+        409,
+        "capacity-exceeded",
+      ),
+    );
+    const interaction = fakeInteraction();
+
+    await containerNewCommand.execute(interaction, ctx);
+
+    expect(clearContainerPrototypeId).not.toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      "Couldn't do that: Frodo can carry 30, and this would make it 31.",
+    );
+  });
+
   it("rethrows an unexpected error for the generic handler", async () => {
     setUpSack();
     createItemInstance.mockRejectedValue(new Error("boom"));

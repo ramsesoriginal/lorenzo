@@ -229,6 +229,9 @@ async function fillSack(
 
 function describeCreateError(error: LorenzoApiError): string {
   switch (error.status) {
+    case 409:
+      // What doesn't fit, in the API's words (ADR 0128).
+      return `Couldn't do that: ${error.message}`;
     case 403:
       return "You can't make a sack for that character.";
     case 404:

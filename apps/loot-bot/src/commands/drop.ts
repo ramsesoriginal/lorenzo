@@ -534,6 +534,7 @@ async function applyAllClaims(
         owner_character_id: claim.characterEntityId,
         move_to_owner: false,
         with_contents: false,
+        override: false,
         ...(etag !== null ? { if_match: etag } : {}),
       });
       requestContext.push({ claim, itemTitle });
@@ -559,6 +560,7 @@ async function applyAllClaims(
       // Handing it over is inventory-web's choice (ADR 0115); loot-bot keeps ADR 0051's.
       move_to_owner: false,
       with_contents: false,
+      override: false,
       ...(requested < remaining ? { quantity: requested } : {}),
       ...(etag !== null ? { if_match: etag } : {}),
     });

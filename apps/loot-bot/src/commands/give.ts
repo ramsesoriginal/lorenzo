@@ -266,6 +266,7 @@ function withContentsEntry(intent: GiveWithContentsIntent): BulkAssignItem {
     owner_character_id: intent.targetCharacterId,
     move_to_owner: false,
     with_contents: true,
+    override: false,
   };
 }
 

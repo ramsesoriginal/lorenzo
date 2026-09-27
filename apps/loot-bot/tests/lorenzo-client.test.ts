@@ -541,7 +541,11 @@ describe("createItemInstance", () => {
       "test-token",
     );
 
-    expect(receivedBody).toEqual({ prototype_id: "prototype-1", owner_character_id: CHARACTER_ID });
+    expect(receivedBody).toEqual({
+      prototype_id: "prototype-1",
+      owner_character_id: CHARACTER_ID,
+      override: false,
+    });
     expect(result.owner_entity_id).toBe(CHARACTER_ID);
   });
 
@@ -569,6 +573,7 @@ describe("createItemInstance", () => {
     expect(receivedBody).toEqual({
       prototype_id: "prototype-1",
       owner_character_id: CHARACTER_ID,
+      override: false,
       container_entity_id: "container-1",
     });
   });
@@ -729,7 +734,11 @@ describe("setItemInstanceOwner", () => {
     const client = createLorenzoApiClient(BASE_URL);
     const result = await client.setItemInstanceOwner(TENANT_ID, "item-1", "char-2", "test-token");
 
-    expect(receivedBody).toEqual({ owner_character_id: "char-2", move_to_owner: false });
+    expect(receivedBody).toEqual({
+      owner_character_id: "char-2",
+      move_to_owner: false,
+      override: false,
+    });
     expect(result.owner_entity_id).toBe("char-2");
   });
 
@@ -797,7 +806,7 @@ describe("setItemInstanceContainer", () => {
       "test-token",
     );
 
-    expect(receivedBody).toEqual({ container_entity_id: "container-2" });
+    expect(receivedBody).toEqual({ container_entity_id: "container-2", override: false });
     expect(result.container_entity_id).toBe("container-2");
   });
 
@@ -999,6 +1008,7 @@ describe("bulkAssignItemInstances", () => {
           if_match: 'W/"a"',
           move_to_owner: false,
           with_contents: false,
+          override: false,
         },
         {
           entity_id: "item-2",
@@ -1006,6 +1016,7 @@ describe("bulkAssignItemInstances", () => {
           quantity: 2,
           move_to_owner: false,
           with_contents: false,
+          override: false,
         },
       ],
       "test-token",
@@ -1018,6 +1029,7 @@ describe("bulkAssignItemInstances", () => {
         if_match: 'W/"a"',
         move_to_owner: false,
         with_contents: false,
+        override: false,
       },
       {
         entity_id: "item-2",
@@ -1025,6 +1037,7 @@ describe("bulkAssignItemInstances", () => {
         quantity: 2,
         move_to_owner: false,
         with_contents: false,
+        override: false,
       },
     ]);
     expect(results).toHaveLength(2);
@@ -1151,6 +1164,7 @@ describe("createItemInstance with a name", () => {
     expect(receivedBody).toEqual({
       prototype_id: "prototype-1",
       owner_character_id: CHARACTER_ID,
+      override: false,
       name: "Camp supplies",
     });
   });
@@ -1234,6 +1248,7 @@ describe("bulkMoveItemInstances", () => {
     expect(receivedBody).toEqual({
       to_container_entity_id: "sack-1",
       items: [{ entity_id: "a" }, { entity_id: "b" }],
+      override: false,
     });
     expect(results.map((r) => r.status)).toEqual(["ok", "error"]);
   });

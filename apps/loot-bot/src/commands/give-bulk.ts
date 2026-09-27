@@ -140,6 +140,7 @@ export const giveBulkCommand: Command = {
           owner_character_id: targetCharacterId,
           move_to_owner: false,
           with_contents: false,
+          override: false,
         })),
         accessToken,
       );
