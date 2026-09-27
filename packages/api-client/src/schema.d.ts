@@ -2673,9 +2673,9 @@ export interface paths {
         post?: never;
         /**
          * Delete Item Instance
-         * @description Plain cascade delete, no guard - an instance has nothing else
-         *     depending on it the way a base item does (ADR 0018's default cascade
-         *     is exactly right here, unmodified).
+         * @description A cascade delete - an instance has nothing else depending on it the
+         *     way a base item does (ADR 0018) - except for what's inside it, which
+         *     moves out to where it was first (ADR 0128), keeping its counts.
          */
         delete: operations["delete_item_instance"];
         options?: never;
@@ -3368,6 +3368,11 @@ export interface components {
              * @default false
              */
             with_contents: boolean;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /**
          * BulkAssignResultItem
@@ -3435,6 +3440,11 @@ export interface components {
             from_container_entity_id?: string | null;
             /** Items */
             items?: components["schemas"]["BulkMoveItem"][] | null;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /**
          * BulkMoveItem
@@ -4728,6 +4738,11 @@ export interface components {
             container_entity_id?: string | null;
             /** Slug */
             slug?: string | null;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /**
          * ItemInstanceOut
@@ -6133,7 +6148,8 @@ export interface components {
         };
         /**
          * SetContainerRequest
-         * @description PUT /item-instances/{id}/container body.
+         * @description PUT /item-instances/{id}/container body. `override` (ADR 0128): the
+         *     item's GM moves it anyway, past capacity.
          */
         SetContainerRequest: {
             /**
@@ -6141,6 +6157,11 @@ export interface components {
              * Format: uuid
              */
             container_entity_id: string;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /**
          * SetEntityStatRequest
@@ -6174,6 +6195,11 @@ export interface components {
              * @default false
              */
             move_to_owner: boolean;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /**
          * SetPrototypesRequest

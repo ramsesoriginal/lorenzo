@@ -76,6 +76,8 @@ __all__ = [
     "SubscriptionNotFoundError",
     "StackNeedsContainerError",
     "ItemNotYoursToGiveError",
+    "CapacityExceededError",
+    "CapacityOverrideForbiddenError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
@@ -828,3 +830,19 @@ class InvalidRepositoryUpdateError(UnprocessableProblem):
     ADR 0121."""
 
     title = "That update can't be applied"
+
+
+class CapacityExceededError(ConflictProblem):
+    """A move would make a container's or a being's load grow past its
+    `carry_capacity` or `containment_capacity`, or put something larger than
+    its `max_item_size` into it - ADR 0128. Carries `container`, `stat`,
+    `limit`, and `load`; `detail` says the same in words."""
+
+    title = "Too much to fit"
+
+
+class CapacityOverrideForbiddenError(ForbiddenProblem):
+    """`override: true` from someone who isn't the item's GM - ADR 0128:
+    moving past capacity is a GM's call alone."""
+
+    title = "Only a GM can move anyway"

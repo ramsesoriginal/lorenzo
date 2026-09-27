@@ -383,6 +383,8 @@ class ItemInstanceCreate(BaseModel):
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
     slug: Slug | None = None
+    # ADR 0128: a GM creates it inside anyway, past capacity.
+    override: bool = False
 
 
 class ItemInstanceUpdate(BaseModel):
@@ -403,12 +405,16 @@ class SetOwnerRequest(BaseModel):
 
     owner_character_id: uuid.UUID
     move_to_owner: bool = False
+    # ADR 0128: the item's GM moves it anyway, past capacity.
+    override: bool = False
 
 
 class SetContainerRequest(BaseModel):
-    """PUT /item-instances/{id}/container body."""
+    """PUT /item-instances/{id}/container body. `override` (ADR 0128): the
+    item's GM moves it anyway, past capacity."""
 
     container_entity_id: uuid.UUID
+    override: bool = False
 
 
 class SetPrototypesRequest(BaseModel):
@@ -463,6 +469,8 @@ class BulkAssignItem(BaseModel):
     # ADR 0125: also give everything inside it, at any depth, that the caller
     # may give. Nothing moves.
     with_contents: bool = False
+    # ADR 0128: the item's GM hands it over anyway, past capacity.
+    override: bool = False
 
     @model_validator(mode="after")
     def _whole_to_give_contents(self) -> Self:
@@ -573,6 +581,8 @@ class BulkMoveContainerRequest(BaseModel):
     to_container_entity_id: uuid.UUID
     from_container_entity_id: uuid.UUID | None = None
     items: list[BulkMoveItem] | None = None
+    # ADR 0128: the GM moves them all anyway, past capacity.
+    override: bool = False
 
     @model_validator(mode="after")
     def _exactly_one_source(self) -> Self:
