@@ -606,6 +606,7 @@ describe("dropCommand.onButton — apply claims", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
           if_match: "etag-1",
         },
       ],
@@ -666,6 +667,7 @@ describe("dropCommand.onButton — apply claims", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
           quantity: 2,
           if_match: "etag-1",
         },
@@ -675,6 +677,7 @@ describe("dropCommand.onButton — apply claims", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
           if_match: "etag-1",
         },
       ],
@@ -751,10 +754,57 @@ describe("dropCommand.onButton — apply claims", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
           if_match: "etag-1",
         },
       ],
       "gm-token",
+    );
+  });
+});
+
+describe("dropCommand.onButton — apply claims, refused", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("says a claim was refused in the API's words", async () => {
+    getValidAccessToken.mockResolvedValue("gm-token");
+    isCampaignGm.mockResolvedValue(true);
+    listLootClaims.mockResolvedValue([
+      {
+        lootDropId: "drop-1",
+        itemEntityId: "item-1",
+        discordUserId: "user-1",
+        characterEntityId: "char-1",
+        quantity: 1,
+        claimType: "need",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    ]);
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", title: "Rings", quantity: 3, owner_entity_id: "npc-1" },
+      etag: "etag-1",
+    });
+    bulkAssignItemInstances.mockResolvedValue([
+      {
+        entity_id: "item-1",
+        status: "error",
+        problem: {
+          type: "item-bound",
+          title: "Bound to its owner",
+          status: 409,
+          detail: "Ring is bound to Gerold (binds when owned), so it can't change hands.",
+        },
+      },
+    ]);
+    const interaction = fakeButton("drop:apply:drop-1");
+
+    await dropCommand.onButton?.(interaction, { config, logger: {} as never });
+
+    const reply = interaction.editReply.mock.calls.at(-1)?.[0];
+    expect(JSON.stringify(reply)).toContain(
+      "on **Rings** couldn't be honored (Ring is bound to Gerold (binds when owned), so it can't change hands)",
     );
   });
 });

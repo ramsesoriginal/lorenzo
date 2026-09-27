@@ -738,6 +738,7 @@ describe("setItemInstanceOwner", () => {
       owner_character_id: "char-2",
       move_to_owner: false,
       override: false,
+      lift_binding: false,
     });
     expect(result.owner_entity_id).toBe("char-2");
   });
@@ -806,7 +807,11 @@ describe("setItemInstanceContainer", () => {
       "test-token",
     );
 
-    expect(receivedBody).toEqual({ container_entity_id: "container-2", override: false });
+    expect(receivedBody).toEqual({
+      container_entity_id: "container-2",
+      override: false,
+      lift_binding: false,
+    });
     expect(result.container_entity_id).toBe("container-2");
   });
 
@@ -1009,6 +1014,7 @@ describe("bulkAssignItemInstances", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
         },
         {
           entity_id: "item-2",
@@ -1017,6 +1023,7 @@ describe("bulkAssignItemInstances", () => {
           move_to_owner: false,
           with_contents: false,
           override: false,
+          lift_binding: false,
         },
       ],
       "test-token",
@@ -1030,6 +1037,7 @@ describe("bulkAssignItemInstances", () => {
         move_to_owner: false,
         with_contents: false,
         override: false,
+        lift_binding: false,
       },
       {
         entity_id: "item-2",
@@ -1038,6 +1046,7 @@ describe("bulkAssignItemInstances", () => {
         move_to_owner: false,
         with_contents: false,
         override: false,
+        lift_binding: false,
       },
     ]);
     expect(results).toHaveLength(2);
@@ -1249,6 +1258,7 @@ describe("bulkMoveItemInstances", () => {
       to_container_entity_id: "sack-1",
       items: [{ entity_id: "a" }, { entity_id: "b" }],
       override: false,
+      lift_binding: false,
     });
     expect(results.map((r) => r.status)).toEqual(["ok", "error"]);
   });

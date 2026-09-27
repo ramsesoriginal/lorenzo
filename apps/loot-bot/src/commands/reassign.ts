@@ -174,6 +174,9 @@ async function findGmOwnedItems(
 
 function describeReassignError(error: LorenzoApiError): string {
   switch (error.status) {
+    case 409:
+      // What's bound, in the API's words (ADR 0129).
+      return error.message;
     case 403:
       return "You can't reassign that — it isn't reachable from any campaign you GM.";
     case 404:

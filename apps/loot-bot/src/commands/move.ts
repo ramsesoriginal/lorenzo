@@ -27,9 +27,10 @@ import type { Command, CommandContext } from "./types.js";
  * entity id still works, same convention every other autocomplete here
  * follows.
  *
- * A move that doesn't fit (ADR 0128) is refused with the API's own
- * message; a GM also gets a "Move anyway" button, which moves it with
- * `override`.
+ * A move that doesn't fit (ADR 0128), or that takes something bound out of
+ * what binds it (ADR 0129), is refused with the API's own message; a GM
+ * also gets a "Move anyway" button, which moves it with `override`, and for
+ * a binding "Move and lift binding", which lifts it for good as well.
  */
 export const moveCommand: Command = {
   definition: new SlashCommandBuilder()
@@ -82,6 +83,7 @@ export const moveCommand: Command = {
     const intent: MoveAnywayIntent = {
       itemEntityId: interaction.options.getString("item", true),
       containerEntityId: interaction.options.getString("container", true),
+      lift: false,
     };
     const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
 
@@ -89,12 +91,13 @@ export const moveCommand: Command = {
       const title = await performMove(client, ctx, interaction.user.id, accessToken, intent);
       await interaction.editReply(`Moved ${title}.`);
     } catch (error) {
-      if (error instanceof LorenzoApiError && error.problemType === OVER_CAPACITY) {
+      if (error instanceof LorenzoApiError && MOVE_ANYWAY.has(error.problemType ?? "")) {
         // Only a GM may move anyway; the API decides for this item on the click.
         const gm = await client.isCampaignGm(accessToken).catch(() => false);
+        const offerLift = error.problemType === BOUND;
         await interaction.editReply({
           content: error.message,
-          components: gm ? buildMoveAnywayComponents(intent) : [],
+          components: gm ? buildMoveAnywayComponents(intent, { offerLift }) : [],
         });
         return;
       }
@@ -128,7 +131,9 @@ export const moveCommand: Command = {
       const title = await performMove(client, ctx, interaction.user.id, accessToken, intent, {
         override: true,
       });
-      await interaction.editReply(`Moved ${title} anyway.`);
+      await interaction.editReply(
+        intent.lift ? `Moved ${title}, and lifted its binding.` : `Moved ${title} anyway.`,
+      );
     } catch (error) {
       if (error instanceof LorenzoApiError) {
         await interaction.editReply(describeMoveError(error));
@@ -139,7 +144,9 @@ export const moveCommand: Command = {
   },
 };
 
-const OVER_CAPACITY = "capacity-exceeded";
+const BOUND = "item-bound";
+// What a GM may move anyway: what doesn't fit (ADR 0128), what's bound (ADR 0129).
+const MOVE_ANYWAY = new Set(["capacity-exceeded", BOUND]);
 
 /** Moves it, records the Undo, and returns its title. */
 async function performMove(
@@ -165,7 +172,7 @@ async function performMove(
     intent.containerEntityId,
     accessToken,
     etag ?? undefined,
-    { override },
+    { override, liftBinding: intent.lift },
   );
 
   await recordUndo(discordUserId, {
@@ -185,9 +192,9 @@ async function performMove(
 }
 
 function describeMoveError(error: LorenzoApiError): string {
-  // The API's own words where it has them: what doesn't fit, a stack, or
-  // who may move anyway (ADR 0128).
-  if (error.status === 409 || error.problemType === "capacity-override-forbidden") {
+  // The API's own words where it has them: what doesn't fit, what's bound,
+  // a stack, or who may move anyway (ADR 0128, 0129).
+  if (error.status === 409 || error.problemType === "override-forbidden") {
     return error.message;
   }
   switch (error.status) {

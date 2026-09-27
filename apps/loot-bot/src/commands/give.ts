@@ -267,6 +267,7 @@ function withContentsEntry(intent: GiveWithContentsIntent): BulkAssignItem {
     move_to_owner: false,
     with_contents: true,
     override: false,
+    lift_binding: false,
   };
 }
 
@@ -424,6 +425,9 @@ export async function targetNameOf(
 
 export function describeGiveError(error: LorenzoApiError): string {
   switch (error.status) {
+    case 409:
+      // What's bound, or what doesn't fit, in the API's words (ADR 0128, 0129).
+      return error.message;
     case 403:
       // ADR 0124: carrying something isn't owning it.
       return error.problemType === "item-not-yours-to-give"

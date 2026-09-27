@@ -110,8 +110,8 @@ function formatItemList(items: readonly HeldItem[], lineOf: (item: HeldItem) => 
 // actually informative. A `slug` (ADR 0043 - only ever set on an instance
 // someone deliberately named) is shown as an inline code span so it reads as
 // something to copy, e.g. into `/drop container:`; most instances have none,
-// and their lines are unchanged. Something that isn't the character's own
-// says whose it is (ADR 0123).
+// and their lines are unchanged. Something bound says so (ADR 0129), and
+// something that isn't the character's own says whose it is (ADR 0123).
 function formatItemLine(
   item: HeldItem,
   holderId: string | null,
@@ -120,6 +120,7 @@ function formatItemLine(
   const name = item.title ?? "(untitled)";
   let line = item.quantity !== null && item.quantity > 1 ? `${name} ×${item.quantity}` : name;
   if (item.slug) line = `${line} \`${item.slug}\``;
+  if (item.bound) line = `${line} (bound)`;
   if (holderId === null || item.owner_entity_id === holderId) return line;
   if (item.owner_entity_id === null) return `${line} — No one's`;
   const owner = owners.get(item.owner_entity_id);

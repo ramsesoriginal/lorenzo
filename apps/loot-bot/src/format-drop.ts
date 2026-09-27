@@ -209,8 +209,10 @@ export function formatPendingDropsEmbed(
 export type ClaimOutcome = Readonly<{
   discordUserId: string;
   itemTitle: string;
-  status: "given" | "not-enough-left" | "already-taken";
+  status: "given" | "not-enough-left" | "already-taken" | "refused";
   quantity: number | null;
+  /** For "refused": the API's own reason, such as a binding (ADR 0129). */
+  reason?: string;
 }>;
 
 /** The final, static message apply-claims leaves behind - no components,
@@ -227,7 +229,12 @@ export function buildApplySummaryEmbed(outcomes: readonly ClaimOutcome[]): Embed
     if (outcome.status === "given") {
       return `<@${outcome.discordUserId}> got ${amount}**${outcome.itemTitle}**.`;
     }
-    const reason = outcome.status === "already-taken" ? "already taken" : "not enough left";
+    const reason =
+      outcome.status === "refused"
+        ? (outcome.reason?.replace(/\.$/, "") ?? "refused")
+        : outcome.status === "already-taken"
+          ? "already taken"
+          : "not enough left";
     return `<@${outcome.discordUserId}>'s claim on **${outcome.itemTitle}** couldn't be honored (${reason}).`;
   });
 

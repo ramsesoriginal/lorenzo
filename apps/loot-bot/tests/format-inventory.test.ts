@@ -24,9 +24,8 @@ function item(
     armor: null,
     container_entity_id: null,
     quantity,
-    is_magical: null,
-    is_cursed: null,
     is_container: null,
+    bound: false,
     created_by: null,
     updated_by: null,
     updated_at: "2026-01-01T00:00:00Z",
@@ -133,6 +132,12 @@ describe("formatInventoryEmbed", () => {
     );
     const embed = formatInventoryEmbed("Frodo", response).toJSON();
     expect(embed.fields?.[0]?.value).toBe("• Sting\n• Mithril — Bilbo's\n• Lembas ×3 — No one's");
+  });
+
+  it("marks what's bound", () => {
+    const response = held([{ ...item("Ring", null, "ring"), bound: true }, item("Rope")]);
+    const embed = formatInventoryEmbed("Frodo", response).toJSON();
+    expect(embed.fields?.[0]?.value).toBe("• Ring `ring` (bound)\n• Rope");
   });
 
   it("shows an instance's slug as a code span, and only when it has one", () => {

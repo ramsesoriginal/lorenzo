@@ -75,6 +75,24 @@ describe("undoCommand.execute", () => {
     );
   });
 
+  it("says what's bound, in the API's words (ADR 0129)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    applyPendingUndo.mockRejectedValue(
+      new LorenzoApiError(
+        "Ring is bound to Pia (binds on pickup), so it can't change hands.",
+        409,
+        "item-bound",
+      ),
+    );
+    const interaction = fakeInteraction();
+
+    await undoCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      "Ring is bound to Pia (binds on pickup), so it can't change hands.",
+    );
+  });
+
   it("lets any other failure reach the dispatcher's own handler", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     applyPendingUndo.mockRejectedValue(new LorenzoApiError("boom", 500));
