@@ -76,8 +76,10 @@ __all__ = [
     "SubscriptionNotFoundError",
     "StackNeedsContainerError",
     "ItemNotYoursToGiveError",
+    "BindingNotLiftableError",
     "CapacityExceededError",
-    "CapacityOverrideForbiddenError",
+    "ItemBoundError",
+    "OverrideForbiddenError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
@@ -841,8 +843,25 @@ class CapacityExceededError(ConflictProblem):
     title = "Too much to fit"
 
 
-class CapacityOverrideForbiddenError(ForbiddenProblem):
-    """`override: true` from someone who isn't the item's GM - ADR 0128:
-    moving past capacity is a GM's call alone."""
+class OverrideForbiddenError(ForbiddenProblem):
+    """`override: true` or `lift_binding: true` from someone who isn't the
+    item's GM - ADR 0128, 0129: moving past capacity or binding, and lifting
+    a binding, are a GM's call alone."""
 
-    title = "Only a GM can move anyway"
+    title = "Only a GM can do that"
+
+
+class ItemBoundError(ConflictProblem):
+    """A write would change a bound item's owner, or take a bound thing out
+    of what binds it - ADR 0129. Carries `item`, `binding`, and `owner`;
+    `detail` says the same in words."""
+
+    title = "Bound to its owner"
+
+
+class BindingNotLiftableError(UnprocessableProblem):
+    """`lift_binding: true` where `binding` can't be set to `none`: the
+    tenant's `binding` has no such value, or the item holds its own formula
+    for it - ADR 0129."""
+
+    title = "That binding can't be lifted"

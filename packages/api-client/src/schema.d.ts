@@ -2714,6 +2714,9 @@ export interface paths {
          * @description 200 + the parent resource, not 204 - deleting a *singular sub-
          *     resource* leaves the parent itself intact, and returning nothing would
          *     just force an immediate follow-up GET (ADR 0032/RFC 0005).
+         *
+         *     A bound item's owner can't be cleared (ADR 0129); `override` and
+         *     `lift_binding` are query parameters here, with no body to carry them.
          */
         delete: operations["clear_item_instance_owner"];
         options?: never;
@@ -2738,6 +2741,10 @@ export interface paths {
          *     (409, ADR 0115): its count lives on the containment row (ADR 0041), so
          *     deleting the row would drop it. A stack leaves a container into its
          *     owner instead, with PUT .../container.
+         *
+         *     Refused too when it takes a bound thing out of what binds it (ADR 0129);
+         *     `override` and `lift_binding` are query parameters here, with no body to
+         *     carry them.
          */
         delete: operations["clear_item_instance_container"];
         options?: never;
@@ -3373,6 +3380,11 @@ export interface components {
              * @default false
              */
             override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * BulkAssignResultItem
@@ -3445,6 +3457,11 @@ export interface components {
              * @default false
              */
             override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * BulkMoveItem
@@ -4747,8 +4764,9 @@ export interface components {
         /**
          * ItemInstanceOut
          * @description A specific, ownable item ("My Shovel"), from `VItemInstance` - the
-         *     fields every item has plus `owner_entity_id`/`slug`. See ADR 0019/0020
-         *     and `_ItemFields`'s docstring for the eager-load requirement.
+         *     fields every item has plus `owner_entity_id`/`slug`, and whether it's
+         *     `bound` (ADR 0129). See ADR 0019/0020 and `_ItemFields`'s docstring for
+         *     the eager-load requirement.
          */
         ItemInstanceOut: {
             /**
@@ -4776,10 +4794,6 @@ export interface components {
             quantity: number | null;
             /** Prototype Ids */
             prototype_ids: string[];
-            /** Is Magical */
-            is_magical: boolean | null;
-            /** Is Cursed */
-            is_cursed: boolean | null;
             /** Is Container */
             is_container: boolean | null;
             /** Descriptions */
@@ -4809,6 +4823,8 @@ export interface components {
             owner_entity_id: string | null;
             /** Slug */
             slug: string | null;
+            /** Bound */
+            bound: boolean;
         };
         /**
          * ItemInstanceUpdate
@@ -4853,10 +4869,6 @@ export interface components {
             quantity: number | null;
             /** Prototype Ids */
             prototype_ids: string[];
-            /** Is Magical */
-            is_magical: boolean | null;
-            /** Is Cursed */
-            is_cursed: boolean | null;
             /** Is Container */
             is_container: boolean | null;
             /** Descriptions */
@@ -6148,8 +6160,9 @@ export interface components {
         };
         /**
          * SetContainerRequest
-         * @description PUT /item-instances/{id}/container body. `override` (ADR 0128): the
-         *     item's GM moves it anyway, past capacity.
+         * @description PUT /item-instances/{id}/container body. `override` (ADR 0128,
+         *     0129): the item's GM moves it anyway, past capacity and binding.
+         *     `lift_binding` (ADR 0129): and lifts its binding for good.
          */
         SetContainerRequest: {
             /**
@@ -6162,6 +6175,11 @@ export interface components {
              * @default false
              */
             override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * SetEntityStatRequest
@@ -6200,6 +6218,11 @@ export interface components {
              * @default false
              */
             override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * SetPrototypesRequest
@@ -16190,7 +16213,10 @@ export interface operations {
     };
     clear_item_instance_owner: {
         parameters: {
-            query?: never;
+            query?: {
+                override?: boolean;
+                lift_binding?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -16330,7 +16356,10 @@ export interface operations {
     };
     clear_item_instance_container: {
         parameters: {
-            query?: never;
+            query?: {
+                override?: boolean;
+                lift_binding?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };

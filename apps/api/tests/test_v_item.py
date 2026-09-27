@@ -161,7 +161,6 @@ async def test_v_item_covers_only_the_item_table() -> None:
         assert sword_view is not None
         assert sword_view.title == "A fine sword"
         assert sword_view.weight == 3
-        assert sword_view.is_magical is True
         assert sword_view.container_entity_id == chest_id
         assert description_pairs(sword_view.entity, _SEES_EVERYTHING) == [
             ("A gleaming blade.", "en-US")

@@ -258,7 +258,7 @@ async def test_a_gm_moves_anyway_and_only_a_gm(
     as_gm = await _into(client, camp, "boulder", "backpack", override=True)
 
     assert as_player.status_code == 403
-    assert as_player.json()["type"] == "capacity-override-forbidden"
+    assert as_player.json()["type"] == "override-forbidden"
     assert as_gm.status_code == 200, as_gm.text
     assert await _parent(camp, "boulder") == camp.ids["backpack"]
     async with admin_session_factory() as session:

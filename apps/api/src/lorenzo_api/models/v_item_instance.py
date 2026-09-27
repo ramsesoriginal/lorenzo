@@ -23,6 +23,9 @@ class VItemInstance(EntityViewMixin, Base):
     """
 
     __tablename__ = "v_item_instance"
+    # For bound below: a bare annotation needs this (Entity.stat_contents'
+    # precedent).
+    __allow_unmapped__ = True
 
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[uuid.UUID]
@@ -38,8 +41,10 @@ class VItemInstance(EntityViewMixin, Base):
     armor: Mapped[int | None]
     container_entity_id: Mapped[uuid.UUID | None]
     quantity: Mapped[int | None]
-    is_magical: Mapped[bool | None]
-    is_cursed: Mapped[bool | None]
+    # Whether it's bound right now (ADR 0129): attached by
+    # binding.attach_bound before it's serialized, never persisted. None
+    # until attached.
+    bound: bool | None = None
 
     # See VItem for why this needs an explicit primaryjoin/foreign_keys=
     # and lazy="selectin".
