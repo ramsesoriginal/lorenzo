@@ -7,6 +7,7 @@ import {
 } from "@lorenzo/api-client";
 
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
+export type HeldByResponse = components["schemas"]["HeldByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
 export type NotificationOut = components["schemas"]["NotificationOut"];
@@ -157,6 +158,29 @@ export function createLorenzoApiClient(baseUrl: string) {
         "/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}",
         {
           params: { path: { tenant_id: tenantId, owner_entity_id: characterEntityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data;
+    },
+
+    /**
+     * Everything `holderEntityId` holds (ADR 0123) - its own group (a
+     * being's Equipped) first and always, then what it carries, then what's
+     * held elsewhere; `owners` names whose each item is. `/inventory` and
+     * `/inspect` show this; commands acting on your own things keep reading
+     * owned-by.
+     */
+    async getItemInstancesHeldBy(
+      tenantId: string,
+      holderEntityId: string,
+      accessToken: string,
+    ): Promise<HeldByResponse> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/item-instances/held-by/{entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: holderEntityId } },
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );

@@ -1,10 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { formatInventoryEmbed } from "../format-inventory.js";
-import {
-  LorenzoApiError,
-  type OwnedByResponse,
-  createLorenzoApiClient,
-} from "../lorenzo-client.js";
+import { type HeldByResponse, LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import type { Command } from "./types.js";
 
@@ -12,10 +8,11 @@ import type { Command } from "./types.js";
 const MAX_EMBEDS_PER_REPLY = 10;
 
 /**
- * `/inventory` - lists the item instances the caller's own characters own,
- * one embed per character, grouped by container (formatInventoryEmbed).
+ * `/inventory` - lists what the caller's own characters hold (ADR 0123), one
+ * embed per character: Equipped first, then what they carry, then what's
+ * held elsewhere (formatInventoryEmbed).
  * Depends on the backend contract noted in ADR 0050
- * (`getControlledCharacters`/`getItemInstancesOwnedBy` in lorenzo-client.ts)
+ * (`getControlledCharacters`/`getItemInstancesHeldBy` in lorenzo-client.ts)
  * which isn't fully live in apps/api yet - a 404 from either call is
  * treated as "not available yet" rather than a generic failure.
  *
@@ -29,7 +26,7 @@ const MAX_EMBEDS_PER_REPLY = 10;
 export const inventoryCommand: Command = {
   definition: new SlashCommandBuilder()
     .setName("inventory")
-    .setDescription("List the item instances your characters own.")
+    .setDescription("List what your characters hold: equipped, carried, and kept elsewhere.")
     .addStringOption((opt) =>
       opt
         .setName("search")
@@ -61,15 +58,16 @@ export const inventoryCommand: Command = {
 
     const embeds = await Promise.all(
       characters.map(async (character) => {
-        const response = await client.getItemInstancesOwnedBy(
+        const response = await client.getItemInstancesHeldBy(
           tenantId,
           character.entityId,
           accessToken,
         );
-        return formatInventoryEmbed(
-          character.name,
-          search ? filterByTitle(response, search) : response,
-        );
+        return search
+          ? formatInventoryEmbed(character.name, filterByTitle(response, search), {
+              emptyEquipped: "Nothing equipped matches.",
+            })
+          : formatInventoryEmbed(character.name, response);
       }),
     );
 
@@ -85,12 +83,13 @@ export const inventoryCommand: Command = {
   },
 };
 
-/** Narrows an owned-by response to items whose title contains `search`
+/** Narrows a held-by response to items whose title contains `search`
  * (already lowercased by the caller), case-insensitively - groups stay
  * present even if they end up empty, matching `formatInventoryEmbed`'s
  * own existing "filter out empty groups" behavior. */
-function filterByTitle(response: OwnedByResponse, search: string): OwnedByResponse {
+function filterByTitle(response: HeldByResponse, search: string): HeldByResponse {
   return {
+    ...response,
     groups: response.groups.map((group) => ({
       ...group,
       item_instances: group.item_instances.filter((item) =>
