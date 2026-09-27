@@ -428,7 +428,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           },
           headers: { Authorization: `Bearer ${accessToken}` },
           // ADR 0051: the owner only, the container untouched (not ADR 0115's hand-over).
-          body: { owner_character_id: ownerCharacterId, move_to_owner: false },
+          body: { owner_character_id: ownerCharacterId, move_to_owner: false, override: false },
         },
       );
       if (error !== undefined) throw toLorenzoApiError(error, response.status);
@@ -519,13 +519,15 @@ export function createLorenzoApiClient(baseUrl: string) {
 
     /** PUT .../item-instances/{entity_id}/container - moves an item to a
      * new container, `/move`'s own write. Same `ifMatch` treatment as
-     * {@link setItemInstanceOwner}. */
+     * {@link setItemInstanceOwner}. `override` (ADR 0128): a GM's "Move
+     * anyway", past what the container can take. */
     async setItemInstanceContainer(
       tenantId: string,
       entityId: string,
       containerEntityId: string,
       accessToken: string,
       ifMatch?: string,
+      { override = false }: { override?: boolean } = {},
     ): Promise<ItemInstanceOut> {
       const { data, error, response } = await client.PUT(
         "/tenants/{tenant_id}/item-instances/{entity_id}/container",
@@ -535,7 +537,7 @@ export function createLorenzoApiClient(baseUrl: string) {
             ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { container_entity_id: containerEntityId },
+          body: { container_entity_id: containerEntityId, override },
         },
       );
       if (error !== undefined) throw toLorenzoApiError(error, response.status);
@@ -756,6 +758,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         body: {
           prototype_id: prototypeId,
           owner_character_id: ownerCharacterId,
+          override: false,
           ...(containerEntityId !== undefined ? { container_entity_id: containerEntityId } : {}),
           ...(name !== undefined ? { name } : {}),
         },
@@ -978,6 +981,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: {
             to_container_entity_id: toContainerEntityId,
             from_container_entity_id: fromContainerEntityId,
+            override: false,
           },
         },
       );
@@ -1004,6 +1008,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: {
             to_container_entity_id: toContainerEntityId,
             items: entityIds.map((entity_id) => ({ entity_id })),
+            override: false,
           },
         },
       );

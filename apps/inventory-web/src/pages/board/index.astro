@@ -207,6 +207,12 @@ import Base from '../../layouts/Base.astro';
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
     import { isCampaignGm } from '../../lib/me';
+    import {
+      bulkMoveAnywayQuestion,
+      type MoveAnywayOptions,
+      moveOrAsk,
+      overCapacityIds,
+    } from '../../lib/moveAnyway';
     import { collectMoveTargets } from '../../lib/moveTargets';
     import {
       contentsDone,
@@ -589,10 +595,15 @@ import Base from '../../layouts/Base.astro';
     // keeps its count (ADR 0115, 0124). On a group's board, or the board of unowned things,
     // there's no one to hold it; out of every container, it's with its owner, and the API
     // refuses a stack.
-    function takeOut(entityId: string) {
+    function takeOut(entityId: string, override = false) {
       return boardOwnerId
-        ? setContainer(tenantId as string, entityId, boardOwnerId)
+        ? setContainer(tenantId as string, entityId, boardOwnerId, { override })
         : clearContainer(tenantId as string, entityId);
+    }
+
+    // A GM whose move doesn't fit is asked, and may move it anyway (ADR 0128).
+    function moveAnyway(): MoveAnywayOptions {
+      return { canOverride: userIsGm, ask: (question) => window.confirm(question) };
     }
 
     // A give's checkbox with a note saying what happens without it: "Hand it over" (ADR
@@ -951,9 +962,13 @@ import Base from '../../layouts/Base.astro';
         for (const b of list.querySelectorAll('button')) (b as HTMLButtonElement).disabled = true;
         try {
           if (targetId) {
-            await setContainer(tenantId as string, item.entity_id, targetId);
+            await moveOrAsk(
+              (override) =>
+                setContainer(tenantId as string, item.entity_id, targetId, { override }),
+              moveAnyway(),
+            );
           } else {
-            await takeOut(item.entity_id);
+            await moveOrAsk((override) => takeOut(item.entity_id, override), moveAnyway());
           }
           recordUndo(
             { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
@@ -1184,7 +1199,23 @@ import Base from '../../layouts/Base.astro';
         let request: Promise<{ failedIds: Set<string> } | undefined>;
         if (isBulk && target) {
           request = bulkMoveItemInstances(tenantId as string, target, idsToMove).then(
-            (results) => ({ failedIds: failedEntityIds(results) }),
+            async (results) => {
+              // One question for every card that didn't fit (ADR 0128).
+              const question = userIsGm ? bulkMoveAnywayQuestion(results) : null;
+              if (!question || !window.confirm(question)) {
+                return { failedIds: failedEntityIds(results) };
+              }
+              const retried = await bulkMoveItemInstances(
+                tenantId as string,
+                target,
+                overCapacityIds(results),
+                { override: true },
+              );
+              const merged = results.map(
+                (result) => retried.find((r) => r.entity_id === result.entity_id) ?? result,
+              );
+              return { failedIds: failedEntityIds(merged) };
+            },
           );
         } else if (isBulk) {
           // bulk-move has no "no container" mode - to_container_entity_id
@@ -1202,7 +1233,10 @@ import Base from '../../layouts/Base.astro';
         } else {
           request = (
             target
-              ? setContainer(tenantId as string, entityId, target)
+              ? moveOrAsk(
+                  (override) => setContainer(tenantId as string, entityId, target, { override }),
+                  moveAnyway(),
+                )
               : clearContainer(tenantId as string, entityId)
           ).then(() => undefined);
         }

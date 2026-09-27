@@ -52,15 +52,17 @@ export async function getUnownedItemInstances(tenantId: string): Promise<OwnedBy
   );
 }
 
+// override (ADR 0128): a GM moves it anyway, past what the container can take.
 export async function setContainer(
   tenantId: string,
   entityId: string,
   containerEntityId: string,
+  { override = false }: { override?: boolean } = {},
 ): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { container_entity_id: containerEntityId },
+      body: { container_entity_id: containerEntityId, override },
     }),
   );
 }
@@ -87,7 +89,7 @@ export async function setOwner(
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { owner_character_id: ownerCharacterId, move_to_owner: moveToOwner },
+      body: { owner_character_id: ownerCharacterId, move_to_owner: moveToOwner, override: false },
     }),
   );
 }
@@ -281,6 +283,7 @@ export async function createItemInstance(
       params: { path: { tenant_id: tenantId } },
       body: {
         prototype_id: prototypeId,
+        override: false,
         ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
         ...(slug ? { slug } : {}),
       },
@@ -347,6 +350,7 @@ export async function bulkAssignItemInstances(
         owner_character_id: item.ownerCharacterId,
         move_to_owner: item.moveToOwner ?? false,
         with_contents: item.withContents ?? false,
+        override: false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
     }),
@@ -385,6 +389,7 @@ export async function bulkMoveItemInstances(
   tenantId: string,
   toContainerEntityId: string,
   entityIds: string[],
+  { override = false }: { override?: boolean } = {},
 ): Promise<BulkResultItem[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-move', {
@@ -392,6 +397,7 @@ export async function bulkMoveItemInstances(
       body: {
         to_container_entity_id: toContainerEntityId,
         items: entityIds.map((entityId) => ({ entity_id: entityId })),
+        override,
       },
     }),
   );
