@@ -6,19 +6,6 @@ import Base from '../layouts/Base.astro';
   <h1 class="display">Keep track of worlds.</h1>
   <p>What your characters carry, and the catalog it comes from.</p>
 
-  <section class="account section">
-    <p id="account-loading">Checking your session&hellip;</p>
-    <p id="account-error" class="error-text" hidden></p>
-    <div id="account-signed-out" hidden>
-      <button id="login-button" type="button">Log in</button>
-    </div>
-    <div id="account-signed-in" hidden>
-      <p>Signed in as <strong id="account-email"></strong>.</p>
-      <button id="logout-button" type="button">Log out</button>
-      <a href="/debug/me">Debug: <code>GET /me</code></a>
-    </div>
-  </section>
-
   <section id="tenants" class="section-lg" hidden>
     <h2>Your tenants</h2>
     <p id="tenants-loading">Loading tenants&hellip;</p>
@@ -28,34 +15,18 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
-    import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
+    import { isAuthConfigured, isAuthenticated } from '../lib/auth';
+    import { rememberTenant } from '../lib/lastTenant';
     import { listTenants } from '../lib/tenants';
     import type { TenantSummary } from '../lib/types';
 
-    const loading = document.getElementById('account-loading')!;
-    const errorEl = document.getElementById('account-error')!;
-    const signedOut = document.getElementById('account-signed-out')!;
-    const signedIn = document.getElementById('account-signed-in')!;
-    const emailEl = document.getElementById('account-email')!;
-
+    // Signing in and out lives in the header (layouts/Base.astro) - this page
+    // only lists a signed-in user's tenants.
     const tenantsSection = document.getElementById('tenants')!;
     const tenantsLoading = document.getElementById('tenants-loading')!;
     const tenantsEmpty = document.getElementById('tenants-empty')!;
     const tenantsError = document.getElementById('tenants-error')!;
     const tenantsList = document.getElementById('tenants-list')!;
-
-    document.getElementById('login-button')?.addEventListener('click', () => {
-      void login();
-    });
-    document.getElementById('logout-button')?.addEventListener('click', () => {
-      void logout();
-    });
-
-    function showError(message: string) {
-      loading.hidden = true;
-      errorEl.hidden = false;
-      errorEl.textContent = message;
-    }
 
     function renderTenantCard(tenant: TenantSummary): HTMLLIElement {
       const item = document.createElement('li');
@@ -84,6 +55,8 @@ import Base from '../layouts/Base.astro';
           tenantsEmpty.hidden = false;
           return;
         }
+        // Only one place to go - remember it, so the header links there already.
+        if (page.items.length === 1) rememberTenant(page.items[0].id);
         for (const tenant of page.items) {
           tenantsList.append(renderTenantCard(tenant));
         }
@@ -94,23 +67,9 @@ import Base from '../layouts/Base.astro';
       }
     }
 
-    if (!isAuthConfigured()) {
-      showError('Authgear is not configured for this app yet.');
-    } else {
-      try {
-        const authed = await isAuthenticated();
-        loading.hidden = true;
-        if (authed) {
-          const info = await getUserInfo();
-          emailEl.textContent = info.email ?? info.sub;
-          signedIn.hidden = false;
-          await loadTenants();
-        } else {
-          signedOut.hidden = false;
-        }
-      } catch (e) {
-        showError(e instanceof Error ? e.message : String(e));
-      }
+    // A failure here is the header's to show.
+    if (isAuthConfigured() && (await isAuthenticated().catch(() => false))) {
+      await loadTenants();
     }
   </script>
 </Base>
