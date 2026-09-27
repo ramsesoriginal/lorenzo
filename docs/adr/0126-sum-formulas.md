@@ -66,3 +66,4 @@ The sum resolves each term's stat on the entity being read, as `linear` does. If
 - Armour class, hit points, and a container's weight can each be one stat that adds up others, authored once on a prototype.
 - A third kind means every place that enumerates kinds grows by one: evaluation, validation, the dependents lookup, the cycle check, and repository copy, update, and purge.
 - `linear` formulas with an `int` target no longer need a rounding mode when the result can't be a fraction. Nothing existing changes meaning.
+- **A breaking change to the API contract, accepted.** A formula in a response can now be a `sum`, and the dependents lookup can report `kind: "sum"`. A client that only knows `linear` and `comparison` may not handle it. The three oasdiff findings are listed in `apps/api/openapi-breaking-accepted.txt`, and the change ships with a `BREAKING CHANGE` footer. No app in this repository reads formulas yet.
