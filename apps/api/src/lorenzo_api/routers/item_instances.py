@@ -43,6 +43,7 @@ from lorenzo_api.exceptions import (
     ItemInstanceNotFoundError,
     ItemInstanceSlugConflictError,
     ItemInstanceSlugNotFoundError,
+    ItemNotYoursToGiveError,
     StackNeedsContainerError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
@@ -818,7 +819,7 @@ async def _authorize_instance_write(
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
         return
     if holds:
-        raise ItemInstanceManagementForbiddenError(
+        raise ItemNotYoursToGiveError(
             detail=(
                 f"Item instance {entity_id} belongs to someone else: you can move it, but only "
                 "its owner or a GM can give it away or destroy it."

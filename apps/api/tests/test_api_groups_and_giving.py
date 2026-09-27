@@ -108,6 +108,7 @@ async def test_carrying_someone_elses_things_lets_you_move_them_not_give_them(
     # Who owns it: it's Pia's, so Alice may not.
     given = await client.put(f"{potion}/owner", json={"owner_character_id": str(ids["alice"])})
     assert given.status_code == 403
+    assert given.json()["type"] == "item-not-yours-to-give"
     assert "only its owner or a GM can give it away" in given.json()["detail"]
     assert (await client.delete(f"{potion}/owner")).status_code == 403
     assert (await client.delete(potion)).status_code == 403
@@ -186,7 +187,7 @@ async def test_a_groups_things_are_out_of_reach_for_anyone_else(
         json={"owner_character_id": str(ids["alice"])},
     )
     assert given.status_code == 403
-    assert "belongs to someone else" not in given.json()["detail"]
+    assert given.json()["type"] == "item-instance-management-forbidden"
 
     await _tear_down(party)
 
