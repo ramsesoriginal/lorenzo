@@ -136,6 +136,11 @@ Groups own things, and moving something isn't giving it away ([ADR 0124](../adr/
 - **Groups as owners.** A player's reach, and a GM's, also starts from their characters' groups. A party's members see what it owns, move it, open its board, and hear about it in their change feed. A group's GMs are its members' campaigns' GMs. Both web and bot offer groups as somewhere to give things.
 - **Moving versus giving.** Where an owned item is stays anyone-who-reaches-it's to change. Who owns it (giving, clearing, bulk-assign, splitting to another owner, deleting) needs control of the owner, or a GM. Carrying someone else's thing lets you move it, and a refusal to give it away has its own problem type, `item-not-yours-to-give`.
 
+A container can be given with what's inside it ([ADR 0125](../adr/0125-giving-a-container-with-its-contents.md), RFC 0030 slice 3):
+
+- **With contents.** A bulk-assign entry's `with_contents` also gives everything inside, at any depth, that the caller may give. `POST .../item-instances/{id}/give-contents` gives only what's inside. Either way each thing is given or kept on its own, what's kept says whose it stays, and nothing moves.
+- **Asking first.** Both take `?dry_run=true`, so inventory-web ("Also give what's inside", "Give what's inside…") and loot-bot (`/give`'s "Give with what's inside", `/give-contents`) ask with the answer before anything changes. Neither offers Undo.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
