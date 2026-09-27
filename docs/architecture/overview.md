@@ -131,6 +131,11 @@ What a being holds has a listing of its own ([ADR 0123](../adr/0123-held-by-list
 - **Held-by.** `GET .../item-instances/held-by/{entity_id}` lists ADR 0099's "holds": what an entity owns, what's contained under it, and whatever sits inside something it owns. It's grouped by container, the holder's own group first and always. An owned item in no container counts as with its owner, for its group and for the path any container gives.
 - **Equipped.** A being is its own Equipped container. inventory-web's board shows it as the first column, always, even when it's empty, then what the being carries, then what's held elsewhere, and names the owner of anything that isn't the being's own. loot-bot's `/inventory` and `/inspect` show the same.
 
+Groups own things, and moving something isn't giving it away ([ADR 0124](../adr/0124-groups-own-things-and-moving-is-not-giving.md), RFC 0030 slice 2):
+
+- **Groups as owners.** A player's reach, and a GM's, also starts from their characters' groups. A party's members see what it owns, move it, open its board, and hear about it in their change feed. A group's GMs are its members' campaigns' GMs. Both web and bot offer groups as somewhere to give things.
+- **Moving versus giving.** Where an owned item is stays anyone-who-reaches-it's to change. Who owns it (giving, clearing, bulk-assign, splitting to another owner, deleting) needs control of the owner, or a GM. Carrying someone else's thing lets you move it, and a refusal to give it away has its own problem type, `item-not-yours-to-give`.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
