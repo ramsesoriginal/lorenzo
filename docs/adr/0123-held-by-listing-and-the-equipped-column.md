@@ -25,8 +25,8 @@ It lists every item instance the entity holds: `entity_access.reachable_entity_i
 - **Each group says where it is.**
   - `container`: its summary.
   - `container_kind`: `being`, `item_instance`, or `other`.
-  - `path`: the containers around it, nearest first. For a carried group it stops at the holder; for anything else it goes up to the top.
-  - `carried`: whether it's under the holder.
+  - `path`: the containers around it, nearest first. Where a chain ends at something in no container that has an owner, it goes on through that owner, by the same equivalence: a backpack Pia owns with no containment row is with Pia. For a carried group it stops at the holder; for anything else it goes up to the top.
+  - `carried`: whether the holder is on that path.
 - **The response names every owner** once, in `owners`, so a client can say whose each item is from its `owner_entity_id` without a second request. Items keep `ItemInstanceOut`'s shape unchanged.
 - **Visibility follows `owned-by`** ([ADR 0040](0040-item-instance-read-visibility.md)): an owned item appears only if the caller can reach its owner. The holder itself has to be one the caller can reach (their own character, a GM's reachable set, or ORGA); otherwise the answer is `404`, the same as for an entity that doesn't exist. `owned-by` answers an unreachable owner with an empty list instead, but an always-present group has to name its holder, and a `404` doesn't.
 
