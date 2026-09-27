@@ -139,6 +139,12 @@ footer {
   padding-inline: var(--space-4);
 }
 
+/* A wrapper that guarantees full page width */
+.full-width {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+}
+
 /* A horizontal row of items with consistent gap - the single most common
    "put some things next to each other" layout need. .row-tight is the
    same idea at a smaller gap, for a tightly-paired icon+label. */
