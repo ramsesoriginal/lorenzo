@@ -75,6 +75,7 @@ __all__ = [
     "SlugConflictError",
     "SubscriptionNotFoundError",
     "StackNeedsContainerError",
+    "ItemNotYoursToGiveError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
@@ -293,6 +294,14 @@ class ItemInstanceManagementForbiddenError(ForbiddenProblem):
     """
 
     title = "Not authorized to manage this item instance"
+
+
+class ItemNotYoursToGiveError(ForbiddenProblem):
+    """The caller holds this item but doesn't control its owner (ADR 0124):
+    they may move it, but only its owner or a GM may give it away or
+    destroy it. Its own type, so a client can say so in its own words."""
+
+    title = "Not yours to give away"
 
 
 class CampaignNotEmptyError(ConflictProblem):

@@ -1,12 +1,15 @@
 import { listBeings } from './beings';
+import { listGroups, matchingGroups } from './groups';
 import type { BeingRef, BeingSummary } from './types';
 
+/** Beings, then groups (ADR 0124): a group can own things too, so it's offered alongside. */
 export function renderBeingSuggestions(
   list: HTMLUListElement,
   beings: BeingSummary[],
   onPick: (being: BeingRef) => void,
+  groups: BeingRef[] = [],
 ) {
-  if (beings.length === 0) {
+  if (beings.length === 0 && groups.length === 0) {
     list.hidden = true;
     list.replaceChildren();
     return;
@@ -30,11 +33,35 @@ export function renderBeingSuggestions(
     li.append(button);
     list.append(li);
   }
+  for (const group of groups) {
+    const li = document.createElement('li');
+    li.className = 'combobox-suggestion';
+    li.setAttribute('role', 'option');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `${group.name} (group)`;
+    button.addEventListener('click', () => onPick(group));
+    li.append(button);
+    list.append(li);
+  }
   list.hidden = false;
 }
 
+/** Beings and groups matching `query`, for a being search. */
+export async function searchBeingsAndGroups(
+  tenantId: string,
+  query: string,
+): Promise<{ beings: BeingSummary[]; groups: BeingRef[] }> {
+  const [beings, groups] = await Promise.all([
+    listBeings(tenantId, query),
+    listGroups(tenantId).catch(() => [] as BeingRef[]),
+  ]);
+  return { beings: beings.items, groups: matchingGroups(groups, query) };
+}
+
 // A panel that finds a being - by name search against GET /tenants/{t}/beings
-// (ADR 0078: every being in the tenant, PCs/NPCs/bare beings alike), or by
+// (ADR 0078: every being in the tenant, PCs/NPCs/bare beings alike), and the
+// tenant's groups, which can own things too (ADR 0124) - or by
 // pasting an entity id directly (still handy as a quick-entry shortcut even
 // now that search covers everything) - then runs performAction against
 // whichever was picked. Ownership itself already accepts any entity id, no
@@ -119,8 +146,8 @@ export function renderBeingActionPanel(
     }
     debounce = setTimeout(async () => {
       try {
-        const result = await listBeings(tenantId, query);
-        renderBeingSuggestions(suggestions, result.items, (being) => void pick(being));
+        const { beings, groups } = await searchBeingsAndGroups(tenantId, query);
+        renderBeingSuggestions(suggestions, beings, (being) => void pick(being), groups);
       } catch {
         suggestions.hidden = true;
       }

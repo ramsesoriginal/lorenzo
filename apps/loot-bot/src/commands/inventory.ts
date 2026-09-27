@@ -1,6 +1,12 @@
 import { SlashCommandBuilder } from "discord.js";
 import { formatInventoryEmbed } from "../format-inventory.js";
-import { type HeldByResponse, LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
+import {
+  type GroupSummary,
+  type HeldByResponse,
+  type LorenzoApiClient,
+  LorenzoApiError,
+  createLorenzoApiClient,
+} from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import type { Command } from "./types.js";
 
@@ -56,18 +62,21 @@ export const inventoryCommand: Command = {
       return;
     }
 
+    // Then every group one of them belongs to, which can own things too (ADR 0124).
+    const groups = await groupsOf(client, tenantId, accessToken, characters);
+    const holders = [...characters, ...groups];
     const embeds = await Promise.all(
-      characters.map(async (character) => {
+      holders.map(async (holder) => {
         const response = await client.getItemInstancesHeldBy(
           tenantId,
-          character.entityId,
+          holder.entityId,
           accessToken,
         );
         return search
-          ? formatInventoryEmbed(character.name, filterByTitle(response, search), {
-              emptyEquipped: "Nothing equipped matches.",
+          ? formatInventoryEmbed(holder.name, filterByTitle(response, search), {
+              emptyEquipped: "Nothing here matches.",
             })
-          : formatInventoryEmbed(character.name, response);
+          : formatInventoryEmbed(holder.name, response);
       }),
     );
 
@@ -76,12 +85,30 @@ export const inventoryCommand: Command = {
     await interaction.editReply({
       content:
         omitted > 0
-          ? `Showing ${visibleEmbeds.length} of ${embeds.length} characters (Discord's own per-message limit) — ask a GM to check the rest.`
+          ? `Showing ${visibleEmbeds.length} of ${embeds.length} characters and groups (Discord's own per-message limit) — ask a GM to check the rest.`
           : "",
       embeds: visibleEmbeds,
     });
   },
 };
+
+/** The groups any of `characters` belongs to, each once. A failed lookup
+ * just leaves groups out: they're an addition to `/inventory`, not its
+ * point. */
+async function groupsOf(
+  client: LorenzoApiClient,
+  tenantId: string,
+  accessToken: string,
+  characters: readonly { entityId: string }[],
+): Promise<readonly GroupSummary[]> {
+  const perCharacter = await Promise.all(
+    characters.map((character) =>
+      client.getCharacterGroups(tenantId, character.entityId, accessToken).catch(() => []),
+    ),
+  );
+  const byId = new Map(perCharacter.flat().map((group) => [group.entityId, group]));
+  return [...byId.values()];
+}
 
 /** Narrows a held-by response to items whose title contains `search`
  * (already lowercased by the caller), case-insensitively - groups stay

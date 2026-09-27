@@ -24,7 +24,13 @@ export type ItemOptions = {
   public?: boolean;
 };
 
-export type InstanceOptions = { owner?: Player; container?: string; slug?: string };
+export type InstanceOptions = {
+  owner?: Player;
+  /** Any owning entity, such as a group (ADR 0124); `owner` wins if both are given. */
+  ownerId?: string;
+  container?: string;
+  slug?: string;
+};
 
 export async function person(name: string, roles: string[] = []): Promise<Person> {
   const subject = `${name.toLowerCase()}-${randomUUID()}`;
@@ -141,7 +147,7 @@ export async function buildWorld() {
         ...t,
         body: {
           prototype_id: itemId,
-          owner_character_id: options.owner?.character.entity_id ?? null,
+          owner_character_id: options.owner?.character.entity_id ?? options.ownerId ?? null,
           container_entity_id: options.container ?? null,
           slug: options.slug ?? null,
         },
@@ -168,6 +174,29 @@ export async function buildWorld() {
       );
     }
     return first as string;
+  }
+
+  /** A group of `members`' characters, as a GM makes one (ADR 0064); its entity id. */
+  async function group(name: string, members: Player[]): Promise<string> {
+    const created = await ok(
+      api.POST('/tenants/{tenant_id}/groups', {
+        ...t,
+        body: { name, member_character_ids: members.map((m) => m.character.entity_id) },
+      }),
+    );
+    return created.id;
+  }
+
+  /** What `ownerId` owns, as the API says: `Container: Item` lines, sorted. */
+  async function ownedBy(ownerId: string): Promise<string[]> {
+    const owned = await ok(
+      api.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
+        params: { path: { tenant_id: tenant.id, owner_entity_id: ownerId } },
+      }),
+    );
+    return owned.groups
+      .flatMap((g) => g.item_instances.map((i) => `${g.container?.name ?? '(none)'}: ${i.title}`))
+      .sort();
   }
 
   async function slug(entityId: string, value: string) {
@@ -210,6 +239,8 @@ export async function buildWorld() {
     stack,
     slug,
     carried,
+    group,
+    ownedBy,
   };
 }
 

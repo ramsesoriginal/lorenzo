@@ -36,8 +36,8 @@ Command-formatting and API-client tests are mocked (MSW) or pure-fixture; the ac
 | `/link` | Starts account linking — replies with a one-time Authgear login URL |
 | `/unlink` | Unlinks your Discord account from your Lorenzo identity |
 | `/set-current` | Pins your current character and/or default container for this channel — what other commands default to. Without one, your default is the character you last gave, moved, renamed, or merged an item as ([ADR 0088](../../docs/adr/0088-loot-bot-give-confirmation-and-last-used-character.md)) |
-| `/inventory` | Lists what your linked characters hold ([ADR 0123](../../docs/adr/0123-held-by-listing-and-the-equipped-column.md)): Equipped first, then each container they carry, then what's held elsewhere, marking what isn't theirs; optionally filtered by name (`search`) |
-| `/give` | Gives an item (or part of a stack) to another character — autocompleted item/target, with one Give/Cancel click before anything moves |
+| `/inventory` | Lists what your linked characters hold ([ADR 0123](../../docs/adr/0123-held-by-listing-and-the-equipped-column.md)): Equipped first, then each container they carry, then what's held elsewhere, marking what isn't theirs, plus one embed per group they belong to ([ADR 0124](../../docs/adr/0124-groups-own-things-and-moving-is-not-giving.md)); optionally filtered by name (`search`) |
+| `/give` | Gives an item (or part of a stack) to another character, or to a group ([ADR 0124](../../docs/adr/0124-groups-own-things-and-moving-is-not-giving.md)) — autocompleted item/target, with one Give/Cancel click before anything moves. Only what your characters or groups own can be given; something you merely carry can't |
 | `/give-bulk` | Gives several of your own items to one character at once (multi-select flow) |
 | `/merge` | Combines two of your own stacks of the same item into one |
 | `/rename` | Gives one of your own items a custom name |

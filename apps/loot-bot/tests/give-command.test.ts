@@ -25,6 +25,8 @@ const {
   setItemInstanceOwner,
   getCampaignPlayers,
   getCharacterName,
+  getGroupName,
+  listGroups,
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   getMyPlayers: vi.fn(),
@@ -34,6 +36,8 @@ const {
   setItemInstanceOwner: vi.fn(),
   getCampaignPlayers: vi.fn(),
   getCharacterName: vi.fn(),
+  getGroupName: vi.fn(),
+  listGroups: vi.fn(),
   createLorenzoApiClient: vi.fn(),
 }));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
@@ -48,6 +52,8 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       setItemInstanceOwner,
       getCampaignPlayers,
       getCharacterName,
+      getGroupName,
+      listGroups,
     }),
   };
 });
@@ -236,12 +242,30 @@ describe("giveCommand.execute (the confirmation prompt)", () => {
       etag: "etag-1",
     });
     getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getGroupName.mockRejectedValue(new LorenzoApiError("not found", 404));
     const interaction = promptFor();
 
     await giveCommand.execute(interaction, ctx);
 
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.stringContaining("Couldn't find that item or that character"),
+    );
+  });
+
+  it("names a group it's giving to (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getGroupName.mockResolvedValue("The Fellowship");
+    const interaction = promptFor();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining("The Fellowship") }),
     );
   });
 });
@@ -477,6 +501,20 @@ describe("giveCommand.onButton (the confirmed transfer)", () => {
     expect(button.editReply).toHaveBeenCalledWith(expect.stringContaining(expectedText));
   });
 
+  it("says so when what's carried belongs to someone else (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockRejectedValue(
+      new LorenzoApiError("belongs to someone else", 403, "item-not-yours-to-give"),
+    );
+    const button = confirmButton();
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("only its owner or a GM can give it away"),
+    );
+  });
+
   it("still succeeds even if the friendly-name lookup fails", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
@@ -485,6 +523,7 @@ describe("giveCommand.onButton (the confirmed transfer)", () => {
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
     getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getGroupName.mockRejectedValue(new LorenzoApiError("not found", 404));
     const button = confirmButton();
 
     await giveCommand.onButton?.(button, ctx);
@@ -550,14 +589,17 @@ describe("giveCommand.autocomplete", () => {
       { entityId: "char-1", name: "Frodo" },
       { entityId: "char-2", name: "Sam" },
     ]);
+    listGroups.mockResolvedValue([{ entityId: "group-1", name: "The Fellowship" }]);
 
     const interaction = fakeAutocomplete("to", "", "item-1");
     await giveCommand.autocomplete?.(interaction, ctx);
 
     expect(getCampaignPlayers).toHaveBeenCalledWith("tenant-1", "campaign-1", "token-123");
+    // Groups can own things too (ADR 0124), offered after the characters.
     expect(interaction.respond).toHaveBeenCalledWith([
       { name: "Frodo", value: "char-1" },
       { name: "Sam", value: "char-2" },
+      { name: "The Fellowship (group)", value: "group-1" },
     ]);
   });
 });

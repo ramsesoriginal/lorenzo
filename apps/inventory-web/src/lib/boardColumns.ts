@@ -30,8 +30,10 @@ export interface Board {
   elsewhere: BoardColumn[];
   /** Owner names by id, to mark what isn't the board's being's own. */
   owners: Map<string, string>;
-  /** The board's being; null on the board of unowned things. */
+  /** Whose board this is: a being, a group; null on the board of unowned things. */
   holderId: string | null;
+  /** Whether the holder is a being, who carries what's in its own column. */
+  holderIsBeing: boolean;
 }
 
 /** "in Carriage, in Stable": a container's surroundings, nearest first. */
@@ -63,13 +65,16 @@ function column(group: HeldGroup): BoardColumn {
 export function heldBoard(response: HeldByResponse): Board {
   const [own, ...rest] = response.groups;
   if (!own) throw new Error("A held-by answer always starts with its holder's own group.");
+  const isBeing = own.container_kind === 'being';
   const equipped: BoardColumn = {
     key: own.container.id,
-    // Dropping on it puts a card into the being, who carries it (ADR 0115).
-    dropTarget: own.container.id,
-    title: own.container_kind === 'being' ? 'Equipped' : own.container.name,
+    // Dropping on a being's own column puts a card into the being, who carries it (ADR
+    // 0115). A group carries nothing: dropping on its column takes a card out of every
+    // container, and an owned thing in no container is with its owner (ADR 0123, 0124).
+    dropTarget: isBeing ? own.container.id : null,
+    title: isBeing ? 'Equipped' : own.container.name,
     note: null,
-    empty: own.container_kind === 'being' ? 'Nothing equipped.' : 'Nothing here.',
+    empty: isBeing ? 'Nothing equipped.' : 'Nothing here.',
     items: own.item_instances,
   };
   return {
@@ -77,6 +82,7 @@ export function heldBoard(response: HeldByResponse): Board {
     elsewhere: rest.filter((g) => !g.carried).map(column),
     owners: new Map(response.owners.map((o) => [o.id, o.name])),
     holderId: own.container.id,
+    holderIsBeing: isBeing,
   };
 }
 
@@ -97,6 +103,7 @@ export function unownedBoard(response: OwnedByResponse): Board {
     elsewhere: [],
     owners: new Map(),
     holderId: null,
+    holderIsBeing: false,
   };
 }
 

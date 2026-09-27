@@ -109,7 +109,7 @@ export const giveCommand: Command = {
         await interaction.editReply(NOT_A_STACK_MESSAGE);
         return;
       }
-      const targetName = await client.getCharacterName(tenantId, targetCharacterId, accessToken);
+      const targetName = await targetNameOf(client, tenantId, targetCharacterId, accessToken);
 
       const intent: GiveIntent = {
         itemEntityId,
@@ -212,9 +212,12 @@ async function confirmGive(
       ctx.logger,
     );
 
-    const targetLookup = await client
-      .getCharacterName(tenantId, intent.targetCharacterId, accessToken)
-      .catch(() => null);
+    const targetLookup = await targetNameOf(
+      client,
+      tenantId,
+      intent.targetCharacterId,
+      accessToken,
+    ).catch(() => null);
     const targetName = targetLookup ?? "them";
     const itemName = result.given.title ?? "(untitled)";
     const amount = result.splitting ? `${result.requestedQuantity} of ` : "";
@@ -256,17 +259,44 @@ async function findGiveTargets(
     }
   }
 
-  const rosters = await Promise.all(
-    campaignIds.map((campaignId) => client.getCampaignPlayers(tenantId, campaignId, accessToken)),
-  );
+  const [rosters, groups] = await Promise.all([
+    Promise.all(
+      campaignIds.map((campaignId) => client.getCampaignPlayers(tenantId, campaignId, accessToken)),
+    ),
+    // A group can own things too (ADR 0124) - offered after the characters.
+    client
+      .listGroups(tenantId, accessToken)
+      .catch(() => []),
+  ]);
   const byId = new Map(rosters.flat().map((character) => [character.entityId, character]));
-  return [...byId.values()];
+  return [
+    ...byId.values(),
+    ...groups.map((group) => ({ entityId: group.entityId, name: `${group.name} (group)` })),
+  ];
+}
+
+/** A give target's name: a character's, or else a group's (ADR 0124). */
+async function targetNameOf(
+  client: LorenzoApiClient,
+  tenantId: string,
+  targetId: string,
+  accessToken: string,
+): Promise<string> {
+  try {
+    return await client.getCharacterName(tenantId, targetId, accessToken);
+  } catch (error) {
+    if (!(error instanceof LorenzoApiError && error.status === 404)) throw error;
+    return client.getGroupName(tenantId, targetId, accessToken);
+  }
 }
 
 function describeGiveError(error: LorenzoApiError): string {
   switch (error.status) {
     case 403:
-      return "That's not something you can give away — it isn't reachable from any of your characters.";
+      // ADR 0124: carrying something isn't owning it.
+      return error.problemType === "item-not-yours-to-give"
+        ? "That belongs to someone else — you can move it, but only its owner or a GM can give it away."
+        : "That's not something you can give away — it isn't reachable from any of your characters.";
     case 404:
       return "Couldn't find that item or that character anymore — run `/give` again and re-pick from the suggestions.";
     case 412:

@@ -14,7 +14,7 @@ from sqlalchemy import CTE, any_, func, select
 from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.models import CharacterPlayer, Containment, Ownership, Player
+from lorenzo_api.models import CharacterPlayer, Containment, GroupMember, Ownership, Player
 
 # Bounds the cost of a recursive container traversal on a legitimately deep
 # (but acyclic) containment tree - see routers/item_instances.py's original
@@ -57,6 +57,43 @@ async def controlled_character_entity_ids(
         .all()
     )
     return frozenset(character_ids)
+
+
+async def group_ids_for_characters(
+    session: AsyncSession, *, character_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """Every group any of character_ids is a member of (ADR 0028's
+    group_member)."""
+    if not character_ids:
+        return frozenset()
+    return frozenset(
+        (
+            await session.execute(
+                select(GroupMember.group_entity_id).where(
+                    GroupMember.character_entity_id.in_(character_ids),
+                    GroupMember.tenant_id == tenant_id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+async def controlled_holder_entity_ids(
+    session: AsyncSession, *, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """Where a player's reach starts (ADR 0124): their own characters and
+    every group one of them is a member of, so a party's members reach what
+    the party owns. The same set answers "does this caller control the
+    owner" for giving something away.
+    """
+    characters = await controlled_character_entity_ids(
+        session, user_id=user_id, tenant_id=tenant_id
+    )
+    return characters | await group_ids_for_characters(
+        session, character_ids=characters, tenant_id=tenant_id
+    )
 
 
 def recursive_descendants_cte(root_entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID) -> CTE:
@@ -261,17 +298,16 @@ async def can_self_manage_entity(
     session: AsyncSession, *, entity_id: uuid.UUID, user_id: uuid.UUID, tenant_id: uuid.UUID
 ) -> bool:
     """RFC 0005's self-service check: is entity_id reachable from one of the
-    caller's own characters - owned directly, or transitively contained
-    within something one of them owns? Moving your own sword from your own
-    backpack into your own chest, or giving it to a party member's
-    character, is all just "acting on your own stuff," regardless of where
-    it ends up - checked against the entity's *current* state, not its
-    state after the write.
+    caller's own characters, or a group one of them belongs to (ADR 0124) -
+    owned directly, or transitively contained within something one of them
+    owns? Moving your own sword from your own backpack into your own chest
+    is all just "acting on your own stuff," regardless of where it ends up -
+    checked against the entity's *current* state, not its state after the
+    write. Giving an owned thing away asks more (ADR 0124): see
+    routers/item_instances.py's _authorize_instance_write.
     """
-    characters = await controlled_character_entity_ids(
-        session, user_id=user_id, tenant_id=tenant_id
-    )
-    if not characters:
+    roots = await controlled_holder_entity_ids(session, user_id=user_id, tenant_id=tenant_id)
+    if not roots:
         return False
-    reachable = await reachable_entity_ids(session, root_entity_ids=characters, tenant_id=tenant_id)
+    reachable = await reachable_entity_ids(session, root_entity_ids=roots, tenant_id=tenant_id)
     return entity_id in reachable

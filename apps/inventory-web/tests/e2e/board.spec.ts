@@ -100,7 +100,7 @@ test('closes the item with Escape', async ({ world, as }) => {
   await expect(page.getByRole('dialog')).toBeHidden();
 });
 
-test('gives an item to another character, and takes it back with undo', async ({ world, as }) => {
+test('gives an item to another character, with no Undo that would fail', async ({ world, as }) => {
   await packed(world, world.pia);
   const page = await boardOf(as, world, world.pia);
 
@@ -108,16 +108,12 @@ test('gives an item to another character, and takes it back with undo', async ({
   await page.getByRole('button', { name: 'Give to…' }).click();
   await pickBeing(page, 'Brisk');
   await expect(page.getByText('Given to Brisk.')).toBeVisible();
-  // It isn't hers any more, so there's nothing left to show.
   await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeHidden();
-  // Giving changes who owns it, not where it is (ADR 0051): it's still in Pia's backpack.
+  // Giving changes who owns it, not where it is (ADR 0051): still in her backpack, now his.
+  await expect(card(page, 'Backpack', "Ornate Spellbook Brisk's")).toBeVisible();
   expect(await world.carried(world.oskar)).toEqual(['Backpack: Ornate Spellbook']);
-
-  await expect(page.getByText('Gave Ornate Spellbook to Brisk.')).toBeVisible();
-  await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByRole('button', { name: 'Ornate Spellbook', exact: true })).toBeVisible();
-  expect(await world.carried(world.oskar)).toEqual([]);
+  // Taking it back would be giving away Brisk's book, which only he or a GM may (ADR 0124).
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeHidden();
 });
 
 test('gives part of a stack', async ({ world, as }) => {

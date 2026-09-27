@@ -826,6 +826,20 @@ export function createLorenzoApiClient(baseUrl: string) {
       return data.items.map((group) => ({ entityId: group.id, name: group.name }));
     },
 
+    /** GET .../groups/{group_entity_id} (ADR 0064) - a group's name, for
+     * saying where something was given when it went to a group (ADR 0124). */
+    async getGroupName(tenantId: string, groupId: string, accessToken: string): Promise<string> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/groups/{group_entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, group_entity_id: groupId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data.name;
+    },
+
     /** GET .../characters/{character_id}/groups (ADR 0045's "reverse
      * direction" addition) - every group a specific character belongs to.
      * `/my-groups`'s own source (ADR 0068), one call per controlled
