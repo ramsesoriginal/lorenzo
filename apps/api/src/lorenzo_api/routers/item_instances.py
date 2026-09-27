@@ -12,7 +12,7 @@ from sqlalchemy import ColumnElement, Select, and_, or_, select, true
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import (
-    campaign_ids_for_character,
+    campaign_ids_for_owner,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
@@ -28,7 +28,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
-    controlled_character_entity_ids,
+    controlled_holder_entity_ids,
     reachable_entity_ids,
     recursive_descendants_cte,
     surroundings,
@@ -180,7 +180,7 @@ async def _caller_reach(
         return None
     self_reachable = await reachable_entity_ids(
         session,
-        root_entity_ids=await controlled_character_entity_ids(
+        root_entity_ids=await controlled_holder_entity_ids(
             session, user_id=user.id, tenant_id=tenant_id
         ),
         tenant_id=tenant_id,
@@ -726,25 +726,19 @@ async def _authorize_create_instance(
     owner_character_id: uuid.UUID | None,
 ) -> None:
     """RFC 0005's instantiate authorization: self-service if
-    owner_character_id resolves to one of the caller's own characters (no
-    existing entity to walk reachability from yet, unlike an existing
-    instance - checked directly against controlled_character_entity_ids
-    instead); otherwise can_manage_campaign on any one of that character's
-    campaigns; ownerless creation falls back to can_manage_campaign on any
-    campaign in the tenant.
+    owner_character_id is one of the caller's own characters or a group one
+    of them belongs to (ADR 0124; no existing entity to walk reachability
+    from yet, unlike an existing instance); otherwise can_manage_campaign on
+    any one of the owner's campaigns (a group's are its members'); ownerless
+    creation falls back to can_manage_campaign on any campaign in the tenant.
     """
     if owner_character_id is not None:
-        controlled = await controlled_character_entity_ids(
+        controlled = await controlled_holder_entity_ids(
             session, user_id=user.id, tenant_id=tenant_id
         )
         if owner_character_id in controlled:
             return
-        campaign_ids = await campaign_ids_for_character(
-            session, character_entity_id=owner_character_id, tenant_id=tenant_id
-        )
-        if campaign_ids and await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
+        if await _manages_owner(session, tenant_id=tenant_id, user=user, owner=owner_character_id):
             return
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
         return
@@ -753,33 +747,83 @@ async def _authorize_create_instance(
     )
 
 
+async def _manages_owner(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, owner: uuid.UUID
+) -> bool:
+    """A GM of any campaign the owner plays in - for a group, any campaign
+    one of its members plays in (ADR 0124)."""
+    campaign_ids = await campaign_ids_for_owner(session, owner_entity_id=owner, tenant_id=tenant_id)
+    return bool(campaign_ids) and await can_manage_any_of_campaigns(
+        session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
+    )
+
+
+# What a write to an existing instance changes (ADR 0124): where it is, or who
+# owns it.
+WriteKind = Literal["move", "give"]
+
+
+async def _change_kind(
+    session: SessionDep, *, tenant_id: uuid.UUID, entity_id: uuid.UUID, owner: uuid.UUID | None
+) -> WriteKind:
+    """A split or an assignment naming an owner gives it away only if that
+    owner isn't already its owner (ADR 0124)."""
+    if owner is None:
+        return "move"
+    current = await _current_owner_character_id(session, entity_id=entity_id, tenant_id=tenant_id)
+    return "move" if owner == current else "give"
+
+
 async def _authorize_instance_write(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, entity_id: uuid.UUID
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    entity_id: uuid.UUID,
+    kind: WriteKind = "move",
 ) -> None:
-    """RFC 0005's self-or-managed check for PATCH/DELETE/the owner and
-    container actions on an *existing* instance - checked against its
-    current state before the write, uniformly regardless of what the write
-    itself changes (moving your own sword, or giving it to someone else's
-    character, is equally self-service as long as you already control it
-    now).
+    """RFC 0005's self-or-managed check for writes to an *existing*
+    instance, checked against its current state before the write, and split
+    by what the write changes (ADR 0124):
+
+    - "move" (its container, merging, splitting in place, editing it): anyone
+      whose characters or groups reach it - moving your own sword, or the
+      party's rope in your backpack, is acting on what you hold.
+    - "give" (its owner, splitting to another owner, deleting it): for an
+      owned instance, only whoever controls the owner - one of the caller's
+      characters or groups is the owner. Carrying someone else's sword lets
+      you move it, not give it away.
+
+    Either way a GM of the owner's campaigns may, and an ownerless instance
+    keeps the "move" rule for both: anyone who reaches it, or any GM in the
+    tenant.
     """
-    if await can_self_manage_entity(
-        session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
-    ):
-        return
     current_owner_id = await _current_owner_character_id(
         session, entity_id=entity_id, tenant_id=tenant_id
     )
-    if current_owner_id is not None:
-        campaign_ids = await campaign_ids_for_character(
-            session, character_entity_id=current_owner_id, tenant_id=tenant_id
+    holds = await can_self_manage_entity(
+        session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
+    )
+    if kind == "give" and current_owner_id is not None:
+        controlled = await controlled_holder_entity_ids(
+            session, user_id=user.id, tenant_id=tenant_id
         )
-        if campaign_ids and await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
+        if current_owner_id in controlled:
+            return
+    elif holds:
+        return
+    if current_owner_id is not None:
+        if await _manages_owner(session, tenant_id=tenant_id, user=user, owner=current_owner_id):
             return
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
         return
+    if holds:
+        raise ItemInstanceManagementForbiddenError(
+            detail=(
+                f"Item instance {entity_id} belongs to someone else: you can move it, but only "
+                "its owner or a GM can give it away or destroy it."
+            )
+        )
     raise ItemInstanceManagementForbiddenError(
         detail=f"Not authorized to manage item instance {entity_id}"
     )
@@ -931,7 +975,9 @@ async def delete_item_instance(
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+    )
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1009,7 +1055,9 @@ async def set_item_instance_owner(
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+    )
 
     before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     changed = await _perform_set_owner(
@@ -1074,7 +1122,9 @@ async def clear_item_instance_owner(
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+    )
 
     existing = await session.get(Ownership, entity_id)
     if existing is not None:
@@ -1364,7 +1414,15 @@ async def split_item_instance(
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        kind=await _change_kind(
+            session, tenant_id=tenant_id, entity_id=entity_id, owner=body.owner_character_id
+        ),
+    )
 
     before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     new_entity_id = await _perform_split(
@@ -1528,7 +1586,16 @@ async def bulk_assign_item_instances(
                 entity = await _get_item_instance_entity_or_404(tenant_id, item.entity_id, session)
                 check_if_match(item.if_match, updated_at=entity.updated_at)
                 await _authorize_instance_write(
-                    session, tenant_id=tenant_id, user=user, entity_id=item.entity_id
+                    session,
+                    tenant_id=tenant_id,
+                    user=user,
+                    entity_id=item.entity_id,
+                    kind=await _change_kind(
+                        session,
+                        tenant_id=tenant_id,
+                        entity_id=item.entity_id,
+                        owner=item.owner_character_id,
+                    ),
                 )
                 before = await holders(session, tenant_id=tenant_id, entity_id=item.entity_id)
                 if item.quantity is not None:

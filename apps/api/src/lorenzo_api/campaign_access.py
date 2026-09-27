@@ -8,13 +8,14 @@ than have its logic duplicated there.
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.entity_access import controlled_character_entity_ids
 from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
+    GroupMember,
     Membership,
     MembershipRole,
     Player,
@@ -180,6 +181,30 @@ async def campaign_ids_for_character(
         .join(CharacterPlayer, CharacterPlayer.player_id == Player.id)
         .where(
             CharacterPlayer.character_entity_id == character_entity_id,
+            Player.tenant_id == tenant_id,
+        )
+    )
+    return frozenset((await session.execute(stmt)).scalars().all())
+
+
+async def campaign_ids_for_owner(
+    session: AsyncSession, *, owner_entity_id: uuid.UUID, tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """The campaigns whose GMs manage what owner_entity_id owns (ADR 0124):
+    a character's own campaigns, or, for a group, every campaign one of its
+    members plays in. Anything else owns nothing a campaign's GM manages.
+    """
+    members = select(GroupMember.character_entity_id).where(
+        GroupMember.group_entity_id == owner_entity_id, GroupMember.tenant_id == tenant_id
+    )
+    stmt = (
+        select(Player.campaign_id)
+        .join(CharacterPlayer, CharacterPlayer.player_id == Player.id)
+        .where(
+            or_(
+                CharacterPlayer.character_entity_id == owner_entity_id,
+                CharacterPlayer.character_entity_id.in_(members),
+            ),
             Player.tenant_id == tenant_id,
         )
     )
