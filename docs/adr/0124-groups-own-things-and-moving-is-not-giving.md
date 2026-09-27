@@ -54,12 +54,13 @@ A character also holds whatever a group it belongs to owns, and whatever sits in
 - **Boards for groups.** "Your characters" lists the groups your characters belong to after the characters themselves. A GM's "Browse a being" search finds groups too. A group's board is its held-by listing. Its first column is named after the group, and dropping onto it takes a card out of every container, since an owned thing in no container is with its owner.
 - **Giving to a group.** Every "give to" search also offers groups, marked "(group)".
 - **"Remove from container"** puts the item into the board's being's hands, not its owner's. On your own board that's the same place. On a group's board it takes the item out of every container.
+- **Undo after a give.** Taking something back is giving it again, so a player gets Undo after a give only when it went to one of their own characters or groups. A GM always does. This covers ADR 0115's narrower rule of no Undo after a hand-over.
 
 ### loot-bot
 
 - `/give`'s `to` also offers the tenant's groups, marked "(group)".
 - `/inventory` adds one embed per group your characters belong to, after the characters, within Discord's ten-embed limit.
-- A refusal to give shows the API's message.
+- A refusal to give says it belongs to someone else. `/undo` of a give to someone else says only its new owner or a GM can give it back.
 
 ## Not in scope
 
