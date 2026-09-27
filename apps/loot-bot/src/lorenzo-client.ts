@@ -16,6 +16,7 @@ export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
 export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
 export type BulkAssignResultItem = components["schemas"]["BulkAssignResultItem"];
+export type ContentsResultItem = components["schemas"]["ContentsResultItem"];
 export type GroupMemberResultItem = components["schemas"]["GroupMemberResultItem"];
 export type BulkMoveResultItem = components["schemas"]["BulkMoveResultItem"];
 
@@ -799,13 +800,44 @@ export function createLorenzoApiClient(baseUrl: string) {
       tenantId: string,
       items: readonly BulkAssignItem[],
       accessToken: string,
+      { dryRun = false }: { dryRun?: boolean } = {},
     ): Promise<readonly BulkAssignResultItem[]> {
       const { data, error, response } = await client.POST(
         "/tenants/{tenant_id}/item-instances/bulk-assign",
         {
-          params: { path: { tenant_id: tenantId } },
+          params: {
+            path: { tenant_id: tenantId },
+            ...(dryRun ? { query: { dry_run: true } } : {}),
+          },
           headers: { Authorization: `Bearer ${accessToken}` },
           body: [...items],
+        },
+      );
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/{entity_id}/give-contents (ADR 0125) -
+     * everything inside a container, at any depth, not the container itself.
+     * Never all-or-nothing: one entry per thing, given (`"ok"`) or kept by
+     * its owner (`"kept"`). `dryRun` only answers what would happen, for
+     * `/give-contents`' question. */
+    async giveContents(
+      tenantId: string,
+      containerEntityId: string,
+      targetId: string,
+      accessToken: string,
+      { dryRun = false }: { dryRun?: boolean } = {},
+    ): Promise<readonly ContentsResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/give-contents",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: containerEntityId },
+            ...(dryRun ? { query: { dry_run: true } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { owner_character_id: targetId, recursive: true },
         },
       );
       if (error !== undefined) throw toLorenzoApiError(error, response.status);

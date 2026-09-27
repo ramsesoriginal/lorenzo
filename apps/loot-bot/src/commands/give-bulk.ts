@@ -139,6 +139,7 @@ export const giveBulkCommand: Command = {
           entity_id: entityId,
           owner_character_id: targetCharacterId,
           move_to_owner: false,
+          with_contents: false,
         })),
         accessToken,
       );

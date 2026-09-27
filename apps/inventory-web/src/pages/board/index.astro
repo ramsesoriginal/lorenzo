@@ -155,6 +155,9 @@ import Base from '../../layouts/Base.astro';
 
       <div class="item-detail-actions">
         <button type="button" id="item-detail-give-button">Give to&hellip;</button>
+        <button type="button" id="item-detail-give-contents-button" hidden
+          >Give what's inside&hellip;</button
+        >
         <button type="button" id="item-detail-move-button">Move to&hellip;</button>
         <button type="button" id="item-detail-split-button">Split&hellip;</button>
         <button type="button" id="item-detail-merge-button">Merge into&hellip;</button>
@@ -195,6 +198,7 @@ import Base from '../../layouts/Base.astro';
       clearContainer,
       getHeldItemInstances,
       getUnownedItemInstances,
+      giveContents,
       mergeItemInstance,
       setContainer,
       setOwner,
@@ -204,6 +208,13 @@ import Base from '../../layouts/Base.astro';
     import { renderItemView } from '../../lib/itemView';
     import { isCampaignGm } from '../../lib/me';
     import { collectMoveTargets } from '../../lib/moveTargets';
+    import {
+      contentsDone,
+      contentsQuestion,
+      nothingToGive,
+      withContentsDone,
+      withContentsQuestion,
+    } from '../../lib/givingContents';
     import { renderNotes } from '../../lib/notes';
     import { getTenant } from '../../lib/tenants';
     import type {
@@ -212,6 +223,7 @@ import Base from '../../layouts/Base.astro';
       EntitySummary,
       HeldByResponse,
       ItemInstance,
+      ProblemOut,
     } from '../../lib/types';
 
     const status = document.getElementById('status')!;
@@ -310,6 +322,9 @@ import Base from '../../layouts/Base.astro';
     const detailGiveButton = document.getElementById(
       'item-detail-give-button',
     ) as HTMLButtonElement;
+    const detailGiveContentsButton = document.getElementById(
+      'item-detail-give-contents-button',
+    ) as HTMLButtonElement;
     const detailSplitButton = document.getElementById(
       'item-detail-split-button',
     ) as HTMLButtonElement;
@@ -399,6 +414,12 @@ import Base from '../../layouts/Base.astro';
         recordUndo(payload, description);
         return;
       }
+      forgetUndo();
+    }
+
+    // Nothing to undo: after a give with what's inside, an Undo would only give the container
+    // back (ADR 0125).
+    function forgetUndo() {
       undoController.clear();
       undoBanner.hidden = true;
     }
@@ -432,6 +453,7 @@ import Base from '../../layouts/Base.astro';
     function closeDetailActionPanels() {
       detailActionPanel.replaceChildren();
       detailGiveButton.textContent = 'Give to…';
+      detailGiveContentsButton.textContent = "Give what's inside…";
       detailMoveButton.textContent = 'Move to…';
       detailSplitButton.textContent = 'Split…';
       detailMergeButton.textContent = 'Merge into…';
@@ -468,6 +490,8 @@ import Base from '../../layouts/Base.astro';
 
       closeDetailActionPanels();
       detailSplitButton.disabled = !(item.quantity && item.quantity > 1);
+      // Only a container the board shows something inside (ADR 0125).
+      detailGiveContentsButton.hidden = !boardContainers.has(item.entity_id);
     }
 
     // The full transitive ancestry (ADR 0073) is scoped to catalog Items,
@@ -571,17 +595,19 @@ import Base from '../../layouts/Base.astro';
         : clearContainer(tenantId as string, entityId);
     }
 
-    // "Hand it over" (ADR 0115): out of its container and into the recipient's hands. Only
-    // offered for what's in a container; left unchecked, a give changes the owner alone.
-    let handOverFields = 0;
-    function handOverField(label: string, otherwise: string) {
+    // A give's checkbox with a note saying what happens without it: "Hand it over" (ADR
+    // 0115), out of its container and into the recipient's hands, only offered for what's in
+    // a container; "Also give what's inside" (ADR 0125), only for a container with something
+    // in it.
+    let checkboxFields = 0;
+    function checkboxField(label: string, otherwise: string) {
       const input = Object.assign(document.createElement('input'), { type: 'checkbox' });
       const row = document.createElement('label');
       row.className = 'field-row';
       row.append(input, label);
       const note = document.createElement('p');
       note.className = 'field-note';
-      note.id = `hand-over-note-${++handOverFields}`;
+      note.id = `checkbox-note-${++checkboxFields}`;
       note.textContent = otherwise;
       input.setAttribute('aria-describedby', note.id);
       const element = document.createElement('div');
@@ -619,7 +645,13 @@ import Base from '../../layouts/Base.astro';
       const previousContainerId = item.container_entity_id;
       const where = containerOf(item);
       const handOver = where
-        ? handOverField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
+        ? checkboxField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
+        : null;
+      const alsoInside = boardContainers.has(item.entity_id)
+        ? checkboxField(
+            "Also give what's inside",
+            "Otherwise what's inside stays whose it is. You'll be asked first.",
+          )
         : null;
       const panel = renderBeingActionPanel(
         tenantId as string,
@@ -628,6 +660,12 @@ import Base from '../../layouts/Base.astro';
           const requestedQuantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
           const plan = planGive(item, requestedQuantity);
           const moveToOwner = handOver?.input.checked ?? false;
+          if (alsoInside?.input.checked) {
+            if (plan.mode === 'partial') {
+              throw new Error("Give all of it to give what's inside too.");
+            }
+            return giveWithContents(item, being, moveToOwner);
+          }
           if (plan.mode === 'partial') {
             const [result] = await bulkAssignItemInstances(tenantId as string, [
               {
@@ -670,7 +708,65 @@ import Base from '../../layouts/Base.astro';
         () => {
           finishAction();
         },
-        [...(hasStack ? [quantityField] : []), ...(handOver ? [handOver.element] : [])],
+        [
+          ...(hasStack ? [quantityField] : []),
+          ...(handOver ? [handOver.element] : []),
+          ...(alsoInside ? [alsoInside.element] : []),
+        ],
+      );
+      detailActionPanel.append(panel);
+    });
+
+    // A one-entry bulk-assign with what's inside (ADR 0125): its dry run first, so the
+    // question says what goes along and what stays, then the give itself.
+    async function giveWithContents(item: ItemInstance, being: BeingRef, moveToOwner: boolean) {
+      const entry = {
+        entityId: item.entity_id,
+        ownerCharacterId: being.entity_id,
+        moveToOwner,
+        withContents: true,
+      };
+      const [preview] = await bulkAssignItemInstances(tenantId as string, [entry], {
+        dryRun: true,
+      });
+      if (preview.status === 'error') throw new Error(problemText(preview.problem));
+      const question = withContentsQuestion(item.title, being.name, preview.contents);
+      if (question && !window.confirm(question)) throw new Error('Nothing given.');
+      const [result] = await bulkAssignItemInstances(tenantId as string, [entry]);
+      if (result.status === 'error') throw new Error(problemText(result.problem));
+      forgetUndo();
+      return withContentsDone(being.name, result.contents);
+    }
+
+    function problemText(problem: ProblemOut | null | undefined): string {
+      return problem?.detail ?? problem?.title ?? 'Could not give that.';
+    }
+
+    // Give what's inside… (ADR 0125): everything inside, not the container, after asking
+    // with a dry run's answer. Anything not the caller's to give stays whose it is.
+    detailGiveContentsButton.addEventListener('click', () => {
+      const wasOpen = detailGiveContentsButton.textContent === 'Cancel';
+      closeDetailActionPanels();
+      if (wasOpen || !currentDetailItem) return;
+
+      detailGiveContentsButton.textContent = 'Cancel';
+      const item = currentDetailItem;
+      const panel = renderBeingActionPanel(
+        tenantId as string,
+        async (being) => {
+          const preview = await giveContents(tenantId as string, item.entity_id, being.entity_id, {
+            dryRun: true,
+          });
+          const question = contentsQuestion(item.title, being.name, preview);
+          if (!question) throw new Error(nothingToGive(item.title, being.name, preview));
+          if (!window.confirm(question)) throw new Error('Nothing given.');
+          const results = await giveContents(tenantId as string, item.entity_id, being.entity_id);
+          forgetUndo();
+          return contentsDone(item.title, being.name, results);
+        },
+        () => {
+          finishAction();
+        },
       );
       detailActionPanel.append(panel);
     });
@@ -971,7 +1067,7 @@ import Base from '../../layouts/Base.astro';
         return selected ? containerOf(selected) !== null : false;
       });
       const handOver = inContainers
-        ? handOverField('Hand them over', 'Otherwise they stay in their containers, theirs now.')
+        ? checkboxField('Hand them over', 'Otherwise they stay in their containers, theirs now.')
         : null;
       const panel = renderBeingActionPanel(
         tenantId as string,

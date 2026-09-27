@@ -55,6 +55,7 @@ export const HELP_GROUPS: readonly HelpGroup[] = [
     commandNames: [
       "give",
       "give-bulk",
+      "give-contents",
       "move",
       "move-bulk",
       "container-new",

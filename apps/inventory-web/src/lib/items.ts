@@ -1,7 +1,9 @@
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import type {
+  BulkAssignResult,
   BulkResultItem,
   CatalogItem,
+  ContentsResult,
   EntityDetail,
   HeldByResponse,
   ItemInstance,
@@ -324,20 +326,49 @@ export async function mergeItemInstance(
 // BulkResultItem per input entry regardless of outcome. quantity given
 // (per entry) delegates server-side to split-with-owner instead of
 // reassigning the whole stack - lets a single call give part of one
-// player's stack away while the rest stays put.
+// player's stack away while the rest stays put. withContents gives what's
+// inside too, and dryRun only answers what would happen (ADR 0125).
 export async function bulkAssignItemInstances(
   tenantId: string,
-  items: { entityId: string; ownerCharacterId: string; quantity?: number; moveToOwner?: boolean }[],
-): Promise<BulkResultItem[]> {
+  items: {
+    entityId: string;
+    ownerCharacterId: string;
+    quantity?: number;
+    moveToOwner?: boolean;
+    withContents?: boolean;
+  }[],
+  { dryRun = false }: { dryRun?: boolean } = {},
+): Promise<BulkAssignResult[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-assign', {
-      params: { path: { tenant_id: tenantId } },
+      params: { path: { tenant_id: tenantId }, ...(dryRun ? { query: { dry_run: true } } : {}) },
       body: items.map((item) => ({
         entity_id: item.entityId,
         owner_character_id: item.ownerCharacterId,
         move_to_owner: item.moveToOwner ?? false,
+        with_contents: item.withContents ?? false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
+    }),
+  );
+}
+
+// POST /item-instances/{id}/give-contents (ADR 0125) - everything inside a
+// container, at any depth, not the container itself: one answer per thing,
+// given or kept by its owner. dryRun only answers what would happen.
+export async function giveContents(
+  tenantId: string,
+  entityId: string,
+  ownerCharacterId: string,
+  { dryRun = false }: { dryRun?: boolean } = {},
+): Promise<ContentsResult[]> {
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/{entity_id}/give-contents', {
+      params: {
+        path: { tenant_id: tenantId, entity_id: entityId },
+        ...(dryRun ? { query: { dry_run: true } } : {}),
+      },
+      body: { owner_character_id: ownerCharacterId, recursive: true },
     }),
   );
 }

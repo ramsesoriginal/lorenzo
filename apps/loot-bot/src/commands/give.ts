@@ -1,12 +1,22 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
+  formatGivenWithContents,
+  formatWithContentsNote,
+  givenCount,
+} from "../format-give-contents.js";
+import {
   GIVE_CANCEL_CUSTOM_ID,
   type GiveIntent,
+  type GiveWithContentsIntent,
   buildGiveConfirmComponents,
   formatGivePrompt,
   parseGiveConfirmCustomId,
+  parseGiveWithContentsCustomId,
 } from "../format-give.js";
 import {
+  type BulkAssignItem,
+  type BulkAssignResultItem,
+  type ContentsResultItem,
   type ControlledCharacter,
   type LorenzoApiClient,
   LorenzoApiError,
@@ -31,6 +41,10 @@ import type { ButtonInteraction, Command, CommandContext } from "./types.js";
  * caller's inventory and waits for one click on "Give" (ADR 0088). The
  * transfer itself happens in `onButton`, re-validated against fresh state
  * exactly as the command used to do inline.
+ *
+ * A whole container with something inside that could go along also gets
+ * "Give with what's inside" (ADR 0125), worded from a dry run: how many
+ * things would go, and whose the rest stay.
  */
 export const giveCommand: Command = {
   definition: new SlashCommandBuilder()
@@ -116,14 +130,20 @@ export const giveCommand: Command = {
         targetCharacterId,
         quantity: requestedQuantity,
       };
+      const contents =
+        requestedQuantity === null && current.is_container === true
+          ? await contentsGivenAlong(client, tenantId, intent, accessToken)
+          : [];
+      const withContents = givenCount(contents) > 0;
+      const prompt = formatGivePrompt(
+        current.title ?? "(untitled)",
+        current.quantity,
+        requestedQuantity,
+        targetName,
+      );
       await interaction.editReply({
-        content: formatGivePrompt(
-          current.title ?? "(untitled)",
-          current.quantity,
-          requestedQuantity,
-          targetName,
-        ),
-        components: buildGiveConfirmComponents(intent),
+        content: withContents ? `${prompt}\n${formatWithContentsNote(contents)}` : prompt,
+        components: buildGiveConfirmComponents(intent, { withContents }),
       });
     } catch (error) {
       if (error instanceof LorenzoApiError) {
@@ -137,6 +157,13 @@ export const giveCommand: Command = {
   async onButton(interaction, ctx) {
     if (interaction.customId === GIVE_CANCEL_CUSTOM_ID) {
       await interaction.update({ content: "Cancelled — nothing was given.", components: [] });
+      return;
+    }
+
+    const withContents = parseGiveWithContentsCustomId(interaction.customId);
+    if (withContents) {
+      await interaction.update({ content: "Giving…", components: [] });
+      await confirmGiveWithContents(interaction, ctx, withContents);
       return;
     }
 
@@ -232,9 +259,113 @@ async function confirmGive(
   }
 }
 
+/** A whole container, to its target, with everything inside it (ADR 0125). */
+function withContentsEntry(intent: GiveWithContentsIntent): BulkAssignItem {
+  return {
+    entity_id: intent.itemEntityId,
+    owner_character_id: intent.targetCharacterId,
+    move_to_owner: false,
+    with_contents: true,
+  };
+}
+
+/** What giving with what's inside would take along, from a dry run (ADR
+ * 0125) - nothing when the dry run can't say, so the prompt just offers the
+ * plain give. */
+async function contentsGivenAlong(
+  client: LorenzoApiClient,
+  tenantId: string,
+  intent: GiveWithContentsIntent,
+  accessToken: string,
+): Promise<readonly ContentsResultItem[]> {
+  try {
+    const [preview] = await client.bulkAssignItemInstances(
+      tenantId,
+      [withContentsEntry(intent)],
+      accessToken,
+      { dryRun: true },
+    );
+    return preview?.status === "ok" ? preview.contents : [];
+  } catch (error) {
+    if (error instanceof LorenzoApiError) return [];
+    throw error;
+  }
+}
+
+async function confirmGiveWithContents(
+  interaction: ButtonInteraction,
+  ctx: CommandContext,
+  intent: GiveWithContentsIntent,
+): Promise<void> {
+  const accessToken = await getValidAccessToken(interaction.user.id);
+  if (!accessToken) {
+    await interaction.editReply("You haven't linked your account yet — run `/link` first.");
+    return;
+  }
+
+  const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
+  const tenantId = ctx.config.lorenzoTenantId;
+
+  try {
+    const { data: current, etag } = await client.getItemInstance(
+      tenantId,
+      intent.itemEntityId,
+      accessToken,
+    );
+    const [result] = await client.bulkAssignItemInstances(
+      tenantId,
+      [{ ...withContentsEntry(intent), ...(etag !== null ? { if_match: etag } : {}) }],
+      accessToken,
+    );
+    if (!result || result.status === "error") {
+      await interaction.editReply(describeGiveError(problemError(result)));
+      return;
+    }
+
+    // No Undo: it would only give the container back, not what went with it.
+    await rememberActingCharacter(
+      client,
+      tenantId,
+      accessToken,
+      interaction.user.id,
+      current.owner_entity_id,
+      ctx.logger,
+    );
+    const targetLookup = await targetNameOf(
+      client,
+      tenantId,
+      intent.targetCharacterId,
+      accessToken,
+    ).catch(() => null);
+    await interaction.editReply(
+      formatGivenWithContents(
+        current.title ?? "(untitled)",
+        targetLookup ?? "them",
+        result.contents,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof LorenzoApiError) {
+      await interaction.editReply(describeGiveError(error));
+      return;
+    }
+    throw error;
+  }
+}
+
+/** A failed bulk-assign entry's problem, as the error a single give would have thrown. */
+function problemError(result: BulkAssignResultItem | undefined): LorenzoApiError {
+  const problem = result?.problem;
+  return new LorenzoApiError(
+    problem?.detail ?? problem?.title ?? "Couldn't give that.",
+    problem?.status ?? 500,
+    problem?.type,
+  );
+}
+
 const NOT_A_STACK_MESSAGE = "That item isn't a stack — omit the quantity to give the whole thing.";
 
-async function findGiveTargets(
+export async function findGiveTargets(
   client: LorenzoApiClient,
   tenantId: string,
   accessToken: string,
@@ -276,7 +407,7 @@ async function findGiveTargets(
 }
 
 /** A give target's name: a character's, or else a group's (ADR 0124). */
-async function targetNameOf(
+export async function targetNameOf(
   client: LorenzoApiClient,
   tenantId: string,
   targetId: string,
@@ -290,7 +421,7 @@ async function targetNameOf(
   }
 }
 
-function describeGiveError(error: LorenzoApiError): string {
+export function describeGiveError(error: LorenzoApiError): string {
   switch (error.status) {
     case 403:
       // ADR 0124: carrying something isn't owning it.
