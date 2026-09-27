@@ -35,6 +35,7 @@ from lorenzo_api.models import (
     Character,
     ComputedStat,
     ComputedStatComparison,
+    ComputedStatContents,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -581,6 +582,11 @@ class _Planner:
                         "round_mode": formula.round_mode,
                     }
                 )
+            elif formula.kind == "contents":
+                assert formula.source is not None
+                self.rows["computed_stat_contents"].append(
+                    key | {"source_stat_definition_id": inputs[formula.source]}
+                )
             elif formula.kind == "sum":
                 assert formula.terms is not None
                 self.rows["computed_stat_sum"].append(
@@ -816,6 +822,7 @@ _TABLES: list[tuple[str, Any]] = [
     ("computed_stat_comparison", ComputedStatComparison),
     ("computed_stat_sum", ComputedStatSum),
     ("computed_stat_sum_term", ComputedStatSumTerm),
+    ("computed_stat_contents", ComputedStatContents),
     ("containment", Containment),
     ("ownership", Ownership),
     ("group_member", GroupMember),
@@ -852,9 +859,10 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
 
 async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> None:
     """The tenant's formula graph, whole, after a copy or update wrote
-    formulas: an edge from each formula's stat to each stat it reads
-    (ADR 0104). Merging definitions is the only way a copy can close a
-    loop."""
+    formulas: an edge from each formula's stat to each stat of the same
+    entity it reads (ADR 0104) - a contents formula reads a level down and
+    adds none (ADR 0127). Merging definitions is the only way a copy can
+    close a loop."""
     edges: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
     for target, source in await session.execute(
         select(
@@ -1023,6 +1031,11 @@ async def forget_copy(
                 ComputedStatSumTerm.entity_id == ComputedStat.entity_id,
                 ComputedStatSumTerm.stat_definition_id == ComputedStat.stat_definition_id,
                 ComputedStatSumTerm.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatContents.entity_id == ComputedStat.entity_id,
+                ComputedStatContents.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatContents.source_stat_definition_id.in_(all_definitions),
             ),
         )
         own_formulas = (ComputedStat.tenant_id == t) & ComputedStat.entity_id.not_in(entities)

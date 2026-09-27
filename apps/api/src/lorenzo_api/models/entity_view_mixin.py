@@ -58,12 +58,18 @@ class EntityViewMixin:
     def resolved_stat_values(self) -> dict[uuid.UUID, Value]:
         """Every effective stat's value, computed ones included (ADR 0104) -
         see stat_evaluation.evaluate. Also needs entity -> effective_stats
-        -> computed_stat -> its formula eager-loaded (formula_load_options)."""
+        -> computed_stat -> its formula eager-loaded (formula_load_options),
+        and stat_contents.attach_contents run for a contents formula to
+        have a value (ADR 0127)."""
         # Imported here: stat_evaluation imports lorenzo_api.models, which
         # imports this module.
         from lorenzo_api.stat_evaluation import evaluate
 
-        return evaluate(self.entity.effective_stats)
+        return evaluate(
+            self.entity.effective_stats,
+            entity_id=self.entity.id,
+            contents=self.entity.stat_contents,
+        )
 
     def resolved_value_by_name(self, name: str) -> Value | None:
         """The value of the effective stat called `name` - how the named

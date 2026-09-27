@@ -3883,7 +3883,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum";
+            kind: "linear" | "comparison" | "sum" | "contents";
         };
         /**
          * ComputedStatOut
@@ -3902,7 +3902,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"];
             /**
              * Updated At
              * Format: date-time
@@ -3916,7 +3916,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -3940,6 +3940,24 @@ export interface components {
             source: "computed" | "direct" | "unset";
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
+        };
+        /**
+         * ContentsFormulaBody
+         * @description `Σ stat × quantity` over what's directly inside - ADR 0127.
+         *     `contents_weight` is `contents(weight)`: each thing inside's own
+         *     weight, formulas included, times its stack count.
+         */
+        ContentsFormulaBody: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "contents";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
         };
         /**
          * ContentsResultItem
@@ -13221,7 +13239,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"];
             };
         };
         responses: {

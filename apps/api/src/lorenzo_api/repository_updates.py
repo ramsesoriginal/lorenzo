@@ -31,6 +31,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
+    ComputedStatContents,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -536,6 +537,12 @@ class _Applier:
                     multiplier=formula["multiplier"],
                     offset=formula["offset"],
                     round_mode=formula["round_mode"],
+                )
+            )
+        elif formula["kind"] == "contents":
+            await s.execute(
+                insert(ComputedStatContents).values(
+                    **keys, source_stat_definition_id=inputs["source"]
                 )
             )
         elif formula["kind"] == "sum":

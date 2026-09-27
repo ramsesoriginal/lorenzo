@@ -78,7 +78,7 @@ async def test_copying_a_repository(
         plan = (await gm.get(f"/tenants/{table}/repositories/{faerun}/copy-plan")).json()
         assert plan["collisions"] == []
         (step,) = plan["steps"]
-        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (5, 1, 5)
+        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (5, 1, 6)
         assert (step["granted"], step["published"], step["already_copied"]) == (True, True, False)
 
         copied = await gm.post(f"/tenants/{table}/repositories/{faerun}/copy")
@@ -99,6 +99,10 @@ async def test_copying_a_repository(
         sword = (await gm.get(f"/tenants/{table}/entities/{mine['Sword']}")).json()
         stats = {s["name"]: s["value"] for s in sword["stats"]}
         assert stats == {"Strength": 16, "Modifier": 3, "Strong": True, "Might": 23}
+        # The Chest's Load adds up the Strength of what's in it: the Blade,
+        # which inherits 16 from the Sword (ADR 0127).
+        chest = (await gm.get(f"/tenants/{table}/entities/{mine['Chest']}")).json()
+        assert {s["name"]: s["value"] for s in chest["stats"]} == {"Load": 16}
         blade = (await gm.get(f"/tenants/{table}/entities/{mine['Blade']}")).json()
         assert [p["id"] for p in blade["prototypes"]] == [str(mine["Sword"])]
         assert blade["parent"]["id"] == str(mine["Chest"])
@@ -253,6 +257,7 @@ async def test_collisions_need_a_choice(
                 "Strong",
                 "Alignment",
                 "Might",
+                "Load",
             }
             strength_values = (
                 await session.scalars(

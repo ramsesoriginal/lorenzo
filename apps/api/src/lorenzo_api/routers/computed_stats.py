@@ -34,6 +34,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
+    ComputedStatContents,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -53,8 +54,10 @@ from lorenzo_api.schemas.computed_stats import (
     FormulaBody,
     PreviewInputOut,
 )
+from lorenzo_api.stat_contents import load_contents
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
+    ContentsFormula,
     Formula,
     LinearFormula,
     SumFormula,
@@ -62,6 +65,7 @@ from lorenzo_api.stat_evaluation import (
     evaluate,
     formula_of,
     input_ids,
+    same_entity_input_ids,
 )
 
 router = APIRouter(
@@ -137,6 +141,19 @@ def _check_types(
         if target.value_type not in _NUMERIC:
             raise invalid("a linear formula produces a number, so the stat must be int or float")
         check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, ContentsFormula):
+        source = inputs[formula.source_stat_definition_id]
+        if source.value_type not in _NUMERIC:
+            raise invalid(f"a contents formula adds up numbers, and {source.name!r} isn't one")
+        if target.value_type not in _NUMERIC:
+            raise invalid("a contents formula produces a number, so the stat must be int or float")
+        if target.value_type is StatValueType.INT and source.value_type is not StatValueType.INT:
+            raise invalid(
+                f"an int stat can't add up {source.name!r}, a float: the total could be a "
+                "fraction, and a contents formula doesn't round"
+            )
         return
 
     if isinstance(formula, SumFormula):
@@ -236,9 +253,12 @@ async def _validate(
     formula: Formula,
 ) -> dict[uuid.UUID, StatDefinition]:
     """Every write-time check (ADR 0104), shared by PUT and preview.
-    Returns the input stat definitions by id."""
+    Returns the input stat definitions by id. A contents formula may read
+    its own stat - on the things inside, a level down (ADR 0127) - and adds
+    no edge to the cycle check."""
     ids = input_ids(formula)
-    if target.id in ids:
+    edges = same_entity_input_ids(formula)
+    if target.id in edges:
         raise InvalidComputedStatError(detail=f"Stat {target.name!r} can't read itself")
     rows = (
         await session.execute(
@@ -264,7 +284,7 @@ async def _validate(
             )
         )
     await _check_no_cycle(
-        session, tenant_id=tenant_id, entity_id=entity_id, target_id=target.id, new_inputs=ids
+        session, tenant_id=tenant_id, entity_id=entity_id, target_id=target.id, new_inputs=edges
     )
     return inputs
 
@@ -275,7 +295,7 @@ def _formula_from_body(body: AnyFormulaBody) -> Formula:
 
 def _concrete_row(
     formula: Formula, *, entity_id: uuid.UUID, stat_definition_id: uuid.UUID, tenant_id: uuid.UUID
-) -> ComputedStatLinear | ComputedStatComparison | ComputedStatSum:
+) -> ComputedStatLinear | ComputedStatComparison | ComputedStatSum | ComputedStatContents:
     key = {
         "entity_id": entity_id,
         "stat_definition_id": stat_definition_id,
@@ -288,6 +308,10 @@ def _concrete_row(
             multiplier=formula.multiplier,
             offset=formula.offset,
             round_mode=formula.round_mode.value,
+        )
+    if isinstance(formula, ContentsFormula):
+        return ComputedStatContents(
+            **key, source_stat_definition_id=formula.source_stat_definition_id
         )
     if isinstance(formula, SumFormula):
         return ComputedStatSum(
@@ -382,6 +406,7 @@ async def set_computed_stat(
         existing.linear = None
         existing.comparison = None
         existing.sum = None
+        existing.contents = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -469,15 +494,31 @@ async def preview_computed_stat(
         .all()
     )
 
+    candidate = (
+        _formula_from_body(body.formula) if body is not None and body.formula is not None else None
+    )
+    # What a contents formula reads, when one is involved (ADR 0127).
+    contents = (
+        await load_contents(session, tenant_id=tenant_id, root_ids=[entity_id])
+        if isinstance(candidate, ContentsFormula)
+        or any(s.computed_stat is not None and s.computed_stat.contents for s in stats)
+        else None
+    )
+
     formula: Formula | None
-    if body is not None and body.formula is not None:
-        formula = _formula_from_body(body.formula)
+    if candidate is not None:
+        formula = candidate
         await _validate(
             session, tenant_id=tenant_id, entity_id=entity_id, target=target, formula=formula
         )
-        values = evaluate(stats, overrides={target.id: (formula, target.value_type)})
+        values = evaluate(
+            stats,
+            overrides={target.id: (formula, target.value_type)},
+            entity_id=entity_id,
+            contents=contents,
+        )
     else:
-        values = evaluate(stats)
+        values = evaluate(stats, entity_id=entity_id, contents=contents)
         winner = next((s for s in stats if s.stat_definition_id == target.id), None)
         if winner is None:
             return ComputedStatPreviewOut(
@@ -492,8 +533,9 @@ async def preview_computed_stat(
             )
         formula = formula_of(winner.computed_stat) if winner.computed_stat else None
 
+    # A contents formula's inputs are spread over what's inside: none listed.
     inputs: list[PreviewInputOut] = []
-    if formula is not None:
+    if formula is not None and not isinstance(formula, ContentsFormula):
         ids = input_ids(formula)
         result = await session.execute(
             select(StatDefinition.id, StatDefinition.name).where(StatDefinition.id.in_(ids))
@@ -546,6 +588,14 @@ async def list_stat_dependents(
             )
         )
     ).tuples()
+    contained = (
+        await session.execute(
+            select(ComputedStatContents.entity_id, ComputedStatContents.stat_definition_id).where(
+                ComputedStatContents.source_stat_definition_id == stat_definition_id,
+                ComputedStatContents.tenant_id == tenant_id,
+            )
+        )
+    ).tuples()
     dependents = (
         [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="linear")
@@ -558,6 +608,10 @@ async def list_stat_dependents(
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="sum")
             for e, s in summed
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="contents")
+            for e, s in contained
         ]
     )
     return sorted(dependents, key=lambda d: (str(d.entity_id), str(d.stat_definition_id)))
