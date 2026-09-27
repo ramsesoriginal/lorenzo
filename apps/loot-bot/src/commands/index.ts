@@ -7,6 +7,7 @@ import { confiscateCommand } from "./confiscate.js";
 import { containerNewCommand } from "./container-new.js";
 import { dropCommand } from "./drop.js";
 import { giveBulkCommand } from "./give-bulk.js";
+import { giveContentsCommand } from "./give-contents.js";
 import { giveCommand } from "./give.js";
 import { helpCommand } from "./help.js";
 import { inspectCommand } from "./inspect.js";
@@ -56,6 +57,7 @@ const commands: readonly Command[] = [
   mergeCommand,
   renameCommand,
   giveBulkCommand,
+  giveContentsCommand,
   undoCommand,
   myGroupsCommand,
   moveBulkCommand,

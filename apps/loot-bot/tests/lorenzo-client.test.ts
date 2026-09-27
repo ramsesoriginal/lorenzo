@@ -998,12 +998,14 @@ describe("bulkAssignItemInstances", () => {
           owner_character_id: CHARACTER_ID,
           if_match: 'W/"a"',
           move_to_owner: false,
+          with_contents: false,
         },
         {
           entity_id: "item-2",
           owner_character_id: CHARACTER_ID,
           quantity: 2,
           move_to_owner: false,
+          with_contents: false,
         },
       ],
       "test-token",
@@ -1015,12 +1017,87 @@ describe("bulkAssignItemInstances", () => {
         owner_character_id: CHARACTER_ID,
         if_match: 'W/"a"',
         move_to_owner: false,
+        with_contents: false,
       },
-      { entity_id: "item-2", owner_character_id: CHARACTER_ID, quantity: 2, move_to_owner: false },
+      {
+        entity_id: "item-2",
+        owner_character_id: CHARACTER_ID,
+        quantity: 2,
+        move_to_owner: false,
+        with_contents: false,
+      },
     ]);
     expect(results).toHaveLength(2);
     expect(results[0]).toMatchObject({ status: "ok" });
     expect(results[1]).toMatchObject({ status: "error" });
+  });
+
+  it("asks for a dry run in the query (ADR 0125)", async () => {
+    let dryRun: string | null = null;
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/bulk-assign`, ({ request }) => {
+        dryRun = new URL(request.url).searchParams.get("dry_run");
+        return HttpResponse.json([]);
+      }),
+    );
+
+    await createLorenzoApiClient(BASE_URL).bulkAssignItemInstances(TENANT_ID, [], "test-token", {
+      dryRun: true,
+    });
+
+    expect(dryRun).toBe("true");
+  });
+});
+
+describe("giveContents", () => {
+  it("gives what's inside to the target, all the way down, and returns each thing's outcome", async () => {
+    let receivedBody: unknown;
+    let dryRun: string | null = "unset";
+    server.use(
+      http.post(
+        `${BASE_URL}/tenants/${TENANT_ID}/item-instances/container-1/give-contents`,
+        async ({ request }) => {
+          receivedBody = await request.json();
+          dryRun = new URL(request.url).searchParams.get("dry_run");
+          return HttpResponse.json([
+            { entity_id: "rope", title: "Rope", status: "ok" },
+            { entity_id: "potion", title: "Potion", status: "kept" },
+          ]);
+        },
+      ),
+    );
+
+    const results = await createLorenzoApiClient(BASE_URL).giveContents(
+      TENANT_ID,
+      "container-1",
+      CHARACTER_ID,
+      "test-token",
+    );
+
+    expect(receivedBody).toEqual({ owner_character_id: CHARACTER_ID, recursive: true });
+    expect(dryRun).toBeNull();
+    expect(results.map((r) => r.status)).toEqual(["ok", "kept"]);
+  });
+
+  it("throws a LorenzoApiError for a container out of reach", async () => {
+    server.use(
+      http.post(`${BASE_URL}/tenants/${TENANT_ID}/item-instances/container-1/give-contents`, () =>
+        HttpResponse.json(
+          { type: "item-instance-management-forbidden", title: "Forbidden", status: 403 },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    await expect(
+      createLorenzoApiClient(BASE_URL).giveContents(
+        TENANT_ID,
+        "container-1",
+        CHARACTER_ID,
+        "test-token",
+        { dryRun: true },
+      ),
+    ).rejects.toMatchObject({ status: 403 });
   });
 });
 
