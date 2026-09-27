@@ -1261,9 +1261,69 @@ The last example is appropriate for a rare mascot-led error state, not routine s
 
 ### 14.3 Terminology
 
-Prefer stable domain terms consistently. If Lorenzo distinguishes repositories, worlds, timelines, planes, entities, secrets, knowledge, campaigns, and visibility, each term should have a clear product definition.
+Prefer stable domain terms consistently. If Lorenzo distinguishes repositories,
+worlds, timelines, planes, entities, secrets, knowledge, campaigns, and visibility,
+each term should have a clear product definition.
 
 Do not swap terminology for flavor from screen to screen.
+
+#### Libraries and tenants
+
+**Library** is the user-facing name for Lorenzo's top-level organizational and
+access boundary.
+
+A library contains the campaigns, characters, repositories, and other material
+that a group of people works with in Lorenzo. A person may have access to one
+or more libraries.
+
+**Tenant** is the corresponding technical term used by Lorenzo's architecture,
+database, authorization model, and implementation.
+
+Use **library** in:
+
+- product interfaces
+- navigation
+- buttons and forms
+- onboarding
+- empty states
+- errors shown to users
+- notifications and bot messages intended for players or game masters
+- user-facing help and documentation
+
+Use **tenant** in:
+
+- source code
+- database schemas and migrations
+- API implementation
+- authorization and RLS terminology
+- infrastructure
+- architecture documentation
+- developer-facing diagnostics where the distinction matters
+
+When technical documentation crosses into product terminology, make the
+relationship explicit once:
+
+> A tenant, called a **library** in Lorenzo's user-facing interfaces, is the
+> top-level organizational and access boundary.
+
+Do not expose **tenant** as product copy merely because the underlying API,
+database field, or implementation uses that term.
+
+Examples:
+
+| Technical / internal | User-facing |
+| -------------------- | ----------- |
+| tenant               | library     |
+| tenants              | libraries   |
+| tenant membership    | library access / people |
+| tenant settings      | library settings |
+| select tenant        | choose a library |
+| tenant not found     | library not found |
+| no tenant membership | you don't have access to this library |
+
+`Library` does not mean `world`, `universe`, `campaign`, or `repository`.
+Those remain separate domain concepts. A library may contain or give access
+to several of them.
 
 ---
 

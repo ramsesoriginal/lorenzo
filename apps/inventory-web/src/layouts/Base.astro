@@ -75,15 +75,11 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
             class="brand-mark brand-mark--light"
             src="/brand/lorenzo_horizontal_lockup_light_bg.svg"
             alt="Lorenzo"
-            width="220"
-            height="40"
           />
           <img
             class="brand-mark brand-mark--dark"
             src="/brand/lorenzo_horizontal_lockup_dark_bg.svg"
             alt="Lorenzo"
-            width="220"
-            height="40"
           />
         </a>
         <nav class="row" aria-label="Subpages">
@@ -93,7 +89,12 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         </nav>
       </div>
       <div class="row">
-        <select id="tenant-switcher" aria-label="Tenant" hidden class="text-input"></select>
+        <select
+          id="tenant-switcher"
+          aria-label="Tenant"
+          hidden
+          class="text-input"
+          style="width: auto;"></select>
 
         <div class="account row">
           <p id="account-loading">Checking your session&hellip;</p>

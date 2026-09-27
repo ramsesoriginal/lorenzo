@@ -6,13 +6,6 @@
  * before a second consumer needs it" rule).
  */
 
-.tenant-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-
 .character-strip {
   display: flex;
   flex-wrap: wrap;

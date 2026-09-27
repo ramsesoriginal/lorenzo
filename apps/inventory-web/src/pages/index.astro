@@ -1,24 +1,26 @@
 ---
 import Base from '../layouts/Base.astro';
+import TenantCardTemplate from '../components/TenantCardTemplate.astro';
 ---
 
 <Base>
-  <h1 class="display">Keep track of worlds.</h1>
-  <p>What your characters carry, and the catalog it comes from.</p>
+  <h1 class="display">Inventory</h1>
+  <p>Choose a library to see your characters and their belongings.</p>
 
   <section id="tenants" class="section-lg" hidden>
-    <h2>Your tenants</h2>
-    <p id="tenants-loading">Loading tenants&hellip;</p>
-    <p id="tenants-empty" hidden>You don't belong to any tenant yet.</p>
+    <h2>Your libraries</h2>
+    <p id="tenants-loading">Loading libraries&hellip;</p>
+    <p id="tenants-empty" hidden>You don't have access to a library yet.</p>
     <p id="tenants-error" class="error-text" hidden></p>
-    <ul id="tenants-list" class="tenant-grid"></ul>
+    <ul id="tenants-list" class="list"></ul>
   </section>
+
+  <TenantCardTemplate />
 
   <script>
     import { isAuthConfigured, isAuthenticated } from '../lib/auth';
     import { rememberTenant } from '../lib/lastTenant';
-    import { listTenants } from '../lib/tenants';
-    import type { TenantSummary } from '../lib/types';
+    import { listTenants, renderTenantCard } from '../lib/tenants';
 
     // Signing in and out lives in the header (layouts/Base.astro) - this page
     // only lists a signed-in user's tenants.
@@ -27,24 +29,6 @@ import Base from '../layouts/Base.astro';
     const tenantsEmpty = document.getElementById('tenants-empty')!;
     const tenantsError = document.getElementById('tenants-error')!;
     const tenantsList = document.getElementById('tenants-list')!;
-
-    function renderTenantCard(tenant: TenantSummary): HTMLLIElement {
-      const item = document.createElement('li');
-      const link = document.createElement('a');
-      link.className = 'card tenant-card';
-      link.href = `/board/?tenant=${tenant.id}`;
-
-      const name = document.createElement('strong');
-      name.textContent = tenant.name;
-
-      const meta = document.createElement('span');
-      meta.className = 'tenant-card-meta';
-      meta.textContent = `${tenant.slug} · ${tenant.role}`;
-
-      link.append(name, meta);
-      item.append(link);
-      return item;
-    }
 
     async function loadTenants() {
       tenantsSection.hidden = false;
@@ -56,7 +40,13 @@ import Base from '../layouts/Base.astro';
           return;
         }
         // Only one place to go - remember it, so the header links there already.
-        if (page.items.length === 1) rememberTenant(page.items[0].id);
+        if (page.items.length === 1) {
+          const tenant = page.items[0];
+
+          rememberTenant(tenant.id);
+          window.location.href = `/board/?tenant=${tenant.id}`;
+          return;
+        }
         for (const tenant of page.items) {
           tenantsList.append(renderTenantCard(tenant));
         }

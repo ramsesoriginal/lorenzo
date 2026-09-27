@@ -23,30 +23,8 @@
   color: var(--text-secondary);
 }
 
-.tenant-slug,
-.item-detail-slug {
-  font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
 /* Layout only - border/radius/background/link-color reset come from
    @lorenzo/brand's .card/a.card (markup adds class="card tenant-card"). */
-.tenant-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-}
-
-.tenant-card:hover {
-  border-color: var(--action);
-}
-
-.tenant-card-meta {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
 
 .character-pill {
   font-family: var(--font-ui);
