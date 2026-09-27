@@ -3,7 +3,7 @@
 // with notes on links readers won't be able to follow. Either embedded in a
 // larger form (Manage items' create form and edit panel) or standing alone.
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
-import { ApiError } from './api';
+import { LorenzoApiError } from './api';
 import type { Renderer } from './descriptions';
 import type { InformationDraft } from './information';
 
@@ -106,7 +106,7 @@ export function infoFields(options: FieldsOptions): InfoFields {
 
 /** What went wrong with a save, as the author should read it. */
 export function saveError(e: unknown): string {
-  if (e instanceof ApiError && e.status === 412) return STALE;
+  if (e instanceof LorenzoApiError && e.status === 412) return STALE;
   return e instanceof Error ? e.message : String(e);
 }
 

@@ -124,6 +124,8 @@ Repositories exist ([RFC 0024](../rfcs/0024-repositories.md), accepted with an a
 
 API only: screens for repositories in the web apps are separate, later work. Authoring a repository's content uses the same routes and screens as any tenant.
 
+loot-bot and inventory-web share one typed API client ([ADR 0122](../adr/0122-api-client-package.md)). `packages/api-client` holds the schema generated from `apps/api`'s OpenAPI document, the client factory, and one error type, so both apps dropped their own copies of the schema and one CI check catches a stale one for both. It carries no rules: whether something is allowed stays the API's answer.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

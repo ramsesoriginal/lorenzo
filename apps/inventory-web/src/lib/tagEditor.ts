@@ -1,6 +1,13 @@
 // Three-state tag editing on the item page (ADR 0103, 0112): each bool stat
 // in the tenant's `tags` group is inherited, on, or explicitly off.
-import { ApiError, client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
+import {
+  client,
+  type components,
+  fetchAllPages,
+  LorenzoApiError,
+  MAX_PAGE_SIZE,
+  unwrap,
+} from './api';
 import { getEntityDetail } from './items';
 import { statLabel } from './itemView';
 import type { EntityDetail } from './types';
@@ -89,7 +96,7 @@ export async function renderTagEditor(
     ]);
   } catch (e) {
     // Listing definitions needs tenant membership, unlike writing a tag (ADR 0112).
-    const member = !(e instanceof ApiError && (e.status === 403 || e.status === 404));
+    const member = !(e instanceof LorenzoApiError && (e.status === 403 || e.status === 404));
     const reason = e instanceof Error ? e.message : String(e);
     container.replaceChildren(
       make(

@@ -1,7 +1,7 @@
 // Slugs in inventory-web (ADR 0107, 0113): suggesting one for an item or an
 // instance, checking it, saving it, and finding what holds one.
 import { slugify } from '@lorenzo/lorenzoscript';
-import { ApiError, client, type components, unwrap } from './api';
+import { client, type components, LorenzoApiError, unwrap } from './api';
 import { getEntityDetail } from './items';
 
 export type ResolvedSlug = components['schemas']['ResolvedSlugOut'];
@@ -78,7 +78,7 @@ export async function saveSlug(
   try {
     await unwrap(await client.PUT(path, { params, body: { slug: wanted } }));
   } catch (e) {
-    if (e instanceof ApiError && e.status === 409) {
+    if (e instanceof LorenzoApiError && e.status === 409) {
       throw new Error(`Another entity already uses “${wanted}”.`);
     }
     throw e;

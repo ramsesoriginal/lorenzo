@@ -155,7 +155,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
    - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
-6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/**` (double star, not single — see `apps/account-hub`'s own note above) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
+6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/**` plus every workspace package it builds in: `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, and `packages/lorenzoscript-editor/**` (double star, not single — see `apps/account-hub`'s own note above). Pushes touching unrelated apps in this monorepo don't trigger a rebuild; a change to one of those packages does, since the site bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
 
 ### `apps/inventory-web`'s own Authgear application
 

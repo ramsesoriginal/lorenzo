@@ -21,6 +21,10 @@
       "release-type": "simple",
       "component": "brand"
     },
+    "packages/api-client": {
+      "release-type": "node",
+      "component": "api-client"
+    },
     "packages/brand": {
       "release-type": "node",
       "component": "brand-package"

@@ -5,9 +5,6 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
-  "files": {
-    "includes": ["**", "!dist", "!.astro", "!**/*.astro"]
-  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -26,12 +23,7 @@
       "semicolons": "always"
     }
   },
-  "css": {
-    "formatter": {
-      "enabled": true
-    },
-    "linter": {
-      "enabled": true
-    }
+  "files": {
+    "includes": ["**", "!src/schema.d.ts"]
   }
 }
