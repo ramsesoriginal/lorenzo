@@ -24,6 +24,7 @@ Nothing moves. Contents stay where they are, only their owner changes, unless th
 `with_contents` with a `quantity` is refused (`422`): splitting off part of a stack gives nothing inside it.
 
 Each result gains `contents`, one entry per thing inside that was considered:
+
 - `entity_id` and `title`;
 - `status`, either `ok` or `kept`;
 - `owner`: who owns it afterwards, as a summary, so a client can say whose a kept thing stays;
