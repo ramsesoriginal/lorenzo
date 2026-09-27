@@ -43,14 +43,17 @@ export function formatInventoryEmbed(
   const owners = new Map(response.owners.map((owner) => [owner.id, owner.name]));
   const lineOf = (item: HeldItem) => formatItemLine(item, holderId, owners);
 
+  // A being's own group is what it has equipped; a group's (ADR 0124) is what it owns
+  // in no container.
+  const isBeing = own === undefined || own.container_kind === "being";
   const equipped = own?.item_instances ?? [];
   const fields = [
     {
-      name: "Equipped",
+      name: isBeing ? "Equipped" : "Not in a container",
       value:
         equipped.length > 0
           ? formatItemList(equipped, lineOf)
-          : (options.emptyEquipped ?? "Nothing equipped."),
+          : (options.emptyEquipped ?? (isBeing ? "Nothing equipped." : "Nothing here.")),
     },
     ...rest
       .filter((group) => group.item_instances.length > 0)

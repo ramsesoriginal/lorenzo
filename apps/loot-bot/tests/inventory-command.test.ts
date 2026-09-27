@@ -6,13 +6,17 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
-const { getControlledCharacters, getItemInstancesHeldBy, createLorenzoApiClient } = vi.hoisted(
-  () => ({
-    getControlledCharacters: vi.fn(),
-    getItemInstancesHeldBy: vi.fn(),
-    createLorenzoApiClient: vi.fn(),
-  }),
-);
+const {
+  getControlledCharacters,
+  getItemInstancesHeldBy,
+  getCharacterGroups,
+  createLorenzoApiClient,
+} = vi.hoisted(() => ({
+  getControlledCharacters: vi.fn(),
+  getItemInstancesHeldBy: vi.fn(),
+  getCharacterGroups: vi.fn(),
+  createLorenzoApiClient: vi.fn(),
+}));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/lorenzo-client.js")>();
   return {
@@ -20,6 +24,7 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
     createLorenzoApiClient: createLorenzoApiClient.mockReturnValue({
       getControlledCharacters,
       getItemInstancesHeldBy,
+      getCharacterGroups,
     }),
   };
 });
@@ -47,6 +52,42 @@ function fakeInteraction(userId = "discord-user-1") {
 describe("inventoryCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getCharacterGroups.mockResolvedValue([]);
+  });
+
+  it("adds an embed for each group the characters belong to, once each (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getControlledCharacters.mockResolvedValue([
+      { entityId: "char-1", name: "Frodo" },
+      { entityId: "char-2", name: "Sam" },
+    ]);
+    getCharacterGroups.mockResolvedValue([{ entityId: "group-1", name: "The Fellowship" }]);
+    getItemInstancesHeldBy.mockImplementation(async (_tenantId: string, holderId: string) => ({
+      groups: [
+        {
+          container: { id: holderId, name: holderId },
+          container_kind: holderId === "group-1" ? "other" : "being",
+          path: [],
+          carried: true,
+          item_instances: [],
+        },
+      ],
+      owners: [],
+    }));
+
+    const interaction = fakeInteraction();
+    await inventoryCommand.execute(interaction, { config, logger: {} as never });
+
+    const call = interaction.editReply.mock.calls[0]?.[0];
+    expect(call.embeds.map((e: { data: { title: string } }) => e.data.title)).toEqual([
+      "Frodo",
+      "Sam",
+      "The Fellowship",
+    ]);
+    expect(call.embeds[2].data.fields?.[0]).toEqual({
+      name: "Not in a container",
+      value: "Nothing here.",
+    });
   });
 
   it("prompts to /link when there's no valid access token", async () => {
