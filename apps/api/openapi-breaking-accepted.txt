@@ -15,3 +15,8 @@ POST /tenants/{tenant_id}/item-instances added the pattern `^[A-Za-z0-9][A-Za-z0
 
 # ADR 0119: a copied repository stays listed after its grant is gone, with no grant date.
 GET /tenants/{tenant_id}/repositories response property `items/items/granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+
+# ADR 0126: computed stats gain a third formula kind, `sum`, which formula responses can now carry.
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/SumFormulaBody-Output` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/SumFormulaBody-Output` to the `formula` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `sum` enum value to the `items/kind` response property for the response status `200`

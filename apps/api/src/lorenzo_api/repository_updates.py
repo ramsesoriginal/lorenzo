@@ -32,6 +32,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatLinear,
+    ComputedStatSum,
+    ComputedStatSumTerm,
     Entity,
     EntityPrototype,
     EntitySlug,
@@ -497,11 +499,15 @@ class _Applier:
         # formulas
         formula = change.upstream
         inputs: dict[str, uuid.UUID | None] = {}
+        # A sum's terms, in order: each term's local stat and coefficient (ADR 0126).
+        terms: list[tuple[uuid.UUID | None, str]] = []
         if formula is not None:
             for role in ("source", "left", "right"):
                 if formula.get(role):
                     inputs[role] = self.resolve("stat_definition", formula[role])
-            if None in inputs.values():
+            for term in formula.get("terms") or []:
+                terms.append((self.resolve("stat_definition", term["source"]), term["coefficient"]))
+            if None in inputs.values() or any(source is None for source, _ in terms):
                 self.skip(row, name, "a stat its formula uses wasn't copied here")
                 return False
         await s.execute(
@@ -531,6 +537,24 @@ class _Applier:
                     offset=formula["offset"],
                     round_mode=formula["round_mode"],
                 )
+            )
+        elif formula["kind"] == "sum":
+            await s.execute(
+                insert(ComputedStatSum).values(
+                    **keys, offset=formula["offset"], round_mode=formula["round_mode"]
+                )
+            )
+            await s.execute(
+                insert(ComputedStatSumTerm),
+                [
+                    {
+                        **keys,
+                        "source_stat_definition_id": source,
+                        "coefficient": coefficient,
+                        "position": position,
+                    }
+                    for position, (source, coefficient) in enumerate(terms)
+                ],
             )
         else:
             await s.execute(

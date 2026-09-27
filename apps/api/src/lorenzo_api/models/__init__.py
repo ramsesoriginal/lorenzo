@@ -11,7 +11,10 @@ from lorenzo_api.models.computed_stat import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatLinear,
+    ComputedStatSum,
+    ComputedStatSumTerm,
     RoundMode,
+    formula_load_options,
 )
 from lorenzo_api.models.containment import Containment
 from lorenzo_api.models.content_reference import ContentReference
@@ -70,6 +73,9 @@ __all__ = [
     "ComputedStat",
     "ComputedStatComparison",
     "ComputedStatLinear",
+    "ComputedStatSum",
+    "ComputedStatSumTerm",
+    "formula_load_options",
     "Containment",
     "ContentReference",
     "RoundMode",

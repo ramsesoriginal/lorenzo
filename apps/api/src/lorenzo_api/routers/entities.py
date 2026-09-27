@@ -42,7 +42,6 @@ from lorenzo_api.information_visibility import (
 from lorenzo_api.models import (
     Being,
     Character,
-    ComputedStat,
     Containment,
     ContentReference,
     Entity,
@@ -54,6 +53,7 @@ from lorenzo_api.models import (
     Ownership,
     Payload,
     VEffectiveStat,
+    formula_load_options,
 )
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import (
@@ -124,12 +124,9 @@ async def get_entity_detail_or_404(
             selectinload(Entity.stats),
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).
-            selectinload(Entity.effective_stats)
-            .selectinload(VEffectiveStat.computed_stat)
-            .selectinload(ComputedStat.linear),
-            selectinload(Entity.effective_stats)
-            .selectinload(VEffectiveStat.computed_stat)
-            .selectinload(ComputedStat.comparison),
+            *formula_load_options(
+                selectinload(Entity.effective_stats).selectinload(VEffectiveStat.computed_stat)
+            ),
             selectinload(Entity.stat_groups),
             selectinload(Entity.information)
             .selectinload(Information.payloads)

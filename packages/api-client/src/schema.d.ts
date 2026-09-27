@@ -3883,7 +3883,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison";
+            kind: "linear" | "comparison" | "sum";
         };
         /**
          * ComputedStatOut
@@ -3902,7 +3902,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"];
             /**
              * Updated At
              * Format: date-time
@@ -3916,7 +3916,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -6356,6 +6356,76 @@ export interface components {
             /** Synced At */
             synced_at: string | null;
             contributed: components["schemas"]["ContributionCountsOut"] | null;
+        };
+        /**
+         * SumFormulaBody
+         * @description `round(Σ coefficient × stat + offset)` over stats of the same entity -
+         *     ADR 0126. `armour_class = 10 + dex_modifier + worn_ac_bonus` is two
+         *     terms with coefficient 1 and offset 10. Each stat at most once.
+         */
+        "SumFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sum";
+            /** Terms */
+            terms: components["schemas"]["SumTermBody-Input"][];
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * SumFormulaBody
+         * @description `round(Σ coefficient × stat + offset)` over stats of the same entity -
+         *     ADR 0126. `armour_class = 10 + dex_modifier + worn_ac_bonus` is two
+         *     terms with coefficient 1 and offset 10. Each stat at most once.
+         */
+        "SumFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sum";
+            /** Terms */
+            terms: components["schemas"]["SumTermBody-Output"][];
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /** SumTermBody */
+        "SumTermBody-Input": {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Coefficient
+             * @default 1
+             */
+            coefficient: number | string;
+        };
+        /** SumTermBody */
+        "SumTermBody-Output": {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Coefficient
+             * @default 1
+             */
+            coefficient: string;
         };
         /**
          * SuspendUserRequest
@@ -13151,7 +13221,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"];
             };
         };
         responses: {

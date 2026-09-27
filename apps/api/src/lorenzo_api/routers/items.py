@@ -34,7 +34,6 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
-    ComputedStat,
     Entity,
     EntityPrototype,
     Information,
@@ -45,6 +44,7 @@ from lorenzo_api.models import (
     StatDefinition,
     VEffectiveStat,
     VItem,
+    formula_load_options,
 )
 from lorenzo_api.schemas.items import (
     BulkAddPrototypeRequest,
@@ -121,14 +121,11 @@ def eager_load_options(
         .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
         # A winning formula's parameters, for stat_evaluation (ADR 0104).
-        selectinload(view_entity_attr)
-        .selectinload(Entity.effective_stats)
-        .selectinload(VEffectiveStat.computed_stat)
-        .selectinload(ComputedStat.linear),
-        selectinload(view_entity_attr)
-        .selectinload(Entity.effective_stats)
-        .selectinload(VEffectiveStat.computed_stat)
-        .selectinload(ComputedStat.comparison),
+        *formula_load_options(
+            selectinload(view_entity_attr)
+            .selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.computed_stat)
+        ),
         selectinload(view_entity_attr).selectinload(Entity.contained_links),
         selectinload(view_entity_attr).selectinload(Entity.prototype_links),
     )

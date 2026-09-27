@@ -12,6 +12,9 @@ from lorenzo_api.models import Comparator, RoundMode, StatValueType
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     LinearFormula,
+    SumFormula,
+    SumTerm,
+    always_whole,
     apply_linear,
     evaluate,
 )
@@ -58,7 +61,7 @@ def _linear_row(
         stat_definition_id=def_id,
         stat_definition=SimpleNamespace(value_type=value_type),
         computed_entity_id=uuid.uuid4(),
-        computed_stat=SimpleNamespace(linear=linear, comparison=None),
+        computed_stat=SimpleNamespace(linear=linear, comparison=None, sum=None),
     )
 
 
@@ -76,7 +79,30 @@ def _comparison_row(
         stat_definition_id=def_id,
         stat_definition=SimpleNamespace(value_type=value_type),
         computed_entity_id=uuid.uuid4(),
-        computed_stat=SimpleNamespace(linear=None, comparison=comparison),
+        computed_stat=SimpleNamespace(linear=None, comparison=comparison, sum=None),
+    )
+
+
+def _sum_row(
+    def_id: uuid.UUID,
+    value_type: StatValueType,
+    terms: list[tuple[uuid.UUID, str]],
+    offset: str = "0",
+    round_mode: RoundMode = RoundMode.NONE,
+) -> SimpleNamespace:
+    summed = SimpleNamespace(
+        terms=[
+            SimpleNamespace(source_stat_definition_id=source, coefficient=Decimal(coefficient))
+            for source, coefficient in terms
+        ],
+        offset=Decimal(offset),
+        round_mode=round_mode.value,
+    )
+    return SimpleNamespace(
+        stat_definition_id=def_id,
+        stat_definition=SimpleNamespace(value_type=value_type),
+        computed_entity_id=uuid.uuid4(),
+        computed_stat=SimpleNamespace(linear=None, comparison=None, sum=summed),
     )
 
 
@@ -199,3 +225,80 @@ def test_overrides_replace_or_add_a_formula_for_one_call() -> None:
     assert replaced[MODIFIER] == -1
     assert evaluate(stats)[MODIFIER] == 0  # nothing saved
     assert added[SAVE] is False
+
+
+# --- sum (ADR 0126) ----------------------------------------------------------
+
+
+def test_a_sum_adds_its_terms_and_offset() -> None:
+    """armour_class = 10 + dex_modifier + worn_ac_bonus; current_hp =
+    max_hp - damage, reading another formula's result."""
+    dex, worn, ac, max_hp, damage, hp = (uuid.uuid4() for _ in range(6))
+    stats = [
+        _sum_row(ac, StatValueType.INT, [(dex, "1"), (worn, "1")], offset="10"),
+        _sum_row(hp, StatValueType.INT, [(max_hp, "1"), (damage, "-1")]),
+        _linear_row(max_hp, StatValueType.INT, STRENGTH, "2", "0", RoundMode.NONE),
+        _stored(STRENGTH, StatValueType.INT, 15),
+        _stored(dex, StatValueType.INT, 2),
+        _stored(worn, StatValueType.INT, 3),
+        _stored(damage, StatValueType.INT, 7),
+    ]
+    values = evaluate(stats)
+    assert (values[ac], values[hp]) == (15, 23)
+
+
+def test_a_sum_rounds_and_keeps_fractions_for_a_float() -> None:
+    level, attack, reach = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    stats = [
+        _stored(level, StatValueType.INT, 5),
+        _stored(STRENGTH, StatValueType.INT, 2),
+        _sum_row(
+            attack, StatValueType.INT, [(STRENGTH, "1"), (level, "0.5")], "0", RoundMode.FLOOR
+        ),
+        _sum_row(reach, StatValueType.FLOAT, [(level, "0.5")], "1"),
+    ]
+    values = evaluate(stats)
+    assert (values[attack], values[reach]) == (4, 3.5)
+
+
+def test_a_sum_with_an_unset_term_has_no_value() -> None:
+    total, missing = uuid.uuid4(), uuid.uuid4()
+    stats = [
+        _stored(STRENGTH, StatValueType.INT, 10),
+        _sum_row(total, StatValueType.INT, [(STRENGTH, "1"), (missing, "1")]),
+    ]
+    assert total not in evaluate(stats)
+
+
+def test_a_cycle_through_a_sum_resolves_to_nothing() -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    stats = [
+        _stored(STRENGTH, StatValueType.INT, 10),
+        _sum_row(a, StatValueType.INT, [(STRENGTH, "1"), (b, "1")]),
+        _linear_row(b, StatValueType.INT, a, "1", "0", RoundMode.FLOOR),
+    ]
+    assert evaluate(stats) == {STRENGTH: 10}
+
+
+def test_a_sum_override_evaluates_for_one_call() -> None:
+    total = uuid.uuid4()
+    stats = [_stored(STRENGTH, StatValueType.INT, 10)]
+    formula = SumFormula((SumTerm(STRENGTH, Decimal(3)),), Decimal(1), RoundMode.NONE)
+    assert evaluate(stats, overrides={total: (formula, StatValueType.INT)})[total] == 31
+
+
+@pytest.mark.parametrize(
+    ("coefficients", "offset", "types", "whole"),
+    [
+        (["1", "1"], "10", [StatValueType.INT, StatValueType.INT], True),
+        (["15"], "0", [StatValueType.INT], True),
+        (["2.0"], "-1", [StatValueType.INT], True),
+        (["0.5"], "0", [StatValueType.INT], False),
+        (["1"], "0.5", [StatValueType.INT], False),
+        (["1"], "0", [StatValueType.FLOAT], False),
+    ],
+)
+def test_always_whole(
+    coefficients: list[str], offset: str, types: list[StatValueType], whole: bool
+) -> None:
+    assert always_whole([Decimal(c) for c in coefficients], Decimal(offset), types) is whole

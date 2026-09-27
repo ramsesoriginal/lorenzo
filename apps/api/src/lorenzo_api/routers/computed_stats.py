@@ -8,6 +8,7 @@ per-character edit.
 from __future__ import annotations
 
 import uuid
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Header, Response
@@ -34,26 +35,30 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatLinear,
+    ComputedStatSum,
+    ComputedStatSumTerm,
     EntityStat,
     RoundMode,
     StatDefinition,
     StatValueType,
     VEffectiveStat,
+    formula_load_options,
 )
 from lorenzo_api.schemas.computed_stats import (
-    ComparisonFormulaBody,
+    AnyFormulaBody,
     ComputedStatDependentOut,
     ComputedStatOut,
     ComputedStatPreviewIn,
     ComputedStatPreviewOut,
     FormulaBody,
-    LinearFormulaBody,
     PreviewInputOut,
 )
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     Formula,
     LinearFormula,
+    SumFormula,
+    always_whole,
     evaluate,
     formula_of,
     input_ids,
@@ -93,7 +98,7 @@ async def _get_own_formula(
             ComputedStat.entity_id == entity_id,
             ComputedStat.stat_definition_id == stat_definition_id,
         )
-        .options(selectinload(ComputedStat.linear), selectinload(ComputedStat.comparison))
+        .options(*formula_load_options())
         # updated_at is set by the database on write; a re-read in the same
         # session must replace the identity-map copy.
         .execution_options(populate_existing=True)
@@ -109,14 +114,47 @@ def _check_types(
     def invalid(detail: str) -> InvalidComputedStatError:
         return InvalidComputedStatError(detail=f"Stat {target.name!r}: {detail}")
 
+    def check_rounding(
+        round_mode: RoundMode,
+        coefficients: list[Decimal],
+        offset: Decimal,
+        sources: list[uuid.UUID],
+    ) -> None:
+        """An int stat can't take a fraction, so it needs a rounding mode -
+        unless the result is always whole (ADR 0126)."""
+        if target.value_type is not StatValueType.INT or round_mode is not RoundMode.NONE:
+            return
+        if not always_whole(coefficients, offset, [inputs[i].value_type for i in sources]):
+            raise invalid(
+                "an int stat needs a rounding mode other than 'none', unless every stat it "
+                "reads is an int and every multiplier, coefficient, and offset is whole"
+            )
+
     if isinstance(formula, LinearFormula):
         source = inputs[formula.source_stat_definition_id]
         if source.value_type not in _NUMERIC:
             raise invalid(f"a linear formula reads a number, and {source.name!r} isn't one")
         if target.value_type not in _NUMERIC:
             raise invalid("a linear formula produces a number, so the stat must be int or float")
-        if target.value_type is StatValueType.INT and formula.round_mode is RoundMode.NONE:
-            raise invalid("an int stat needs a rounding mode other than 'none'")
+        check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, SumFormula):
+        ids = input_ids(formula)
+        for term_id in ids:
+            source = inputs[term_id]
+            if ids.count(term_id) > 1:
+                raise invalid(
+                    f"a sum reads {source.name!r} more than once; give it one term with a "
+                    "coefficient instead"
+                )
+            if source.value_type not in _NUMERIC:
+                raise invalid(f"a sum reads numbers, and {source.name!r} isn't one")
+        if target.value_type not in _NUMERIC:
+            raise invalid("a sum produces a number, so the stat must be int or float")
+        check_rounding(
+            formula.round_mode, [term.coefficient for term in formula.terms], formula.offset, ids
+        )
         return
 
     if (formula.right_stat_definition_id is None) == (formula.right_constant is None):
@@ -160,7 +198,7 @@ async def _check_no_cycle(
     stmt = (
         select(ComputedStat)
         .where(ComputedStat.tenant_id == tenant_id)
-        .options(selectinload(ComputedStat.linear), selectinload(ComputedStat.comparison))
+        .options(*formula_load_options())
     )
     edges: dict[uuid.UUID, set[uuid.UUID]] = {}
     for row in (await session.execute(stmt)).scalars():
@@ -231,13 +269,13 @@ async def _validate(
     return inputs
 
 
-def _formula_from_body(body: LinearFormulaBody | ComparisonFormulaBody) -> Formula:
+def _formula_from_body(body: AnyFormulaBody) -> Formula:
     return body.to_formula()
 
 
 def _concrete_row(
     formula: Formula, *, entity_id: uuid.UUID, stat_definition_id: uuid.UUID, tenant_id: uuid.UUID
-) -> ComputedStatLinear | ComputedStatComparison:
+) -> ComputedStatLinear | ComputedStatComparison | ComputedStatSum:
     key = {
         "entity_id": entity_id,
         "stat_definition_id": stat_definition_id,
@@ -250,6 +288,21 @@ def _concrete_row(
             multiplier=formula.multiplier,
             offset=formula.offset,
             round_mode=formula.round_mode.value,
+        )
+    if isinstance(formula, SumFormula):
+        return ComputedStatSum(
+            **key,
+            offset=formula.offset,
+            round_mode=formula.round_mode.value,
+            terms=[
+                ComputedStatSumTerm(
+                    **key,
+                    source_stat_definition_id=term.source_stat_definition_id,
+                    coefficient=term.coefficient,
+                    position=position,
+                )
+                for position, term in enumerate(formula.terms)
+            ],
         )
     assert isinstance(formula, ComparisonFormula)
     return ComputedStatComparison(
@@ -279,7 +332,7 @@ async def list_entity_computed_stats(
     stmt = (
         select(ComputedStat)
         .where(ComputedStat.entity_id == entity_id, ComputedStat.tenant_id == tenant_id)
-        .options(selectinload(ComputedStat.linear), selectinload(ComputedStat.comparison))
+        .options(*formula_load_options())
         .order_by(ComputedStat.stat_definition_id)
     )
     rows = (await session.execute(stmt)).scalars().all()
@@ -328,6 +381,7 @@ async def set_computed_stat(
         # Remove the old concrete row first: the new one reuses its key.
         existing.linear = None
         existing.comparison = None
+        existing.sum = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -407,10 +461,7 @@ async def preview_computed_stat(
                 .where(VEffectiveStat.entity_id == entity_id)
                 .options(
                     selectinload(VEffectiveStat.stat_definition),
-                    selectinload(VEffectiveStat.computed_stat).selectinload(ComputedStat.linear),
-                    selectinload(VEffectiveStat.computed_stat).selectinload(
-                        ComputedStat.comparison
-                    ),
+                    *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
                 )
             )
         )
@@ -487,11 +538,26 @@ async def list_stat_dependents(
             )
         )
     ).tuples()
-    dependents = [
-        ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="linear")
-        for e, s in linear
-    ] + [
-        ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="comparison")
-        for e, s in comparison
-    ]
+    summed = (
+        await session.execute(
+            select(ComputedStatSumTerm.entity_id, ComputedStatSumTerm.stat_definition_id).where(
+                ComputedStatSumTerm.source_stat_definition_id == stat_definition_id,
+                ComputedStatSumTerm.tenant_id == tenant_id,
+            )
+        )
+    ).tuples()
+    dependents = (
+        [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="linear")
+            for e, s in linear
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="comparison")
+            for e, s in comparison
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="sum")
+            for e, s in summed
+        ]
+    )
     return sorted(dependents, key=lambda d: (str(d.entity_id), str(d.stat_definition_id)))
