@@ -44,6 +44,11 @@ test('gives something to a group', async ({ world, as }) => {
 
   await expect(page.getByText('Given to The Company.')).toBeVisible();
   await expect.poll(() => world.ownedBy(company)).toEqual(['Backpack: Ornate Spellbook']);
+
+  // Her own group: she may give it back, so she keeps her Undo.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(() => world.ownedBy(company)).toEqual([]);
+  await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeVisible();
 });
 
 test("carrying someone else's thing lets you move it, not give it away", async ({ world, as }) => {

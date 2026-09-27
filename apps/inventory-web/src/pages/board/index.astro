@@ -333,6 +333,9 @@ import Base from '../../layouts/Base.astro';
     let userIsGm = false;
     // The viewer's own characters, once loaded: who reads their private notes (ADR 0113).
     let myCharacters: CharacterSummary[] = [];
+    // Their characters and those characters' groups: what they may give things back from
+    // (ADR 0124).
+    const myHolderIds = new Set<string>();
 
     // How to refresh whatever board is currently shown - set by loadBoard/
     // loadUnownedBoard, called after any action that might change what
@@ -387,10 +390,12 @@ import Base from '../../layouts/Base.astro';
       });
     }
 
-    // After a give that handed something over (ADR 0115): a player no longer holds it at all,
-    // so has no standing to take it back, and gets no Undo that would fail. A GM keeps theirs.
-    function recordGiveUndo(handedOver: boolean, payload: UndoPayload, description: string) {
-      if (!handedOver || userIsGm) {
+    // After a give, taking it back is a give too (ADR 0124): only whoever controls the new
+    // owner may. So a player keeps an Undo only for a give to one of their own characters or
+    // groups, and gets none that would fail otherwise - handed over (ADR 0115) or not. A GM
+    // keeps theirs.
+    function recordGiveUndo(recipientId: string, payload: UndoPayload, description: string) {
+      if (userIsGm || myHolderIds.has(recipientId)) {
         recordUndo(payload, description);
         return;
       }
@@ -639,7 +644,7 @@ import Base from '../../layouts/Base.astro';
             // has nothing to restore it to; merging it back is the
             // honest inverse instead.
             recordGiveUndo(
-              moveToOwner,
+              being.entity_id,
               {
                 kind: 'undo-split',
                 splitOffEntityId: result.item_instance.entity_id,
@@ -650,7 +655,7 @@ import Base from '../../layouts/Base.astro';
           } else {
             await setOwner(tenantId as string, item.entity_id, being.entity_id, moveToOwner);
             recordGiveUndo(
-              moveToOwner,
+              being.entity_id,
               {
                 kind: 'restore-owner',
                 entityId: item.entity_id,
@@ -1399,6 +1404,7 @@ import Base from '../../layouts/Base.astro';
 
     async function loadGroups(currentTenantId: string, characters: CharacterSummary[]) {
       const groups = await groupsOf(currentTenantId, characters).catch(() => []);
+      for (const group of groups) myHolderIds.add(group.entity_id);
       if (groups.length === 0) return;
       groupsHeading.hidden = false;
       groupStrip.hidden = false;
@@ -1443,6 +1449,7 @@ import Base from '../../layouts/Base.astro';
       try {
         const page = await listMyCharacters(currentTenantId);
         myCharacters = page.items;
+        for (const character of page.items) myHolderIds.add(character.entity_id);
         charactersLoading.hidden = true;
         if (page.items.length === 0) {
           charactersEmpty.hidden = false;
