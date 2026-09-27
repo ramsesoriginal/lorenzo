@@ -145,6 +145,30 @@ async def containing_ancestors_ids(
     return frozenset((await session.execute(select(cte.c.parent_entity_id))).scalars().all())
 
 
+async def containment_paths(
+    session: AsyncSession, *, entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """Each of entity_ids' containers, nearest first - the backpack a pouch
+    is in, the character carrying the backpack, the room that character
+    stands in (ADR 0123). The same cycle-safe walk as
+    containing_ancestors_ids: every row's path starts at the entity it was
+    walked from, and its length is how far up the row is. An entity in
+    nothing maps to an empty list.
+    """
+    paths: dict[uuid.UUID, list[uuid.UUID]] = {entity_id: [] for entity_id in entity_ids}
+    if not entity_ids:
+        return paths
+    cte = _containing_ancestors_cte(entity_ids, tenant_id)
+    rows = (
+        await session.execute(
+            select(cte.c.path[1], cte.c.parent_entity_id, func.array_length(cte.c.path, 1))
+        )
+    ).all()
+    for start, ancestor, _depth in sorted(rows, key=lambda row: row[2]):
+        paths[start].append(ancestor)
+    return paths
+
+
 async def reachable_entity_ids(
     session: AsyncSession, *, root_entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
 ) -> frozenset[uuid.UUID]:
