@@ -145,6 +145,12 @@ Computed stats gain a third kind, `sum` ([ADR 0126](../adr/0126-sum-formulas.md)
 
 And a fourth, `contents` ([ADR 0127](../adr/0127-contents-formulas.md), RFC 0030 slice 5): `Σ stat × quantity` over what's directly inside an entity, each thing's stat resolved with its own formulas. So a container's weight is its own plus its contents', at any depth, from two formulas on a base prototype, and a being's carried weight adds up what it holds in hand. Something without a value counts as 0, and hidden things count. Evaluation stays pure Python: a read loads the containment subtree and its effective stats only when a `contents` formula wins, once per page, and a containment cycle leaves what depends on it without a value. `docs/reference/well-known-stats.md` names the stats the API reads and gives the weight recipe.
 
+Moves are checked against capacity ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md), RFC 0030 slice 6):
+
+- **Capacity.** The API reads `carry_capacity` against weight, and `containment_capacity` and `max_item_size` against size. It checks every move into something, every hand-over, and anything created inside something. The target and everything it's inside are locked and measured before and after, in the same transaction, and only a move that adds to a load past its limit is refused, with `409 capacity-exceeded`. So taking things out, rearranging inside one being, and a Bag of Holding never are. A tenant without those stats pays nothing.
+- **Moving anyway.** An item's GM may send `override`; anyone else gets a 403, and the activity log says it was overridden. inventory-web asks a GM "Move anyway?", and loot-bot's `/move` gives a GM a button. Everyone else sees the API's own message.
+- **Deleting a container** keeps what was inside: it moves to wherever the container was, or to its owner. A stack with nowhere to go refuses the delete.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
