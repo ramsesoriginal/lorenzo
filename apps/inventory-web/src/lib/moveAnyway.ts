@@ -1,18 +1,23 @@
-// A GM's "Move anyway" (ADR 0128): a move the API refuses for capacity can be
-// sent again with `override`, by a GM, after asking. Everyone else just sees
-// the API's own message.
+// A GM's "Move anyway" and "Give anyway" (ADR 0128, 0129): a write the API refuses
+// because it doesn't fit, or because something is bound, can be sent again with
+// `override` by a GM, after asking - and for a binding, with `liftBinding` too, after
+// asking again. Everyone else just sees the API's own message.
 import { LorenzoApiError } from './api';
+import type { AnywayFlags } from './items';
 import type { BulkResultItem } from './types';
 
-const OVER_CAPACITY = 'capacity-exceeded';
+const BOUND = 'item-bound';
+const OVERRIDABLE = new Set(['capacity-exceeded', BOUND]);
 
-/** A move the API refused because it wouldn't fit. */
-export function isOverCapacity(error: unknown): error is LorenzoApiError {
-  return error instanceof LorenzoApiError && error.problemType === OVER_CAPACITY;
+export const LIFT_QUESTION = "Lift its binding too, so it won't bind again?";
+
+/** A write the API refused because it doesn't fit or something is bound. */
+export function isOverridable(error: unknown): error is LorenzoApiError {
+  return error instanceof LorenzoApiError && OVERRIDABLE.has(error.problemType ?? '');
 }
 
-export function moveAnywayQuestion(detail: string): string {
-  return `${detail} Move anyway?`;
+export function anywayQuestion(detail: string, verb: 'Move' | 'Give' = 'Move'): string {
+  return `${detail} ${verb} anyway?`;
 }
 
 export type MoveAnywayOptions = Readonly<{
@@ -23,38 +28,56 @@ export type MoveAnywayOptions = Readonly<{
 }>;
 
 /**
- * Runs `move`; if it's refused for capacity and the viewer may override,
- * asks, and on a yes runs it again with override. Any other failure, or a no,
- * is thrown as it was.
+ * Runs `write`; if it's refused as overridable and the viewer may override, asks, and
+ * on a yes runs it again with override - asking first, for a binding, whether to lift
+ * it too. Any other failure, or a no, is thrown as it was.
  */
-export async function moveOrAsk(
-  move: (override: boolean) => Promise<void>,
+export async function writeOrAsk(
+  write: (flags: AnywayFlags) => Promise<void>,
   { canOverride, ask }: MoveAnywayOptions,
+  verb: 'Move' | 'Give' = 'Move',
 ): Promise<void> {
   try {
-    await move(false);
+    await write({});
   } catch (error) {
-    if (!canOverride || !isOverCapacity(error) || !ask(moveAnywayQuestion(error.message))) {
+    if (!canOverride || !isOverridable(error) || !ask(anywayQuestion(error.message, verb))) {
       throw error;
     }
-    await move(true);
+    const liftBinding = error.problemType === BOUND && ask(LIFT_QUESTION);
+    await write({ override: true, liftBinding });
   }
 }
 
-/** A bulk move's entries refused for capacity, by entity id. */
-export function overCapacityIds(results: readonly BulkResultItem[]): string[] {
-  return results
-    .filter((result) => result.status === 'error' && result.problem?.type === OVER_CAPACITY)
-    .map((result) => result.entity_id);
+export function moveOrAsk(
+  move: (flags: AnywayFlags) => Promise<void>,
+  options: MoveAnywayOptions,
+): Promise<void> {
+  return writeOrAsk(move, options, 'Move');
 }
 
-/** Asked once for every entry of a bulk move refused for capacity. */
-export function bulkMoveAnywayQuestion(results: readonly BulkResultItem[]): string | null {
-  const refused = results.filter(
-    (result) => result.status === 'error' && result.problem?.type === OVER_CAPACITY,
+export function giveOrAsk(
+  give: (flags: AnywayFlags) => Promise<void>,
+  options: MoveAnywayOptions,
+): Promise<void> {
+  return writeOrAsk(give, options, 'Give');
+}
+
+function overridable(results: readonly BulkResultItem[]): BulkResultItem[] {
+  return results.filter(
+    (result) => result.status === 'error' && OVERRIDABLE.has(result.problem?.type ?? ''),
   );
+}
+
+/** A bulk move's entries a GM could move anyway, by entity id. */
+export function overridableIds(results: readonly BulkResultItem[]): string[] {
+  return overridable(results).map((result) => result.entity_id);
+}
+
+/** Asked once for every entry of a bulk move a GM could move anyway. */
+export function bulkMoveAnywayQuestion(results: readonly BulkResultItem[]): string | null {
+  const refused = overridable(results);
   if (refused.length === 0) return null;
-  const first = refused[0]?.problem?.detail ?? "That doesn't fit.";
-  if (refused.length === 1) return moveAnywayQuestion(first);
-  return `${refused.length} of them don't fit. ${first} Move them anyway?`;
+  const first = refused[0]?.problem?.detail ?? "That can't go there.";
+  if (refused.length === 1) return anywayQuestion(first);
+  return `${refused.length} of them can't go there. ${first} Move them anyway?`;
 }

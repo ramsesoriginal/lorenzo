@@ -13,6 +13,8 @@ const STATS = {
   economic: ['price'],
 } as const;
 type Stat = (typeof STATS)[keyof typeof STATS][number];
+/** The well-known enum stat binding reads (ADR 0129). */
+export type Binding = 'on_own' | 'on_pickup' | 'on_equip' | 'none';
 
 export type ItemOptions = {
   prototypes?: string[];
@@ -20,6 +22,7 @@ export type ItemOptions = {
   /** Tags set on for this item. */
   tags?: Stat[];
   stats?: Partial<Record<Stat, number>>;
+  binding?: Binding;
   /** In the public catalog, for players to list (ADR 0116). */
   public?: boolean;
 };
@@ -100,6 +103,24 @@ export async function buildWorld() {
     }
   }
 
+  const rules = await ok(
+    api.POST('/tenants/{tenant_id}/stat-groups', {
+      ...t,
+      body: { name: 'rules', priority: 0, mandatory: false },
+    }),
+  );
+  const binding = await ok(
+    api.POST('/tenants/{tenant_id}/stat-definitions', {
+      ...t,
+      body: {
+        name: 'binding',
+        stat_group_id: rules.id,
+        value_type: 'enum',
+        enum_values: ['on_own', 'on_pickup', 'on_equip', 'none'],
+      },
+    }),
+  );
+
   /** Writes a public description, as a GM does. */
   async function describe(entityId: string, content: string, title = '') {
     await ok(
@@ -134,6 +155,14 @@ export async function buildWorld() {
         api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
           params: { path: { ...entity, stat_definition_id: stats[stat as Stat] } },
           body: { value },
+        }),
+      );
+    }
+    if (options.binding) {
+      await ok(
+        api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+          params: { path: { ...entity, stat_definition_id: binding.id } },
+          body: { value: options.binding },
         }),
       );
     }

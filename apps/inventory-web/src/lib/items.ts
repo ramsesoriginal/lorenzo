@@ -52,25 +52,44 @@ export async function getUnownedItemInstances(tenantId: string): Promise<OwnedBy
   );
 }
 
-// override (ADR 0128): a GM moves it anyway, past what the container can take.
+// A GM's "anyway" on a write: override (ADR 0128, 0129) moves or gives it past what
+// fits and what binds it; liftBinding (ADR 0129) also lifts its binding for good.
+export type AnywayFlags = Readonly<{ override?: boolean; liftBinding?: boolean }>;
+
+// The DELETEs have no body, so the flags go in the query, and only when set.
+function anywayQuery({ override = false, liftBinding = false }: AnywayFlags) {
+  return override || liftBinding
+    ? {
+        query: {
+          ...(override ? { override } : {}),
+          ...(liftBinding ? { lift_binding: true } : {}),
+        },
+      }
+    : {};
+}
+
 export async function setContainer(
   tenantId: string,
   entityId: string,
   containerEntityId: string,
-  { override = false }: { override?: boolean } = {},
+  { override = false, liftBinding = false }: AnywayFlags = {},
 ): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { container_entity_id: containerEntityId, override },
+      body: { container_entity_id: containerEntityId, override, lift_binding: liftBinding },
     }),
   );
 }
 
-export async function clearContainer(tenantId: string, entityId: string): Promise<void> {
+export async function clearContainer(
+  tenantId: string,
+  entityId: string,
+  flags: AnywayFlags = {},
+): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...anywayQuery(flags) },
     }),
   );
 }
@@ -85,11 +104,17 @@ export async function setOwner(
   entityId: string,
   ownerCharacterId: string,
   moveToOwner = false,
+  { override = false, liftBinding = false }: AnywayFlags = {},
 ): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { owner_character_id: ownerCharacterId, move_to_owner: moveToOwner, override: false },
+      body: {
+        owner_character_id: ownerCharacterId,
+        move_to_owner: moveToOwner,
+        override,
+        lift_binding: liftBinding,
+      },
     }),
   );
 }
@@ -97,10 +122,14 @@ export async function setOwner(
 // DELETE /item-instances/{id}/owner - clears ownership; an instance
 // doesn't have to have one (ItemInstanceCreate.owner_character_id is
 // optional too - see createItemInstance below).
-export async function unsetOwner(tenantId: string, entityId: string): Promise<void> {
+export async function unsetOwner(
+  tenantId: string,
+  entityId: string,
+  flags: AnywayFlags = {},
+): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...anywayQuery(flags) },
     }),
   );
 }
@@ -333,13 +362,13 @@ export async function mergeItemInstance(
 // inside too, and dryRun only answers what would happen (ADR 0125).
 export async function bulkAssignItemInstances(
   tenantId: string,
-  items: {
+  items: ({
     entityId: string;
     ownerCharacterId: string;
     quantity?: number;
     moveToOwner?: boolean;
     withContents?: boolean;
-  }[],
+  } & AnywayFlags)[],
   { dryRun = false }: { dryRun?: boolean } = {},
 ): Promise<BulkAssignResult[]> {
   return unwrap(
@@ -350,7 +379,8 @@ export async function bulkAssignItemInstances(
         owner_character_id: item.ownerCharacterId,
         move_to_owner: item.moveToOwner ?? false,
         with_contents: item.withContents ?? false,
-        override: false,
+        override: item.override ?? false,
+        lift_binding: item.liftBinding ?? false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
     }),
@@ -389,7 +419,7 @@ export async function bulkMoveItemInstances(
   tenantId: string,
   toContainerEntityId: string,
   entityIds: string[],
-  { override = false }: { override?: boolean } = {},
+  { override = false, liftBinding = false }: AnywayFlags = {},
 ): Promise<BulkResultItem[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-move', {
@@ -398,6 +428,7 @@ export async function bulkMoveItemInstances(
         to_container_entity_id: toContainerEntityId,
         items: entityIds.map((entityId) => ({ entity_id: entityId })),
         override,
+        lift_binding: liftBinding,
       },
     }),
   );

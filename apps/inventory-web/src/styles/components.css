@@ -181,6 +181,14 @@
   color: var(--text-tertiary);
 }
 
+/* Bound to its owner (ADR 0129). */
+.item-card-bound,
+.item-detail-bound {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 /* Where a column's container is: "In Backpack", "Pia has these". */
 .board-column-note {
   margin: 0;
