@@ -57,6 +57,8 @@ import Base from '../../layouts/Base.astro';
         <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
         <p id="characters-error" class="error-text" hidden></p>
         <ul id="character-strip" class="character-strip"></ul>
+        <p id="groups-heading" class="field-note" hidden>Your groups</p>
+        <ul id="group-strip" class="character-strip" aria-labelledby="groups-heading" hidden></ul>
       </div>
 
       <div id="panel-browse" class="tab-panel" role="tabpanel" aria-labelledby="tab-browse" hidden>
@@ -164,8 +166,11 @@ import Base from '../../layouts/Base.astro';
   <script>
     import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { isAuthenticated } from '../../lib/auth';
-    import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
-    import { listBeings } from '../../lib/beings';
+    import {
+      renderBeingActionPanel,
+      renderBeingSuggestions,
+      searchBeingsAndGroups,
+    } from '../../lib/beingPicker';
     import {
       createUndoController,
       failedEntityIds,
@@ -183,6 +188,7 @@ import Base from '../../layouts/Base.astro';
     } from '../../lib/boardColumns';
     import { listMyCharacters } from '../../lib/characters';
     import { descriptionRenderer } from '../../lib/descriptions';
+    import { groupsOf } from '../../lib/groups';
     import {
       bulkAssignItemInstances,
       bulkMoveItemInstances,
@@ -217,6 +223,8 @@ import Base from '../../layouts/Base.astro';
     const charactersEmpty = document.getElementById('characters-empty')!;
     const charactersError = document.getElementById('characters-error')!;
     const characterStrip = document.getElementById('character-strip')!;
+    const groupsHeading = document.getElementById('groups-heading')!;
+    const groupStrip = document.getElementById('group-strip')!;
 
     const undoBanner = document.getElementById('undo-banner')!;
     const undoMessage = document.getElementById('undo-message')!;
@@ -331,7 +339,8 @@ import Base from '../../layouts/Base.astro';
     // belongs here (give, split, merge, undo).
     let reloadCurrentView: (() => void) | null = null;
     // The being whose board this is, who carries what's in no container of theirs (ADR
-    // 0115); null on the board of unowned things.
+    // 0115); null on a group's board (a group carries nothing, ADR 0124) and on the
+    // board of unowned things.
     let boardOwnerId: string | null = null;
     // The board as shown, for marking whose each card is (ADR 0123).
     let currentBoard: Board | null = null;
@@ -542,15 +551,18 @@ import Base from '../../layouts/Base.astro';
     // The container an item is in, if any. Its owner carrying it isn't one (ADR 0115).
     function containerOf(item: ItemInstance): { id: string; name: string } | null {
       const id = item.container_entity_id;
-      if (!id || id === item.owner_entity_id) return null;
+      // In its owner's hands, or the board's being's, it's in no container of theirs.
+      if (!id || id === item.owner_entity_id || id === boardOwnerId) return null;
       return boardContainers.get(id) ?? { id, name: 'container' };
     }
 
-    // Out of every container: into its owner, who carries it, so a stack keeps its count
-    // (ADR 0115). Something nobody owns has no one to hold it; the API refuses a stack then.
-    function takeOut(entityId: string, ownerId: string | null) {
-      return ownerId
-        ? setContainer(tenantId as string, entityId, ownerId)
+    // Out of every container: into the hands of the being whose board this is, so a stack
+    // keeps its count (ADR 0115, 0124). On a group's board, or the board of unowned things,
+    // there's no one to hold it; out of every container, it's with its owner, and the API
+    // refuses a stack.
+    function takeOut(entityId: string) {
+      return boardOwnerId
+        ? setContainer(tenantId as string, entityId, boardOwnerId)
         : clearContainer(tenantId as string, entityId);
     }
 
@@ -840,7 +852,7 @@ import Base from '../../layouts/Base.astro';
           if (targetId) {
             await setContainer(tenantId as string, item.entity_id, targetId);
           } else {
-            await takeOut(item.entity_id, item.owner_entity_id);
+            await takeOut(item.entity_id);
           }
           recordUndo(
             { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
@@ -1334,14 +1346,16 @@ import Base from '../../layouts/Base.astro';
 
     async function loadBoard(entityId: string) {
       reloadCurrentView = () => void loadBoard(entityId);
-      boardOwnerId = entityId;
+      boardOwnerId = null;
       const prefetched = prefetchedBoards.get(entityId);
       prefetchedBoards.delete(entityId);
-      await loadBoardFromResponse(
-        async () =>
-          heldBoard(await (prefetched ?? getHeldItemInstances(tenantId as string, entityId))),
-        null,
-      );
+      await loadBoardFromResponse(async () => {
+        const shown = heldBoard(
+          await (prefetched ?? getHeldItemInstances(tenantId as string, entityId)),
+        );
+        boardOwnerId = shown.holderIsBeing ? shown.holderId : null;
+        return shown;
+      }, null);
     }
 
     // GM-only: unclaimed loot, nobody's owned it yet (ADR 0077/#95).
@@ -1354,15 +1368,55 @@ import Base from '../../layouts/Base.astro';
       );
     }
 
-    function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
-      for (const el of characterStrip.querySelectorAll('button')) {
+    // Marks `button` as the board shown, among every character and group pill.
+    function pressOnly(button: HTMLButtonElement | null) {
+      for (const el of panelCharacters.querySelectorAll('.character-pill')) {
         el.setAttribute('aria-pressed', String(el === button));
       }
+    }
+
+    function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
+      pressOnly(button);
       inventoryViewing.hidden = true;
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
+      url.searchParams.delete('group');
       window.history.replaceState({}, '', url);
       void loadBoard(character.entity_id);
+    }
+
+    // A group one of your characters belongs to, and what it owns (ADR 0124).
+    function selectGroup(group: BeingRef, button: HTMLButtonElement) {
+      pressOnly(button);
+      inventoryViewing.hidden = false;
+      inventoryViewing.textContent = `Viewing what ${group.name} holds.`;
+      const url = new URL(window.location.href);
+      url.searchParams.set('group', group.entity_id);
+      url.searchParams.delete('character');
+      window.history.replaceState({}, '', url);
+      void loadBoard(group.entity_id);
+    }
+
+    async function loadGroups(currentTenantId: string, characters: CharacterSummary[]) {
+      const groups = await groupsOf(currentTenantId, characters).catch(() => []);
+      if (groups.length === 0) return;
+      groupsHeading.hidden = false;
+      groupStrip.hidden = false;
+      const selectedId = params.get('group');
+      for (const group of groups) {
+        const item = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'character-pill';
+        button.textContent = group.name;
+        button.setAttribute('aria-pressed', String(group.entity_id === selectedId));
+        button.addEventListener('click', () => selectGroup(group, button));
+        button.addEventListener('mouseenter', () => prefetchBoard(group.entity_id));
+        button.addEventListener('focus', () => prefetchBoard(group.entity_id));
+        item.append(button);
+        groupStrip.append(item);
+        if (group.entity_id === selectedId) selectGroup(group, button);
+      }
     }
 
     // GM-only: browse any being's inventory - by search against
@@ -1371,9 +1425,7 @@ import Base from '../../layouts/Base.astro';
     // characters" pill strip since none of the player's own characters is
     // the one being shown.
     function browseBeing(being: BeingRef) {
-      for (const el of characterStrip.querySelectorAll('button')) {
-        el.setAttribute('aria-pressed', 'false');
-      }
+      pressOnly(null);
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = `Viewing ${being.name}'s inventory.`;
       void loadBoard(being.entity_id);
@@ -1381,9 +1433,7 @@ import Base from '../../layouts/Base.astro';
 
     // GM-only: browse unowned loot (ADR 0077/#95).
     function browseUnowned() {
-      for (const el of characterStrip.querySelectorAll('button')) {
-        el.setAttribute('aria-pressed', 'false');
-      }
+      pressOnly(null);
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = 'Viewing unowned items.';
       void loadUnownedBoard();
@@ -1416,6 +1466,7 @@ import Base from '../../layouts/Base.astro';
             selectCharacter(character, button);
           }
         }
+        await loadGroups(currentTenantId, page.items);
       } catch (e) {
         charactersLoading.hidden = true;
         charactersError.hidden = false;
@@ -1441,12 +1492,17 @@ import Base from '../../layouts/Base.astro';
         return;
       }
       gmBrowseDebounce = setTimeout(async () => {
-        const result = await listBeings(tenantId as string, query);
-        renderBeingSuggestions(gmBrowseSuggestions, result.items, (being) => {
-          gmBrowseSearch.value = being.name;
-          gmBrowseSuggestions.hidden = true;
-          browseBeing(being);
-        });
+        const { beings, groups } = await searchBeingsAndGroups(tenantId as string, query);
+        renderBeingSuggestions(
+          gmBrowseSuggestions,
+          beings,
+          (being) => {
+            gmBrowseSearch.value = being.name;
+            gmBrowseSuggestions.hidden = true;
+            browseBeing(being);
+          },
+          groups,
+        );
       }, 200);
     });
 

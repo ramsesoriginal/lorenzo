@@ -77,6 +77,9 @@ describe('heldBoard', () => {
       owners: [],
     });
     expect(groupBoard.carried[0]?.title).toBe('The Company');
+    // Nothing goes *into* a group: dropping on its column takes a card out of every container.
+    expect(groupBoard.carried[0]?.dropTarget).toBeNull();
+    expect(groupBoard.holderIsBeing).toBe(false);
   });
 });
 
@@ -100,6 +103,15 @@ describe('ownerMark', () => {
   const board = heldBoard({
     groups: [group(alice, { container_kind: 'being' })],
     owners: [alice, pia],
+  });
+
+  it("marks a group's things with the group's name", () => {
+    const company = entity('company', 'The Company');
+    const withCompany = heldBoard({
+      groups: [group(alice, { container_kind: 'being' })],
+      owners: [alice, company],
+    });
+    expect(ownerMark(item('rope', 'company'), withCompany)).toBe("The Company's");
   });
 
   it("marks someone else's things, and unowned ones", () => {
