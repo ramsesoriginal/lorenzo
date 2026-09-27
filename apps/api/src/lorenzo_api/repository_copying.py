@@ -36,6 +36,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatLinear,
+    ComputedStatSum,
+    ComputedStatSumTerm,
     Containment,
     ContentReference,
     Entity,
@@ -579,6 +581,20 @@ class _Planner:
                         "round_mode": formula.round_mode,
                     }
                 )
+            elif formula.kind == "sum":
+                assert formula.terms is not None
+                self.rows["computed_stat_sum"].append(
+                    key | {"offset": formula.offset, "round_mode": formula.round_mode}
+                )
+                self.rows["computed_stat_sum_term"].extend(
+                    key
+                    | {
+                        "source_stat_definition_id": inputs[source],
+                        "coefficient": coefficient,
+                        "position": position,
+                    }
+                    for position, (source, coefficient) in enumerate(formula.terms)
+                )
             else:
                 assert formula.left is not None
                 self.rows["computed_stat_comparison"].append(
@@ -798,6 +814,8 @@ _TABLES: list[tuple[str, Any]] = [
     ("computed_stat", ComputedStat),
     ("computed_stat_linear", ComputedStatLinear),
     ("computed_stat_comparison", ComputedStatComparison),
+    ("computed_stat_sum", ComputedStatSum),
+    ("computed_stat_sum_term", ComputedStatSumTerm),
     ("containment", Containment),
     ("ownership", Ownership),
     ("group_member", GroupMember),
@@ -854,6 +872,12 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         edges[target].add(left)
         if right is not None:
             edges[target].add(right)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSumTerm.stat_definition_id, ComputedStatSumTerm.source_stat_definition_id
+        ).where(ComputedStatSumTerm.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
     state: dict[uuid.UUID, int] = {}
     for start in list(edges):
         if state.get(start):
@@ -994,6 +1018,11 @@ async def forget_copy(
                     ComputedStatComparison.left_stat_definition_id.in_(all_definitions),
                     ComputedStatComparison.right_stat_definition_id.in_(all_definitions),
                 ),
+            ),
+            exists().where(
+                ComputedStatSumTerm.entity_id == ComputedStat.entity_id,
+                ComputedStatSumTerm.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatSumTerm.source_stat_definition_id.in_(all_definitions),
             ),
         )
         own_formulas = (ComputedStat.tenant_id == t) & ComputedStat.entity_id.not_in(entities)

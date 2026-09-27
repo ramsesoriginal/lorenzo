@@ -16,7 +16,8 @@ leaves the stats involved without a value.
 
 Pure Python, no database access: callers eager-load
 `effective_stats -> stat_definition` and
-`effective_stats -> computed_stat -> linear/comparison` first.
+`effective_stats -> computed_stat -> linear/comparison/sum` first
+(models.formula_load_options).
 """
 
 from __future__ import annotations
@@ -62,7 +63,22 @@ class ComparisonFormula:
     false_value: str | None
 
 
-Formula = LinearFormula | ComparisonFormula
+@dataclass(frozen=True, slots=True)
+class SumTerm:
+    source_stat_definition_id: uuid.UUID
+    coefficient: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class SumFormula:
+    """`round(Σ coefficient × stat + offset)` - ADR 0126."""
+
+    terms: tuple[SumTerm, ...]
+    offset: Decimal
+    round_mode: RoundMode
+
+
+Formula = LinearFormula | ComparisonFormula | SumFormula
 
 
 def formula_of(computed: ComputedStat) -> Formula | None:
@@ -86,6 +102,19 @@ def formula_of(computed: ComputedStat) -> Formula | None:
             true_value=cmp.true_value,
             false_value=cmp.false_value,
         )
+    if computed.sum is not None:
+        row_sum = computed.sum
+        return SumFormula(
+            terms=tuple(
+                SumTerm(
+                    source_stat_definition_id=term.source_stat_definition_id,
+                    coefficient=term.coefficient,
+                )
+                for term in row_sum.terms
+            ),
+            offset=row_sum.offset,
+            round_mode=RoundMode(row_sum.round_mode),
+        )
     return None
 
 
@@ -93,6 +122,8 @@ def input_ids(formula: Formula) -> list[uuid.UUID]:
     """The stats a formula reads."""
     if isinstance(formula, LinearFormula):
         return [formula.source_stat_definition_id]
+    if isinstance(formula, SumFormula):
+        return [term.source_stat_definition_id for term in formula.terms]
     ids = [formula.left_stat_definition_id]
     if formula.right_stat_definition_id is not None:
         ids.append(formula.right_stat_definition_id)
@@ -122,15 +153,10 @@ def _number(value: Value | None) -> Decimal | None:
     return Decimal(str(value))
 
 
-def apply_linear(
-    formula: LinearFormula, source: Value | None, target_type: StatValueType
-) -> Value | None:
-    number = _number(source)
-    if number is None:
-        return None
-    result = number * formula.multiplier + formula.offset
-    if formula.round_mode is not RoundMode.NONE:
-        result = result.quantize(Decimal(1), rounding=_ROUNDING[formula.round_mode])
+def _rounded(result: Decimal, round_mode: RoundMode, target_type: StatValueType) -> Value | None:
+    """A linear or sum result, rounded and typed for its target stat."""
+    if round_mode is not RoundMode.NONE:
+        result = result.quantize(Decimal(1), rounding=_ROUNDING[round_mode])
     if target_type is StatValueType.INT:
         if result != result.to_integral_value():
             return None  # write-time checks make this unreachable via the API
@@ -138,6 +164,40 @@ def apply_linear(
     if target_type is StatValueType.FLOAT:
         return float(result)
     return None
+
+
+def apply_linear(
+    formula: LinearFormula, source: Value | None, target_type: StatValueType
+) -> Value | None:
+    number = _number(source)
+    if number is None:
+        return None
+    return _rounded(number * formula.multiplier + formula.offset, formula.round_mode, target_type)
+
+
+def apply_sum(
+    formula: SumFormula, sources: list[Value | None], target_type: StatValueType
+) -> Value | None:
+    """Every term's stat must have a value, as a linear formula's source
+    must (ADR 0104, 0126)."""
+    result = formula.offset
+    for term, source in zip(formula.terms, sources, strict=True):
+        number = _number(source)
+        if number is None:
+            return None
+        result += term.coefficient * number
+    return _rounded(result, formula.round_mode, target_type)
+
+
+def always_whole(
+    coefficients: Iterable[Decimal], offset: Decimal, input_types: Iterable[StatValueType]
+) -> bool:
+    """Whether a linear or sum formula can only ever produce a whole number:
+    every input an int stat, every coefficient (or multiplier) and the
+    offset whole. An int stat needs no rounding mode then (ADR 0126)."""
+    return all(value_type is StatValueType.INT for value_type in input_types) and all(
+        number == number.to_integral_value() for number in (*coefficients, offset)
+    )
 
 
 def apply_comparison(
@@ -169,6 +229,12 @@ def apply_formula(
 ) -> Value | None:
     if isinstance(formula, LinearFormula):
         return apply_linear(formula, resolve(formula.source_stat_definition_id), target_type)
+    if isinstance(formula, SumFormula):
+        return apply_sum(
+            formula,
+            [resolve(term.source_stat_definition_id) for term in formula.terms],
+            target_type,
+        )
     right = (
         resolve(formula.right_stat_definition_id)
         if formula.right_stat_definition_id is not None

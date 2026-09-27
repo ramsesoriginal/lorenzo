@@ -26,6 +26,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatLinear,
+    ComputedStatSum,
+    ComputedStatSumTerm,
     Containment,
     Entity,
     EntityPrototype,
@@ -84,9 +86,12 @@ class Formula:
     right_constant: Decimal | None = None
     true_value: str | None = None
     false_value: str | None = None
+    # A sum's (source, coefficient) terms, in order (ADR 0126).
+    terms: list[tuple[uuid.UUID, Decimal]] | None = None
 
     def inputs(self) -> list[uuid.UUID]:
-        return [i for i in (self.source, self.left, self.right) if i is not None]
+        own = [i for i in (self.source, self.left, self.right) if i is not None]
+        return own + [source for source, _ in self.terms or []]
 
 
 @dataclass
@@ -286,6 +291,21 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             )
         )
     }
+    sums = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(select(ComputedStatSum).where(ComputedStatSum.tenant_id == t))
+        )
+    }
+    terms: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID, Decimal]]] = defaultdict(list)
+    for term in await session.scalars(
+        select(ComputedStatSumTerm)
+        .where(ComputedStatSumTerm.tenant_id == t)
+        .order_by(ComputedStatSumTerm.position)
+    ):
+        terms[(term.entity_id, term.stat_definition_id)].append(
+            (term.source_stat_definition_id, term.coefficient)
+        )
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
@@ -308,6 +328,13 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 right_constant=cmp.right_constant,
                 true_value=cmp.true_value,
                 false_value=cmp.false_value,
+            )
+        elif (e, d) in sums:
+            c.formulas[(e, d)] = Formula(
+                kind="sum",
+                offset=sums[(e, d)].offset,
+                round_mode=sums[(e, d)].round_mode,
+                terms=terms[(e, d)],
             )
     for child, parent, quantity in await rows(
         Containment.child_entity_id,
@@ -407,6 +434,17 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "kind": "linear",
             "source": name("stat_definition", formula.source),
             "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "sum":
+        assert formula.terms is not None
+        return {
+            "kind": "sum",
+            "terms": [
+                {"source": name("stat_definition", source), "coefficient": str(coefficient)}
+                for source, coefficient in formula.terms
+            ],
             "offset": str(formula.offset),
             "round_mode": formula.round_mode,
         }

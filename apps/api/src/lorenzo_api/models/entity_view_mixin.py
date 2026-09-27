@@ -42,7 +42,7 @@ class EntityViewMixin:
     them for anything inherited, the gap ADR 0037 originally left open and
     ADR 0039 closed. Values go through stat_evaluation (ADR 0104), so a
     computed stat shows its computed value; that also needs entity ->
-    effective_stats -> computed_stat -> linear/comparison eager-loaded.
+    effective_stats -> computed_stat -> its formula eager-loaded (formula_load_options).
 
     No `pictures` here (unlike `description_pairs`) - checked and confirmed
     unused: `schemas/items.py`'s `_picture_refs` needs the owning `Payload`
@@ -58,7 +58,7 @@ class EntityViewMixin:
     def resolved_stat_values(self) -> dict[uuid.UUID, Value]:
         """Every effective stat's value, computed ones included (ADR 0104) -
         see stat_evaluation.evaluate. Also needs entity -> effective_stats
-        -> computed_stat -> linear/comparison eager-loaded."""
+        -> computed_stat -> its formula eager-loaded (formula_load_options)."""
         # Imported here: stat_evaluation imports lorenzo_api.models, which
         # imports this module.
         from lorenzo_api.stat_evaluation import evaluate

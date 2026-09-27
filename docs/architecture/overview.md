@@ -141,6 +141,8 @@ A container can be given with what's inside it ([ADR 0125](../adr/0125-giving-a-
 - **With contents.** A bulk-assign entry's `with_contents` also gives everything inside, at any depth, that the caller may give. `POST .../item-instances/{id}/give-contents` gives only what's inside. Either way each thing is given or kept on its own, what's kept says whose it stays, and nothing moves.
 - **Asking first.** Both take `?dry_run=true`, so inventory-web ("Also give what's inside", "Give what's inside…") and loot-bot (`/give`'s "Give with what's inside", `/give-contents`) ask with the answer before anything changes. Neither offers Undo.
 
+Computed stats gain a third kind, `sum` ([ADR 0126](../adr/0126-sum-formulas.md), RFC 0030 slice 4): `round(Σ coefficient × stat + offset)` over up to 20 stats of the same entity, such as armour class as 10 plus a dexterity modifier plus a worn bonus. It's authored, previewed, cycle-checked, copied from repositories, and synced like `linear`. An `int` stat no longer needs a rounding mode when its formula can't produce a fraction, for `linear` as well. Formula responses can now carry the new kind, an accepted break in the API contract.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

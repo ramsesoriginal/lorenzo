@@ -41,6 +41,8 @@ REPOSITORY_CONTENT_TABLES = frozenset(
         "computed_stat",
         "computed_stat_linear",
         "computed_stat_comparison",
+        "computed_stat_sum",
+        "computed_stat_sum_term",
         "containment",
         "ownership",
         "group_member",
