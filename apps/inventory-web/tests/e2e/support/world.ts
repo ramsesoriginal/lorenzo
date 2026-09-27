@@ -9,7 +9,7 @@ export type Player = Person & { playerId: string; character: { entity_id: string
 
 const STATS = {
   tags: ['is_container', 'is_magical', 'is_cursed'],
-  physical: ['weight'],
+  physical: ['weight', 'carry_capacity'],
   economic: ['price'],
 } as const;
 type Stat = (typeof STATS)[keyof typeof STATS][number];
@@ -150,10 +150,23 @@ export async function buildWorld() {
           owner_character_id: options.owner?.character.entity_id ?? options.ownerId ?? null,
           container_entity_id: options.container ?? null,
           slug: options.slug ?? null,
+          override: false,
         },
       }),
     );
     return created.entity_id;
+  }
+
+  /** Sets a stat on any entity - an instance, a character - as a GM does. */
+  async function setStat(entityId: string, stat: Stat, value: number) {
+    await ok(
+      api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+        params: {
+          path: { tenant_id: tenant.id, entity_id: entityId, stat_definition_id: stats[stat] },
+        },
+        body: { value },
+      }),
+    );
   }
 
   /** `count` of an item as one stack in `container` (a stack's count lives on its containment). */
@@ -236,6 +249,7 @@ export async function buildWorld() {
     describe,
     item,
     instance,
+    setStat,
     stack,
     slug,
     carried,
