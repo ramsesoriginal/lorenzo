@@ -49,8 +49,12 @@ export type HeldByResponse = components['schemas']['HeldByResponse'];
 export type PrototypeAncestor = components['schemas']['PrototypeAncestorOut'];
 
 // POST .../bulk-assign and .../bulk-move each generate their own distinct
-// BulkAssignResultItem/BulkMoveResultItem schema server-side, but the two
-// are structurally identical (entity_id/status/item_instance?/problem?) -
-// one alias serves both call sites, the same way this app already treated
-// them as one shape before codegen.
-export type BulkResultItem = components['schemas']['BulkAssignResultItem'];
+// BulkAssignResultItem/BulkMoveResultItem schema server-side, sharing
+// entity_id/status/item_instance?/problem? - one alias for that shared shape
+// serves both call sites, the same way this app already treated them as one
+// shape before codegen. Bulk-assign's own adds what was given along with each
+// (ADR 0125).
+export type BulkResultItem = components['schemas']['BulkMoveResultItem'];
+export type BulkAssignResult = components['schemas']['BulkAssignResultItem'];
+export type ContentsResult = components['schemas']['ContentsResultItem'];
+export type ProblemOut = components['schemas']['ProblemOut'];
