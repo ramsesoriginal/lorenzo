@@ -39,7 +39,7 @@ Writes to an item that has an owner split in two:
   - a player whose character is the owner, or is a member of the owning group;
   - a GM of a campaign the owner plays in. For a group, that's any campaign one of its members plays in (`campaign_access.campaign_ids_for_owner`).
 
-A player who holds something they can't give away gets `403` saying so: they can move it, but only its owner or a GM can give it away or destroy it.
+A player who holds something they can't give away gets `403 item-not-yours-to-give` saying so: they can move it, but only its owner or a GM can give it away or destroy it. It's its own problem type, not the generic `item-instance-management-forbidden`, so a client can say it in its own words.
 
 An item nobody owns keeps today's rule for both kinds: anyone who reaches it, or any GM in the tenant. Loot drops and claims ([ADR 0052](0052-loot-bot-loot-drop-and-claims.md)) only write ownerless items, so they're unaffected.
 
