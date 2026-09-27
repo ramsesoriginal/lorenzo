@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
+    ContentsFormula,
     Formula,
     LinearFormula,
     SumFormula,
@@ -18,6 +19,7 @@ from lorenzo_api.stat_evaluation import (
 
 __all__ = [
     "ComparisonFormulaBody",
+    "ContentsFormulaBody",
     "ComputedStatDependentOut",
     "ComputedStatOut",
     "ComputedStatPreviewIn",
@@ -102,7 +104,19 @@ class SumFormulaBody(BaseModel):
         )
 
 
-AnyFormulaBody = LinearFormulaBody | ComparisonFormulaBody | SumFormulaBody
+class ContentsFormulaBody(BaseModel):
+    """`Σ stat × quantity` over what's directly inside - ADR 0127.
+    `contents_weight` is `contents(weight)`: each thing inside's own
+    weight, formulas included, times its stack count."""
+
+    kind: Literal["contents"] = "contents"
+    source_stat_definition_id: uuid.UUID
+
+    def to_formula(self) -> ContentsFormula:
+        return ContentsFormula(source_stat_definition_id=self.source_stat_definition_id)
+
+
+AnyFormulaBody = LinearFormulaBody | ComparisonFormulaBody | SumFormulaBody | ContentsFormulaBody
 FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
 
 
@@ -114,6 +128,8 @@ def formula_body_of(formula: Formula) -> AnyFormulaBody:
             offset=formula.offset,
             round_mode=formula.round_mode,
         )
+    if isinstance(formula, ContentsFormula):
+        return ContentsFormulaBody(source_stat_definition_id=formula.source_stat_definition_id)
     if isinstance(formula, SumFormula):
         return SumFormulaBody(
             terms=[
@@ -185,4 +201,4 @@ class ComputedStatDependentOut(BaseModel):
 
     entity_id: uuid.UUID
     stat_definition_id: uuid.UUID
-    kind: Literal["linear", "comparison", "sum"]
+    kind: Literal["linear", "comparison", "sum", "contents"]

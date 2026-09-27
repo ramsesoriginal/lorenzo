@@ -60,6 +60,7 @@ from lorenzo_api.schemas.items import (
     PrototypeAncestorOut,
     SetPrototypesRequest,
 )
+from lorenzo_api.stat_contents import attach_contents
 
 # Reading the catalog is for every tenant participant, writing it for members
 # (ADR 0032, 0116): the router only checks the tenant exists (and sets RLS),
@@ -257,10 +258,12 @@ async def list_items(
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
     async def _items_out(items: Sequence[VItem]) -> list[ItemOut]:
-        # One ancestor walk for the whole page (ADR 0111).
+        # One ancestor walk for the whole page (ADR 0111), and one load of
+        # what contents formulas read (ADR 0127).
         ancestry = await prototype_ancestors(
             session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
         )
+        await attach_contents(session, [item.entity for item in items], tenant_id=tenant_id)
         return [
             ItemOut.from_v_item(
                 item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
@@ -308,6 +311,8 @@ async def _get_v_item_or_404(
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
         raise ItemNotFoundError(detail=f"No item with id {entity_id} in tenant {tenant_id}")
+    # What a contents formula reads (ADR 0127).
+    await attach_contents(session, [view.entity], tenant_id=tenant_id)
     return view
 
 

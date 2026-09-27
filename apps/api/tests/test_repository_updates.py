@@ -17,6 +17,7 @@ from sqlalchemy import delete, select
 from lorenzo_api.models import (
     AuditLog,
     ComputedStat,
+    ComputedStatContents,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -426,6 +427,46 @@ async def test_a_sum_arriving_upstream_applies_with_its_terms(
         assert applied.status_code == 200, applied.text
         sword = (await gm.get(f"/tenants/{world.table}/entities/{local[ids['Longsword']]}")).json()
         assert {s["name"]: s["value"] for s in sword["stats"]} == {"Strength": 10, "Speed": 31}
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+async def test_a_contents_formula_arriving_upstream_applies(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """ADR 0127: upstream, Longsword's Speed becomes contents(Strength).
+    The table's Longsword holds nothing, so it adds up to 0."""
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    local = await _local(world)
+    try:
+        async with admin_session_factory() as session:
+            keys = {
+                "entity_id": ids["Longsword"],
+                "stat_definition_id": ids["Speed"],
+                "tenant_id": world.repository,
+            }
+            session.add(ComputedStat(**keys))
+            await session.flush()
+            session.add(ComputedStatContents(**keys, source_stat_definition_id=ids["Strength"]))
+            await session.commit()
+
+        fields = _by_row((await gm.get(f"{url}/updates")).json())["Longsword"]
+        assert fields[f"formulas:{ids['Speed']}"]["upstream"] == {
+            "kind": "contents",
+            "source": str(ids["Strength"]),
+        }
+        applied = await gm.post(
+            f"{url}/updates",
+            json={
+                "actions": [
+                    {"kind": "entity", "source_id": str(ids["Longsword"]), "action": "apply"}
+                ]
+            },
+        )
+        assert applied.status_code == 200, applied.text
+        sword = (await gm.get(f"/tenants/{world.table}/entities/{local[ids['Longsword']]}")).json()
+        assert {s["name"]: s["value"] for s in sword["stats"]} == {"Strength": 10, "Speed": 0}
     finally:
         await cleanup([world.table, world.repository], [world.author, world.gm])
 

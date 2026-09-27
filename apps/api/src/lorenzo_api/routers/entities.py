@@ -66,6 +66,7 @@ from lorenzo_api.schemas.entities import (
     InformationOut,
     ResolvedSlugOut,
 )
+from lorenzo_api.stat_contents import attach_contents
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0038/RFC 0011,
 # mirroring routers/item_instances.py's identical ADR 0032/RFC 0005
@@ -156,6 +157,8 @@ async def get_entity_detail_or_404(
     entity = await session.scalar(stmt)
     if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    # What a contents formula reads (ADR 0127).
+    await attach_contents(session, [entity], tenant_id=tenant_id)
     return entity
 
 

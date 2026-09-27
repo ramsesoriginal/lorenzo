@@ -81,6 +81,7 @@ from lorenzo_api.schemas.items import (
     SetOwnerRequest,
     SplitItemInstanceRequest,
 )
+from lorenzo_api.stat_contents import attach_contents
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0032/RFC 0005,
 # mirroring routers/campaigns.py's identical ADR 0030/RFC 0003 precedent):
@@ -257,10 +258,12 @@ async def list_item_instances(
         )
 
     async def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
-        # One ancestor walk for the whole page (ADR 0111).
+        # One ancestor walk for the whole page (ADR 0111), and one load of
+        # what contents formulas read (ADR 0127).
         ancestry = await prototype_ancestors(
             session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
         )
+        await attach_contents(session, [item.entity for item in items], tenant_id=tenant_id)
         return [
             ItemInstanceOut.from_v_item_instance(
                 item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
@@ -319,6 +322,7 @@ async def _grouped_by_container_response(
     ancestry = await prototype_ancestors(
         session, tenant_id=tenant_id, entity_ids=[view.entity_id for view, _ in rows]
     )
+    await attach_contents(session, [view.entity for view, _ in rows], tenant_id=tenant_id)
     groups: dict[uuid.UUID | None, list[ItemInstanceOut]] = {}
     for view, container_id in rows:
         groups.setdefault(container_id, []).append(
@@ -477,6 +481,7 @@ async def list_item_instances_held_by(
     ancestry = await prototype_ancestors(
         session, tenant_id=tenant_id, entity_ids=[view.entity_id for view, _ in rows]
     )
+    await attach_contents(session, [view.entity for view, _ in rows], tenant_id=tenant_id)
     items: dict[uuid.UUID, list[ItemInstanceOut]] = {entity_id: []}
     for view, container_id in rows:
         items.setdefault(container_id, []).append(
@@ -592,6 +597,7 @@ async def get_item_instance_by_slug(
         raise ItemInstanceSlugNotFoundError(
             detail=f"No item instance with slug {slug!r} in tenant {tenant_id}"
         )
+    await attach_contents(session, [view.entity], tenant_id=tenant_id)
     response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemInstanceOut.from_v_item_instance(
         view,
@@ -664,6 +670,8 @@ async def _get_v_item_instance_or_404(
         raise ItemInstanceNotFoundError(
             detail=f"No item instance with id {entity_id} in tenant {tenant_id}"
         )
+    # What a contents formula reads (ADR 0127).
+    await attach_contents(session, [view.entity], tenant_id=tenant_id)
     return view
 
 

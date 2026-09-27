@@ -25,6 +25,7 @@ from lorenzo_api.models import (
     Character,
     ComputedStat,
     ComputedStatComparison,
+    ComputedStatContents,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -306,6 +307,14 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         terms[(term.entity_id, term.stat_definition_id)].append(
             (term.source_stat_definition_id, term.coefficient)
         )
+    contained = {
+        (row.entity_id, row.stat_definition_id): row.source_stat_definition_id
+        for row in (
+            await session.scalars(
+                select(ComputedStatContents).where(ComputedStatContents.tenant_id == t)
+            )
+        )
+    }
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
@@ -329,6 +338,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 true_value=cmp.true_value,
                 false_value=cmp.false_value,
             )
+        elif (e, d) in contained:
+            c.formulas[(e, d)] = Formula(kind="contents", source=contained[(e, d)])
         elif (e, d) in sums:
             c.formulas[(e, d)] = Formula(
                 kind="sum",
@@ -437,6 +448,9 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "offset": str(formula.offset),
             "round_mode": formula.round_mode,
         }
+    if formula.kind == "contents":
+        assert formula.source is not None
+        return {"kind": "contents", "source": name("stat_definition", formula.source)}
     if formula.kind == "sum":
         assert formula.terms is not None
         return {

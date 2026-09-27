@@ -42,9 +42,10 @@ class ComputedStat(Base):
     """An entity's formula for one stat - see ADR 0104/RFC 0016. Addressed
     exactly like entity_stat, and competes with it in v_effective_stat at
     its prototype hop. No kind column, like payload (ADR 0017): which of
-    ComputedStatLinear/ComputedStatComparison/ComputedStatSum has the
-    matching row is the kind. The API never lets one entity hold both a formula and a direct
-    value for the same stat.
+    ComputedStatLinear/ComputedStatComparison/ComputedStatSum/
+    ComputedStatContents has the matching row is the kind. The API never
+    lets one entity hold both a formula and a direct value for the same
+    stat.
     """
 
     __tablename__ = "computed_stat"
@@ -94,18 +95,27 @@ class ComputedStat(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    contents: Mapped[ComputedStatContents | None] = relationship(
+        foreign_keys="[ComputedStatContents.entity_id, ComputedStatContents.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def kind(self) -> str:
-        """Requires linear/comparison/sum loaded."""
+        """Requires every kind's row loaded (formula_load_options)."""
         if self.linear is not None:
             return "linear"
-        return "sum" if self.sum is not None else "comparison"
+        if self.sum is not None:
+            return "sum"
+        return "contents" if self.contents is not None else "comparison"
 
     def source_stat_definition_ids(self) -> list[uuid.UUID]:
-        """The stats this formula reads - its edges in the definition-level
-        dependency graph (ADR 0104). Requires linear/comparison/sum (and
-        its terms) loaded."""
+        """This formula's edges in the definition-level dependency graph
+        (ADR 0104): the stats of the same entity it reads. A contents
+        formula has none - it reads a level down (ADR 0127). Requires every
+        kind's row (and a sum's terms) loaded."""
         if self.linear is not None:
             return [self.linear.source_stat_definition_id]
         if self.comparison is not None:
@@ -259,6 +269,26 @@ class ComputedStatSumTerm(Base):
     position: Mapped[int]
 
 
+class ComputedStatContents(Base):
+    """`Σ stat × quantity` over what's directly inside the entity, the stat
+    resolved on each thing inside - ADR 0127."""
+
+    __tablename__ = "computed_stat_contents"
+    __table_args__ = (
+        *_kind_key("computed_stat_contents"),
+        same_tenant_fk(
+            "computed_stat_contents_source_stat_definition_id_fkey",
+            ["source_stat_definition_id"],
+            "stat_definition",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
+
+
 def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoad]:
     """Eager loads for every formula kind's parameters, which evaluation
     and serialization read (ADR 0104, 0126): from a query on ComputedStat
@@ -271,4 +301,5 @@ def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoa
         load(ComputedStat.linear),
         load(ComputedStat.comparison),
         load(ComputedStat.sum).selectinload(ComputedStatSum.terms),
+        load(ComputedStat.contents),
     ]
