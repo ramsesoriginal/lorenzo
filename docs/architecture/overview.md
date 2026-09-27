@@ -151,6 +151,13 @@ Moves are checked against capacity ([ADR 0128](../adr/0128-capacity-and-moving-a
 - **Moving anyway.** An item's GM may send `override`; anyone else gets a 403, and the activity log says it was overridden. inventory-web asks a GM "Move anyway?", and loot-bot's `/move` gives a GM a button. Everyone else sees the API's own message.
 - **Deleting a container** keeps what was inside: it moves to wherever the container was, or to its owner. A stack with nowhere to go refuses the delete.
 
+Things can bind to their owner ([ADR 0129](../adr/0129-binding-and-lifting-it.md), RFC 0030 slice 7), which completes RFC 0030:
+
+- **Binding.** The well-known enum stat `binding` binds an item to its owner, only when that owner is a being. `on_own` binds while a being owns it, `on_pickup` while its owner carries it, and `on_equip` while its owner has it equipped. Nothing is stored: `bound` on every item instance follows from where it is and who owns it.
+- **What it refuses.** A bound item's owner can't change. A move can't take a bound thing out of what binds it, checked for everything inside a moved container too. Both are refused with `409 item-bound`, and giving what's inside keeps a bound thing where it is.
+- **A GM's say.** `override` skips binding as well as capacity, the two DELETEs take it as a query parameter, and `lift_binding` sets an item's own `binding` to `none` for good. Both are GM-only, under a 403 renamed `override-forbidden`. inventory-web marks bound things, asks a GM "…anyway?" and whether to lift it, and loot-bot's `/move` adds "Move and lift binding".
+- **`is_magical` and `is_cursed`** are gone from the item views and responses, an accepted contract break. Tenants' own tags by those names are ordinary tags.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
