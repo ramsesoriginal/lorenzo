@@ -17,7 +17,10 @@ Giving a backpack changes who owns the backpack, not the rope, the rations, and 
 A `bulk-assign` entry gains `with_contents` (default `false`). When set, the entry's item is given as before. Then everything inside it, at any depth, gets the same new owner, except:
 
 - what's already the recipient's, which is left alone and not reported;
-- what the caller may not give, by ADR 0124's rule: something that isn't theirs, their group's, or unowned, unless they're a GM. It keeps its owner and is reported as kept, with the refusal.
+- what the caller may not give, by ADR 0124's rule: something that isn't theirs, their group's, or unowned, unless they're a GM. It keeps its owner and is reported as kept, with the refusal;
+- a being inside it, such as a familiar in a backpack or a passenger in a carriage, and everything the being carries. That's the being's, not the container's, so it isn't considered or reported.
+
+Whether the caller may give something inside is judged as things stood before the give. Handing the container over doesn't first put what's inside out of their reach.
 
 Nothing moves. Contents stay where they are, only their owner changes, unless the entry also hands the container over (`move_to_owner`, [ADR 0115](0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md)). Then its contents go with it physically, because they're inside it.
 
