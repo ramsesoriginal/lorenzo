@@ -169,6 +169,57 @@ async def containment_paths(
     return paths
 
 
+async def surroundings(
+    session: AsyncSession, *, entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """Where each of entity_ids is, nearest first: containment_paths, except
+    that a chain ending at something in no container that has an owner goes
+    on through the owner and the owner's own containers - an owned thing in
+    no container is with its owner (ADR 0115, 0123). So a backpack its
+    owner holds without a containment row is still "with Ashfang". It goes
+    through one owner only, and stops before anything already on the path.
+    """
+    paths = await containment_paths(session, entity_ids=entity_ids, tenant_id=tenant_id)
+    tops = {entity_id: (path[-1] if path else entity_id) for entity_id, path in paths.items()}
+    if not tops:
+        return paths
+    contained = set(
+        (
+            await session.execute(
+                select(Containment.child_entity_id).where(
+                    Containment.child_entity_id.in_(set(tops.values())),
+                    Containment.tenant_id == tenant_id,
+                )
+            )
+        ).scalars()
+    )
+    owners: dict[uuid.UUID, uuid.UUID] = {
+        owned: owner
+        for owned, owner in (
+            await session.execute(
+                select(Ownership.owned_entity_id, Ownership.owner_character_id).where(
+                    Ownership.owned_entity_id.in_(set(tops.values()) - contained),
+                    Ownership.tenant_id == tenant_id,
+                )
+            )
+        ).tuples()
+    }
+    owner_paths = await containment_paths(
+        session, entity_ids=frozenset(owners.values()), tenant_id=tenant_id
+    )
+    for entity_id, path in paths.items():
+        owner = owners.get(tops[entity_id])
+        if owner is None:
+            continue
+        seen = {entity_id, *path}
+        for around in [owner, *owner_paths[owner]]:
+            if around in seen:
+                break
+            path.append(around)
+            seen.add(around)
+    return paths
+
+
 async def reachable_entity_ids(
     session: AsyncSession, *, root_entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID
 ) -> frozenset[uuid.UUID]:

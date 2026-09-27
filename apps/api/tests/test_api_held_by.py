@@ -77,8 +77,10 @@ class _Scene:
 async def _make_scene(test_user_id: uuid.UUID) -> _Scene:
     """Alice (the caller's character) and Pia (another player's, same
     campaign). Alice has a Sword in hand, a Rope that's in no container, and
-    a Backpack holding Pia's Potion and a Belt pouch with a Coin in it. Pia
-    has Alice's Spellbook in hand. Alice's Carriage stands in the Stable,
+    a Backpack holding Pia's Potion and a Belt pouch with a Coin in it. Her
+    Satchel, with a Letter in it, is in no container either, so it's with
+    her too. Pia has Alice's Spellbook in hand, and Alice's Ring is in Pia's
+    Case, which is in no container. Alice's Carriage stands in the Stable,
     with an unowned Chest in it and an unowned Map in the Chest.
     """
     tenant_id = await make_tenant(test_user_id)
@@ -112,6 +114,14 @@ async def _make_scene(test_user_id: uuid.UUID) -> _Scene:
         )
         ids["spellbook"] = await _instance(
             session, tenant_id, "Spellbook", owner=alice, container=pia
+        )
+        ids["satchel"] = await _instance(session, tenant_id, "Satchel", owner=alice)
+        ids["letter"] = await _instance(
+            session, tenant_id, "Letter", owner=alice, container=ids["satchel"]
+        )
+        ids["case"] = await _instance(session, tenant_id, "Case", owner=pia)
+        ids["ring"] = await _instance(
+            session, tenant_id, "Ring", owner=alice, container=ids["case"]
         )
         ids["carriage"] = await _instance(
             session, tenant_id, "Carriage", owner=alice, container=stable.id
@@ -161,12 +171,16 @@ async def test_held_by_groups_what_a_being_holds(
     body = response.json()
     assert [_group_shape(g, names) for g in body["groups"]] == [
         # Equipped: what Alice has in hand, and what she owns in no container.
-        ("alice", "being", [], True, ["backpack", "rope", "sword"]),
+        ("alice", "being", [], True, ["backpack", "rope", "satchel", "sword"]),
         # Carried, in tree order: the pouch right after the backpack it's in.
+        # The satchel is in no container, so it's with Alice.
         ("backpack", "item_instance", [], True, ["potion", "pouch"]),
         ("pouch", "item_instance", ["backpack"], True, ["coin"]),
-        # Held elsewhere: in another being's hands, and through what she owns.
+        ("satchel", "item_instance", [], True, ["letter"]),
+        # Held elsewhere: in another being's hands, in what's with her, and
+        # through what Alice owns.
         ("pia", "being", [], False, ["spellbook"]),
+        ("case", "item_instance", ["pia"], False, ["ring"]),
         ("stable", "other", [], False, ["carriage"]),
         ("carriage", "item_instance", ["stable"], False, ["chest"]),
         ("chest", "item_instance", ["carriage", "stable"], False, ["map"]),

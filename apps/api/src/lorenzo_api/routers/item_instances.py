@@ -28,10 +28,10 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
-    containment_paths,
     controlled_character_entity_ids,
     reachable_entity_ids,
     recursive_descendants_cte,
+    surroundings,
 )
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
@@ -420,7 +420,8 @@ async def list_item_instances_held_by(
     ]
 
     container_ids = frozenset(container_id for _, container_id in rows) - {entity_id}
-    paths = await containment_paths(session, entity_ids=container_ids, tenant_id=tenant_id)
+    # Through an owner, for a container in no container of its own (ADR 0123).
+    paths = await surroundings(session, entity_ids=container_ids, tenant_id=tenant_id)
     carried: dict[uuid.UUID, bool] = {}
     for container_id, path in paths.items():
         carried[container_id] = entity_id in path
