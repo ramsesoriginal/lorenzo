@@ -1859,7 +1859,7 @@ async def give_item_instance_contents(
             action="item_instance.contents_given",
             target_type="item_instance",
             target_id=entity_id,
-            detail=(f"owner={body.owner_character_id}; {given} given, {len(results) - given} kept"),
+            detail=f"owner={body.owner_character_id}; {given} given, {len(results) - given} kept",
         )
     await session.commit()
     return results
