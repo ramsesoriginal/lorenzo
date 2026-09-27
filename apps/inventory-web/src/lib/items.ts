@@ -3,15 +3,15 @@ import type {
   BulkResultItem,
   CatalogItem,
   EntityDetail,
+  HeldByResponse,
   ItemInstance,
   OwnedByResponse,
   PrototypeAncestor,
 } from './types';
 
-// Grouped by *direct* container only (ADR 0020's task brief) - a null
-// group for items with no container, one group per occupied container.
-// Not recursive: a container that's itself empty produces no group of its
-// own, but still appears as a card inside whichever group holds it.
+// What a being owns, grouped by *direct* container only (ADR 0020's task
+// brief) - a null group for items with no container, one group per occupied
+// container. Manage items' per-being listing; the board reads held-by.
 export async function getOwnedItemInstances(
   tenantId: string,
   ownerEntityId: string,
@@ -19,6 +19,21 @@ export async function getOwnedItemInstances(
   return unwrap(
     await client.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
       params: { path: { tenant_id: tenantId, owner_entity_id: ownerEntityId } },
+    }),
+  );
+}
+
+// Everything a being holds (ADR 0123), grouped by direct container: its own
+// group (Equipped) first and always, then what it carries, then what's held
+// elsewhere. A container with nothing in it gets no group of its own, but
+// still appears as a card inside whichever group holds it.
+export async function getHeldItemInstances(
+  tenantId: string,
+  holderEntityId: string,
+): Promise<HeldByResponse> {
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/item-instances/held-by/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: holderEntityId } },
     }),
   );
 }

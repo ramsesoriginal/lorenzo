@@ -175,6 +175,27 @@
   color: var(--text-tertiary);
 }
 
+/* Whose a card is, when it isn't the board's being's own (ADR 0123). */
+.item-card-owner {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Where a column's container is: "In Backpack", "Pia has these". */
+.board-column-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.board-elsewhere h3 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .item-card--selected {
   --item-accent: var(--canonical);
   background: color-mix(in srgb, var(--canonical) 10%, var(--surface-default));
