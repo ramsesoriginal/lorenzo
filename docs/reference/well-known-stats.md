@@ -9,6 +9,13 @@ This page lists them, and the recipes built on formulas ([ADR 0104](../adr/0104-
 | Name | Where | Type | What reads it |
 | --- | --- | --- | --- |
 | `is_container` | the `tags` stat group | `bool` | Item and item-instance responses' `is_container` field ([ADR 0066](../adr/0066-is-container-computed-field.md)): `true` or `false` when set, `true` when unset but something is inside, otherwise `null`. Clients use it to offer something as a container. |
+| `weight` | items | number | What `carry_capacity` adds up ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)), `× quantity` for a stack. |
+| `size` | items | number | What `containment_capacity` adds up, and what `max_item_size` compares. |
+| `carry_capacity` | a container or a being | number | A move may not make `Σ weight × quantity` of what's directly inside grow past it, checked on the container moved into and every container above it. |
+| `containment_capacity` | a container | number | A move may not make `Σ size × quantity` of what's directly inside grow past it. |
+| `max_item_size` | a container | number | Nothing whose `size` is over it goes in. |
+
+Each is read as resolved, so a formula counts, and something without a `weight` or `size` counts as 0. A GM can move anyway ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)).
 
 ## Recipe: weight that adds up
 

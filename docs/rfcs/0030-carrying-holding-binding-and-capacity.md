@@ -1,6 +1,6 @@
 # RFC: Carrying, holding, binding, and capacity — what a being has on it, and the rules that follow
 
-Status: accepted, decided with the maintainer on 2026-09-26. Built in the seven slices in [Slices](#slices), each recorded as its own ADR when it lands: slice 1 as [ADR 0123](../adr/0123-held-by-listing-and-the-equipped-column.md), slice 2 as [ADR 0124](../adr/0124-groups-own-things-and-moving-is-not-giving.md), slice 3 as [ADR 0125](../adr/0125-giving-a-container-with-its-contents.md), slice 4 as [ADR 0126](../adr/0126-sum-formulas.md), slice 5 as [ADR 0127](../adr/0127-contents-formulas.md). Both apps consume it through `@lorenzo/api-client`, ADR 0122, decided alongside this RFC on its own branch.
+Status: accepted, decided with the maintainer on 2026-09-26. Built in the seven slices in [Slices](#slices), each recorded as its own ADR when it lands: slice 1 as [ADR 0123](../adr/0123-held-by-listing-and-the-equipped-column.md), slice 2 as [ADR 0124](../adr/0124-groups-own-things-and-moving-is-not-giving.md), slice 3 as [ADR 0125](../adr/0125-giving-a-container-with-its-contents.md), slice 4 as [ADR 0126](../adr/0126-sum-formulas.md), slice 5 as [ADR 0127](../adr/0127-contents-formulas.md), slice 6 as [ADR 0128](../adr/0128-capacity-and-moving-anyway.md). Both apps consume it through `@lorenzo/api-client`, ADR 0122, decided alongside this RFC on its own branch.
 
 ## Context
 
