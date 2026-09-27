@@ -8,8 +8,11 @@ static Astro app) and [docs/guides/adding-an-app.md](../../docs/guides/adding-an
 ## What it does
 
 After logging in via Authgear and picking a tenant, a character's inventory
-renders as a kanban-style board — columns are the containers they own, cards
-are item instances, dragged between columns to move them. Clicking a card
+renders as a kanban-style board of everything they hold ([ADR
+0123](../../docs/adr/0123-held-by-listing-and-the-equipped-column.md)):
+Equipped first and always, then each container they carry, then what's
+held elsewhere. Cards are item instances, dragged between columns to move
+them, and a card that isn't the character's own names its owner. Clicking a card
 opens its detail view: every stat group, its tags, pictures, full prototype
 ancestry, and descriptions (its own and those it inherits from its prototypes,
 labelled), rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)

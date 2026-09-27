@@ -126,6 +126,11 @@ API only: screens for repositories in the web apps are separate, later work. Aut
 
 loot-bot and inventory-web share one typed API client ([ADR 0122](../adr/0122-api-client-package.md)). `packages/api-client` holds the schema generated from `apps/api`'s OpenAPI document, the client factory, and one error type, so both apps dropped their own copies of the schema and one CI check catches a stale one for both. It carries no rules: whether something is allowed stays the API's answer.
 
+What a being holds has a listing of its own ([ADR 0123](../adr/0123-held-by-listing-and-the-equipped-column.md), [RFC 0030](../rfcs/0030-carrying-holding-binding-and-capacity.md) slice 1):
+
+- **Held-by.** `GET .../item-instances/held-by/{entity_id}` lists ADR 0099's "holds": what an entity owns, what's contained under it, and whatever sits inside something it owns. It's grouped by container, the holder's own group first and always. An owned item in no container counts as with its owner, for its group and for the path any container gives.
+- **Equipped.** A being is its own Equipped container. inventory-web's board shows it as the first column, always, even when it's empty, then what the being carries, then what's held elsewhere, and names the owner of anything that isn't the being's own. loot-bot's `/inventory` and `/inspect` show the same.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

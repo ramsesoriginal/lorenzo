@@ -26,8 +26,8 @@ test('shows each container as a column of cards', async ({ world, as }) => {
   await packed(world, world.pia);
   const page = await boardOf(as, world, world.pia);
 
-  await expect(card(page, 'Ashfang', 'Backpack')).toBeVisible();
-  await expect(card(page, 'Ashfang', 'Belt Pouch')).toBeVisible();
+  await expect(card(page, 'Equipped', 'Backpack')).toBeVisible();
+  await expect(card(page, 'Equipped', 'Belt Pouch')).toBeVisible();
   await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeVisible();
   await expect(card(page, 'Backpack', 'Arrow ×3')).toBeVisible();
 });
@@ -43,9 +43,28 @@ test('picks a character from the strip', async ({ world, as }) => {
   );
 });
 
-test('says so when a character carries nothing', async ({ world, as }) => {
+test('shows Equipped even when a character carries nothing', async ({ world, as }) => {
   const page = await boardOf(as, world, world.oskar);
-  await expect(page.getByText("Brisk isn't carrying anything yet.")).toBeVisible();
+  await expect(column(page, 'Equipped')).toContainText('Nothing equipped.');
+});
+
+test("marks what isn't hers, and shows his things held elsewhere", async ({ world, as }) => {
+  const { items, backpack } = await packed(world, world.pia);
+  // Brisk's book, in Ashfang's backpack.
+  await world.instance(items.book, { owner: world.oskar, container: backpack });
+
+  const pia = await boardOf(as, world, world.pia);
+  await expect(card(pia, 'Backpack', "Book Brisk's")).toBeVisible();
+  // Her own things carry no mark.
+  await expect(card(pia, 'Backpack', 'Ornate Spellbook')).toBeVisible();
+
+  const oskar = await boardOf(as, world, world.oskar);
+  const elsewhere = oskar.getByRole('region', { name: 'Held elsewhere' });
+  await expect(elsewhere.getByRole('region', { name: 'Backpack' })).toContainText('In Ashfang');
+  await expect(card(oskar, 'Backpack', 'Book')).toBeVisible();
+  // Only what he holds: her spellbook in the same backpack isn't his to see here.
+  await expect(card(oskar, 'Backpack', 'Ornate Spellbook')).toHaveCount(0);
+  await expect(column(oskar, 'Equipped')).toContainText('Nothing equipped.');
 });
 
 test('opens an item to show all of it, with what it inherits labelled', async ({ world, as }) => {
@@ -126,7 +145,7 @@ test('moves an item into another container and out again', async ({ world, as })
   await card(page, 'Belt Pouch', 'Ornate Spellbook').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
   await page.getByRole('button', { name: 'Remove from container' }).click();
-  await expect(card(page, 'Ashfang', 'Ornate Spellbook')).toBeVisible();
+  await expect(card(page, 'Equipped', 'Ornate Spellbook')).toBeVisible();
   expect(await world.carried(world.pia)).toContain('(none): Ornate Spellbook');
 });
 
@@ -146,8 +165,8 @@ test('drags an item out of its container', async ({ world, as }) => {
   await packed(world, world.pia);
   const page = await boardOf(as, world, world.pia);
 
-  await card(page, 'Backpack', 'Ornate Spellbook').dragTo(column(page, 'Ashfang'));
-  await expect(card(page, 'Ashfang', 'Ornate Spellbook')).toBeVisible();
+  await card(page, 'Backpack', 'Ornate Spellbook').dragTo(column(page, 'Equipped'));
+  await expect(card(page, 'Equipped', 'Ornate Spellbook')).toBeVisible();
   await expect.poll(() => world.carried(world.pia)).toContain('(none): Ornate Spellbook');
 });
 

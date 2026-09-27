@@ -2557,6 +2557,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/item-instances/held-by/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Item Instances Held By
+         * @description Everything entity_id holds (ADR 0123): ADR 0099's relation, which is
+         *     exactly the walk reachable_entity_ids makes from it - what it owns, what's
+         *     contained under it at any depth, and whatever sits inside something it
+         *     owns. Grouped by direct container, its own group (a being's Equipped)
+         *     first and always, then carried containers, then what's held elsewhere.
+         *
+         *     The holder itself must be one the caller reaches (ADR 0040's sets);
+         *     otherwise 404, like an entity that doesn't exist - the always-present
+         *     first group would name it. Items are filtered as owned-by filters them.
+         */
+        get: operations["list_item_instances_held_by"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/item-instances/unowned": {
         parameters: {
             query?: never;
@@ -4305,6 +4333,42 @@ export interface components {
             /** Status code */
             status: number;
             errors: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HeldByResponse
+         * @description GET .../item-instances/held-by/{entity_id} (ADR 0123). The holder's
+         *     own group first and always, then carried containers, then what's held
+         *     elsewhere. `owners` names every owner an item here points at through
+         *     `owner_entity_id`, once. Not paginated, like owned-by: bounded by what
+         *     one being holds.
+         */
+        HeldByResponse: {
+            /** Groups */
+            groups: components["schemas"]["HeldGroupOut"][];
+            /** Owners */
+            owners: components["schemas"]["EntitySummary"][];
+        };
+        /**
+         * HeldGroupOut
+         * @description One container's worth of what an entity holds (ADR 0123). The
+         *     holder's own group has the holder as its `container`: for a being, its
+         *     Equipped. `path` is the containers around this one, nearest first; for
+         *     a group the holder carries (`carried`) it stops short of the holder,
+         *     for anything held elsewhere it goes up to the top.
+         */
+        HeldGroupOut: {
+            container: components["schemas"]["EntitySummary"];
+            /**
+             * Container Kind
+             * @enum {string}
+             */
+            container_kind: "being" | "item_instance" | "other";
+            /** Path */
+            path: components["schemas"]["EntitySummary"][];
+            /** Carried */
+            carried: boolean;
+            /** Item Instances */
+            item_instances: components["schemas"]["ItemInstanceOut"][];
         };
         /**
          * InformationCreate
@@ -15410,6 +15474,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OwnedByResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_item_instances_held_by: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldByResponse"];
                 };
             };
             /** @description Validation Error */

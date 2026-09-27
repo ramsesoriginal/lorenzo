@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
@@ -31,9 +31,11 @@ from lorenzo_api.entity_access import (
     controlled_character_entity_ids,
     reachable_entity_ids,
     recursive_descendants_cte,
+    surroundings,
 )
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    EntityNotFoundError,
     InvalidItemPrototypeError,
     InvalidMergeError,
     InvalidSplitQuantityError,
@@ -46,6 +48,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
+    Being,
     Containment,
     Entity,
     EntityPrototype,
@@ -62,6 +65,8 @@ from lorenzo_api.schemas.items import (
     BulkAssignResultItem,
     BulkMoveContainerRequest,
     BulkMoveResultItem,
+    HeldByResponse,
+    HeldGroupOut,
     ItemInstanceCreate,
     ItemInstanceOut,
     ItemInstanceUpdate,
@@ -153,8 +158,26 @@ async def _visible_owner_predicate(
     someone else's item via can_manage_any_of_campaigns, without holding
     ORGA, would otherwise 404 on the very write they just made.
     """
+    return _owner_predicate_for(
+        await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    )
+
+
+async def _caller_reach(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    visibility: InformationVisibility,
+) -> frozenset[uuid.UUID] | None:
+    """What the caller reaches for ADR 0040's purposes - their own
+    characters' reachable set plus the GM-reachable set - or None for ORGA,
+    who reaches everything. Split out of _visible_owner_predicate so held-by
+    (ADR 0123) can check its holder against the same set it filters items
+    with, without walking twice.
+    """
     if visibility.is_orga:
-        return true()
+        return None
     self_reachable = await reachable_entity_ids(
         session,
         root_entity_ids=await controlled_character_entity_ids(
@@ -162,10 +185,16 @@ async def _visible_owner_predicate(
         ),
         tenant_id=tenant_id,
     )
-    visible_entity_ids = self_reachable | visibility.gm_reachable_entity_ids
+    return self_reachable | visibility.gm_reachable_entity_ids
+
+
+def _owner_predicate_for(reach: frozenset[uuid.UUID] | None) -> ColumnElement[bool]:
+    """ADR 0040's item filter for a caller's reach (see _caller_reach)."""
+    if reach is None:
+        return true()
     return or_(
         VItemInstance.owner_entity_id.is_(None),
-        VItemInstance.entity_id.in_(visible_entity_ids),
+        VItemInstance.entity_id.in_(reach),
     )
 
 
@@ -340,6 +369,150 @@ async def list_item_instances_owned_by(
         tenant_id=tenant_id,
         owner_predicate=and_(VItemInstance.owner_entity_id == owner_entity_id, predicate),
         visibility=visibility,
+    )
+
+
+@router.get("/held-by/{entity_id}")
+async def list_item_instances_held_by(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> HeldByResponse:
+    """Everything entity_id holds (ADR 0123): ADR 0099's relation, which is
+    exactly the walk reachable_entity_ids makes from it - what it owns, what's
+    contained under it at any depth, and whatever sits inside something it
+    owns. Grouped by direct container, its own group (a being's Equipped)
+    first and always, then carried containers, then what's held elsewhere.
+
+    The holder itself must be one the caller reaches (ADR 0040's sets);
+    otherwise 404, like an entity that doesn't exist - the always-present
+    first group would name it. Items are filtered as owned-by filters them.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    reach = await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    if reach is not None and entity_id not in reach:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+
+    held = await reachable_entity_ids(
+        session, root_entity_ids=frozenset({entity_id}), tenant_id=tenant_id
+    )
+    stmt = (
+        select(VItemInstance, Containment.parent_entity_id)
+        .outerjoin(Containment, Containment.child_entity_id == VItemInstance.entity_id)
+        .where(
+            VItemInstance.entity_id.in_(held - {entity_id}),
+            _owner_predicate_for(reach),
+            VItemInstance.tenant_id == tenant_id,
+        )
+        .options(*eager_load_options(VItemInstance.entity))
+        .order_by(VItemInstance.entity_id)
+    )
+    # A held item in no container can only be one the holder owns, and an
+    # owned item in no container is with its owner (ADR 0115, 0123): it joins
+    # what the holder contains directly, in the holder's own group.
+    rows = [
+        (view, entity_id if container_id is None else container_id)
+        for view, container_id in (await session.execute(stmt)).all()
+    ]
+
+    container_ids = frozenset(container_id for _, container_id in rows) - {entity_id}
+    # Through an owner, for a container in no container of its own (ADR 0123).
+    paths = await surroundings(session, entity_ids=container_ids, tenant_id=tenant_id)
+    carried: dict[uuid.UUID, bool] = {}
+    for container_id, path in paths.items():
+        carried[container_id] = entity_id in path
+        if carried[container_id]:
+            paths[container_id] = path[: path.index(entity_id)]
+
+    owner_ids = {view.owner_entity_id for view, _ in rows if view.owner_entity_id is not None}
+    named_ids = (
+        {entity_id} | container_ids | owner_ids | {a for path in paths.values() for a in path}
+    )
+    entities = {
+        entity.id: entity
+        for entity in (
+            await session.execute(
+                select(Entity).where(Entity.id.in_(named_ids), Entity.tenant_id == tenant_id)
+            )
+        ).scalars()
+    }
+    kind_ids = {entity_id} | container_ids
+    being_ids = set(
+        (
+            await session.execute(
+                select(Being.entity_id).where(
+                    Being.entity_id.in_(kind_ids), Being.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    instance_ids = set(
+        (
+            await session.execute(
+                select(ItemInstance.entity_id).where(
+                    ItemInstance.entity_id.in_(kind_ids), ItemInstance.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+
+    def kind(container_id: uuid.UUID) -> Literal["being", "item_instance", "other"]:
+        if container_id in being_ids:
+            return "being"
+        return "item_instance" if container_id in instance_ids else "other"
+
+    def summary(some_id: uuid.UUID) -> EntitySummary:
+        return EntitySummary.from_entity(entities[some_id])
+
+    def by_name(some_id: uuid.UUID) -> tuple[str, str]:
+        return (entities[some_id].name.casefold(), str(some_id))
+
+    ancestry = await prototype_ancestors(
+        session, tenant_id=tenant_id, entity_ids=[view.entity_id for view, _ in rows]
+    )
+    items: dict[uuid.UUID, list[ItemInstanceOut]] = {entity_id: []}
+    for view, container_id in rows:
+        items.setdefault(container_id, []).append(
+            ItemInstanceOut.from_v_item_instance(
+                view, request, visibility=visibility, ancestors=ancestry[view.entity_id]
+            )
+        )
+
+    # Carried containers before those held elsewhere; within each, tree
+    # order - a container's outermost surroundings first, so a pouch comes
+    # right after the backpack it's in.
+    ordered = sorted(
+        container_ids,
+        key=lambda c: (
+            not carried[c],
+            [by_name(a) for a in reversed(paths[c])] + [by_name(c)],
+        ),
+    )
+    return HeldByResponse(
+        groups=[
+            HeldGroupOut(
+                container=summary(entity_id),
+                container_kind=kind(entity_id),
+                path=[],
+                carried=True,
+                item_instances=items[entity_id],
+            ),
+            *(
+                HeldGroupOut(
+                    container=summary(c),
+                    container_kind=kind(c),
+                    path=[summary(a) for a in paths[c]],
+                    carried=carried[c],
+                    item_instances=items[c],
+                )
+                for c in ordered
+            ),
+        ],
+        owners=[summary(o) for o in sorted(owner_ids, key=by_name)],
     )
 
 

@@ -44,6 +44,8 @@ export type EntitySummary = components['schemas']['EntitySummary'];
 export type EntityDetail = components['schemas']['EntityDetailOut'];
 export type OwnedGroup = components['schemas']['OwnedGroupOut'];
 export type OwnedByResponse = components['schemas']['OwnedByResponse'];
+export type HeldGroup = components['schemas']['HeldGroupOut'];
+export type HeldByResponse = components['schemas']['HeldByResponse'];
 export type PrototypeAncestor = components['schemas']['PrototypeAncestorOut'];
 
 // POST .../bulk-assign and .../bulk-move each generate their own distinct

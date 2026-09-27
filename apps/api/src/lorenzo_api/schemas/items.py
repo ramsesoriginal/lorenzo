@@ -26,6 +26,8 @@ __all__ = [
     "ItemInstanceOut",
     "OwnedGroupOut",
     "OwnedByResponse",
+    "HeldGroupOut",
+    "HeldByResponse",
     "SetOwnerRequest",
     "SetContainerRequest",
     "SetPrototypesRequest",
@@ -652,3 +654,30 @@ class OwnedByResponse(BaseModel):
     """
 
     groups: list[OwnedGroupOut]
+
+
+class HeldGroupOut(BaseModel):
+    """One container's worth of what an entity holds (ADR 0123). The
+    holder's own group has the holder as its `container`: for a being, its
+    Equipped. `path` is the containers around this one, nearest first; for
+    a group the holder carries (`carried`) it stops short of the holder,
+    for anything held elsewhere it goes up to the top.
+    """
+
+    container: EntitySummary
+    container_kind: Literal["being", "item_instance", "other"]
+    path: list[EntitySummary]
+    carried: bool
+    item_instances: list[ItemInstanceOut]
+
+
+class HeldByResponse(BaseModel):
+    """GET .../item-instances/held-by/{entity_id} (ADR 0123). The holder's
+    own group first and always, then carried containers, then what's held
+    elsewhere. `owners` names every owner an item here points at through
+    `owner_entity_id`, once. Not paginated, like owned-by: bounded by what
+    one being holds.
+    """
+
+    groups: list[HeldGroupOut]
+    owners: list[EntitySummary]

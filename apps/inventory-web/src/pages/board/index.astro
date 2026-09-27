@@ -128,7 +128,7 @@ import Base from '../../layouts/Base.astro';
 
       <p id="inventory-empty" class="next-up" hidden></p>
       <p id="inventory-error" class="error-text" hidden></p>
-      <div id="board-columns" class="board-columns"></div>
+      <div id="board-columns" class="board-rows"></div>
     </section>
   </div>
 
@@ -174,13 +174,20 @@ import Base from '../../layouts/Base.astro';
       summarizeBulkResults,
       type UndoPayload,
     } from '../../lib/boardLogic';
+    import {
+      type Board,
+      type BoardColumn,
+      heldBoard,
+      ownerMark,
+      unownedBoard,
+    } from '../../lib/boardColumns';
     import { listMyCharacters } from '../../lib/characters';
     import { descriptionRenderer } from '../../lib/descriptions';
     import {
       bulkAssignItemInstances,
       bulkMoveItemInstances,
       clearContainer,
-      getOwnedItemInstances,
+      getHeldItemInstances,
       getUnownedItemInstances,
       mergeItemInstance,
       setContainer,
@@ -197,9 +204,8 @@ import Base from '../../layouts/Base.astro';
       BeingRef,
       CharacterSummary,
       EntitySummary,
+      HeldByResponse,
       ItemInstance,
-      OwnedByResponse,
-      OwnedGroup,
     } from '../../lib/types';
 
     const status = document.getElementById('status')!;
@@ -327,6 +333,8 @@ import Base from '../../layouts/Base.astro';
     // The being whose board this is, who carries what's in no container of theirs (ADR
     // 0115); null on the board of unowned things.
     let boardOwnerId: string | null = null;
+    // The board as shown, for marking whose each card is (ADR 0123).
+    let currentBoard: Board | null = null;
 
     // entity_id -> its ItemInstance, for everything currently rendered -
     // lets the merge panel's "other stacks of this" lookup and the bulk
@@ -872,7 +880,8 @@ import Base from '../../layouts/Base.astro';
       if (list.children.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'column-empty';
-        empty.textContent = 'This container is empty.';
+        // Each column says it its own way: Equipped is "Nothing equipped." (ADR 0123).
+        empty.textContent = list.dataset.empty ?? 'This container is empty.';
         list.append(empty);
       }
     }
@@ -1167,51 +1176,79 @@ import Base from '../../layouts/Base.astro';
         open.append(' ', qty);
       }
 
+      // Whose it is, when it isn't the board's being's own (ADR 0123).
+      const mark = currentBoard ? ownerMark(item, currentBoard) : null;
+      if (mark) {
+        const owner = document.createElement('span');
+        owner.className = 'item-card-owner';
+        owner.textContent = mark;
+        open.append(' ', owner);
+      }
+
       li.append(open);
       return li;
     }
 
-    function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
+    function renderColumn(column: BoardColumn): HTMLElement {
       const section = document.createElement('section');
       section.className = 'board-column';
 
-      if (group.container) {
-        boardContainers.set(group.container.id, group.container);
+      if (column.dropTarget !== null) {
+        // "Move to…" offers it under the column's own title: Equipped, not the being's name.
+        boardContainers.set(column.dropTarget, {
+          id: column.dropTarget,
+          name: column.title,
+          quantity: null,
+        });
       }
 
       // Named by its heading, so each column is a region a reader can find.
       const heading = document.createElement('h3');
-      heading.id = `column-${group.container?.id ?? 'loose'}`;
-      heading.textContent = group.container?.name ?? rootTitle;
+      heading.id = `column-${column.key}`;
+      heading.textContent = column.title;
       section.setAttribute('aria-labelledby', heading.id);
       section.append(heading);
 
+      if (column.note) {
+        const note = document.createElement('p');
+        note.className = 'board-column-note';
+        note.textContent = column.note;
+        section.append(note);
+      }
+
       const list = document.createElement('ul');
       list.className = 'column-cards';
-      if (group.item_instances.length === 0) {
+      list.dataset.empty = column.empty;
+      if (column.items.length === 0) {
         ensurePlaceholder(list);
       } else {
-        for (const item of group.item_instances) {
+        for (const item of column.items) {
           boardItems.set(item.entity_id, item);
           list.append(renderCard(item));
         }
       }
       section.append(list);
 
-      bindDropZone(section, list, group.container?.id ?? null);
+      bindDropZone(section, list, column.dropTarget);
 
       return section;
     }
 
-    // Shared rendering for any OwnedByResponse-shaped source - "a being's
-    // own inventory" (owned-by/{id}) and "unowned loot" (unowned, ADR
-    // 0077) return the identical shape, so both boards use this unchanged.
+    function renderRow(columns: BoardColumn[]): HTMLElement {
+      const row = document.createElement('div');
+      row.className = 'board-columns';
+      row.append(...columns.map(renderColumn));
+      return row;
+    }
+
     // A couple of fake columns/cards shaped like the real thing, shown
     // while the actual board loads - see the styles/normalize.css [hidden]
     // fix and components.css .skeleton for why this works at all now.
     function renderBoardSkeleton() {
       boardColumns.setAttribute('aria-busy', 'true');
-      boardColumns.replaceChildren(
+      const row = document.createElement('div');
+      row.className = 'board-columns';
+      row.append(
         ...Array.from({ length: 2 }, () => {
           const section = document.createElement('section');
           section.className = 'board-column';
@@ -1226,12 +1263,15 @@ import Base from '../../layouts/Base.astro';
           return section;
         }),
       );
+      boardColumns.replaceChildren(row);
     }
 
+    // Shared rendering for both boards: a being's (what it holds, ADR 0123)
+    // and the board of unowned things (ADR 0077). Only the latter can be
+    // empty - a being's board always has its Equipped column to drop onto.
     async function loadBoardFromResponse(
-      fetchFn: () => Promise<OwnedByResponse>,
-      rootTitle: string,
-      emptyMessage: string,
+      fetchFn: () => Promise<Board>,
+      emptyMessage: string | null,
     ) {
       boardItems.clear();
       boardContainers.clear();
@@ -1240,23 +1280,26 @@ import Base from '../../layouts/Base.astro';
       inventoryError.hidden = true;
       renderBoardSkeleton();
       try {
-        const response = await fetchFn();
+        const shown = await fetchFn();
+        currentBoard = shown;
         boardColumns.replaceChildren();
         boardColumns.removeAttribute('aria-busy');
-        const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
-        if (!hasAnything) {
+        const hasAnything = [...shown.carried, ...shown.elsewhere].some((c) => c.items.length > 0);
+        if (!hasAnything && emptyMessage !== null) {
           inventoryEmpty.hidden = false;
           inventoryEmpty.textContent = emptyMessage;
           return;
         }
-        // The null-container group (things with no container, including
-        // top-level containers themselves) reads first - everything else
-        // keeps the order the API returned.
-        const ordered = [...response.groups].sort((a, b) =>
-          a.container === null ? -1 : b.container === null ? 1 : 0,
-        );
-        for (const group of ordered) {
-          boardColumns.append(renderColumn(group, rootTitle));
+        boardColumns.append(renderRow(shown.carried));
+        if (shown.elsewhere.length > 0) {
+          const section = document.createElement('section');
+          section.className = 'board-elsewhere';
+          const heading = document.createElement('h3');
+          heading.id = 'board-elsewhere-heading';
+          heading.textContent = 'Held elsewhere';
+          section.setAttribute('aria-labelledby', heading.id);
+          section.append(heading, renderRow(shown.elsewhere));
+          boardColumns.append(section);
         }
       } catch (e) {
         boardColumns.replaceChildren();
@@ -1266,22 +1309,20 @@ import Base from '../../layouts/Base.astro';
       }
     }
 
-    // entityId/rootTitle are deliberately generic, not character-specific -
-    // getOwnedItemInstances accepts any being's entity id, no
-    // character-only validation server-side (confirmed against
-    // apps/api's own source), so this same function already serves both
-    // "a player's own character" and "a GM browsing any being."
+    // entityId is deliberately generic, not character-specific - held-by
+    // accepts any being the viewer reaches, so this same function serves
+    // both "a player's own character" and "a GM browsing any being."
     //
     // prefetchedBoards holds requests already in flight (or settled) for a
     // being's board, fired on hover/focus of its pill before the actual
     // click - loadBoard consumes and discards the entry (one-shot: a later
     // reload of the same being should hit the network again, not replay a
     // now-stale response).
-    const prefetchedBoards = new Map<string, Promise<OwnedByResponse>>();
+    const prefetchedBoards = new Map<string, Promise<HeldByResponse>>();
 
     function prefetchBoard(entityId: string) {
       if (prefetchedBoards.has(entityId)) return;
-      const request = getOwnedItemInstances(tenantId as string, entityId);
+      const request = getHeldItemInstances(tenantId as string, entityId);
       // Swallow here so an unclicked prefetch (hover without a follow-up
       // click) never surfaces as an unhandled rejection - the original
       // `request` reference kept in the map is untouched, so loadBoard's
@@ -1291,15 +1332,15 @@ import Base from '../../layouts/Base.astro';
       prefetchedBoards.set(entityId, request);
     }
 
-    async function loadBoard(entityId: string, rootTitle: string) {
-      reloadCurrentView = () => void loadBoard(entityId, rootTitle);
+    async function loadBoard(entityId: string) {
+      reloadCurrentView = () => void loadBoard(entityId);
       boardOwnerId = entityId;
       const prefetched = prefetchedBoards.get(entityId);
       prefetchedBoards.delete(entityId);
       await loadBoardFromResponse(
-        () => prefetched ?? getOwnedItemInstances(tenantId as string, entityId),
-        rootTitle,
-        `${rootTitle} isn't carrying anything yet.`,
+        async () =>
+          heldBoard(await (prefetched ?? getHeldItemInstances(tenantId as string, entityId))),
+        null,
       );
     }
 
@@ -1308,8 +1349,7 @@ import Base from '../../layouts/Base.astro';
       reloadCurrentView = () => void loadUnownedBoard();
       boardOwnerId = null;
       await loadBoardFromResponse(
-        () => getUnownedItemInstances(tenantId as string),
-        'Unowned',
+        async () => unownedBoard(await getUnownedItemInstances(tenantId as string)),
         "There's nothing unowned right now.",
       );
     }
@@ -1322,7 +1362,7 @@ import Base from '../../layouts/Base.astro';
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
       window.history.replaceState({}, '', url);
-      void loadBoard(character.entity_id, character.name);
+      void loadBoard(character.entity_id);
     }
 
     // GM-only: browse any being's inventory - by search against
@@ -1336,7 +1376,7 @@ import Base from '../../layouts/Base.astro';
       }
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = `Viewing ${being.name}'s inventory.`;
-      void loadBoard(being.entity_id, being.name);
+      void loadBoard(being.entity_id);
     }
 
     // GM-only: browse unowned loot (ADR 0077/#95).
