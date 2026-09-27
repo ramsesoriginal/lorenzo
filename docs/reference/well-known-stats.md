@@ -14,8 +14,11 @@ This page lists them, and the recipes built on formulas ([ADR 0104](../adr/0104-
 | `carry_capacity` | a container or a being | number | A move may not make `Σ weight × quantity` of what's directly inside grow past it, checked on the container moved into and every container above it. |
 | `containment_capacity` | a container | number | A move may not make `Σ size × quantity` of what's directly inside grow past it. |
 | `max_item_size` | a container | number | Nothing whose `size` is over it goes in. |
+| `binding` | items | `enum`: `on_pickup`, `on_equip`, `on_own`, `none` | Binds the item to its owner, when the owner is a being ([ADR 0129](../adr/0129-binding-and-lifting-it.md)). `on_own`: bound while a being owns it, and once it's carried it can't leave what the owner carries. `on_pickup`: bound while its owner carries it, and can't leave what the owner carries. `on_equip`: bound while its owner has it equipped, and can't leave the owner. A bound item's owner can't change. `none` is "not this one", under a prototype that binds. |
 
-Each is read as resolved, so a formula counts, and something without a `weight` or `size` counts as 0. A GM can move anyway ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)).
+Each is read as resolved, so a formula counts, and something without a `weight` or `size` counts as 0. A GM can move anyway ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)), and lift a binding ([ADR 0129](../adr/0129-binding-and-lifting-it.md)).
+
+`is_magical` and `is_cursed` used to be read by name too. They aren't anymore: a tenant's own tags by those names are just tags.
 
 ## Recipe: weight that adds up
 
