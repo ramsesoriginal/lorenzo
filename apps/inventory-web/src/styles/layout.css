@@ -6,13 +6,6 @@
  * before a second consumer needs it" rule).
  */
 
-.character-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
 .board-columns {
   display: grid;
   grid-auto-flow: column;

@@ -85,7 +85,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         <nav class="row" aria-label="Subpages">
           <a href="/" data-path="/">Home</a>
           <a href="/board/" data-path="/board/" data-needs-tenant hidden>Board</a>
-          <a href="/items/" data-path="/items/" data-needs-tenant hidden>Manage Items</a>
+          <a href="/items/" data-path="/items/" data-needs-tenant hidden>Items</a>
         </nav>
       </div>
       <div class="row">
@@ -141,6 +141,9 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
       import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
       import { LAST_TENANT_EVENT, getLastTenant, rememberTenant } from '../lib/lastTenant';
       import { listTenants } from '../lib/tenants';
+      import { isCampaignGm } from '../lib/me';
+
+      let userIsGm = false;
 
       // The tenant this page is about: the URL's (the head script puts a
       // remembered one there on a subpage), else the remembered one (home).
@@ -150,8 +153,12 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
 
       // Nav links: a tenant's pages link to the current tenant, and stay
       // hidden until there is one.
-      function updateNav() {
+      async function updateNav() {
         const tenant = currentTenant();
+        if (tenant)
+        {
+          userIsGm = await isCampaignGm(tenant);
+        }
         for (const link of document.querySelectorAll<HTMLAnchorElement>('nav a[data-path]')) {
           const path = link.dataset.path!;
           if (link.hasAttribute('data-needs-tenant')) {
@@ -162,7 +169,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         }
       }
 
-      updateNav();
+      await updateNav();
       window.addEventListener(LAST_TENANT_EVENT, updateNav);
 
       // Tenant switcher: only for a signed-in user with more than one tenant.

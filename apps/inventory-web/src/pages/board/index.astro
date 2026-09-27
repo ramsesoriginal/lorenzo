@@ -1,123 +1,115 @@
 ---
 import Base from '../../layouts/Base.astro';
+import ItemDesignDialog from '../../components/ItemDetailDialog.astro';
+import BoardColumn from '../../components/BoardColumn.astro';
+import BoardColumnItem from '../../components/BoardColumnItem.astro';
+
 ---
 
 <Base title="Board — Lorenzo">
-  <p><a href="/">&larr; Tenants</a></p>
   <p id="status">Loading&hellip;</p>
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
-    <p id="tenant-slug" class="tenant-slug"></p>
     <p id="catalog-links" hidden><a id="catalog-link" href="">Catalog</a></p>
 
-    <section id="picker-section" class="section">
-      <div
-        id="picker-tablist"
-        class="tabs"
-        role="tablist"
-        aria-label="Whose inventory to view"
-        hidden
-      >
-        <button
-          type="button"
-          id="tab-characters"
-          class="tab"
-          role="tab"
-          aria-selected="true"
-          aria-controls="panel-characters"
-        >
-          Your characters
-        </button>
-        <button
-          type="button"
-          id="tab-browse"
-          class="tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-browse"
+    <div class="stack">
+      <section id="picker-section" class="section stack">
+        <div
+          id="picker-tablist"
+          class="tabs"
+          role="tablist"
+          aria-label="Whose inventory to view"
           hidden
         >
-          Browse a being
-        </button>
-        <button
-          type="button"
-          id="tab-unowned"
-          class="tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-unowned"
-          hidden
-        >
-          Unowned items
-        </button>
-      </div>
+          <button
+            type="button"
+            id="tab-characters"
+            class="tab"
+            role="tab"
+            aria-selected="true"
+            aria-controls="panel-characters"
+          >
+            Your characters
+          </button>
+          <button
+            type="button"
+            id="tab-browse"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-browse"
+            hidden
+          >
+            Browse a being
+          </button>
+          <button
+            type="button"
+            id="tab-unowned"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-unowned"
+            hidden
+          >
+            Unowned items
+          </button>
+        </div>
 
-      <div id="panel-characters" class="tab-panel" role="tabpanel" aria-labelledby="tab-characters">
-        <p id="characters-loading">Loading characters&hellip;</p>
-        <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
-        <p id="characters-error" class="error-text" hidden></p>
-        <ul id="character-strip" class="character-strip"></ul>
-      </div>
+        <div id="panel-characters" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-characters">
+          <p id="characters-loading">Loading characters&hellip;</p>
+          <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
+          <p id="characters-error" class="error-text" hidden></p>
+          <ul id="character-strip" class="list"></ul>
+        </div>
 
-      <div id="panel-browse" class="tab-panel" role="tabpanel" aria-labelledby="tab-browse" hidden>
-        <div class="field">
-          <span class="field-label" id="gm-browse-label">Search beings</span>
-          <div class="combobox" id="gm-browse-combobox">
+        <div id="panel-browse" class="tab-panel card card-body " role="tabpanel" aria-labelledby="tab-browse" hidden>
+          <div class="field">
+            <label class="field-label" id="gm-browse-label" for="gm-browse-search">Search beings</label>
+            <div class="combobox" id="gm-browse-combobox">
+              <input
+                type="text"
+                id="gm-browse-search"
+                class="text-input"
+                placeholder="Search beings…"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded="false"
+                aria-controls="gm-browse-suggestions"
+                aria-labelledby="gm-browse-label"
+              />
+              <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+            </div>
+          </div>
+          <div class="being-id-row">
             <input
               type="text"
-              id="gm-browse-search"
+              id="gm-browse-raw-id"
               class="text-input"
-              placeholder="Search beings…"
-              autocomplete="off"
-              role="combobox"
-              aria-expanded="false"
-              aria-controls="gm-browse-suggestions"
-              aria-labelledby="gm-browse-label"
+              placeholder="or a being's entity id…"
+              aria-label="Being's entity id"
             />
-            <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+            <button type="button" id="gm-browse-raw-id-button">View</button>
           </div>
         </div>
-        <div class="being-id-row">
-          <input
-            type="text"
-            id="gm-browse-raw-id"
-            class="text-input"
-            placeholder="or a being's entity id…"
-            aria-label="Being's entity id"
-          />
-          <button type="button" id="gm-browse-raw-id-button">View</button>
+
+        <div
+          id="panel-unowned"
+          class="tab-panel"
+          role="tabpanel"
+          aria-labelledby="tab-unowned"
+          hidden
+        >
         </div>
-      </div>
+      </section>
 
-      <div
-        id="panel-unowned"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-unowned"
-        hidden
-      >
-        <p class="field-note">Items nobody currently owns.</p>
-      </div>
-    </section>
-
-    <p id="undo-banner" class="next-up" hidden>
-      <span id="undo-message"></span>
-      <button type="button" id="undo-button">Undo</button>
-    </p>
+      <p id="undo-banner" class="next-up" hidden>
+        <span id="undo-message"></span>
+        <button type="button" id="undo-button">Undo</button>
+      </p>
+    </div>
 
     <section id="inventory" class="section">
       <p id="inventory-viewing" class="next-up" hidden></p>
-
-      <div class="board-toolbar">
-        <input
-          type="search"
-          id="board-search"
-          class="text-input"
-          placeholder="Search this inventory…"
-          aria-label="Search this inventory"
-        />
-        <button type="button" id="select-mode-button">Select items</button>
-      </div>
 
       <div id="selection-toolbar" class="selection-toolbar" hidden>
         <span id="selection-count"></span>
@@ -128,38 +120,25 @@ import Base from '../../layouts/Base.astro';
 
       <p id="inventory-empty" class="next-up" hidden></p>
       <p id="inventory-error" class="error-text" hidden></p>
-      <div id="board-columns" class="board-columns"></div>
+      <div id="board-columns" class="grid full-width h-scroll" style="--grid-min: 260px"></div>
+
+      <section class="board-toolbar card card-body">
+        <input
+          type="search"
+          id="board-search"
+          class="text-input"
+          placeholder="Search this inventory…"
+          aria-label="Search this inventory"
+        />
+        <button type="button" id="select-mode-button">Select items</button>
+      </section>
     </section>
   </div>
 
-  <dialog id="item-detail" class="item-detail" aria-labelledby="item-detail-title">
-    <div class="item-detail-content">
-      <button type="button" id="item-detail-close" class="item-detail-close" aria-label="Close"
-        >&times;</button
-      >
-      <h2 id="item-detail-title" class="display"></h2>
-      <p id="item-detail-slug" class="item-detail-slug" hidden></p>
-      <p id="item-detail-qty" class="item-detail-qty" hidden></p>
-      <div id="item-detail-view" class="item-view"></div>
-      <div id="item-detail-ancestry" class="item-detail-ancestry" hidden>
-        <h3>Ancestry</h3>
-        <ul id="item-detail-ancestry-list"></ul>
-      </div>
-      <section class="item-detail-notes" aria-labelledby="item-detail-notes-heading">
-        <h3 id="item-detail-notes-heading">Notes</h3>
-        <div id="item-detail-notes"></div>
-      </section>
-      <a id="item-detail-view-link" class="btn btn-secondary" href="">View standalone page</a>
+<ItemDesignDialog></ItemDesignDialog>
+<BoardColumn></BoardColumn>
+<BoardColumnItem></BoardColumnItem>
 
-      <div class="item-detail-actions">
-        <button type="button" id="item-detail-give-button">Give to&hellip;</button>
-        <button type="button" id="item-detail-move-button">Move to&hellip;</button>
-        <button type="button" id="item-detail-split-button">Split&hellip;</button>
-        <button type="button" id="item-detail-merge-button">Merge into&hellip;</button>
-      </div>
-      <div id="item-detail-action-panel"></div>
-    </div>
-  </dialog>
 
   <script>
     import { fetchAncestryTree } from '../../lib/ancestryTree';
@@ -205,7 +184,6 @@ import Base from '../../layouts/Base.astro';
     const status = document.getElementById('status')!;
     const board = document.getElementById('board')!;
     const tenantName = document.getElementById('tenant-name')!;
-    const tenantSlug = document.getElementById('tenant-slug')!;
 
     const charactersLoading = document.getElementById('characters-loading')!;
     const charactersEmpty = document.getElementById('characters-empty')!;
@@ -898,7 +876,6 @@ import Base from '../../layouts/Base.astro';
 
     function setCardSelected(card: HTMLLIElement, selected: boolean) {
       card.classList.toggle('item-card--selected', selected);
-      card.querySelector('.item-card-open')?.setAttribute('aria-pressed', String(selected));
       const entityId = card.dataset.entityId;
       if (!entityId) return;
       if (selected) selectedIds.add(entityId);
@@ -920,10 +897,6 @@ import Base from '../../layouts/Base.astro';
       selectModeButton.textContent = on ? 'Cancel selecting' : 'Select items';
       selectModeButton.setAttribute('aria-pressed', String(on));
       if (!on) clearSelection();
-      for (const open of boardColumns.querySelectorAll('.item-card-open')) {
-        if (on) open.setAttribute('aria-pressed', 'false');
-        else open.removeAttribute('aria-pressed');
-      }
     }
 
     selectModeButton.addEventListener('click', () => setSelectMode(!selectMode));
@@ -1125,13 +1098,24 @@ import Base from '../../layouts/Base.astro';
     }
 
     function renderCard(item: ItemInstance): HTMLLIElement {
-      const li = document.createElement('li');
-      li.className = 'item-card';
+      const template = document.querySelector<HTMLTemplateElement>('#boardColumnItem');
+
+      if (!template) {
+        throw new Error('Board Item  card template not found');
+      }
+
+      const fragment = template.content.cloneNode(true) as DocumentFragment;
+
+      const li = fragment.querySelector<HTMLLIElement>('li')!;
+      const name = fragment.querySelector<HTMLSpanElement>('[data-name]')!;
+      const container = fragment.querySelector<HTMLSpanElement>('[data-container]')!;
+      const count = fragment.querySelector<HTMLSpanElement>('[data-count]')!;
+
       li.draggable = true;
       li.dataset.entityId = item.entity_id;
       li.style.viewTransitionName = `item-${item.entity_id}`;
       if (item.is_container) {
-        li.classList.add('item-card--container');
+        container.hidden = false;
       }
       li.hidden = !matchesSearch(item, boardSearch.value.trim().toLowerCase());
 
@@ -1142,52 +1126,59 @@ import Base from '../../layouts/Base.astro';
         }
       });
 
-      // A button, so a card opens (or, while selecting, toggles) from the keyboard too.
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'item-card-open';
-      if (selectMode) open.setAttribute('aria-pressed', 'false');
-      open.addEventListener('click', () => {
+      name.textContent = item.title;
+
+      const activateItem = () => {
         if (selectMode) {
           setCardSelected(li, !li.classList.contains('item-card--selected'));
           return;
         }
+
         openDetail(item, li);
+      };
+
+      li.addEventListener('click', activateItem);
+
+      li.addEventListener('keydown', (event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault(); // prevents Space from scrolling the page
+          activateItem();
+        }
       });
 
-      const title = document.createElement('span');
-      title.className = 'item-card-title';
-      title.textContent = item.title;
-      open.append(title);
-
       if (item.quantity && item.quantity > 1) {
-        const qty = document.createElement('span');
-        qty.className = 'item-card-qty';
-        qty.textContent = `×${item.quantity}`;
-        open.append(' ', qty);
+        count.hidden = false;
+        count.textContent = `×${item.quantity}`;
       }
-
-      li.append(open);
       return li;
     }
 
     function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
-      const section = document.createElement('section');
-      section.className = 'board-column';
+
+      const template = document.querySelector<HTMLTemplateElement>('#boardColumn');
+      if (!template) {
+        throw new Error('Board card template not found');
+      }
+
+      const fragment = template.content.cloneNode(true) as DocumentFragment;
+
+      const column = fragment.querySelector<HTMLDivElement>('[data-column]')!;
+      const nameField = fragment.querySelector<HTMLHeadingElement>('[data-name]')!;
+      const locationField = fragment.querySelector<HTMLSpanElement>('[data-location]')!;
+      const ownerField = fragment.querySelector<HTMLSpanElement>('[data-owner]')!;
+      const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
 
       if (group.container) {
         boardContainers.set(group.container.id, group.container);
+        nameField.id = 'column-' + group.container.id;
+      } else {
+        nameField.id = 'column-loose';
       }
 
       // Named by its heading, so each column is a region a reader can find.
-      const heading = document.createElement('h3');
-      heading.id = `column-${group.container?.id ?? 'loose'}`;
-      heading.textContent = group.container?.name ?? rootTitle;
-      section.setAttribute('aria-labelledby', heading.id);
-      section.append(heading);
+      nameField.textContent = group.container?.name ?? rootTitle;
+      column.setAttribute('aria-labelledby', nameField.id);
 
-      const list = document.createElement('ul');
-      list.className = 'column-cards';
       if (group.item_instances.length === 0) {
         ensurePlaceholder(list);
       } else {
@@ -1196,11 +1187,10 @@ import Base from '../../layouts/Base.astro';
           list.append(renderCard(item));
         }
       }
-      section.append(list);
 
-      bindDropZone(section, list, group.container?.id ?? null);
+      bindDropZone(column, list, group.container?.id ?? null);
 
-      return section;
+      return column;
     }
 
     // Shared rendering for any OwnedByResponse-shaped source - "a being's
@@ -1314,15 +1304,16 @@ import Base from '../../layouts/Base.astro';
       );
     }
 
-    function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
-      for (const el of characterStrip.querySelectorAll('button')) {
-        el.setAttribute('aria-pressed', String(el === button));
+    function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement) {
+      for (const el of characterStrip.querySelectorAll('a')) {
+        el.setAttribute('aria-pressed', String(el === link));
       }
       inventoryViewing.hidden = true;
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
       window.history.replaceState({}, '', url);
       void loadBoard(character.entity_id, character.name);
+      return false;
     }
 
     // GM-only: browse any being's inventory - by search against
@@ -1361,19 +1352,24 @@ import Base from '../../layouts/Base.astro';
         const selectedId = params.get('character');
         for (const character of page.items) {
           const item = document.createElement('li');
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'character-pill';
-          button.textContent = character.name;
-          button.setAttribute('aria-pressed', String(character.entity_id === selectedId));
-          button.addEventListener('click', () => selectCharacter(character, button));
-          button.addEventListener('mouseenter', () => prefetchBoard(character.entity_id));
-          button.addEventListener('focus', () => prefetchBoard(character.entity_id));
-          item.append(button);
+          const link = document.createElement('a');
+          const url = new URL(window.location.href);
+          url.searchParams.set('character', character.entity_id);
+          link.className = 'btn';
+          link.textContent = character.name;
+          link.href = url.href;
+          link.setAttribute('aria-pressed', String(character.entity_id === selectedId));
+          link.addEventListener('click',(event) => {
+            event.preventDefault();
+            selectCharacter(character, link);
+          });
+          link.addEventListener('mouseenter', () => prefetchBoard(character.entity_id));
+          link.addEventListener('focus', () => prefetchBoard(character.entity_id));
+          item.append(link);
           characterStrip.append(item);
 
           if (character.entity_id === selectedId) {
-            selectCharacter(character, button);
+            selectCharacter(character, link);
           }
         }
       } catch (e) {
@@ -1435,17 +1431,10 @@ import Base from '../../layouts/Base.astro';
         const tenant = await getTenant(tenantId);
         status.hidden = true;
         tenantName.textContent = tenant.name;
-        tenantSlug.textContent = tenant.slug;
         board.hidden = false;
         await loadCharacters(tenantId);
 
         userIsGm = await isCampaignGm(tenantId);
-        // The same page either way: GMs manage the catalog there, anyone else browses what
-        // they may list of it (ADR 0116).
-        const catalogLink = document.getElementById('catalog-link') as HTMLAnchorElement;
-        catalogLink.href = `/items/?tenant=${tenantId}`;
-        catalogLink.textContent = userIsGm ? 'Manage items (GM)' : 'Catalog';
-        document.getElementById('catalog-links')!.hidden = false;
         if (userIsGm) {
           pickerTablist.hidden = false;
           tabBrowse.hidden = false;
