@@ -38,15 +38,16 @@
       </button>
     </header>
 
-    <!-- No .wrap: everything here spans main's full width, for the pages
-         whose content is wider than a reading column (a board, a catalog). -->
+    <!-- Text stays in .wrap's reading column; the sidebar layout and the
+         board break out of it with .full-width, spanning the whole page. -->
     <main>
       <div class="wrap">
         <h1 class="display">Full width</h1>
         <p class="lede">
-          A page without <code>.wrap</code> - its content fills the whole viewport
-          instead of an 880px reading column. For boards, catalogs, and anything
-          else that gets more useful the more of it fits on screen.
+          <code>.full-width</code> breaks a block out of <code>.wrap</code>'s
+          880px reading column to fill the whole page width, while the text
+          around it stays in the column. For boards, catalogs, and anything else
+          that gets more useful the more of it fits on screen.
         </p>
 
         <section class="section">
@@ -114,13 +115,14 @@
         <section class="section-lg">
           <h2>Board</h2>
           <p>
-            One column per container, as many side by side as the screen allows -
-            <code>.grid</code> with a wider <code>--grid-min</code>.
+            One column per container, in a single row that scrolls sideways once
+            they don't fit - <code>.grid.h-scroll</code> with a wider
+            <code>--grid-min</code>.
           </p>
-          <div class="grid full-width" style="--grid-min: 260px">
+          <div class="grid full-width h-scroll" style="--grid-min: 260px">
             <div class="card card-body stack">
               <div class="row">
-                <strong>Carried</strong>
+                <strong>Equipped</strong>
                 <span class="canonical-marker">4</span>
               </div>
               <ul class="list">
@@ -128,6 +130,20 @@
                 <li>Chain shirt</li>
                 <li>Potion of healing <span class="badge">×3</span></li>
                 <li>Waterskin</li>
+                <li>
+                  Backpack
+                  <span class="badge">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="../icons.svg#icon-container"></use></svg
+                  ></span>
+                </li>
+                <li>
+                  Belt Pouch
+                  <span class="badge">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="../icons.svg#icon-container"></use></svg
+                  ></span>
+                </li>
               </ul>
             </div>
             <div class="card card-body stack">
@@ -153,12 +169,55 @@
             </div>
             <div class="card card-body stack">
               <div class="row">
+                <strong>Treasure Chest</strong>
+                <span class="pill pill-warning">In private room</span>
+              </div>
+              <ul class="list">
+                <li>Gold pieces <span class="badge">×157</span></li>
+                <li>Silver pieces <span class="badge">×32</span></li>
+                <li>Copper pieces <span class="badge">×1243</span></li>
+                <li>Gemstones <span class="badge">×20</span></li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Wardrobe</strong>
+                <span class="pill pill-warning">In private room</span>
+              </div>
+              <ul class="list">
+                <li>Traveler's Clothes</li>
+                <li>Wizard Robe</li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
                 <strong>Saddlebags</strong>
                 <span class="pill pill-warning">Left at the inn</span>
               </div>
               <ul class="list">
                 <li>Shortbow</li>
                 <li>Arrows <span class="badge">×20</span></li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Carriage</strong>
+                <span class="pill pill-warning">Parked Outside the inn</span>
+              </div>
+              <ul class="list">
+                <li>Bedroll</li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Bag of Holding</strong>
+                <span class="pill pill-warning">Carried by Flynn</span>
+              </div>
+              <ul class="list">
+                <li>Skeleton <span class="badge">×10</span></li>
+                <li>Rusty Full Plate <span class="badge">×7</span></li>
+                <li>Anvil</li>
+                <li>Carpet, ft of <span class="badge">×117</span></li>
               </ul>
             </div>
           </div>

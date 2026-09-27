@@ -139,10 +139,19 @@ footer {
   padding-inline: var(--space-4);
 }
 
-/* A wrapper that guarantees full page width */
+/* Breaks a block out of .wrap (or any centered column) to span the whole
+   page width - for content wider than a reading column, like a board or a
+   catalog. 100vw includes a visible vertical scrollbar's width, so it
+   overshoots the page by that much - the overflow-x: clip on body cuts
+   that off, rather than letting it become a horizontal scrollbar. */
+body:has(.full-width) {
+  overflow-x: clip;
+}
+
 .full-width {
   width: 100vw;
   margin-left: calc(50% - 50vw);
+  padding-inline: var(--space-4);
 }
 
 /* A horizontal row of items with consistent gap - the single most common
@@ -176,6 +185,16 @@ footer {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--grid-min, 160px), 1fr));
   gap: var(--space-3);
+}
+
+.h-scroll {
+  overflow-x: auto;
+}
+
+.grid.h-scroll {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(var(--grid-min, 160px), 1fr);
 }
 
 /* A narrow sidebar (nav, filters) beside a wider main content area - the
