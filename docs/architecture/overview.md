@@ -158,6 +158,11 @@ Things can bind to their owner ([ADR 0129](../adr/0129-binding-and-lifting-it.md
 - **A GM's say.** `override` skips binding as well as capacity, the two DELETEs take it as a query parameter, and `lift_binding` sets an item's own `binding` to `none` for good. Both are GM-only, under a 403 renamed `override-forbidden`. inventory-web marks bound things, asks a GM "…anyway?" and whether to lift it, and loot-bot's `/move` adds "Move and lift binding".
 - **`is_magical` and `is_cursed`** are gone from the item views and responses, an accepted contract break. Tenants' own tags by those names are ordinary tags.
 
+What a board shows gets a listing of its own ([ADR 0130](../adr/0130-the-controlled-by-listing.md), [RFC 0031](../rfcs/0031-equipped-carried-controlled-and-setting-things-down.md) slice 1):
+
+- **Controlled-by.** `GET .../item-instances/controlled-by/{entity_id}` lists a being's or a group's board as columns. Equipped (for a being) and Not carried are always there. Every container it controls gets a column, empty ones included, and whatever else holds something of theirs gets a read-only one. Where things are comes from containment alone, so an owned thing in no container is not carried. What's shown follows RFC 0031's rules for Controlled, in plain Python in `controlled.py`, and takes in what the being's groups own. Each column says whether it holds more than it lists.
+- **Not read yet.** inventory-web moves to it in slice 2, and loot-bot stays on held-by. Items carry `visible_to_characters`, always true until knowledge backs it.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
