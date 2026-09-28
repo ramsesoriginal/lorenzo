@@ -173,6 +173,15 @@ export function failedEntityIds(results: BulkResultItem[]): Set<string> {
   return new Set(results.filter((r) => r.status === 'error').map((r) => r.entity_id));
 }
 
+// Whether any of a bulk move merged into something identical (ADR 0133): its entry then
+// names another instance as where it ended up.
+export function mergedAway(results: BulkResultItem[]): boolean {
+  return results.some(
+    (r) =>
+      r.status === 'ok' && r.item_instance != null && r.item_instance.entity_id !== r.entity_id,
+  );
+}
+
 // --- Merge candidates ---
 
 // Two instances are the "same kind of item" for merge purposes if they

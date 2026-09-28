@@ -67,16 +67,26 @@ function anywayQuery({ override = false, liftBinding = false }: AnywayFlags) {
     : {};
 }
 
+// A move into a container may also merge (ADR 0133): what's moved goes into an identical
+// instance already there, which is then where it ended up.
+export type MoveFlags = AnywayFlags & Readonly<{ mergeIdentical?: boolean }>;
+
+// Where it ended up: itself, or, with mergeIdentical, what it merged into.
 export async function setContainer(
   tenantId: string,
   entityId: string,
   containerEntityId: string,
-  { override = false, liftBinding = false }: AnywayFlags = {},
-): Promise<void> {
-  await unwrap(
+  { override = false, liftBinding = false, mergeIdentical = false }: MoveFlags = {},
+): Promise<ItemInstance> {
+  return unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { container_entity_id: containerEntityId, override, lift_binding: liftBinding },
+      body: {
+        container_entity_id: containerEntityId,
+        override,
+        lift_binding: liftBinding,
+        merge_identical: mergeIdentical,
+      },
     }),
   );
 }
@@ -437,7 +447,7 @@ export async function bulkMoveItemInstances(
   tenantId: string,
   toContainerEntityId: string,
   entityIds: string[],
-  { override = false, liftBinding = false }: AnywayFlags = {},
+  { override = false, liftBinding = false, mergeIdentical = false }: MoveFlags = {},
 ): Promise<BulkResultItem[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-move', {
@@ -447,6 +457,7 @@ export async function bulkMoveItemInstances(
         items: entityIds.map((entityId) => ({ entity_id: entityId })),
         override,
         lift_binding: liftBinding,
+        merge_identical: mergeIdentical,
       },
     }),
   );

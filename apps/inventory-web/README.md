@@ -28,7 +28,8 @@ From that detail view, or when multiple cards are multi-selected:
   container and into their hands too; otherwise it stays where it is, theirs
   now ([ADR 0115](../../docs/adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md))
 - **Move** it between containers, or into the character's own hands (Equipped):
-  a stack keeps its count
+  a stack keeps its count, and joins an identical one already there ([ADR
+  0133](../../docs/adr/0133-merging-what-is-identical.md))
 - **Set it down**, out of every container, into Not carried: a stack becomes
   single items, after asking ([ADR
   0132](../../docs/adr/0132-setting-things-down.md))

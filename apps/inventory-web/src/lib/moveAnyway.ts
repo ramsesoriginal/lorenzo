@@ -30,35 +30,36 @@ export type MoveAnywayOptions = Readonly<{
 /**
  * Runs `write`; if it's refused as overridable and the viewer may override, asks, and
  * on a yes runs it again with override - asking first, for a binding, whether to lift
- * it too. Any other failure, or a no, is thrown as it was.
+ * it too. Any other failure, or a no, is thrown as it was. Resolves to what the write
+ * that went through resolved to - where a move ended up, say (ADR 0133).
  */
-export async function writeOrAsk(
-  write: (flags: AnywayFlags) => Promise<void>,
+export async function writeOrAsk<T>(
+  write: (flags: AnywayFlags) => Promise<T>,
   { canOverride, ask }: MoveAnywayOptions,
   verb: 'Move' | 'Give' = 'Move',
-): Promise<void> {
+): Promise<T> {
   try {
-    await write({});
+    return await write({});
   } catch (error) {
     if (!canOverride || !isOverridable(error) || !ask(anywayQuestion(error.message, verb))) {
       throw error;
     }
     const liftBinding = error.problemType === BOUND && ask(LIFT_QUESTION);
-    await write({ override: true, liftBinding });
+    return await write({ override: true, liftBinding });
   }
 }
 
-export function moveOrAsk(
-  move: (flags: AnywayFlags) => Promise<void>,
+export function moveOrAsk<T>(
+  move: (flags: AnywayFlags) => Promise<T>,
   options: MoveAnywayOptions,
-): Promise<void> {
+): Promise<T> {
   return writeOrAsk(move, options, 'Move');
 }
 
-export function giveOrAsk(
-  give: (flags: AnywayFlags) => Promise<void>,
+export function giveOrAsk<T>(
+  give: (flags: AnywayFlags) => Promise<T>,
   options: MoveAnywayOptions,
-): Promise<void> {
+): Promise<T> {
   return writeOrAsk(give, options, 'Give');
 }
 
