@@ -2038,15 +2038,14 @@ async def bulk_assign_item_instances(
     before the item itself: whether someone may give an ownerless thing
     inside depends on reaching it, which handing the container over could
     end. dry_run does all of it and rolls it back.
-
-    Every entry's locks are taken up front (lock_ahead), since what an
-    entry locks stays locked while the others run: each one's ownership
-    rows share-lock its owner, and handing over or splitting off into the
-    owner's hands locks the owner's chain for capacity (ADR 0128). Not for
-    a caller with no part in the tenant, whose every entry fails.
     """
     results: list[BulkAssignResultItem] = []
     lifted: set[uuid.UUID] = set()
+    # Every entry's locks up front, since what an entry locks stays locked
+    # while the others run: each one's ownership rows share-lock its owner,
+    # and handing over or splitting off into the owner's hands locks the
+    # owner's chain for capacity (ADR 0128). Not for a caller with no part in
+    # the tenant, whose every entry fails.
     if await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
         await lock_ahead(
             session,
