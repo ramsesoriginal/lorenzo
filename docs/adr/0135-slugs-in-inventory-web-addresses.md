@@ -29,7 +29,7 @@ Each of those parameters takes a slug as well as an id:
 
 So `/board/?tenant=sunken-vale&character=ashfang` and `/item/?tenant=sunken-vale&id=belt-pouch` work.
 
-The GM's "browse a being" box on the board takes a slug too. It's the one other place where an id is typed in.
+The two boxes where a being's id is typed in take a slug too: the GM's "browse a being" box on the board, and the one in every "Give to…" panel.
 
 ### Telling a slug from an id
 
@@ -49,12 +49,15 @@ What doesn't resolve fails the way an unknown id does:
 - **A tenant**: "There's no library “…” you can see."
 - **An item**: "There's no such item here, or it isn't one you can see."
 - **A character or group**: no board opens.
+- **A being typed into a box**: "Nothing here has the slug “…”."
 
 ### The address keeps what it was given
 
 A page doesn't rewrite a slug into an id. A link shared by slug stays one, and the item page's Copy link copies it as it is.
 
-What the app writes itself stays ids, because a slug can change and an id can't. That covers links, the switcher, and the board's address after you pick a character. So after picking another character, `?tenant=sunken-vale` stays, next to the new character's id.
+What the app writes itself stays ids, because a slug can change and an id can't. That covers the links it makes to things, the switcher, and the board's `?character=` or `?group=` after you pick one.
+
+`?tenant=` is carried along as the page has it, into the header's links too. So after picking another character, `?tenant=sunken-vale` stays, next to the new character's id.
 
 ### What's remembered is an id
 

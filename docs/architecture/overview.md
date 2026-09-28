@@ -189,7 +189,7 @@ The board, refined after testing ([ADR 0134](../adr/0134-board-refinements.md)):
 
 inventory-web's addresses take slugs ([ADR 0135](../adr/0135-slugs-in-inventory-web-addresses.md)):
 
-- **Where.** `?tenant=` on every page, the item page's `?id=` and the board's `?character=` and `?group=` take a slug as well as an id, as does the GM's browse-a-being box. A value shaped like a UUID is an id.
+- **Where.** `?tenant=` on every page, the item page's `?id=` and the board's `?character=` and `?group=` take a slug as well as an id, as do the boxes a being's id is typed into. A value shaped like a UUID is an id.
 - **Resolving.** A tenant slug is found among the viewer's own libraries, an entity slug with `GET .../entities/resolve`. One that doesn't resolve fails as an unknown id does.
 - **Kept as given.** The address keeps its slugs. What the app writes itself, and what it remembers, stays ids.
 
