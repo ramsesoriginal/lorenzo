@@ -1311,14 +1311,14 @@ database field, or implementation uses that term.
 
 Examples:
 
-| Technical / internal | User-facing |
-| -------------------- | ----------- |
-| tenant               | library     |
-| tenants              | libraries   |
-| tenant membership    | library access / people |
-| tenant settings      | library settings |
-| select tenant        | choose a library |
-| tenant not found     | library not found |
+| Technical / internal | User-facing                           |
+| -------------------- | ------------------------------------- |
+| tenant               | library                               |
+| tenants              | libraries                             |
+| tenant membership    | library access / people               |
+| tenant settings      | library settings                      |
+| select tenant        | choose a library                      |
+| tenant not found     | library not found                     |
 | no tenant membership | you don't have access to this library |
 
 `Library` does not mean `world`, `universe`, `campaign`, or `repository`.
