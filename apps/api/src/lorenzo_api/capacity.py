@@ -87,33 +87,28 @@ async def _lock(
 
 
 async def lock_ahead(
-    session: AsyncSession,
-    *,
-    tenant_id: uuid.UUID,
-    target_ids: Iterable[uuid.UUID],
-    shared_ids: Iterable[uuid.UUID],
+    session: AsyncSession, *, tenant_id: uuid.UUID, target_ids: Iterable[uuid.UUID]
 ) -> None:
-    """For several writes in one transaction, bulk-assign's entries: locks
-    every target's chain their checks will lock, and everything in
-    `shared_ids` - what they'll share-lock through a foreign key, as an
-    ownership row does its owner - in one id-ordered go, before any of them
-    runs.
+    """For several checks in one transaction, bulk-assign's entries: locks
+    every target's chain they'll lock, in one id-ordered go, before any of
+    them runs.
 
-    What a write locks stays locked until the commit, so locked write by
-    write, two transactions could each hold a chain the other's next check
-    waits for. Nothing, when the tenant defines no capacity: then no check
-    locks anything. (`shared_ids` date from when this lock was FOR UPDATE,
-    which a share lock waited on; it no longer does.)
+    What a check locks stays locked until the commit, so locked check by
+    check, two transactions could each hold a chain the other's next check
+    waits for. Nothing, when there's no target or the tenant defines no
+    capacity: then no check locks anything.
     """
+    targets = frozenset(target_ids)
+    if not targets:
+        return
     known = await _known(session, tenant_id)
     if not any(name in known for name in _LIMITS):
         return
-    targets = frozenset(target_ids)
     paths = await containment_paths(session, entity_ids=targets, tenant_id=tenant_id)
     await _lock(
         session,
         tenant_id=tenant_id,
-        entity_ids={*shared_ids, *targets, *(link for path in paths.values() for link in path)},
+        entity_ids={*targets, *(link for path in paths.values() for link in path)},
     )
 
 
