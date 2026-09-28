@@ -158,6 +158,29 @@ Things can bind to their owner ([ADR 0129](../adr/0129-binding-and-lifting-it.md
 - **A GM's say.** `override` skips binding as well as capacity, the two DELETEs take it as a query parameter, and `lift_binding` sets an item's own `binding` to `none` for good. Both are GM-only, under a 403 renamed `override-forbidden`. inventory-web marks bound things, asks a GM "…anyway?" and whether to lift it, and loot-bot's `/move` adds "Move and lift binding".
 - **`is_magical` and `is_cursed`** are gone from the item views and responses, an accepted contract break. Tenants' own tags by those names are ordinary tags.
 
+What a board shows gets a listing of its own ([ADR 0130](../adr/0130-the-controlled-by-listing.md), [RFC 0031](../rfcs/0031-equipped-carried-controlled-and-setting-things-down.md) slice 1):
+
+- **Controlled-by.** `GET .../item-instances/controlled-by/{entity_id}` lists a being's or a group's board as columns. Equipped (for a being) and Not carried are always there. Every container it controls gets a column, empty ones included, and whatever else holds something of theirs gets a read-only one. Where things are comes from containment alone, so an owned thing in no container is not carried. What's shown follows RFC 0031's rules for Controlled, in plain Python in `controlled.py`, and takes in what the being's groups own. Each column says whether it holds more than it lists.
+- **Not read yet.** inventory-web moves to it in slice 2, and loot-bot stays on held-by. Items carry `visible_to_characters`, always true until knowledge backs it.
+
+inventory-web's board reads it ([ADR 0131](../adr/0131-the-board-on-controlled-by.md), RFC 0031 slice 2):
+
+- **One row.** A character's, a group's, and a GM's board show Equipped (not on a group's) and Not carried, both with the brand's canonical glow, then a column for every container, then read-only columns. A chest that's owned but not carried is Not carried now, and an empty backpack has a column to drop onto.
+- **Read-only columns** take no drops, and their cards open without Move to…. A column holding more than it lists says "Contents not shown". Dropping on Not carried takes a single thing out of every container; a stack waits for slice 3.
+- **A deadlock** in creating owned things straight into what their owner carries is fixed: the create now locks capacity's chain before its ownership row.
+
+Things can be set down ([ADR 0132](../adr/0132-setting-things-down.md), RFC 0031 slice 3):
+
+- **Splitting.** `DELETE .../container?split=true` sets a stack of *n* down as *n* single items in no container. The stack keeps its id, information, notes and slug, and the new pieces copy its own stat values. Without the flag a stack is still refused, so nothing splits by surprise.
+- **Deleting a container that's lying somewhere** sets its contents down instead of handing them to its owner, a stack among them needing the same flag.
+- **On the board**, Set down replaces "Remove from container", and Equipped is where Move to… puts something into the being's hands. Dropping on Not carried sets a card down (it used to equip it), asking first about a stack. Manage items asks the same before deleting.
+
+Moves can merge what's identical ([ADR 0133](../adr/0133-merging-what-is-identical.md), RFC 0031 slice 4), which completes RFC 0031:
+
+- **`merge_identical`** on `PUT .../container` and `bulk-move` merges what's moved into an identical instance already directly in the container, the lowest id first. In a bulk move, what earlier entries moved counts, so a set-down stack's pieces picked up together are one stack again. The answer names the instance each thing ended up in.
+- **Identical** means the same name, prototypes, owner and own stat values, with no information (notes included), slug or formula of its own, in `identical.py`. Only what moves merges, and never out of every container.
+- **inventory-web** asks for it on every move into a container, and offers no Undo after one that merged. loot-bot sends `false`, and moves as before.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

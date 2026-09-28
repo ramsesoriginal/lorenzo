@@ -1,6 +1,6 @@
 # RFC: What a board shows — equipped, carried, controlled, and setting things down
 
-Status: accepted, decided with the maintainer on 2026-09-28. Built in the four slices in [Slices](#slices), each recorded as its own ADR when it lands. It amends [ADR 0123](../adr/0123-held-by-listing-and-the-equipped-column.md)'s board, and parts of [ADR 0115](../adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md) and [ADR 0128](../adr/0128-capacity-and-moving-anyway.md).
+Status: accepted, decided with the maintainer on 2026-09-28. Built in the four slices in [Slices](#slices), each recorded as its own ADR when it lands: slice 1 as [ADR 0130](../adr/0130-the-controlled-by-listing.md), slice 2 as [ADR 0131](../adr/0131-the-board-on-controlled-by.md), slice 3 as [ADR 0132](../adr/0132-setting-things-down.md), slice 4 as [ADR 0133](../adr/0133-merging-what-is-identical.md). It amends [ADR 0123](../adr/0123-held-by-listing-and-the-equipped-column.md)'s board, and parts of [ADR 0115](../adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md) and [ADR 0128](../adr/0128-capacity-and-moving-anyway.md).
 
 ## Context
 
