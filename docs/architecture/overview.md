@@ -181,6 +181,12 @@ Moves can merge what's identical ([ADR 0133](../adr/0133-merging-what-is-identic
 - **Identical** means the same name, prototypes, owner and own stat values, with no information (notes included), slug or formula of its own, in `identical.py`. Only what moves merges, and never out of every container.
 - **inventory-web** asks for it on every move into a container, and offers no Undo after one that merged. loot-bot sends `false`, and moves as before.
 
+The board, refined after testing ([ADR 0134](../adr/0134-board-refinements.md)):
+
+- **Who has it.** Each `controlled-by` column gains `carried_by`, the nearest being around its container. A column someone else carries says "Not carried, with Alice".
+- **Up to date after a move.** Dragging a container reloads the board, so every column's note is right. Read-only columns carry `board-column--read-only`.
+- **Your character, opened for you.** With no character or group in the URL, the board opens the one last opened on that library, remembered in the browser and forgotten on log out, or else your only character. It does this on load and on switching back to "Your characters".
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
