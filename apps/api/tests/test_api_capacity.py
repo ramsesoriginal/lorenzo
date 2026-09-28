@@ -3,6 +3,7 @@ only when a load grows past its limit; a GM's override; and a deleted
 container's contents kept.
 """
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
@@ -457,3 +458,32 @@ async def test_nothing_is_measured_without_capacity_stats(
 
     assert moved.status_code == 200, moved.text
     await delete_tenant(camp.tenant_id)
+
+
+async def test_creating_owned_things_at_once_into_what_their_owner_carries(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Each new Gear's ownership row share-locks Alice, whose Backpack it goes
+    into. Capacity locks her chain before that row goes in, so several
+    creates at once queue up instead of each waiting on the others' share
+    lock - a deadlock inventory-web's end-to-end stacks ran into."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+
+    created = await asyncio.gather(
+        *(
+            client.post(
+                f"/tenants/{t}/item-instances",
+                json={
+                    "prototype_id": str(ids["gear"]),
+                    "owner_character_id": str(ids["alice"]),
+                    "container_entity_id": str(ids["backpack"]),
+                },
+            )
+            for _ in range(4)
+        )
+    )
+
+    assert [r.status_code for r in created] == [201] * 4, [r.text for r in created]
+    await delete_tenant(t)

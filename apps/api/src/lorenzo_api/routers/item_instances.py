@@ -1142,6 +1142,17 @@ async def create_item_instance(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
 
+    # Created inside something is put there: capacity counts (ADR 0128). Its
+    # chain is locked before anything goes in: the ownership row's foreign key
+    # share-locks the owner, who's often in that chain, and two creates each
+    # holding that share lock would wait on each other forever.
+    check = (
+        None
+        if body.container_entity_id is None or body.override
+        else await CapacityCheck.start(
+            session, tenant_id=tenant_id, target_id=body.container_entity_id
+        )
+    )
     entity = Entity(
         tenant_id=tenant_id,
         name=body.name if body.name is not None else prototype_entity.name,
@@ -1165,14 +1176,6 @@ async def create_item_instance(
             )
         )
     if body.container_entity_id is not None:
-        # Created inside something is put there: capacity counts (ADR 0128).
-        check = (
-            None
-            if body.override
-            else await CapacityCheck.start(
-                session, tenant_id=tenant_id, target_id=body.container_entity_id
-            )
-        )
         session.add(
             Containment(
                 child_entity_id=entity.id,
