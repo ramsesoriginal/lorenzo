@@ -73,12 +73,16 @@ async def _known(session: AsyncSession, tenant_id: uuid.UUID) -> dict[str, uuid.
 async def _lock(
     session: AsyncSession, *, tenant_id: uuid.UUID, entity_ids: Iterable[uuid.UUID]
 ) -> None:
-    # Id order, so no two lock in a cycle.
+    # Id order, so no two lock in a cycle. FOR NO KEY UPDATE: another check's
+    # lock still waits on it, but the share lock a foreign key takes on these
+    # rows - an ownership row's on its owner, a containment row's on its
+    # container - never does, so no write taking those can wait in a cycle
+    # with a check (ADR 0128's Addendum).
     await session.execute(
         select(Entity.id)
         .where(Entity.id.in_(set(entity_ids)), Entity.tenant_id == tenant_id)
         .order_by(Entity.id)
-        .with_for_update()
+        .with_for_update(key_share=True)
     )
 
 
@@ -92,13 +96,14 @@ async def lock_ahead(
     """For several writes in one transaction, bulk-assign's entries: locks
     every target's chain their checks will lock, and everything in
     `shared_ids` - what they'll share-lock through a foreign key, as an
-    ownership row does its owner - in one id-ordered FOR UPDATE, before any
-    of them runs.
+    ownership row does its owner - in one id-ordered go, before any of them
+    runs.
 
     What a write locks stays locked until the commit, so locked write by
-    write, two transactions could each hold what the other's next write
+    write, two transactions could each hold a chain the other's next check
     waits for. Nothing, when the tenant defines no capacity: then no check
-    locks anything, and share locks never wait on each other.
+    locks anything. (`shared_ids` date from when this lock was FOR UPDATE,
+    which a share lock waited on; it no longer does.)
     """
     known = await _known(session, tenant_id)
     if not any(name in known for name in _LIMITS):

@@ -12,10 +12,12 @@ import pytest
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_plain_participant, make_tenant
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from test_api_held_by import _character
 
+from lorenzo_api.capacity import CapacityCheck
 from lorenzo_api.models import (
     AuditLog,
     CampaignGm,
@@ -668,4 +670,98 @@ async def test_creating_owned_things_at_once_into_what_their_owner_carries(
     )
 
     assert [r.status_code for r in created] == [201] * 4, [r.text for r in created]
+    await delete_tenant(t)
+
+
+async def test_creating_things_at_once_into_what_someone_else_carries(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The ownership row share-locks the new Gear's owner, who needn't be in
+    the chain capacity locks: Bob's goes into Alice's Backpack, Alice's into
+    a Satchel Bob carries. Two of each at once each hold a chain the other's
+    owner is in, and that share lock doesn't wait on it."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    bob = await _bob(camp)
+    satchel = await _ownerless(camp, "Satchel", inside=bob)
+    crosswise = [(bob, ids["backpack"]), (ids["alice"], satchel)] * 2
+
+    created = await asyncio.gather(
+        *(
+            client.post(
+                f"/tenants/{t}/item-instances",
+                json={
+                    "prototype_id": str(ids["gear"]),
+                    "owner_character_id": str(owner),
+                    "container_entity_id": str(container),
+                },
+            )
+            for owner, container in crosswise
+        )
+    )
+
+    assert [r.status_code for r in created] == [201] * 4, [r.text for r in created]
+    assert [(r.json()["owner_entity_id"], r.json()["container_entity_id"]) for r in created] == [
+        (str(owner), str(container)) for owner, container in crosswise
+    ]
+    await delete_tenant(t)
+
+
+async def test_moving_things_at_once_into_room_for_one(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Checks on one chain still queue up, each measuring the one before's
+    result: of three Bricks of 10 moved at once into a Sack that carries 15,
+    only one gets in."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    sack = await _ownerless(camp, "Sack")
+    bricks = [await _ownerless(camp, f"Brick {n}") for n in range(3)]
+    async with admin_session_factory() as session:
+        await _set(session, t, sack, ids["stat:carry_capacity"], 15)
+        for brick in bricks:
+            await _set(session, t, brick, ids["stat:own_weight"], 10)
+        await session.commit()
+
+    moved = await asyncio.gather(
+        *(
+            client.put(
+                f"/tenants/{t}/item-instances/{brick}/container",
+                json={"container_entity_id": str(sack)},
+            )
+            for brick in bricks
+        )
+    )
+
+    assert sorted(r.status_code for r in moved) == [200, 409, 409], [r.text for r in moved]
+    await delete_tenant(t)
+
+
+async def test_a_check_holds_up_another_but_not_what_points_into_its_chain(
+    test_user_id: uuid.UUID,
+) -> None:
+    """While a check holds the Backpack's chain, another check on it waits,
+    but an ownership row for Alice and a containment row into the Backpack
+    go straight in. What a write share-locks through those foreign keys -
+    one that checks nothing, like a GM's moving anyway or a split beside its
+    stack, included - never waits on a check, so never in a cycle with one."""
+    camp = await _camp(test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    coin = await _ownerless(camp, "Coin")
+    async with admin_session_factory() as holding, admin_session_factory() as other:
+        assert await CapacityCheck.start(holding, tenant_id=t, target_id=ids["backpack"])
+
+        await other.execute(text("SET LOCAL lock_timeout = '1s'"))
+        other.add(Ownership(owned_entity_id=coin, owner_character_id=ids["alice"], tenant_id=t))
+        other.add(Containment(child_entity_id=coin, parent_entity_id=ids["backpack"], tenant_id=t))
+        await other.flush()
+        await other.rollback()
+
+        await other.execute(text("SET LOCAL lock_timeout = '1s'"))
+        with pytest.raises(DBAPIError, match="lock timeout"):
+            await CapacityCheck.start(other, tenant_id=t, target_id=ids["backpack"])
+        await other.rollback()
+        await holding.rollback()
     await delete_tenant(t)
