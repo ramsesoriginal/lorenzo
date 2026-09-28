@@ -155,8 +155,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
       // hidden until there is one.
       async function updateNav() {
         const tenant = currentTenant();
-        if (tenant)
-        {
+        if (tenant) {
           userIsGm = await isCampaignGm(tenant);
         }
         for (const link of document.querySelectorAll<HTMLAnchorElement>('nav a[data-path]')) {

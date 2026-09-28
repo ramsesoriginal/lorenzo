@@ -4,7 +4,6 @@ import ItemDesignDialog from '../../components/ItemDetailDialog.astro';
 import BoardColumn from '../../components/BoardColumn.astro';
 import BoardColumnItem from '../../components/BoardColumnItem.astro';
 import HolderListItem from '../../components/HolderListItem.astro';
-
 ---
 
 <Base title="Board — Lorenzo">
@@ -56,16 +55,29 @@ import HolderListItem from '../../components/HolderListItem.astro';
           </button>
         </div>
 
-        <div id="panel-characters" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-characters">
+        <div
+          id="panel-characters"
+          class="tab-panel stack"
+          role="tabpanel"
+          aria-labelledby="tab-characters"
+        >
           <p id="characters-loading">Loading characters&hellip;</p>
           <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
           <p id="characters-error" class="error-text" hidden></p>
           <ul id="character-strip" class="list" aria-label="Your characters and groups"></ul>
         </div>
 
-        <div id="panel-browse" class="tab-panel card card-body " role="tabpanel" aria-labelledby="tab-browse" hidden>
+        <div
+          id="panel-browse"
+          class="tab-panel card card-body"
+          role="tabpanel"
+          aria-labelledby="tab-browse"
+          hidden
+        >
           <div class="field">
-            <label class="field-label" id="gm-browse-label" for="gm-browse-search">Search beings</label>
+            <label class="field-label" id="gm-browse-label" for="gm-browse-search"
+              >Search beings</label
+            >
             <div class="combobox" id="gm-browse-combobox">
               <input
                 type="text"
@@ -78,7 +90,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
                 aria-controls="gm-browse-suggestions"
                 aria-labelledby="gm-browse-label"
               />
-              <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+              <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden>
+              </ul>
             </div>
           </div>
           <div class="being-id-row">
@@ -136,10 +149,10 @@ import HolderListItem from '../../components/HolderListItem.astro';
     </section>
   </div>
 
-<ItemDesignDialog></ItemDesignDialog>
-<BoardColumn></BoardColumn>
-<BoardColumnItem></BoardColumnItem>
-<HolderListItem></HolderListItem>
+  <ItemDesignDialog />
+  <BoardColumn />
+  <BoardColumnItem />
+  <HolderListItem />
 
   <script>
     import { fetchAncestryTree } from '../../lib/ancestryTree';
