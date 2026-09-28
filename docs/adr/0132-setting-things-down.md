@@ -22,7 +22,7 @@ inventory-web's board ([ADR 0131](0131-the-board-on-controlled-by.md)) still off
 A stack of *n* is still refused with `409 stack-needs-container`, so no client splits one by surprise, unless the request says `?split=true`. Then it becomes *n* single items, all in no container:
 
 - **The stack itself** keeps its id, its information, its notes, and its slug, as one item.
-- **Each of the other *n* − 1** is a new instance of the same prototype(s), with the same owner and a copy of every stat the stack has of its own. So a `+1`, or a lifted binding, holds for every piece. That goes further than a split, which copies only `binding` ([ADR 0044](0044-loot-assignment-split-merge-bulk-assign.md), 0129).
+- **Each of the other *n* − 1** is a new instance of the same prototype(s), with the same owner and a copy of every stat value and stat group the stack has of its own. So a `+1`, or a lifted binding, holds for every piece. That goes further than a split, which copies only `binding` ([ADR 0044](0044-loot-assignment-split-merge-bulk-assign.md), 0129). A formula of the stack's own ([ADR 0104](0104-computed-stats.md)) isn't copied.
 
 It combines with `override` and `lift_binding`:
 

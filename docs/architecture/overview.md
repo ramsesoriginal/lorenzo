@@ -169,6 +169,12 @@ inventory-web's board reads it ([ADR 0131](../adr/0131-the-board-on-controlled-b
 - **Read-only columns** take no drops, and their cards open without Move to…. A column holding more than it lists says "Contents not shown". Dropping on Not carried takes a single thing out of every container; a stack waits for slice 3.
 - **A deadlock** in creating owned things straight into what their owner carries is fixed: the create now locks capacity's chain before its ownership row.
 
+Things can be set down ([ADR 0132](../adr/0132-setting-things-down.md), RFC 0031 slice 3):
+
+- **Splitting.** `DELETE .../container?split=true` sets a stack of *n* down as *n* single items in no container. The stack keeps its id, information, notes and slug, and the new pieces copy its own stat values. Without the flag a stack is still refused, so nothing splits by surprise.
+- **Deleting a container that's lying somewhere** sets its contents down instead of handing them to its owner, a stack among them needing the same flag.
+- **On the board**, Set down replaces "Remove from container", and Equipped is where Move to… puts something into the being's hands. Dropping on Not carried sets a card down (it used to equip it), asking first about a stack. Manage items asks the same before deleting.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
