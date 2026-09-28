@@ -217,6 +217,28 @@ async def test_controlled_by_lays_out_a_beings_board(
         ("read_only", "stable", "other", [], False, True, ["carriage"]),
     ]
     assert [names[o["id"]] for o in body["owners"]] == ["alice", "brisk", "mogg", "company"]
+    # Who carries each container (ADR 0134): the nearest being around it.
+    carriers = {
+        names[c["container"]["id"]]: c["carried_by"] and names[c["carried_by"]["id"]]
+        for c in body["columns"]
+        if c["container"] is not None
+    }
+    assert carriers == {
+        "alice": None,
+        "backpack": "alice",
+        "pouch": "alice",
+        "bag": "alice",
+        "box": "alice",
+        "satchel": "alice",
+        "cart": None,
+        "chest": None,
+        "purse": None,
+        "crate": None,
+        "carriage": None,
+        "brisk": None,
+        "case": "brisk",
+        "stable": None,
+    }
 
     await _tear_down(scene)
 
@@ -264,6 +286,7 @@ async def test_controlled_by_always_has_equipped_and_not_carried(
                 "container_kind": "being",
                 "path": [],
                 "carried": True,
+                "carried_by": None,
                 "contents_hidden": False,
                 "item_instances": [],
             },
@@ -273,6 +296,7 @@ async def test_controlled_by_always_has_equipped_and_not_carried(
                 "container_kind": None,
                 "path": [],
                 "carried": False,
+                "carried_by": None,
                 "contents_hidden": False,
                 "item_instances": [],
             },

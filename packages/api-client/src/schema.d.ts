@@ -4107,7 +4107,8 @@ export interface components {
          *     not_carried. `path` is the containers around it, nearest first, by
          *     containment alone; a carried column's stops short of the being.
          *     `contents_hidden`: its container directly holds something this column
-         *     doesn't list.
+         *     doesn't list. `carried_by` (ADR 0134): the nearest being around its
+         *     container, by containment, or null when no being carries it.
          */
         ControlledColumnOut: {
             /**
@@ -4122,6 +4123,7 @@ export interface components {
             path: components["schemas"]["EntitySummary"][];
             /** Carried */
             carried: boolean;
+            carried_by: components["schemas"]["EntitySummary"] | null;
             /** Contents Hidden */
             contents_hidden: boolean;
             /** Item Instances */
