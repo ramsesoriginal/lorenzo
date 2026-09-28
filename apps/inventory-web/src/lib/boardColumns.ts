@@ -1,11 +1,13 @@
-// The board's columns (ADR 0123): what a being holds, as a row of what it
-// carries - its own Equipped column first, always - and a row of what's held
-// elsewhere; or, on the board of unowned things, one row as before (ADR 0077).
-// Pure, so the order and the wording are tested without a page.
+// The board's columns (ADR 0130, 0131): a being's or a group's, in the order
+// controlled-by gives them - Equipped for a being and Not carried first and
+// always, then every container it controls, then read-only columns for
+// whatever else holds something of theirs - or, on the board of unowned
+// things, one column per container as before (ADR 0077). Pure, so the order
+// and the wording are tested without a page.
 import type {
+  ControlledByResponse,
+  ControlledColumn,
   EntitySummary,
-  HeldByResponse,
-  HeldGroup,
   ItemInstance,
   OwnedByResponse,
 } from './types';
@@ -13,21 +15,29 @@ import type {
 export interface BoardColumn {
   /** Unique on the board: the container's id, or 'loose' for things in none. */
   key: string;
+  /** Whether a card can be dropped here: a read-only column takes none. */
+  droppable: boolean;
   /** Where a card dropped here goes; null takes it out of every container. */
   dropTarget: string | null;
   title: string;
   /** Where the column's container is, when that's worth saying. */
   note: string | null;
+  /** Whether the board's being carries it, which tints its note. */
+  carried: boolean;
+  /** Equipped and Not carried, the two places every board has (RFC 0031 §8). */
+  fixed: boolean;
   /** What the column says when nothing's in it. */
   empty: string;
+  /** Its container holds something the column doesn't list (ADR 0130). */
+  contentsHidden: boolean;
   items: ItemInstance[];
 }
 
 const EMPTY_CONTAINER = 'This container is empty.';
+const NOTHING_HERE = 'Nothing here.';
 
 export interface Board {
-  carried: BoardColumn[];
-  elsewhere: BoardColumn[];
+  columns: BoardColumn[];
   /** Owner names by id, to mark what isn't the board's being's own. */
   owners: Map<string, string>;
   /** Whose board this is: a being, a group; null on the board of unowned things. */
@@ -45,44 +55,69 @@ function capitalized(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function column(group: HeldGroup): BoardColumn {
-  const { container, path } = group;
-  let note: string | null = path.length > 0 ? capitalized(within(path)) : null;
-  if (group.container_kind === 'being') {
-    note = `${container.name} has these${path.length > 0 ? `, ${within(path)}` : ''}`;
+/** Where a container column's container is: "In Backpack", "Brisk has these". */
+function note(column: ControlledColumn, container: EntitySummary): string | null {
+  const { path } = column;
+  if (column.container_kind === 'being') {
+    return `${container.name} has these${path.length > 0 ? `, ${within(path)}` : ''}`;
   }
+  if (path.length > 0) return capitalized(within(path));
+  // In nothing, and nobody carries it.
+  return column.container_kind === 'item_instance' && !column.carried ? 'Not carried' : null;
+}
+
+function column(from: ControlledColumn): BoardColumn {
+  const shared = { contentsHidden: from.contents_hidden, items: from.item_instances };
+  if (from.kind === 'not_carried' || from.container === null) {
+    // Dropping here takes a card out of every container: sets it down.
+    return {
+      ...shared,
+      key: 'loose',
+      droppable: true,
+      dropTarget: null,
+      title: 'Not carried',
+      note: null,
+      carried: false,
+      fixed: true,
+      empty: NOTHING_HERE,
+    };
+  }
+  const container = from.container;
+  if (from.kind === 'equipped') {
+    // Dropping on Equipped puts a card into the being, who carries it (ADR 0115).
+    return {
+      ...shared,
+      key: container.id,
+      droppable: true,
+      dropTarget: container.id,
+      title: 'Equipped',
+      note: null,
+      carried: true,
+      fixed: true,
+      empty: 'Nothing equipped.',
+    };
+  }
+  const readOnly = from.kind === 'read_only';
   return {
+    ...shared,
     key: container.id,
-    dropTarget: container.id,
+    droppable: !readOnly,
+    dropTarget: readOnly ? null : container.id,
     title: container.name,
-    note,
+    note: note(from, container),
+    carried: from.carried,
+    fixed: false,
     empty: EMPTY_CONTAINER,
-    items: group.item_instances,
   };
 }
 
-/** A being's board, from what it holds. */
-export function heldBoard(response: HeldByResponse): Board {
-  const [own, ...rest] = response.groups;
-  if (!own) throw new Error("A held-by answer always starts with its holder's own group.");
-  const isBeing = own.container_kind === 'being';
-  const equipped: BoardColumn = {
-    key: own.container.id,
-    // Dropping on a being's own column puts a card into the being, who carries it (ADR
-    // 0115). A group carries nothing: dropping on its column takes a card out of every
-    // container, and an owned thing in no container is with its owner (ADR 0123, 0124).
-    dropTarget: isBeing ? own.container.id : null,
-    title: isBeing ? 'Equipped' : own.container.name,
-    note: null,
-    empty: isBeing ? 'Nothing equipped.' : 'Nothing here.',
-    items: own.item_instances,
-  };
+/** A being's or a group's board, from what it controls. */
+export function controlledBoard(response: ControlledByResponse, holderId: string): Board {
   return {
-    carried: [equipped, ...rest.filter((g) => g.carried).map(column)],
-    elsewhere: rest.filter((g) => !g.carried).map(column),
+    columns: response.columns.map(column),
     owners: new Map(response.owners.map((o) => [o.id, o.name])),
-    holderId: own.container.id,
-    holderIsBeing: isBeing,
+    holderId,
+    holderIsBeing: response.columns.some((c) => c.kind === 'equipped'),
   };
 }
 
@@ -92,15 +127,18 @@ export function unownedBoard(response: OwnedByResponse): Board {
     a.container === null ? -1 : b.container === null ? 1 : 0,
   );
   return {
-    carried: ordered.map((g) => ({
+    columns: ordered.map((g) => ({
       key: g.container?.id ?? 'loose',
+      droppable: true,
       dropTarget: g.container?.id ?? null,
       title: g.container?.name ?? 'Unowned',
       note: null,
-      empty: g.container ? EMPTY_CONTAINER : 'Nothing here.',
+      carried: false,
+      fixed: false,
+      empty: g.container ? EMPTY_CONTAINER : NOTHING_HERE,
+      contentsHidden: false,
       items: g.item_instances,
     })),
-    elsewhere: [],
     owners: new Map(),
     holderId: null,
     holderIsBeing: false,

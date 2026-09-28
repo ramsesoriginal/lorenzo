@@ -4,8 +4,8 @@ import type {
   BulkResultItem,
   CatalogItem,
   ContentsResult,
+  ControlledByResponse,
   EntityDetail,
-  HeldByResponse,
   ItemInstance,
   OwnedByResponse,
   PrototypeAncestor,
@@ -13,7 +13,7 @@ import type {
 
 // What a being owns, grouped by *direct* container only (ADR 0020's task
 // brief) - a null group for items with no container, one group per occupied
-// container. Manage items' per-being listing; the board reads held-by.
+// container. Manage items' per-being listing; the board reads controlled-by.
 export async function getOwnedItemInstances(
   tenantId: string,
   ownerEntityId: string,
@@ -25,16 +25,15 @@ export async function getOwnedItemInstances(
   );
 }
 
-// Everything a being holds (ADR 0123), grouped by direct container: its own
-// group (Equipped) first and always, then what it carries, then what's held
-// elsewhere. A container with nothing in it gets no group of its own, but
-// still appears as a card inside whichever group holds it.
-export async function getHeldItemInstances(
+// A being's or a group's board (ADR 0130), as columns: Equipped for a being and
+// Not carried, always; one for every container it controls, empty ones
+// included; then read-only ones for whatever else holds something of theirs.
+export async function getControlledItemInstances(
   tenantId: string,
   holderEntityId: string,
-): Promise<HeldByResponse> {
+): Promise<ControlledByResponse> {
   return unwrap(
-    await client.GET('/tenants/{tenant_id}/item-instances/held-by/{entity_id}', {
+    await client.GET('/tenants/{tenant_id}/item-instances/controlled-by/{entity_id}', {
       params: { path: { tenant_id: tenantId, entity_id: holderEntityId } },
     }),
   );

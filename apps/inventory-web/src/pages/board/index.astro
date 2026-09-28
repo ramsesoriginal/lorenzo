@@ -133,7 +133,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
 
       <p id="inventory-empty" class="next-up" hidden></p>
       <p id="inventory-error" class="error-text" hidden></p>
-      <div id="board-columns" class="grid full-width h-scroll" style="--grid-min: 260px"></div>
+      <div id="board-columns" class="grid full-width h-scroll board-row" style="--grid-min: 260px">
+      </div>
 
       <section class="board-toolbar card card-body">
         <input
@@ -172,7 +173,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
     import {
       type Board,
       type BoardColumn,
-      heldBoard,
+      controlledBoard,
       ownerMark,
       unownedBoard,
     } from '../../lib/boardColumns';
@@ -185,7 +186,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
       bulkAssignItemInstances,
       bulkMoveItemInstances,
       clearContainer,
-      getHeldItemInstances,
+      getControlledItemInstances,
       getUnownedItemInstances,
       giveContents,
       mergeItemInstance,
@@ -216,8 +217,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
     import type {
       BeingRef,
       CharacterSummary,
+      ControlledByResponse,
       EntitySummary,
-      HeldByResponse,
       ItemInstance,
       ProblemOut,
     } from '../../lib/types';
@@ -362,12 +363,14 @@ import HolderListItem from '../../components/HolderListItem.astro';
     // give panel's item list work off data already in hand.
     const boardItems = new Map<string, ItemInstance>();
 
-    // container_entity_id -> its EntitySummary, for every occupied
-    // container currently rendered as its own board column - the "Move
-    // to…" button's candidate list (lib/moveTargets.ts) combines this
-    // with boardItems' own is_container-flagged cards, so a currently-
-    // empty container (no column of its own yet) is still offered.
+    // container_entity_id -> its EntitySummary, for every column a card can be
+    // dropped into - the "Move to…" button's candidate list (lib/moveTargets.ts)
+    // combines this with boardItems' own is_container-flagged cards.
     const boardContainers = new Map<string, EntitySummary>();
+    // Containers whose column lists something: what "Give what's inside…" is for.
+    const occupiedContainers = new Set<string>();
+    // Cards in a read-only column (ADR 0131): not dragged, and not moved from there.
+    const readOnlyItems = new Set<string>();
 
     // Multi-select (bulk actions) - only meaningful while selectMode is on.
     let selectMode = false;
@@ -490,7 +493,9 @@ import HolderListItem from '../../components/HolderListItem.astro';
       closeDetailActionPanels();
       detailSplitButton.disabled = !(item.quantity && item.quantity > 1);
       // Only a container the board shows something inside (ADR 0125).
-      detailGiveContentsButton.hidden = !boardContainers.has(item.entity_id);
+      detailGiveContentsButton.hidden = !occupiedContainers.has(item.entity_id);
+      // A read-only column's cards aren't moved from this board (ADR 0131).
+      detailMoveButton.hidden = readOnlyItems.has(item.entity_id);
     }
 
     // The full transitive ancestry (ADR 0073) is scoped to catalog Items,
@@ -1292,7 +1297,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
       return template.content.cloneNode(true) as DocumentFragment;
     }
 
-    function renderCard(item: ItemInstance): HTMLLIElement {
+    // `readOnly`: in a read-only column (ADR 0131), so it isn't dragged anywhere.
+    function renderCard(item: ItemInstance, readOnly: boolean): HTMLLIElement {
       const fragment = fromTemplate('boardColumnItem');
 
       const li = fragment.querySelector<HTMLLIElement>('li')!;
@@ -1302,7 +1308,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
       const ownerMarkField = fragment.querySelector<HTMLSpanElement>('[data-owner-mark]')!;
       const bound = fragment.querySelector<HTMLSpanElement>('[data-bound]')!;
 
-      li.draggable = true;
+      li.draggable = !readOnly;
       li.dataset.entityId = item.entity_id;
       li.style.viewTransitionName = `item-${item.entity_id}`;
       if (item.is_container) {
@@ -1356,10 +1362,9 @@ import HolderListItem from '../../components/HolderListItem.astro';
       return li;
     }
 
-    // `elsewhere`: a column the board's being doesn't carry (ADR 0123). It shares the one
-    // row with what it does, so its note is marked apart, and says "Held elsewhere" when
-    // there's nothing more particular to say.
-    function renderColumn(column: BoardColumn, elsewhere: boolean): HTMLElement {
+    // A column of the board (ADR 0131). Equipped and Not carried, the two every board
+    // has, glow; a read-only one takes no drops, and its cards aren't dragged.
+    function renderColumn(column: BoardColumn): HTMLElement {
       const fragment = fromTemplate('boardColumn');
 
       const section = fragment.querySelector<HTMLElement>('[data-column]')!;
@@ -1367,13 +1372,15 @@ import HolderListItem from '../../components/HolderListItem.astro';
       const noteField = fragment.querySelector<HTMLSpanElement>('[data-note]')!;
       const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
 
-      if (column.dropTarget !== null) {
+      section.classList.toggle('glow-canonical', column.fixed);
+      if (column.droppable && column.dropTarget !== null) {
         // "Move to…" offers it under the column's own title: Equipped, not the being's name.
         boardContainers.set(column.dropTarget, {
           id: column.dropTarget,
           name: column.title,
           quantity: null,
         });
+        if (column.items.length > 0) occupiedContainers.add(column.dropTarget);
       }
 
       // Named by its heading, so each column is a region a reader can find.
@@ -1381,25 +1388,33 @@ import HolderListItem from '../../components/HolderListItem.astro';
       nameField.textContent = column.title;
       section.setAttribute('aria-labelledby', nameField.id);
 
-      // Where its container is: "In Backpack", "Pia has these".
-      const note = column.note ?? (elsewhere ? 'Held elsewhere' : null);
-      if (note) {
+      // Where its container is: "In Backpack", "Brisk has these", "Not carried".
+      if (column.note) {
         noteField.hidden = false;
-        noteField.textContent = note;
-        noteField.classList.add(elsewhere ? 'pill-warning' : 'pill-success');
+        noteField.textContent = column.note;
+        noteField.classList.add(column.carried ? 'pill-success' : 'pill-warning');
       }
 
-      list.dataset.empty = column.empty;
+      // Holding more than it lists (ADR 0130): it says so, rather than that it's empty.
+      list.dataset.empty = column.contentsHidden ? 'Contents not shown.' : column.empty;
       if (column.items.length === 0) {
         ensurePlaceholder(list);
       } else {
         for (const item of column.items) {
           boardItems.set(item.entity_id, item);
-          list.append(renderCard(item));
+          if (!column.droppable) readOnlyItems.add(item.entity_id);
+          list.append(renderCard(item, !column.droppable));
+        }
+        if (column.contentsHidden) {
+          // After the list, not in it: dropping a card in removes the list's placeholder.
+          const hidden = document.createElement('p');
+          hidden.className = 'column-empty';
+          hidden.textContent = 'Other contents not shown.';
+          section.append(hidden);
         }
       }
 
-      bindDropZone(section, list, column.dropTarget);
+      if (column.droppable) bindDropZone(section, list, column.dropTarget);
 
       return section;
     }
@@ -1425,15 +1440,17 @@ import HolderListItem from '../../components/HolderListItem.astro';
       );
     }
 
-    // Shared rendering for both boards: a being's (what it holds, ADR 0123)
-    // and the board of unowned things (ADR 0077). Only the latter can be
-    // empty - a being's board always has its Equipped column to drop onto.
+    // Shared rendering for both boards: a being's or a group's (what it
+    // controls, ADR 0131) and the board of unowned things (ADR 0077). Only the
+    // latter can be empty - every other board has Not carried to drop onto.
     async function loadBoardFromResponse(
       fetchFn: () => Promise<Board>,
       emptyMessage: string | null,
     ) {
       boardItems.clear();
       boardContainers.clear();
+      occupiedContainers.clear();
+      readOnlyItems.clear();
       clearSelection();
       inventoryEmpty.hidden = true;
       inventoryError.hidden = true;
@@ -1443,17 +1460,14 @@ import HolderListItem from '../../components/HolderListItem.astro';
         currentBoard = shown;
         boardColumns.replaceChildren();
         boardColumns.removeAttribute('aria-busy');
-        const hasAnything = [...shown.carried, ...shown.elsewhere].some((c) => c.items.length > 0);
+        const hasAnything = shown.columns.some((c) => c.items.length > 0);
         if (!hasAnything && emptyMessage !== null) {
           inventoryEmpty.hidden = false;
           inventoryEmpty.textContent = emptyMessage;
           return;
         }
-        // One row: what the being carries first, then what it holds elsewhere.
-        boardColumns.append(
-          ...shown.carried.map((column) => renderColumn(column, false)),
-          ...shown.elsewhere.map((column) => renderColumn(column, true)),
-        );
+        // One row, in the order the listing gives.
+        boardColumns.append(...shown.columns.map(renderColumn));
       } catch (e) {
         boardColumns.replaceChildren();
         boardColumns.removeAttribute('aria-busy');
@@ -1462,20 +1476,21 @@ import HolderListItem from '../../components/HolderListItem.astro';
       }
     }
 
-    // entityId is deliberately generic, not character-specific - held-by
-    // accepts any being the viewer reaches, so this same function serves
-    // both "a player's own character" and "a GM browsing any being."
+    // entityId is deliberately generic, not character-specific - controlled-by
+    // accepts any being or group the viewer reaches, so this same function
+    // serves "a player's own character", their groups, and "a GM browsing any
+    // being."
     //
     // prefetchedBoards holds requests already in flight (or settled) for a
     // being's board, fired on hover/focus of its pill before the actual
     // click - loadBoard consumes and discards the entry (one-shot: a later
     // reload of the same being should hit the network again, not replay a
     // now-stale response).
-    const prefetchedBoards = new Map<string, Promise<HeldByResponse>>();
+    const prefetchedBoards = new Map<string, Promise<ControlledByResponse>>();
 
     function prefetchBoard(entityId: string) {
       if (prefetchedBoards.has(entityId)) return;
-      const request = getHeldItemInstances(tenantId as string, entityId);
+      const request = getControlledItemInstances(tenantId as string, entityId);
       // Swallow here so an unclicked prefetch (hover without a follow-up
       // click) never surfaces as an unhandled rejection - the original
       // `request` reference kept in the map is untouched, so loadBoard's
@@ -1491,8 +1506,9 @@ import HolderListItem from '../../components/HolderListItem.astro';
       const prefetched = prefetchedBoards.get(entityId);
       prefetchedBoards.delete(entityId);
       await loadBoardFromResponse(async () => {
-        const shown = heldBoard(
-          await (prefetched ?? getHeldItemInstances(tenantId as string, entityId)),
+        const shown = controlledBoard(
+          await (prefetched ?? getControlledItemInstances(tenantId as string, entityId)),
+          entityId,
         );
         boardOwnerId = shown.holderIsBeing ? shown.holderId : null;
         return shown;

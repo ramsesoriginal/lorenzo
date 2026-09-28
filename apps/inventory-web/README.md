@@ -8,10 +8,11 @@ static Astro app) and [docs/guides/adding-an-app.md](../../docs/guides/adding-an
 ## What it does
 
 After logging in via Authgear and picking a tenant, a character's inventory
-renders as a kanban-style board of everything they hold ([ADR
-0123](../../docs/adr/0123-held-by-listing-and-the-equipped-column.md)):
-Equipped first and always, then each container they carry, then what's
-held elsewhere. Cards are item instances, dragged between columns to move
+renders as a kanban-style board of everything they control ([ADR
+0131](../../docs/adr/0131-the-board-on-controlled-by.md)): Equipped and Not
+carried first and always, then a column for every container they control,
+empty ones included, then read-only columns for whatever else holds
+something of theirs. Cards are item instances, dragged between columns to move
 them, and a card that isn't the character's own names its owner. The groups
 your characters belong to have boards of their own, and can be given things
 ([ADR 0124](../../docs/adr/0124-groups-own-things-and-moving-is-not-giving.md)). Clicking a card
