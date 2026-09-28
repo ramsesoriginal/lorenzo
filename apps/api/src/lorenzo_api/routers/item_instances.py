@@ -1147,10 +1147,7 @@ async def create_item_instance(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
 
-    # Created inside something is put there: capacity counts (ADR 0128). Its
-    # chain is locked before anything goes in: the ownership row's foreign key
-    # share-locks the owner, who's often in that chain, and two creates each
-    # holding that share lock would wait on each other forever.
+    # Created inside something is put there: capacity counts (ADR 0128).
     check = (
         None
         if body.container_entity_id is None or body.override
@@ -1497,10 +1494,8 @@ class _HandOver:
     steps around the ownership write, for PUT .../owner and bulk-assign
     alike: `start` before anything is written, `finish` after.
 
-    `start` locks the owner's chain for capacity (ADR 0128), as
-    _perform_split does: the ownership row's foreign key share-locks the
-    owner, first in that chain, and two hand-overs to one owner each
-    holding that share lock would wait on each other's lock forever.
+    `start` locks the owner's chain for capacity (ADR 0128) and measures it,
+    as _perform_split does.
     `finish` checks binding (ADR 0129) against the new owner and moves it.
     Neither checks anything under `override`.
     """
@@ -2438,10 +2433,11 @@ async def bulk_assign_item_instances(
     results: list[BulkAssignResultItem] = []
     lifted: set[uuid.UUID] = set()
     # Every entry's locks up front, since what an entry locks stays locked
-    # while the others run: each one's ownership rows share-lock its owner,
-    # and handing over or splitting off into the owner's hands locks the
-    # owner's chain for capacity (ADR 0128). Not for a caller with no part in
-    # the tenant, whose every entry fails.
+    # while the others run: handing over or splitting off into the owner's
+    # hands locks the owner's chain for capacity (ADR 0128), and two
+    # bulk-assigns locking chains entry by entry, in a different order, would
+    # wait on each other. Not for a caller with no part in the tenant, whose
+    # every entry fails.
     if await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
         await lock_ahead(
             session,
@@ -2499,8 +2495,6 @@ async def bulk_assign_item_instances(
                         )
                     ]
                 else:
-                    # Started before anything inside is given: its ownership rows
-                    # share-lock the owner too.
                     hand_over = await _HandOver.start(
                         session,
                         tenant_id=tenant_id,
