@@ -1,0 +1,59 @@
+<section class="section-lg" aria-labelledby="catalog-heading" data-catalog>
+  <h2 id="catalog-heading">Catalog</h2>
+
+  <p class="field-note" data-intro hidden>
+    Everything your GMs have put in the public catalog.
+  </p>
+
+  <div class="catalog-toolbar">
+    <input
+      type="search"
+      class="text-input"
+      data-search
+      placeholder="Search the item catalog…"
+      aria-label="Search the item catalog"
+    />
+  </div>
+
+  <p data-empty hidden>No items match.</p>
+  <p class="error-text" data-error hidden></p>
+
+  <ul class="catalog-list" data-list hidden></ul>
+
+  <template data-row-template>
+    <li class="catalog-row">
+      <div class="catalog-row-header">
+        <span data-name>
+          <span class="catalog-row-title" data-title></span>
+          <span class="chip" data-public hidden>Public</span>
+        </span>
+
+        <div class="catalog-row-actions">
+          <a class="btn btn-secondary" data-view>View</a>
+
+          <button type="button" data-edit>
+            Edit
+          </button>
+
+          <button type="button" data-instantiate>
+            Create instance
+          </button>
+
+          <button
+            type="button"
+            class="btn-danger"
+            data-delete
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <div data-panel></div>
+    </li>
+  </template>
+
+  <template data-skeleton-template>
+    <li class="catalog-row skeleton"></li>
+  </template>
+</section>
