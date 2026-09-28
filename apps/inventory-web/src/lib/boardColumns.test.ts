@@ -25,6 +25,7 @@ function column(
     container_kind: container ? 'item_instance' : null,
     path: [],
     carried: false,
+    carried_by: null,
     contents_hidden: false,
     item_instances: [],
     ...overrides,
@@ -52,12 +53,12 @@ describe('controlledBoard', () => {
         }),
         column('not_carried', null),
         column('container', backpack, { carried: true }),
-        column('container', pouch, { carried: true, path: [backpack] }),
+        column('container', pouch, { carried: true, path: [backpack], carried_by: alice }),
         column('container', bag, { carried: true, contents_hidden: true }),
         column('container', chest),
         column('container', carriage, { path: [stable] }),
         column('read_only', brisk, { container_kind: 'being' }),
-        column('read_only', kase, { path: [brisk] }),
+        column('read_only', kase, { path: [brisk], carried_by: brisk }),
         column('read_only', stable, { container_kind: 'other' }),
       ],
       owners: [alice, brisk],
@@ -112,7 +113,8 @@ describe('controlledBoard', () => {
       ['Chest', 'Not carried'],
       ['Carriage', 'In Stable'],
       ['Brisk', 'Brisk has these'],
-      ['Case', 'In Brisk'],
+      // Someone else carries it (ADR 0134).
+      ['Case', 'Not carried, with Brisk'],
       // A place isn't carried or not; it just is.
       ['Stable', null],
     ]);

@@ -46,7 +46,7 @@ From that detail view, or when multiple cards are multi-selected:
   (the bulk-assign/bulk-move endpoints, not one request per item)
 
 Every item instance also has its own standalone, shareable page
-(`/item/?tenant=…&id=…`, or `&slug=…` when it has one) — usable
+(`/item/?tenant=…&id=…`) — usable
 for both a catalog item and an instance, with a "Copy link" button. There, a
 GM can also write or edit the item's description and its display title, in a
 LorenzoScript editor with a live preview that lists any links readers won't be
@@ -60,6 +60,10 @@ title suggests
 The page also lists, under "Mentioned in", the entities whose descriptions link
 to the item, as far as the viewer may read them
 ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)).
+
+Every address takes slugs as well as ids, the library's included, as in
+`/board/?tenant=sunken-vale&character=ashfang`, and keeps them as given
+([ADR 0135](../../docs/adr/0135-slugs-in-inventory-web-addresses.md)).
 
 Anyone can open a catalog item's page, and `/items` ("Catalog" on the board)
 lists what they may browse: for a player, the items the GM put in the public
@@ -75,7 +79,7 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   slug
 - Browse/reassign/unassign/delete existing instances
 - Browse any being's inventory (not just their own characters) — by
-  search, or a raw entity id for a "bare" being with no Character row — and
+  search, or an entity id or slug for a "bare" being with no Character row — and
   browse everyone's unowned/unclaimed loot, both via the same board UI a
   player uses for their own characters
 

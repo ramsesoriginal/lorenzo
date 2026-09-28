@@ -1,3 +1,4 @@
+import { beingNamed, unknownSlug } from './addresses';
 import { listBeings } from './beings';
 import { listGroups, matchingGroups } from './groups';
 import type { BeingRef, BeingSummary } from './types';
@@ -62,7 +63,7 @@ export async function searchBeingsAndGroups(
 // A panel that finds a being - by name search against GET /tenants/{t}/beings
 // (ADR 0078: every being in the tenant, PCs/NPCs/bare beings alike), and the
 // tenant's groups, which can own things too (ADR 0124) - or by
-// pasting an entity id directly (still handy as a quick-entry shortcut even
+// pasting an entity id or slug directly (still handy as a quick-entry shortcut even
 // now that search covers everything) - then runs performAction against
 // whichever was picked. Ownership itself already accepts any entity id, no
 // character-only validation server-side, so this works for any being.
@@ -99,8 +100,8 @@ export function renderBeingActionPanel(
   const rawIdInput = document.createElement('input');
   rawIdInput.type = 'text';
   rawIdInput.className = 'text-input';
-  rawIdInput.placeholder = "or a being's entity id…";
-  rawIdInput.setAttribute('aria-label', "Being's entity id");
+  rawIdInput.placeholder = "or a being's id or slug…";
+  rawIdInput.setAttribute('aria-label', "Being's id or slug");
   const rawIdButton = document.createElement('button');
   rawIdButton.type = 'button';
   rawIdButton.textContent = 'Use ID';
@@ -158,10 +159,22 @@ export function renderBeingActionPanel(
     if (event.key === 'Escape') onDone();
   });
 
-  rawIdButton.addEventListener('click', () => {
-    const id = rawIdInput.value.trim();
-    if (!id) return;
-    void pick({ entity_id: id, name: id });
+  // An id, or a slug (ADR 0135).
+  rawIdButton.addEventListener('click', async () => {
+    const value = rawIdInput.value.trim();
+    if (!value) return;
+    const showError = (message: string) => {
+      statusEl.hidden = false;
+      statusEl.classList.add('error-text');
+      statusEl.textContent = message;
+    };
+    try {
+      const being = await beingNamed(tenantId, value);
+      if (being) void pick(being);
+      else showError(unknownSlug(value));
+    } catch (e) {
+      showError(e instanceof Error ? e.message : String(e));
+    }
   });
 
   window.setTimeout(() => input.focus(), 0);

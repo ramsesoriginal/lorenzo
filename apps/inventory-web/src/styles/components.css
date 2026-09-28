@@ -9,6 +9,11 @@
   background: color-mix(in srgb, var(--action) 10%, var(--fill-soft));
 }
 
+/* Something of theirs in someone else's keeping (ADR 0131, 0134): shown, not moved. */
+.board-column--read-only {
+  border-style: dashed;
+}
+
 .column-empty {
   color: var(--text-tertiary);
   font-size: 13px;

@@ -269,6 +269,7 @@ export async function buildWorld() {
 
   return {
     tenantId: tenant.id,
+    tenantSlug: tenant.slug,
     tenantName: tenant.name,
     campaignId: campaign.id,
     gm,
