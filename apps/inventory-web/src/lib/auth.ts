@@ -1,5 +1,6 @@
 import authgear, { SessionState } from '@authgear/web';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
+import { forgetHolders } from './lastHolder';
 import { forgetTenant } from './lastTenant';
 
 // Trailing slash is deliberate, not cosmetic: Cloudflare Pages 308-redirects
@@ -62,8 +63,9 @@ export async function completeLogin(): Promise<void> {
 // goes home itself. `force` clears the session even if revoking it fails.
 export async function logout(): Promise<void> {
   await ensureConfigured();
-  // This user's last tenant - not the next one's.
+  // This user's last tenant and characters - not the next one's.
   forgetTenant();
+  forgetHolders();
   await authgear.logout({ redirectURI: window.location.origin, force: true });
   window.location.assign('/');
 }

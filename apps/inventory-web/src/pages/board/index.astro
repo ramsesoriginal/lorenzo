@@ -215,6 +215,12 @@ import HolderListItem from '../../components/HolderListItem.astro';
     } from '../../lib/givingContents';
     import { renderNotes } from '../../lib/notes';
     import { splitQuestion } from '../../lib/settingDown';
+    import {
+      defaultHolder,
+      getLastHolder,
+      type Holder,
+      rememberHolder,
+    } from '../../lib/lastHolder';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
@@ -298,7 +304,11 @@ import HolderListItem from '../../components/HolderListItem.astro';
       }
     }
 
-    tabCharacters.addEventListener('click', () => selectPickerTab('characters'));
+    tabCharacters.addEventListener('click', () => {
+      selectPickerTab('characters');
+      // Back from browsing, with none of yours shown: open the one you had (ADR 0134).
+      if (!characterStrip.querySelector('a[aria-pressed="true"]')) openDefaultHolder();
+    });
     tabBrowse.addEventListener('click', () => selectPickerTab('browse'));
     tabUnowned.addEventListener('click', () => {
       selectPickerTab('unowned');
@@ -1315,6 +1325,10 @@ import HolderListItem from '../../components/HolderListItem.astro';
             if (splitting || merged) {
               forgetUndo();
               reloadCurrentView?.();
+            } else if (idsToMove.some((id) => boardContainers.has(id))) {
+              // A container moved: its own column, and those inside it, now say where
+              // it is (ADR 0134). The Undo stays.
+              reloadCurrentView?.();
             }
           })
           .catch((e) => {
@@ -1417,6 +1431,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
       const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
 
       section.classList.toggle('glow-canonical', column.fixed);
+      section.classList.toggle('board-column--read-only', !column.droppable);
       if (column.droppable && column.dropTarget !== null) {
         // "Move to…" offers it under the column's own title: Equipped, not the being's name.
         boardContainers.set(column.dropTarget, {
@@ -1578,6 +1593,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
 
     function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement) {
       pressOnly(link);
+      rememberHolder(tenantId as string, { kind: 'character', id: character.entity_id });
       inventoryViewing.hidden = true;
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
@@ -1589,6 +1605,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
     // A group one of your characters belongs to, and what it owns (ADR 0124).
     function selectGroup(group: BeingRef, link: HTMLAnchorElement) {
       pressOnly(link);
+      rememberHolder(tenantId as string, { kind: 'group', id: group.entity_id });
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = `Viewing what ${group.name} holds.`;
       const url = new URL(window.location.href);
@@ -1598,8 +1615,29 @@ import HolderListItem from '../../components/HolderListItem.astro';
       void loadBoard(group.entity_id);
     }
 
+    // Every character and group in the list, and how to open its board.
+    const holders: { holder: Holder; open: () => void }[] = [];
+
+    function openHolder(wanted: Holder | null) {
+      const entry = wanted
+        ? holders.find((e) => e.holder.kind === wanted.kind && e.holder.id === wanted.id)
+        : undefined;
+      entry?.open();
+    }
+
+    // With no character or group named, the board opens the one last opened on this
+    // library, else your only character (ADR 0134).
+    function openDefaultHolder() {
+      openHolder(
+        defaultHolder(
+          holders.map((e) => e.holder),
+          getLastHolder(tenantId as string),
+        ),
+      );
+    }
+
     // Adds one entry to the list of your characters and their groups: a link to its board
-    // (?character= or ?group=), a group marked as one. Shown at once if the URL names it.
+    // (?character= or ?group=), a group marked as one.
     function addHolder(
       holder: { entity_id: string; name: string },
       param: 'character' | 'group',
@@ -1625,7 +1663,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
       groupBadge.hidden = param !== 'group';
 
       characterStrip.append(item);
-      if (holder.entity_id === params.get(param)) select(link);
+      holders.push({ holder: { kind: param, id: holder.entity_id }, open: () => select(link) });
     }
 
     async function loadGroups(currentTenantId: string, characters: CharacterSummary[]) {
@@ -1670,6 +1708,12 @@ import HolderListItem from '../../components/HolderListItem.astro';
           addHolder(character, 'character', (link) => selectCharacter(character, link));
         }
         await loadGroups(currentTenantId, page.items);
+        // The URL wins; otherwise the board opens one by itself (ADR 0134).
+        const character = params.get('character');
+        const group = params.get('group');
+        if (character) openHolder({ kind: 'character', id: character });
+        else if (group) openHolder({ kind: 'group', id: group });
+        else openDefaultHolder();
       } catch (e) {
         charactersLoading.hidden = true;
         charactersError.hidden = false;
