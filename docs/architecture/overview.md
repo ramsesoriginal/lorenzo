@@ -175,6 +175,12 @@ Things can be set down ([ADR 0132](../adr/0132-setting-things-down.md), RFC 0031
 - **Deleting a container that's lying somewhere** sets its contents down instead of handing them to its owner, a stack among them needing the same flag.
 - **On the board**, Set down replaces "Remove from container", and Equipped is where Move to… puts something into the being's hands. Dropping on Not carried sets a card down (it used to equip it), asking first about a stack. Manage items asks the same before deleting.
 
+Moves can merge what's identical ([ADR 0133](../adr/0133-merging-what-is-identical.md), RFC 0031 slice 4), which completes RFC 0031:
+
+- **`merge_identical`** on `PUT .../container` and `bulk-move` merges what's moved into an identical instance already directly in the container, the lowest id first. In a bulk move, what earlier entries moved counts, so a set-down stack's pieces picked up together are one stack again. The answer names the instance each thing ended up in.
+- **Identical** means the same name, prototypes, owner and own stat values, with no information (notes included), slug or formula of its own, in `identical.py`. Only what moves merges, and never out of every container.
+- **inventory-web** asks for it on every move into a container, and offers no Undo after one that merged. loot-bot sends `false`, and moves as before.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
