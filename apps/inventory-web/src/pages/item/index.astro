@@ -62,6 +62,7 @@ import Base from '../../layouts/Base.astro';
   </div>
 
   <script>
+    import { addressedTenant, isId } from '../../lib/addresses';
     import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { LorenzoApiError } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
@@ -109,9 +110,12 @@ import Base from '../../layouts/Base.astro';
     const itemNotesList = byId('item-notes-list');
 
     const params = new URLSearchParams(window.location.search);
-    const tenantId = params.get('tenant') as string;
+    // By id or by slug (ADR 0135).
+    const addressed = await addressedTenant(params.get('tenant'));
+    const tenantId = addressed.id as string;
     const itemId = params.get('id');
-    const itemSlugParam = params.get('slug');
+    // ?slug=, or an ?id= that's a slug (ADR 0113, 0135).
+    const itemSlugParam = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
     const renderer = descriptionRenderer(tenantId);
 
     // The shown item (set by show() before anything reads it), and which endpoint
@@ -302,7 +306,7 @@ import Base from '../../layouts/Base.astro';
 
     const nowhere = () => new Error("There's no such item here, or it isn't one you can see.");
 
-    /** The catalog item or instance the link names, by slug or by id (ADR 0107, 0116). */
+    /** The catalog item or instance the link names, by slug or by id (ADR 0107, 0116, 0135). */
     async function load(): Promise<{ item: ItemBase | ItemInstance; instance: boolean }> {
       if (itemSlugParam) {
         // Any entity can hold a slug (ADR 0107); what it is says which endpoint shows it.
@@ -332,6 +336,8 @@ import Base from '../../layouts/Base.astro';
 
     if (!(await isAuthenticated())) {
       status.textContent = "You're not logged in. Log in to continue.";
+    } else if (addressed.problem) {
+      status.textContent = addressed.problem;
     } else if (!tenantId || !(itemId || itemSlugParam)) {
       status.textContent = "This link is incomplete — it's missing a tenant or item.";
     } else {

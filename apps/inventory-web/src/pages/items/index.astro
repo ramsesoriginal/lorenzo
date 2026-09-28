@@ -62,6 +62,7 @@ import Base from '../../layouts/Base.astro';
   </div>
 
   <script>
+    import { addressedTenant } from '../../lib/addresses';
     import { isAuthenticated } from '../../lib/auth';
     import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
     import { listBeings } from '../../lib/beings';
@@ -110,10 +111,13 @@ import Base from '../../layouts/Base.astro';
     const catalogError = document.getElementById('catalog-error')!;
     const catalogList = document.getElementById('catalog-list') as HTMLUListElement;
 
+    const params = new URLSearchParams(window.location.search);
+    // By id or by slug (ADR 0135).
+    const addressed = await addressedTenant(params.get('tenant'));
+    const tenantId = addressed.id;
+
     const createItemMount = document.getElementById('create-item-mount')!;
-    const renderer = descriptionRenderer(
-      new URLSearchParams(window.location.search).get('tenant') as string,
-    );
+    const renderer = descriptionRenderer(tenantId as string);
 
     // A description with its display title (ADR 0112), for the create form and the edit
     // panel. Its title is the item's shown name (ADR 0019); `followName` keeps a new one's
@@ -141,9 +145,6 @@ import Base from '../../layouts/Base.astro';
       }
       return fields;
     }
-
-    const params = new URLSearchParams(window.location.search);
-    const tenantId = params.get('tenant');
 
     // --- Reusable item form: shared by "New item" (create) and each catalog
     // row's "Edit" panel. A field is just { element, ... } - adding another
@@ -978,7 +979,7 @@ import Base from '../../layouts/Base.astro';
     if (!(await isAuthenticated())) {
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
-      status.textContent = 'No tenant selected. Pick one to continue.';
+      status.textContent = addressed.problem ?? 'No tenant selected. Pick one to continue.';
     } else {
       try {
         // GMs manage the catalog here; anyone else browses what they may list: the public

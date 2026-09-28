@@ -32,15 +32,19 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
          subpage's URL that has none - before any page script reads
          ?tenant=, so those keep reading only the URL. Also inline and
          synchronous for that reason, so it can't import lib/lastTenant.ts -
-         its KEY is that file's LAST_TENANT_KEY, keep the two in step. -->
+         its KEY is that file's LAST_TENANT_KEY, keep the two in step. Only
+         an id is remembered here: a slug is, as its id, once the module
+         script below has looked it up (ADR 0135); ID is lib/addresses.ts's
+         UUID. -->
     <script is:inline>
       (function () {
         var KEY = 'lorenzo:lastTenant';
+        var ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         var url = new URL(window.location.href);
         var tenant = url.searchParams.get('tenant');
         try {
           if (tenant) {
-            localStorage.setItem(KEY, tenant);
+            if (ID.test(tenant)) localStorage.setItem(KEY, tenant);
           } else if (url.pathname !== '/' && url.pathname.indexOf('/auth/') !== 0) {
             var stored = localStorage.getItem(KEY);
             if (stored) {
@@ -138,6 +142,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
     </footer>
 
     <script>
+      import { tenantIdFor, tenantNamed } from '../lib/addresses';
       import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
       import { LAST_TENANT_EVENT, getLastTenant, rememberTenant } from '../lib/lastTenant';
       import { listTenants } from '../lib/tenants';
@@ -145,18 +150,22 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
 
       let userIsGm = false;
 
-      // The tenant this page is about: the URL's (the head script puts a
-      // remembered one there on a subpage), else the remembered one (home).
+      // The tenant this page is about, by id or by slug: the URL's (the head
+      // script puts a remembered one there on a subpage), else the remembered
+      // one (home).
       function currentTenant(): string | null {
         return new URLSearchParams(window.location.search).get('tenant') ?? getLastTenant();
       }
 
-      // Nav links: a tenant's pages link to the current tenant, and stay
-      // hidden until there is one.
+      // Nav links: a tenant's pages link to the current tenant, as the URL
+      // names it, and stay hidden until there is one.
       async function updateNav() {
         const tenant = currentTenant();
         if (tenant) {
-          userIsGm = await isCampaignGm(tenant);
+          // A slug is remembered as the tenant it names (ADR 0135).
+          const tenantId = await tenantIdFor(tenant).catch(() => null);
+          if (tenantId && tenantId !== getLastTenant()) rememberTenant(tenantId);
+          if (tenantId) userIsGm = await isCampaignGm(tenantId);
         }
         for (const link of document.querySelectorAll<HTMLAnchorElement>('nav a[data-path]')) {
           const path = link.dataset.path!;
@@ -180,8 +189,9 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         if (tenants.length < 2) return;
 
         const switcher = document.getElementById('tenant-switcher') as HTMLSelectElement;
-        const current = currentTenant();
-        if (!tenants.some((tenant) => tenant.id === current)) {
+        const named = currentTenant();
+        const current = named ? tenantNamed(tenants, named)?.id : undefined;
+        if (!current) {
           switcher.append(new Option('Choose a library…', '', true, true));
         }
         for (const tenant of tenants) {
