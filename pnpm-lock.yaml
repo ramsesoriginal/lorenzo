@@ -21,11 +21,11 @@ importers:
         version: link:../../packages/brand
       astro:
         specifier: ^7.3.3
-        version: 7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)
+        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.4
-        version: 0.9.10(@emnapi/runtime@1.11.3)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
+        version: 0.9.10(@emnapi/runtime@1.11.1)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
       '@biomejs/biome':
         specifier: ^2.3.0
         version: 2.5.14
@@ -50,6 +50,9 @@ importers:
       '@authgear/web':
         specifier: ^6.0.0
         version: 6.0.0
+      '@lorenzo/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -61,17 +64,11 @@ importers:
         version: link:../../packages/lorenzoscript-editor
       astro:
         specifier: ^7.3.3
-        version: 7.3.3(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)
-      openapi-fetch:
-        specifier: ^0.13.4
-        version: 0.13.8
-      zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        version: 7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(@types/node@22.20.3)(tsx@4.23.13)(yaml@2.9.1)
     devDependencies:
       '@astrojs/check':
         specifier: ^0.9.4
-        version: 0.9.10(@emnapi/runtime@1.11.1)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
+        version: 0.9.10(@emnapi/runtime@1.11.3)(prettier-plugin-astro@0.14.1)(prettier@3.9.8)(typescript@5.9.3)
       '@biomejs/biome':
         specifier: ^2.3.0
         version: 2.5.14
@@ -84,9 +81,6 @@ importers:
       '@types/pg':
         specifier: ^8.11.10
         version: 8.23.1
-      openapi-typescript:
-        specifier: ^7.5.2
-        version: 7.13.0(typescript@5.9.3)
       pg:
         specifier: ^8.13.1
         version: 8.23.0
@@ -105,6 +99,9 @@ importers:
 
   apps/loot-bot:
     dependencies:
+      '@lorenzo/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       discord-interactions:
         specifier: ^4.1.0
         version: 4.4.0
@@ -154,9 +151,6 @@ importers:
       msw:
         specifier: ^2.7.0
         version: 2.15.0(@types/node@22.20.3)(typescript@5.9.3)
-      openapi-typescript:
-        specifier: ^7.5.2
-        version: 7.13.0(typescript@5.9.3)
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(postcss@8.5.28)(tsx@4.23.13)(typescript@5.9.3)(yaml@2.9.1)
@@ -169,6 +163,31 @@ importers:
       vite:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@22.20.3)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1)
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.3)(@vitest/coverage-v8@4.1.11)(msw@2.15.0(@types/node@22.20.3)(typescript@5.9.3))(vite@8.3.0(@types/node@22.20.3)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1))
+
+  packages/api-client:
+    dependencies:
+      openapi-fetch:
+        specifier: ^0.13.4
+        version: 0.13.8
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.3
+      openapi-typescript:
+        specifier: ^7.5.2
+        version: 7.13.0(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.3)(@vitest/coverage-v8@4.1.11)(msw@2.15.0(@types/node@22.20.3)(typescript@5.9.3))(vite@8.3.0(@types/node@22.20.3)(esbuild@0.28.2)(tsx@4.23.13)(yaml@2.9.1))

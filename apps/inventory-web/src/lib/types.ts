@@ -1,20 +1,12 @@
-// Thin aliases over the generated schema (lorenzo-schema.d.ts, from
-// apps/api's own OpenAPI schema - see api.ts and package.json's
-// generate-client script), kept under these existing names so the rest of
-// this app didn't need touching when the client itself was generated
-// rather than hand-written. `Page<T>` stays hand-written: the schema
-// generates one concrete `Page_<Schema>_` type per T rather than a
-// reusable generic, and its own shape (items/total/page/size/pages) is
-// stable, low-risk boilerplate untouched by a backend field rename.
+// Thin aliases over the generated schema (@lorenzo/api-client's schema.d.ts,
+// from apps/api's own OpenAPI schema - ADR 0091, ADR 0122), kept under these
+// existing names so the rest of this app didn't need touching when the
+// client itself was generated rather than hand-written. `Page<T>` is the
+// package's hand-written generic: the schema generates one concrete
+// `Page_<Schema>_` type per T rather than a reusable one.
 import type { components } from './api';
 
-export interface Page<T> {
-  items: T[];
-  total: number;
-  page: number;
-  size: number;
-  pages: number;
-}
+export type { Page } from '@lorenzo/api-client';
 
 export type TenantSummary = components['schemas']['TenantSummaryOut'];
 export type TenantRole = TenantSummary['role'];
@@ -52,11 +44,17 @@ export type EntitySummary = components['schemas']['EntitySummary'];
 export type EntityDetail = components['schemas']['EntityDetailOut'];
 export type OwnedGroup = components['schemas']['OwnedGroupOut'];
 export type OwnedByResponse = components['schemas']['OwnedByResponse'];
+export type HeldGroup = components['schemas']['HeldGroupOut'];
+export type HeldByResponse = components['schemas']['HeldByResponse'];
 export type PrototypeAncestor = components['schemas']['PrototypeAncestorOut'];
 
 // POST .../bulk-assign and .../bulk-move each generate their own distinct
-// BulkAssignResultItem/BulkMoveResultItem schema server-side, but the two
-// are structurally identical (entity_id/status/item_instance?/problem?) -
-// one alias serves both call sites, the same way this app already treated
-// them as one shape before codegen.
-export type BulkResultItem = components['schemas']['BulkAssignResultItem'];
+// BulkAssignResultItem/BulkMoveResultItem schema server-side, sharing
+// entity_id/status/item_instance?/problem? - one alias for that shared shape
+// serves both call sites, the same way this app already treated them as one
+// shape before codegen. Bulk-assign's own adds what was given along with each
+// (ADR 0125).
+export type BulkResultItem = components['schemas']['BulkMoveResultItem'];
+export type BulkAssignResult = components['schemas']['BulkAssignResultItem'];
+export type ContentsResult = components['schemas']['ContentsResultItem'];
+export type ProblemOut = components['schemas']['ProblemOut'];

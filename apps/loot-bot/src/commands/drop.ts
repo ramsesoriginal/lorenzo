@@ -533,6 +533,9 @@ async function applyAllClaims(
         entity_id: claim.itemEntityId,
         owner_character_id: claim.characterEntityId,
         move_to_owner: false,
+        with_contents: false,
+        override: false,
+        lift_binding: false,
         ...(etag !== null ? { if_match: etag } : {}),
       });
       requestContext.push({ claim, itemTitle });
@@ -557,6 +560,9 @@ async function applyAllClaims(
       owner_character_id: claim.characterEntityId,
       // Handing it over is inventory-web's choice (ADR 0115); loot-bot keeps ADR 0051's.
       move_to_owner: false,
+      with_contents: false,
+      override: false,
+      lift_binding: false,
       ...(requested < remaining ? { quantity: requested } : {}),
       ...(etag !== null ? { if_match: etag } : {}),
     });
@@ -581,11 +587,18 @@ async function applyAllClaims(
       return;
     }
 
+    // A 409 is a refusal in the API's own words, such as a binding (ADR 0129).
+    const refused = result.problem?.status === 409 ? result.problem.detail : undefined;
     outcomes.push({
       discordUserId: claim.discordUserId,
       itemTitle,
-      status: result.problem?.status === 422 ? "not-enough-left" : "already-taken",
+      status: refused
+        ? "refused"
+        : result.problem?.status === 422
+          ? "not-enough-left"
+          : "already-taken",
       quantity: claim.quantity,
+      ...(refused ? { reason: refused } : {}),
     });
   });
 
@@ -594,6 +607,9 @@ async function applyAllClaims(
 
 function describeTakeError(error: LorenzoApiError): string {
   switch (error.status) {
+    case 409:
+      // What's bound, in the API's words (ADR 0129).
+      return error.message;
     case 403:
       return "You can't take that — you don't have a character reachable enough to claim it.";
     case 404:

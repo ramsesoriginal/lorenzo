@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AutocompleteInteraction,
+  ButtonInteraction,
   ChatInputCommandInteraction,
 } from "../src/commands/types.js";
 import type { Config } from "../src/config.js";
@@ -15,13 +16,19 @@ vi.mock("../src/commands/remember-character.js", () => ({ rememberActingCharacte
 const { recordUndo } = vi.hoisted(() => ({ recordUndo: vi.fn() }));
 vi.mock("../src/undo-actions.js", () => ({ recordUndo }));
 
-const { getMyItemInstances, getItemInstance, setItemInstanceContainer, createLorenzoApiClient } =
-  vi.hoisted(() => ({
-    getMyItemInstances: vi.fn(),
-    getItemInstance: vi.fn(),
-    setItemInstanceContainer: vi.fn(),
-    createLorenzoApiClient: vi.fn(),
-  }));
+const {
+  getMyItemInstances,
+  getItemInstance,
+  setItemInstanceContainer,
+  isCampaignGm,
+  createLorenzoApiClient,
+} = vi.hoisted(() => ({
+  getMyItemInstances: vi.fn(),
+  getItemInstance: vi.fn(),
+  setItemInstanceContainer: vi.fn(),
+  isCampaignGm: vi.fn(),
+  createLorenzoApiClient: vi.fn(),
+}));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/lorenzo-client.js")>();
   return {
@@ -30,11 +37,13 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       getMyItemInstances,
       getItemInstance,
       setItemInstanceContainer,
+      isCampaignGm,
     }),
   };
 });
 
 const { moveCommand } = await import("../src/commands/move.js");
+const { buildMoveAnywayCustomId } = await import("../src/format-move.js");
 
 const config = {
   lorenzoApiBaseUrl: "http://lorenzo-api.test",
@@ -52,6 +61,46 @@ function fakeInteraction() {
     deferReply: ReturnType<typeof vi.fn>;
     editReply: ReturnType<typeof vi.fn>;
   };
+}
+
+function fakeButton(customId: string) {
+  return {
+    user: { id: "user-1" },
+    customId,
+    update: vi.fn(async () => undefined),
+    editReply: vi.fn(async () => undefined),
+  } as unknown as ButtonInteraction & {
+    update: ReturnType<typeof vi.fn>;
+    editReply: ReturnType<typeof vi.fn>;
+  };
+}
+
+const MOVE = { itemEntityId: "item-1", containerEntityId: "container-1" };
+const FORCE = buildMoveAnywayCustomId({ ...MOVE, lift: false });
+const LIFT = buildMoveAnywayCustomId({ ...MOVE, lift: true });
+
+const bound = new LorenzoApiError(
+  "Ring is bound to Alice (binds on equip), so it can't be taken off Alice.",
+  409,
+  "item-bound",
+);
+
+const tooMuch = new LorenzoApiError(
+  "Backpack can carry 20, and this would make it 26.",
+  409,
+  "capacity-exceeded",
+);
+
+function movable() {
+  getValidAccessToken.mockResolvedValue("token-123");
+  getItemInstance.mockResolvedValue({
+    data: {
+      entity_id: "item-1",
+      container_entity_id: "old-container-1",
+      owner_entity_id: "char-1",
+    },
+    etag: "etag-1",
+  });
 }
 
 function fakeAutocomplete(value = "", focusedName: "item" | "container" = "item") {
@@ -103,6 +152,7 @@ describe("moveCommand.execute", () => {
       "container-1",
       "token-123",
       "etag-1",
+      { override: false, liftBinding: false },
     );
     expect(interaction.editReply).toHaveBeenCalledWith("Moved Torch.");
     expect(recordUndo).toHaveBeenCalledWith("user-1", {
@@ -136,6 +186,136 @@ describe("moveCommand.execute", () => {
     await moveCommand.execute(interaction, { config, logger: {} as never });
 
     expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining(expectedText));
+  });
+});
+
+describe("moveCommand, when it doesn't fit", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows a player the API's reason, and no button", async () => {
+    movable();
+    setItemInstanceContainer.mockRejectedValue(tooMuch);
+    isCampaignGm.mockResolvedValue(false);
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "container-1",
+    );
+
+    await moveCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith({
+      content: "Backpack can carry 20, and this would make it 26.",
+      components: [],
+    });
+    expect(recordUndo).not.toHaveBeenCalled();
+  });
+
+  it("offers a GM a Move anyway button carrying the move", async () => {
+    movable();
+    setItemInstanceContainer.mockRejectedValue(tooMuch);
+    isCampaignGm.mockResolvedValue(true);
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "container-1",
+    );
+
+    await moveCommand.execute(interaction, { config, logger: {} as never });
+
+    const reply = interaction.editReply.mock.calls[0]?.[0];
+    expect(reply.content).toBe("Backpack can carry 20, and this would make it 26.");
+    const [button] = reply.components[0].toJSON().components;
+    expect(button).toMatchObject({ custom_id: FORCE, label: "Move anyway" });
+  });
+
+  it("moves anyway on the button, with override, and keeps the Undo", async () => {
+    movable();
+    setItemInstanceContainer.mockResolvedValue({ entity_id: "item-1", title: "Anvil" });
+    const button = fakeButton(FORCE);
+
+    await moveCommand.onButton?.(button, { config, logger: {} as never });
+
+    expect(button.update).toHaveBeenCalledWith({ content: "Moving…", components: [] });
+    expect(setItemInstanceContainer).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-1",
+      "container-1",
+      "token-123",
+      "etag-1",
+      { override: true, liftBinding: false },
+    );
+    expect(button.editReply).toHaveBeenCalledWith("Moved Anvil anyway.");
+    expect(recordUndo).toHaveBeenCalledWith("user-1", {
+      kind: "restore-container",
+      entityId: "item-1",
+      previousContainerEntityId: "old-container-1",
+    });
+  });
+
+  it("says so when the API won't let them move anyway", async () => {
+    movable();
+    setItemInstanceContainer.mockRejectedValue(
+      new LorenzoApiError(
+        "Only a GM of this item's campaign can move it anyway.",
+        403,
+        "override-forbidden",
+      ),
+    );
+    const button = fakeButton(FORCE);
+
+    await moveCommand.onButton?.(button, { config, logger: {} as never });
+
+    expect(button.editReply).toHaveBeenCalledWith(
+      "Only a GM of this item's campaign can move it anyway.",
+    );
+  });
+
+  it("offers a GM lifting a binding, too, when it's bound", async () => {
+    movable();
+    setItemInstanceContainer.mockRejectedValue(bound);
+    isCampaignGm.mockResolvedValue(true);
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "container-1",
+    );
+
+    await moveCommand.execute(interaction, { config, logger: {} as never });
+
+    const reply = interaction.editReply.mock.calls[0]?.[0];
+    expect(reply.content).toBe(bound.message);
+    const buttons = reply.components[0].toJSON().components;
+    expect(buttons.map((b: { custom_id: string }) => b.custom_id)).toEqual([FORCE, LIFT]);
+  });
+
+  it("moves and lifts the binding on the lift button", async () => {
+    movable();
+    setItemInstanceContainer.mockResolvedValue({ entity_id: "item-1", title: "Ring" });
+    const button = fakeButton(LIFT);
+
+    await moveCommand.onButton?.(button, { config, logger: {} as never });
+
+    expect(setItemInstanceContainer).toHaveBeenCalledWith(
+      "tenant-1",
+      "item-1",
+      "container-1",
+      "token-123",
+      "etag-1",
+      { override: true, liftBinding: true },
+    );
+    expect(button.editReply).toHaveBeenCalledWith("Moved Ring, and lifted its binding.");
+  });
+
+  it("refuses a button it can't read, without moving anything", async () => {
+    const button = fakeButton("move:force:item-1");
+
+    await moveCommand.onButton?.(button, { config, logger: {} as never });
+
+    expect(button.update).toHaveBeenCalledWith({
+      content: expect.stringContaining("run `/move` again"),
+      components: [],
+    });
+    expect(setItemInstanceContainer).not.toHaveBeenCalled();
   });
 });
 

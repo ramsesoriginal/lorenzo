@@ -8,10 +8,10 @@ import type { Command } from "./types.js";
 
 /**
  * `/inspect` - a GM's read-only look at another character's inventory
- * (ADR 0068), the GM-facing counterpart to `/inventory`. Needs no new API
- * capability: `GET .../item-instances/owned-by/{id}` is already
+ * (ADR 0068), the GM-facing counterpart to `/inventory`. Needs no API
+ * capability of its own: `GET .../item-instances/held-by/{id}` (ADR 0123) is
  * GM-permissive (ADR 0040's `gm_reachable_entity_ids`), so this just points
- * the same `getItemInstancesOwnedBy`/`formatInventoryEmbed` pair `/inventory`
+ * the same `getItemInstancesHeldBy`/`formatInventoryEmbed` pair `/inventory`
  * already uses at a character the GM picked instead of the caller's own.
  * Private (ephemeral) - this is a GM utility, not something to show off in
  * the channel.
@@ -65,7 +65,7 @@ export const inspectCommand: Command = {
     const characterName = await client
       .getCharacterName(tenantId, characterEntityId, accessToken)
       .catch(() => "that character");
-    const response = await client.getItemInstancesOwnedBy(tenantId, characterEntityId, accessToken);
+    const response = await client.getItemInstancesHeldBy(tenantId, characterEntityId, accessToken);
 
     await interaction.editReply({ embeds: [formatInventoryEmbed(characterName, response)] });
   },

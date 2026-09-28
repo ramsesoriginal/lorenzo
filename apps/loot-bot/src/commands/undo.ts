@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { createLorenzoApiClient } from "../lorenzo-client.js";
+import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { applyPendingUndo } from "../undo-actions.js";
 import type { Command } from "./types.js";
@@ -27,7 +27,24 @@ export const undoCommand: Command = {
 
     const client = createLorenzoApiClient(ctx.config.lorenzoApiBaseUrl);
     const tenantId = ctx.config.lorenzoTenantId;
-    const outcome = await applyPendingUndo(client, tenantId, interaction.user.id, accessToken);
+    let outcome: Awaited<ReturnType<typeof applyPendingUndo>>;
+    try {
+      outcome = await applyPendingUndo(client, tenantId, interaction.user.id, accessToken);
+    } catch (error) {
+      // Undoing a give is giving it back, which only its new owner or a GM may (ADR 0124).
+      if (error instanceof LorenzoApiError && error.problemType === "item-not-yours-to-give") {
+        await interaction.editReply(
+          "That's someone else's now — only its new owner or a GM can give it back.",
+        );
+        return;
+      }
+      // What's bound or doesn't fit, in the API's words (ADR 0128, 0129).
+      if (error instanceof LorenzoApiError && error.status === 409) {
+        await interaction.editReply(error.message);
+        return;
+      }
+      throw error;
+    }
 
     switch (outcome.kind) {
       case "none":

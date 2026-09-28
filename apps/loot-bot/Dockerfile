@@ -12,6 +12,8 @@ WORKDIR /workspace
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps ./apps
+# Workspace packages loot-bot depends on - @lorenzo/api-client (ADR 0122).
+COPY packages ./packages
 # Corepack stopped shipping with Node itself as of Node 25 (dependabot floats
 # this image's tag - confirmed against a real build that broke exactly this
 # way once it bumped past that line: "corepack: not found"). Installing it

@@ -11,7 +11,12 @@ import pytest
 from lorenzo_api.models import Comparator, RoundMode, StatValueType
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
+    Contents,
+    ContentsFormula,
     LinearFormula,
+    SumFormula,
+    SumTerm,
+    always_whole,
     apply_linear,
     evaluate,
 )
@@ -58,7 +63,7 @@ def _linear_row(
         stat_definition_id=def_id,
         stat_definition=SimpleNamespace(value_type=value_type),
         computed_entity_id=uuid.uuid4(),
-        computed_stat=SimpleNamespace(linear=linear, comparison=None),
+        computed_stat=SimpleNamespace(linear=linear, comparison=None, sum=None, contents=None),
     )
 
 
@@ -76,7 +81,30 @@ def _comparison_row(
         stat_definition_id=def_id,
         stat_definition=SimpleNamespace(value_type=value_type),
         computed_entity_id=uuid.uuid4(),
-        computed_stat=SimpleNamespace(linear=None, comparison=comparison),
+        computed_stat=SimpleNamespace(linear=None, comparison=comparison, sum=None, contents=None),
+    )
+
+
+def _sum_row(
+    def_id: uuid.UUID,
+    value_type: StatValueType,
+    terms: list[tuple[uuid.UUID, str]],
+    offset: str = "0",
+    round_mode: RoundMode = RoundMode.NONE,
+) -> SimpleNamespace:
+    summed = SimpleNamespace(
+        terms=[
+            SimpleNamespace(source_stat_definition_id=source, coefficient=Decimal(coefficient))
+            for source, coefficient in terms
+        ],
+        offset=Decimal(offset),
+        round_mode=round_mode.value,
+    )
+    return SimpleNamespace(
+        stat_definition_id=def_id,
+        stat_definition=SimpleNamespace(value_type=value_type),
+        computed_entity_id=uuid.uuid4(),
+        computed_stat=SimpleNamespace(linear=None, comparison=None, sum=summed, contents=None),
     )
 
 
@@ -199,3 +227,199 @@ def test_overrides_replace_or_add_a_formula_for_one_call() -> None:
     assert replaced[MODIFIER] == -1
     assert evaluate(stats)[MODIFIER] == 0  # nothing saved
     assert added[SAVE] is False
+
+
+# --- sum (ADR 0126) ----------------------------------------------------------
+
+
+def test_a_sum_adds_its_terms_and_offset() -> None:
+    """armour_class = 10 + dex_modifier + worn_ac_bonus; current_hp =
+    max_hp - damage, reading another formula's result."""
+    dex, worn, ac, max_hp, damage, hp = (uuid.uuid4() for _ in range(6))
+    stats = [
+        _sum_row(ac, StatValueType.INT, [(dex, "1"), (worn, "1")], offset="10"),
+        _sum_row(hp, StatValueType.INT, [(max_hp, "1"), (damage, "-1")]),
+        _linear_row(max_hp, StatValueType.INT, STRENGTH, "2", "0", RoundMode.NONE),
+        _stored(STRENGTH, StatValueType.INT, 15),
+        _stored(dex, StatValueType.INT, 2),
+        _stored(worn, StatValueType.INT, 3),
+        _stored(damage, StatValueType.INT, 7),
+    ]
+    values = evaluate(stats)
+    assert (values[ac], values[hp]) == (15, 23)
+
+
+def test_a_sum_rounds_and_keeps_fractions_for_a_float() -> None:
+    level, attack, reach = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    stats = [
+        _stored(level, StatValueType.INT, 5),
+        _stored(STRENGTH, StatValueType.INT, 2),
+        _sum_row(
+            attack, StatValueType.INT, [(STRENGTH, "1"), (level, "0.5")], "0", RoundMode.FLOOR
+        ),
+        _sum_row(reach, StatValueType.FLOAT, [(level, "0.5")], "1"),
+    ]
+    values = evaluate(stats)
+    assert (values[attack], values[reach]) == (4, 3.5)
+
+
+def test_a_sum_with_an_unset_term_has_no_value() -> None:
+    total, missing = uuid.uuid4(), uuid.uuid4()
+    stats = [
+        _stored(STRENGTH, StatValueType.INT, 10),
+        _sum_row(total, StatValueType.INT, [(STRENGTH, "1"), (missing, "1")]),
+    ]
+    assert total not in evaluate(stats)
+
+
+def test_a_cycle_through_a_sum_resolves_to_nothing() -> None:
+    a, b = uuid.uuid4(), uuid.uuid4()
+    stats = [
+        _stored(STRENGTH, StatValueType.INT, 10),
+        _sum_row(a, StatValueType.INT, [(STRENGTH, "1"), (b, "1")]),
+        _linear_row(b, StatValueType.INT, a, "1", "0", RoundMode.FLOOR),
+    ]
+    assert evaluate(stats) == {STRENGTH: 10}
+
+
+def test_a_sum_override_evaluates_for_one_call() -> None:
+    total = uuid.uuid4()
+    stats = [_stored(STRENGTH, StatValueType.INT, 10)]
+    formula = SumFormula((SumTerm(STRENGTH, Decimal(3)),), Decimal(1), RoundMode.NONE)
+    assert evaluate(stats, overrides={total: (formula, StatValueType.INT)})[total] == 31
+
+
+@pytest.mark.parametrize(
+    ("coefficients", "offset", "types", "whole"),
+    [
+        (["1", "1"], "10", [StatValueType.INT, StatValueType.INT], True),
+        (["15"], "0", [StatValueType.INT], True),
+        (["2.0"], "-1", [StatValueType.INT], True),
+        (["0.5"], "0", [StatValueType.INT], False),
+        (["1"], "0.5", [StatValueType.INT], False),
+        (["1"], "0", [StatValueType.FLOAT], False),
+    ],
+)
+def test_always_whole(
+    coefficients: list[str], offset: str, types: list[StatValueType], whole: bool
+) -> None:
+    assert always_whole([Decimal(c) for c in coefficients], Decimal(offset), types) is whole
+
+
+# --- contents (ADR 0127) -----------------------------------------------------
+
+
+def _contents_row(
+    def_id: uuid.UUID, value_type: StatValueType, source: uuid.UUID
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        stat_definition_id=def_id,
+        stat_definition=SimpleNamespace(value_type=value_type),
+        computed_entity_id=uuid.uuid4(),
+        computed_stat=SimpleNamespace(
+            linear=None,
+            comparison=None,
+            sum=None,
+            contents=SimpleNamespace(source_stat_definition_id=source),
+        ),
+    )
+
+
+WEIGHT, OWN_WEIGHT, CONTENTS_WEIGHT = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+
+def _weighed(own: int | None) -> list[SimpleNamespace]:
+    """The weight recipe: weight = own_weight + contents_weight, and
+    contents_weight = contents(weight)."""
+    rows = [
+        _sum_row(WEIGHT, StatValueType.INT, [(OWN_WEIGHT, "1"), (CONTENTS_WEIGHT, "1")]),
+        _contents_row(CONTENTS_WEIGHT, StatValueType.INT, WEIGHT),
+    ]
+    if own is not None:
+        rows.append(_stored(OWN_WEIGHT, StatValueType.INT, own))
+    return rows
+
+
+def test_contents_adds_up_what_is_inside_at_every_depth() -> None:
+    """A backpack (2) holding a rope (1), 20 arrows (1 each), an unweighed
+    torch, and a pouch (1) with 3 coins (1 each): 2 + 1 + 20 + 0 + 4."""
+    backpack, rope, arrows, torch, pouch, coins = (uuid.uuid4() for _ in range(6))
+    contents = Contents(
+        stats={
+            rope: _weighed(1),
+            arrows: _weighed(1),
+            torch: _weighed(None),
+            pouch: _weighed(1),
+            coins: _weighed(1),
+        },
+        children={
+            backpack: [(rope, 1), (arrows, 20), (torch, 1), (pouch, 1)],
+            pouch: [(coins, 3)],
+        },
+    )
+
+    values = evaluate(_weighed(2), entity_id=backpack, contents=contents)
+
+    assert (values[CONTENTS_WEIGHT], values[WEIGHT]) == (25, 27)
+
+
+def test_contents_of_nothing_is_zero() -> None:
+    empty = uuid.uuid4()
+    values = evaluate(_weighed(3), entity_id=empty, contents=Contents(stats={}, children={}))
+    assert (values[CONTENTS_WEIGHT], values[WEIGHT]) == (0, 3)
+
+
+def test_contents_without_what_it_reads_has_no_value() -> None:
+    values = evaluate(_weighed(3), entity_id=uuid.uuid4())
+    assert CONTENTS_WEIGHT not in values
+    assert WEIGHT not in values
+
+
+def test_a_containment_cycle_leaves_what_depends_on_it_without_a_value() -> None:
+    """A pack inside its own pouch: neither has a contents weight, nor a
+    weight, and neither does a chest holding the pack. The chest's own
+    unrelated stats still resolve."""
+    chest, pack, pouch = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    contents = Contents(
+        stats={pack: _weighed(2), pouch: _weighed(1)},
+        children={chest: [(pack, 1)], pack: [(pouch, 1)], pouch: [(pack, 1)]},
+    )
+
+    for entity in (pack, pouch):
+        values = evaluate(contents.stats[entity], entity_id=entity, contents=contents)
+        assert WEIGHT not in values and CONTENTS_WEIGHT not in values
+    chests = evaluate(
+        [*_weighed(5), _stored(STRENGTH, StatValueType.INT, 12)],
+        entity_id=chest,
+        contents=contents,
+    )
+    assert WEIGHT not in chests
+    assert chests[STRENGTH] == 12
+
+
+def test_contents_may_read_its_own_stat_a_level_down() -> None:
+    """weight = contents(weight) on a sack: its things' weights, not its own."""
+    sack, stone = uuid.uuid4(), uuid.uuid4()
+    contents = Contents(
+        stats={stone: [_stored(WEIGHT, StatValueType.FLOAT, 1.5)]},
+        children={sack: [(stone, 2)]},
+    )
+    values = evaluate(
+        [_contents_row(WEIGHT, StatValueType.FLOAT, WEIGHT)], entity_id=sack, contents=contents
+    )
+    assert values[WEIGHT] == 3.0
+
+
+def test_a_contents_override_evaluates_for_one_call() -> None:
+    box, gem = uuid.uuid4(), uuid.uuid4()
+    contents = Contents(
+        stats={gem: [_stored(STRENGTH, StatValueType.INT, 4)]}, children={box: [(gem, 3)]}
+    )
+    formula = ContentsFormula(STRENGTH)
+    values = evaluate(
+        [],
+        overrides={SAVE: (formula, StatValueType.INT)},
+        entity_id=box,
+        contents=contents,
+    )
+    assert values[SAVE] == 12

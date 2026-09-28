@@ -34,7 +34,6 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
-    ComputedStat,
     Entity,
     EntityPrototype,
     Information,
@@ -45,6 +44,7 @@ from lorenzo_api.models import (
     StatDefinition,
     VEffectiveStat,
     VItem,
+    formula_load_options,
 )
 from lorenzo_api.schemas.items import (
     BulkAddPrototypeRequest,
@@ -60,6 +60,7 @@ from lorenzo_api.schemas.items import (
     PrototypeAncestorOut,
     SetPrototypesRequest,
 )
+from lorenzo_api.stat_contents import attach_contents
 
 # Reading the catalog is for every tenant participant, writing it for members
 # (ADR 0032, 0116): the router only checks the tenant exists (and sets RLS),
@@ -121,14 +122,11 @@ def eager_load_options(
         .selectinload(VEffectiveStat.stat_definition)
         .selectinload(StatDefinition.stat_group),
         # A winning formula's parameters, for stat_evaluation (ADR 0104).
-        selectinload(view_entity_attr)
-        .selectinload(Entity.effective_stats)
-        .selectinload(VEffectiveStat.computed_stat)
-        .selectinload(ComputedStat.linear),
-        selectinload(view_entity_attr)
-        .selectinload(Entity.effective_stats)
-        .selectinload(VEffectiveStat.computed_stat)
-        .selectinload(ComputedStat.comparison),
+        *formula_load_options(
+            selectinload(view_entity_attr)
+            .selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.computed_stat)
+        ),
         selectinload(view_entity_attr).selectinload(Entity.contained_links),
         selectinload(view_entity_attr).selectinload(Entity.prototype_links),
     )
@@ -260,10 +258,12 @@ async def list_items(
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
     async def _items_out(items: Sequence[VItem]) -> list[ItemOut]:
-        # One ancestor walk for the whole page (ADR 0111).
+        # One ancestor walk for the whole page (ADR 0111), and one load of
+        # what contents formulas read (ADR 0127).
         ancestry = await prototype_ancestors(
             session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
         )
+        await attach_contents(session, [item.entity for item in items], tenant_id=tenant_id)
         return [
             ItemOut.from_v_item(
                 item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
@@ -311,6 +311,8 @@ async def _get_v_item_or_404(
     view = (await session.execute(stmt)).scalar_one_or_none()
     if view is None:
         raise ItemNotFoundError(detail=f"No item with id {entity_id} in tenant {tenant_id}")
+    # What a contents formula reads (ADR 0127).
+    await attach_contents(session, [view.entity], tenant_id=tenant_id)
     return view
 
 

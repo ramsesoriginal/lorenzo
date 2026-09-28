@@ -33,7 +33,7 @@ test('hands an item over, out of her backpack and out of her hands', async ({ wo
   // In his hands, in no container of his.
   expect(await world.carried(world.oskar)).toEqual(['(none): Ornate Spellbook']);
   // Nothing of hers holds it now, so she can't take it back: no Undo that would fail.
-  await expect(card(page, 'Ashfang', 'Backpack')).toBeVisible();
+  await expect(card(page, 'Equipped', 'Backpack')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Undo' })).toBeHidden();
 });
 
@@ -74,7 +74,7 @@ test('offers no hand-over for what is in no container', async ({ world, as }) =>
   await packed(world, world.pia);
   const page = await boardOf(as, world, world.pia);
 
-  await card(page, 'Ashfang', 'Backpack').click();
+  await card(page, 'Equipped', 'Backpack').click();
   await page.getByRole('button', { name: 'Give to…' }).click();
   await expect(page.getByLabel('Search beings').filter({ visible: true })).toBeVisible();
   await expect(page.getByLabel('Hand it over')).toHaveCount(0);
@@ -104,11 +104,11 @@ test('takes a stack out of its container whole, and undo puts it back', async ({
   await page.getByRole('button', { name: 'Move to…' }).click();
   await page.getByRole('button', { name: 'Remove from container' }).click();
   // Ashfang carries it now, all three: before, the count was lost here.
-  await expect(card(page, 'Ashfang', 'Arrow ×3')).toBeVisible();
+  await expect(card(page, 'Equipped', 'Arrow ×3')).toBeVisible();
   expect(await world.carried(world.pia)).toContain('(none): Arrow ×3');
 
   // Carried, it isn't in a container to be taken out of.
-  await card(page, 'Ashfang', 'Arrow ×3').click();
+  await card(page, 'Equipped', 'Arrow ×3').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
   await expect(page.getByRole('button', { name: 'Remove from container' })).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -121,11 +121,11 @@ test("drags a stack onto its owner's column, whole", async ({ world, as }) => {
   await packed(world, world.pia);
   const page = await boardOf(as, world, world.pia);
 
-  await card(page, 'Backpack', 'Arrow ×3').dragTo(column(page, 'Ashfang'));
-  await expect(card(page, 'Ashfang', 'Arrow ×3')).toBeVisible();
+  await card(page, 'Backpack', 'Arrow ×3').dragTo(column(page, 'Equipped'));
+  await expect(card(page, 'Equipped', 'Arrow ×3')).toBeVisible();
   await expect.poll(() => world.carried(world.pia)).toContain('(none): Arrow ×3');
 
   // And back into the backpack from there.
-  await card(page, 'Ashfang', 'Arrow ×3').dragTo(column(page, 'Backpack'));
+  await card(page, 'Equipped', 'Arrow ×3').dragTo(column(page, 'Backpack'));
   await expect.poll(() => world.carried(world.pia)).toContain('Backpack: Arrow ×3');
 });

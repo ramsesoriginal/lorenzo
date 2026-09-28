@@ -15,3 +15,63 @@ POST /tenants/{tenant_id}/item-instances added the pattern `^[A-Za-z0-9][A-Za-z0
 
 # ADR 0119: a copied repository stays listed after its grant is gone, with no grant date.
 GET /tenants/{tenant_id}/repositories response property `items/items/granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+
+# ADR 0126: computed stats gain a third formula kind, `sum`, which formula responses can now carry.
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/SumFormulaBody-Output` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/SumFormulaBody-Output` to the `formula` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `sum` enum value to the `items/kind` response property for the response status `200`
+
+# ADR 0127: computed stats gain a fourth formula kind, `contents`, which formula responses can now carry.
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/ContentsFormulaBody` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/ContentsFormulaBody` to the `formula` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `contents` enum value to the `items/kind` response property for the response status `200`
+
+# ADR 0129: is_magical and is_cursed leave v_item, v_item_instance, and every item and item-instance response.
+DELETE /tenants/{tenant_id}/item-instances/{entity_id}/container removed the required property `is_cursed` from the response with the `200` status
+DELETE /tenants/{tenant_id}/item-instances/{entity_id}/container removed the required property `is_magical` from the response with the `200` status
+DELETE /tenants/{tenant_id}/item-instances/{entity_id}/owner removed the required property `is_cursed` from the response with the `200` status
+DELETE /tenants/{tenant_id}/item-instances/{entity_id}/owner removed the required property `is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances removed the required property `items/items/is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances removed the required property `items/items/is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/by-slug/{slug} removed the required property `is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/by-slug/{slug} removed the required property `is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/held-by/{entity_id} removed the required property `groups/items/item_instances/items/is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/held-by/{entity_id} removed the required property `groups/items/item_instances/items/is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id} removed the required property `groups/items/item_instances/items/is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id} removed the required property `groups/items/item_instances/items/is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/unowned removed the required property `groups/items/item_instances/items/is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/unowned removed the required property `groups/items/item_instances/items/is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/{entity_id} removed the required property `is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/item-instances/{entity_id} removed the required property `is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/items removed the required property `items/items/is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/items removed the required property `items/items/is_magical` from the response with the `200` status
+GET /tenants/{tenant_id}/items/{entity_id} removed the required property `is_cursed` from the response with the `200` status
+GET /tenants/{tenant_id}/items/{entity_id} removed the required property `is_magical` from the response with the `200` status
+PATCH /tenants/{tenant_id}/item-instances/{entity_id} removed the required property `is_cursed` from the response with the `200` status
+PATCH /tenants/{tenant_id}/item-instances/{entity_id} removed the required property `is_magical` from the response with the `200` status
+PATCH /tenants/{tenant_id}/items/{entity_id} removed the required property `is_cursed` from the response with the `200` status
+PATCH /tenants/{tenant_id}/items/{entity_id} removed the required property `is_magical` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances removed the required property `is_cursed` from the response with the `201` status
+POST /tenants/{tenant_id}/item-instances removed the required property `is_magical` from the response with the `201` status
+POST /tenants/{tenant_id}/item-instances/bulk-assign removed the required property `items/item_instance/anyOf[subschema #1: ItemInstanceOut]/is_cursed` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances/bulk-assign removed the required property `items/item_instance/anyOf[subschema #1: ItemInstanceOut]/is_magical` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances/bulk-move removed the required property `items/item_instance/anyOf[subschema #1: ItemInstanceOut]/is_cursed` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances/bulk-move removed the required property `items/item_instance/anyOf[subschema #1: ItemInstanceOut]/is_magical` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances/{entity_id}/merge removed the required property `is_cursed` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances/{entity_id}/merge removed the required property `is_magical` from the response with the `200` status
+POST /tenants/{tenant_id}/item-instances/{entity_id}/split removed the required property `is_cursed` from the response with the `201` status
+POST /tenants/{tenant_id}/item-instances/{entity_id}/split removed the required property `is_magical` from the response with the `201` status
+POST /tenants/{tenant_id}/items removed the required property `is_cursed` from the response with the `201` status
+POST /tenants/{tenant_id}/items removed the required property `is_magical` from the response with the `201` status
+POST /tenants/{tenant_id}/items/bulk-add-prototype removed the required property `items/item/anyOf[subschema #1: ItemOut]/is_cursed` from the response with the `200` status
+POST /tenants/{tenant_id}/items/bulk-add-prototype removed the required property `items/item/anyOf[subschema #1: ItemOut]/is_magical` from the response with the `200` status
+POST /tenants/{tenant_id}/items/bulk-remove-prototype removed the required property `items/item/anyOf[subschema #1: ItemOut]/is_cursed` from the response with the `200` status
+POST /tenants/{tenant_id}/items/bulk-remove-prototype removed the required property `items/item/anyOf[subschema #1: ItemOut]/is_magical` from the response with the `200` status
+POST /tenants/{tenant_id}/items/bulk-reparent-prototype removed the required property `items/item/anyOf[subschema #1: ItemOut]/is_cursed` from the response with the `200` status
+POST /tenants/{tenant_id}/items/bulk-reparent-prototype removed the required property `items/item/anyOf[subschema #1: ItemOut]/is_magical` from the response with the `200` status
+PUT /tenants/{tenant_id}/item-instances/{entity_id}/container removed the required property `is_cursed` from the response with the `200` status
+PUT /tenants/{tenant_id}/item-instances/{entity_id}/container removed the required property `is_magical` from the response with the `200` status
+PUT /tenants/{tenant_id}/item-instances/{entity_id}/owner removed the required property `is_cursed` from the response with the `200` status
+PUT /tenants/{tenant_id}/item-instances/{entity_id}/owner removed the required property `is_magical` from the response with the `200` status
+PUT /tenants/{tenant_id}/items/{entity_id}/prototypes removed the required property `is_cursed` from the response with the `200` status
+PUT /tenants/{tenant_id}/items/{entity_id}/prototypes removed the required property `is_magical` from the response with the `200` status

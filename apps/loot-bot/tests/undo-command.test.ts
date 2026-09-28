@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatInputCommandInteraction } from "../src/commands/types.js";
 import type { Config } from "../src/config.js";
+import { LorenzoApiError } from "../src/lorenzo-client.js";
 
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
@@ -58,6 +59,48 @@ describe("undoCommand.execute", () => {
 
     expect(applyPendingUndo).toHaveBeenCalledWith({}, "tenant-1", "discord-user-1", "token-123");
     expect(interaction.editReply).toHaveBeenCalledWith("Nothing to undo.");
+  });
+
+  it("says why it can't give back what's someone else's now (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    applyPendingUndo.mockRejectedValue(
+      new LorenzoApiError("belongs to someone else", 403, "item-not-yours-to-give"),
+    );
+    const interaction = fakeInteraction();
+
+    await undoCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("only its new owner or a GM can give it back"),
+    );
+  });
+
+  it("says what's bound, in the API's words (ADR 0129)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    applyPendingUndo.mockRejectedValue(
+      new LorenzoApiError(
+        "Ring is bound to Pia (binds on pickup), so it can't change hands.",
+        409,
+        "item-bound",
+      ),
+    );
+    const interaction = fakeInteraction();
+
+    await undoCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      "Ring is bound to Pia (binds on pickup), so it can't change hands.",
+    );
+  });
+
+  it("lets any other failure reach the dispatcher's own handler", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    applyPendingUndo.mockRejectedValue(new LorenzoApiError("boom", 500));
+    const interaction = fakeInteraction();
+
+    await expect(undoCommand.execute(interaction, { config, logger: {} as never })).rejects.toThrow(
+      "boom",
+    );
   });
 
   it("tells the caller the action is too old", async () => {

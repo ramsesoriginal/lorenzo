@@ -3,14 +3,13 @@ import Base from '../../layouts/Base.astro';
 import ItemDesignDialog from '../../components/ItemDetailDialog.astro';
 import BoardColumn from '../../components/BoardColumn.astro';
 import BoardColumnItem from '../../components/BoardColumnItem.astro';
-
+import HolderListItem from '../../components/HolderListItem.astro';
 ---
 
 <Base title="Board — Lorenzo">
   <p id="status">Loading&hellip;</p>
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
-    <p id="catalog-links" hidden><a id="catalog-link" href="">Catalog</a></p>
 
     <div class="stack">
       <section id="picker-section" class="section stack">
@@ -55,16 +54,29 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
           </button>
         </div>
 
-        <div id="panel-characters" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-characters">
+        <div
+          id="panel-characters"
+          class="tab-panel stack"
+          role="tabpanel"
+          aria-labelledby="tab-characters"
+        >
           <p id="characters-loading">Loading characters&hellip;</p>
           <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
           <p id="characters-error" class="error-text" hidden></p>
-          <ul id="character-strip" class="list"></ul>
+          <ul id="character-strip" class="list" aria-label="Your characters and groups"></ul>
         </div>
 
-        <div id="panel-browse" class="tab-panel card card-body " role="tabpanel" aria-labelledby="tab-browse" hidden>
+        <div
+          id="panel-browse"
+          class="tab-panel card card-body"
+          role="tabpanel"
+          aria-labelledby="tab-browse"
+          hidden
+        >
           <div class="field">
-            <label class="field-label" id="gm-browse-label" for="gm-browse-search">Search beings</label>
+            <label class="field-label" id="gm-browse-label" for="gm-browse-search"
+              >Search beings</label
+            >
             <div class="combobox" id="gm-browse-combobox">
               <input
                 type="text"
@@ -77,7 +89,8 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
                 aria-controls="gm-browse-suggestions"
                 aria-labelledby="gm-browse-label"
               />
-              <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+              <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden>
+              </ul>
             </div>
           </div>
           <div class="being-id-row">
@@ -135,16 +148,19 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     </section>
   </div>
 
-<ItemDesignDialog></ItemDesignDialog>
-<BoardColumn></BoardColumn>
-<BoardColumnItem></BoardColumnItem>
-
+  <ItemDesignDialog />
+  <BoardColumn />
+  <BoardColumnItem />
+  <HolderListItem />
 
   <script>
     import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { isAuthenticated } from '../../lib/auth';
-    import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
-    import { listBeings } from '../../lib/beings';
+    import {
+      renderBeingActionPanel,
+      renderBeingSuggestions,
+      searchBeingsAndGroups,
+    } from '../../lib/beingPicker';
     import {
       createUndoController,
       failedEntityIds,
@@ -153,14 +169,25 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       summarizeBulkResults,
       type UndoPayload,
     } from '../../lib/boardLogic';
+    import {
+      type Board,
+      type BoardColumn,
+      heldBoard,
+      ownerMark,
+      unownedBoard,
+    } from '../../lib/boardColumns';
     import { listMyCharacters } from '../../lib/characters';
     import { descriptionRenderer } from '../../lib/descriptions';
+    import { groupsOf } from '../../lib/groups';
+    import { LorenzoApiError } from '../../lib/api';
     import {
+      type AnywayFlags,
       bulkAssignItemInstances,
       bulkMoveItemInstances,
       clearContainer,
-      getOwnedItemInstances,
+      getHeldItemInstances,
       getUnownedItemInstances,
+      giveContents,
       mergeItemInstance,
       setContainer,
       setOwner,
@@ -169,16 +196,30 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     } from '../../lib/items';
     import { renderItemView } from '../../lib/itemView';
     import { isCampaignGm } from '../../lib/me';
+    import {
+      bulkMoveAnywayQuestion,
+      giveOrAsk,
+      type MoveAnywayOptions,
+      moveOrAsk,
+      overridableIds,
+    } from '../../lib/moveAnyway';
     import { collectMoveTargets } from '../../lib/moveTargets';
+    import {
+      contentsDone,
+      contentsQuestion,
+      nothingToGive,
+      withContentsDone,
+      withContentsQuestion,
+    } from '../../lib/givingContents';
     import { renderNotes } from '../../lib/notes';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
       CharacterSummary,
       EntitySummary,
+      HeldByResponse,
       ItemInstance,
-      OwnedByResponse,
-      OwnedGroup,
+      ProblemOut,
     } from '../../lib/types';
 
     const status = document.getElementById('status')!;
@@ -265,6 +306,7 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     const detailTitle = document.getElementById('item-detail-title')!;
     const detailSlug = document.getElementById('item-detail-slug')!;
     const detailQty = document.getElementById('item-detail-qty')!;
+    const detailBound = document.getElementById('item-detail-bound')!;
     const detailView = document.getElementById('item-detail-view')!;
     const detailAncestry = document.getElementById('item-detail-ancestry')!;
     const detailAncestryList = document.getElementById(
@@ -273,6 +315,9 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     const detailViewLink = document.getElementById('item-detail-view-link') as HTMLAnchorElement;
     const detailGiveButton = document.getElementById(
       'item-detail-give-button',
+    ) as HTMLButtonElement;
+    const detailGiveContentsButton = document.getElementById(
+      'item-detail-give-contents-button',
     ) as HTMLButtonElement;
     const detailSplitButton = document.getElementById(
       'item-detail-split-button',
@@ -297,14 +342,20 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     let userIsGm = false;
     // The viewer's own characters, once loaded: who reads their private notes (ADR 0113).
     let myCharacters: CharacterSummary[] = [];
+    // Their characters and those characters' groups: what they may give things back from
+    // (ADR 0124).
+    const myHolderIds = new Set<string>();
 
     // How to refresh whatever board is currently shown - set by loadBoard/
     // loadUnownedBoard, called after any action that might change what
     // belongs here (give, split, merge, undo).
     let reloadCurrentView: (() => void) | null = null;
     // The being whose board this is, who carries what's in no container of theirs (ADR
-    // 0115); null on the board of unowned things.
+    // 0115); null on a group's board (a group carries nothing, ADR 0124) and on the
+    // board of unowned things.
     let boardOwnerId: string | null = null;
+    // The board as shown, for marking whose each card is (ADR 0123).
+    let currentBoard: Board | null = null;
 
     // entity_id -> its ItemInstance, for everything currently rendered -
     // lets the merge panel's "other stacks of this" lookup and the bulk
@@ -348,13 +399,21 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       });
     }
 
-    // After a give that handed something over (ADR 0115): a player no longer holds it at all,
-    // so has no standing to take it back, and gets no Undo that would fail. A GM keeps theirs.
-    function recordGiveUndo(handedOver: boolean, payload: UndoPayload, description: string) {
-      if (!handedOver || userIsGm) {
+    // After a give, taking it back is a give too (ADR 0124): only whoever controls the new
+    // owner may. So a player keeps an Undo only for a give to one of their own characters or
+    // groups, and gets none that would fail otherwise - handed over (ADR 0115) or not. A GM
+    // keeps theirs.
+    function recordGiveUndo(recipientId: string, payload: UndoPayload, description: string) {
+      if (userIsGm || myHolderIds.has(recipientId)) {
         recordUndo(payload, description);
         return;
       }
+      forgetUndo();
+    }
+
+    // Nothing to undo: after a give with what's inside, an Undo would only give the container
+    // back (ADR 0125).
+    function forgetUndo() {
       undoController.clear();
       undoBanner.hidden = true;
     }
@@ -388,6 +447,7 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     function closeDetailActionPanels() {
       detailActionPanel.replaceChildren();
       detailGiveButton.textContent = 'Give to…';
+      detailGiveContentsButton.textContent = "Give what's inside…";
       detailMoveButton.textContent = 'Move to…';
       detailSplitButton.textContent = 'Split…';
       detailMergeButton.textContent = 'Merge into…';
@@ -422,8 +482,15 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         rowHeading: 'h4',
       });
 
+      // Bound to its owner (ADR 0129): only a GM may give it away.
+      detailBound.hidden = !item.bound;
+      detailGiveButton.disabled = item.bound && !userIsGm;
+      detailGiveButton.title = detailGiveButton.disabled ? "It's bound to its owner." : '';
+
       closeDetailActionPanels();
       detailSplitButton.disabled = !(item.quantity && item.quantity > 1);
+      // Only a container the board shows something inside (ADR 0125).
+      detailGiveContentsButton.hidden = !boardContainers.has(item.entity_id);
     }
 
     // The full transitive ancestry (ADR 0073) is scoped to catalog Items,
@@ -512,29 +579,40 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     // The container an item is in, if any. Its owner carrying it isn't one (ADR 0115).
     function containerOf(item: ItemInstance): { id: string; name: string } | null {
       const id = item.container_entity_id;
-      if (!id || id === item.owner_entity_id) return null;
+      // In its owner's hands, or the board's being's, it's in no container of theirs.
+      if (!id || id === item.owner_entity_id || id === boardOwnerId) return null;
       return boardContainers.get(id) ?? { id, name: 'container' };
     }
 
-    // Out of every container: into its owner, who carries it, so a stack keeps its count
-    // (ADR 0115). Something nobody owns has no one to hold it; the API refuses a stack then.
-    function takeOut(entityId: string, ownerId: string | null) {
-      return ownerId
-        ? setContainer(tenantId as string, entityId, ownerId)
-        : clearContainer(tenantId as string, entityId);
+    // Out of every container: into the hands of the being whose board this is, so a stack
+    // keeps its count (ADR 0115, 0124). On a group's board, or the board of unowned things,
+    // there's no one to hold it; out of every container, it's with its owner, and the API
+    // refuses a stack.
+    function takeOut(entityId: string, flags: AnywayFlags = {}) {
+      return boardOwnerId
+        ? setContainer(tenantId as string, entityId, boardOwnerId, flags)
+        : clearContainer(tenantId as string, entityId, flags);
     }
 
-    // "Hand it over" (ADR 0115): out of its container and into the recipient's hands. Only
-    // offered for what's in a container; left unchecked, a give changes the owner alone.
-    let handOverFields = 0;
-    function handOverField(label: string, otherwise: string) {
+    // A GM whose move or give is refused, because it doesn't fit or something is bound, is
+    // asked, and may do it anyway (ADR 0128, 0129).
+    function moveAnyway(): MoveAnywayOptions {
+      return { canOverride: userIsGm, ask: (question) => window.confirm(question) };
+    }
+
+    // A give's checkbox with a note saying what happens without it: "Hand it over" (ADR
+    // 0115), out of its container and into the recipient's hands, only offered for what's in
+    // a container; "Also give what's inside" (ADR 0125), only for a container with something
+    // in it.
+    let checkboxFields = 0;
+    function checkboxField(label: string, otherwise: string) {
       const input = Object.assign(document.createElement('input'), { type: 'checkbox' });
       const row = document.createElement('label');
       row.className = 'field-row';
       row.append(input, label);
       const note = document.createElement('p');
       note.className = 'field-note';
-      note.id = `hand-over-note-${++handOverFields}`;
+      note.id = `checkbox-note-${++checkboxFields}`;
       note.textContent = otherwise;
       input.setAttribute('aria-describedby', note.id);
       const element = document.createElement('div');
@@ -572,7 +650,13 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       const previousContainerId = item.container_entity_id;
       const where = containerOf(item);
       const handOver = where
-        ? handOverField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
+        ? checkboxField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
+        : null;
+      const alsoInside = boardContainers.has(item.entity_id)
+        ? checkboxField(
+            "Also give what's inside",
+            "Otherwise what's inside stays whose it is. You'll be asked first.",
+          )
         : null;
       const panel = renderBeingActionPanel(
         tenantId as string,
@@ -581,34 +665,45 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
           const requestedQuantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
           const plan = planGive(item, requestedQuantity);
           const moveToOwner = handOver?.input.checked ?? false;
-          if (plan.mode === 'partial') {
-            const [result] = await bulkAssignItemInstances(tenantId as string, [
-              {
-                entityId: item.entity_id,
-                ownerCharacterId: being.entity_id,
-                quantity: plan.quantity,
-                moveToOwner,
-              },
-            ]);
-            if (result.status === 'error' || !result.item_instance) {
-              throw new Error(result.problem?.title ?? 'Could not give that.');
+          if (alsoInside?.input.checked) {
+            if (plan.mode === 'partial') {
+              throw new Error("Give all of it to give what's inside too.");
             }
+            return giveWithContents(item, being, moveToOwner);
+          }
+          if (plan.mode === 'partial') {
+            let splitOffEntityId = '';
+            await giveOrAsk(async (flags) => {
+              const [result] = await bulkAssignItemInstances(tenantId as string, [
+                {
+                  entityId: item.entity_id,
+                  ownerCharacterId: being.entity_id,
+                  quantity: plan.quantity,
+                  moveToOwner,
+                  ...flags,
+                },
+              ]);
+              if (result.status === 'error' || !result.item_instance) {
+                throw problemError(result.problem);
+              }
+              splitOffEntityId = result.item_instance.entity_id;
+            }, moveAnyway());
             // The split-off instance is a *new* entity - restore-owner
             // has nothing to restore it to; merging it back is the
             // honest inverse instead.
             recordGiveUndo(
-              moveToOwner,
-              {
-                kind: 'undo-split',
-                splitOffEntityId: result.item_instance.entity_id,
-                intoEntityId: item.entity_id,
-              },
+              being.entity_id,
+              { kind: 'undo-split', splitOffEntityId, intoEntityId: item.entity_id },
               `Gave ${plan.quantity} ${item.title} to ${being.name}.`,
             );
           } else {
-            await setOwner(tenantId as string, item.entity_id, being.entity_id, moveToOwner);
+            await giveOrAsk(
+              (flags) =>
+                setOwner(tenantId as string, item.entity_id, being.entity_id, moveToOwner, flags),
+              moveAnyway(),
+            );
             recordGiveUndo(
-              moveToOwner,
+              being.entity_id,
               {
                 kind: 'restore-owner',
                 entityId: item.entity_id,
@@ -623,7 +718,71 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         () => {
           finishAction();
         },
-        [...(hasStack ? [quantityField] : []), ...(handOver ? [handOver.element] : [])],
+        [
+          ...(hasStack ? [quantityField] : []),
+          ...(handOver ? [handOver.element] : []),
+          ...(alsoInside ? [alsoInside.element] : []),
+        ],
+      );
+      detailActionPanel.append(panel);
+    });
+
+    // A one-entry bulk-assign with what's inside (ADR 0125): its dry run first, so the
+    // question says what goes along and what stays, then the give itself.
+    async function giveWithContents(item: ItemInstance, being: BeingRef, moveToOwner: boolean) {
+      const entry = {
+        entityId: item.entity_id,
+        ownerCharacterId: being.entity_id,
+        moveToOwner,
+        withContents: true,
+      };
+      const [preview] = await bulkAssignItemInstances(tenantId as string, [entry], {
+        dryRun: true,
+      });
+      if (preview.status === 'error') throw new Error(problemText(preview.problem));
+      const question = withContentsQuestion(item.title, being.name, preview.contents);
+      if (question && !window.confirm(question)) throw new Error('Nothing given.');
+      const [result] = await bulkAssignItemInstances(tenantId as string, [entry]);
+      if (result.status === 'error') throw new Error(problemText(result.problem));
+      forgetUndo();
+      return withContentsDone(being.name, result.contents);
+    }
+
+    function problemText(problem: ProblemOut | null | undefined): string {
+      return problem?.detail ?? problem?.title ?? 'Could not give that.';
+    }
+
+    // A bulk result's problem as the error a single write would throw, so a GM can be
+    // asked to give anyway (ADR 0129).
+    function problemError(problem: ProblemOut | null | undefined): LorenzoApiError {
+      return new LorenzoApiError(problemText(problem), problem?.status ?? 500, problem?.type);
+    }
+
+    // Give what's inside… (ADR 0125): everything inside, not the container, after asking
+    // with a dry run's answer. Anything not the caller's to give stays whose it is.
+    detailGiveContentsButton.addEventListener('click', () => {
+      const wasOpen = detailGiveContentsButton.textContent === 'Cancel';
+      closeDetailActionPanels();
+      if (wasOpen || !currentDetailItem) return;
+
+      detailGiveContentsButton.textContent = 'Cancel';
+      const item = currentDetailItem;
+      const panel = renderBeingActionPanel(
+        tenantId as string,
+        async (being) => {
+          const preview = await giveContents(tenantId as string, item.entity_id, being.entity_id, {
+            dryRun: true,
+          });
+          const question = contentsQuestion(item.title, being.name, preview);
+          if (!question) throw new Error(nothingToGive(item.title, being.name, preview));
+          if (!window.confirm(question)) throw new Error('Nothing given.');
+          const results = await giveContents(tenantId as string, item.entity_id, being.entity_id);
+          forgetUndo();
+          return contentsDone(item.title, being.name, results);
+        },
+        () => {
+          finishAction();
+        },
       );
       detailActionPanel.append(panel);
     });
@@ -808,9 +967,12 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         for (const b of list.querySelectorAll('button')) (b as HTMLButtonElement).disabled = true;
         try {
           if (targetId) {
-            await setContainer(tenantId as string, item.entity_id, targetId);
+            await moveOrAsk(
+              (flags) => setContainer(tenantId as string, item.entity_id, targetId, flags),
+              moveAnyway(),
+            );
           } else {
-            await takeOut(item.entity_id, item.owner_entity_id);
+            await moveOrAsk((flags) => takeOut(item.entity_id, flags), moveAnyway());
           }
           recordUndo(
             { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
@@ -850,7 +1012,8 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       if (list.children.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'column-empty';
-        empty.textContent = 'This container is empty.';
+        // Each column says it its own way: Equipped is "Nothing equipped." (ADR 0123).
+        empty.textContent = list.dataset.empty ?? 'This container is empty.';
         list.append(empty);
       }
     }
@@ -876,6 +1039,7 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
 
     function setCardSelected(card: HTMLLIElement, selected: boolean) {
       card.classList.toggle('item-card--selected', selected);
+      card.setAttribute('aria-pressed', String(selected));
       const entityId = card.dataset.entityId;
       if (!entityId) return;
       if (selected) selectedIds.add(entityId);
@@ -897,6 +1061,10 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       selectModeButton.textContent = on ? 'Cancel selecting' : 'Select items';
       selectModeButton.setAttribute('aria-pressed', String(on));
       if (!on) clearSelection();
+      for (const card of boardColumns.querySelectorAll('.item-card')) {
+        if (on) card.setAttribute('aria-pressed', 'false');
+        else card.removeAttribute('aria-pressed');
+      }
     }
 
     selectModeButton.addEventListener('click', () => setSelectMode(!selectMode));
@@ -918,7 +1086,7 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         return selected ? containerOf(selected) !== null : false;
       });
       const handOver = inContainers
-        ? handOverField('Hand them over', 'Otherwise they stay in their containers, theirs now.')
+        ? checkboxField('Hand them over', 'Otherwise they stay in their containers, theirs now.')
         : null;
       const panel = renderBeingActionPanel(
         tenantId as string,
@@ -1035,7 +1203,23 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         let request: Promise<{ failedIds: Set<string> } | undefined>;
         if (isBulk && target) {
           request = bulkMoveItemInstances(tenantId as string, target, idsToMove).then(
-            (results) => ({ failedIds: failedEntityIds(results) }),
+            async (results) => {
+              // One question for every card that didn't fit (ADR 0128).
+              const question = userIsGm ? bulkMoveAnywayQuestion(results) : null;
+              if (!question || !window.confirm(question)) {
+                return { failedIds: failedEntityIds(results) };
+              }
+              const retried = await bulkMoveItemInstances(
+                tenantId as string,
+                target,
+                overridableIds(results),
+                { override: true },
+              );
+              const merged = results.map(
+                (result) => retried.find((r) => r.entity_id === result.entity_id) ?? result,
+              );
+              return { failedIds: failedEntityIds(merged) };
+            },
           );
         } else if (isBulk) {
           // bulk-move has no "no container" mode - to_container_entity_id
@@ -1051,10 +1235,12 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
             ),
           }));
         } else {
-          request = (
-            target
-              ? setContainer(tenantId as string, entityId, target)
-              : clearContainer(tenantId as string, entityId)
+          request = moveOrAsk(
+            (flags) =>
+              target
+                ? setContainer(tenantId as string, entityId, target, flags)
+                : clearContainer(tenantId as string, entityId, flags),
+            moveAnyway(),
           ).then(() => undefined);
         }
 
@@ -1097,19 +1283,24 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       return !query || item.title.toLowerCase().includes(query);
     }
 
-    function renderCard(item: ItemInstance): HTMLLIElement {
-      const template = document.querySelector<HTMLTemplateElement>('#boardColumnItem');
-
+    // A fresh copy of one of the page's <template>s (src/components).
+    function fromTemplate(id: string): DocumentFragment {
+      const template = document.querySelector<HTMLTemplateElement>(`#${id}`);
       if (!template) {
-        throw new Error('Board Item  card template not found');
+        throw new Error(`Template #${id} not found`);
       }
+      return template.content.cloneNode(true) as DocumentFragment;
+    }
 
-      const fragment = template.content.cloneNode(true) as DocumentFragment;
+    function renderCard(item: ItemInstance): HTMLLIElement {
+      const fragment = fromTemplate('boardColumnItem');
 
       const li = fragment.querySelector<HTMLLIElement>('li')!;
       const name = fragment.querySelector<HTMLSpanElement>('[data-name]')!;
       const container = fragment.querySelector<HTMLSpanElement>('[data-container]')!;
       const count = fragment.querySelector<HTMLSpanElement>('[data-count]')!;
+      const ownerMarkField = fragment.querySelector<HTMLSpanElement>('[data-owner-mark]')!;
+      const bound = fragment.querySelector<HTMLSpanElement>('[data-bound]')!;
 
       li.draggable = true;
       li.dataset.entityId = item.entity_id;
@@ -1118,6 +1309,7 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         container.hidden = false;
       }
       li.hidden = !matchesSearch(item, boardSearch.value.trim().toLowerCase());
+      if (selectMode) li.setAttribute('aria-pressed', 'false');
 
       li.addEventListener('dragstart', (event) => {
         event.dataTransfer?.setData('text/plain', item.entity_id);
@@ -1150,78 +1342,95 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         count.hidden = false;
         count.textContent = `×${item.quantity}`;
       }
+
+      // Whose it is, when it isn't the board's being's own (ADR 0123).
+      const mark = currentBoard ? ownerMark(item, currentBoard) : null;
+      if (mark) {
+        ownerMarkField.hidden = false;
+        ownerMarkField.textContent = mark;
+      }
+
+      // Bound to its owner (ADR 0129).
+      bound.hidden = !item.bound;
+
       return li;
     }
 
-    function renderColumn(group: OwnedGroup, rootTitle: string): HTMLElement {
+    // `elsewhere`: a column the board's being doesn't carry (ADR 0123). It shares the one
+    // row with what it does, so its note is marked apart, and says "Held elsewhere" when
+    // there's nothing more particular to say.
+    function renderColumn(column: BoardColumn, elsewhere: boolean): HTMLElement {
+      const fragment = fromTemplate('boardColumn');
 
-      const template = document.querySelector<HTMLTemplateElement>('#boardColumn');
-      if (!template) {
-        throw new Error('Board card template not found');
-      }
-
-      const fragment = template.content.cloneNode(true) as DocumentFragment;
-
-      const column = fragment.querySelector<HTMLDivElement>('[data-column]')!;
+      const section = fragment.querySelector<HTMLElement>('[data-column]')!;
       const nameField = fragment.querySelector<HTMLHeadingElement>('[data-name]')!;
-      const locationField = fragment.querySelector<HTMLSpanElement>('[data-location]')!;
-      const ownerField = fragment.querySelector<HTMLSpanElement>('[data-owner]')!;
+      const noteField = fragment.querySelector<HTMLSpanElement>('[data-note]')!;
       const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
 
-      if (group.container) {
-        boardContainers.set(group.container.id, group.container);
-        nameField.id = 'column-' + group.container.id;
-      } else {
-        nameField.id = 'column-loose';
+      if (column.dropTarget !== null) {
+        // "Move to…" offers it under the column's own title: Equipped, not the being's name.
+        boardContainers.set(column.dropTarget, {
+          id: column.dropTarget,
+          name: column.title,
+          quantity: null,
+        });
       }
 
       // Named by its heading, so each column is a region a reader can find.
-      nameField.textContent = group.container?.name ?? rootTitle;
-      column.setAttribute('aria-labelledby', nameField.id);
+      nameField.id = `column-${column.key}`;
+      nameField.textContent = column.title;
+      section.setAttribute('aria-labelledby', nameField.id);
 
-      if (group.item_instances.length === 0) {
+      // Where its container is: "In Backpack", "Pia has these".
+      const note = column.note ?? (elsewhere ? 'Held elsewhere' : null);
+      if (note) {
+        noteField.hidden = false;
+        noteField.textContent = note;
+        noteField.classList.add(elsewhere ? 'pill-warning' : 'pill-success');
+      }
+
+      list.dataset.empty = column.empty;
+      if (column.items.length === 0) {
         ensurePlaceholder(list);
       } else {
-        for (const item of group.item_instances) {
+        for (const item of column.items) {
           boardItems.set(item.entity_id, item);
           list.append(renderCard(item));
         }
       }
 
-      bindDropZone(column, list, group.container?.id ?? null);
+      bindDropZone(section, list, column.dropTarget);
 
-      return column;
+      return section;
     }
 
-    // Shared rendering for any OwnedByResponse-shaped source - "a being's
-    // own inventory" (owned-by/{id}) and "unowned loot" (unowned, ADR
-    // 0077) return the identical shape, so both boards use this unchanged.
-    // A couple of fake columns/cards shaped like the real thing, shown
-    // while the actual board loads - see the styles/normalize.css [hidden]
-    // fix and components.css .skeleton for why this works at all now.
+    // A couple of fake columns/cards shaped like the real thing - the same column
+    // template, without its heading - shown while the actual board loads. See the
+    // styles/normalize.css [hidden] fix and components.css .skeleton for why this works.
     function renderBoardSkeleton() {
       boardColumns.setAttribute('aria-busy', 'true');
       boardColumns.replaceChildren(
         ...Array.from({ length: 2 }, () => {
-          const section = document.createElement('section');
-          section.className = 'board-column';
-          const list = document.createElement('ul');
-          list.className = 'column-cards';
+          const fragment = fromTemplate('boardColumn');
+          const section = fragment.querySelector<HTMLElement>('[data-column]')!;
+          fragment.querySelector('[data-name]')!.parentElement!.remove();
+          const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
           for (let i = 0; i < 3; i++) {
             const li = document.createElement('li');
             li.className = 'item-card skeleton';
             list.append(li);
           }
-          section.append(list);
           return section;
         }),
       );
     }
 
+    // Shared rendering for both boards: a being's (what it holds, ADR 0123)
+    // and the board of unowned things (ADR 0077). Only the latter can be
+    // empty - a being's board always has its Equipped column to drop onto.
     async function loadBoardFromResponse(
-      fetchFn: () => Promise<OwnedByResponse>,
-      rootTitle: string,
-      emptyMessage: string,
+      fetchFn: () => Promise<Board>,
+      emptyMessage: string | null,
     ) {
       boardItems.clear();
       boardContainers.clear();
@@ -1230,24 +1439,21 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       inventoryError.hidden = true;
       renderBoardSkeleton();
       try {
-        const response = await fetchFn();
+        const shown = await fetchFn();
+        currentBoard = shown;
         boardColumns.replaceChildren();
         boardColumns.removeAttribute('aria-busy');
-        const hasAnything = response.groups.some((g) => g.item_instances.length > 0);
-        if (!hasAnything) {
+        const hasAnything = [...shown.carried, ...shown.elsewhere].some((c) => c.items.length > 0);
+        if (!hasAnything && emptyMessage !== null) {
           inventoryEmpty.hidden = false;
           inventoryEmpty.textContent = emptyMessage;
           return;
         }
-        // The null-container group (things with no container, including
-        // top-level containers themselves) reads first - everything else
-        // keeps the order the API returned.
-        const ordered = [...response.groups].sort((a, b) =>
-          a.container === null ? -1 : b.container === null ? 1 : 0,
+        // One row: what the being carries first, then what it holds elsewhere.
+        boardColumns.append(
+          ...shown.carried.map((column) => renderColumn(column, false)),
+          ...shown.elsewhere.map((column) => renderColumn(column, true)),
         );
-        for (const group of ordered) {
-          boardColumns.append(renderColumn(group, rootTitle));
-        }
       } catch (e) {
         boardColumns.replaceChildren();
         boardColumns.removeAttribute('aria-busy');
@@ -1256,22 +1462,20 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       }
     }
 
-    // entityId/rootTitle are deliberately generic, not character-specific -
-    // getOwnedItemInstances accepts any being's entity id, no
-    // character-only validation server-side (confirmed against
-    // apps/api's own source), so this same function already serves both
-    // "a player's own character" and "a GM browsing any being."
+    // entityId is deliberately generic, not character-specific - held-by
+    // accepts any being the viewer reaches, so this same function serves
+    // both "a player's own character" and "a GM browsing any being."
     //
     // prefetchedBoards holds requests already in flight (or settled) for a
     // being's board, fired on hover/focus of its pill before the actual
     // click - loadBoard consumes and discards the entry (one-shot: a later
     // reload of the same being should hit the network again, not replay a
     // now-stale response).
-    const prefetchedBoards = new Map<string, Promise<OwnedByResponse>>();
+    const prefetchedBoards = new Map<string, Promise<HeldByResponse>>();
 
     function prefetchBoard(entityId: string) {
       if (prefetchedBoards.has(entityId)) return;
-      const request = getOwnedItemInstances(tenantId as string, entityId);
+      const request = getHeldItemInstances(tenantId as string, entityId);
       // Swallow here so an unclicked prefetch (hover without a follow-up
       // click) never surfaces as an unhandled rejection - the original
       // `request` reference kept in the map is untouched, so loadBoard's
@@ -1281,16 +1485,18 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       prefetchedBoards.set(entityId, request);
     }
 
-    async function loadBoard(entityId: string, rootTitle: string) {
-      reloadCurrentView = () => void loadBoard(entityId, rootTitle);
-      boardOwnerId = entityId;
+    async function loadBoard(entityId: string) {
+      reloadCurrentView = () => void loadBoard(entityId);
+      boardOwnerId = null;
       const prefetched = prefetchedBoards.get(entityId);
       prefetchedBoards.delete(entityId);
-      await loadBoardFromResponse(
-        () => prefetched ?? getOwnedItemInstances(tenantId as string, entityId),
-        rootTitle,
-        `${rootTitle} isn't carrying anything yet.`,
-      );
+      await loadBoardFromResponse(async () => {
+        const shown = heldBoard(
+          await (prefetched ?? getHeldItemInstances(tenantId as string, entityId)),
+        );
+        boardOwnerId = shown.holderIsBeing ? shown.holderId : null;
+        return shown;
+      }, null);
     }
 
     // GM-only: unclaimed loot, nobody's owned it yet (ADR 0077/#95).
@@ -1298,22 +1504,76 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       reloadCurrentView = () => void loadUnownedBoard();
       boardOwnerId = null;
       await loadBoardFromResponse(
-        () => getUnownedItemInstances(tenantId as string),
-        'Unowned',
+        async () => unownedBoard(await getUnownedItemInstances(tenantId as string)),
         "There's nothing unowned right now.",
       );
     }
 
-    function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement) {
+    // Marks `link` as the board shown, among every character and group in the list.
+    function pressOnly(link: HTMLAnchorElement | null) {
       for (const el of characterStrip.querySelectorAll('a')) {
         el.setAttribute('aria-pressed', String(el === link));
       }
+    }
+
+    function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement) {
+      pressOnly(link);
       inventoryViewing.hidden = true;
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
+      url.searchParams.delete('group');
       window.history.replaceState({}, '', url);
-      void loadBoard(character.entity_id, character.name);
-      return false;
+      void loadBoard(character.entity_id);
+    }
+
+    // A group one of your characters belongs to, and what it owns (ADR 0124).
+    function selectGroup(group: BeingRef, link: HTMLAnchorElement) {
+      pressOnly(link);
+      inventoryViewing.hidden = false;
+      inventoryViewing.textContent = `Viewing what ${group.name} holds.`;
+      const url = new URL(window.location.href);
+      url.searchParams.set('group', group.entity_id);
+      url.searchParams.delete('character');
+      window.history.replaceState({}, '', url);
+      void loadBoard(group.entity_id);
+    }
+
+    // Adds one entry to the list of your characters and their groups: a link to its board
+    // (?character= or ?group=), a group marked as one. Shown at once if the URL names it.
+    function addHolder(
+      holder: { entity_id: string; name: string },
+      param: 'character' | 'group',
+      select: (link: HTMLAnchorElement) => void,
+    ) {
+      const fragment = fromTemplate('holderListItem');
+      const item = fragment.querySelector<HTMLLIElement>('li')!;
+      const link = fragment.querySelector<HTMLAnchorElement>('[data-name]')!;
+      const groupBadge = fragment.querySelector<HTMLSpanElement>('[data-group]')!;
+
+      const url = new URL(window.location.href);
+      url.searchParams.set(param, holder.entity_id);
+      url.searchParams.delete(param === 'character' ? 'group' : 'character');
+      link.href = url.href;
+      link.textContent = holder.name;
+      link.setAttribute('aria-pressed', String(holder.entity_id === params.get(param)));
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        select(link);
+      });
+      link.addEventListener('mouseenter', () => prefetchBoard(holder.entity_id));
+      link.addEventListener('focus', () => prefetchBoard(holder.entity_id));
+      groupBadge.hidden = param !== 'group';
+
+      characterStrip.append(item);
+      if (holder.entity_id === params.get(param)) select(link);
+    }
+
+    async function loadGroups(currentTenantId: string, characters: CharacterSummary[]) {
+      const groups = await groupsOf(currentTenantId, characters).catch(() => []);
+      for (const group of groups) {
+        myHolderIds.add(group.entity_id);
+        addHolder(group, 'group', (link) => selectGroup(group, link));
+      }
     }
 
     // GM-only: browse any being's inventory - by search against
@@ -1322,19 +1582,15 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
     // characters" pill strip since none of the player's own characters is
     // the one being shown.
     function browseBeing(being: BeingRef) {
-      for (const el of characterStrip.querySelectorAll('button')) {
-        el.setAttribute('aria-pressed', 'false');
-      }
+      pressOnly(null);
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = `Viewing ${being.name}'s inventory.`;
-      void loadBoard(being.entity_id, being.name);
+      void loadBoard(being.entity_id);
     }
 
     // GM-only: browse unowned loot (ADR 0077/#95).
     function browseUnowned() {
-      for (const el of characterStrip.querySelectorAll('button')) {
-        el.setAttribute('aria-pressed', 'false');
-      }
+      pressOnly(null);
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = 'Viewing unowned items.';
       void loadUnownedBoard();
@@ -1344,34 +1600,16 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
       try {
         const page = await listMyCharacters(currentTenantId);
         myCharacters = page.items;
+        for (const character of page.items) myHolderIds.add(character.entity_id);
         charactersLoading.hidden = true;
         if (page.items.length === 0) {
           charactersEmpty.hidden = false;
           return;
         }
-        const selectedId = params.get('character');
         for (const character of page.items) {
-          const item = document.createElement('li');
-          const link = document.createElement('a');
-          const url = new URL(window.location.href);
-          url.searchParams.set('character', character.entity_id);
-          link.className = 'btn';
-          link.textContent = character.name;
-          link.href = url.href;
-          link.setAttribute('aria-pressed', String(character.entity_id === selectedId));
-          link.addEventListener('click',(event) => {
-            event.preventDefault();
-            selectCharacter(character, link);
-          });
-          link.addEventListener('mouseenter', () => prefetchBoard(character.entity_id));
-          link.addEventListener('focus', () => prefetchBoard(character.entity_id));
-          item.append(link);
-          characterStrip.append(item);
-
-          if (character.entity_id === selectedId) {
-            selectCharacter(character, link);
-          }
+          addHolder(character, 'character', (link) => selectCharacter(character, link));
         }
+        await loadGroups(currentTenantId, page.items);
       } catch (e) {
         charactersLoading.hidden = true;
         charactersError.hidden = false;
@@ -1397,12 +1635,17 @@ import BoardColumnItem from '../../components/BoardColumnItem.astro';
         return;
       }
       gmBrowseDebounce = setTimeout(async () => {
-        const result = await listBeings(tenantId as string, query);
-        renderBeingSuggestions(gmBrowseSuggestions, result.items, (being) => {
-          gmBrowseSearch.value = being.name;
-          gmBrowseSuggestions.hidden = true;
-          browseBeing(being);
-        });
+        const { beings, groups } = await searchBeingsAndGroups(tenantId as string, query);
+        renderBeingSuggestions(
+          gmBrowseSuggestions,
+          beings,
+          (being) => {
+            gmBrowseSearch.value = being.name;
+            gmBrowseSuggestions.hidden = true;
+            browseBeing(being);
+          },
+          groups,
+        );
       }, 200);
     });
 

@@ -25,6 +25,9 @@ const {
   setItemInstanceOwner,
   getCampaignPlayers,
   getCharacterName,
+  getGroupName,
+  listGroups,
+  bulkAssignItemInstances,
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   getMyPlayers: vi.fn(),
@@ -34,6 +37,9 @@ const {
   setItemInstanceOwner: vi.fn(),
   getCampaignPlayers: vi.fn(),
   getCharacterName: vi.fn(),
+  getGroupName: vi.fn(),
+  listGroups: vi.fn(),
+  bulkAssignItemInstances: vi.fn(),
   createLorenzoApiClient: vi.fn(),
 }));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
@@ -48,6 +54,9 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       setItemInstanceOwner,
       getCampaignPlayers,
       getCharacterName,
+      getGroupName,
+      listGroups,
+      bulkAssignItemInstances,
     }),
   };
 });
@@ -215,6 +224,7 @@ describe("giveCommand.execute (the confirmation prompt)", () => {
   it.each([
     [403, "reachable from any of your characters"],
     [404, "Couldn't find that item"],
+    [409, "boom"],
     [422, "Couldn't do that"],
   ])(
     "gives a specific message when reading the item fails with %i",
@@ -236,6 +246,7 @@ describe("giveCommand.execute (the confirmation prompt)", () => {
       etag: "etag-1",
     });
     getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getGroupName.mockRejectedValue(new LorenzoApiError("not found", 404));
     const interaction = promptFor();
 
     await giveCommand.execute(interaction, ctx);
@@ -243,6 +254,234 @@ describe("giveCommand.execute (the confirmation prompt)", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.stringContaining("Couldn't find that item or that character"),
     );
+  });
+
+  it("names a group it's giving to (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getGroupName.mockResolvedValue("The Fellowship");
+    const interaction = promptFor();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining("The Fellowship") }),
+    );
+  });
+});
+
+describe("giveCommand.execute for a container (ADR 0125)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: {
+        entity_id: "item-1",
+        quantity: null,
+        title: "Backpack",
+        is_container: true,
+        owner_entity_id: "char-1",
+      },
+      etag: "etag-1",
+    });
+    getCharacterName.mockResolvedValue("Brisk");
+  });
+
+  function prompt() {
+    const interaction = fakeInteraction();
+    interaction.options.getString.mockImplementation((name: string) =>
+      name === "item" ? "item-1" : "char-2",
+    );
+    return interaction;
+  }
+
+  function buttonsOf(interaction: ReturnType<typeof prompt>) {
+    const [{ components }] = interaction.editReply.mock.calls[0] as [
+      { components: { toJSON(): { components: { custom_id: string; label: string }[] } }[] },
+    ];
+    return (components[0]?.toJSON().components ?? []).map((b) => b.label);
+  }
+
+  it("offers giving it with what's inside, worded from a dry run", async () => {
+    bulkAssignItemInstances.mockResolvedValue([
+      {
+        entity_id: "item-1",
+        status: "ok",
+        contents: [
+          {
+            entity_id: "rope",
+            title: "Rope",
+            status: "ok",
+            owner: { id: "char-2", name: "Brisk" },
+          },
+          {
+            entity_id: "potion",
+            title: "Potion",
+            status: "kept",
+            owner: { id: "pia", name: "Pia" },
+          },
+        ],
+      },
+    ]);
+    const interaction = prompt();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(bulkAssignItemInstances).toHaveBeenCalledWith(
+      "tenant-1",
+      [
+        {
+          entity_id: "item-1",
+          owner_character_id: "char-2",
+          move_to_owner: false,
+          with_contents: true,
+          override: false,
+          lift_binding: false,
+        },
+      ],
+      "token-123",
+      { dryRun: true },
+    );
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: `Give **Backpack** to **Brisk**?\n"Give with what's inside" also gives 1 thing inside it. 1 thing inside stays Pia's.`,
+      }),
+    );
+    expect(buttonsOf(interaction)).toEqual(["Give", "Give with what's inside", "Cancel"]);
+    expect(setItemInstanceOwner).not.toHaveBeenCalled();
+  });
+
+  it("offers only the plain give when nothing inside could go along", async () => {
+    bulkAssignItemInstances.mockResolvedValue([
+      {
+        entity_id: "item-1",
+        status: "ok",
+        contents: [
+          {
+            entity_id: "potion",
+            title: "Potion",
+            status: "kept",
+            owner: { id: "pia", name: "Pia" },
+          },
+        ],
+      },
+    ]);
+    const interaction = prompt();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "Give **Backpack** to **Brisk**?" }),
+    );
+    expect(buttonsOf(interaction)).toEqual(["Give", "Cancel"]);
+  });
+
+  it("still asks about the plain give when the dry run fails", async () => {
+    bulkAssignItemInstances.mockRejectedValue(new LorenzoApiError("boom", 500));
+    const interaction = prompt();
+
+    await giveCommand.execute(interaction, ctx);
+
+    expect(buttonsOf(interaction)).toEqual(["Give", "Cancel"]);
+  });
+
+  it("doesn't ask about contents for something that isn't a container", async () => {
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Sword", is_container: null },
+      etag: "etag-1",
+    });
+
+    await giveCommand.execute(prompt(), ctx);
+
+    expect(bulkAssignItemInstances).not.toHaveBeenCalled();
+  });
+});
+
+describe("giveCommand.onButton, giving with what's inside (ADR 0125)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockResolvedValue({
+      data: { entity_id: "item-1", quantity: null, title: "Backpack", owner_entity_id: "char-1" },
+      etag: "etag-1",
+    });
+    getCharacterName.mockResolvedValue("Brisk");
+  });
+
+  it("gives it with what's inside, says what stayed, and records no Undo", async () => {
+    bulkAssignItemInstances.mockResolvedValue([
+      {
+        entity_id: "item-1",
+        status: "ok",
+        item_instance: { entity_id: "item-1", title: "Backpack" },
+        contents: [
+          {
+            entity_id: "rope",
+            title: "Rope",
+            status: "ok",
+            owner: { id: "char-2", name: "Brisk" },
+          },
+          {
+            entity_id: "potion",
+            title: "Potion",
+            status: "kept",
+            owner: { id: "pia", name: "Pia" },
+          },
+        ],
+      },
+    ]);
+    const button = fakeButton("give:okc:item-1:char-2");
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.update).toHaveBeenCalledWith({ content: "Giving…", components: [] });
+    expect(bulkAssignItemInstances).toHaveBeenCalledWith(
+      "tenant-1",
+      [
+        {
+          entity_id: "item-1",
+          owner_character_id: "char-2",
+          move_to_owner: false,
+          with_contents: true,
+          override: false,
+          lift_binding: false,
+          if_match: "etag-1",
+        },
+      ],
+      "token-123",
+    );
+    expect(button.editReply).toHaveBeenCalledWith(
+      "Gave Backpack to Brisk, with 1 thing inside. 1 thing inside stays Pia's.",
+    );
+    expect(recordUndo).not.toHaveBeenCalled();
+    expect(rememberActingCharacter).toHaveBeenCalled();
+  });
+
+  it("says why when the container itself can't be given", async () => {
+    bulkAssignItemInstances.mockResolvedValue([
+      {
+        entity_id: "item-1",
+        status: "error",
+        problem: {
+          type: "item-not-yours-to-give",
+          title: "Forbidden",
+          status: 403,
+          detail: "belongs to someone else",
+        },
+      },
+    ]);
+    const button = fakeButton("give:okc:item-1:char-2");
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("That belongs to someone else"),
+    );
+    expect(rememberActingCharacter).not.toHaveBeenCalled();
   });
 });
 
@@ -466,6 +705,7 @@ describe("giveCommand.onButton (the confirmed transfer)", () => {
   it.each([
     [403, "reachable from any of your characters"],
     [404, "Couldn't find that item"],
+    [409, "boom"],
     [422, "Couldn't do that"],
   ])("gives a specific message for a %i error", async (status, expectedText) => {
     getValidAccessToken.mockResolvedValue("token-123");
@@ -477,6 +717,20 @@ describe("giveCommand.onButton (the confirmed transfer)", () => {
     expect(button.editReply).toHaveBeenCalledWith(expect.stringContaining(expectedText));
   });
 
+  it("says so when what's carried belongs to someone else (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getItemInstance.mockRejectedValue(
+      new LorenzoApiError("belongs to someone else", 403, "item-not-yours-to-give"),
+    );
+    const button = confirmButton();
+
+    await giveCommand.onButton?.(button, ctx);
+
+    expect(button.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("only its owner or a GM can give it away"),
+    );
+  });
+
   it("still succeeds even if the friendly-name lookup fails", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getItemInstance.mockResolvedValue({
@@ -485,6 +739,7 @@ describe("giveCommand.onButton (the confirmed transfer)", () => {
     });
     setItemInstanceOwner.mockResolvedValue({ entity_id: "item-1", title: "Sword" });
     getCharacterName.mockRejectedValue(new LorenzoApiError("not found", 404));
+    getGroupName.mockRejectedValue(new LorenzoApiError("not found", 404));
     const button = confirmButton();
 
     await giveCommand.onButton?.(button, ctx);
@@ -550,14 +805,17 @@ describe("giveCommand.autocomplete", () => {
       { entityId: "char-1", name: "Frodo" },
       { entityId: "char-2", name: "Sam" },
     ]);
+    listGroups.mockResolvedValue([{ entityId: "group-1", name: "The Fellowship" }]);
 
     const interaction = fakeAutocomplete("to", "", "item-1");
     await giveCommand.autocomplete?.(interaction, ctx);
 
     expect(getCampaignPlayers).toHaveBeenCalledWith("tenant-1", "campaign-1", "token-123");
+    // Groups can own things too (ADR 0124), offered after the characters.
     expect(interaction.respond).toHaveBeenCalledWith([
       { name: "Frodo", value: "char-1" },
       { name: "Sam", value: "char-2" },
+      { name: "The Fellowship (group)", value: "group-1" },
     ]);
   });
 });

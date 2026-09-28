@@ -3,8 +3,10 @@ import {
   GIVE_CANCEL_CUSTOM_ID,
   buildGiveConfirmComponents,
   buildGiveConfirmCustomId,
+  buildGiveWithContentsCustomId,
   formatGivePrompt,
   parseGiveConfirmCustomId,
+  parseGiveWithContentsCustomId,
 } from "../src/format-give.js";
 
 const ITEM = "11111111-1111-1111-1111-111111111111";
@@ -64,7 +66,47 @@ describe("give confirm customId", () => {
   });
 });
 
+describe("give-with-contents customId (ADR 0125)", () => {
+  it("round-trips the item and its target, and fits Discord's limit", () => {
+    const id = buildGiveWithContentsCustomId({ itemEntityId: ITEM, targetCharacterId: TARGET });
+
+    expect(id).toBe(`give:okc:${ITEM}:${TARGET}`);
+    expect(id.length).toBeLessThanOrEqual(100);
+    expect(parseGiveWithContentsCustomId(id)).toEqual({
+      itemEntityId: ITEM,
+      targetCharacterId: TARGET,
+    });
+  });
+
+  it.each([
+    ["a plain confirm id", `give:ok:${ITEM}:${TARGET}:all`],
+    ["the cancel id", GIVE_CANCEL_CUSTOM_ID],
+    ["a missing target", `give:okc:${ITEM}`],
+    ["trailing junk", `give:okc:${ITEM}:${TARGET}:all`],
+  ])("rejects %s", (_label, id) => {
+    expect(parseGiveWithContentsCustomId(id)).toBeUndefined();
+  });
+
+  it("isn't taken for a plain confirm", () => {
+    expect(parseGiveConfirmCustomId(`give:okc:${ITEM}:${TARGET}`)).toBeUndefined();
+  });
+});
+
 describe("buildGiveConfirmComponents", () => {
+  it("offers giving with what's inside between Give and Cancel, when asked to", () => {
+    const rows = buildGiveConfirmComponents(
+      { itemEntityId: ITEM, targetCharacterId: TARGET, quantity: null },
+      { withContents: true },
+    );
+
+    const buttons = rows[0]?.toJSON().components as { label: string; custom_id: string }[];
+    expect(buttons.map((b) => [b.label, b.custom_id])).toEqual([
+      ["Give", `give:ok:${ITEM}:${TARGET}:all`],
+      ["Give with what's inside", `give:okc:${ITEM}:${TARGET}`],
+      ["Cancel", GIVE_CANCEL_CUSTOM_ID],
+    ]);
+  });
+
   it("is one row: a Give button carrying the intent, and a Cancel button", () => {
     const rows = buildGiveConfirmComponents({
       itemEntityId: ITEM,

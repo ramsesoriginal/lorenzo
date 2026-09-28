@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.tenant import Tenant
     from lorenzo_api.models.v_effective_stat import VEffectiveStat
+    from lorenzo_api.stat_evaluation import Contents
 
 
 class Entity(Base):
@@ -34,6 +35,10 @@ class Entity(Base):
         # ADR 0117: what same-tenant keys into this table reference.
         UniqueConstraint("id", "tenant_id", name="entity_id_tenant_id_key"),
     )
+    # For stat_contents below: a bare (non-Mapped[]) annotation on a
+    # Declarative class otherwise raises MappedAnnotationError - User's
+    # authgear_roles precedent.
+    __allow_unmapped__ = True
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
@@ -77,6 +82,11 @@ class Entity(Base):
         viewonly=True,
         lazy="raise_on_sql",
     )
+    # What a winning contents formula reads (ADR 0127): attached by
+    # stat_contents.attach_contents before stats are serialized, never
+    # persisted. None when nothing was attached - a contents formula then
+    # has no value.
+    stat_contents: Contents | None = None
     information: Mapped[list[Information]] = relationship(
         foreign_keys="Information.entity_id",
         lazy="raise_on_sql",

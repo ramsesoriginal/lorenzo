@@ -1,17 +1,19 @@
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import type {
+  BulkAssignResult,
   BulkResultItem,
   CatalogItem,
+  ContentsResult,
   EntityDetail,
+  HeldByResponse,
   ItemInstance,
   OwnedByResponse,
   PrototypeAncestor,
 } from './types';
 
-// Grouped by *direct* container only (ADR 0020's task brief) - a null
-// group for items with no container, one group per occupied container.
-// Not recursive: a container that's itself empty produces no group of its
-// own, but still appears as a card inside whichever group holds it.
+// What a being owns, grouped by *direct* container only (ADR 0020's task
+// brief) - a null group for items with no container, one group per occupied
+// container. Manage items' per-being listing; the board reads held-by.
 export async function getOwnedItemInstances(
   tenantId: string,
   ownerEntityId: string,
@@ -19,6 +21,21 @@ export async function getOwnedItemInstances(
   return unwrap(
     await client.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
       params: { path: { tenant_id: tenantId, owner_entity_id: ownerEntityId } },
+    }),
+  );
+}
+
+// Everything a being holds (ADR 0123), grouped by direct container: its own
+// group (Equipped) first and always, then what it carries, then what's held
+// elsewhere. A container with nothing in it gets no group of its own, but
+// still appears as a card inside whichever group holds it.
+export async function getHeldItemInstances(
+  tenantId: string,
+  holderEntityId: string,
+): Promise<HeldByResponse> {
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/item-instances/held-by/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: holderEntityId } },
     }),
   );
 }
@@ -35,23 +52,44 @@ export async function getUnownedItemInstances(tenantId: string): Promise<OwnedBy
   );
 }
 
+// A GM's "anyway" on a write: override (ADR 0128, 0129) moves or gives it past what
+// fits and what binds it; liftBinding (ADR 0129) also lifts its binding for good.
+export type AnywayFlags = Readonly<{ override?: boolean; liftBinding?: boolean }>;
+
+// The DELETEs have no body, so the flags go in the query, and only when set.
+function anywayQuery({ override = false, liftBinding = false }: AnywayFlags) {
+  return override || liftBinding
+    ? {
+        query: {
+          ...(override ? { override } : {}),
+          ...(liftBinding ? { lift_binding: true } : {}),
+        },
+      }
+    : {};
+}
+
 export async function setContainer(
   tenantId: string,
   entityId: string,
   containerEntityId: string,
+  { override = false, liftBinding = false }: AnywayFlags = {},
 ): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { container_entity_id: containerEntityId },
+      body: { container_entity_id: containerEntityId, override, lift_binding: liftBinding },
     }),
   );
 }
 
-export async function clearContainer(tenantId: string, entityId: string): Promise<void> {
+export async function clearContainer(
+  tenantId: string,
+  entityId: string,
+  flags: AnywayFlags = {},
+): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...anywayQuery(flags) },
     }),
   );
 }
@@ -66,11 +104,17 @@ export async function setOwner(
   entityId: string,
   ownerCharacterId: string,
   moveToOwner = false,
+  { override = false, liftBinding = false }: AnywayFlags = {},
 ): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { owner_character_id: ownerCharacterId, move_to_owner: moveToOwner },
+      body: {
+        owner_character_id: ownerCharacterId,
+        move_to_owner: moveToOwner,
+        override,
+        lift_binding: liftBinding,
+      },
     }),
   );
 }
@@ -78,10 +122,14 @@ export async function setOwner(
 // DELETE /item-instances/{id}/owner - clears ownership; an instance
 // doesn't have to have one (ItemInstanceCreate.owner_character_id is
 // optional too - see createItemInstance below).
-export async function unsetOwner(tenantId: string, entityId: string): Promise<void> {
+export async function unsetOwner(
+  tenantId: string,
+  entityId: string,
+  flags: AnywayFlags = {},
+): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/owner', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...anywayQuery(flags) },
     }),
   );
 }
@@ -264,6 +312,7 @@ export async function createItemInstance(
       params: { path: { tenant_id: tenantId } },
       body: {
         prototype_id: prototypeId,
+        override: false,
         ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
         ...(slug ? { slug } : {}),
       },
@@ -309,20 +358,51 @@ export async function mergeItemInstance(
 // BulkResultItem per input entry regardless of outcome. quantity given
 // (per entry) delegates server-side to split-with-owner instead of
 // reassigning the whole stack - lets a single call give part of one
-// player's stack away while the rest stays put.
+// player's stack away while the rest stays put. withContents gives what's
+// inside too, and dryRun only answers what would happen (ADR 0125).
 export async function bulkAssignItemInstances(
   tenantId: string,
-  items: { entityId: string; ownerCharacterId: string; quantity?: number; moveToOwner?: boolean }[],
-): Promise<BulkResultItem[]> {
+  items: ({
+    entityId: string;
+    ownerCharacterId: string;
+    quantity?: number;
+    moveToOwner?: boolean;
+    withContents?: boolean;
+  } & AnywayFlags)[],
+  { dryRun = false }: { dryRun?: boolean } = {},
+): Promise<BulkAssignResult[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-assign', {
-      params: { path: { tenant_id: tenantId } },
+      params: { path: { tenant_id: tenantId }, ...(dryRun ? { query: { dry_run: true } } : {}) },
       body: items.map((item) => ({
         entity_id: item.entityId,
         owner_character_id: item.ownerCharacterId,
         move_to_owner: item.moveToOwner ?? false,
+        with_contents: item.withContents ?? false,
+        override: item.override ?? false,
+        lift_binding: item.liftBinding ?? false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
+    }),
+  );
+}
+
+// POST /item-instances/{id}/give-contents (ADR 0125) - everything inside a
+// container, at any depth, not the container itself: one answer per thing,
+// given or kept by its owner. dryRun only answers what would happen.
+export async function giveContents(
+  tenantId: string,
+  entityId: string,
+  ownerCharacterId: string,
+  { dryRun = false }: { dryRun?: boolean } = {},
+): Promise<ContentsResult[]> {
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/{entity_id}/give-contents', {
+      params: {
+        path: { tenant_id: tenantId, entity_id: entityId },
+        ...(dryRun ? { query: { dry_run: true } } : {}),
+      },
+      body: { owner_character_id: ownerCharacterId, recursive: true },
     }),
   );
 }
@@ -339,6 +419,7 @@ export async function bulkMoveItemInstances(
   tenantId: string,
   toContainerEntityId: string,
   entityIds: string[],
+  { override = false, liftBinding = false }: AnywayFlags = {},
 ): Promise<BulkResultItem[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-move', {
@@ -346,6 +427,8 @@ export async function bulkMoveItemInstances(
       body: {
         to_container_entity_id: toContainerEntityId,
         items: entityIds.map((entityId) => ({ entity_id: entityId })),
+        override,
+        lift_binding: liftBinding,
       },
     }),
   );
