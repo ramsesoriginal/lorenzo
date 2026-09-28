@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { heldBoard, ownerMark, unownedBoard } from './boardColumns';
-import type { EntitySummary, HeldGroup, ItemInstance } from './types';
+import { controlledBoard, ownerMark, unownedBoard } from './boardColumns';
+import type { ControlledColumn, EntitySummary, ItemInstance } from './types';
 
 const entity = (id: string, name: string): EntitySummary => ({ id, name, quantity: null });
 
@@ -8,78 +8,130 @@ function item(id: string, owner: string | null): ItemInstance {
   return { entity_id: id, owner_entity_id: owner } as ItemInstance;
 }
 
-function group(
-  container: EntitySummary,
-  overrides: Partial<Omit<HeldGroup, 'container'>> = {},
-): HeldGroup {
+type ControlledItem = ControlledColumn['item_instances'][number];
+
+function controlledItem(id: string, owner: string | null): ControlledItem {
+  return { ...item(id, owner), visible_to_characters: true } as ControlledItem;
+}
+
+function column(
+  kind: ControlledColumn['kind'],
+  container: EntitySummary | null,
+  overrides: Partial<Omit<ControlledColumn, 'kind' | 'container'>> = {},
+): ControlledColumn {
   return {
+    kind,
     container,
-    container_kind: 'item_instance',
+    container_kind: container ? 'item_instance' : null,
     path: [],
-    carried: true,
+    carried: false,
+    contents_hidden: false,
     item_instances: [],
     ...overrides,
   };
 }
 
 const alice = entity('alice', 'Alice');
-const pia = entity('pia', 'Pia');
+const brisk = entity('brisk', 'Brisk');
 const backpack = entity('backpack', 'Backpack');
 const pouch = entity('pouch', 'Belt pouch');
-const carriage = entity('carriage', 'Carriage');
+const bag = entity('bag', 'Bag');
 const chest = entity('chest', 'Chest');
+const carriage = entity('carriage', 'Carriage');
 const stable = entity('stable', 'Stable');
-const tavern = entity('tavern', 'Tavern');
+const kase = entity('case', 'Case');
 
-describe('heldBoard', () => {
-  const board = heldBoard({
-    groups: [
-      group(alice, { container_kind: 'being', item_instances: [item('sword', 'alice')] }),
-      group(backpack),
-      group(pouch, { path: [backpack] }),
-      group(pia, { container_kind: 'being', carried: false, path: [tavern] }),
-      group(chest, { carried: false, path: [carriage, stable] }),
-    ],
-    owners: [alice, pia],
+describe('controlledBoard', () => {
+  const board = controlledBoard(
+    {
+      columns: [
+        column('equipped', alice, {
+          container_kind: 'being',
+          carried: true,
+          item_instances: [controlledItem('sword', 'alice')],
+        }),
+        column('not_carried', null),
+        column('container', backpack, { carried: true }),
+        column('container', pouch, { carried: true, path: [backpack] }),
+        column('container', bag, { carried: true, contents_hidden: true }),
+        column('container', chest),
+        column('container', carriage, { path: [stable] }),
+        column('read_only', brisk, { container_kind: 'being' }),
+        column('read_only', kase, { path: [brisk] }),
+        column('read_only', stable, { container_kind: 'other' }),
+      ],
+      owners: [alice, brisk],
+    },
+    'alice',
+  );
+
+  it('keeps the order controlled-by gives, Equipped and Not carried first', () => {
+    expect(board.columns.map((c) => c.title)).toEqual([
+      'Equipped',
+      'Not carried',
+      'Backpack',
+      'Belt pouch',
+      'Bag',
+      'Chest',
+      'Carriage',
+      'Brisk',
+      'Case',
+      'Stable',
+    ]);
+    expect(board.columns.filter((c) => c.fixed).map((c) => c.title)).toEqual([
+      'Equipped',
+      'Not carried',
+    ]);
   });
 
-  it('puts Equipped first, as somewhere to drop into the being', () => {
-    const [equipped] = board.carried;
+  it('drops into the being on Equipped, out of every container on Not carried', () => {
+    const [equipped, notCarried] = board.columns;
     expect(equipped).toMatchObject({
       key: 'alice',
+      droppable: true,
       dropTarget: 'alice',
-      title: 'Equipped',
-      note: null,
       empty: 'Nothing equipped.',
     });
     expect(equipped?.items.map((i) => i.entity_id)).toEqual(['sword']);
+    expect(notCarried).toMatchObject({ key: 'loose', droppable: true, dropTarget: null });
   });
 
-  it('says where a nested carried container is', () => {
-    expect(board.carried.map((c) => [c.title, c.note])).toEqual([
+  it('drops into a container, and not into a read-only column', () => {
+    const byTitle = new Map(board.columns.map((c) => [c.title, c]));
+    expect(byTitle.get('Backpack')).toMatchObject({ droppable: true, dropTarget: 'backpack' });
+    expect(byTitle.get('Case')).toMatchObject({ droppable: false, dropTarget: null });
+  });
+
+  it('says where each container is', () => {
+    expect(board.columns.map((c) => [c.title, c.note])).toEqual([
       ['Equipped', null],
+      ['Not carried', null],
       ['Backpack', null],
       ['Belt pouch', 'In Backpack'],
+      ['Bag', null],
+      ['Chest', 'Not carried'],
+      ['Carriage', 'In Stable'],
+      ['Brisk', 'Brisk has these'],
+      ['Case', 'In Brisk'],
+      // A place isn't carried or not; it just is.
+      ['Stable', null],
     ]);
   });
 
-  it('keeps what is held elsewhere apart, saying where it is or who has it', () => {
-    expect(board.elsewhere.map((c) => [c.title, c.note])).toEqual([
-      ['Pia', 'Pia has these, in Tavern'],
-      ['Chest', 'In Carriage, in Stable'],
-    ]);
+  it('passes on when a column holds more than it lists', () => {
+    const hidden = board.columns.filter((c) => c.contentsHidden).map((c) => c.title);
+    expect(hidden).toEqual(['Bag']);
   });
 
-  it("names a holder that isn't a being by its own name", () => {
-    const company = entity('company', 'The Company');
-    const groupBoard = heldBoard({
-      groups: [group(company, { container_kind: 'other' })],
-      owners: [],
-    });
-    expect(groupBoard.carried[0]?.title).toBe('The Company');
-    // Nothing goes *into* a group: dropping on its column takes a card out of every container.
-    expect(groupBoard.carried[0]?.dropTarget).toBeNull();
+  it("has no Equipped on a group's board, and knows whose board it is", () => {
+    const groupBoard = controlledBoard(
+      { columns: [column('not_carried', null)], owners: [] },
+      'company',
+    );
+    expect(groupBoard.columns.map((c) => c.title)).toEqual(['Not carried']);
+    expect(groupBoard.holderId).toBe('company');
     expect(groupBoard.holderIsBeing).toBe(false);
+    expect(board.holderIsBeing).toBe(true);
   });
 });
 
@@ -91,31 +143,32 @@ describe('unownedBoard', () => {
         { container: null, item_instances: [] },
       ],
     });
-    expect(board.carried.map((c) => [c.key, c.dropTarget, c.title])).toEqual([
+    expect(board.columns.map((c) => [c.key, c.dropTarget, c.title])).toEqual([
       ['loose', null, 'Unowned'],
       ['chest', 'chest', 'Chest'],
     ]);
+    expect(board.columns.some((c) => c.fixed)).toBe(false);
     expect(board.holderId).toBeNull();
   });
 });
 
 describe('ownerMark', () => {
-  const board = heldBoard({
-    groups: [group(alice, { container_kind: 'being' })],
-    owners: [alice, pia],
-  });
+  const board = controlledBoard(
+    { columns: [column('equipped', alice, { container_kind: 'being' })], owners: [alice, brisk] },
+    'alice',
+  );
 
   it("marks a group's things with the group's name", () => {
     const company = entity('company', 'The Company');
-    const withCompany = heldBoard({
-      groups: [group(alice, { container_kind: 'being' })],
-      owners: [alice, company],
-    });
+    const withCompany = controlledBoard(
+      { columns: [column('equipped', alice)], owners: [alice, company] },
+      'alice',
+    );
     expect(ownerMark(item('rope', 'company'), withCompany)).toBe("The Company's");
   });
 
   it("marks someone else's things, and unowned ones", () => {
-    expect(ownerMark(item('potion', 'pia'), board)).toBe("Pia's");
+    expect(ownerMark(item('potion', 'brisk'), board)).toBe("Brisk's");
     expect(ownerMark(item('map', null), board)).toBe("No one's");
     expect(ownerMark(item('coin', 'stranger'), board)).toBe("Someone else's");
   });

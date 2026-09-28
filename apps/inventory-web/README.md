@@ -8,10 +8,11 @@ static Astro app) and [docs/guides/adding-an-app.md](../../docs/guides/adding-an
 ## What it does
 
 After logging in via Authgear and picking a tenant, a character's inventory
-renders as a kanban-style board of everything they hold ([ADR
-0123](../../docs/adr/0123-held-by-listing-and-the-equipped-column.md)):
-Equipped first and always, then each container they carry, then what's
-held elsewhere. Cards are item instances, dragged between columns to move
+renders as a kanban-style board of everything they control ([ADR
+0131](../../docs/adr/0131-the-board-on-controlled-by.md)): Equipped and Not
+carried first and always, then a column for every container they control,
+empty ones included, then read-only columns for whatever else holds
+something of theirs. Cards are item instances, dragged between columns to move
 them, and a card that isn't the character's own names its owner. The groups
 your characters belong to have boards of their own, and can be given things
 ([ADR 0124](../../docs/adr/0124-groups-own-things-and-moving-is-not-giving.md)). Clicking a card
@@ -26,8 +27,12 @@ From that detail view, or when multiple cards are multi-selected:
   tenant's characters, a GM any being. **Hand it over** to take it out of its
   container and into their hands too; otherwise it stays where it is, theirs
   now ([ADR 0115](../../docs/adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md))
-- **Move** it between containers, or out of them and into the character's own
-  hands: a stack keeps its count
+- **Move** it between containers, or into the character's own hands (Equipped):
+  a stack keeps its count, and joins an identical one already there ([ADR
+  0133](../../docs/adr/0133-merging-what-is-identical.md))
+- **Set it down**, out of every container, into Not carried: a stack becomes
+  single items, after asking ([ADR
+  0132](../../docs/adr/0132-setting-things-down.md))
 - **Note** it: add, edit, or delete notes, in LorenzoScript. A note is private
   to the character that owns the item (and the campaign's GMs) unless
   "Everyone can read this"; the item page shows them too

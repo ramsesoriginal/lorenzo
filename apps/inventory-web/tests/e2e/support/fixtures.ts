@@ -1,12 +1,13 @@
 // The tests' fixtures (ADR 0114): a fresh world, and browser pages logged in as its people
 // through the app's own login button and the fake Authgear.
 import { type BrowserContext, test as base, expect, type Page } from '@playwright/test';
+import { ok } from './api.ts';
 import { AUTHGEAR_URL, SUBJECT_COOKIE } from './env.ts';
 import { buildWorld, type Person, type World } from './world.ts';
 
 type Fixtures = {
   world: World;
-  /** A new browser, logged in as `person`, on the home page. */
+  /** A new browser, logged in as `person`: on the home page, or a lone library's board. */
   as: (person: Person) => Promise<Page>;
 };
 
@@ -27,6 +28,10 @@ export const test = base.extend<Fixtures>({
       await page.goto('/');
       await page.getByRole('button', { name: 'Log in' }).click();
       await expect(page.getByText('Signed in as')).toBeVisible();
+      // Home opens a lone library's board by itself. Let that land before a test navigates
+      // on its own, or the two navigations race and one is aborted.
+      const tenants = await ok(person.api.GET('/tenants'));
+      if (tenants.items.length === 1) await page.waitForURL('**/board/**');
       return page;
     });
     await Promise.all(contexts.map((context) => context.close()));

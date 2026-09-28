@@ -2,7 +2,14 @@
  * Domain-specific structural layout only - the page shell, brand lockup,
  * and shared spacing rhythm all come from @lorenzo/brand's own layout.css
  * now (linked in src/layouts/Base.astro), and so does the board's row of
- * columns (.grid.full-width.h-scroll). Nothing here is local to this app
- * right now; a layout that genuinely is goes here, not into the brand
- * (ADR 0098's "don't generalize before a second consumer needs it" rule).
+ * columns (.grid.full-width.h-scroll). What's here is genuinely local to
+ * this app's screens (ADR 0098's "don't generalize before a second consumer
+ * needs it" rule).
  */
+
+/* Room above and below the board's row: a scrolling row clips what overflows
+   it, and Equipped's and Not carried's glow-canonical halo (ADR 0131) reaches
+   past the column's edge. */
+.board-row {
+  padding-block: var(--space-3);
+}

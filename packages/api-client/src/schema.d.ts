@@ -2585,6 +2585,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/item-instances/controlled-by/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Item Instances Controlled By
+         * @description What entity_id's board shows (ADR 0130, RFC 0031): a being's or a
+         *     group's Controlled item instances, as columns - Equipped for a being,
+         *     Not carried, every controlled container, and read-only columns for
+         *     whatever else holds something of theirs. controlled.py has the rules;
+         *     this walks, loads, names, and orders.
+         *
+         *     Access is held-by's: an entity the caller doesn't reach is a 404, the
+         *     same as one that doesn't exist. Within it, Controlled decides what's
+         *     listed, not ADR 0040's owner reach: what the being doesn't know about
+         *     is visible_to_characters' to hide, once knowledge backs it.
+         */
+        get: operations["list_item_instances_controlled_by"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/item-instances/unowned": {
         parameters: {
             query?: never;
@@ -2675,7 +2704,9 @@ export interface paths {
          * Delete Item Instance
          * @description A cascade delete - an instance has nothing else depending on it the
          *     way a base item does (ADR 0018) - except for what's inside it, which
-         *     moves out to where it was first (ADR 0128), keeping its counts.
+         *     moves out to where it was first (ADR 0128), keeping its counts. From a
+         *     container in none, that's out of every container (ADR 0132): a stack
+         *     there refuses the delete unless `split` sets it down as single items.
          */
         delete: operations["delete_item_instance"];
         options?: never;
@@ -2737,14 +2768,15 @@ export interface paths {
         post?: never;
         /**
          * Clear Item Instance Container
-         * @description Takes it out of every container. Refused for a stack of more than one
-         *     (409, ADR 0115): its count lives on the containment row (ADR 0041), so
-         *     deleting the row would drop it. A stack leaves a container into its
-         *     owner instead, with PUT .../container.
+         * @description Takes it out of every container: sets it down (ADR 0132). A stack of
+         *     more than one is refused (409, ADR 0115) - its count lives on the
+         *     containment row (ADR 0041), so deleting the row would drop it - unless
+         *     `split`, which sets it down as that many single items, this one keeping
+         *     its id.
          *
          *     Refused too when it takes a bound thing out of what binds it (ADR 0129);
-         *     `override` and `lift_binding` are query parameters here, with no body to
-         *     carry them.
+         *     `override`, `lift_binding` and `split` are query parameters here, with no
+         *     body to carry them.
          */
         delete: operations["clear_item_instance_container"];
         options?: never;
@@ -3462,6 +3494,11 @@ export interface components {
              * @default false
              */
             lift_binding: boolean;
+            /**
+             * Merge Identical
+             * @default false
+             */
+            merge_identical: boolean;
         };
         /**
          * BulkMoveItem
@@ -3485,7 +3522,8 @@ export interface components {
          *     for every resolved item regardless of outcome (ADR 0065: never
          *     all-or-nothing). Exactly one of item_instance/problem is set, matching
          *     status - the identical shape `BulkAssignResultItem` already
-         *     established.
+         *     established. `item_instance` is where it ended up: itself, or, with
+         *     merge_identical, the instance it merged into (ADR 0133).
          */
         BulkMoveResultItem: {
             /**
@@ -4048,6 +4086,112 @@ export interface components {
             name: string;
             /** Mode */
             mode: ("copied" | "merged") | null;
+        };
+        /**
+         * ControlledByResponse
+         * @description GET .../item-instances/controlled-by/{entity_id} (ADR 0130): a being's
+         *     or a group's board. Equipped (beings only) and not_carried first and
+         *     always, then containers, carried ones first, then read-only columns.
+         *     `owners` names every owner of a listed item once. Not paginated, like
+         *     held-by.
+         */
+        ControlledByResponse: {
+            /** Columns */
+            columns: components["schemas"]["ControlledColumnOut"][];
+            /** Owners */
+            owners: components["schemas"]["EntitySummary"][];
+        };
+        /**
+         * ControlledColumnOut
+         * @description One column of a board (ADR 0130). `container` is null only for
+         *     not_carried. `path` is the containers around it, nearest first, by
+         *     containment alone; a carried column's stops short of the being.
+         *     `contents_hidden`: its container directly holds something this column
+         *     doesn't list.
+         */
+        ControlledColumnOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "equipped" | "not_carried" | "container" | "read_only";
+            container: components["schemas"]["EntitySummary"] | null;
+            /** Container Kind */
+            container_kind: ("being" | "item_instance" | "other") | null;
+            /** Path */
+            path: components["schemas"]["EntitySummary"][];
+            /** Carried */
+            carried: boolean;
+            /** Contents Hidden */
+            contents_hidden: boolean;
+            /** Item Instances */
+            item_instances: components["schemas"]["ControlledItemInstanceOut"][];
+        };
+        /**
+         * ControlledItemInstanceOut
+         * @description An item on a board (ADR 0130): ItemInstanceOut, plus whether the
+         *     being or group the board is for knows it's there. Always true until
+         *     knowledge backs it (RFC 0031 §4).
+         */
+        ControlledItemInstanceOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Title */
+            title: string;
+            /** Weight */
+            weight: number | null;
+            /** Height */
+            height: number | null;
+            /** Price */
+            price: number | null;
+            /** Rarity */
+            rarity: number | null;
+            /** Hp */
+            hp: number | null;
+            /** Armor */
+            armor: number | null;
+            /** Container Entity Id */
+            container_entity_id: string | null;
+            /** Quantity */
+            quantity: number | null;
+            /** Prototype Ids */
+            prototype_ids: string[];
+            /** Is Container */
+            is_container: boolean | null;
+            /** Descriptions */
+            descriptions: components["schemas"]["DescriptionOut"][];
+            /** Pictures */
+            pictures: components["schemas"]["PictureRefOut"][];
+            /** Physical Stats */
+            physical_stats: components["schemas"]["StatValueOut"][];
+            /** Economic Stats */
+            economic_stats: components["schemas"]["StatValueOut"][];
+            /** Destroyable Stats */
+            destroyable_stats: components["schemas"]["StatValueOut"][];
+            /** Damaging Stats */
+            damaging_stats: components["schemas"]["StatValueOut"][];
+            /** Tags */
+            tags: components["schemas"]["TagValueOut"][];
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Owner Entity Id */
+            owner_entity_id: string | null;
+            /** Slug */
+            slug: string | null;
+            /** Bound */
+            bound: boolean;
+            /** Visible To Characters */
+            visible_to_characters: boolean;
         };
         /**
          * CopyOut
@@ -6163,6 +6307,8 @@ export interface components {
          * @description PUT /item-instances/{id}/container body. `override` (ADR 0128,
          *     0129): the item's GM moves it anyway, past capacity and binding.
          *     `lift_binding` (ADR 0129): and lifts its binding for good.
+         *     `merge_identical` (ADR 0133): it merges into an identical instance
+         *     already directly there, and the answer is that instance.
          */
         SetContainerRequest: {
             /**
@@ -6180,6 +6326,11 @@ export interface components {
              * @default false
              */
             lift_binding: boolean;
+            /**
+             * Merge Identical
+             * @default false
+             */
+            merge_identical: boolean;
         };
         /**
          * SetEntityStatRequest
@@ -15804,6 +15955,72 @@ export interface operations {
             };
         };
     };
+    list_item_instances_controlled_by: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlledByResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_unowned_item_instances: {
         parameters: {
             query?: never;
@@ -16003,7 +16220,9 @@ export interface operations {
     };
     delete_item_instance: {
         parameters: {
-            query?: never;
+            query?: {
+                split?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -16359,6 +16578,7 @@ export interface operations {
             query?: {
                 override?: boolean;
                 lift_binding?: boolean;
+                split?: boolean;
             };
             header?: {
                 "if-match"?: string | null;

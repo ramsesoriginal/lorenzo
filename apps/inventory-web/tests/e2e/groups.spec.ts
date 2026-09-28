@@ -30,7 +30,9 @@ test("a member opens the group's board from the list", async ({ world, as }) => 
   await entry.getByRole('link', { name: 'The Company' }).click();
 
   await expect(page.getByText('Viewing what The Company holds.')).toBeVisible();
-  await expect(card(page, 'The Company', 'Backpack')).toBeVisible();
+  // A group carries nothing (ADR 0124): what it owns in no container is Not carried.
+  await expect(column(page, 'Equipped')).toHaveCount(0);
+  await expect(card(page, 'Not carried', 'Backpack')).toBeVisible();
   await expect(card(page, 'Backpack', 'Arrow')).toBeVisible();
   await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}&group=${company}`);
 });

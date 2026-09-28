@@ -21,7 +21,10 @@ async function piasBoard(as: (who: Person) => Promise<Page>, world: World, who: 
 const card = (page: Page, in_: string, name: string) =>
   page.getByRole('region', { name: in_ }).getByRole('button', { name, exact: true });
 
-/** Ashfang's Backpack can carry 1, and already holds a Spellbook (2); an Anvil (50) waits. */
+/**
+ * Ashfang's Backpack can carry 1, and already holds a Spellbook (2); an Anvil (50) waits,
+ * his but not carried.
+ */
 async function overloaded(world: World) {
   const { backpack } = await packed(world, world.pia);
   await world.setStat(backpack, 'carry_capacity', 1);
@@ -30,7 +33,7 @@ async function overloaded(world: World) {
 }
 
 async function moveAnvilIntoBackpack(page: Page) {
-  await card(page, 'Equipped', 'Anvil').click();
+  await card(page, 'Not carried', 'Anvil').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Backpack', exact: true }).click();
 }
