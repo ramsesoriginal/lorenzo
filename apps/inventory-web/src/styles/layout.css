@@ -1,38 +1,8 @@
 /*
  * Domain-specific structural layout only - the page shell, brand lockup,
  * and shared spacing rhythm all come from @lorenzo/brand's own layout.css
- * now (linked in src/layouts/Base.astro). These three grids are genuinely
- * local to this app's board/catalog screens (ADR 0098's "don't generalize
- * before a second consumer needs it" rule).
+ * now (linked in src/layouts/Base.astro), and so does the board's row of
+ * columns (.grid.full-width.h-scroll). Nothing here is local to this app
+ * right now; a layout that genuinely is goes here, not into the brand
+ * (ADR 0098's "don't generalize before a second consumer needs it" rule).
  */
-
-.tenant-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-
-.character-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-/* A being's board: what it carries, then what it holds elsewhere (ADR 0123). */
-.board-rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.board-columns {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 300px);
-  gap: var(--space-3);
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-bottom: var(--space-2);
-}

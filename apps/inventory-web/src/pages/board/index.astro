@@ -1,125 +1,128 @@
 ---
 import Base from '../../layouts/Base.astro';
+import ItemDesignDialog from '../../components/ItemDetailDialog.astro';
+import BoardColumn from '../../components/BoardColumn.astro';
+import BoardColumnItem from '../../components/BoardColumnItem.astro';
+import HolderListItem from '../../components/HolderListItem.astro';
 ---
 
 <Base title="Board — Lorenzo">
-  <p><a href="/">&larr; Tenants</a></p>
   <p id="status">Loading&hellip;</p>
   <div id="board" hidden>
     <h1 class="display" id="tenant-name"></h1>
-    <p id="tenant-slug" class="tenant-slug"></p>
-    <p id="catalog-links" hidden><a id="catalog-link" href="">Catalog</a></p>
 
-    <section id="picker-section" class="section">
-      <div
-        id="picker-tablist"
-        class="tabs"
-        role="tablist"
-        aria-label="Whose inventory to view"
-        hidden
-      >
-        <button
-          type="button"
-          id="tab-characters"
-          class="tab"
-          role="tab"
-          aria-selected="true"
-          aria-controls="panel-characters"
-        >
-          Your characters
-        </button>
-        <button
-          type="button"
-          id="tab-browse"
-          class="tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-browse"
+    <div class="stack">
+      <section id="picker-section" class="section stack">
+        <div
+          id="picker-tablist"
+          class="tabs"
+          role="tablist"
+          aria-label="Whose inventory to view"
           hidden
         >
-          Browse a being
-        </button>
-        <button
-          type="button"
-          id="tab-unowned"
-          class="tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-unowned"
+          <button
+            type="button"
+            id="tab-characters"
+            class="tab"
+            role="tab"
+            aria-selected="true"
+            aria-controls="panel-characters"
+          >
+            Your characters
+          </button>
+          <button
+            type="button"
+            id="tab-browse"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-browse"
+            hidden
+          >
+            Browse a being
+          </button>
+          <button
+            type="button"
+            id="tab-unowned"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-unowned"
+            hidden
+          >
+            Unowned items
+          </button>
+        </div>
+
+        <div
+          id="panel-characters"
+          class="tab-panel stack"
+          role="tabpanel"
+          aria-labelledby="tab-characters"
+        >
+          <p id="characters-loading">Loading characters&hellip;</p>
+          <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
+          <p id="characters-error" class="error-text" hidden></p>
+          <ul id="character-strip" class="list" aria-label="Your characters and groups"></ul>
+        </div>
+
+        <div
+          id="panel-browse"
+          class="tab-panel card card-body"
+          role="tabpanel"
+          aria-labelledby="tab-browse"
           hidden
         >
-          Unowned items
-        </button>
-      </div>
-
-      <div id="panel-characters" class="tab-panel" role="tabpanel" aria-labelledby="tab-characters">
-        <p id="characters-loading">Loading characters&hellip;</p>
-        <p id="characters-empty" hidden>You don't have a character in this tenant yet.</p>
-        <p id="characters-error" class="error-text" hidden></p>
-        <ul id="character-strip" class="character-strip"></ul>
-        <p id="groups-heading" class="field-note" hidden>Your groups</p>
-        <ul id="group-strip" class="character-strip" aria-labelledby="groups-heading" hidden></ul>
-      </div>
-
-      <div id="panel-browse" class="tab-panel" role="tabpanel" aria-labelledby="tab-browse" hidden>
-        <div class="field">
-          <span class="field-label" id="gm-browse-label">Search beings</span>
-          <div class="combobox" id="gm-browse-combobox">
+          <div class="field">
+            <label class="field-label" id="gm-browse-label" for="gm-browse-search"
+              >Search beings</label
+            >
+            <div class="combobox" id="gm-browse-combobox">
+              <input
+                type="text"
+                id="gm-browse-search"
+                class="text-input"
+                placeholder="Search beings…"
+                autocomplete="off"
+                role="combobox"
+                aria-expanded="false"
+                aria-controls="gm-browse-suggestions"
+                aria-labelledby="gm-browse-label"
+              />
+              <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden>
+              </ul>
+            </div>
+          </div>
+          <div class="being-id-row">
             <input
               type="text"
-              id="gm-browse-search"
+              id="gm-browse-raw-id"
               class="text-input"
-              placeholder="Search beings…"
-              autocomplete="off"
-              role="combobox"
-              aria-expanded="false"
-              aria-controls="gm-browse-suggestions"
-              aria-labelledby="gm-browse-label"
+              placeholder="or a being's entity id…"
+              aria-label="Being's entity id"
             />
-            <ul id="gm-browse-suggestions" class="combobox-suggestions" role="listbox" hidden></ul>
+            <button type="button" id="gm-browse-raw-id-button">View</button>
           </div>
         </div>
-        <div class="being-id-row">
-          <input
-            type="text"
-            id="gm-browse-raw-id"
-            class="text-input"
-            placeholder="or a being's entity id…"
-            aria-label="Being's entity id"
-          />
-          <button type="button" id="gm-browse-raw-id-button">View</button>
+
+        <div
+          id="panel-unowned"
+          class="tab-panel"
+          role="tabpanel"
+          aria-labelledby="tab-unowned"
+          hidden
+        >
         </div>
-      </div>
+      </section>
 
-      <div
-        id="panel-unowned"
-        class="tab-panel"
-        role="tabpanel"
-        aria-labelledby="tab-unowned"
-        hidden
-      >
-        <p class="field-note">Items nobody currently owns.</p>
-      </div>
-    </section>
-
-    <p id="undo-banner" class="next-up" hidden>
-      <span id="undo-message"></span>
-      <button type="button" id="undo-button">Undo</button>
-    </p>
+      <p id="undo-banner" class="next-up" hidden>
+        <span id="undo-message"></span>
+        <button type="button" id="undo-button">Undo</button>
+      </p>
+    </div>
 
     <section id="inventory" class="section">
       <p id="inventory-viewing" class="next-up" hidden></p>
-
-      <div class="board-toolbar">
-        <input
-          type="search"
-          id="board-search"
-          class="text-input"
-          placeholder="Search this inventory…"
-          aria-label="Search this inventory"
-        />
-        <button type="button" id="select-mode-button">Select items</button>
-      </div>
 
       <div id="selection-toolbar" class="selection-toolbar" hidden>
         <span id="selection-count"></span>
@@ -130,42 +133,25 @@ import Base from '../../layouts/Base.astro';
 
       <p id="inventory-empty" class="next-up" hidden></p>
       <p id="inventory-error" class="error-text" hidden></p>
-      <div id="board-columns" class="board-rows"></div>
+      <div id="board-columns" class="grid full-width h-scroll" style="--grid-min: 260px"></div>
+
+      <section class="board-toolbar card card-body">
+        <input
+          type="search"
+          id="board-search"
+          class="text-input"
+          placeholder="Search this inventory…"
+          aria-label="Search this inventory"
+        />
+        <button type="button" id="select-mode-button">Select items</button>
+      </section>
     </section>
   </div>
 
-  <dialog id="item-detail" class="item-detail" aria-labelledby="item-detail-title">
-    <div class="item-detail-content">
-      <button type="button" id="item-detail-close" class="item-detail-close" aria-label="Close"
-        >&times;</button
-      >
-      <h2 id="item-detail-title" class="display"></h2>
-      <p id="item-detail-slug" class="item-detail-slug" hidden></p>
-      <p id="item-detail-qty" class="item-detail-qty" hidden></p>
-      <p id="item-detail-bound" class="item-detail-bound" hidden>Bound to its owner</p>
-      <div id="item-detail-view" class="item-view"></div>
-      <div id="item-detail-ancestry" class="item-detail-ancestry" hidden>
-        <h3>Ancestry</h3>
-        <ul id="item-detail-ancestry-list"></ul>
-      </div>
-      <section class="item-detail-notes" aria-labelledby="item-detail-notes-heading">
-        <h3 id="item-detail-notes-heading">Notes</h3>
-        <div id="item-detail-notes"></div>
-      </section>
-      <a id="item-detail-view-link" class="btn btn-secondary" href="">View standalone page</a>
-
-      <div class="item-detail-actions">
-        <button type="button" id="item-detail-give-button">Give to&hellip;</button>
-        <button type="button" id="item-detail-give-contents-button" hidden
-          >Give what's inside&hellip;</button
-        >
-        <button type="button" id="item-detail-move-button">Move to&hellip;</button>
-        <button type="button" id="item-detail-split-button">Split&hellip;</button>
-        <button type="button" id="item-detail-merge-button">Merge into&hellip;</button>
-      </div>
-      <div id="item-detail-action-panel"></div>
-    </div>
-  </dialog>
+  <ItemDesignDialog />
+  <BoardColumn />
+  <BoardColumnItem />
+  <HolderListItem />
 
   <script>
     import { fetchAncestryTree } from '../../lib/ancestryTree';
@@ -239,14 +225,11 @@ import Base from '../../layouts/Base.astro';
     const status = document.getElementById('status')!;
     const board = document.getElementById('board')!;
     const tenantName = document.getElementById('tenant-name')!;
-    const tenantSlug = document.getElementById('tenant-slug')!;
 
     const charactersLoading = document.getElementById('characters-loading')!;
     const charactersEmpty = document.getElementById('characters-empty')!;
     const charactersError = document.getElementById('characters-error')!;
     const characterStrip = document.getElementById('character-strip')!;
-    const groupsHeading = document.getElementById('groups-heading')!;
-    const groupStrip = document.getElementById('group-strip')!;
 
     const undoBanner = document.getElementById('undo-banner')!;
     const undoMessage = document.getElementById('undo-message')!;
@@ -1056,7 +1039,7 @@ import Base from '../../layouts/Base.astro';
 
     function setCardSelected(card: HTMLLIElement, selected: boolean) {
       card.classList.toggle('item-card--selected', selected);
-      card.querySelector('.item-card-open')?.setAttribute('aria-pressed', String(selected));
+      card.setAttribute('aria-pressed', String(selected));
       const entityId = card.dataset.entityId;
       if (!entityId) return;
       if (selected) selectedIds.add(entityId);
@@ -1078,9 +1061,9 @@ import Base from '../../layouts/Base.astro';
       selectModeButton.textContent = on ? 'Cancel selecting' : 'Select items';
       selectModeButton.setAttribute('aria-pressed', String(on));
       if (!on) clearSelection();
-      for (const open of boardColumns.querySelectorAll('.item-card-open')) {
-        if (on) open.setAttribute('aria-pressed', 'false');
-        else open.removeAttribute('aria-pressed');
+      for (const card of boardColumns.querySelectorAll('.item-card')) {
+        if (on) card.setAttribute('aria-pressed', 'false');
+        else card.removeAttribute('aria-pressed');
       }
     }
 
@@ -1300,16 +1283,33 @@ import Base from '../../layouts/Base.astro';
       return !query || item.title.toLowerCase().includes(query);
     }
 
+    // A fresh copy of one of the page's <template>s (src/components).
+    function fromTemplate(id: string): DocumentFragment {
+      const template = document.querySelector<HTMLTemplateElement>(`#${id}`);
+      if (!template) {
+        throw new Error(`Template #${id} not found`);
+      }
+      return template.content.cloneNode(true) as DocumentFragment;
+    }
+
     function renderCard(item: ItemInstance): HTMLLIElement {
-      const li = document.createElement('li');
-      li.className = 'item-card';
+      const fragment = fromTemplate('boardColumnItem');
+
+      const li = fragment.querySelector<HTMLLIElement>('li')!;
+      const name = fragment.querySelector<HTMLSpanElement>('[data-name]')!;
+      const container = fragment.querySelector<HTMLSpanElement>('[data-container]')!;
+      const count = fragment.querySelector<HTMLSpanElement>('[data-count]')!;
+      const ownerMarkField = fragment.querySelector<HTMLSpanElement>('[data-owner-mark]')!;
+      const bound = fragment.querySelector<HTMLSpanElement>('[data-bound]')!;
+
       li.draggable = true;
       li.dataset.entityId = item.entity_id;
       li.style.viewTransitionName = `item-${item.entity_id}`;
       if (item.is_container) {
-        li.classList.add('item-card--container');
+        container.hidden = false;
       }
       li.hidden = !matchesSearch(item, boardSearch.value.trim().toLowerCase());
+      if (selectMode) li.setAttribute('aria-pressed', 'false');
 
       li.addEventListener('dragstart', (event) => {
         event.dataTransfer?.setData('text/plain', item.entity_id);
@@ -1318,55 +1318,54 @@ import Base from '../../layouts/Base.astro';
         }
       });
 
-      // A button, so a card opens (or, while selecting, toggles) from the keyboard too.
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'item-card-open';
-      if (selectMode) open.setAttribute('aria-pressed', 'false');
-      open.addEventListener('click', () => {
+      name.textContent = item.title;
+
+      const activateItem = () => {
         if (selectMode) {
           setCardSelected(li, !li.classList.contains('item-card--selected'));
           return;
         }
+
         openDetail(item, li);
+      };
+
+      li.addEventListener('click', activateItem);
+
+      li.addEventListener('keydown', (event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault(); // prevents Space from scrolling the page
+          activateItem();
+        }
       });
 
-      const title = document.createElement('span');
-      title.className = 'item-card-title';
-      title.textContent = item.title;
-      open.append(title);
-
       if (item.quantity && item.quantity > 1) {
-        const qty = document.createElement('span');
-        qty.className = 'item-card-qty';
-        qty.textContent = `×${item.quantity}`;
-        open.append(' ', qty);
+        count.hidden = false;
+        count.textContent = `×${item.quantity}`;
       }
 
       // Whose it is, when it isn't the board's being's own (ADR 0123).
       const mark = currentBoard ? ownerMark(item, currentBoard) : null;
       if (mark) {
-        const owner = document.createElement('span');
-        owner.className = 'item-card-owner';
-        owner.textContent = mark;
-        open.append(' ', owner);
+        ownerMarkField.hidden = false;
+        ownerMarkField.textContent = mark;
       }
 
       // Bound to its owner (ADR 0129).
-      if (item.bound) {
-        const bound = document.createElement('span');
-        bound.className = 'item-card-bound';
-        bound.textContent = 'Bound';
-        open.append(' ', bound);
-      }
+      bound.hidden = !item.bound;
 
-      li.append(open);
       return li;
     }
 
-    function renderColumn(column: BoardColumn): HTMLElement {
-      const section = document.createElement('section');
-      section.className = 'board-column';
+    // `elsewhere`: a column the board's being doesn't carry (ADR 0123). It shares the one
+    // row with what it does, so its note is marked apart, and says "Held elsewhere" when
+    // there's nothing more particular to say.
+    function renderColumn(column: BoardColumn, elsewhere: boolean): HTMLElement {
+      const fragment = fromTemplate('boardColumn');
+
+      const section = fragment.querySelector<HTMLElement>('[data-column]')!;
+      const nameField = fragment.querySelector<HTMLHeadingElement>('[data-name]')!;
+      const noteField = fragment.querySelector<HTMLSpanElement>('[data-note]')!;
+      const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
 
       if (column.dropTarget !== null) {
         // "Move to…" offers it under the column's own title: Equipped, not the being's name.
@@ -1378,21 +1377,18 @@ import Base from '../../layouts/Base.astro';
       }
 
       // Named by its heading, so each column is a region a reader can find.
-      const heading = document.createElement('h3');
-      heading.id = `column-${column.key}`;
-      heading.textContent = column.title;
-      section.setAttribute('aria-labelledby', heading.id);
-      section.append(heading);
+      nameField.id = `column-${column.key}`;
+      nameField.textContent = column.title;
+      section.setAttribute('aria-labelledby', nameField.id);
 
-      if (column.note) {
-        const note = document.createElement('p');
-        note.className = 'board-column-note';
-        note.textContent = column.note;
-        section.append(note);
+      // Where its container is: "In Backpack", "Pia has these".
+      const note = column.note ?? (elsewhere ? 'Held elsewhere' : null);
+      if (note) {
+        noteField.hidden = false;
+        noteField.textContent = note;
+        noteField.classList.add(elsewhere ? 'pill-warning' : 'pill-success');
       }
 
-      const list = document.createElement('ul');
-      list.className = 'column-cards';
       list.dataset.empty = column.empty;
       if (column.items.length === 0) {
         ensurePlaceholder(list);
@@ -1402,43 +1398,31 @@ import Base from '../../layouts/Base.astro';
           list.append(renderCard(item));
         }
       }
-      section.append(list);
 
       bindDropZone(section, list, column.dropTarget);
 
       return section;
     }
 
-    function renderRow(columns: BoardColumn[]): HTMLElement {
-      const row = document.createElement('div');
-      row.className = 'board-columns';
-      row.append(...columns.map(renderColumn));
-      return row;
-    }
-
-    // A couple of fake columns/cards shaped like the real thing, shown
-    // while the actual board loads - see the styles/normalize.css [hidden]
-    // fix and components.css .skeleton for why this works at all now.
+    // A couple of fake columns/cards shaped like the real thing - the same column
+    // template, without its heading - shown while the actual board loads. See the
+    // styles/normalize.css [hidden] fix and components.css .skeleton for why this works.
     function renderBoardSkeleton() {
       boardColumns.setAttribute('aria-busy', 'true');
-      const row = document.createElement('div');
-      row.className = 'board-columns';
-      row.append(
+      boardColumns.replaceChildren(
         ...Array.from({ length: 2 }, () => {
-          const section = document.createElement('section');
-          section.className = 'board-column';
-          const list = document.createElement('ul');
-          list.className = 'column-cards';
+          const fragment = fromTemplate('boardColumn');
+          const section = fragment.querySelector<HTMLElement>('[data-column]')!;
+          fragment.querySelector('[data-name]')!.parentElement!.remove();
+          const list = fragment.querySelector<HTMLUListElement>('[data-items]')!;
           for (let i = 0; i < 3; i++) {
             const li = document.createElement('li');
             li.className = 'item-card skeleton';
             list.append(li);
           }
-          section.append(list);
           return section;
         }),
       );
-      boardColumns.replaceChildren(row);
     }
 
     // Shared rendering for both boards: a being's (what it holds, ADR 0123)
@@ -1465,17 +1449,11 @@ import Base from '../../layouts/Base.astro';
           inventoryEmpty.textContent = emptyMessage;
           return;
         }
-        boardColumns.append(renderRow(shown.carried));
-        if (shown.elsewhere.length > 0) {
-          const section = document.createElement('section');
-          section.className = 'board-elsewhere';
-          const heading = document.createElement('h3');
-          heading.id = 'board-elsewhere-heading';
-          heading.textContent = 'Held elsewhere';
-          section.setAttribute('aria-labelledby', heading.id);
-          section.append(heading, renderRow(shown.elsewhere));
-          boardColumns.append(section);
-        }
+        // One row: what the being carries first, then what it holds elsewhere.
+        boardColumns.append(
+          ...shown.carried.map((column) => renderColumn(column, false)),
+          ...shown.elsewhere.map((column) => renderColumn(column, true)),
+        );
       } catch (e) {
         boardColumns.replaceChildren();
         boardColumns.removeAttribute('aria-busy');
@@ -1531,15 +1509,15 @@ import Base from '../../layouts/Base.astro';
       );
     }
 
-    // Marks `button` as the board shown, among every character and group pill.
-    function pressOnly(button: HTMLButtonElement | null) {
-      for (const el of panelCharacters.querySelectorAll('.character-pill')) {
-        el.setAttribute('aria-pressed', String(el === button));
+    // Marks `link` as the board shown, among every character and group in the list.
+    function pressOnly(link: HTMLAnchorElement | null) {
+      for (const el of characterStrip.querySelectorAll('a')) {
+        el.setAttribute('aria-pressed', String(el === link));
       }
     }
 
-    function selectCharacter(character: CharacterSummary, button: HTMLButtonElement) {
-      pressOnly(button);
+    function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement) {
+      pressOnly(link);
       inventoryViewing.hidden = true;
       const url = new URL(window.location.href);
       url.searchParams.set('character', character.entity_id);
@@ -1549,8 +1527,8 @@ import Base from '../../layouts/Base.astro';
     }
 
     // A group one of your characters belongs to, and what it owns (ADR 0124).
-    function selectGroup(group: BeingRef, button: HTMLButtonElement) {
-      pressOnly(button);
+    function selectGroup(group: BeingRef, link: HTMLAnchorElement) {
+      pressOnly(link);
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = `Viewing what ${group.name} holds.`;
       const url = new URL(window.location.href);
@@ -1560,26 +1538,41 @@ import Base from '../../layouts/Base.astro';
       void loadBoard(group.entity_id);
     }
 
+    // Adds one entry to the list of your characters and their groups: a link to its board
+    // (?character= or ?group=), a group marked as one. Shown at once if the URL names it.
+    function addHolder(
+      holder: { entity_id: string; name: string },
+      param: 'character' | 'group',
+      select: (link: HTMLAnchorElement) => void,
+    ) {
+      const fragment = fromTemplate('holderListItem');
+      const item = fragment.querySelector<HTMLLIElement>('li')!;
+      const link = fragment.querySelector<HTMLAnchorElement>('[data-name]')!;
+      const groupBadge = fragment.querySelector<HTMLSpanElement>('[data-group]')!;
+
+      const url = new URL(window.location.href);
+      url.searchParams.set(param, holder.entity_id);
+      url.searchParams.delete(param === 'character' ? 'group' : 'character');
+      link.href = url.href;
+      link.textContent = holder.name;
+      link.setAttribute('aria-pressed', String(holder.entity_id === params.get(param)));
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        select(link);
+      });
+      link.addEventListener('mouseenter', () => prefetchBoard(holder.entity_id));
+      link.addEventListener('focus', () => prefetchBoard(holder.entity_id));
+      groupBadge.hidden = param !== 'group';
+
+      characterStrip.append(item);
+      if (holder.entity_id === params.get(param)) select(link);
+    }
+
     async function loadGroups(currentTenantId: string, characters: CharacterSummary[]) {
       const groups = await groupsOf(currentTenantId, characters).catch(() => []);
-      for (const group of groups) myHolderIds.add(group.entity_id);
-      if (groups.length === 0) return;
-      groupsHeading.hidden = false;
-      groupStrip.hidden = false;
-      const selectedId = params.get('group');
       for (const group of groups) {
-        const item = document.createElement('li');
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'character-pill';
-        button.textContent = group.name;
-        button.setAttribute('aria-pressed', String(group.entity_id === selectedId));
-        button.addEventListener('click', () => selectGroup(group, button));
-        button.addEventListener('mouseenter', () => prefetchBoard(group.entity_id));
-        button.addEventListener('focus', () => prefetchBoard(group.entity_id));
-        item.append(button);
-        groupStrip.append(item);
-        if (group.entity_id === selectedId) selectGroup(group, button);
+        myHolderIds.add(group.entity_id);
+        addHolder(group, 'group', (link) => selectGroup(group, link));
       }
     }
 
@@ -1613,23 +1606,8 @@ import Base from '../../layouts/Base.astro';
           charactersEmpty.hidden = false;
           return;
         }
-        const selectedId = params.get('character');
         for (const character of page.items) {
-          const item = document.createElement('li');
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'character-pill';
-          button.textContent = character.name;
-          button.setAttribute('aria-pressed', String(character.entity_id === selectedId));
-          button.addEventListener('click', () => selectCharacter(character, button));
-          button.addEventListener('mouseenter', () => prefetchBoard(character.entity_id));
-          button.addEventListener('focus', () => prefetchBoard(character.entity_id));
-          item.append(button);
-          characterStrip.append(item);
-
-          if (character.entity_id === selectedId) {
-            selectCharacter(character, button);
-          }
+          addHolder(character, 'character', (link) => selectCharacter(character, link));
         }
         await loadGroups(currentTenantId, page.items);
       } catch (e) {
@@ -1696,17 +1674,10 @@ import Base from '../../layouts/Base.astro';
         const tenant = await getTenant(tenantId);
         status.hidden = true;
         tenantName.textContent = tenant.name;
-        tenantSlug.textContent = tenant.slug;
         board.hidden = false;
         await loadCharacters(tenantId);
 
         userIsGm = await isCampaignGm(tenantId);
-        // The same page either way: GMs manage the catalog there, anyone else browses what
-        // they may list of it (ADR 0116).
-        const catalogLink = document.getElementById('catalog-link') as HTMLAnchorElement;
-        catalogLink.href = `/items/?tenant=${tenantId}`;
-        catalogLink.textContent = userIsGm ? 'Manage items (GM)' : 'Catalog';
-        document.getElementById('catalog-links')!.hidden = false;
         if (userIsGm) {
           pickerTablist.hidden = false;
           tabBrowse.hidden = false;

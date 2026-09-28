@@ -1,10 +1,9 @@
 import { expect, test } from './support/fixtures.ts';
 import { person } from './support/world.ts';
 
-test('a player logs in and finds the tenant they play in', async ({ world, as }) => {
+test('a player logs in and lands in the only library they play in', async ({ world, as }) => {
   const page = await as(world.pia);
   await expect(page.getByText('Signed in as')).toContainText(world.pia.subject);
-  await page.getByRole('link', { name: world.tenantName }).click();
   await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}`);
 });
 
@@ -16,9 +15,9 @@ test('logs out', async ({ world, as }) => {
   await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
 });
 
-test('says so to someone in no tenant yet', async ({ as }) => {
+test('says so to someone in no library yet', async ({ as }) => {
   const page = await as(await person('Newcomer'));
-  await expect(page.getByText("You don't belong to any tenant yet.")).toBeVisible();
+  await expect(page.getByText("You don't have access to a library yet.")).toBeVisible();
 });
 
 for (const path of ['/board/?tenant=t', '/item/?tenant=t&id=i', '/items/?tenant=t']) {

@@ -1,80 +1,4 @@
-/*
- * Domain-specific pieces only - buttons, chips, text inputs, tabs, fields,
- * pre, and the .error-text/.item-detail dialog chrome all come from
- * @lorenzo/brand's own components.css now (linked in
- * src/layouts/Base.astro), which is a curated generic subset of what used
- * to live in this file (ADR 0098). What's left here is item cards, board
- * columns, catalog rows, and the item-detail dialog's own internal
- * layout - the domain-specific pieces that package deliberately leaves
- * local to each app.
- *
- * Built via document.createElement throughout this app (ADR 0004 - plain
- * script islands, not a component framework), so nothing here needs
- * Astro's scoped <style> at all - global stylesheets apply the same way
- * regardless of when/how an element was created.
- */
-
-.account a {
-  font-family: var(--font-ui);
-  font-size: 14px;
-}
-
-.next-up {
-  color: var(--text-secondary);
-}
-
-.tenant-slug,
-.item-detail-slug {
-  font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
-/* Layout only - border/radius/background/link-color reset come from
-   @lorenzo/brand's .card/a.card (markup adds class="card tenant-card"). */
-.tenant-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3);
-}
-
-.tenant-card:hover {
-  border-color: var(--action);
-}
-
-.tenant-card-meta {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.character-pill {
-  font-family: var(--font-ui);
-  font-size: 14px;
-  background: var(--fill-soft);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
-  padding: var(--space-1) var(--space-3);
-  cursor: pointer;
-}
-
-.character-pill[aria-pressed="true"] {
-  background: var(--action);
-  border-color: var(--action);
-  color: var(--text-inverse);
-}
-
 .board-column {
-  container-type: inline-size;
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  background: var(--fill-soft);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-surface);
-  padding: var(--space-3);
   transition:
     border-color 150ms ease,
     background-color 150ms ease;
@@ -85,64 +9,10 @@
   background: color-mix(in srgb, var(--action) 10%, var(--fill-soft));
 }
 
-.board-column h3 {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.column-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
 .column-empty {
   color: var(--text-tertiary);
   font-size: 13px;
   font-style: italic;
-}
-
-/* --item-accent is typed (@property, tokens.css) specifically so this can
-   transition smoothly instead of snapping between colors. */
-.item-card {
-  --item-accent: var(--border-subtle);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  background: var(--surface-default);
-  border: 1px solid var(--item-accent);
-  border-radius: var(--radius-card);
-  transition: --item-accent 150ms ease;
-}
-
-/* The card's button (it opens the item, or toggles it while selecting) fills the card and
-   looks like it, not like a button. */
-.item-card-open {
-  all: unset;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  cursor: inherit;
-}
-
-.item-card:hover,
-.item-card:has(.item-card-open:focus-visible) {
-  --item-accent: var(--action);
-}
-
-.item-card:has(.item-card-open:focus-visible) {
-  outline: 2px solid var(--action);
-  outline-offset: 2px;
 }
 
 .item-card[draggable="true"] {
@@ -155,9 +25,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .item-card {
-    transition:
-      --item-accent 150ms ease,
-      transform 150ms ease;
+    transition: transform 150ms ease;
   }
 
   .item-card:hover {
@@ -165,48 +33,16 @@
   }
 }
 
-.item-card-title {
-  font-size: 14px;
-}
-
-.item-card-qty {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-/* Whose a card is, when it isn't the board's being's own (ADR 0123). */
-.item-card-owner {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-/* Bound to its owner (ADR 0129). */
-.item-card-bound,
+/* Bound to its owner (ADR 0129) - on a card, that's its [data-bound] badge. */
 .item-detail-bound {
   font-size: 12px;
   color: var(--text-secondary);
   font-weight: 600;
 }
 
-/* Where a column's container is: "In Backpack", "Pia has these". */
-.board-column-note {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.board-elsewhere h3 {
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
 .item-card--selected {
-  --item-accent: var(--canonical);
-  background: color-mix(in srgb, var(--canonical) 10%, var(--surface-default));
+  border-color: var(--action) !important;
+  background: color-mix(in srgb, var(--action) 10%, var(--surface-default)) !important;
 }
 
 /* @lorenzo/brand's motion.css (linked in Base.astro) provides the generic
@@ -215,7 +51,9 @@
    top of this app's own bordered card shapes. */
 .item-card.skeleton {
   border-color: transparent;
-  /* A real card's height comes from its button's padding; a skeleton has none. */
+  /* Over .list > li's own background, which would hide the skeleton's. */
+  background: var(--fill-soft);
+  /* A real card's height comes from its text; a skeleton has none. */
   height: 38px;
 }
 
@@ -251,29 +89,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-/* A container-card gets a small gold mark - the same affordance a future
-   click-to-drill-in interaction (v1.1) will hang off of. */
-.item-card--container::after {
-  content: "";
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--canonical);
-}
-
-@container (max-width: 220px) {
-  .item-card-open {
-    padding: var(--space-1) var(--space-2);
-  }
-
-  .item-card-title {
-    font-size: 13px;
-  }
 }
 
 /* A bare <dialog> already gets @lorenzo/brand's border/radius/padding/

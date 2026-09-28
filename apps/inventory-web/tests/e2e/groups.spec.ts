@@ -14,17 +14,20 @@ const column = (page: Page, name: string) => page.getByRole('region', { name });
 const card = (page: Page, in_: string, name: string) =>
   column(page, in_).getByRole('button', { name, exact: true });
 
-test("a member opens the group's board from the strip", async ({ world, as }) => {
+test("a member opens the group's board from the list", async ({ world, as }) => {
   const items = await catalog(world);
   const company = await world.group('The Company', [world.pia, world.oskar]);
   const chest = await world.instance(items.backpack, { ownerId: company });
   await world.instance(items.arrow, { ownerId: company, container: chest });
 
   const page = await boardOf(as, world, world.pia);
-  await page
-    .getByRole('list', { name: 'Your groups' })
-    .getByRole('button', { name: 'The Company' })
-    .click();
+  // Among her characters, marked as a group.
+  const entry = page
+    .getByRole('list', { name: 'Your characters and groups' })
+    .getByRole('listitem')
+    .filter({ hasText: 'The Company' });
+  await expect(entry).toContainText('Group');
+  await entry.getByRole('link', { name: 'The Company' }).click();
 
   await expect(page.getByText('Viewing what The Company holds.')).toBeVisible();
   await expect(card(page, 'The Company', 'Backpack')).toBeVisible();
