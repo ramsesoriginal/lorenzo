@@ -502,7 +502,7 @@ _CROSSINGS = {
         [("give", "alice"), ("hand over", "bob")],
         [("give", "bob"), ("hand over", "alice")],
     ),
-    # So one that moves nothing locks its owners up front too.
+    # One that moves nothing locks no chain, and only share-locks its owners.
     "gives-against-moves": (
         [("give", "alice"), ("give", "bob")],
         [("hand over", "bob"), ("hand over", "alice")],
@@ -516,8 +516,9 @@ async def test_bulk_assigns_at_once_never_wait_on_each_other(
 ) -> None:
     """What an entry locks stays locked until the commit, so taken entry by
     entry, two bulk-assigns could each wait on the other's earlier entries'
-    locks. Every entry's are taken before any runs, in one go. Two of each
-    kind at once."""
+    locks. Every entry's chain is taken before any runs, in one go, and the
+    share locks its ownership rows take never wait on a chain's. Two of
+    each kind at once."""
     camp = await _camp(test_user_id)
     await _gm(camp, test_user_id)
     t = camp.tenant_id
@@ -553,6 +554,57 @@ async def test_bulk_assigns_at_once_never_wait_on_each_other(
         (e["item_instance"]["owner_entity_id"], e["item_instance"]["container_entity_id"])
         for e in entries
     ] == expected
+    await delete_tenant(t)
+
+
+async def test_handing_over_at_once_with_a_bulk_assign_giving_it_away(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """A bulk-assign handing a Coin over to Alice locks her chain before its
+    first entry, then gives the Gear to Bob in its second, writing the
+    Gear's ownership row. A hand-over of that Gear to Alice locks her chain
+    before it writes that row: writing it first, it would hold the row while
+    waiting on her chain, and the bulk-assign the other way around. Four of
+    each at once."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, alice = camp.tenant_id, camp.ids["alice"]
+    bob = await _bob(camp)
+    pairs = [
+        (await _ownerless(camp, f"Gear {n}"), await _ownerless(camp, f"Coin {n}")) for n in range(4)
+    ]
+
+    done = await asyncio.gather(
+        *(
+            request
+            for gear, coin in pairs
+            for request in (
+                client.put(
+                    f"/tenants/{t}/item-instances/{gear}/owner",
+                    json={"owner_character_id": str(alice), "move_to_owner": True},
+                ),
+                client.post(
+                    f"/tenants/{t}/item-instances/bulk-assign",
+                    json=[
+                        {
+                            "entity_id": str(coin),
+                            "owner_character_id": str(alice),
+                            "move_to_owner": True,
+                        },
+                        {"entity_id": str(gear), "owner_character_id": str(bob)},
+                    ],
+                ),
+            )
+        )
+    )
+
+    assert [r.status_code for r in done] == [200] * 8, [r.text for r in done]
+    entries = [entry for r in done[1::2] for entry in r.json()]
+    assert [e["status"] for e in entries] == ["ok"] * 8, entries
+    async with admin_session_factory() as session:
+        for gear, coin in pairs:
+            for thing in (gear, coin):
+                assert (await session.get_one(Containment, thing)).parent_entity_id == alice
     await delete_tenant(t)
 
 

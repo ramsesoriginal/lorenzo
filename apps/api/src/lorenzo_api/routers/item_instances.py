@@ -1495,7 +1495,10 @@ class _HandOver:
     alike: `start` before anything is written, `finish` after.
 
     `start` locks the owner's chain for capacity (ADR 0128) and measures it,
-    as _perform_split does.
+    as _perform_split does, before the ownership row is written. A
+    bulk-assign takes every chain it hands over to before its first entry
+    (lock_ahead), then writes its entries' ownership rows: holding this
+    one's row while waiting on that chain, each would wait on the other.
     `finish` checks binding (ADR 0129) against the new owner and moves it.
     Neither checks anything under `override`.
     """
@@ -2445,7 +2448,6 @@ async def bulk_assign_item_instances(
             target_ids={
                 item.owner_character_id for item in body if item.move_to_owner and not item.override
             },
-            shared_ids={item.owner_character_id for item in body},
         )
     for item in body:
         contents: list[ContentsResultItem] = []
