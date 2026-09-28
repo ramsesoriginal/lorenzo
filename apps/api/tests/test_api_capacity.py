@@ -3,6 +3,7 @@ only when a load grows past its limit; a GM's override; and a deleted
 container's contents kept.
 """
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
@@ -368,6 +369,94 @@ async def test_handing_over_and_creating_inside_are_checked(
     assert split.json()[0]["problem"]["detail"] == "Alice can carry 30, and this would make it 34."
     # A Gear with no weight of its own weighs nothing; nothing to refuse.
     assert light.status_code == 201, light.text
+    await delete_tenant(t)
+
+
+async def _ownerless(camp: _Camp, name: str, inside: uuid.UUID | None = None) -> uuid.UUID:
+    """A Gear nobody owns, in `inside` if given."""
+    t = camp.tenant_id
+    async with admin_session_factory() as session:
+        entity = Entity(tenant_id=t, name=name)
+        session.add(entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=t))
+        session.add(
+            EntityPrototype(entity_id=entity.id, prototype_id=camp.ids["gear"], tenant_id=t)
+        )
+        if inside is not None:
+            session.add(
+                Containment(child_entity_id=entity.id, parent_entity_id=inside, tenant_id=t)
+            )
+        await session.commit()
+        return entity.id
+
+
+async def test_handing_things_over_at_once_to_one_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Each hand-over's ownership row share-locks Alice, whose chain its move
+    into her hands locks for capacity. That lock is taken before the row
+    goes in, so several hand-overs to her at once queue up instead of each
+    waiting on the others' share lock."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    coins = [await _ownerless(camp, f"Coin {n}") for n in range(4)]
+
+    handed = await asyncio.gather(
+        *(
+            client.put(
+                f"/tenants/{t}/item-instances/{coin}/owner",
+                json={"owner_character_id": str(ids["alice"]), "move_to_owner": True},
+            )
+            for coin in coins
+        )
+    )
+
+    assert [r.status_code for r in handed] == [200] * 4, [r.text for r in handed]
+    async with admin_session_factory() as session:
+        for coin in coins:
+            assert (await session.get_one(Containment, coin)).parent_entity_id == ids["alice"]
+    await delete_tenant(t)
+
+
+async def test_bulk_handing_things_over_at_once_to_one_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The same through bulk-assign, where what's inside each Purse is given
+    first (ADR 0125): its ownership row share-locks Alice too, so her chain
+    is locked before that."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    purses = [await _ownerless(camp, f"Purse {n}") for n in range(4)]
+    for n, purse in enumerate(purses):
+        await _ownerless(camp, f"Coin {n}", inside=purse)
+
+    assigned = await asyncio.gather(
+        *(
+            client.post(
+                f"/tenants/{t}/item-instances/bulk-assign",
+                json=[
+                    {
+                        "entity_id": str(purse),
+                        "owner_character_id": str(ids["alice"]),
+                        "move_to_owner": True,
+                        "with_contents": True,
+                    }
+                ],
+            )
+            for purse in purses
+        )
+    )
+
+    assert [r.status_code for r in assigned] == [200] * 4, [r.text for r in assigned]
+    entries = [r.json()[0] for r in assigned]
+    assert [e["status"] for e in entries] == ["ok"] * 4, entries
+    assert [c["status"] for e in entries for c in e["contents"]] == ["ok"] * 4
+    async with admin_session_factory() as session:
+        for purse in purses:
+            assert (await session.get_one(Containment, purse)).parent_entity_id == ids["alice"]
     await delete_tenant(t)
 
 
