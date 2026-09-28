@@ -35,7 +35,7 @@ from lorenzo_api.models import (
 from lorenzo_api.stat_contents import load_contents
 from lorenzo_api.stat_evaluation import Contents, ContentsFormula, Value, evaluate
 
-__all__ = ["CapacityCheck"]
+__all__ = ["CapacityCheck", "lock_ahead"]
 
 _LIMITS = ("carry_capacity", "containment_capacity", "max_item_size")
 _NAMES = ("weight", "size", *_LIMITS)
@@ -59,6 +59,59 @@ def _shown(number: float) -> str:
     return str(int(number)) if number.is_integer() else f"{number:g}"
 
 
+async def _known(session: AsyncSession, tenant_id: uuid.UUID) -> dict[str, uuid.UUID]:
+    return {
+        name: definition_id
+        for definition_id, name in await session.execute(
+            select(StatDefinition.id, StatDefinition.name).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.name.in_(_NAMES)
+            )
+        )
+    }
+
+
+async def _lock(
+    session: AsyncSession, *, tenant_id: uuid.UUID, entity_ids: Iterable[uuid.UUID]
+) -> None:
+    # Id order, so no two lock in a cycle.
+    await session.execute(
+        select(Entity.id)
+        .where(Entity.id.in_(set(entity_ids)), Entity.tenant_id == tenant_id)
+        .order_by(Entity.id)
+        .with_for_update()
+    )
+
+
+async def lock_ahead(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    target_ids: Iterable[uuid.UUID],
+    shared_ids: Iterable[uuid.UUID],
+) -> None:
+    """For several writes in one transaction, bulk-assign's entries: locks
+    every target's chain their checks will lock, and everything in
+    `shared_ids` - what they'll share-lock through a foreign key, as an
+    ownership row does its owner - in one id-ordered FOR UPDATE, before any
+    of them runs.
+
+    What a write locks stays locked until the commit, so locked write by
+    write, two transactions could each hold what the other's next write
+    waits for. Nothing, when the tenant defines no capacity: then no check
+    locks anything, and share locks never wait on each other.
+    """
+    known = await _known(session, tenant_id)
+    if not any(name in known for name in _LIMITS):
+        return
+    targets = frozenset(target_ids)
+    paths = await containment_paths(session, entity_ids=targets, tenant_id=tenant_id)
+    await _lock(
+        session,
+        tenant_id=tenant_id,
+        entity_ids={*shared_ids, *targets, *(link for path in paths.values() for link in path)},
+    )
+
+
 @dataclass
 class CapacityCheck:
     """One write's check: `start` before the write, `finish` after it."""
@@ -76,14 +129,7 @@ class CapacityCheck:
     ) -> CapacityCheck | None:
         """Locks `target_id`'s chain and measures it, or None when the
         tenant defines no capacity at all - then nothing is checked."""
-        known = {
-            name: definition_id
-            for definition_id, name in await session.execute(
-                select(StatDefinition.id, StatDefinition.name).where(
-                    StatDefinition.tenant_id == tenant_id, StatDefinition.name.in_(_NAMES)
-                )
-            )
-        }
+        known = await _known(session, tenant_id)
         if not any(name in known for name in _LIMITS):
             return None
         paths = await containment_paths(
@@ -91,13 +137,8 @@ class CapacityCheck:
         )
         chain = [target_id, *paths[target_id]]
         # Two moves into one bag queue up here, so the second measures the
-        # first's result (ADR 0128). Id order, so no two lock in a cycle.
-        await session.execute(
-            select(Entity.id)
-            .where(Entity.id.in_(chain), Entity.tenant_id == tenant_id)
-            .order_by(Entity.id)
-            .with_for_update()
-        )
+        # first's result (ADR 0128).
+        await _lock(session, tenant_id=tenant_id, entity_ids=chain)
         check = cls(session, tenant_id, target_id, chain, known, {})
         check.before, _ = await check._measure()
         return check
