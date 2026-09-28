@@ -341,8 +341,7 @@
   flex-shrink: 0;
 }
 
-.character-picker-panel,
-.edit-item-panel {
+.character-picker-panel {
   max-width: 320px;
 }
 
@@ -366,14 +365,6 @@
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 0;
-}
-
-.item-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-width: 480px;
-  margin-top: var(--space-3);
 }
 
 .combobox {

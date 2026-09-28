@@ -1,0 +1,194 @@
+<template id="item-form-template">
+  <form class="card card-body stack item-form" data-item-form>
+    <h2 data-current-name></h2>
+
+    <!-- Name + display name -->
+    <div class="grid">
+      <div class="field row-tight">
+        <label class="field-label" data-name-label>
+          Name
+        </label>
+
+        <input
+          class="text-input"
+          data-name
+          type="text"
+          required
+        />
+      </div>
+
+      <div class="field row-tight">
+        <label class="field-label" data-display-name-label>
+          Display name
+        </label>
+
+        <input
+          class="text-input"
+          data-display-name
+          type="text"
+        />
+      </div>
+    </div>
+
+    <!-- Parents + visibility / slug -->
+    <div class="grid">
+      <div class="stack">
+        <div class="field">
+          <label class="field-label" data-parents-label>
+            Parents
+          </label>
+
+          <div class="combobox" data-parents-combobox>
+            <input
+              class="text-input"
+              data-parents-search
+              type="text"
+              placeholder="Search items to inherit from…"
+              autocomplete="off"
+              role="combobox"
+              aria-expanded="false"
+            />
+
+            <ul
+              class="combobox-suggestions"
+              data-parent-suggestions
+              role="listbox"
+              hidden
+            ></ul>
+          </div>
+        </div>
+
+        <ul class="row" data-parent-chips></ul>
+      </div>
+
+      <div class="stack">
+        <div class="field">
+          <span class="field-label">Visibility</span>
+
+          <label class="field-row">
+            <input
+              data-public-catalog
+              type="checkbox"
+            />
+            In the public catalog: players can browse and search for it
+          </label>
+
+          <label
+            class="field-row"
+            data-description-visibility
+          >
+            <input
+              data-description-public
+              type="checkbox"
+            />
+            Players can read the description
+          </label>
+        </div>
+
+        <div class="field row-tight">
+          <label class="field-label" data-slug-label>
+            Slug
+          </label>
+
+          <input
+            class="text-input"
+            data-slug
+            type="text"
+            spellcheck="false"
+          />
+
+          <p class="field-note">
+            How links name it, as in [text](slug). Empty for none.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="field description">
+      <span class="field-label">Description</span>
+
+      <textarea
+        data-description
+        rows="10"
+        aria-label="Description"
+      ></textarea>
+
+      <ul
+        class="description-notes status-text"
+        data-description-notes
+      ></ul>
+    </div>
+
+    <!-- Edit-only: things using this item as a prototype -->
+    <div
+      class="field"
+      data-used-by
+      hidden
+    >
+      <span class="field-label">Used as a prototype by</span>
+
+      <p
+        class="field-note"
+        data-used-by-empty
+      >
+        Nothing yet.
+      </p>
+
+      <ul
+        class="row"
+        data-used-by-list
+        hidden
+      ></ul>
+    </div>
+
+    <p
+      class="error-text"
+      data-error
+      role="alert"
+      hidden
+    ></p>
+
+    <div class="row">
+      <button
+        data-submit
+        type="submit"
+      ></button>
+    </div>
+
+    <!-- Repeating elements -->
+
+    <template data-parent-chip-template>
+      <li class="chip">
+        <span data-title></span>
+
+        <button
+          class="chip-remove"
+          data-remove
+          type="button"
+          aria-label="Remove"
+        >
+          ×
+        </button>
+      </li>
+    </template>
+
+    <template data-parent-suggestion-template>
+      <li
+        class="combobox-suggestion"
+        role="option"
+      >
+        <button
+          data-select
+          type="button"
+        ></button>
+      </li>
+    </template>
+
+    <template data-used-by-chip-template>
+      <li class="chip">
+        <span data-title></span>
+      </li>
+    </template>
+  </form>
+</template>
