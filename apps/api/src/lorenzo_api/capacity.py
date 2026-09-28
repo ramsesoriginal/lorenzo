@@ -73,42 +73,42 @@ async def _known(session: AsyncSession, tenant_id: uuid.UUID) -> dict[str, uuid.
 async def _lock(
     session: AsyncSession, *, tenant_id: uuid.UUID, entity_ids: Iterable[uuid.UUID]
 ) -> None:
-    # Id order, so no two lock in a cycle.
+    # Id order, so no two lock in a cycle. FOR NO KEY UPDATE: another check's
+    # lock still waits on it, but the share lock a foreign key takes on these
+    # rows - an ownership row's on its owner, a containment row's on its
+    # container - never does, so no write taking those can wait in a cycle
+    # with a check (ADR 0128's Addendum).
     await session.execute(
         select(Entity.id)
         .where(Entity.id.in_(set(entity_ids)), Entity.tenant_id == tenant_id)
         .order_by(Entity.id)
-        .with_for_update()
+        .with_for_update(key_share=True)
     )
 
 
 async def lock_ahead(
-    session: AsyncSession,
-    *,
-    tenant_id: uuid.UUID,
-    target_ids: Iterable[uuid.UUID],
-    shared_ids: Iterable[uuid.UUID],
+    session: AsyncSession, *, tenant_id: uuid.UUID, target_ids: Iterable[uuid.UUID]
 ) -> None:
-    """For several writes in one transaction, bulk-assign's entries: locks
-    every target's chain their checks will lock, and everything in
-    `shared_ids` - what they'll share-lock through a foreign key, as an
-    ownership row does its owner - in one id-ordered FOR UPDATE, before any
-    of them runs.
+    """For several checks in one transaction, bulk-assign's entries: locks
+    every target's chain they'll lock, in one id-ordered go, before any of
+    them runs.
 
-    What a write locks stays locked until the commit, so locked write by
-    write, two transactions could each hold what the other's next write
-    waits for. Nothing, when the tenant defines no capacity: then no check
-    locks anything, and share locks never wait on each other.
+    What a check locks stays locked until the commit, so locked check by
+    check, two transactions could each hold a chain the other's next check
+    waits for. Nothing, when there's no target or the tenant defines no
+    capacity: then no check locks anything.
     """
+    targets = frozenset(target_ids)
+    if not targets:
+        return
     known = await _known(session, tenant_id)
     if not any(name in known for name in _LIMITS):
         return
-    targets = frozenset(target_ids)
     paths = await containment_paths(session, entity_ids=targets, tenant_id=tenant_id)
     await _lock(
         session,
         tenant_id=tenant_id,
-        entity_ids={*shared_ids, *targets, *(link for path in paths.values() for link in path)},
+        entity_ids={*targets, *(link for path in paths.values() for link in path)},
     )
 
 

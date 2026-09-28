@@ -4,7 +4,10 @@ import { person } from './support/world.ts';
 test('a player logs in and lands in the only library they play in', async ({ world, as }) => {
   const page = await as(world.pia);
   await expect(page.getByText('Signed in as')).toContainText(world.pia.subject);
-  await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}`);
+  // Her only character, opened by itself (ADR 0134).
+  await expect(page).toHaveURL(
+    `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
+  );
 });
 
 test('logs out', async ({ world, as }) => {

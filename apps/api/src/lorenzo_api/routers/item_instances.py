@@ -661,6 +661,8 @@ async def list_item_instances_controlled_by(
 
     container_ids = frozenset(c.container_id for c in board if c.container_id is not None)
     paths = await containment_paths(session, entity_ids=container_ids, tenant_id=tenant_id)
+    # The whole way up, before a carried path stops short of the being.
+    around = {c: list(path) for c, path in paths.items()}
     carried = {c: entity_id in path for c, path in paths.items()}
     for container_id, path in paths.items():
         if carried[container_id]:
@@ -668,7 +670,8 @@ async def list_item_instances_controlled_by(
     owner_ids = {
         item.owner_entity_id for item in items.values() if item.owner_entity_id is not None
     }
-    named_ids = container_ids | owner_ids | {a for path in paths.values() for a in path}
+    surrounding_ids = {a for path in around.values() for a in path}
+    named_ids = container_ids | owner_ids | surrounding_ids
     entities = {
         entity.id: entity
         for entity in (
@@ -681,11 +684,14 @@ async def list_item_instances_controlled_by(
         (
             await session.execute(
                 select(Being.entity_id).where(
-                    Being.entity_id.in_(container_ids), Being.tenant_id == tenant_id
+                    Being.entity_id.in_(container_ids | surrounding_ids),
+                    Being.tenant_id == tenant_id,
                 )
             )
         ).scalars()
     )
+    # Who carries each container (ADR 0134): the nearest being around it.
+    carried_by = {c: next((a for a in path if a in being_ids), None) for c, path in around.items()}
     instance_ids = set(
         (
             await session.execute(
@@ -720,12 +726,14 @@ async def list_item_instances_controlled_by(
         if container_id is not None and column.kind != "equipped":
             path = [summary(a) for a in paths[container_id]]
             is_carried = carried[container_id]
+        carrier = None if container_id is None else carried_by[container_id]
         return ControlledColumnOut(
             kind=column.kind,
             container=None if container_id is None else summary(container_id),
             container_kind=None if container_id is None else kind(container_id),
             path=path,
             carried=is_carried,
+            carried_by=None if carrier is None else summary(carrier),
             contents_hidden=column.contents_hidden,
             item_instances=[items[i] for i in column.item_ids],
         )
@@ -1147,10 +1155,7 @@ async def create_item_instance(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
 
-    # Created inside something is put there: capacity counts (ADR 0128). Its
-    # chain is locked before anything goes in: the ownership row's foreign key
-    # share-locks the owner, who's often in that chain, and two creates each
-    # holding that share lock would wait on each other forever.
+    # Created inside something is put there: capacity counts (ADR 0128).
     check = (
         None
         if body.container_entity_id is None or body.override
@@ -1497,10 +1502,11 @@ class _HandOver:
     steps around the ownership write, for PUT .../owner and bulk-assign
     alike: `start` before anything is written, `finish` after.
 
-    `start` locks the owner's chain for capacity (ADR 0128), as
-    _perform_split does: the ownership row's foreign key share-locks the
-    owner, first in that chain, and two hand-overs to one owner each
-    holding that share lock would wait on each other's lock forever.
+    `start` locks the owner's chain for capacity (ADR 0128) and measures it,
+    as _perform_split does, before the ownership row is written. A
+    bulk-assign takes every chain it hands over to before its first entry
+    (lock_ahead), then writes its entries' ownership rows: holding this
+    one's row while waiting on that chain, each would wait on the other.
     `finish` checks binding (ADR 0129) against the new owner and moves it.
     Neither checks anything under `override`.
     """
@@ -2438,10 +2444,11 @@ async def bulk_assign_item_instances(
     results: list[BulkAssignResultItem] = []
     lifted: set[uuid.UUID] = set()
     # Every entry's locks up front, since what an entry locks stays locked
-    # while the others run: each one's ownership rows share-lock its owner,
-    # and handing over or splitting off into the owner's hands locks the
-    # owner's chain for capacity (ADR 0128). Not for a caller with no part in
-    # the tenant, whose every entry fails.
+    # while the others run: handing over or splitting off into the owner's
+    # hands locks the owner's chain for capacity (ADR 0128), and two
+    # bulk-assigns locking chains entry by entry, in a different order, would
+    # wait on each other. Not for a caller with no part in the tenant, whose
+    # every entry fails.
     if await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
         await lock_ahead(
             session,
@@ -2449,7 +2456,6 @@ async def bulk_assign_item_instances(
             target_ids={
                 item.owner_character_id for item in body if item.move_to_owner and not item.override
             },
-            shared_ids={item.owner_character_id for item in body},
         )
     for item in body:
         contents: list[ContentsResultItem] = []
@@ -2499,8 +2505,6 @@ async def bulk_assign_item_instances(
                         )
                     ]
                 else:
-                    # Started before anything inside is given: its ownership rows
-                    # share-lock the owner too.
                     hand_over = await _HandOver.start(
                         session,
                         tenant_id=tenant_id,

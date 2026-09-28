@@ -45,7 +45,7 @@ A write is refused only when it **makes a load grow past its limit**. That settl
 - **Moving within what a being carries doesn't change its load.** Taking a rope out of your backpack and into your hands leaves your carried weight the same.
 - **A Bag of Holding stops the climb.** Its own weight is fixed, so what goes into it doesn't load whoever carries it.
 
-**Races.** The chain's entity rows are locked (`SELECT … FOR UPDATE`, in id order) before the first measurement, so two concurrent moves into one bag can't both pass.
+**Races.** The chain's entity rows are locked (`SELECT … FOR UPDATE`, in id order) before the first measurement, so two concurrent moves into one bag can't both pass. **(Now `FOR NO KEY UPDATE`: see the Addendum below.)**
 
 **Cost.** Nothing is measured when the tenant defines none of the three capacity stats. Otherwise a check loads the chain's contents and stats twice, with ADR 0127's loader.
 
@@ -106,3 +106,19 @@ Anyone else sees the API's message. So does a GM whose give with "Hand it over" 
 - A move can now fail with `409` where it used to succeed, and only a GM can push past it. Clients show the API's message.
 - Deleting a container no longer loses what was inside, or a stack's count.
 - **Contract.** `override` is a new optional field, and `capacity-exceeded`, `capacity-override-forbidden`, and the delete's `stack-needs-container` are new responses. Nothing that existed changes shape.
+
+## Addendum (2026-09-28): the chain is locked FOR NO KEY UPDATE
+
+`FOR UPDATE` conflicts with the `FOR KEY SHARE` lock a foreign key takes on the row it points at, and a write takes those all the time: an ownership row on its owner, a containment row on its container. A write holding one of them and a check wanting the same row could wait on each other, and did:
+
+- two creates of something owned, into what its owner carries;
+- two hand-overs to one owner;
+- two bulk-assigns, giving and handing over crosswise.
+
+Each was fixed by locking the chain, and for bulk-assign the owners, before the ownership rows went in. Then two creates deadlocked crosswise: one for Bob into Alice's Backpack, one for Alice into a Satchel Bob carries. Each held its chain and waited to share-lock its owner, who was in the other's chain. Locking the owner along with the chain fixed that pair. But a split beside its stack, or a GM's create that moves anyway, locks nothing ahead and share-locks an owner and a container one after the other. Either of those then deadlocked with such a create. The GM's create already did, against a create into what its owner carries.
+
+So the chain is now locked `FOR NO KEY UPDATE`, still in id order. That conflicts with itself, so two checks on one chain still queue up and can't both pass. It doesn't conflict with `FOR KEY SHARE`: a foreign key's share lock never waits on a check, nor a check on one, so a write that only points into a chain can't wait in a cycle with a check.
+
+- **What a check no longer holds up.** A write that checks nothing but puts something into the chain doesn't wait for a check there to commit any more: moving anyway, a split beside its stack, a deleted container's contents. If it commits between the check's two measurements, the second one counts it, and the check can be refused for a load that write took past its limit. Before, that write waited and went in after the check, past the limit all the same.
+- **What the earlier fixes still do.** `lock_ahead` no longer locks every entry's owner: that only kept a share lock from waiting on a chain. It still locks every chain an entry hands over or splits off into, because two bulk-assigns locking chains entry by entry, in different orders, would wait on each other. Starting the check before the ownership row is written is still needed too, for another reason. A hand-over that wrote its row first would hold that row while waiting on the owner's chain. A bulk-assign could hold that chain from before its first entry and be about to write the same row in a later one.
+- **Tests.** `test_api_capacity.py` creates crosswise at once, moves three things at once into room for one, and checks that while a check holds a chain, another check waits but an ownership and a containment row pointing into it don't. It also hands a Gear over to Alice at the same time as a bulk-assign that hands her a Coin and gives that Gear away.
