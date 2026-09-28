@@ -163,6 +163,12 @@ What a board shows gets a listing of its own ([ADR 0130](../adr/0130-the-control
 - **Controlled-by.** `GET .../item-instances/controlled-by/{entity_id}` lists a being's or a group's board as columns. Equipped (for a being) and Not carried are always there. Every container it controls gets a column, empty ones included, and whatever else holds something of theirs gets a read-only one. Where things are comes from containment alone, so an owned thing in no container is not carried. What's shown follows RFC 0031's rules for Controlled, in plain Python in `controlled.py`, and takes in what the being's groups own. Each column says whether it holds more than it lists.
 - **Not read yet.** inventory-web moves to it in slice 2, and loot-bot stays on held-by. Items carry `visible_to_characters`, always true until knowledge backs it.
 
+inventory-web's board reads it ([ADR 0131](../adr/0131-the-board-on-controlled-by.md), RFC 0031 slice 2):
+
+- **One row.** A character's, a group's, and a GM's board show Equipped (not on a group's) and Not carried, both with the brand's canonical glow, then a column for every container, then read-only columns. A chest that's owned but not carried is Not carried now, and an empty backpack has a column to drop onto.
+- **Read-only columns** take no drops, and their cards open without Move to…. A column holding more than it lists says "Contents not shown". Dropping on Not carried takes a single thing out of every container; a stack waits for slice 3.
+- **A deadlock** in creating owned things straight into what their owner carries is fixed: the create now locks capacity's chain before its ownership row.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
