@@ -187,6 +187,12 @@ The board, refined after testing ([ADR 0134](../adr/0134-board-refinements.md)):
 - **Up to date after a move.** Dragging a container reloads the board, so every column's note is right. Read-only columns carry `board-column--read-only`.
 - **Your character, opened for you.** With no character or group in the URL, the board opens the one last opened on that library, remembered in the browser and forgotten on log out, or else your only character. It does this on load and on switching back to "Your characters".
 
+inventory-web's addresses take slugs ([ADR 0135](../adr/0135-slugs-in-inventory-web-addresses.md)):
+
+- **Where.** `?tenant=` on every page, the item page's `?id=` and the board's `?character=` and `?group=` take a slug as well as an id, as does the GM's browse-a-being box. A value shaped like a UUID is an id.
+- **Resolving.** A tenant slug is found among the viewer's own libraries, an entity slug with `GET .../entities/resolve`. One that doesn't resolve fails as an unknown id does.
+- **Kept as given.** The address keeps its slugs. What the app writes itself, and what it remembers, stays ids.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
