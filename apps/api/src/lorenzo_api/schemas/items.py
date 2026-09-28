@@ -771,7 +771,8 @@ class ControlledColumnOut(BaseModel):
     not_carried. `path` is the containers around it, nearest first, by
     containment alone; a carried column's stops short of the being.
     `contents_hidden`: its container directly holds something this column
-    doesn't list.
+    doesn't list. `carried_by` (ADR 0134): the nearest being around its
+    container, by containment, or null when no being carries it.
     """
 
     kind: Literal["equipped", "not_carried", "container", "read_only"]
@@ -779,6 +780,7 @@ class ControlledColumnOut(BaseModel):
     container_kind: Literal["being", "item_instance", "other"] | None
     path: list[EntitySummary]
     carried: bool
+    carried_by: EntitySummary | None
     contents_hidden: bool
     item_instances: list[ControlledItemInstanceOut]
 

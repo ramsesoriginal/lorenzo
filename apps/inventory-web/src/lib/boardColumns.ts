@@ -55,11 +55,18 @@ function capitalized(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Where a container column's container is: "In Backpack", "Brisk has these". */
+/**
+ * Where a container column's container is: "In Backpack", "Brisk has these", "Not carried,
+ * with Alice".
+ */
 function note(column: ControlledColumn, container: EntitySummary): string | null {
   const { path } = column;
   if (column.container_kind === 'being') {
     return `${container.name} has these${path.length > 0 ? `, ${within(path)}` : ''}`;
+  }
+  // The board's being doesn't carry it, someone else does (ADR 0134).
+  if (!column.carried && column.carried_by !== null) {
+    return `Not carried, with ${column.carried_by.name}`;
   }
   if (path.length > 0) return capitalized(within(path));
   // In nothing, and nobody carries it.

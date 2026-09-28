@@ -661,6 +661,8 @@ async def list_item_instances_controlled_by(
 
     container_ids = frozenset(c.container_id for c in board if c.container_id is not None)
     paths = await containment_paths(session, entity_ids=container_ids, tenant_id=tenant_id)
+    # The whole way up, before a carried path stops short of the being.
+    around = {c: list(path) for c, path in paths.items()}
     carried = {c: entity_id in path for c, path in paths.items()}
     for container_id, path in paths.items():
         if carried[container_id]:
@@ -668,7 +670,8 @@ async def list_item_instances_controlled_by(
     owner_ids = {
         item.owner_entity_id for item in items.values() if item.owner_entity_id is not None
     }
-    named_ids = container_ids | owner_ids | {a for path in paths.values() for a in path}
+    surrounding_ids = {a for path in around.values() for a in path}
+    named_ids = container_ids | owner_ids | surrounding_ids
     entities = {
         entity.id: entity
         for entity in (
@@ -681,11 +684,14 @@ async def list_item_instances_controlled_by(
         (
             await session.execute(
                 select(Being.entity_id).where(
-                    Being.entity_id.in_(container_ids), Being.tenant_id == tenant_id
+                    Being.entity_id.in_(container_ids | surrounding_ids),
+                    Being.tenant_id == tenant_id,
                 )
             )
         ).scalars()
     )
+    # Who carries each container (ADR 0134): the nearest being around it.
+    carried_by = {c: next((a for a in path if a in being_ids), None) for c, path in around.items()}
     instance_ids = set(
         (
             await session.execute(
@@ -720,12 +726,14 @@ async def list_item_instances_controlled_by(
         if container_id is not None and column.kind != "equipped":
             path = [summary(a) for a in paths[container_id]]
             is_carried = carried[container_id]
+        carrier = None if container_id is None else carried_by[container_id]
         return ControlledColumnOut(
             kind=column.kind,
             container=None if container_id is None else summary(container_id),
             container_kind=None if container_id is None else kind(container_id),
             path=path,
             carried=is_carried,
+            carried_by=None if carrier is None else summary(carrier),
             contents_hidden=column.contents_hidden,
             item_instances=[items[i] for i in column.item_ids],
         )

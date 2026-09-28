@@ -35,6 +35,11 @@ test("a member opens the group's board from the list", async ({ world, as }) => 
   await expect(card(page, 'Not carried', 'Backpack')).toBeVisible();
   await expect(card(page, 'Backpack', 'Arrow')).toBeVisible();
   await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}&group=${company}`);
+
+  // Back without naming it, the board opens the one she had open (ADR 0134).
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  await expect(page.getByText('Viewing what The Company holds.')).toBeVisible();
+  await expect(page).toHaveURL(`/board/?tenant=${world.tenantId}&group=${company}`);
 });
 
 test('gives something to a group', async ({ world, as }) => {

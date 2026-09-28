@@ -70,6 +70,31 @@ test("keeps what isn't carried apart, and gives an empty container a column", as
   // The two places every board has.
   await expect(column(page, 'Equipped')).toHaveClass(/glow-canonical/);
   await expect(column(page, 'Not carried')).toHaveClass(/glow-canonical/);
+
+  // Picked up, its column says so at once (ADR 0134).
+  await card(page, 'Not carried', 'Treasure Chest').dragTo(column(page, 'Equipped'));
+  await expect(card(page, 'Equipped', 'Treasure Chest')).toBeVisible();
+  await expect(column(page, 'Treasure Chest')).not.toContainText('Not carried');
+});
+
+test("says who has a thing of hers that she doesn't carry", async ({ world, as }) => {
+  await packed(world, world.pia);
+  const chest = await world.item('Treasure Chest', { tags: ['is_container'] });
+  await world.instance(chest, { owner: world.pia, container: world.oskar.character.entity_id });
+  const page = await boardOf(as, world, world.pia);
+
+  await expect(column(page, 'Treasure Chest')).toContainText('Not carried, with Brisk');
+});
+
+test("opens a player's only character by itself", async ({ world, as }) => {
+  await packed(world, world.pia);
+  const page = await as(world.pia);
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+
+  await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeVisible();
+  await expect(page).toHaveURL(
+    `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
+  );
 });
 
 test("doesn't look inside someone else's bag she carries, until something of hers is in it", async ({
@@ -105,8 +130,10 @@ test("marks what isn't hers, and shows his things held elsewhere", async ({ worl
   await expect(card(pia, 'Backpack', 'Ornate Spellbook')).toBeVisible();
 
   const oskar = await boardOf(as, world, world.oskar);
-  // In the same row as what he carries, its note says where it is.
-  await expect(column(oskar, 'Backpack')).toContainText('In Ashfang');
+  // In the same row as what he carries, its note says who has it (ADR 0134), and it's
+  // marked read-only.
+  await expect(column(oskar, 'Backpack')).toContainText('Not carried, with Ashfang');
+  await expect(column(oskar, 'Backpack')).toHaveClass(/board-column--read-only/);
   await expect(card(oskar, 'Backpack', 'Book')).toBeVisible();
   // Only what's his: her spellbook in the same backpack isn't his to see here.
   await expect(card(oskar, 'Backpack', 'Ornate Spellbook')).toHaveCount(0);
