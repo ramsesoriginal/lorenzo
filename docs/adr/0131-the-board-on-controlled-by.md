@@ -32,7 +32,7 @@ All of them sit in the one `grid full-width h-scroll` row.
 - **A read-only column** takes no drops. Its cards can't be dragged, and they open without Move to…. Giving stays, since what's there is Owned.
 - **Notes** come from `path` and `container_kind`, as `held-by`'s did: "In Backpack", "Brisk has these", "In Carriage, in Stable". A container in nothing, that nobody carries, says "Not carried". The pill is green for a carried column and amber for any other, as before.
 - **Contents not shown.** When `contents_hidden`, a column with nothing listed says "Contents not shown." instead of its empty text, and one with cards ends with "Other contents not shown."
-- **"Give what's inside…"** is only offered for a container whose column lists something. An empty backpack has a column now, and nothing in it to give.
+- **"Give what's inside…"**, and a give's "Also give what's inside", are only offered for a container whose column lists something. An empty backpack has a column now, and nothing in it to give.
 
 ### Owner marks, and the rest
 
@@ -41,6 +41,11 @@ Owner marks, bound marks, searching, selecting, giving, splitting, and merging w
 ### The end-to-end scenes
 
 A scene's character now carries what it's meant to carry: `packed()` puts the backpack and belt pouch into the character, where before it only gave them an owner. `world.carried()` reads `owned-by`, which shows both the same way, so what the tests expect of it doesn't change.
+
+Two things the scenes ran into:
+
+- **A deadlock in creating things.** `world.stack()` creates a stack's instances at once, into a backpack its owner now carries. Capacity locked the backpack's chain after the new ownership row had share-locked the owner, who's in that chain, so two creates waited on each other. The create now takes capacity's lock first, as a split already did, with an API test that creates four at once. A hand-over has the same ordering and is tracked separately.
+- **Room to drag.** With Not carried and the vertical list of characters, a column Playwright drags onto can start off-screen, and a drag that has to scroll loses its drop. The tests run in a 1440 × 1200 viewport. The login fixture also waits for home to open a lone library's board before a test navigates on its own, so the two can't race.
 
 ## Not in scope
 
