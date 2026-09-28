@@ -27,6 +27,7 @@ from lorenzo_api.campaign_access import (
 )
 from lorenzo_api.capacity import CapacityCheck, lock_ahead
 from lorenzo_api.change_feed import Change, holders, record_change
+from lorenzo_api.controlled import Column, ColumnKind, Holdings, columns, controlled_ids
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -38,7 +39,9 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
+    containment_paths,
     controlled_holder_entity_ids,
+    group_ids_for_characters,
     reachable_entity_ids,
     recursive_descendants_cte,
     surroundings,
@@ -57,6 +60,7 @@ from lorenzo_api.exceptions import (
     OverrideForbiddenError,
     StackNeedsContainerError,
 )
+from lorenzo_api.identical import signatures
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
@@ -65,6 +69,8 @@ from lorenzo_api.models import (
     Entity,
     EntityPrototype,
     EntitySlug,
+    EntityStat,
+    EntityStatGroup,
     Item,
     ItemInstance,
     Ownership,
@@ -78,6 +84,9 @@ from lorenzo_api.schemas.items import (
     BulkMoveContainerRequest,
     BulkMoveResultItem,
     ContentsResultItem,
+    ControlledByResponse,
+    ControlledColumnOut,
+    ControlledItemInstanceOut,
     GiveContentsRequest,
     HeldByResponse,
     HeldGroupOut,
@@ -538,6 +547,203 @@ async def list_item_instances_held_by(
     )
 
 
+@router.get("/controlled-by/{entity_id}")
+async def list_item_instances_controlled_by(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ControlledByResponse:
+    """What entity_id's board shows (ADR 0130, RFC 0031): a being's or a
+    group's Controlled item instances, as columns - Equipped for a being,
+    Not carried, every controlled container, and read-only columns for
+    whatever else holds something of theirs. controlled.py has the rules;
+    this walks, loads, names, and orders.
+
+    Access is held-by's: an entity the caller doesn't reach is a 404, the
+    same as one that doesn't exist. Within it, Controlled decides what's
+    listed, not ADR 0040's owner reach: what the being doesn't know about
+    is visible_to_characters' to hide, once knowledge backs it.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    reach = await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    if reach is not None and entity_id not in reach:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+
+    holder_is_being = (
+        await session.execute(
+            select(Being.entity_id).where(
+                Being.entity_id == entity_id, Being.tenant_id == tenant_id
+            )
+        )
+    ).scalar_one_or_none() is not None
+    group_ids = await group_ids_for_characters(
+        session, character_ids=frozenset({entity_id}), tenant_id=tenant_id
+    )
+    # What it and its groups own, and everything under either, at any depth.
+    walked = await reachable_entity_ids(
+        session, root_entity_ids=frozenset({entity_id}) | group_ids, tenant_id=tenant_id
+    )
+    # Every containment row under the walk, and every row into what directly
+    # holds something in it - a column says when its container holds more
+    # than it lists, and a read-only column's container is outside the walk.
+    parents = dict(
+        (
+            await session.execute(
+                select(Containment.child_entity_id, Containment.parent_entity_id).where(
+                    Containment.child_entity_id.in_(walked), Containment.tenant_id == tenant_id
+                )
+            )
+        )
+        .tuples()
+        .all()
+    )
+    parents |= dict(
+        (
+            await session.execute(
+                select(Containment.child_entity_id, Containment.parent_entity_id).where(
+                    Containment.parent_entity_id.in_(set(parents.values()) - walked),
+                    Containment.tenant_id == tenant_id,
+                )
+            )
+        )
+        .tuples()
+        .all()
+    )
+    views = (
+        (
+            await session.execute(
+                select(VItemInstance)
+                .where(
+                    VItemInstance.entity_id.in_(walked - {entity_id} - group_ids),
+                    VItemInstance.tenant_id == tenant_id,
+                )
+                .options(*eager_load_options(VItemInstance.entity))
+                .order_by(VItemInstance.entity_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    holdings = Holdings(
+        holder_id=entity_id,
+        holder_is_being=holder_is_being,
+        group_ids=group_ids,
+        parents=parents,
+        owners={view.entity_id: view.owner_entity_id for view in views},
+    )
+    controlled = controlled_ids(holdings)
+    shown = [view for view in views if view.entity_id in controlled]
+
+    ancestry = await prototype_ancestors(
+        session, tenant_id=tenant_id, entity_ids=[view.entity_id for view in shown]
+    )
+    await attach_contents(session, [view.entity for view in shown], tenant_id=tenant_id)
+    await attach_bound(session, shown, tenant_id=tenant_id)
+    items = {
+        view.entity_id: ControlledItemInstanceOut(
+            **dict(
+                ItemInstanceOut.from_v_item_instance(
+                    view, request, visibility=visibility, ancestors=ancestry[view.entity_id]
+                )
+            ),
+            # RFC 0031 §4: nothing can be hidden from the being yet.
+            visible_to_characters=True,
+        )
+        for view in shown
+    }
+    board = columns(
+        holdings, controlled, {i for i, item in items.items() if item.is_container is True}
+    )
+
+    container_ids = frozenset(c.container_id for c in board if c.container_id is not None)
+    paths = await containment_paths(session, entity_ids=container_ids, tenant_id=tenant_id)
+    carried = {c: entity_id in path for c, path in paths.items()}
+    for container_id, path in paths.items():
+        if carried[container_id]:
+            paths[container_id] = path[: path.index(entity_id)]
+    owner_ids = {
+        item.owner_entity_id for item in items.values() if item.owner_entity_id is not None
+    }
+    named_ids = container_ids | owner_ids | {a for path in paths.values() for a in path}
+    entities = {
+        entity.id: entity
+        for entity in (
+            await session.execute(
+                select(Entity).where(Entity.id.in_(named_ids), Entity.tenant_id == tenant_id)
+            )
+        ).scalars()
+    }
+    being_ids = set(
+        (
+            await session.execute(
+                select(Being.entity_id).where(
+                    Being.entity_id.in_(container_ids), Being.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    instance_ids = set(
+        (
+            await session.execute(
+                select(ItemInstance.entity_id).where(
+                    ItemInstance.entity_id.in_(container_ids), ItemInstance.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+
+    def kind(container_id: uuid.UUID) -> Literal["being", "item_instance", "other"]:
+        if container_id in being_ids:
+            return "being"
+        return "item_instance" if container_id in instance_ids else "other"
+
+    def summary(some_id: uuid.UUID) -> EntitySummary:
+        return EntitySummary.from_entity(entities[some_id])
+
+    def by_name(some_id: uuid.UUID) -> tuple[str, str]:
+        return (entities[some_id].name.casefold(), str(some_id))
+
+    def tree_order(container_id: uuid.UUID) -> list[tuple[str, str]]:
+        # A container's outermost surroundings first, so a pouch comes right
+        # after the backpack it's in, as in held-by.
+        return [by_name(a) for a in reversed(paths[container_id])] + [by_name(container_id)]
+
+    def out(column: Column) -> ControlledColumnOut:
+        container_id = column.container_id
+        # Equipped is the being itself, and Not carried is nowhere.
+        path: list[EntitySummary] = []
+        is_carried = column.kind == "equipped"
+        if container_id is not None and column.kind != "equipped":
+            path = [summary(a) for a in paths[container_id]]
+            is_carried = carried[container_id]
+        return ControlledColumnOut(
+            kind=column.kind,
+            container=None if container_id is None else summary(container_id),
+            container_kind=None if container_id is None else kind(container_id),
+            path=path,
+            carried=is_carried,
+            contents_hidden=column.contents_hidden,
+            item_instances=[items[i] for i in column.item_ids],
+        )
+
+    def placed(of: ColumnKind) -> list[tuple[uuid.UUID, Column]]:
+        return [(c.container_id, c) for c in board if c.kind == of and c.container_id is not None]
+
+    fixed = [c for c in board if c.kind in ("equipped", "not_carried")]
+    containers = sorted(
+        placed("container"), key=lambda pair: (not carried[pair[0]], tree_order(pair[0]))
+    )
+    read_only = sorted(placed("read_only"), key=lambda pair: tree_order(pair[0]))
+    return ControlledByResponse(
+        columns=[out(c) for c in [*fixed, *(c for _, c in containers), *(c for _, c in read_only)]],
+        owners=[summary(o) for o in sorted(owner_ids, key=by_name)],
+    )
+
+
 @router.get("/unowned")
 async def list_unowned_item_instances(
     tenant_id: uuid.UUID,
@@ -941,6 +1147,17 @@ async def create_item_instance(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
 
+    # Created inside something is put there: capacity counts (ADR 0128). Its
+    # chain is locked before anything goes in: the ownership row's foreign key
+    # share-locks the owner, who's often in that chain, and two creates each
+    # holding that share lock would wait on each other forever.
+    check = (
+        None
+        if body.container_entity_id is None or body.override
+        else await CapacityCheck.start(
+            session, tenant_id=tenant_id, target_id=body.container_entity_id
+        )
+    )
     entity = Entity(
         tenant_id=tenant_id,
         name=body.name if body.name is not None else prototype_entity.name,
@@ -964,14 +1181,6 @@ async def create_item_instance(
             )
         )
     if body.container_entity_id is not None:
-        # Created inside something is put there: capacity counts (ADR 0128).
-        check = (
-            None
-            if body.override
-            else await CapacityCheck.start(
-                session, tenant_id=tenant_id, target_id=body.container_entity_id
-            )
-        )
         session.add(
             Containment(
                 child_entity_id=entity.id,
@@ -1055,17 +1264,22 @@ async def delete_item_instance(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    split: Annotated[bool, Query()] = False,
 ) -> None:
     """A cascade delete - an instance has nothing else depending on it the
     way a base item does (ADR 0018) - except for what's inside it, which
-    moves out to where it was first (ADR 0128), keeping its counts.
+    moves out to where it was first (ADR 0128), keeping its counts. From a
+    container in none, that's out of every container (ADR 0132): a stack
+    there refuses the delete unless `split` sets it down as single items.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(
         session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
     )
-    kept = await _keep_contents(session, tenant_id=tenant_id, actor_id=user.id, container=entity)
+    kept = await _keep_contents(
+        session, tenant_id=tenant_id, actor_id=user.id, container=entity, split=split
+    )
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1093,15 +1307,108 @@ async def delete_item_instance(
     await session.commit()
 
 
+async def _set_down_pieces(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    stack_id: uuid.UUID,
+    quantity: int,
+    actor_id: uuid.UUID,
+) -> list[uuid.UUID]:
+    """A stack of `quantity` set down (ADR 0132): out of every container it
+    has no count, so it becomes that many single items. The stack itself is
+    one of them, keeping its id, information, notes and slug; this makes the
+    other `quantity - 1`, each a new instance of the same prototype(s), with
+    the same owner and a copy of every stat value (and stat group) the stack
+    has of its own - so a +1 or a lifted binding holds for every piece. None
+    is in a container; the caller removes the stack's own containment row.
+    Returns the new pieces' ids."""
+    stack = await session.get_one(Entity, stack_id)
+    prototype_ids = (
+        await session.scalars(
+            select(EntityPrototype.prototype_id).where(
+                EntityPrototype.entity_id == stack_id, EntityPrototype.tenant_id == tenant_id
+            )
+        )
+    ).all()
+    owner_id = await _current_owner_character_id(session, entity_id=stack_id, tenant_id=tenant_id)
+    stats = (
+        await session.scalars(
+            select(EntityStat).where(
+                EntityStat.entity_id == stack_id, EntityStat.tenant_id == tenant_id
+            )
+        )
+    ).all()
+    group_ids = (
+        await session.scalars(
+            select(EntityStatGroup.stat_group_id).where(
+                EntityStatGroup.entity_id == stack_id, EntityStatGroup.tenant_id == tenant_id
+            )
+        )
+    ).all()
+    pieces: list[uuid.UUID] = []
+    for _ in range(quantity - 1):
+        piece = Entity(
+            tenant_id=tenant_id, name=stack.name, created_by=actor_id, updated_by=actor_id
+        )
+        session.add(piece)
+        await session.flush()
+        session.add(ItemInstance(entity_id=piece.id, tenant_id=tenant_id))
+        session.add_all(
+            EntityPrototype(entity_id=piece.id, prototype_id=prototype_id, tenant_id=tenant_id)
+            for prototype_id in prototype_ids
+        )
+        if owner_id is not None:
+            session.add(
+                Ownership(
+                    owned_entity_id=piece.id, owner_character_id=owner_id, tenant_id=tenant_id
+                )
+            )
+        session.add_all(
+            EntityStatGroup(entity_id=piece.id, stat_group_id=group_id, tenant_id=tenant_id)
+            for group_id in group_ids
+        )
+        session.add_all(
+            EntityStat(
+                entity_id=piece.id,
+                stat_definition_id=stat.stat_definition_id,
+                tenant_id=tenant_id,
+                value_int=stat.value_int,
+                value_text=stat.value_text,
+                value_float=stat.value_float,
+                value_bool=stat.value_bool,
+            )
+            for stat in stats
+        )
+        pieces.append(piece.id)
+    await session.flush()
+    return pieces
+
+
+def _stack_detail(what: str, quantity: int) -> str:
+    """Why a stack refuses to be set down (ADR 0115, 0132), and the way out."""
+    return (
+        f"{what} a stack of {quantity}: out of every container it can't keep its count. "
+        f"Set it down with split=true to make it {quantity} single items."
+    )
+
+
 async def _keep_contents(
-    session: SessionDep, *, tenant_id: uuid.UUID, actor_id: uuid.UUID, container: Entity
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    container: Entity,
+    split: bool = False,
 ) -> int:
     """Before a container is deleted, what's directly inside it moves to
     where the container was (ADR 0128, RFC 0030 §10): into its own
-    container, else into its owner, else out of every container - which a
-    stack can't do without losing its count, so that refuses the delete.
-    Counts are kept, and capacity isn't checked: what was inside was
-    already being carried. Returns how many moved."""
+    container, or, for a container in none, out of every container - set
+    down, not handed to its owner (ADR 0132). A stack can't leave every
+    container with its count, so it refuses the delete unless `split`, which
+    sets it down as single items. Counts are kept otherwise, and capacity
+    isn't checked: what was inside was already being carried. Returns how
+    many moved."""
     inside = (
         (
             await session.execute(
@@ -1117,25 +1424,29 @@ async def _keep_contents(
     if not inside:
         return 0
     own = await session.get(Containment, container.id)
-    destination = (
-        own.parent_entity_id
-        if own is not None
-        else await _current_owner_character_id(session, entity_id=container.id, tenant_id=tenant_id)
-    )
+    destination = own.parent_entity_id if own is not None else None
     changes: list[Change] = []
     for row in inside:
         # A cycle can make the destination the thing itself.
         target = destination if destination != row.child_entity_id else None
-        if target is None and row.quantity > 1:
+        if target is None and row.quantity > 1 and not split:
             name = await session.scalar(select(Entity.name).where(Entity.id == row.child_entity_id))
             raise StackNeedsContainerError(
-                detail=(
-                    f"{container.name} holds a stack of {row.quantity} {name}, which would lose "
-                    "its count out of every container. Move it out first."
-                )
+                detail=_stack_detail(f"{container.name} holds {name},", row.quantity)
             )
         before = await holders(session, tenant_id=tenant_id, entity_id=row.child_entity_id)
         if target is None:
+            if row.quantity > 1:
+                pieces = await _set_down_pieces(
+                    session,
+                    tenant_id=tenant_id,
+                    stack_id=row.child_entity_id,
+                    quantity=row.quantity,
+                    actor_id=actor_id,
+                )
+                changes.extend(
+                    Change(entity_id=p, before=frozenset(), both_kind=None) for p in pieces
+                )
             await session.delete(row)
         else:
             row.parent_entity_id = target
@@ -1463,6 +1774,71 @@ async def _contain(
         await check.finish(moved_ids=[entity_id])
 
 
+async def _merge_identical(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> uuid.UUID:
+    """After a move with merge_identical (ADR 0133): if what entity_id was
+    moved into directly holds an identical instance, entity_id merges into
+    it as POST .../merge does - the one with the lowest id, if there are
+    several. Returns where it ended up: that instance, or entity_id itself.
+    Nothing merges in no container, where a stack has no count to add to."""
+    moved = await session.get(Containment, entity_id)
+    if moved is None:
+        return entity_id
+    siblings = (
+        await session.scalars(
+            select(Containment.child_entity_id)
+            .join(ItemInstance, ItemInstance.entity_id == Containment.child_entity_id)
+            .where(
+                Containment.parent_entity_id == moved.parent_entity_id,
+                Containment.child_entity_id != entity_id,
+                Containment.tenant_id == tenant_id,
+            )
+        )
+    ).all()
+    if not siblings:
+        return entity_id
+    signed = await signatures(
+        session, tenant_id=tenant_id, entity_ids=frozenset({entity_id, *siblings})
+    )
+    mine = signed[entity_id]
+    same = sorted(sibling for sibling in siblings if mine is not None and signed[sibling] == mine)
+    if not same:
+        return entity_id
+    into = same[0]
+    target = await session.get_one(Containment, into)
+    target.quantity += moved.quantity
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        action="item_instance.merged",
+        target_type="item_instance",
+        target_id=into,
+        detail=f"source={entity_id}, quantity={moved.quantity}; identical, on a move",
+    )
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        changes=[
+            Change(
+                entity_id=into,
+                before=await holders(session, tenant_id=tenant_id, entity_id=into),
+                both_kind="merged",
+                detail=f"quantity={moved.quantity}",
+            )
+        ],
+    )
+    await session.delete(await session.get_one(Entity, entity_id))
+    await session.flush()
+    return into
+
+
 @router.put("/{entity_id}/container")
 async def set_item_instance_container(
     tenant_id: uuid.UUID,
@@ -1512,9 +1888,15 @@ async def set_item_instance_container(
             actor_id=user.id,
             changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
         )
+    # Where it ended up (ADR 0133): itself, or what it merged into.
+    ended_up = (
+        await _merge_identical(session, tenant_id=tenant_id, entity_id=entity_id, actor_id=user.id)
+        if changed and body.merge_identical
+        else entity_id
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
+    return await _item_instance_out(tenant_id, ended_up, request, response, session, user)
 
 
 @router.delete("/{entity_id}/container")
@@ -1528,15 +1910,17 @@ async def clear_item_instance_container(
     if_match: Annotated[str | None, Header()] = None,
     override: Annotated[bool, Query()] = False,
     lift_binding: Annotated[bool, Query()] = False,
+    split: Annotated[bool, Query()] = False,
 ) -> ItemInstanceOut:
-    """Takes it out of every container. Refused for a stack of more than one
-    (409, ADR 0115): its count lives on the containment row (ADR 0041), so
-    deleting the row would drop it. A stack leaves a container into its
-    owner instead, with PUT .../container.
+    """Takes it out of every container: sets it down (ADR 0132). A stack of
+    more than one is refused (409, ADR 0115) - its count lives on the
+    containment row (ADR 0041), so deleting the row would drop it - unless
+    `split`, which sets it down as that many single items, this one keeping
+    its id.
 
     Refused too when it takes a bound thing out of what binds it (ADR 0129);
-    `override` and `lift_binding` are query parameters here, with no body to
-    carry them.
+    `override`, `lift_binding` and `split` are query parameters here, with no
+    body to carry them.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
@@ -1551,13 +1935,8 @@ async def clear_item_instance_container(
     )
 
     existing = await session.get(Containment, entity_id)
-    if existing is not None and existing.quantity > 1:
-        raise StackNeedsContainerError(
-            detail=(
-                f"Item instance {entity_id} is a stack of {existing.quantity}: out of every "
-                "container it would lose its count. Move it into its owner instead."
-            )
-        )
+    if existing is not None and existing.quantity > 1 and not split:
+        raise StackNeedsContainerError(detail=_stack_detail(f"{entity.name} is", existing.quantity))
     if existing is not None:
         binding = (
             None
@@ -1565,6 +1944,20 @@ async def clear_item_instance_container(
             else await BindingCheck.start(session, tenant_id=tenant_id, moved_id=entity_id)
         )
         before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
+        pieces = (
+            await _set_down_pieces(
+                session,
+                tenant_id=tenant_id,
+                stack_id=entity_id,
+                quantity=existing.quantity,
+                actor_id=user.id,
+            )
+            if existing.quantity > 1
+            else []
+        )
+        detail = f"container={existing.parent_entity_id}"
+        if pieces:
+            detail += f"; split into {existing.quantity}"
         await session.delete(existing)
         if binding is not None:
             await binding.finish()
@@ -1575,13 +1968,16 @@ async def clear_item_instance_container(
             action="item_instance.container_cleared",
             target_type="item_instance",
             target_id=entity_id,
-            detail=_overridden(f"container={existing.parent_entity_id}", override, lifted=lifted),
+            detail=_overridden(detail, override, lifted=lifted),
         )
         await record_change(
             session,
             tenant_id=tenant_id,
             actor_id=user.id,
-            changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
+            changes=[
+                Change(entity_id=entity_id, before=before, both_kind="moved"),
+                *(Change(entity_id=p, before=frozenset(), both_kind=None) for p in pieces),
+            ],
         )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
@@ -2323,6 +2719,15 @@ async def bulk_move_item_instances(
                         actor_id=user.id,
                         changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
                     )
+                # What earlier entries moved is already there, so things moved together
+                # that are identical end up one stack (ADR 0133).
+                ended_up = (
+                    await _merge_identical(
+                        session, tenant_id=tenant_id, entity_id=entity_id, actor_id=user.id
+                    )
+                    if moved and body.merge_identical
+                    else entity_id
+                )
         except Problem as exc:
             results.append(
                 BulkMoveResultItem(
@@ -2333,7 +2738,7 @@ async def bulk_move_item_instances(
                 )
             )
             continue
-        item_instance = await _item_instance_out(tenant_id, entity_id, request, None, session, user)
+        item_instance = await _item_instance_out(tenant_id, ended_up, request, None, session, user)
         results.append(
             BulkMoveResultItem(
                 entity_id=entity_id, status="ok", item_instance=item_instance, problem=None

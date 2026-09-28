@@ -102,15 +102,18 @@ test('takes a stack out of its container whole, and undo puts it back', async ({
 
   await card(page, 'Backpack', 'Arrow ×3').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
-  await page.getByRole('button', { name: 'Remove from container' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Equipped', exact: true }).click();
   // Ashfang carries it now, all three: before, the count was lost here.
   await expect(card(page, 'Equipped', 'Arrow ×3')).toBeVisible();
   expect(await world.carried(world.pia)).toContain('(none): Arrow ×3');
 
-  // Carried, it isn't in a container to be taken out of.
+  // Equipped already, it can be set down, not equipped again.
   await card(page, 'Equipped', 'Arrow ×3').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
-  await expect(page.getByRole('button', { name: 'Remove from container' })).toHaveCount(0);
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Equipped', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Set down' })).toBeVisible();
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Undo' }).click();

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — full width</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html" aria-current="page">Full width</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <!-- Text stays in .wrap's reading column; the sidebar layout and the
+         board break out of it with .full-width, spanning the whole page. -->
+    <main>
+      <div class="wrap">
+        <h1 class="display">Full width</h1>
+        <p class="lede">
+          <code>.full-width</code> breaks a block out of <code>.wrap</code>'s
+          880px reading column to fill the whole page width, while the text
+          around it stays in the column. For boards, catalogs, and anything else
+          that gets more useful the more of it fits on screen.
+        </p>
+
+        <section class="section">
+          <h2>Sidebar and content</h2>
+          <div class="with-sidebar full-width">
+            <nav class="sidebar" aria-label="Catalog sections">
+              <a href="#" aria-current="page">All items</a>
+              <a href="#">Weapons</a>
+              <a href="#">Armor</a>
+              <a href="#">Potions</a>
+              <a href="#">Curiosities</a>
+            </nav>
+            <div class="grid" style="--grid-min: 220px">
+              <div class="card card-body stack">
+                <div class="row">
+                  <strong>Longsword</strong>
+                  <span class="badge">Weapon</span>
+                </div>
+                <p>Versatile, well balanced, and a little notched.</p>
+              </div>
+              <div class="card card-body stack">
+                <div class="row">
+                  <strong>Chain shirt</strong>
+                  <span class="badge">Armor</span>
+                </div>
+                <p>Rings of iron, worn under a traveling coat.</p>
+              </div>
+              <div class="card card-body stack">
+                <div class="row">
+                  <strong>Potion of healing</strong>
+                  <span class="badge">Potion</span>
+                </div>
+                <p>Red, faintly warm, and bitter as tree bark.</p>
+              </div>
+              <div class="card card-body stack">
+                <div class="row">
+                  <strong>Brass astrolabe</strong>
+                  <span class="badge">Curiosity</span>
+                </div>
+                <p>Its stars don't match any sky anyone has seen.</p>
+              </div>
+              <div class="card card-body stack">
+                <div class="row">
+                  <strong>Shortbow</strong>
+                  <span class="badge">Weapon</span>
+                </div>
+                <p>Yew, restrung last winter in Waterdeep.</p>
+              </div>
+              <div class="card card-body stack">
+                <div class="row">
+                  <strong>Map of the Sword Coast</strong>
+                  <span class="badge-visibility">
+                    <svg class="icon">
+                      <use href="../icons.svg#icon-private"></use>
+                    </svg>
+                    GM only
+                  </span>
+                </div>
+                <p>Annotated in a hand nobody at the table recognizes.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-lg">
+          <h2>Board</h2>
+          <p>
+            One column per container, in a single row that scrolls sideways once
+            they don't fit - <code>.grid.h-scroll</code> with a wider
+            <code>--grid-min</code>.
+          </p>
+          <div class="grid full-width h-scroll" style="--grid-min: 260px">
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Equipped</strong>
+                <span class="canonical-marker">4</span>
+              </div>
+              <ul class="list">
+                <li>Longsword</li>
+                <li>Chain shirt</li>
+                <li>Potion of healing <span class="badge">×3</span></li>
+                <li>Waterskin</li>
+                <li>
+                  Backpack
+                  <span class="badge">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="../icons.svg#icon-container"></use></svg
+                  ></span>
+                </li>
+                <li>
+                  Belt Pouch
+                  <span class="badge">
+                    <svg class="icon" aria-hidden="true">
+                      <use href="../icons.svg#icon-container"></use></svg
+                  ></span>
+                </li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Backpack</strong>
+                <span class="canonical-marker">3</span>
+              </div>
+              <ul class="list">
+                <li>Bedroll</li>
+                <li>Rations <span class="badge">×5</span></li>
+                <li>Hempen rope, 50 ft</li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Belt pouch</strong>
+                <span class="canonical-marker">2</span>
+              </div>
+              <ul class="list">
+                <li>Gold pieces <span class="badge">×37</span></li>
+                <li>Brass astrolabe</li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Treasure Chest</strong>
+                <span class="pill pill-warning">In private room</span>
+              </div>
+              <ul class="list">
+                <li>Gold pieces <span class="badge">×157</span></li>
+                <li>Silver pieces <span class="badge">×32</span></li>
+                <li>Copper pieces <span class="badge">×1243</span></li>
+                <li>Gemstones <span class="badge">×20</span></li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Wardrobe</strong>
+                <span class="pill pill-warning">In private room</span>
+              </div>
+              <ul class="list">
+                <li>Traveler's Clothes</li>
+                <li>Wizard Robe</li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Saddlebags</strong>
+                <span class="pill pill-warning">Left at the inn</span>
+              </div>
+              <ul class="list">
+                <li>Shortbow</li>
+                <li>Arrows <span class="badge">×20</span></li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Carriage</strong>
+                <span class="pill pill-warning">Parked Outside the inn</span>
+              </div>
+              <ul class="list">
+                <li>Bedroll</li>
+              </ul>
+            </div>
+            <div class="card card-body stack">
+              <div class="row">
+                <strong>Bag of Holding</strong>
+                <span class="pill pill-warning">Carried by Flynn</span>
+              </div>
+              <ul class="list">
+                <li>Skeleton <span class="badge">×10</span></li>
+                <li>Rusty Full Plate <span class="badge">×7</span></li>
+                <li>Anvil</li>
+                <li>Carpet, ft of <span class="badge">×117</span></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <div class="row" style="padding-inline: var(--space-4)">
+          <span>
+            Part of <code>apps/brand</code> — see
+            <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+          </span>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

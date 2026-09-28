@@ -30,12 +30,13 @@ substitute for reading that value directly). That's deliberate: it's the
 proof that including this package is enough to style a real page, baseline
 included, not just a components catalog.
 
-Six further preview pages exercise everything else: `preview/motion.html`
+Seven further preview pages exercise everything else: `preview/motion.html`
 (every `motion.css` technique, live), `preview/dialogs.html` (a single
 modal `<dialog>`, and two non-modal, semi-overlapping dialogs open at
 once), `preview/forms.html` (every field type on one form), `preview/trees.html`
 (a nested world hierarchy), `preview/editors.html` (`.editor-toolbar` +
-`.editor-content` composed with `.card`), and `preview/content/` — seven
+`.editor-content` composed with `.card`), `preview/full-width.html` (`.full-width`
+breaking a sidebar layout and a board out of `.wrap`'s reading column), and `preview/content/` — seven
 "thematic lorem ipsum" pages (a 1993 tax office, a university research
 project, a starship crew, a Renaissance merchant family, a cyberpunk
 corporation, a mundane apartment inventory, a traditional fantasy

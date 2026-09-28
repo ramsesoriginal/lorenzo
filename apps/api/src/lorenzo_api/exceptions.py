@@ -127,9 +127,11 @@ class EntitySlugConflictError(ConflictProblem):
 
 
 class StackNeedsContainerError(ConflictProblem):
-    """DELETE .../item-instances/{id}/container on a stack of more than one -
-    a stack's count lives on its containment row (ADR 0041), so deleting the
-    row would drop it. Move the stack into its owner instead (ADR 0115).
+    """Setting a stack of more than one down - DELETE .../container on it, or
+    deleting a container in no container that holds it - without `split`: a
+    stack's count lives on its containment row (ADR 0041), so deleting the row
+    would drop it. `split=true` sets it down as single items (ADR 0132); moving
+    it into its owner keeps it a stack (ADR 0115).
     """
 
     title = "A stack needs a container"

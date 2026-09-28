@@ -3,6 +3,7 @@ import {
   createUndoController,
   failedEntityIds,
   findMergeCandidates,
+  mergedAway,
   planGive,
   samePrototypes,
   summarizeBulkResults,
@@ -116,6 +117,16 @@ describe('summarizeBulkResults', () => {
 
   it('does not report allFailed for an empty result set', () => {
     expect(summarizeBulkResults([]).allFailed).toBe(false);
+  });
+});
+
+describe('mergedAway', () => {
+  it('sees an entry that ended up in another instance', () => {
+    const stayed = makeBulkResult({ entity_id: 'a', item_instance: makeItem({ entity_id: 'a' }) });
+    const merged = makeBulkResult({ entity_id: 'b', item_instance: makeItem({ entity_id: 'a' }) });
+    const failed = makeBulkResult({ entity_id: 'c', status: 'error', item_instance: null });
+    expect(mergedAway([stayed, failed])).toBe(false);
+    expect(mergedAway([stayed, merged])).toBe(true);
   });
 });
 

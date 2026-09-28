@@ -37,12 +37,14 @@ export async function catalog(world: World) {
   return { book, spellbook, ornate, backpack, pouch, arrow };
 }
 
-/** `player`'s character with a backpack, a belt pouch, and things in them. */
+/** `player`'s character carrying a backpack and a belt pouch, and things in the backpack. */
 export async function packed(world: World, player: Player) {
   const items = await catalog(world);
   const owner = { owner: player };
-  const backpack = await world.instance(items.backpack, owner);
-  const pouch = await world.instance(items.pouch, owner);
+  // Equipped: contained by the character itself (RFC 0031). Owned alone, they'd be Not carried.
+  const equipped = { ...owner, container: player.character.entity_id };
+  const backpack = await world.instance(items.backpack, equipped);
+  const pouch = await world.instance(items.pouch, equipped);
   const spellbook = await world.instance(items.ornate, { ...owner, container: backpack });
   const arrows = await world.stack(items.arrow, 3, { ...owner, container: backpack });
   return { items, backpack, pouch, spellbook, arrows };

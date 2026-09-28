@@ -4,8 +4,8 @@ import type {
   BulkResultItem,
   CatalogItem,
   ContentsResult,
+  ControlledByResponse,
   EntityDetail,
-  HeldByResponse,
   ItemInstance,
   OwnedByResponse,
   PrototypeAncestor,
@@ -13,7 +13,7 @@ import type {
 
 // What a being owns, grouped by *direct* container only (ADR 0020's task
 // brief) - a null group for items with no container, one group per occupied
-// container. Manage items' per-being listing; the board reads held-by.
+// container. Manage items' per-being listing; the board reads controlled-by.
 export async function getOwnedItemInstances(
   tenantId: string,
   ownerEntityId: string,
@@ -25,16 +25,15 @@ export async function getOwnedItemInstances(
   );
 }
 
-// Everything a being holds (ADR 0123), grouped by direct container: its own
-// group (Equipped) first and always, then what it carries, then what's held
-// elsewhere. A container with nothing in it gets no group of its own, but
-// still appears as a card inside whichever group holds it.
-export async function getHeldItemInstances(
+// A being's or a group's board (ADR 0130), as columns: Equipped for a being and
+// Not carried, always; one for every container it controls, empty ones
+// included; then read-only ones for whatever else holds something of theirs.
+export async function getControlledItemInstances(
   tenantId: string,
   holderEntityId: string,
-): Promise<HeldByResponse> {
+): Promise<ControlledByResponse> {
   return unwrap(
-    await client.GET('/tenants/{tenant_id}/item-instances/held-by/{entity_id}', {
+    await client.GET('/tenants/{tenant_id}/item-instances/controlled-by/{entity_id}', {
       params: { path: { tenant_id: tenantId, entity_id: holderEntityId } },
     }),
   );
@@ -68,28 +67,48 @@ function anywayQuery({ override = false, liftBinding = false }: AnywayFlags) {
     : {};
 }
 
+// A move into a container may also merge (ADR 0133): what's moved goes into an identical
+// instance already there, which is then where it ended up.
+export type MoveFlags = AnywayFlags & Readonly<{ mergeIdentical?: boolean }>;
+
+// Where it ended up: itself, or, with mergeIdentical, what it merged into.
 export async function setContainer(
   tenantId: string,
   entityId: string,
   containerEntityId: string,
-  { override = false, liftBinding = false }: AnywayFlags = {},
-): Promise<void> {
-  await unwrap(
+  { override = false, liftBinding = false, mergeIdentical = false }: MoveFlags = {},
+): Promise<ItemInstance> {
+  return unwrap(
     await client.PUT('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
-      body: { container_entity_id: containerEntityId, override, lift_binding: liftBinding },
+      body: {
+        container_entity_id: containerEntityId,
+        override,
+        lift_binding: liftBinding,
+        merge_identical: mergeIdentical,
+      },
     }),
   );
 }
 
+// Setting something down (ADR 0132) may also split it: a stack of n, out of every
+// container, becomes n single items - only when asked, or the API refuses a stack.
+export type SetDownFlags = AnywayFlags & Readonly<{ split?: boolean }>;
+
+function setDownQuery({ split = false, ...flags }: SetDownFlags) {
+  const anyway = anywayQuery(flags);
+  return split ? { query: { ...('query' in anyway ? anyway.query : {}), split } } : anyway;
+}
+
+// Out of every container: sets it down (ADR 0132).
 export async function clearContainer(
   tenantId: string,
   entityId: string,
-  flags: AnywayFlags = {},
+  flags: SetDownFlags = {},
 ): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...anywayQuery(flags) },
+      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...setDownQuery(flags) },
     }),
   );
 }
@@ -248,11 +267,20 @@ export async function deleteCatalogItem(tenantId: string, entityId: string): Pro
   );
 }
 
-// DELETE /tenants/{t}/item-instances/{id} - 204 No Content on success.
-export async function deleteItemInstance(tenantId: string, entityId: string): Promise<void> {
+// DELETE /tenants/{t}/item-instances/{id} - 204 No Content on success. What's inside moves
+// to where it was; from a container in none, it's set down, and a stack among it only
+// with `split` (ADR 0132).
+export async function deleteItemInstance(
+  tenantId: string,
+  entityId: string,
+  { split = false }: Readonly<{ split?: boolean }> = {},
+): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      params: {
+        path: { tenant_id: tenantId, entity_id: entityId },
+        ...(split ? { query: { split } } : {}),
+      },
     }),
   );
 }
@@ -419,7 +447,7 @@ export async function bulkMoveItemInstances(
   tenantId: string,
   toContainerEntityId: string,
   entityIds: string[],
-  { override = false, liftBinding = false }: AnywayFlags = {},
+  { override = false, liftBinding = false, mergeIdentical = false }: MoveFlags = {},
 ): Promise<BulkResultItem[]> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances/bulk-move', {
@@ -429,6 +457,7 @@ export async function bulkMoveItemInstances(
         items: entityIds.map((entityId) => ({ entity_id: entityId })),
         override,
         lift_binding: liftBinding,
+        merge_identical: mergeIdentical,
       },
     }),
   );

@@ -34,7 +34,10 @@ test('a player gets the public catalog, to look items up, and nothing to change'
   await world.item('Crown of Ash');
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('link', { name: 'Catalog' }).click();
+  await page
+    .getByRole('navigation', { name: 'Subpages' })
+    .getByRole('link', { name: 'Items' })
+    .click();
 
   await expect(page).toHaveTitle('Catalog — Lorenzo');
   await expect(page.getByText('Everything your GMs have put in the public catalog.')).toBeVisible();

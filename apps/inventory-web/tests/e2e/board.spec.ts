@@ -15,6 +15,9 @@ async function boardOf(as: As, world: World, player: Player): Promise<Page> {
 const column = (page: Page, name: string) => page.getByRole('region', { name });
 const card = (page: Page, in_: string, name: string) =>
   column(page, in_).getByRole('button', { name, exact: true });
+/** The header's link to the current tenant's catalog. */
+const itemsLink = (page: Page) =>
+  page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Items' });
 
 /** Picks `name` in a being search, as every give and assign panel offers one. */
 async function pickBeing(page: Page, name: string) {
@@ -32,11 +35,11 @@ test('shows each container as a column of cards', async ({ world, as }) => {
   await expect(card(page, 'Backpack', 'Arrow ×3')).toBeVisible();
 });
 
-test('picks a character from the strip', async ({ world, as }) => {
+test('picks a character from the list', async ({ world, as }) => {
   await packed(world, world.pia);
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
-  await page.getByRole('button', { name: 'Ashfang' }).click();
+  await page.getByRole('link', { name: 'Ashfang' }).click();
   await expect(card(page, 'Backpack', 'Ornate Spellbook')).toBeVisible();
   await expect(page).toHaveURL(
     `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
@@ -46,6 +49,49 @@ test('picks a character from the strip', async ({ world, as }) => {
 test('shows Equipped even when a character carries nothing', async ({ world, as }) => {
   const page = await boardOf(as, world, world.oskar);
   await expect(column(page, 'Equipped')).toContainText('Nothing equipped.');
+});
+
+test("keeps what isn't carried apart, and gives an empty container a column", async ({
+  world,
+  as,
+}) => {
+  await packed(world, world.pia);
+  const chest = await world.item('Treasure Chest', { tags: ['is_container'] });
+  await world.instance(chest, { owner: world.pia });
+  const page = await boardOf(as, world, world.pia);
+
+  // Hers, but in no container: not carried, so not equipped (RFC 0031).
+  await expect(card(page, 'Not carried', 'Treasure Chest')).toBeVisible();
+  await expect(card(page, 'Equipped', 'Treasure Chest')).toHaveCount(0);
+  // An empty container is somewhere to drop, carried or not.
+  await expect(column(page, 'Belt Pouch')).toContainText('This container is empty.');
+  await expect(column(page, 'Treasure Chest')).toContainText('This container is empty.');
+  await expect(column(page, 'Treasure Chest')).toContainText('Not carried');
+  // The two places every board has.
+  await expect(column(page, 'Equipped')).toHaveClass(/glow-canonical/);
+  await expect(column(page, 'Not carried')).toHaveClass(/glow-canonical/);
+});
+
+test("doesn't look inside someone else's bag she carries, until something of hers is in it", async ({
+  world,
+  as,
+}) => {
+  const { items } = await packed(world, world.pia);
+  const satchel = await world.item('Satchel', { tags: ['is_container'] });
+  const bag = await world.instance(satchel, {
+    owner: world.oskar,
+    container: world.pia.character.entity_id,
+  });
+  await world.instance(items.book, { owner: world.oskar, container: bag });
+  const page = await boardOf(as, world, world.pia);
+
+  await expect(column(page, 'Satchel')).toContainText('Contents not shown.');
+  await expect(card(page, 'Satchel', "Book Brisk's")).toHaveCount(0);
+
+  await card(page, 'Backpack', 'Ornate Spellbook').dragTo(column(page, 'Satchel'));
+  await expect.poll(() => world.carried(world.pia)).toContain('Satchel: Ornate Spellbook');
+  await page.reload();
+  await expect(card(page, 'Satchel', "Book Brisk's")).toBeVisible();
 });
 
 test("marks what isn't hers, and shows his things held elsewhere", async ({ world, as }) => {
@@ -59,12 +105,19 @@ test("marks what isn't hers, and shows his things held elsewhere", async ({ worl
   await expect(card(pia, 'Backpack', 'Ornate Spellbook')).toBeVisible();
 
   const oskar = await boardOf(as, world, world.oskar);
-  const elsewhere = oskar.getByRole('region', { name: 'Held elsewhere' });
-  await expect(elsewhere.getByRole('region', { name: 'Backpack' })).toContainText('In Ashfang');
+  // In the same row as what he carries, its note says where it is.
+  await expect(column(oskar, 'Backpack')).toContainText('In Ashfang');
   await expect(card(oskar, 'Backpack', 'Book')).toBeVisible();
-  // Only what he holds: her spellbook in the same backpack isn't his to see here.
+  // Only what's his: her spellbook in the same backpack isn't his to see here.
   await expect(card(oskar, 'Backpack', 'Ornate Spellbook')).toHaveCount(0);
+  await expect(column(oskar, 'Backpack')).toContainText('Other contents not shown.');
   await expect(column(oskar, 'Equipped')).toContainText('Nothing equipped.');
+
+  // Her backpack is read-only on his board (ADR 0131): his book isn't moved from here.
+  await expect(card(oskar, 'Backpack', 'Book')).toHaveAttribute('draggable', 'false');
+  await card(oskar, 'Backpack', 'Book').click();
+  await expect(oskar.getByRole('button', { name: 'Give to…' })).toBeVisible();
+  await expect(oskar.getByRole('button', { name: 'Move to…' })).toBeHidden();
 });
 
 test('opens an item to show all of it, with what it inherits labelled', async ({ world, as }) => {
@@ -138,9 +191,10 @@ test('moves an item into another container and out again', async ({ world, as })
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(card(page, 'Belt Pouch', 'Ornate Spellbook')).toBeVisible();
 
+  // Equipping is moving it into Ashfang's hands.
   await card(page, 'Belt Pouch', 'Ornate Spellbook').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
-  await page.getByRole('button', { name: 'Remove from container' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Equipped', exact: true }).click();
   await expect(card(page, 'Equipped', 'Ornate Spellbook')).toBeVisible();
   expect(await world.carried(world.pia)).toContain('(none): Ornate Spellbook');
 });
@@ -248,9 +302,8 @@ test('moves a selection by dragging one of it', async ({ world, as }) => {
 
 test('a player gets no GM tools', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
-  await expect(page.getByRole('button', { name: 'Ashfang' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Manage items (GM)' })).toBeHidden();
-  await expect(page.getByRole('link', { name: 'Catalog' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();
+  await expect(itemsLink(page)).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Browse a being' })).toBeHidden();
 });
 
@@ -287,8 +340,7 @@ test('someone who GMs another tenant is only a player here', async ({ world, as 
   const page = await as(hilde);
   await page.goto(`/board/?tenant=${world.tenantId}`);
   await expect(page.getByRole('heading', { name: world.tenantName })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Manage items (GM)' })).toBeHidden();
-  await page.getByRole('link', { name: 'Catalog' }).click();
+  await itemsLink(page).click();
   await expect(page.getByRole('region', { name: 'Catalog' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
 });
@@ -308,6 +360,6 @@ test('a GM browses any being, and what nobody owns', async ({ world, as }) => {
   await expect(page.getByText('Viewing unowned items.')).toBeVisible();
   await expect(card(page, 'Unowned', 'Book')).toBeVisible();
 
-  await page.getByRole('link', { name: 'Manage items (GM)' }).click();
+  await itemsLink(page).click();
   await expect(page).toHaveURL(`/items/?tenant=${world.tenantId}`);
 });

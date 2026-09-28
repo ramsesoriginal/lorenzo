@@ -616,7 +616,7 @@ async def test_deleting_a_container_keeps_what_was_inside(
     assert detail == "contents moved out: 2"
     assert chest.status_code == 409
     assert chest.json()["type"] == "stack-needs-container"
-    assert "stack of 12 Loose arrows" in chest.json()["detail"]
+    assert "Chest holds Loose arrows, a stack of 12" in chest.json()["detail"]
     assert crate.status_code == 204
     await delete_tenant(t)
 
@@ -640,3 +640,32 @@ async def test_nothing_is_measured_without_capacity_stats(
 
     assert moved.status_code == 200, moved.text
     await delete_tenant(camp.tenant_id)
+
+
+async def test_creating_owned_things_at_once_into_what_their_owner_carries(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Each new Gear's ownership row share-locks Alice, whose Backpack it goes
+    into. Capacity locks her chain before that row goes in, so several
+    creates at once queue up instead of each waiting on the others' share
+    lock - a deadlock inventory-web's end-to-end stacks ran into."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+
+    created = await asyncio.gather(
+        *(
+            client.post(
+                f"/tenants/{t}/item-instances",
+                json={
+                    "prototype_id": str(ids["gear"]),
+                    "owner_character_id": str(ids["alice"]),
+                    "container_entity_id": str(ids["backpack"]),
+                },
+            )
+            for _ in range(4)
+        )
+    )
+
+    assert [r.status_code for r in created] == [201] * 4, [r.text for r in created]
+    await delete_tenant(t)

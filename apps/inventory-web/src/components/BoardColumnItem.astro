@@ -1,0 +1,17 @@
+---
+import { BRANDING_CSS_URL } from '../lib/config';
+---
+
+<template id="boardColumnItem">
+  <li class="item-card" tabindex="0" role="button">
+    <span class="badge" hidden data-container>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-container`}></use></svg
+      >
+    </span>
+    <span data-name>Name</span>
+    <span class="badge" hidden data-count>×3</span>
+    <span class="badge" hidden data-owner-mark>Someone's</span>
+    <span class="badge" hidden data-bound>Bound</span>
+  </li>
+</template>

@@ -85,6 +85,7 @@ import Base from '../../layouts/Base.astro';
     } from '../../lib/items';
     import { isCampaignGm, isTenantMember, viewerId } from '../../lib/me';
     import { giveOrAsk } from '../../lib/moveAnyway';
+    import { deleteSplitQuestion, isStackRefusal } from '../../lib/settingDown';
     import { saveSlug, slugField, slugProblem, suggestSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
     import type {
@@ -878,7 +879,15 @@ import Base from '../../layouts/Base.astro';
         if (!window.confirm(`Delete "${instance.title}"? This can't be undone.`)) return;
         deleteButton.disabled = true;
         try {
-          await deleteItemInstance(tenantId as string, instance.entity_id);
+          try {
+            await deleteItemInstance(tenantId as string, instance.entity_id);
+          } catch (e) {
+            // What was inside is set down; a stack only as single items, asked first (ADR 0132).
+            if (!isStackRefusal(e) || !window.confirm(deleteSplitQuestion(instance.title))) {
+              throw e;
+            }
+            await deleteItemInstance(tenantId as string, instance.entity_id, { split: true });
+          }
           if (currentCharacter) void loadInstancesFor(currentCharacter);
         } catch (e) {
           deleteButton.disabled = false;

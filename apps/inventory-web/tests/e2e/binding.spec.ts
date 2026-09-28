@@ -87,6 +87,7 @@ test('a GM takes it off anyway, and lifts the curse', async ({ world, as }) => {
         container_entity_id: world.pia.character.entity_id,
         override: false,
         lift_binding: false,
+        merge_identical: false,
       },
     }),
   );
