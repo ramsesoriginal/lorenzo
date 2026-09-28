@@ -98,8 +98,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
               type="text"
               id="gm-browse-raw-id"
               class="text-input"
-              placeholder="or a being's entity id…"
-              aria-label="Being's entity id"
+              placeholder="or a being's id or slug…"
+              aria-label="Being's id or slug"
             />
             <button type="button" id="gm-browse-raw-id-button">View</button>
           </div>
@@ -155,6 +155,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
   <HolderListItem />
 
   <script>
+    import { addressedTenant, beingNamed, unknownSlug } from '../../lib/addresses';
     import { fetchAncestryTree } from '../../lib/ancestryTree';
     import { isAuthenticated } from '../../lib/auth';
     import {
@@ -345,7 +346,9 @@ import HolderListItem from '../../components/HolderListItem.astro';
     const detailNotes = document.getElementById('item-detail-notes')!;
 
     const params = new URLSearchParams(window.location.search);
-    const tenantId = params.get('tenant');
+    // By id or by slug (ADR 0135).
+    const addressed = await addressedTenant(params.get('tenant'));
+    const tenantId = addressed.id;
     const renderDescriptions = descriptionRenderer(tenantId as string);
 
     // Set once at init (see the bottom of this script) - gates the
@@ -1591,38 +1594,54 @@ import HolderListItem from '../../components/HolderListItem.astro';
       }
     }
 
-    function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement) {
-      pressOnly(link);
-      rememberHolder(tenantId as string, { kind: 'character', id: character.entity_id });
-      inventoryViewing.hidden = true;
+    // Puts `holder` into the URL as ?character= or ?group=, by id.
+    function addressHolder(holder: Holder) {
       const url = new URL(window.location.href);
-      url.searchParams.set('character', character.entity_id);
-      url.searchParams.delete('group');
+      url.searchParams.set(holder.kind, holder.id);
+      url.searchParams.delete(holder.kind === 'character' ? 'group' : 'character');
       window.history.replaceState({}, '', url);
+    }
+
+    // `address` is false when the URL already names it, perhaps by slug (ADR 0135).
+    function selectCharacter(character: CharacterSummary, link: HTMLAnchorElement, address = true) {
+      const holder: Holder = { kind: 'character', id: character.entity_id };
+      pressOnly(link);
+      rememberHolder(tenantId as string, holder);
+      inventoryViewing.hidden = true;
+      if (address) addressHolder(holder);
       void loadBoard(character.entity_id);
     }
 
     // A group one of your characters belongs to, and what it owns (ADR 0124).
-    function selectGroup(group: BeingRef, link: HTMLAnchorElement) {
+    function selectGroup(group: BeingRef, link: HTMLAnchorElement, address = true) {
+      const holder: Holder = { kind: 'group', id: group.entity_id };
       pressOnly(link);
-      rememberHolder(tenantId as string, { kind: 'group', id: group.entity_id });
+      rememberHolder(tenantId as string, holder);
       inventoryViewing.hidden = false;
       inventoryViewing.textContent = `Viewing what ${group.name} holds.`;
-      const url = new URL(window.location.href);
-      url.searchParams.set('group', group.entity_id);
-      url.searchParams.delete('character');
-      window.history.replaceState({}, '', url);
+      if (address) addressHolder(holder);
       void loadBoard(group.entity_id);
     }
 
     // Every character and group in the list, and how to open its board.
-    const holders: { holder: Holder; open: () => void }[] = [];
+    const holders: { holder: Holder; open: (address: boolean) => void }[] = [];
 
-    function openHolder(wanted: Holder | null) {
+    function openHolder(wanted: Holder | null, address = true) {
       const entry = wanted
         ? holders.find((e) => e.holder.kind === wanted.kind && e.holder.id === wanted.id)
         : undefined;
-      entry?.open();
+      entry?.open(address);
+    }
+
+    // The character or group the URL names, by id or by slug (ADR 0135): undefined if it
+    // names none, null if what it names isn't there.
+    async function addressedHolder(currentTenantId: string): Promise<Holder | null | undefined> {
+      const character = params.get('character');
+      const group = params.get('group');
+      const value = character ?? group;
+      if (!value) return undefined;
+      const named = await beingNamed(currentTenantId, value).catch(() => null);
+      return named ? { kind: character ? 'character' : 'group', id: named.entity_id } : null;
     }
 
     // With no character or group named, the board opens the one last opened on this
@@ -1641,7 +1660,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
     function addHolder(
       holder: { entity_id: string; name: string },
       param: 'character' | 'group',
-      select: (link: HTMLAnchorElement) => void,
+      select: (link: HTMLAnchorElement, address: boolean) => void,
     ) {
       const fragment = fromTemplate('holderListItem');
       const item = fragment.querySelector<HTMLLIElement>('li')!;
@@ -1656,27 +1675,30 @@ import HolderListItem from '../../components/HolderListItem.astro';
       link.setAttribute('aria-pressed', String(holder.entity_id === params.get(param)));
       link.addEventListener('click', (event) => {
         event.preventDefault();
-        select(link);
+        select(link, true);
       });
       link.addEventListener('mouseenter', () => prefetchBoard(holder.entity_id));
       link.addEventListener('focus', () => prefetchBoard(holder.entity_id));
       groupBadge.hidden = param !== 'group';
 
       characterStrip.append(item);
-      holders.push({ holder: { kind: param, id: holder.entity_id }, open: () => select(link) });
+      holders.push({
+        holder: { kind: param, id: holder.entity_id },
+        open: (address) => select(link, address),
+      });
     }
 
     async function loadGroups(currentTenantId: string, characters: CharacterSummary[]) {
       const groups = await groupsOf(currentTenantId, characters).catch(() => []);
       for (const group of groups) {
         myHolderIds.add(group.entity_id);
-        addHolder(group, 'group', (link) => selectGroup(group, link));
+        addHolder(group, 'group', (link, address) => selectGroup(group, link, address));
       }
     }
 
     // GM-only: browse any being's inventory - by search against
     // GET /tenants/{t}/beings (ADR 0078: PCs, NPCs, and bare beings alike),
-    // or a raw entity id as a quick-entry shortcut. Deselects the "your
+    // or an entity id or slug as a quick-entry shortcut. Deselects the "your
     // characters" pill strip since none of the player's own characters is
     // the one being shown.
     function browseBeing(being: BeingRef) {
@@ -1695,6 +1717,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
     }
 
     async function loadCharacters(currentTenantId: string) {
+      // Looked up alongside the list, when it's a slug.
+      const addressing = addressedHolder(currentTenantId);
       try {
         const page = await listMyCharacters(currentTenantId);
         myCharacters = page.items;
@@ -1705,15 +1729,16 @@ import HolderListItem from '../../components/HolderListItem.astro';
           return;
         }
         for (const character of page.items) {
-          addHolder(character, 'character', (link) => selectCharacter(character, link));
+          addHolder(character, 'character', (link, address) =>
+            selectCharacter(character, link, address),
+          );
         }
         await loadGroups(currentTenantId, page.items);
-        // The URL wins; otherwise the board opens one by itself (ADR 0134).
-        const character = params.get('character');
-        const group = params.get('group');
-        if (character) openHolder({ kind: 'character', id: character });
-        else if (group) openHolder({ kind: 'group', id: group });
-        else openDefaultHolder();
+        // The URL wins, and keeps naming it as it did; otherwise the board opens one by
+        // itself (ADR 0134, 0135).
+        const named = await addressing;
+        if (named === undefined) openDefaultHolder();
+        else openHolder(named, false);
       } catch (e) {
         charactersLoading.hidden = true;
         charactersError.hidden = false;
@@ -1763,16 +1788,23 @@ import HolderListItem from '../../components/HolderListItem.astro';
       }
     });
 
-    gmBrowseRawIdButton.addEventListener('click', () => {
-      const id = gmBrowseRawId.value.trim();
-      if (!id) return;
-      browseBeing({ entity_id: id, name: id });
+    // An id, or a slug (ADR 0135).
+    gmBrowseRawIdButton.addEventListener('click', async () => {
+      const value = gmBrowseRawId.value.trim();
+      if (!value) return;
+      try {
+        const being = await beingNamed(tenantId as string, value);
+        if (being) browseBeing(being);
+        else showTransientError(unknownSlug(value));
+      } catch (e) {
+        showTransientError(e instanceof Error ? e.message : String(e));
+      }
     });
 
     if (!(await isAuthenticated())) {
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
-      status.textContent = 'No tenant selected. Pick one to continue.';
+      status.textContent = addressed.problem ?? 'No tenant selected. Pick one to continue.';
     } else {
       try {
         const tenant = await getTenant(tenantId);
