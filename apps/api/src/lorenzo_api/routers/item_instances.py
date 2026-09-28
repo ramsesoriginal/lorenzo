@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -22,8 +23,9 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_owner,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
+    is_tenant_participant,
 )
-from lorenzo_api.capacity import CapacityCheck
+from lorenzo_api.capacity import CapacityCheck, lock_ahead
 from lorenzo_api.change_feed import Change, holders, record_change
 from lorenzo_api.controlled import Column, ColumnKind, Holdings, columns, controlled_ids
 from lorenzo_api.dependencies import (
@@ -1489,6 +1491,72 @@ async def _perform_set_owner(
     return True
 
 
+@dataclass
+class _HandOver:
+    """move_to_owner's move into the new owner's hands (ADR 0115), in two
+    steps around the ownership write, for PUT .../owner and bulk-assign
+    alike: `start` before anything is written, `finish` after.
+
+    `start` locks the owner's chain for capacity (ADR 0128), as
+    _perform_split does: the ownership row's foreign key share-locks the
+    owner, first in that chain, and two hand-overs to one owner each
+    holding that share lock would wait on each other's lock forever.
+    `finish` checks binding (ADR 0129) against the new owner and moves it.
+    Neither checks anything under `override`.
+    """
+
+    session: SessionDep
+    tenant_id: uuid.UUID
+    entity_id: uuid.UUID
+    owner_id: uuid.UUID
+    override: bool
+    # False when not asked to, or already in its owner's hands.
+    moving: bool
+    check: CapacityCheck | None
+
+    @classmethod
+    async def start(
+        cls,
+        session: SessionDep,
+        *,
+        tenant_id: uuid.UUID,
+        entity_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        move: bool,
+        override: bool,
+    ) -> _HandOver:
+        existing = await session.get(Containment, entity_id) if move else None
+        moving = move and (existing is None or existing.parent_entity_id != owner_id)
+        check = (
+            await CapacityCheck.start(session, tenant_id=tenant_id, target_id=owner_id)
+            if moving and not override
+            else None
+        )
+        return cls(session, tenant_id, entity_id, owner_id, override, moving, check)
+
+    async def finish(self) -> bool:
+        """Returns whether it moved."""
+        if not self.moving:
+            return False
+        binding = (
+            None
+            if self.override
+            else await BindingCheck.start(
+                self.session, tenant_id=self.tenant_id, moved_id=self.entity_id
+            )
+        )
+        await _contain(
+            self.session,
+            tenant_id=self.tenant_id,
+            entity_id=self.entity_id,
+            container_entity_id=self.owner_id,
+            existing=await self.session.get(Containment, self.entity_id),
+            binding=binding,
+            check=self.check,
+        )
+        return True
+
+
 @router.put("/{entity_id}/owner")
 async def set_item_instance_owner(
     tenant_id: uuid.UUID,
@@ -1523,6 +1591,14 @@ async def set_item_instance_owner(
     )
 
     before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
+    hand_over = await _HandOver.start(
+        session,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        owner_id=body.owner_character_id,
+        move=body.move_to_owner,
+        override=body.override,
+    )
     changed = await _perform_set_owner(
         session,
         tenant_id=tenant_id,
@@ -1530,13 +1606,7 @@ async def set_item_instance_owner(
         owner_character_id=body.owner_character_id,
         override=body.override,
     )
-    moved = body.move_to_owner and await _perform_set_container(
-        session,
-        tenant_id=tenant_id,
-        entity_id=entity_id,
-        container_entity_id=body.owner_character_id,
-        override=body.override,
-    )
+    moved = await hand_over.finish()
     if changed:
         await record_activity(
             session,
@@ -1663,6 +1733,31 @@ async def _perform_set_container(
         if override
         else await CapacityCheck.start(session, tenant_id=tenant_id, target_id=container_entity_id)
     )
+    await _contain(
+        session,
+        tenant_id=tenant_id,
+        entity_id=entity_id,
+        container_entity_id=container_entity_id,
+        existing=existing,
+        binding=binding,
+        check=check,
+    )
+    return True
+
+
+async def _contain(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    container_entity_id: uuid.UUID,
+    existing: Containment | None,
+    binding: BindingCheck | None,
+    check: CapacityCheck | None,
+) -> None:
+    """Puts entity_id into container_entity_id and finishes the move's started
+    checks - _perform_set_container's and _HandOver's shared tail, so the two
+    can't drift."""
     if existing is not None:
         existing.parent_entity_id = container_entity_id
     else:
@@ -1677,7 +1772,6 @@ async def _perform_set_container(
         await binding.finish()
     if check is not None:
         await check.finish(moved_ids=[entity_id])
-    return True
 
 
 async def _merge_identical(
@@ -2343,6 +2437,20 @@ async def bulk_assign_item_instances(
     """
     results: list[BulkAssignResultItem] = []
     lifted: set[uuid.UUID] = set()
+    # Every entry's locks up front, since what an entry locks stays locked
+    # while the others run: each one's ownership rows share-lock its owner,
+    # and handing over or splitting off into the owner's hands locks the
+    # owner's chain for capacity (ADR 0128). Not for a caller with no part in
+    # the tenant, whose every entry fails.
+    if await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
+        await lock_ahead(
+            session,
+            tenant_id=tenant_id,
+            target_ids={
+                item.owner_character_id for item in body if item.move_to_owner and not item.override
+            },
+            shared_ids={item.owner_character_id for item in body},
+        )
     for item in body:
         contents: list[ContentsResultItem] = []
         try:
@@ -2391,6 +2499,16 @@ async def bulk_assign_item_instances(
                         )
                     ]
                 else:
+                    # Started before anything inside is given: its ownership rows
+                    # share-lock the owner too.
+                    hand_over = await _HandOver.start(
+                        session,
+                        tenant_id=tenant_id,
+                        entity_id=item.entity_id,
+                        owner_id=item.owner_character_id,
+                        move=item.move_to_owner,
+                        override=item.override,
+                    )
                     content_changes: list[Change] = []
                     if item.with_contents:
                         contents, content_changes = await _give_contents(
@@ -2408,13 +2526,7 @@ async def bulk_assign_item_instances(
                         owner_character_id=item.owner_character_id,
                         override=item.override,
                     )
-                    moved = item.move_to_owner and await _perform_set_container(
-                        session,
-                        tenant_id=tenant_id,
-                        entity_id=item.entity_id,
-                        container_entity_id=item.owner_character_id,
-                        override=item.override,
-                    )
+                    moved = await hand_over.finish()
                     result_entity_id = item.entity_id
                     changes = (
                         [

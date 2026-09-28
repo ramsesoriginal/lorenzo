@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 
+import pytest
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_plain_participant, make_tenant
 from httpx import AsyncClient
@@ -32,6 +33,7 @@ from lorenzo_api.models import (
     StatDefinition,
     StatGroup,
     StatValueType,
+    User,
 )
 
 _STATS = (
@@ -369,6 +371,186 @@ async def test_handing_over_and_creating_inside_are_checked(
     assert split.json()[0]["problem"]["detail"] == "Alice can carry 30, and this would make it 34."
     # A Gear with no weight of its own weighs nothing; nothing to refuse.
     assert light.status_code == 201, light.text
+    await delete_tenant(t)
+
+
+async def _ownerless(
+    camp: _Camp, name: str, inside: uuid.UUID | None = None, quantity: int = 1
+) -> uuid.UUID:
+    """A Gear nobody owns, in `inside` if given, a stack of `quantity` there."""
+    t = camp.tenant_id
+    async with admin_session_factory() as session:
+        entity = Entity(tenant_id=t, name=name)
+        session.add(entity)
+        await session.flush()
+        session.add(ItemInstance(entity_id=entity.id, tenant_id=t))
+        session.add(
+            EntityPrototype(entity_id=entity.id, prototype_id=camp.ids["gear"], tenant_id=t)
+        )
+        if inside is not None:
+            session.add(
+                Containment(
+                    child_entity_id=entity.id,
+                    parent_entity_id=inside,
+                    tenant_id=t,
+                    quantity=quantity,
+                )
+            )
+        await session.commit()
+        return entity.id
+
+
+async def test_handing_things_over_at_once_to_one_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Each hand-over's ownership row share-locks Alice, whose chain its move
+    into her hands locks for capacity. That lock is taken before the row
+    goes in, so several hand-overs to her at once queue up instead of each
+    waiting on the others' share lock."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    coins = [await _ownerless(camp, f"Coin {n}") for n in range(4)]
+
+    handed = await asyncio.gather(
+        *(
+            client.put(
+                f"/tenants/{t}/item-instances/{coin}/owner",
+                json={"owner_character_id": str(ids["alice"]), "move_to_owner": True},
+            )
+            for coin in coins
+        )
+    )
+
+    assert [r.status_code for r in handed] == [200] * 4, [r.text for r in handed]
+    async with admin_session_factory() as session:
+        for coin in coins:
+            assert (await session.get_one(Containment, coin)).parent_entity_id == ids["alice"]
+    await delete_tenant(t)
+
+
+async def test_bulk_handing_things_over_at_once_to_one_character(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """The same through bulk-assign, where what's inside each Purse is given
+    first (ADR 0125): its ownership row share-locks Alice too, so her chain
+    is locked before that."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    purses = [await _ownerless(camp, f"Purse {n}") for n in range(4)]
+    for n, purse in enumerate(purses):
+        await _ownerless(camp, f"Coin {n}", inside=purse)
+
+    assigned = await asyncio.gather(
+        *(
+            client.post(
+                f"/tenants/{t}/item-instances/bulk-assign",
+                json=[
+                    {
+                        "entity_id": str(purse),
+                        "owner_character_id": str(ids["alice"]),
+                        "move_to_owner": True,
+                        "with_contents": True,
+                    }
+                ],
+            )
+            for purse in purses
+        )
+    )
+
+    assert [r.status_code for r in assigned] == [200] * 4, [r.text for r in assigned]
+    entries = [r.json()[0] for r in assigned]
+    assert [e["status"] for e in entries] == ["ok"] * 4, entries
+    assert [c["status"] for e in entries for c in e["contents"]] == ["ok"] * 4
+    async with admin_session_factory() as session:
+        for purse in purses:
+            assert (await session.get_one(Containment, purse)).parent_entity_id == ids["alice"]
+    await delete_tenant(t)
+
+
+async def _bob(camp: _Camp) -> uuid.UUID:
+    """Bob, another player's character at Alice's table."""
+    async with admin_session_factory() as session:
+        user = User(authgear_subject_id=f"bob-{uuid.uuid4()}")
+        session.add(user)
+        await session.flush()
+        bob = await _character(session, camp.tenant_id, camp.campaign_id, user.id, "Bob")
+        await session.commit()
+    return bob
+
+
+# Two kinds of bulk-assign, each entry passing its own ownerless Gear to
+# Alice or Bob: given, handed over (move_to_owner), or one split off a stack
+# of two into their hands.
+_CROSSINGS = {
+    # The first entry's ownership row share-locks Alice, whose chain the
+    # second's hand-over locks for capacity.
+    "one-owner": (
+        [("give", "alice"), ("hand over", "alice")],
+        [("give", "alice"), ("hand over", "alice")],
+    ),
+    # Each move locks its owner's chain.
+    "moves-crosswise": (
+        [("hand over", "alice"), ("split off", "bob")],
+        [("hand over", "bob"), ("split off", "alice")],
+    ),
+    # An entry that only gives share-locks its owner all the same.
+    "give-and-move-crosswise": (
+        [("give", "alice"), ("hand over", "bob")],
+        [("give", "bob"), ("hand over", "alice")],
+    ),
+    # So one that moves nothing locks its owners up front too.
+    "gives-against-moves": (
+        [("give", "alice"), ("give", "bob")],
+        [("hand over", "bob"), ("hand over", "alice")],
+    ),
+}
+
+
+@pytest.mark.parametrize("crossing", _CROSSINGS)
+async def test_bulk_assigns_at_once_never_wait_on_each_other(
+    client: AsyncClient, test_user_id: uuid.UUID, crossing: str
+) -> None:
+    """What an entry locks stays locked until the commit, so taken entry by
+    entry, two bulk-assigns could each wait on the other's earlier entries'
+    locks. Every entry's are taken before any runs, in one go. Two of each
+    kind at once."""
+    camp = await _camp(test_user_id)
+    await _gm(camp, test_user_id)
+    t = camp.tenant_id
+    owners = {"alice": camp.ids["alice"], "bob": await _bob(camp)}
+    chest = await _ownerless(camp, "Chest")
+    bodies, expected = [], []
+    for n, kind in enumerate(_CROSSINGS[crossing] * 2):
+        body: list[dict[str, object]] = []
+        for m, (how, who) in enumerate(kind):
+            split = how == "split off"
+            gear = await _ownerless(
+                camp, f"Gear {n}.{m}", inside=chest if split else None, quantity=2
+            )
+            body.append(
+                {
+                    "entity_id": str(gear),
+                    "owner_character_id": str(owners[who]),
+                    "move_to_owner": how != "give",
+                    **({"quantity": 1} if split else {}),
+                }
+            )
+            expected.append((str(owners[who]), None if how == "give" else str(owners[who])))
+        bodies.append(body)
+
+    assigned = await asyncio.gather(
+        *(client.post(f"/tenants/{t}/item-instances/bulk-assign", json=body) for body in bodies)
+    )
+
+    assert [r.status_code for r in assigned] == [200] * 4, [r.text for r in assigned]
+    entries = [entry for r in assigned for entry in r.json()]
+    assert [e["status"] for e in entries] == ["ok"] * len(entries), entries
+    assert [
+        (e["item_instance"]["owner_entity_id"], e["item_instance"]["container_entity_id"])
+        for e in entries
+    ] == expected
     await delete_tenant(t)
 
 
