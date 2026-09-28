@@ -191,7 +191,7 @@ Rejected: template `item_instance` rows marked with a tag. Ownerless instances a
 
 Decided (amends §3; keeps every node §3 named). Every node is an ordinary `Item` created through `POST /items` with `in_public_catalog=false`, so the re-parent tools of ADR 0073 work on it, and moving an edge later is one call.
 
-```
+```text
 CORE (bare slugs; nothing 5e-specific)
 physical-object     carries the weight recipe (R9)
 ├─ weapon
