@@ -44,9 +44,10 @@ test("gives a backpack with what's inside it, asking first", async ({ world, as 
   expect(asked).toBe(
     "Give the Backpack and 2 things inside it to The Company? 1 thing inside stays Brisk's.",
   );
+  // Nothing moves: the backpack stays in Ashfang's hands, the Company's now.
   await expect
     .poll(() => world.ownedBy(company))
-    .toEqual(['(none): Backpack', 'Backpack: Arrow', 'Backpack: Ornate Spellbook']);
+    .toEqual(['Ashfang: Backpack', 'Backpack: Arrow', 'Backpack: Ornate Spellbook']);
   await expect
     .poll(() => world.ownedBy(world.oskar.character.entity_id))
     .toEqual(['Backpack: Book']);

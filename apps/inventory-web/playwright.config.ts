@@ -15,6 +15,9 @@ export default defineConfig({
   reporter: CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     ...devices['Desktop Chrome'],
+    // Room for a board's usual columns without scrolling: a drag onto something off-screen
+    // has Playwright scroll mid-drag, and the drop is lost.
+    viewport: { width: 1440, height: 1200 },
     // An installed browser instead of Playwright's own download, e.g. `msedge` or `chrome`.
     channel: process.env.E2E_BROWSER_CHANNEL || undefined,
     baseURL: SITE_URL,

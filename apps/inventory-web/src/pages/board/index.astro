@@ -657,7 +657,8 @@ import HolderListItem from '../../components/HolderListItem.astro';
       const handOver = where
         ? checkboxField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
         : null;
-      const alsoInside = boardContainers.has(item.entity_id)
+      // Only for a container whose column lists something (ADR 0131).
+      const alsoInside = occupiedContainers.has(item.entity_id)
         ? checkboxField(
             "Also give what's inside",
             "Otherwise what's inside stays whose it is. You'll be asked first.",
