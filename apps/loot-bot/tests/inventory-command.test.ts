@@ -6,20 +6,25 @@ import { LorenzoApiError } from "../src/lorenzo-client.js";
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));
 vi.mock("../src/token-provider.js", () => ({ getValidAccessToken }));
 
-const { getControlledCharacters, getItemInstancesOwnedBy, createLorenzoApiClient } = vi.hoisted(
-  () => ({
-    getControlledCharacters: vi.fn(),
-    getItemInstancesOwnedBy: vi.fn(),
-    createLorenzoApiClient: vi.fn(),
-  }),
-);
+const {
+  getControlledCharacters,
+  getItemInstancesHeldBy,
+  getCharacterGroups,
+  createLorenzoApiClient,
+} = vi.hoisted(() => ({
+  getControlledCharacters: vi.fn(),
+  getItemInstancesHeldBy: vi.fn(),
+  getCharacterGroups: vi.fn(),
+  createLorenzoApiClient: vi.fn(),
+}));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/lorenzo-client.js")>();
   return {
     ...actual,
     createLorenzoApiClient: createLorenzoApiClient.mockReturnValue({
       getControlledCharacters,
-      getItemInstancesOwnedBy,
+      getItemInstancesHeldBy,
+      getCharacterGroups,
     }),
   };
 });
@@ -47,6 +52,42 @@ function fakeInteraction(userId = "discord-user-1") {
 describe("inventoryCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getCharacterGroups.mockResolvedValue([]);
+  });
+
+  it("adds an embed for each group the characters belong to, once each (ADR 0124)", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    getControlledCharacters.mockResolvedValue([
+      { entityId: "char-1", name: "Frodo" },
+      { entityId: "char-2", name: "Sam" },
+    ]);
+    getCharacterGroups.mockResolvedValue([{ entityId: "group-1", name: "The Fellowship" }]);
+    getItemInstancesHeldBy.mockImplementation(async (_tenantId: string, holderId: string) => ({
+      groups: [
+        {
+          container: { id: holderId, name: holderId },
+          container_kind: holderId === "group-1" ? "other" : "being",
+          path: [],
+          carried: true,
+          item_instances: [],
+        },
+      ],
+      owners: [],
+    }));
+
+    const interaction = fakeInteraction();
+    await inventoryCommand.execute(interaction, { config, logger: {} as never });
+
+    const call = interaction.editReply.mock.calls[0]?.[0];
+    expect(call.embeds.map((e: { data: { title: string } }) => e.data.title)).toEqual([
+      "Frodo",
+      "Sam",
+      "The Fellowship",
+    ]);
+    expect(call.embeds[2].data.fields?.[0]).toEqual({
+      name: "Not in a container",
+      value: "Nothing here.",
+    });
   });
 
   it("prompts to /link when there's no valid access token", async () => {
@@ -71,7 +112,7 @@ describe("inventoryCommand", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.stringContaining("don't control any characters"),
     );
-    expect(getItemInstancesOwnedBy).not.toHaveBeenCalled();
+    expect(getItemInstancesHeldBy).not.toHaveBeenCalled();
   });
 
   it("replies with one embed per controlled character", async () => {
@@ -80,16 +121,24 @@ describe("inventoryCommand", () => {
       { entityId: "char-1", name: "Frodo" },
       { entityId: "char-2", name: "Sam" },
     ]);
-    getItemInstancesOwnedBy.mockImplementation(async (_tenantId: string, characterId: string) => ({
-      groups: [{ container: null, item_instances: [] }],
-      characterId,
+    getItemInstancesHeldBy.mockImplementation(async (_tenantId: string, characterId: string) => ({
+      groups: [
+        {
+          container: { id: characterId, name: "Char" },
+          container_kind: "being",
+          path: [],
+          carried: true,
+          item_instances: [],
+        },
+      ],
+      owners: [],
     }));
 
     const interaction = fakeInteraction();
     await inventoryCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(getItemInstancesOwnedBy).toHaveBeenCalledTimes(2);
-    expect(getItemInstancesOwnedBy).toHaveBeenCalledWith("tenant-1", "char-1", "token-123");
+    expect(getItemInstancesHeldBy).toHaveBeenCalledTimes(2);
+    expect(getItemInstancesHeldBy).toHaveBeenCalledWith("tenant-1", "char-1", "token-123");
     const call = interaction.editReply.mock.calls[0]?.[0];
     expect(call.embeds).toHaveLength(2);
     expect(call.embeds[0].data.title).toBe("Frodo");
@@ -101,7 +150,7 @@ describe("inventoryCommand", () => {
     getControlledCharacters.mockResolvedValue(
       Array.from({ length: 12 }, (_, i) => ({ entityId: `char-${i}`, name: `Character ${i}` })),
     );
-    getItemInstancesOwnedBy.mockResolvedValue({ groups: [] });
+    getItemInstancesHeldBy.mockResolvedValue({ groups: [], owners: [] });
 
     const interaction = fakeInteraction();
     await inventoryCommand.execute(interaction, { config, logger: {} as never });
@@ -114,16 +163,20 @@ describe("inventoryCommand", () => {
   it("filters to items whose title contains the search term, case-insensitively", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     getControlledCharacters.mockResolvedValue([{ entityId: "char-1", name: "Frodo" }]);
-    getItemInstancesOwnedBy.mockResolvedValue({
+    getItemInstancesHeldBy.mockResolvedValue({
       groups: [
         {
-          container: null,
+          container: { id: "char-1", name: "Frodo" },
+          container_kind: "being",
+          path: [],
+          carried: true,
           item_instances: [
-            { entity_id: "item-1", title: "Torch" },
-            { entity_id: "item-2", title: "Sword" },
+            { entity_id: "item-1", title: "Torch", owner_entity_id: "char-1" },
+            { entity_id: "item-2", title: "Sword", owner_entity_id: "char-1" },
           ],
         },
       ],
+      owners: [{ id: "char-1", name: "Frodo" }],
     });
     const interaction = fakeInteraction();
     interaction.options.getString.mockReturnValue("TOR");

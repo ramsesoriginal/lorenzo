@@ -9,10 +9,12 @@ export type Player = Person & { playerId: string; character: { entity_id: string
 
 const STATS = {
   tags: ['is_container', 'is_magical', 'is_cursed'],
-  physical: ['weight'],
+  physical: ['weight', 'carry_capacity'],
   economic: ['price'],
 } as const;
 type Stat = (typeof STATS)[keyof typeof STATS][number];
+/** The well-known enum stat binding reads (ADR 0129). */
+export type Binding = 'on_own' | 'on_pickup' | 'on_equip' | 'none';
 
 export type ItemOptions = {
   prototypes?: string[];
@@ -20,11 +22,18 @@ export type ItemOptions = {
   /** Tags set on for this item. */
   tags?: Stat[];
   stats?: Partial<Record<Stat, number>>;
+  binding?: Binding;
   /** In the public catalog, for players to list (ADR 0116). */
   public?: boolean;
 };
 
-export type InstanceOptions = { owner?: Player; container?: string; slug?: string };
+export type InstanceOptions = {
+  owner?: Player;
+  /** Any owning entity, such as a group (ADR 0124); `owner` wins if both are given. */
+  ownerId?: string;
+  container?: string;
+  slug?: string;
+};
 
 export async function person(name: string, roles: string[] = []): Promise<Person> {
   const subject = `${name.toLowerCase()}-${randomUUID()}`;
@@ -94,6 +103,24 @@ export async function buildWorld() {
     }
   }
 
+  const rules = await ok(
+    api.POST('/tenants/{tenant_id}/stat-groups', {
+      ...t,
+      body: { name: 'rules', priority: 0, mandatory: false },
+    }),
+  );
+  const binding = await ok(
+    api.POST('/tenants/{tenant_id}/stat-definitions', {
+      ...t,
+      body: {
+        name: 'binding',
+        stat_group_id: rules.id,
+        value_type: 'enum',
+        enum_values: ['on_own', 'on_pickup', 'on_equip', 'none'],
+      },
+    }),
+  );
+
   /** Writes a public description, as a GM does. */
   async function describe(entityId: string, content: string, title = '') {
     await ok(
@@ -131,6 +158,14 @@ export async function buildWorld() {
         }),
       );
     }
+    if (options.binding) {
+      await ok(
+        api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+          params: { path: { ...entity, stat_definition_id: binding.id } },
+          body: { value: options.binding },
+        }),
+      );
+    }
     if (options.description) await describe(created.entity_id, options.description);
     return created.entity_id;
   }
@@ -141,13 +176,26 @@ export async function buildWorld() {
         ...t,
         body: {
           prototype_id: itemId,
-          owner_character_id: options.owner?.character.entity_id ?? null,
+          owner_character_id: options.owner?.character.entity_id ?? options.ownerId ?? null,
           container_entity_id: options.container ?? null,
           slug: options.slug ?? null,
+          override: false,
         },
       }),
     );
     return created.entity_id;
+  }
+
+  /** Sets a stat on any entity - an instance, a character - as a GM does. */
+  async function setStat(entityId: string, stat: Stat, value: number) {
+    await ok(
+      api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+        params: {
+          path: { tenant_id: tenant.id, entity_id: entityId, stat_definition_id: stats[stat] },
+        },
+        body: { value },
+      }),
+    );
   }
 
   /** `count` of an item as one stack in `container` (a stack's count lives on its containment). */
@@ -168,6 +216,29 @@ export async function buildWorld() {
       );
     }
     return first as string;
+  }
+
+  /** A group of `members`' characters, as a GM makes one (ADR 0064); its entity id. */
+  async function group(name: string, members: Player[]): Promise<string> {
+    const created = await ok(
+      api.POST('/tenants/{tenant_id}/groups', {
+        ...t,
+        body: { name, member_character_ids: members.map((m) => m.character.entity_id) },
+      }),
+    );
+    return created.id;
+  }
+
+  /** What `ownerId` owns, as the API says: `Container: Item` lines, sorted. */
+  async function ownedBy(ownerId: string): Promise<string[]> {
+    const owned = await ok(
+      api.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
+        params: { path: { tenant_id: tenant.id, owner_entity_id: ownerId } },
+      }),
+    );
+    return owned.groups
+      .flatMap((g) => g.item_instances.map((i) => `${g.container?.name ?? '(none)'}: ${i.title}`))
+      .sort();
   }
 
   async function slug(entityId: string, value: string) {
@@ -207,9 +278,12 @@ export async function buildWorld() {
     describe,
     item,
     instance,
+    setStat,
     stack,
     slug,
     carried,
+    group,
+    ownedBy,
   };
 }
 

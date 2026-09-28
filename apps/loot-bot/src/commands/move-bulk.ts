@@ -91,7 +91,19 @@ export const moveBulkCommand: Command = {
 
       const lines = [`Moved ${succeeded} item${succeeded === 1 ? "" : "s"}.`];
       if (failed > 0) {
-        lines.push(`${failed} couldn't be moved — they may not be reachable from you.`);
+        // The API's own reasons, such as what doesn't fit (ADR 0128).
+        const reasons = [
+          ...new Set(
+            results.flatMap((r) =>
+              r.status === "error" && r.problem?.detail ? [r.problem.detail] : [],
+            ),
+          ),
+        ];
+        lines.push(
+          reasons.length > 0
+            ? `${failed} couldn't be moved: ${reasons.join(" ")}`
+            : `${failed} couldn't be moved — they may not be reachable from you.`,
+        );
       }
       await interaction.editReply(lines.join("\n"));
     } catch (error) {

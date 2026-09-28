@@ -75,6 +75,11 @@ __all__ = [
     "SlugConflictError",
     "SubscriptionNotFoundError",
     "StackNeedsContainerError",
+    "ItemNotYoursToGiveError",
+    "BindingNotLiftableError",
+    "CapacityExceededError",
+    "ItemBoundError",
+    "OverrideForbiddenError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
@@ -293,6 +298,14 @@ class ItemInstanceManagementForbiddenError(ForbiddenProblem):
     """
 
     title = "Not authorized to manage this item instance"
+
+
+class ItemNotYoursToGiveError(ForbiddenProblem):
+    """The caller holds this item but doesn't control its owner (ADR 0124):
+    they may move it, but only its owner or a GM may give it away or
+    destroy it. Its own type, so a client can say so in its own words."""
+
+    title = "Not yours to give away"
 
 
 class CampaignNotEmptyError(ConflictProblem):
@@ -819,3 +832,36 @@ class InvalidRepositoryUpdateError(UnprocessableProblem):
     ADR 0121."""
 
     title = "That update can't be applied"
+
+
+class CapacityExceededError(ConflictProblem):
+    """A move would make a container's or a being's load grow past its
+    `carry_capacity` or `containment_capacity`, or put something larger than
+    its `max_item_size` into it - ADR 0128. Carries `container`, `stat`,
+    `limit`, and `load`; `detail` says the same in words."""
+
+    title = "Too much to fit"
+
+
+class OverrideForbiddenError(ForbiddenProblem):
+    """`override: true` or `lift_binding: true` from someone who isn't the
+    item's GM - ADR 0128, 0129: moving past capacity or binding, and lifting
+    a binding, are a GM's call alone."""
+
+    title = "Only a GM can do that"
+
+
+class ItemBoundError(ConflictProblem):
+    """A write would change a bound item's owner, or take a bound thing out
+    of what binds it - ADR 0129. Carries `item`, `binding`, and `owner`;
+    `detail` says the same in words."""
+
+    title = "Bound to its owner"
+
+
+class BindingNotLiftableError(UnprocessableProblem):
+    """`lift_binding: true` where `binding` can't be set to `none`: the
+    tenant's `binding` has no such value, or the item holds its own formula
+    for it - ADR 0129."""
+
+    title = "That binding can't be lifted"

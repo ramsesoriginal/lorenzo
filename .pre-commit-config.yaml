@@ -172,6 +172,18 @@ repos:
         language: system
         files: ^packages/lorenzoscript-editor/.*\.ts$
         pass_filenames: false
+      - id: biome-api-client
+        name: biome (packages/api-client)
+        entry: pnpm --dir packages/api-client exec biome check --write
+        language: system
+        files: ^packages/api-client/.*\.(ts|json)$
+        pass_filenames: false
+      - id: tsc-api-client
+        name: tsc --noEmit (packages/api-client)
+        entry: pnpm --dir packages/api-client exec tsc --noEmit
+        language: system
+        files: ^packages/api-client/.*\.ts$
+        pass_filenames: false
 
 # Further language-specific hooks get added here alongside the next app
 # that needs them - see docs/guides/adding-an-app.md.

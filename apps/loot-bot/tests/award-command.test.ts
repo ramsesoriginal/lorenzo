@@ -145,6 +145,7 @@ describe("awardCommand.execute", () => {
   it.each([
     [403, "not a GM of any campaign"],
     [404, "Couldn't find that item"],
+    [409, "Couldn't do that: boom"],
     [422, "Couldn't do that"],
   ])("gives a specific message for a %i error", async (status, expectedText) => {
     getValidAccessToken.mockResolvedValue("token-123");

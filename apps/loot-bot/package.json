@@ -17,10 +17,10 @@
     "test:watch": "vitest",
     "register-commands": "tsx --env-file=.env scripts/register-commands.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file=.env src/migrate.ts",
-    "generate-client": "openapi-typescript ../api/openapi.json -o src/lorenzo-schema.d.ts"
+    "db:migrate": "tsx --env-file=.env src/migrate.ts"
   },
   "dependencies": {
+    "@lorenzo/api-client": "workspace:*",
     "discord-interactions": "^4.1.0",
     "discord.js": "^14.16.3",
     "drizzle-orm": "^0.45.2",
@@ -39,7 +39,6 @@
     "@vitest/coverage-v8": "^4.1.11",
     "drizzle-kit": "^0.31.10",
     "msw": "^2.7.0",
-    "openapi-typescript": "^7.5.2",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

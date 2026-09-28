@@ -8,10 +8,18 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
-from lorenzo_api.stat_evaluation import ComparisonFormula, Formula, LinearFormula
+from lorenzo_api.stat_evaluation import (
+    ComparisonFormula,
+    ContentsFormula,
+    Formula,
+    LinearFormula,
+    SumFormula,
+    SumTerm,
+)
 
 __all__ = [
     "ComparisonFormulaBody",
+    "ContentsFormulaBody",
     "ComputedStatDependentOut",
     "ComputedStatOut",
     "ComputedStatPreviewIn",
@@ -19,7 +27,12 @@ __all__ = [
     "FormulaBody",
     "LinearFormulaBody",
     "PreviewInputOut",
+    "SumFormulaBody",
+    "SumTermBody",
 ]
+
+# ADR 0126: a sum reads at least one stat, and at most this many.
+MAX_SUM_TERMS = 20
 
 
 class LinearFormulaBody(BaseModel):
@@ -65,14 +78,67 @@ class ComparisonFormulaBody(BaseModel):
         )
 
 
-FormulaBody = Annotated[LinearFormulaBody | ComparisonFormulaBody, Field(discriminator="kind")]
+class SumTermBody(BaseModel):
+    stat_definition_id: uuid.UUID
+    coefficient: Decimal = Decimal(1)
 
 
-def formula_body_of(formula: Formula) -> LinearFormulaBody | ComparisonFormulaBody:
+class SumFormulaBody(BaseModel):
+    """`round(Σ coefficient × stat + offset)` over stats of the same entity -
+    ADR 0126. `armour_class = 10 + dex_modifier + worn_ac_bonus` is two
+    terms with coefficient 1 and offset 10. Each stat at most once."""
+
+    kind: Literal["sum"] = "sum"
+    terms: list[SumTermBody] = Field(min_length=1, max_length=MAX_SUM_TERMS)
+    offset: Decimal = Decimal(0)
+    round_mode: RoundMode = RoundMode.NONE
+
+    def to_formula(self) -> SumFormula:
+        return SumFormula(
+            terms=tuple(
+                SumTerm(source_stat_definition_id=t.stat_definition_id, coefficient=t.coefficient)
+                for t in self.terms
+            ),
+            offset=self.offset,
+            round_mode=self.round_mode,
+        )
+
+
+class ContentsFormulaBody(BaseModel):
+    """`Σ stat × quantity` over what's directly inside - ADR 0127.
+    `contents_weight` is `contents(weight)`: each thing inside's own
+    weight, formulas included, times its stack count."""
+
+    kind: Literal["contents"] = "contents"
+    source_stat_definition_id: uuid.UUID
+
+    def to_formula(self) -> ContentsFormula:
+        return ContentsFormula(source_stat_definition_id=self.source_stat_definition_id)
+
+
+AnyFormulaBody = LinearFormulaBody | ComparisonFormulaBody | SumFormulaBody | ContentsFormulaBody
+FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
+
+
+def formula_body_of(formula: Formula) -> AnyFormulaBody:
     if isinstance(formula, LinearFormula):
         return LinearFormulaBody(
             source_stat_definition_id=formula.source_stat_definition_id,
             multiplier=formula.multiplier,
+            offset=formula.offset,
+            round_mode=formula.round_mode,
+        )
+    if isinstance(formula, ContentsFormula):
+        return ContentsFormulaBody(source_stat_definition_id=formula.source_stat_definition_id)
+    if isinstance(formula, SumFormula):
+        return SumFormulaBody(
+            terms=[
+                SumTermBody(
+                    stat_definition_id=term.source_stat_definition_id,
+                    coefficient=term.coefficient,
+                )
+                for term in formula.terms
+            ],
             offset=formula.offset,
             round_mode=formula.round_mode,
         )
@@ -135,4 +201,4 @@ class ComputedStatDependentOut(BaseModel):
 
     entity_id: uuid.UUID
     stat_definition_id: uuid.UUID
-    kind: Literal["linear", "comparison"]
+    kind: Literal["linear", "comparison", "sum", "contents"]

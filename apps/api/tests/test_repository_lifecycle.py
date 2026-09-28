@@ -175,6 +175,36 @@ async def test_copying_again(raw_client: AsyncClient, fake_jwks_server: FakeJwks
             f"{t}/entities/{heirloom}/stats/{local['Strength']}", json={"value": 3}
         )
         assert set_stat.status_code == 200, set_stat.text
+        # And, in a group of its own, a sum reading the copied Strength (ADR
+        # 0126): its term keeps Strength from being deleted, so the purge
+        # has to remove it first.
+        mine = _id(await gm.post(f"{t}/stat-groups", json={"name": "Mine"}))
+        grit = _id(
+            await gm.post(
+                f"{t}/stat-definitions",
+                json={"name": "Grit", "stat_group_id": mine, "value_type": "int"},
+            )
+        )
+        summed = await gm.put(
+            f"{t}/entities/{heirloom}/computed-stats/{grit}",
+            json={
+                "kind": "sum",
+                "terms": [{"stat_definition_id": local["Strength"], "coefficient": 2}],
+            },
+        )
+        assert summed.status_code == 200, summed.text
+        # And a contents formula reading it too (ADR 0127).
+        heft = _id(
+            await gm.post(
+                f"{t}/stat-definitions",
+                json={"name": "Heft", "stat_group_id": mine, "value_type": "int"},
+            )
+        )
+        contained = await gm.put(
+            f"{t}/entities/{heirloom}/computed-stats/{heft}",
+            json={"kind": "contents", "source_stat_definition_id": local["Strength"]},
+        )
+        assert contained.status_code == 200, contained.text
 
         assert (await gm.post(f"{url}/copy")).json()["type"] == "repository-already-copied"
 
@@ -186,6 +216,7 @@ async def test_copying_again(raw_client: AsyncClient, fake_jwks_server: FakeJwks
         assert previous["also_removed"] == {
             "stat_definition": 1,
             "entity_stat": 1,
+            "computed_stat": 2,
             "entity_prototype": 1,
         }
         assert "Heirloom" in await _names(table)
@@ -205,7 +236,8 @@ async def test_copying_again(raw_client: AsyncClient, fake_jwks_server: FakeJwks
                 .select_from(EntityStat)
                 .where(EntityStat.entity_id == uuid.UUID(heirloom))
             )
-        assert (definitions, heirloom_stats) == (["Strength"], 0)
+        assert (definitions, heirloom_stats) == (["Grit", "Heft", "Strength"], 0)
+        assert (await gm.get(f"{t}/entities/{heirloom}/computed-stats")).json() == []
         heirloom_now = (await gm.get(f"{t}/entities/{heirloom}")).json()
         assert heirloom_now["prototypes"] == []
 

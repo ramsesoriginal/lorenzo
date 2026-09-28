@@ -144,8 +144,10 @@ def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     0104). A computed stat whose inputs don't resolve is left out, like an
     unset stat. Needs entity.stats (the entity's own rows) loaded too: an
     own row always wins at hop 0, and an entity never holds both a value
-    and a formula for one stat (ADR 0104), so `own` is either of those."""
-    values = evaluate(entity.effective_stats)
+    and a formula for one stat (ADR 0104), so `own` is either of those.
+    A contents formula needs stat_contents.attach_contents first (ADR
+    0127)."""
+    values = evaluate(entity.effective_stats, entity_id=entity.id, contents=entity.stat_contents)
     stored = {stat.stat_definition_id for stat in entity.stats}
     return [
         EntityStatValueOut(

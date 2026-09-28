@@ -78,7 +78,7 @@ async def test_copying_a_repository(
         plan = (await gm.get(f"/tenants/{table}/repositories/{faerun}/copy-plan")).json()
         assert plan["collisions"] == []
         (step,) = plan["steps"]
-        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (5, 1, 4)
+        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (5, 1, 6)
         assert (step["granted"], step["published"], step["already_copied"]) == (True, True, False)
 
         copied = await gm.post(f"/tenants/{table}/repositories/{faerun}/copy")
@@ -94,10 +94,15 @@ async def test_copying_a_repository(
         for model in (EntityPrototype, EntityStat, StatDefinition, ContentReference):
             assert await _count(model, table) == await _count(model, faerun), model
 
-        # Stats resolve locally, formulas included: floor(16 * 0.5 - 5) = 3.
+        # Stats resolve locally, formulas included: floor(16 * 0.5 - 5) = 3,
+        # and the sum 16 + 2 * 3 + 1 = 23 (ADR 0126).
         sword = (await gm.get(f"/tenants/{table}/entities/{mine['Sword']}")).json()
         stats = {s["name"]: s["value"] for s in sword["stats"]}
-        assert stats == {"Strength": 16, "Modifier": 3, "Strong": True}
+        assert stats == {"Strength": 16, "Modifier": 3, "Strong": True, "Might": 23}
+        # The Chest's Load adds up the Strength of what's in it: the Blade,
+        # which inherits 16 from the Sword (ADR 0127).
+        chest = (await gm.get(f"/tenants/{table}/entities/{mine['Chest']}")).json()
+        assert {s["name"]: s["value"] for s in chest["stats"]} == {"Load": 16}
         blade = (await gm.get(f"/tenants/{table}/entities/{mine['Blade']}")).json()
         assert [p["id"] for p in blade["prototypes"]] == [str(mine["Sword"])]
         assert blade["parent"]["id"] == str(mine["Chest"])
@@ -251,6 +256,8 @@ async def test_collisions_need_a_choice(
                 "Modifier",
                 "Strong",
                 "Alignment",
+                "Might",
+                "Load",
             }
             strength_values = (
                 await session.scalars(

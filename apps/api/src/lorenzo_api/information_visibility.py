@@ -46,7 +46,11 @@ from sqlalchemy import ColumnElement, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_orga
-from lorenzo_api.entity_access import containing_ancestors_ids, reachable_entity_ids
+from lorenzo_api.entity_access import (
+    containing_ancestors_ids,
+    group_ids_for_characters,
+    reachable_entity_ids,
+)
 from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
@@ -261,9 +265,17 @@ async def resolve_information_visibility(
         # transitively contains one of them (the room a PC is standing in,
         # the building that room is in, ...) - reachable_entity_ids' own
         # existing downward walk from those extra roots then naturally
-        # pulls in the room itself and everything else in it.
-        gm_root_ids = frozenset(gm_character_ids) | await containing_ancestors_ids(
-            session, entity_ids=frozenset(gm_character_ids), tenant_id=tenant_id
+        # pulls in the room itself and everything else in it. And at every
+        # group one of them belongs to, so the party's own things are in
+        # reach too (ADR 0124).
+        gm_root_ids = (
+            frozenset(gm_character_ids)
+            | await containing_ancestors_ids(
+                session, entity_ids=frozenset(gm_character_ids), tenant_id=tenant_id
+            )
+            | await group_ids_for_characters(
+                session, character_ids=frozenset(gm_character_ids), tenant_id=tenant_id
+            )
         )
         gm_reachable_ids = await reachable_entity_ids(
             session, root_entity_ids=gm_root_ids, tenant_id=tenant_id

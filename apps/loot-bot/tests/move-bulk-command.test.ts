@@ -105,6 +105,28 @@ describe("moveBulkCommand.execute", () => {
     );
   });
 
+  it("says why, in the API's words, when it can", async () => {
+    getValidAccessToken.mockResolvedValue("token-123");
+    const full = {
+      type: "capacity-exceeded",
+      title: "Too much to fit",
+      status: 409,
+      detail: "Backpack can carry 20, and this would make it 26.",
+    };
+    bulkMoveItemInstancesFromContainer.mockResolvedValue([
+      { entity_id: "item-1", status: "ok" },
+      { entity_id: "item-2", status: "error", problem: full },
+      { entity_id: "item-3", status: "error", problem: full },
+    ]);
+    const interaction = fakeInteraction();
+
+    await moveBulkCommand.execute(interaction, { config, logger: {} as never });
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      "Moved 1 item.\n2 couldn't be moved: Backpack can carry 20, and this would make it 26.",
+    );
+  });
+
   it("tells the caller the container was already empty", async () => {
     getValidAccessToken.mockResolvedValue("token-123");
     bulkMoveItemInstancesFromContainer.mockResolvedValue([]);

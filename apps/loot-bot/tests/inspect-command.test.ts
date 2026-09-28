@@ -13,14 +13,14 @@ const {
   getGmCampaignIds,
   getCampaignPlayers,
   getCharacterName,
-  getItemInstancesOwnedBy,
+  getItemInstancesHeldBy,
   createLorenzoApiClient,
 } = vi.hoisted(() => ({
   isCampaignGm: vi.fn(),
   getGmCampaignIds: vi.fn(),
   getCampaignPlayers: vi.fn(),
   getCharacterName: vi.fn(),
-  getItemInstancesOwnedBy: vi.fn(),
+  getItemInstancesHeldBy: vi.fn(),
   createLorenzoApiClient: vi.fn(),
 }));
 vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
@@ -32,7 +32,7 @@ vi.mock("../src/lorenzo-client.js", async (importOriginal) => {
       getGmCampaignIds,
       getCampaignPlayers,
       getCharacterName,
-      getItemInstancesOwnedBy,
+      getItemInstancesHeldBy,
     }),
   };
 });
@@ -82,7 +82,7 @@ describe("inspectCommand.execute", () => {
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.stringContaining("run `/link` first"),
     );
-    expect(getItemInstancesOwnedBy).not.toHaveBeenCalled();
+    expect(getItemInstancesHeldBy).not.toHaveBeenCalled();
   });
 
   it("rejects a non-GM", async () => {
@@ -93,21 +93,30 @@ describe("inspectCommand.execute", () => {
     await inspectCommand.execute(interaction, { config, logger: {} as never });
 
     expect(interaction.editReply).toHaveBeenCalledWith(expect.stringContaining("Only a GM"));
-    expect(getItemInstancesOwnedBy).not.toHaveBeenCalled();
+    expect(getItemInstancesHeldBy).not.toHaveBeenCalled();
   });
 
   it("shows the chosen character's inventory as one embed", async () => {
     getValidAccessToken.mockResolvedValue("gm-token");
     isCampaignGm.mockResolvedValue(true);
     getCharacterName.mockResolvedValue("Frodo");
-    getItemInstancesOwnedBy.mockResolvedValue({
-      groups: [{ container: null, item_instances: [{ entity_id: "item-1", title: "Ring" }] }],
+    getItemInstancesHeldBy.mockResolvedValue({
+      groups: [
+        {
+          container: { id: "char-1", name: "Frodo" },
+          container_kind: "being",
+          path: [],
+          carried: true,
+          item_instances: [{ entity_id: "item-1", title: "Ring", owner_entity_id: "char-1" }],
+        },
+      ],
+      owners: [{ id: "char-1", name: "Frodo" }],
     });
     const interaction = fakeInteraction();
 
     await inspectCommand.execute(interaction, { config, logger: {} as never });
 
-    expect(getItemInstancesOwnedBy).toHaveBeenCalledWith("tenant-1", "char-1", "gm-token");
+    expect(getItemInstancesHeldBy).toHaveBeenCalledWith("tenant-1", "char-1", "gm-token");
     const call = interaction.editReply.mock.calls[0]?.[0];
     expect(call.embeds).toHaveLength(1);
     expect(call.embeds[0].data.title).toBe("Frodo");
@@ -117,7 +126,7 @@ describe("inspectCommand.execute", () => {
     getValidAccessToken.mockResolvedValue("gm-token");
     isCampaignGm.mockResolvedValue(true);
     getCharacterName.mockRejectedValue(new Error("boom"));
-    getItemInstancesOwnedBy.mockResolvedValue({ groups: [] });
+    getItemInstancesHeldBy.mockResolvedValue({ groups: [], owners: [] });
     const interaction = fakeInteraction();
 
     await inspectCommand.execute(interaction, { config, logger: {} as never });

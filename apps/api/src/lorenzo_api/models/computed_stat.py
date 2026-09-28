@@ -3,10 +3,11 @@ from __future__ import annotations
 import enum
 import uuid
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Numeric, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, QueryableAttribute, mapped_column, relationship, selectinload
+from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, same_tenant_fk
 
@@ -41,9 +42,10 @@ class ComputedStat(Base):
     """An entity's formula for one stat - see ADR 0104/RFC 0016. Addressed
     exactly like entity_stat, and competes with it in v_effective_stat at
     its prototype hop. No kind column, like payload (ADR 0017): which of
-    ComputedStatLinear/ComputedStatComparison has the matching row is the
-    kind. The API never lets one entity hold both a formula and a direct
-    value for the same stat.
+    ComputedStatLinear/ComputedStatComparison/ComputedStatSum/
+    ComputedStatContents has the matching row is the kind. The API never
+    lets one entity hold both a formula and a direct value for the same
+    stat.
     """
 
     __tablename__ = "computed_stat"
@@ -87,15 +89,33 @@ class ComputedStat(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    sum: Mapped[ComputedStatSum | None] = relationship(
+        foreign_keys="[ComputedStatSum.entity_id, ComputedStatSum.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    contents: Mapped[ComputedStatContents | None] = relationship(
+        foreign_keys="[ComputedStatContents.entity_id, ComputedStatContents.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def kind(self) -> str:
-        """Requires linear/comparison loaded."""
-        return "linear" if self.linear is not None else "comparison"
+        """Requires every kind's row loaded (formula_load_options)."""
+        if self.linear is not None:
+            return "linear"
+        if self.sum is not None:
+            return "sum"
+        return "contents" if self.contents is not None else "comparison"
 
     def source_stat_definition_ids(self) -> list[uuid.UUID]:
-        """The stats this formula reads - its edges in the definition-level
-        dependency graph (ADR 0104). Requires linear/comparison loaded."""
+        """This formula's edges in the definition-level dependency graph
+        (ADR 0104): the stats of the same entity it reads. A contents
+        formula has none - it reads a level down (ADR 0127). Requires every
+        kind's row (and a sum's terms) loaded."""
         if self.linear is not None:
             return [self.linear.source_stat_definition_id]
         if self.comparison is not None:
@@ -103,6 +123,8 @@ class ComputedStat(Base):
             if self.comparison.right_stat_definition_id is not None:
                 ids.append(self.comparison.right_stat_definition_id)
             return ids
+        if self.sum is not None:
+            return [term.source_stat_definition_id for term in self.sum.terms]
         return []
 
 
@@ -182,3 +204,102 @@ class ComputedStatComparison(Base):
     right_constant: Mapped[Decimal | None] = mapped_column(Numeric())
     true_value: Mapped[str | None]
     false_value: Mapped[str | None]
+
+
+class ComputedStatSum(Base):
+    """`round(Σ coefficient × stat + offset)` over its terms, stats of the
+    same entity - ADR 0126."""
+
+    __tablename__ = "computed_stat_sum"
+    __table_args__ = (
+        *_kind_key("computed_stat_sum"),
+        # ADR 0117: what its terms' same-tenant key references.
+        UniqueConstraint(
+            "entity_id",
+            "stat_definition_id",
+            "tenant_id",
+            name="computed_stat_sum_entity_id_stat_definition_id_tenant_id_key",
+        ),
+        CheckConstraint(
+            "round_mode IN ('none', 'floor', 'ceil', 'round', 'truncate')",
+            name="computed_stat_sum_round_mode",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    offset: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("0"))
+    round_mode: Mapped[str] = mapped_column(server_default=text("'none'"))
+
+    terms: Mapped[list[ComputedStatSumTerm]] = relationship(
+        foreign_keys="[ComputedStatSumTerm.entity_id, ComputedStatSumTerm.stat_definition_id]",
+        order_by="ComputedStatSumTerm.position",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ComputedStatSumTerm(Base):
+    """One `coefficient × stat` of a sum - ADR 0126. A stat appears in a sum
+    at most once (the key); `position` keeps the order it was written in."""
+
+    __tablename__ = "computed_stat_sum_term"
+    __table_args__ = (
+        same_tenant_fk(
+            "computed_stat_sum_term_entity_id_stat_definition_id_fkey",
+            ["entity_id", "stat_definition_id"],
+            "computed_stat_sum",
+            ["entity_id", "stat_definition_id"],
+            ondelete="CASCADE",
+        ),
+        same_tenant_fk(
+            "computed_stat_sum_term_source_stat_definition_id_fkey",
+            ["source_stat_definition_id"],
+            "stat_definition",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True, index=True)
+    tenant_id: Mapped[TenantFk]
+    coefficient: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("1"))
+    position: Mapped[int]
+
+
+class ComputedStatContents(Base):
+    """`Σ stat × quantity` over what's directly inside the entity, the stat
+    resolved on each thing inside - ADR 0127."""
+
+    __tablename__ = "computed_stat_contents"
+    __table_args__ = (
+        *_kind_key("computed_stat_contents"),
+        same_tenant_fk(
+            "computed_stat_contents_source_stat_definition_id_fkey",
+            ["source_stat_definition_id"],
+            "stat_definition",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
+
+
+def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoad]:
+    """Eager loads for every formula kind's parameters, which evaluation
+    and serialization read (ADR 0104, 0126): from a query on ComputedStat
+    itself, or along `path` to its computed_stat."""
+
+    def load(attr: QueryableAttribute[Any]) -> _AbstractLoad:
+        return path.selectinload(attr) if path is not None else selectinload(attr)
+
+    return [
+        load(ComputedStat.linear),
+        load(ComputedStat.comparison),
+        load(ComputedStat.sum).selectinload(ComputedStatSum.terms),
+        load(ComputedStat.contents),
+    ]

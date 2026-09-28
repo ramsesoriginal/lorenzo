@@ -1,8 +1,13 @@
-import createClient from "openapi-fetch";
-import { z } from "zod";
-import type { components, paths } from "./lorenzo-schema.js";
+import {
+  LorenzoApiError,
+  type components,
+  createLorenzoClient,
+  etagOf,
+  toLorenzoApiError,
+} from "@lorenzo/api-client";
 
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
+export type HeldByResponse = components["schemas"]["HeldByResponse"];
 export type ItemInstanceOut = components["schemas"]["ItemInstanceOut"];
 export type ItemOut = components["schemas"]["ItemOut"];
 export type NotificationOut = components["schemas"]["NotificationOut"];
@@ -11,6 +16,7 @@ export type EntityDetailOut = components["schemas"]["EntityDetailOut"];
 export type InformationOut = components["schemas"]["InformationOut"];
 export type BulkAssignItem = components["schemas"]["BulkAssignItem"];
 export type BulkAssignResultItem = components["schemas"]["BulkAssignResultItem"];
+export type ContentsResultItem = components["schemas"]["ContentsResultItem"];
 export type GroupMemberResultItem = components["schemas"]["GroupMemberResultItem"];
 export type BulkMoveResultItem = components["schemas"]["BulkMoveResultItem"];
 
@@ -102,43 +108,16 @@ function toOwnedItem(item: OwnedByResponse["groups"][number]["item_instances"][n
  * option (ADR 0052) sources its autocomplete from this. */
 export type GroupSummary = Readonly<{ entityId: string; name: string }>;
 
-export class LorenzoApiError extends Error {
-  readonly status: number;
-  readonly problemType: string | undefined;
-
-  constructor(message: string, status: number, problemType?: string) {
-    super(message);
-    this.name = "LorenzoApiError";
-    this.status = status;
-    this.problemType = problemType;
-  }
-}
-
-// RFC 9457 "Problem Details" - every apps/api error response is shaped this
-// way (errors.py/exceptions.py, ADR 0020). Only used to extract a message;
-// deliberately permissive (all fields optional) since we don't control this
-// shape and a slightly-different-than-expected problem body should still
-// produce a readable error, not a second failure.
-const problemSchema = z.object({
-  type: z.string().optional(),
-  title: z.string().optional(),
-  detail: z.string().optional(),
-});
-
-function toApiError(error: unknown, status: number): LorenzoApiError {
-  const parsed = problemSchema.safeParse(error);
-  const problem = parsed.success ? parsed.data : undefined;
-  return new LorenzoApiError(
-    problem?.detail ?? problem?.title ?? `Lorenzo API request failed (${status})`,
-    status,
-    problem?.type,
-  );
-}
+// The error type and the problem parsing behind it come from the shared
+// client package (ADR 0122); re-exported so commands keep importing it from here.
+export { LorenzoApiError };
 
 export type LorenzoApiClient = ReturnType<typeof createLorenzoApiClient>;
 
 export function createLorenzoApiClient(baseUrl: string) {
-  const client = createClient<paths>({ baseUrl });
+  // No token source: this bot acts for many users, so every call below passes
+  // its own caller's Authorization header.
+  const client = createLorenzoClient({ baseUrl });
 
   return {
     /**
@@ -160,7 +139,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.items;
     },
 
@@ -183,7 +162,30 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data;
+    },
+
+    /**
+     * Everything `holderEntityId` holds (ADR 0123) - its own group (a
+     * being's Equipped) first and always, then what it carries, then what's
+     * held elsewhere; `owners` names whose each item is. `/inventory` and
+     * `/inspect` show this; commands acting on your own things keep reading
+     * owned-by.
+     */
+    async getItemInstancesHeldBy(
+      tenantId: string,
+      holderEntityId: string,
+      accessToken: string,
+    ): Promise<HeldByResponse> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/item-instances/held-by/{entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: holderEntityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -201,7 +203,7 @@ export function createLorenzoApiClient(baseUrl: string) {
       const { data, error, response } = await client.GET("/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.campaign_gm_grants.length > 0;
     },
 
@@ -212,7 +214,7 @@ export function createLorenzoApiClient(baseUrl: string) {
       const { data, error, response } = await client.GET("/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.campaign_gm_grants.map((grant) => grant.id);
     },
 
@@ -226,7 +228,7 @@ export function createLorenzoApiClient(baseUrl: string) {
       const { data, error, response } = await client.GET("/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
 
       return data.players
         .filter((player) => player.tenant_id === tenantId)
@@ -246,7 +248,7 @@ export function createLorenzoApiClient(baseUrl: string) {
       const { data, error, response } = await client.GET("/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
 
       return {
         email: data.email,
@@ -316,7 +318,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.groups.flatMap((group) => group.item_instances.map(toOwnedItem));
     },
 
@@ -338,8 +340,8 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
-      return { data, etag: response.headers.get("etag") };
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return { data, etag: etagOf(response) };
     },
 
     /** GET .../item-instances/by-slug/{slug} (ADR 0043) - resolves a
@@ -360,8 +362,8 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
-      return { data, etag: response.headers.get("etag") };
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return { data, etag: etagOf(response) };
     },
 
     /** POST .../item-instances/{entity_id}/split (ADR 0041) - splits
@@ -397,8 +399,8 @@ export function createLorenzoApiClient(baseUrl: string) {
           },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
-      return { data, etag: response.headers.get("etag") };
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return { data, etag: etagOf(response) };
     },
 
     /** PUT .../item-instances/{entity_id}/owner - replaces the instance's
@@ -426,10 +428,15 @@ export function createLorenzoApiClient(baseUrl: string) {
           },
           headers: { Authorization: `Bearer ${accessToken}` },
           // ADR 0051: the owner only, the container untouched (not ADR 0115's hand-over).
-          body: { owner_character_id: ownerCharacterId, move_to_owner: false },
+          body: {
+            owner_character_id: ownerCharacterId,
+            move_to_owner: false,
+            override: false,
+            lift_binding: false,
+          },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -455,7 +462,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
     },
 
     /** PATCH .../item-instances/{entity_id} - renames an instance
@@ -481,7 +488,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: { name },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -511,19 +518,22 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: { into_entity_id: intoEntityId },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
     /** PUT .../item-instances/{entity_id}/container - moves an item to a
      * new container, `/move`'s own write. Same `ifMatch` treatment as
-     * {@link setItemInstanceOwner}. */
+     * {@link setItemInstanceOwner}. `override` (ADR 0128, 0129): a GM's
+     * "Move anyway", past what the container can take or what binds it;
+     * `liftBinding` (ADR 0129) also lifts its binding for good. */
     async setItemInstanceContainer(
       tenantId: string,
       entityId: string,
       containerEntityId: string,
       accessToken: string,
       ifMatch?: string,
+      { override = false, liftBinding = false }: { override?: boolean; liftBinding?: boolean } = {},
     ): Promise<ItemInstanceOut> {
       const { data, error, response } = await client.PUT(
         "/tenants/{tenant_id}/item-instances/{entity_id}/container",
@@ -533,10 +543,10 @@ export function createLorenzoApiClient(baseUrl: string) {
             ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { container_entity_id: containerEntityId },
+          body: { container_entity_id: containerEntityId, override, lift_binding: liftBinding },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -571,7 +581,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -597,7 +607,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -621,7 +631,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
 
       return data.items.flatMap((player) =>
         player.characters.map((c) => ({ entityId: c.entity_id, name: c.name })),
@@ -644,7 +654,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.name;
     },
 
@@ -658,7 +668,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         params: { path: { tenant_id: tenantId } },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.items;
     },
 
@@ -673,7 +683,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         params: { query: { unread_only: true, size: 50 } },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.items;
     },
 
@@ -696,7 +706,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         params: { query: { size: 100, since: since ? since.toISOString() : null } },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.items.filter((row) => row.tenant_id === tenantId);
     },
 
@@ -715,7 +725,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         params: { path: { tenant_id: tenantId }, query: { q: query } },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.items;
     },
 
@@ -728,7 +738,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { name, prototype_ids: [], in_public_catalog: false },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -754,11 +764,12 @@ export function createLorenzoApiClient(baseUrl: string) {
         body: {
           prototype_id: prototypeId,
           owner_character_id: ownerCharacterId,
+          override: false,
           ...(containerEntityId !== undefined ? { container_entity_id: containerEntityId } : {}),
           ...(name !== undefined ? { name } : {}),
         },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -783,7 +794,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -798,16 +809,47 @@ export function createLorenzoApiClient(baseUrl: string) {
       tenantId: string,
       items: readonly BulkAssignItem[],
       accessToken: string,
+      { dryRun = false }: { dryRun?: boolean } = {},
     ): Promise<readonly BulkAssignResultItem[]> {
       const { data, error, response } = await client.POST(
         "/tenants/{tenant_id}/item-instances/bulk-assign",
         {
-          params: { path: { tenant_id: tenantId } },
+          params: {
+            path: { tenant_id: tenantId },
+            ...(dryRun ? { query: { dry_run: true } } : {}),
+          },
           headers: { Authorization: `Bearer ${accessToken}` },
           body: [...items],
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data;
+    },
+
+    /** POST .../item-instances/{entity_id}/give-contents (ADR 0125) -
+     * everything inside a container, at any depth, not the container itself.
+     * Never all-or-nothing: one entry per thing, given (`"ok"`) or kept by
+     * its owner (`"kept"`). `dryRun` only answers what would happen, for
+     * `/give-contents`' question. */
+    async giveContents(
+      tenantId: string,
+      containerEntityId: string,
+      targetId: string,
+      accessToken: string,
+      { dryRun = false }: { dryRun?: boolean } = {},
+    ): Promise<readonly ContentsResultItem[]> {
+      const { data, error, response } = await client.POST(
+        "/tenants/{tenant_id}/item-instances/{entity_id}/give-contents",
+        {
+          params: {
+            path: { tenant_id: tenantId, entity_id: containerEntityId },
+            ...(dryRun ? { query: { dry_run: true } } : {}),
+          },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { owner_character_id: targetId, recursive: true },
+        },
+      );
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -821,8 +863,22 @@ export function createLorenzoApiClient(baseUrl: string) {
         params: { path: { tenant_id: tenantId } },
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.items.map((group) => ({ entityId: group.id, name: group.name }));
+    },
+
+    /** GET .../groups/{group_entity_id} (ADR 0064) - a group's name, for
+     * saying where something was given when it went to a group (ADR 0124). */
+    async getGroupName(tenantId: string, groupId: string, accessToken: string): Promise<string> {
+      const { data, error, response } = await client.GET(
+        "/tenants/{tenant_id}/groups/{group_entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, group_entity_id: groupId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data.name;
     },
 
     /** GET .../characters/{character_id}/groups (ADR 0045's "reverse
@@ -842,7 +898,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.map((group) => ({ entityId: group.id, name: group.name }));
     },
 
@@ -861,7 +917,7 @@ export function createLorenzoApiClient(baseUrl: string) {
         headers: { Authorization: `Bearer ${accessToken}` },
         body: { name, member_character_ids: [...memberCharacterIds] },
       });
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return { entityId: data.id, name: data.name };
     },
 
@@ -887,7 +943,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data.map((member) => ({ entityId: member.id, name: member.name }));
     },
 
@@ -908,7 +964,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: [...characterEntityIds],
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -931,10 +987,12 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: {
             to_container_entity_id: toContainerEntityId,
             from_container_entity_id: fromContainerEntityId,
+            override: false,
+            lift_binding: false,
           },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
 
@@ -957,10 +1015,12 @@ export function createLorenzoApiClient(baseUrl: string) {
           body: {
             to_container_entity_id: toContainerEntityId,
             items: entityIds.map((entity_id) => ({ entity_id })),
+            override: false,
+            lift_binding: false,
           },
         },
       );
-      if (error !== undefined) throw toApiError(error, response.status);
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },
   };

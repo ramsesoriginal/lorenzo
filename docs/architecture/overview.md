@@ -124,6 +124,40 @@ Repositories exist ([RFC 0024](../rfcs/0024-repositories.md), accepted with an a
 
 API only: screens for repositories in the web apps are separate, later work. Authoring a repository's content uses the same routes and screens as any tenant.
 
+loot-bot and inventory-web share one typed API client ([ADR 0122](../adr/0122-api-client-package.md)). `packages/api-client` holds the schema generated from `apps/api`'s OpenAPI document, the client factory, and one error type, so both apps dropped their own copies of the schema and one CI check catches a stale one for both. It carries no rules: whether something is allowed stays the API's answer.
+
+What a being holds has a listing of its own ([ADR 0123](../adr/0123-held-by-listing-and-the-equipped-column.md), [RFC 0030](../rfcs/0030-carrying-holding-binding-and-capacity.md) slice 1):
+
+- **Held-by.** `GET .../item-instances/held-by/{entity_id}` lists ADR 0099's "holds": what an entity owns, what's contained under it, and whatever sits inside something it owns. It's grouped by container, the holder's own group first and always. An owned item in no container counts as with its owner, for its group and for the path any container gives.
+- **Equipped.** A being is its own Equipped container. inventory-web's board shows it as the first column, always, even when it's empty, then what the being carries, then what's held elsewhere, and names the owner of anything that isn't the being's own. loot-bot's `/inventory` and `/inspect` show the same.
+
+Groups own things, and moving something isn't giving it away ([ADR 0124](../adr/0124-groups-own-things-and-moving-is-not-giving.md), RFC 0030 slice 2):
+
+- **Groups as owners.** A player's reach, and a GM's, also starts from their characters' groups. A party's members see what it owns, move it, open its board, and hear about it in their change feed. A group's GMs are its members' campaigns' GMs. Both web and bot offer groups as somewhere to give things.
+- **Moving versus giving.** Where an owned item is stays anyone-who-reaches-it's to change. Who owns it (giving, clearing, bulk-assign, splitting to another owner, deleting) needs control of the owner, or a GM. Carrying someone else's thing lets you move it, and a refusal to give it away has its own problem type, `item-not-yours-to-give`.
+
+A container can be given with what's inside it ([ADR 0125](../adr/0125-giving-a-container-with-its-contents.md), RFC 0030 slice 3):
+
+- **With contents.** A bulk-assign entry's `with_contents` also gives everything inside, at any depth, that the caller may give. `POST .../item-instances/{id}/give-contents` gives only what's inside. Either way each thing is given or kept on its own, what's kept says whose it stays, and nothing moves.
+- **Asking first.** Both take `?dry_run=true`, so inventory-web ("Also give what's inside", "Give what's inside…") and loot-bot (`/give`'s "Give with what's inside", `/give-contents`) ask with the answer before anything changes. Neither offers Undo.
+
+Computed stats gain a third kind, `sum` ([ADR 0126](../adr/0126-sum-formulas.md), RFC 0030 slice 4): `round(Σ coefficient × stat + offset)` over up to 20 stats of the same entity, such as armour class as 10 plus a dexterity modifier plus a worn bonus. It's authored, previewed, cycle-checked, copied from repositories, and synced like `linear`. An `int` stat no longer needs a rounding mode when its formula can't produce a fraction, for `linear` as well. Formula responses can now carry the new kind, an accepted break in the API contract.
+
+And a fourth, `contents` ([ADR 0127](../adr/0127-contents-formulas.md), RFC 0030 slice 5): `Σ stat × quantity` over what's directly inside an entity, each thing's stat resolved with its own formulas. So a container's weight is its own plus its contents', at any depth, from two formulas on a base prototype, and a being's carried weight adds up what it holds in hand. Something without a value counts as 0, and hidden things count. Evaluation stays pure Python: a read loads the containment subtree and its effective stats only when a `contents` formula wins, once per page, and a containment cycle leaves what depends on it without a value. `docs/reference/well-known-stats.md` names the stats the API reads and gives the weight recipe.
+
+Moves are checked against capacity ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md), RFC 0030 slice 6):
+
+- **Capacity.** The API reads `carry_capacity` against weight, and `containment_capacity` and `max_item_size` against size. It checks every move into something, every hand-over, and anything created inside something. The target and everything it's inside are locked and measured before and after, in the same transaction, and only a move that adds to a load past its limit is refused, with `409 capacity-exceeded`. So taking things out, rearranging inside one being, and a Bag of Holding never are. A tenant without those stats pays nothing.
+- **Moving anyway.** An item's GM may send `override`; anyone else gets a 403, and the activity log says it was overridden. inventory-web asks a GM "Move anyway?", and loot-bot's `/move` gives a GM a button. Everyone else sees the API's own message.
+- **Deleting a container** keeps what was inside: it moves to wherever the container was, or to its owner. A stack with nowhere to go refuses the delete.
+
+Things can bind to their owner ([ADR 0129](../adr/0129-binding-and-lifting-it.md), RFC 0030 slice 7), which completes RFC 0030:
+
+- **Binding.** The well-known enum stat `binding` binds an item to its owner, only when that owner is a being. `on_own` binds while a being owns it, `on_pickup` while its owner carries it, and `on_equip` while its owner has it equipped. Nothing is stored: `bound` on every item instance follows from where it is and who owns it.
+- **What it refuses.** A bound item's owner can't change. A move can't take a bound thing out of what binds it, checked for everything inside a moved container too. Both are refused with `409 item-bound`, and giving what's inside keeps a bound thing where it is.
+- **A GM's say.** `override` skips binding as well as capacity, the two DELETEs take it as a query parameter, and `lift_binding` sets an item's own `binding` to `none` for good. Both are GM-only, under a 403 renamed `override-forbidden`. inventory-web marks bound things, asks a GM "…anyway?" and whether to lift it, and loot-bot's `/move` adds "Move and lift binding".
+- **`is_magical` and `is_cursed`** are gone from the item views and responses, an accepted contract break. Tenants' own tags by those names are ordinary tags.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

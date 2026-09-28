@@ -63,7 +63,7 @@ import Base from '../../layouts/Base.astro';
 
   <script>
     import { fetchAncestryTree } from '../../lib/ancestryTree';
-    import { ApiError } from '../../lib/api';
+    import { LorenzoApiError } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
     import { descriptionRenderer, getBacklinks } from '../../lib/descriptions';
     import { entityHref } from '../../lib/entityLinks';
@@ -321,12 +321,12 @@ import Base from '../../layouts/Base.astro';
       try {
         return { item: await getCatalogItem(tenantId, id), instance: false };
       } catch (e) {
-        if (!(e instanceof ApiError) || e.status !== 404) throw e;
+        if (!(e instanceof LorenzoApiError) || e.status !== 404) throw e;
       }
       try {
         return { item: await getItemInstance(tenantId, id), instance: true };
       } catch (e) {
-        throw e instanceof ApiError && e.status === 404 ? nowhere() : e;
+        throw e instanceof LorenzoApiError && e.status === 404 ? nowhere() : e;
       }
     }
 

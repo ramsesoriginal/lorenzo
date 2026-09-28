@@ -2557,6 +2557,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/item-instances/held-by/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Item Instances Held By
+         * @description Everything entity_id holds (ADR 0123): ADR 0099's relation, which is
+         *     exactly the walk reachable_entity_ids makes from it - what it owns, what's
+         *     contained under it at any depth, and whatever sits inside something it
+         *     owns. Grouped by direct container, its own group (a being's Equipped)
+         *     first and always, then carried containers, then what's held elsewhere.
+         *
+         *     The holder itself must be one the caller reaches (ADR 0040's sets);
+         *     otherwise 404, like an entity that doesn't exist - the always-present
+         *     first group would name it. Items are filtered as owned-by filters them.
+         */
+        get: operations["list_item_instances_held_by"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/item-instances/unowned": {
         parameters: {
             query?: never;
@@ -2645,9 +2673,9 @@ export interface paths {
         post?: never;
         /**
          * Delete Item Instance
-         * @description Plain cascade delete, no guard - an instance has nothing else
-         *     depending on it the way a base item does (ADR 0018's default cascade
-         *     is exactly right here, unmodified).
+         * @description A cascade delete - an instance has nothing else depending on it the
+         *     way a base item does (ADR 0018) - except for what's inside it, which
+         *     moves out to where it was first (ADR 0128), keeping its counts.
          */
         delete: operations["delete_item_instance"];
         options?: never;
@@ -2686,6 +2714,9 @@ export interface paths {
          * @description 200 + the parent resource, not 204 - deleting a *singular sub-
          *     resource* leaves the parent itself intact, and returning nothing would
          *     just force an immediate follow-up GET (ADR 0032/RFC 0005).
+         *
+         *     A bound item's owner can't be cleared (ADR 0129); `override` and
+         *     `lift_binding` are query parameters here, with no body to carry them.
          */
         delete: operations["clear_item_instance_owner"];
         options?: never;
@@ -2710,6 +2741,10 @@ export interface paths {
          *     (409, ADR 0115): its count lives on the containment row (ADR 0041), so
          *     deleting the row would drop it. A stack leaves a container into its
          *     owner instead, with PUT .../container.
+         *
+         *     Refused too when it takes a bound thing out of what binds it (ADR 0129);
+         *     `override` and `lift_binding` are query parameters here, with no body to
+         *     carry them.
          */
         delete: operations["clear_item_instance_container"];
         options?: never;
@@ -2802,8 +2837,37 @@ export interface paths {
          *     here and fails the whole request as a 500 - this only ever gracefully
          *     handles anticipated, typed failure modes, matching this codebase's
          *     general practice.
+         *
+         *     with_contents (ADR 0125) also gives everything inside the entry's item,
+         *     before the item itself: whether someone may give an ownerless thing
+         *     inside depends on reaching it, which handing the container over could
+         *     end. dry_run does all of it and rolls it back.
          */
         post: operations["bulk_assign_item_instances"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/item-instances/{entity_id}/give-contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Item Instance Contents
+         * @description Gives everything inside a container, not the container itself (ADR
+         *     0125) - one answer per thing, given or kept, never all-or-nothing. The
+         *     caller must be able to move the container: one they can't reach isn't
+         *     one whose contents they may look into. dry_run does all of it and rolls
+         *     it back.
+         */
+        post: operations["give_item_instance_contents"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3306,6 +3370,21 @@ export interface components {
              * @default false
              */
             move_to_owner: boolean;
+            /**
+             * With Contents
+             * @default false
+             */
+            with_contents: boolean;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * BulkAssignResultItem
@@ -3327,6 +3406,11 @@ export interface components {
             status: "ok" | "error";
             item_instance?: components["schemas"]["ItemInstanceOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
+            /**
+             * Contents
+             * @default []
+             */
+            contents: components["schemas"]["ContentsResultItem"][];
         };
         /**
          * BulkMembershipResultItem
@@ -3368,6 +3452,16 @@ export interface components {
             from_container_entity_id?: string | null;
             /** Items */
             items?: components["schemas"]["BulkMoveItem"][] | null;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * BulkMoveItem
@@ -3816,7 +3910,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison";
+            kind: "linear" | "comparison" | "sum" | "contents";
         };
         /**
          * ComputedStatOut
@@ -3835,7 +3929,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"];
             /**
              * Updated At
              * Format: date-time
@@ -3849,7 +3943,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -3873,6 +3967,47 @@ export interface components {
             source: "computed" | "direct" | "unset";
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
+        };
+        /**
+         * ContentsFormulaBody
+         * @description `Σ stat × quantity` over what's directly inside - ADR 0127.
+         *     `contents_weight` is `contents(weight)`: each thing inside's own
+         *     weight, formulas included, times its stack count.
+         */
+        ContentsFormulaBody: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "contents";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+        };
+        /**
+         * ContentsResultItem
+         * @description One thing inside a container that was given with it, or whose
+         *     contents were given (ADR 0125): given along ("ok"), or kept by whoever
+         *     owns it ("kept"), with the refusal in `problem`. `owner` is who owns it
+         *     afterwards, so a client can say whose a kept thing stays.
+         */
+        ContentsResultItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "kept";
+            owner?: components["schemas"]["EntitySummary"] | null;
+            problem?: components["schemas"]["ProblemOut"] | null;
         };
         /**
          * ContributionCountsOut
@@ -4200,6 +4335,24 @@ export interface components {
             removed: unknown[] | null;
         };
         /**
+         * GiveContentsRequest
+         * @description POST /item-instances/{id}/give-contents (ADR 0125): everything inside
+         *     the container, not the container itself. `recursive` false gives only
+         *     what's directly inside.
+         */
+        GiveContentsRequest: {
+            /**
+             * Owner Character Id
+             * Format: uuid
+             */
+            owner_character_id: string;
+            /**
+             * Recursive
+             * @default true
+             */
+            recursive: boolean;
+        };
+        /**
          * GmOut
          * @description One row of GET .../campaigns/{id}/gms - campaign_id/tenant_id are
          *     already in the path, no need to repeat them per row. See ADR 0031/RFC
@@ -4305,6 +4458,42 @@ export interface components {
             /** Status code */
             status: number;
             errors: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HeldByResponse
+         * @description GET .../item-instances/held-by/{entity_id} (ADR 0123). The holder's
+         *     own group first and always, then carried containers, then what's held
+         *     elsewhere. `owners` names every owner an item here points at through
+         *     `owner_entity_id`, once. Not paginated, like owned-by: bounded by what
+         *     one being holds.
+         */
+        HeldByResponse: {
+            /** Groups */
+            groups: components["schemas"]["HeldGroupOut"][];
+            /** Owners */
+            owners: components["schemas"]["EntitySummary"][];
+        };
+        /**
+         * HeldGroupOut
+         * @description One container's worth of what an entity holds (ADR 0123). The
+         *     holder's own group has the holder as its `container`: for a being, its
+         *     Equipped. `path` is the containers around this one, nearest first; for
+         *     a group the holder carries (`carried`) it stops short of the holder,
+         *     for anything held elsewhere it goes up to the top.
+         */
+        HeldGroupOut: {
+            container: components["schemas"]["EntitySummary"];
+            /**
+             * Container Kind
+             * @enum {string}
+             */
+            container_kind: "being" | "item_instance" | "other";
+            /** Path */
+            path: components["schemas"]["EntitySummary"][];
+            /** Carried */
+            carried: boolean;
+            /** Item Instances */
+            item_instances: components["schemas"]["ItemInstanceOut"][];
         };
         /**
          * InformationCreate
@@ -4566,12 +4755,18 @@ export interface components {
             container_entity_id?: string | null;
             /** Slug */
             slug?: string | null;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
         };
         /**
          * ItemInstanceOut
          * @description A specific, ownable item ("My Shovel"), from `VItemInstance` - the
-         *     fields every item has plus `owner_entity_id`/`slug`. See ADR 0019/0020
-         *     and `_ItemFields`'s docstring for the eager-load requirement.
+         *     fields every item has plus `owner_entity_id`/`slug`, and whether it's
+         *     `bound` (ADR 0129). See ADR 0019/0020 and `_ItemFields`'s docstring for
+         *     the eager-load requirement.
          */
         ItemInstanceOut: {
             /**
@@ -4599,10 +4794,6 @@ export interface components {
             quantity: number | null;
             /** Prototype Ids */
             prototype_ids: string[];
-            /** Is Magical */
-            is_magical: boolean | null;
-            /** Is Cursed */
-            is_cursed: boolean | null;
             /** Is Container */
             is_container: boolean | null;
             /** Descriptions */
@@ -4632,6 +4823,8 @@ export interface components {
             owner_entity_id: string | null;
             /** Slug */
             slug: string | null;
+            /** Bound */
+            bound: boolean;
         };
         /**
          * ItemInstanceUpdate
@@ -4676,10 +4869,6 @@ export interface components {
             quantity: number | null;
             /** Prototype Ids */
             prototype_ids: string[];
-            /** Is Magical */
-            is_magical: boolean | null;
-            /** Is Cursed */
-            is_cursed: boolean | null;
             /** Is Container */
             is_container: boolean | null;
             /** Descriptions */
@@ -5971,7 +6160,9 @@ export interface components {
         };
         /**
          * SetContainerRequest
-         * @description PUT /item-instances/{id}/container body.
+         * @description PUT /item-instances/{id}/container body. `override` (ADR 0128,
+         *     0129): the item's GM moves it anyway, past capacity and binding.
+         *     `lift_binding` (ADR 0129): and lifts its binding for good.
          */
         SetContainerRequest: {
             /**
@@ -5979,6 +6170,16 @@ export interface components {
              * Format: uuid
              */
             container_entity_id: string;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * SetEntityStatRequest
@@ -6012,6 +6213,16 @@ export interface components {
              * @default false
              */
             move_to_owner: boolean;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+            /**
+             * Lift Binding
+             * @default false
+             */
+            lift_binding: boolean;
         };
         /**
          * SetPrototypesRequest
@@ -6212,6 +6423,76 @@ export interface components {
             /** Synced At */
             synced_at: string | null;
             contributed: components["schemas"]["ContributionCountsOut"] | null;
+        };
+        /**
+         * SumFormulaBody
+         * @description `round(Σ coefficient × stat + offset)` over stats of the same entity -
+         *     ADR 0126. `armour_class = 10 + dex_modifier + worn_ac_bonus` is two
+         *     terms with coefficient 1 and offset 10. Each stat at most once.
+         */
+        "SumFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sum";
+            /** Terms */
+            terms: components["schemas"]["SumTermBody-Input"][];
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * SumFormulaBody
+         * @description `round(Σ coefficient × stat + offset)` over stats of the same entity -
+         *     ADR 0126. `armour_class = 10 + dex_modifier + worn_ac_bonus` is two
+         *     terms with coefficient 1 and offset 10. Each stat at most once.
+         */
+        "SumFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "sum";
+            /** Terms */
+            terms: components["schemas"]["SumTermBody-Output"][];
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /** SumTermBody */
+        "SumTermBody-Input": {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Coefficient
+             * @default 1
+             */
+            coefficient: number | string;
+        };
+        /** SumTermBody */
+        "SumTermBody-Output": {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /**
+             * Coefficient
+             * @default 1
+             */
+            coefficient: string;
         };
         /**
          * SuspendUserRequest
@@ -13007,7 +13288,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"];
             };
         };
         responses: {
@@ -15457,6 +15738,72 @@ export interface operations {
             };
         };
     };
+    list_item_instances_held_by: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldByResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_unowned_item_instances: {
         parameters: {
             query?: never;
@@ -15866,7 +16213,10 @@ export interface operations {
     };
     clear_item_instance_owner: {
         parameters: {
-            query?: never;
+            query?: {
+                override?: boolean;
+                lift_binding?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -16006,7 +16356,10 @@ export interface operations {
     };
     clear_item_instance_container: {
         parameters: {
-            query?: never;
+            query?: {
+                override?: boolean;
+                lift_binding?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -16218,7 +16571,9 @@ export interface operations {
     };
     bulk_assign_item_instances: {
         parameters: {
-            query?: never;
+            query?: {
+                dry_run?: boolean;
+            };
             header?: never;
             path: {
                 tenant_id: string;
@@ -16238,6 +16593,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkAssignResultItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    give_item_instance_contents: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiveContentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentsResultItem"][];
                 };
             };
             /** @description Validation Error */

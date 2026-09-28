@@ -12,7 +12,10 @@ from lorenzo_api.models import (
     Character,
     ComputedStat,
     ComputedStatComparison,
+    ComputedStatContents,
     ComputedStatLinear,
+    ComputedStatSum,
+    ComputedStatSumTerm,
     Containment,
     ContentReference,
     Entity,
@@ -79,7 +82,13 @@ async def seed_every_content_table(
     alignment = StatDefinition(
         tenant_id=tenant_id, stat_group_id=group.id, name="Alignment", value_type=StatValueType.ENUM
     )
-    session.add_all([strength, modifier, strong, alignment])
+    might = StatDefinition(
+        tenant_id=tenant_id, stat_group_id=group.id, name="Might", value_type=StatValueType.INT
+    )
+    load = StatDefinition(
+        tenant_id=tenant_id, stat_group_id=group.id, name="Load", value_type=StatValueType.INT
+    )
+    session.add_all([strength, modifier, strong, alignment, might, load])
     session.add_all(
         [
             Item(entity_id=sword.id, tenant_id=tenant_id),
@@ -106,6 +115,8 @@ async def seed_every_content_table(
             ),
             ComputedStat(entity_id=sword.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             ComputedStat(entity_id=sword.id, stat_definition_id=strong.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=sword.id, stat_definition_id=might.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=chest.id, stat_definition_id=load.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
         ]
@@ -130,8 +141,44 @@ async def seed_every_content_table(
                 comparator="ge",
                 right_constant=Decimal("15"),
             ),
+            # The Chest's Load: the Strength of what's in it (ADR 0127).
+            ComputedStatContents(
+                entity_id=chest.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=strength.id,
+            ),
+            # Might = Strength + 2 × Modifier + 1 (ADR 0126).
+            ComputedStatSum(
+                entity_id=sword.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                offset=Decimal("1"),
+                round_mode="none",
+            ),
             GroupMember(
                 group_entity_id=guild.id, character_entity_id=elminster.id, tenant_id=tenant_id
+            ),
+        ]
+    )
+    await session.flush()
+    session.add_all(
+        [
+            ComputedStatSumTerm(
+                entity_id=sword.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=strength.id,
+                coefficient=Decimal("1"),
+                position=0,
+            ),
+            ComputedStatSumTerm(
+                entity_id=sword.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=modifier.id,
+                coefficient=Decimal("2"),
+                position=1,
             ),
         ]
     )

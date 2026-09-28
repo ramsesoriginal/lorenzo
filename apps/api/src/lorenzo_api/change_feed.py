@@ -6,7 +6,8 @@ before it mutates, then calls `record_change` afterwards, before its own
 commit.
 
 A character *holds* an item if it owns it, contains it at any depth, or owns
-something that contains it at any depth. A change is recorded for every
+something that contains it at any depth - or is a member of a group that owns
+it or something that contains it (ADR 0124). A change is recorded for every
 holder before or after it: holders only after get `received`, only before
 get `given_away`, both get the change's own kind (or nothing, for kinds that
 don't concern someone who kept the item). Rows go to every user controlling
@@ -27,6 +28,7 @@ from lorenzo_api.models import (
     CharacterPlayer,
     Entity,
     EntityChange,
+    GroupMember,
     Membership,
     Ownership,
     Player,
@@ -53,7 +55,21 @@ async def holders(
             )
         ).scalars()
     )
-    candidates = owners | set(ancestors)
+    members = (
+        set(
+            (
+                await session.execute(
+                    select(GroupMember.character_entity_id).where(
+                        GroupMember.group_entity_id.in_(owners),
+                        GroupMember.tenant_id == tenant_id,
+                    )
+                )
+            ).scalars()
+        )
+        if owners
+        else set()
+    )
+    candidates = owners | set(ancestors) | members
     if not candidates:
         return frozenset()
     # Owners and containers can be any entity; only characters count.

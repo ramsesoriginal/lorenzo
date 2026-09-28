@@ -21,6 +21,8 @@ export type GiveIntent = Readonly<{
 
 export const GIVE_CONFIRM_ACTION = "ok";
 export const GIVE_CANCEL_CUSTOM_ID = "give:no";
+/** "Give with what's inside" (ADR 0125): always the whole item, so no quantity. */
+export const GIVE_WITH_CONTENTS_ACTION = "okc";
 
 const ALL = "all";
 
@@ -43,17 +45,46 @@ export function parseGiveConfirmCustomId(customId: string): GiveIntent | undefin
   return { itemEntityId, targetCharacterId, quantity };
 }
 
-export function buildGiveConfirmComponents(intent: GiveIntent): ActionRowBuilder<ButtonBuilder>[] {
+/** A container given with what's inside it (ADR 0125): the item and its target. */
+export type GiveWithContentsIntent = Readonly<{ itemEntityId: string; targetCharacterId: string }>;
+
+export function buildGiveWithContentsCustomId(intent: GiveWithContentsIntent): string {
+  return `give:${GIVE_WITH_CONTENTS_ACTION}:${intent.itemEntityId}:${intent.targetCharacterId}`;
+}
+
+/** Inverse of {@link buildGiveWithContentsCustomId}; `undefined` for anything else. */
+export function parseGiveWithContentsCustomId(
+  customId: string,
+): GiveWithContentsIntent | undefined {
+  const [namespace, action, itemEntityId, targetCharacterId, ...rest] = customId.split(":");
+  if (namespace !== "give" || action !== GIVE_WITH_CONTENTS_ACTION || rest.length > 0) {
+    return undefined;
+  }
+  if (!itemEntityId || !targetCharacterId) return undefined;
+  return { itemEntityId, targetCharacterId };
+}
+
+/** "Give", then "Give with what's inside" when a container holds something
+ * that could go along (ADR 0125), then "Cancel". */
+export function buildGiveConfirmComponents(
+  intent: GiveIntent,
+  { withContents = false }: { withContents?: boolean } = {},
+): ActionRowBuilder<ButtonBuilder>[] {
+  const give = new ButtonBuilder()
+    .setCustomId(buildGiveConfirmCustomId(intent))
+    .setLabel("Give")
+    .setStyle(ButtonStyle.Primary);
+  const giveWithContents = new ButtonBuilder()
+    .setCustomId(buildGiveWithContentsCustomId(intent))
+    .setLabel("Give with what's inside")
+    .setStyle(ButtonStyle.Primary);
+  const cancel = new ButtonBuilder()
+    .setCustomId(GIVE_CANCEL_CUSTOM_ID)
+    .setLabel("Cancel")
+    .setStyle(ButtonStyle.Secondary);
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(buildGiveConfirmCustomId(intent))
-        .setLabel("Give")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId(GIVE_CANCEL_CUSTOM_ID)
-        .setLabel("Cancel")
-        .setStyle(ButtonStyle.Secondary),
+      ...(withContents ? [give, giveWithContents, cancel] : [give, cancel]),
     ),
   ];
 }

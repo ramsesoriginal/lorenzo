@@ -1,8 +1,10 @@
 import { SlashCommandBuilder } from "discord.js";
 import { formatInventoryEmbed } from "../format-inventory.js";
 import {
+  type GroupSummary,
+  type HeldByResponse,
+  type LorenzoApiClient,
   LorenzoApiError,
-  type OwnedByResponse,
   createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
@@ -12,10 +14,11 @@ import type { Command } from "./types.js";
 const MAX_EMBEDS_PER_REPLY = 10;
 
 /**
- * `/inventory` - lists the item instances the caller's own characters own,
- * one embed per character, grouped by container (formatInventoryEmbed).
+ * `/inventory` - lists what the caller's own characters hold (ADR 0123), one
+ * embed per character: Equipped first, then what they carry, then what's
+ * held elsewhere (formatInventoryEmbed).
  * Depends on the backend contract noted in ADR 0050
- * (`getControlledCharacters`/`getItemInstancesOwnedBy` in lorenzo-client.ts)
+ * (`getControlledCharacters`/`getItemInstancesHeldBy` in lorenzo-client.ts)
  * which isn't fully live in apps/api yet - a 404 from either call is
  * treated as "not available yet" rather than a generic failure.
  *
@@ -29,7 +32,7 @@ const MAX_EMBEDS_PER_REPLY = 10;
 export const inventoryCommand: Command = {
   definition: new SlashCommandBuilder()
     .setName("inventory")
-    .setDescription("List the item instances your characters own.")
+    .setDescription("List what your characters hold: equipped, carried, and kept elsewhere.")
     .addStringOption((opt) =>
       opt
         .setName("search")
@@ -59,17 +62,21 @@ export const inventoryCommand: Command = {
       return;
     }
 
+    // Then every group one of them belongs to, which can own things too (ADR 0124).
+    const groups = await groupsOf(client, tenantId, accessToken, characters);
+    const holders = [...characters, ...groups];
     const embeds = await Promise.all(
-      characters.map(async (character) => {
-        const response = await client.getItemInstancesOwnedBy(
+      holders.map(async (holder) => {
+        const response = await client.getItemInstancesHeldBy(
           tenantId,
-          character.entityId,
+          holder.entityId,
           accessToken,
         );
-        return formatInventoryEmbed(
-          character.name,
-          search ? filterByTitle(response, search) : response,
-        );
+        return search
+          ? formatInventoryEmbed(holder.name, filterByTitle(response, search), {
+              emptyEquipped: "Nothing here matches.",
+            })
+          : formatInventoryEmbed(holder.name, response);
       }),
     );
 
@@ -78,19 +85,38 @@ export const inventoryCommand: Command = {
     await interaction.editReply({
       content:
         omitted > 0
-          ? `Showing ${visibleEmbeds.length} of ${embeds.length} characters (Discord's own per-message limit) — ask a GM to check the rest.`
+          ? `Showing ${visibleEmbeds.length} of ${embeds.length} characters and groups (Discord's own per-message limit) — ask a GM to check the rest.`
           : "",
       embeds: visibleEmbeds,
     });
   },
 };
 
-/** Narrows an owned-by response to items whose title contains `search`
+/** The groups any of `characters` belongs to, each once. A failed lookup
+ * just leaves groups out: they're an addition to `/inventory`, not its
+ * point. */
+async function groupsOf(
+  client: LorenzoApiClient,
+  tenantId: string,
+  accessToken: string,
+  characters: readonly { entityId: string }[],
+): Promise<readonly GroupSummary[]> {
+  const perCharacter = await Promise.all(
+    characters.map((character) =>
+      client.getCharacterGroups(tenantId, character.entityId, accessToken).catch(() => []),
+    ),
+  );
+  const byId = new Map(perCharacter.flat().map((group) => [group.entityId, group]));
+  return [...byId.values()];
+}
+
+/** Narrows a held-by response to items whose title contains `search`
  * (already lowercased by the caller), case-insensitively - groups stay
  * present even if they end up empty, matching `formatInventoryEmbed`'s
  * own existing "filter out empty groups" behavior. */
-function filterByTitle(response: OwnedByResponse, search: string): OwnedByResponse {
+function filterByTitle(response: HeldByResponse, search: string): HeldByResponse {
   return {
+    ...response,
     groups: response.groups.map((group) => ({
       ...group,
       item_instances: group.item_instances.filter((item) =>

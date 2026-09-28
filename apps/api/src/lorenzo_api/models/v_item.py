@@ -34,8 +34,6 @@ class VItem(EntityViewMixin, Base):
     armor: Mapped[int | None]
     container_entity_id: Mapped[uuid.UUID | None]
     quantity: Mapped[int | None]
-    is_magical: Mapped[bool | None]
-    is_cursed: Mapped[bool | None]
 
     # No real ForeignKey (views have none) - primaryjoin/foreign_keys= spell
     # out the join explicitly instead of relying on a constraint to infer

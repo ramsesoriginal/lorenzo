@@ -25,13 +25,19 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .item-card {
-    transition:
-      transform 150ms ease;
+    transition: transform 150ms ease;
   }
 
   .item-card:hover {
     transform: translateY(-1px);
   }
+}
+
+/* Bound to its owner (ADR 0129) - on a card, that's its [data-bound] badge. */
+.item-detail-bound {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .item-card--selected {
@@ -45,7 +51,9 @@
    top of this app's own bordered card shapes. */
 .item-card.skeleton {
   border-color: transparent;
-  /* A real card's height comes from its button's padding; a skeleton has none. */
+  /* Over .list > li's own background, which would hide the skeleton's. */
+  background: var(--fill-soft);
+  /* A real card's height comes from its text; a skeleton has none. */
   height: 38px;
 }
 

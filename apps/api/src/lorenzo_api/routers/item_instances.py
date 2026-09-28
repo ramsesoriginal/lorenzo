@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
@@ -11,11 +11,19 @@ from fastapi_problem.error import Problem
 from sqlalchemy import ColumnElement, Select, and_, or_, select, true
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.binding import (
+    BindingCheck,
+    attach_bound,
+    copy_binding,
+    lift_binding,
+    refuse_owner_change,
+)
 from lorenzo_api.campaign_access import (
-    campaign_ids_for_character,
+    campaign_ids_for_owner,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
+from lorenzo_api.capacity import CapacityCheck
 from lorenzo_api.change_feed import Change, holders, record_change
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -28,12 +36,14 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
-    controlled_character_entity_ids,
+    controlled_holder_entity_ids,
     reachable_entity_ids,
     recursive_descendants_cte,
+    surroundings,
 )
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    EntityNotFoundError,
     InvalidItemPrototypeError,
     InvalidMergeError,
     InvalidSplitQuantityError,
@@ -41,11 +51,14 @@ from lorenzo_api.exceptions import (
     ItemInstanceNotFoundError,
     ItemInstanceSlugConflictError,
     ItemInstanceSlugNotFoundError,
+    ItemNotYoursToGiveError,
+    OverrideForbiddenError,
     StackNeedsContainerError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
+    Being,
     Containment,
     Entity,
     EntityPrototype,
@@ -62,6 +75,10 @@ from lorenzo_api.schemas.items import (
     BulkAssignResultItem,
     BulkMoveContainerRequest,
     BulkMoveResultItem,
+    ContentsResultItem,
+    GiveContentsRequest,
+    HeldByResponse,
+    HeldGroupOut,
     ItemInstanceCreate,
     ItemInstanceOut,
     ItemInstanceUpdate,
@@ -73,6 +90,7 @@ from lorenzo_api.schemas.items import (
     SetOwnerRequest,
     SplitItemInstanceRequest,
 )
+from lorenzo_api.stat_contents import attach_contents
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0032/RFC 0005,
 # mirroring routers/campaigns.py's identical ADR 0030/RFC 0003 precedent):
@@ -153,19 +171,43 @@ async def _visible_owner_predicate(
     someone else's item via can_manage_any_of_campaigns, without holding
     ORGA, would otherwise 404 on the very write they just made.
     """
+    return _owner_predicate_for(
+        await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    )
+
+
+async def _caller_reach(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    visibility: InformationVisibility,
+) -> frozenset[uuid.UUID] | None:
+    """What the caller reaches for ADR 0040's purposes - their own
+    characters' reachable set plus the GM-reachable set - or None for ORGA,
+    who reaches everything. Split out of _visible_owner_predicate so held-by
+    (ADR 0123) can check its holder against the same set it filters items
+    with, without walking twice.
+    """
     if visibility.is_orga:
-        return true()
+        return None
     self_reachable = await reachable_entity_ids(
         session,
-        root_entity_ids=await controlled_character_entity_ids(
+        root_entity_ids=await controlled_holder_entity_ids(
             session, user_id=user.id, tenant_id=tenant_id
         ),
         tenant_id=tenant_id,
     )
-    visible_entity_ids = self_reachable | visibility.gm_reachable_entity_ids
+    return self_reachable | visibility.gm_reachable_entity_ids
+
+
+def _owner_predicate_for(reach: frozenset[uuid.UUID] | None) -> ColumnElement[bool]:
+    """ADR 0040's item filter for a caller's reach (see _caller_reach)."""
+    if reach is None:
+        return true()
     return or_(
         VItemInstance.owner_entity_id.is_(None),
-        VItemInstance.entity_id.in_(visible_entity_ids),
+        VItemInstance.entity_id.in_(reach),
     )
 
 
@@ -225,10 +267,13 @@ async def list_item_instances(
         )
 
     async def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
-        # One ancestor walk for the whole page (ADR 0111).
+        # One ancestor walk for the whole page (ADR 0111), and one load of
+        # what contents formulas read (ADR 0127).
         ancestry = await prototype_ancestors(
             session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
         )
+        await attach_contents(session, [item.entity for item in items], tenant_id=tenant_id)
+        await attach_bound(session, items, tenant_id=tenant_id)
         return [
             ItemInstanceOut.from_v_item_instance(
                 item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
@@ -287,6 +332,8 @@ async def _grouped_by_container_response(
     ancestry = await prototype_ancestors(
         session, tenant_id=tenant_id, entity_ids=[view.entity_id for view, _ in rows]
     )
+    await attach_contents(session, [view.entity for view, _ in rows], tenant_id=tenant_id)
+    await attach_bound(session, [view for view, _ in rows], tenant_id=tenant_id)
     groups: dict[uuid.UUID | None, list[ItemInstanceOut]] = {}
     for view, container_id in rows:
         groups.setdefault(container_id, []).append(
@@ -340,6 +387,152 @@ async def list_item_instances_owned_by(
         tenant_id=tenant_id,
         owner_predicate=and_(VItemInstance.owner_entity_id == owner_entity_id, predicate),
         visibility=visibility,
+    )
+
+
+@router.get("/held-by/{entity_id}")
+async def list_item_instances_held_by(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> HeldByResponse:
+    """Everything entity_id holds (ADR 0123): ADR 0099's relation, which is
+    exactly the walk reachable_entity_ids makes from it - what it owns, what's
+    contained under it at any depth, and whatever sits inside something it
+    owns. Grouped by direct container, its own group (a being's Equipped)
+    first and always, then carried containers, then what's held elsewhere.
+
+    The holder itself must be one the caller reaches (ADR 0040's sets);
+    otherwise 404, like an entity that doesn't exist - the always-present
+    first group would name it. Items are filtered as owned-by filters them.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    reach = await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    if reach is not None and entity_id not in reach:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+
+    held = await reachable_entity_ids(
+        session, root_entity_ids=frozenset({entity_id}), tenant_id=tenant_id
+    )
+    stmt = (
+        select(VItemInstance, Containment.parent_entity_id)
+        .outerjoin(Containment, Containment.child_entity_id == VItemInstance.entity_id)
+        .where(
+            VItemInstance.entity_id.in_(held - {entity_id}),
+            _owner_predicate_for(reach),
+            VItemInstance.tenant_id == tenant_id,
+        )
+        .options(*eager_load_options(VItemInstance.entity))
+        .order_by(VItemInstance.entity_id)
+    )
+    # A held item in no container can only be one the holder owns, and an
+    # owned item in no container is with its owner (ADR 0115, 0123): it joins
+    # what the holder contains directly, in the holder's own group.
+    rows = [
+        (view, entity_id if container_id is None else container_id)
+        for view, container_id in (await session.execute(stmt)).all()
+    ]
+
+    container_ids = frozenset(container_id for _, container_id in rows) - {entity_id}
+    # Through an owner, for a container in no container of its own (ADR 0123).
+    paths = await surroundings(session, entity_ids=container_ids, tenant_id=tenant_id)
+    carried: dict[uuid.UUID, bool] = {}
+    for container_id, path in paths.items():
+        carried[container_id] = entity_id in path
+        if carried[container_id]:
+            paths[container_id] = path[: path.index(entity_id)]
+
+    owner_ids = {view.owner_entity_id for view, _ in rows if view.owner_entity_id is not None}
+    named_ids = (
+        {entity_id} | container_ids | owner_ids | {a for path in paths.values() for a in path}
+    )
+    entities = {
+        entity.id: entity
+        for entity in (
+            await session.execute(
+                select(Entity).where(Entity.id.in_(named_ids), Entity.tenant_id == tenant_id)
+            )
+        ).scalars()
+    }
+    kind_ids = {entity_id} | container_ids
+    being_ids = set(
+        (
+            await session.execute(
+                select(Being.entity_id).where(
+                    Being.entity_id.in_(kind_ids), Being.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    instance_ids = set(
+        (
+            await session.execute(
+                select(ItemInstance.entity_id).where(
+                    ItemInstance.entity_id.in_(kind_ids), ItemInstance.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+
+    def kind(container_id: uuid.UUID) -> Literal["being", "item_instance", "other"]:
+        if container_id in being_ids:
+            return "being"
+        return "item_instance" if container_id in instance_ids else "other"
+
+    def summary(some_id: uuid.UUID) -> EntitySummary:
+        return EntitySummary.from_entity(entities[some_id])
+
+    def by_name(some_id: uuid.UUID) -> tuple[str, str]:
+        return (entities[some_id].name.casefold(), str(some_id))
+
+    ancestry = await prototype_ancestors(
+        session, tenant_id=tenant_id, entity_ids=[view.entity_id for view, _ in rows]
+    )
+    await attach_contents(session, [view.entity for view, _ in rows], tenant_id=tenant_id)
+    await attach_bound(session, [view for view, _ in rows], tenant_id=tenant_id)
+    items: dict[uuid.UUID, list[ItemInstanceOut]] = {entity_id: []}
+    for view, container_id in rows:
+        items.setdefault(container_id, []).append(
+            ItemInstanceOut.from_v_item_instance(
+                view, request, visibility=visibility, ancestors=ancestry[view.entity_id]
+            )
+        )
+
+    # Carried containers before those held elsewhere; within each, tree
+    # order - a container's outermost surroundings first, so a pouch comes
+    # right after the backpack it's in.
+    ordered = sorted(
+        container_ids,
+        key=lambda c: (
+            not carried[c],
+            [by_name(a) for a in reversed(paths[c])] + [by_name(c)],
+        ),
+    )
+    return HeldByResponse(
+        groups=[
+            HeldGroupOut(
+                container=summary(entity_id),
+                container_kind=kind(entity_id),
+                path=[],
+                carried=True,
+                item_instances=items[entity_id],
+            ),
+            *(
+                HeldGroupOut(
+                    container=summary(c),
+                    container_kind=kind(c),
+                    path=[summary(a) for a in paths[c]],
+                    carried=carried[c],
+                    item_instances=items[c],
+                )
+                for c in ordered
+            ),
+        ],
+        owners=[summary(o) for o in sorted(owner_ids, key=by_name)],
     )
 
 
@@ -416,6 +609,8 @@ async def get_item_instance_by_slug(
         raise ItemInstanceSlugNotFoundError(
             detail=f"No item instance with slug {slug!r} in tenant {tenant_id}"
         )
+    await attach_contents(session, [view.entity], tenant_id=tenant_id)
+    await attach_bound(session, [view], tenant_id=tenant_id)
     response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemInstanceOut.from_v_item_instance(
         view,
@@ -488,6 +683,10 @@ async def _get_v_item_instance_or_404(
         raise ItemInstanceNotFoundError(
             detail=f"No item instance with id {entity_id} in tenant {tenant_id}"
         )
+    # What a contents formula reads (ADR 0127), and whether it's bound (ADR
+    # 0129), which may depend on it.
+    await attach_contents(session, [view.entity], tenant_id=tenant_id)
+    await attach_bound(session, [view], tenant_id=tenant_id)
     return view
 
 
@@ -553,25 +752,19 @@ async def _authorize_create_instance(
     owner_character_id: uuid.UUID | None,
 ) -> None:
     """RFC 0005's instantiate authorization: self-service if
-    owner_character_id resolves to one of the caller's own characters (no
-    existing entity to walk reachability from yet, unlike an existing
-    instance - checked directly against controlled_character_entity_ids
-    instead); otherwise can_manage_campaign on any one of that character's
-    campaigns; ownerless creation falls back to can_manage_campaign on any
-    campaign in the tenant.
+    owner_character_id is one of the caller's own characters or a group one
+    of them belongs to (ADR 0124; no existing entity to walk reachability
+    from yet, unlike an existing instance); otherwise can_manage_campaign on
+    any one of the owner's campaigns (a group's are its members'); ownerless
+    creation falls back to can_manage_campaign on any campaign in the tenant.
     """
     if owner_character_id is not None:
-        controlled = await controlled_character_entity_ids(
+        controlled = await controlled_holder_entity_ids(
             session, user_id=user.id, tenant_id=tenant_id
         )
         if owner_character_id in controlled:
             return
-        campaign_ids = await campaign_ids_for_character(
-            session, character_entity_id=owner_character_id, tenant_id=tenant_id
-        )
-        if campaign_ids and await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
+        if await _manages_owner(session, tenant_id=tenant_id, user=user, owner=owner_character_id):
             return
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
         return
@@ -580,33 +773,128 @@ async def _authorize_create_instance(
     )
 
 
-async def _authorize_instance_write(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, entity_id: uuid.UUID
-) -> None:
-    """RFC 0005's self-or-managed check for PATCH/DELETE/the owner and
-    container actions on an *existing* instance - checked against its
-    current state before the write, uniformly regardless of what the write
-    itself changes (moving your own sword, or giving it to someone else's
-    character, is equally self-service as long as you already control it
-    now).
-    """
-    if await can_self_manage_entity(
-        session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
-    ):
-        return
-    current_owner_id = await _current_owner_character_id(
-        session, entity_id=entity_id, tenant_id=tenant_id
+async def _manages_owner(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, owner: uuid.UUID
+) -> bool:
+    """A GM of any campaign the owner plays in - for a group, any campaign
+    one of its members plays in (ADR 0124)."""
+    campaign_ids = await campaign_ids_for_owner(session, owner_entity_id=owner, tenant_id=tenant_id)
+    return bool(campaign_ids) and await can_manage_any_of_campaigns(
+        session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
     )
-    if current_owner_id is not None:
-        campaign_ids = await campaign_ids_for_character(
-            session, character_entity_id=current_owner_id, tenant_id=tenant_id
-        )
-        if campaign_ids and await can_manage_any_of_campaigns(
-            session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
-        ):
+
+
+async def _authorize_override(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    owner: uuid.UUID | None,
+    lifting: bool = False,
+) -> None:
+    """`override: true` (ADR 0128, 0129) and `lift_binding: true` (ADR 0129)
+    are the item's GM's alone: a GM of a campaign its owner plays in, or for
+    an item nobody owns any GM in the tenant - the GM half of ADR 0124's
+    rule. Refused up front, whether or not the write would have needed it."""
+    if owner is not None:
+        if await _manages_owner(session, tenant_id=tenant_id, user=user, owner=owner):
             return
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
         return
+    what = "lift its binding" if lifting else "move it or give it anyway"
+    raise OverrideForbiddenError(detail=f"Only a GM of this item's owner can {what}.")
+
+
+async def _gm_flags(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    entity_id: uuid.UUID,
+    override: bool,
+    lift: bool,
+) -> bool:
+    """Authorizes a write's `override` and `lift_binding` against the item's
+    current owner, then lifts its binding (ADR 0129) before the write's
+    checks run. Returns whether a binding was lifted."""
+    if not (override or lift):
+        return False
+    await _authorize_override(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        owner=await _current_owner_character_id(session, entity_id=entity_id, tenant_id=tenant_id),
+        lifting=lift,
+    )
+    return lift and await lift_binding(session, tenant_id=tenant_id, entity_id=entity_id)
+
+
+# What a write to an existing instance changes (ADR 0124): where it is, or who
+# owns it.
+WriteKind = Literal["move", "give"]
+
+
+async def _change_kind(
+    session: SessionDep, *, tenant_id: uuid.UUID, entity_id: uuid.UUID, owner: uuid.UUID | None
+) -> WriteKind:
+    """A split or an assignment naming an owner gives it away only if that
+    owner isn't already its owner (ADR 0124)."""
+    if owner is None:
+        return "move"
+    current = await _current_owner_character_id(session, entity_id=entity_id, tenant_id=tenant_id)
+    return "move" if owner == current else "give"
+
+
+async def _authorize_instance_write(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    entity_id: uuid.UUID,
+    kind: WriteKind = "move",
+) -> None:
+    """RFC 0005's self-or-managed check for writes to an *existing*
+    instance, checked against its current state before the write, and split
+    by what the write changes (ADR 0124):
+
+    - "move" (its container, merging, splitting in place, editing it): anyone
+      whose characters or groups reach it - moving your own sword, or the
+      party's rope in your backpack, is acting on what you hold.
+    - "give" (its owner, splitting to another owner, deleting it): for an
+      owned instance, only whoever controls the owner - one of the caller's
+      characters or groups is the owner. Carrying someone else's sword lets
+      you move it, not give it away.
+
+    Either way a GM of the owner's campaigns may, and an ownerless instance
+    keeps the "move" rule for both: anyone who reaches it, or any GM in the
+    tenant.
+    """
+    current_owner_id = await _current_owner_character_id(
+        session, entity_id=entity_id, tenant_id=tenant_id
+    )
+    holds = await can_self_manage_entity(
+        session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
+    )
+    if kind == "give" and current_owner_id is not None:
+        controlled = await controlled_holder_entity_ids(
+            session, user_id=user.id, tenant_id=tenant_id
+        )
+        if current_owner_id in controlled:
+            return
+    elif holds:
+        return
+    if current_owner_id is not None:
+        if await _manages_owner(session, tenant_id=tenant_id, user=user, owner=current_owner_id):
+            return
+    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+        return
+    if holds:
+        raise ItemNotYoursToGiveError(
+            detail=(
+                f"Item instance {entity_id} belongs to someone else: you can move it, but only "
+                "its owner or a GM can give it away or destroy it."
+            )
+        )
     raise ItemInstanceManagementForbiddenError(
         detail=f"Not authorized to manage item instance {entity_id}"
     )
@@ -635,6 +923,10 @@ async def create_item_instance(
     await _authorize_create_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_character_id
     )
+    if body.override:
+        await _authorize_override(
+            session, tenant_id=tenant_id, user=user, owner=body.owner_character_id
+        )
 
     if body.slug is not None:
         # Every entity's slug lives in entity_slug since ADR 0107, so this is
@@ -670,6 +962,14 @@ async def create_item_instance(
             )
         )
     if body.container_entity_id is not None:
+        # Created inside something is put there: capacity counts (ADR 0128).
+        check = (
+            None
+            if body.override
+            else await CapacityCheck.start(
+                session, tenant_id=tenant_id, target_id=body.container_entity_id
+            )
+        )
         session.add(
             Containment(
                 child_entity_id=entity.id,
@@ -677,6 +977,8 @@ async def create_item_instance(
                 tenant_id=tenant_id,
             )
         )
+        if check is not None:
+            await check.finish(moved_ids=[entity.id])
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -684,7 +986,7 @@ async def create_item_instance(
         action="item_instance.created",
         target_type="item_instance",
         target_id=entity.id,
-        detail=f"prototype={body.prototype_id}",
+        detail=_overridden(f"prototype={body.prototype_id}", body.override),
     )
     # A new instance created straight into someone's possession is "received".
     await record_change(
@@ -752,13 +1054,16 @@ async def delete_item_instance(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Plain cascade delete, no guard - an instance has nothing else
-    depending on it the way a base item does (ADR 0018's default cascade
-    is exactly right here, unmodified).
+    """A cascade delete - an instance has nothing else depending on it the
+    way a base item does (ADR 0018) - except for what's inside it, which
+    moves out to where it was first (ADR 0128), keeping its counts.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+    )
+    kept = await _keep_contents(session, tenant_id=tenant_id, actor_id=user.id, container=entity)
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -766,7 +1071,7 @@ async def delete_item_instance(
         action="item_instance.deleted",
         target_type="item_instance",
         target_id=entity_id,
-        detail=None,
+        detail=f"contents moved out: {kept}" if kept else None,
     )
     await record_change(
         session,
@@ -786,23 +1091,81 @@ async def delete_item_instance(
     await session.commit()
 
 
+async def _keep_contents(
+    session: SessionDep, *, tenant_id: uuid.UUID, actor_id: uuid.UUID, container: Entity
+) -> int:
+    """Before a container is deleted, what's directly inside it moves to
+    where the container was (ADR 0128, RFC 0030 §10): into its own
+    container, else into its owner, else out of every container - which a
+    stack can't do without losing its count, so that refuses the delete.
+    Counts are kept, and capacity isn't checked: what was inside was
+    already being carried. Returns how many moved."""
+    inside = (
+        (
+            await session.execute(
+                select(Containment).where(
+                    Containment.parent_entity_id == container.id,
+                    Containment.tenant_id == tenant_id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not inside:
+        return 0
+    own = await session.get(Containment, container.id)
+    destination = (
+        own.parent_entity_id
+        if own is not None
+        else await _current_owner_character_id(session, entity_id=container.id, tenant_id=tenant_id)
+    )
+    changes: list[Change] = []
+    for row in inside:
+        # A cycle can make the destination the thing itself.
+        target = destination if destination != row.child_entity_id else None
+        if target is None and row.quantity > 1:
+            name = await session.scalar(select(Entity.name).where(Entity.id == row.child_entity_id))
+            raise StackNeedsContainerError(
+                detail=(
+                    f"{container.name} holds a stack of {row.quantity} {name}, which would lose "
+                    "its count out of every container. Move it out first."
+                )
+            )
+        before = await holders(session, tenant_id=tenant_id, entity_id=row.child_entity_id)
+        if target is None:
+            await session.delete(row)
+        else:
+            row.parent_entity_id = target
+        changes.append(Change(entity_id=row.child_entity_id, before=before, both_kind="moved"))
+    await session.flush()
+    await record_change(session, tenant_id=tenant_id, actor_id=actor_id, changes=changes)
+    return len(inside)
+
+
 async def _perform_set_owner(
     session: SessionDep,
     *,
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     owner_character_id: uuid.UUID,
+    override: bool = False,
 ) -> bool:
     """Core owner-set mechanics only - no auth, no If-Match, no response
     shaping, no commit - shared by the single-item PUT .../owner route and
     bulk-assign's own quantity-omitted branch (ADR 0044), so the two can't
     drift. Returns whether the owner actually changed (the single-item
     route only logs a real change, ADR 0084).
+
+    A bound item's owner can't change (ADR 0129) unless `override` - the
+    caller has authorized that already.
     """
     existing = await session.get(Ownership, entity_id)
     if existing is not None:
         if existing.owner_character_id == owner_character_id:
             return False
+        if not override:
+            await refuse_owner_change(session, tenant_id=tenant_id, entity_id=entity_id)
         existing.owner_character_id = owner_character_id
     else:
         session.add(
@@ -836,7 +1199,17 @@ async def set_item_instance_owner(
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+    )
+    lifted = await _gm_flags(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        override=body.override,
+        lift=body.lift_binding,
+    )
 
     before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     changed = await _perform_set_owner(
@@ -844,12 +1217,14 @@ async def set_item_instance_owner(
         tenant_id=tenant_id,
         entity_id=entity_id,
         owner_character_id=body.owner_character_id,
+        override=body.override,
     )
     moved = body.move_to_owner and await _perform_set_container(
         session,
         tenant_id=tenant_id,
         entity_id=entity_id,
         container_entity_id=body.owner_character_id,
+        override=body.override,
     )
     if changed:
         await record_activity(
@@ -859,7 +1234,7 @@ async def set_item_instance_owner(
             action="item_instance.owner_set",
             target_type="item_instance",
             target_id=entity_id,
-            detail=f"owner={body.owner_character_id}",
+            detail=_overridden(f"owner={body.owner_character_id}", body.override, lifted=lifted),
         )
     if moved:
         await record_activity(
@@ -869,7 +1244,7 @@ async def set_item_instance_owner(
             action="item_instance.container_set",
             target_type="item_instance",
             target_id=entity_id,
-            detail=f"container={body.owner_character_id}",
+            detail=_overridden(f"container={body.owner_character_id}", body.override),
         )
     if changed or moved:
         await record_change(
@@ -894,17 +1269,34 @@ async def clear_item_instance_owner(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    override: Annotated[bool, Query()] = False,
+    lift_binding: Annotated[bool, Query()] = False,
 ) -> ItemInstanceOut:
     """200 + the parent resource, not 204 - deleting a *singular sub-
     resource* leaves the parent itself intact, and returning nothing would
     just force an immediate follow-up GET (ADR 0032/RFC 0005).
+
+    A bound item's owner can't be cleared (ADR 0129); `override` and
+    `lift_binding` are query parameters here, with no body to carry them.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+    )
+    lifted = await _gm_flags(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        override=override,
+        lift=lift_binding,
+    )
 
     existing = await session.get(Ownership, entity_id)
     if existing is not None:
+        if not override:
+            await refuse_owner_change(session, tenant_id=tenant_id, entity_id=entity_id)
         before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
         await session.delete(existing)
         await record_activity(
@@ -914,7 +1306,7 @@ async def clear_item_instance_owner(
             action="item_instance.owner_cleared",
             target_type="item_instance",
             target_id=entity_id,
-            detail=f"owner={existing.owner_character_id}",
+            detail=_overridden(f"owner={existing.owner_character_id}", override, lifted=lifted),
         )
         await record_change(
             session,
@@ -933,6 +1325,7 @@ async def _perform_set_container(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     container_entity_id: uuid.UUID,
+    override: bool = False,
 ) -> bool:
     """Core container-set mechanics only - no auth, no If-Match, no
     response shaping, no commit - shared by the single-item PUT
@@ -942,11 +1335,24 @@ async def _perform_set_container(
     deliberately allows containment cycles ("game worlds can be
     legitimately non-Euclidean"), unchanged by this extraction. Returns
     whether the container actually changed (ADR 0084 logs only real moves).
+
+    Checks binding (ADR 0129) and capacity (ADR 0128) unless `override` -
+    the caller has authorized that already.
     """
     existing = await session.get(Containment, entity_id)
+    if existing is not None and existing.parent_entity_id == container_entity_id:
+        return False
+    binding = (
+        None
+        if override
+        else await BindingCheck.start(session, tenant_id=tenant_id, moved_id=entity_id)
+    )
+    check = (
+        None
+        if override
+        else await CapacityCheck.start(session, tenant_id=tenant_id, target_id=container_entity_id)
+    )
     if existing is not None:
-        if existing.parent_entity_id == container_entity_id:
-            return False
         existing.parent_entity_id = container_entity_id
     else:
         session.add(
@@ -956,6 +1362,10 @@ async def _perform_set_container(
                 tenant_id=tenant_id,
             )
         )
+    if binding is not None:
+        await binding.finish()
+    if check is not None:
+        await check.finish(moved_ids=[entity_id])
     return True
 
 
@@ -973,6 +1383,14 @@ async def set_item_instance_container(
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    lifted = await _gm_flags(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        override=body.override,
+        lift=body.lift_binding,
+    )
 
     before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     changed = await _perform_set_container(
@@ -980,6 +1398,7 @@ async def set_item_instance_container(
         tenant_id=tenant_id,
         entity_id=entity_id,
         container_entity_id=body.container_entity_id,
+        override=body.override,
     )
     if changed:
         await record_activity(
@@ -989,7 +1408,9 @@ async def set_item_instance_container(
             action="item_instance.container_set",
             target_type="item_instance",
             target_id=entity_id,
-            detail=f"container={body.container_entity_id}",
+            detail=_overridden(
+                f"container={body.container_entity_id}", body.override, lifted=lifted
+            ),
         )
         await record_change(
             session,
@@ -1011,15 +1432,29 @@ async def clear_item_instance_container(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    override: Annotated[bool, Query()] = False,
+    lift_binding: Annotated[bool, Query()] = False,
 ) -> ItemInstanceOut:
     """Takes it out of every container. Refused for a stack of more than one
     (409, ADR 0115): its count lives on the containment row (ADR 0041), so
     deleting the row would drop it. A stack leaves a container into its
     owner instead, with PUT .../container.
+
+    Refused too when it takes a bound thing out of what binds it (ADR 0129);
+    `override` and `lift_binding` are query parameters here, with no body to
+    carry them.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    lifted = await _gm_flags(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        override=override,
+        lift=lift_binding,
+    )
 
     existing = await session.get(Containment, entity_id)
     if existing is not None and existing.quantity > 1:
@@ -1030,8 +1465,15 @@ async def clear_item_instance_container(
             )
         )
     if existing is not None:
+        binding = (
+            None
+            if override
+            else await BindingCheck.start(session, tenant_id=tenant_id, moved_id=entity_id)
+        )
         before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
         await session.delete(existing)
+        if binding is not None:
+            await binding.finish()
         await record_activity(
             session,
             tenant_id=tenant_id,
@@ -1039,7 +1481,7 @@ async def clear_item_instance_container(
             action="item_instance.container_cleared",
             target_type="item_instance",
             target_id=entity_id,
-            detail=f"container={existing.parent_entity_id}",
+            detail=_overridden(f"container={existing.parent_entity_id}", override, lifted=lifted),
         )
         await record_change(
             session,
@@ -1052,6 +1494,14 @@ async def clear_item_instance_container(
     return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
 
 
+def _overridden(detail: str, override: bool, *, lifted: bool = False) -> str:
+    """An overridden move says so in its activity entry (ADR 0128), and so
+    does a lifted binding (ADR 0129)."""
+    if override:
+        detail = f"{detail}; overridden"
+    return f"{detail}; binding lifted" if lifted else detail
+
+
 async def _record_bulk_activity(
     session: SessionDep,
     *,
@@ -1060,14 +1510,27 @@ async def _record_bulk_activity(
     action: str,
     target_id: uuid.UUID | None,
     results: Sequence[BulkAssignResultItem | BulkMoveResultItem],
+    overridden: bool = False,
+    lifted: bool = False,
 ) -> None:
     """One entry per bulk call, counts only (ADR 0084) - the per-item
     outcome is already in the call's own response. Nothing is written when
-    no item succeeded, since then nothing changed.
+    no item succeeded, since then nothing changed. What was given along with
+    a container (ADR 0125) is counted too, when there was any.
     """
     ok = sum(1 for result in results if result.status == "ok")
     if ok == 0:
         return
+    detail = f"{ok} ok, {len(results) - ok} failed"
+    contents = [
+        content
+        for result in results
+        if isinstance(result, BulkAssignResultItem)
+        for content in result.contents
+    ]
+    if contents:
+        given = sum(1 for content in contents if content.status == "ok")
+        detail += f"; inside: {given} given along, {len(contents) - given} kept"
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1075,7 +1538,7 @@ async def _record_bulk_activity(
         action=action,
         target_type="item_instance",
         target_id=target_id,
-        detail=f"{ok} ok, {len(results) - ok} failed",
+        detail=_overridden(detail, overridden, lifted=lifted),
     )
 
 
@@ -1088,6 +1551,7 @@ async def _perform_split(
     owner_character_id: uuid.UUID | None,
     user: CurrentUser,
     into_owner: bool = False,
+    override: bool = False,
 ) -> uuid.UUID:
     """Core split mechanics only - no auth, no If-Match, no response
     shaping, no commit - shared by the single-item POST .../split route and
@@ -1104,7 +1568,10 @@ async def _perform_split(
     `owner_character_id` (ADR 0044): the new instance's owner if given,
     else the source's own current owner (ADR 0041's original behavior).
     `into_owner` (ADR 0115): the new stack is contained by that owner rather
-    than sitting beside the source.
+    than sitting beside the source - a move, so capacity is checked (ADR
+    0128) unless `override`. Split off to another owner, a bound stack is
+    refused (ADR 0129) unless `override`; the new part copies the source's
+    own `binding`, since a stack binds as a whole.
     """
     entity_id = entity.id
     source_containment = await session.get(Containment, entity_id)
@@ -1128,14 +1595,21 @@ async def _perform_split(
         .scalars()
         .all()
     )
-    new_owner_id: uuid.UUID | None
-    if owner_character_id is not None:
-        new_owner_id = owner_character_id
-    else:
-        new_owner_id = await _current_owner_character_id(
-            session, entity_id=entity_id, tenant_id=tenant_id
-        )
+    current_owner_id = await _current_owner_character_id(
+        session, entity_id=entity_id, tenant_id=tenant_id
+    )
+    new_owner_id = owner_character_id if owner_character_id is not None else current_owner_id
+    # The part changing hands is the bound stack's owner changing (ADR 0129).
+    # Into its own owner's hands it stays under whatever binds it.
+    if new_owner_id != current_owner_id and not override:
+        await refuse_owner_change(session, tenant_id=tenant_id, entity_id=entity_id)
 
+    handed_over = into_owner and new_owner_id is not None
+    check = (
+        await CapacityCheck.start(session, tenant_id=tenant_id, target_id=new_owner_id)
+        if handed_over and new_owner_id is not None and not override
+        else None
+    )
     new_entity = Entity(
         tenant_id=tenant_id, name=entity.name, created_by=user.id, updated_by=user.id
     )
@@ -1146,6 +1620,7 @@ async def _perform_split(
         session.add(
             EntityPrototype(entity_id=new_entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
         )
+    await copy_binding(session, tenant_id=tenant_id, source_id=entity_id, target_id=new_entity.id)
     if new_owner_id is not None:
         session.add(
             Ownership(
@@ -1157,7 +1632,7 @@ async def _perform_split(
             child_entity_id=new_entity.id,
             parent_entity_id=(
                 new_owner_id
-                if into_owner and new_owner_id is not None
+                if handed_over and new_owner_id is not None
                 else source_containment.parent_entity_id
             ),
             tenant_id=tenant_id,
@@ -1165,6 +1640,8 @@ async def _perform_split(
         )
     )
     source_containment.quantity -= quantity
+    if check is not None:
+        await check.finish(moved_ids=[new_entity.id])
     return new_entity.id
 
 
@@ -1191,7 +1668,15 @@ async def split_item_instance(
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
-    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await _authorize_instance_write(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        entity_id=entity_id,
+        kind=await _change_kind(
+            session, tenant_id=tenant_id, entity_id=entity_id, owner=body.owner_character_id
+        ),
+    )
 
     before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
     new_entity_id = await _perform_split(
@@ -1321,6 +1806,112 @@ async def merge_item_instance(
     )
 
 
+async def _give_contents(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    container_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    recursive: bool,
+) -> tuple[list[ContentsResultItem], list[Change]]:
+    """Gives what's inside container_id to owner_id (ADR 0125), each thing
+    on its own savepoint, bulk-assign's never-all-or-nothing way: given, or
+    kept by its owner with ADR 0124's refusal. What's already owner_id's is
+    left alone and not reported. Nothing moves.
+
+    A being inside it (a passenger in a carriage) isn't the container's to
+    give, and neither is anything it carries, so the walk stops there.
+
+    Deepest first: a thing's holders depend only on what's around it, so
+    each one's are taken before anything around it changes. The feed
+    changes are returned rather than recorded, so bulk-assign can record
+    them after it has given the container too.
+    """
+    descendants = recursive_descendants_cte(frozenset({container_id}), tenant_id)
+    paths: dict[uuid.UUID, list[uuid.UUID]] = {
+        child: list(path)
+        for child, path in await session.execute(
+            select(descendants.c.child_entity_id, descendants.c.path)
+        )
+        # A path starts at the container: [container, child] is directly inside.
+        if recursive or len(path) == 2
+    }
+    if not paths:
+        return [], []
+    beings = set(
+        (
+            await session.execute(
+                select(Being.entity_id).where(
+                    Being.entity_id.in_(paths), Being.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    inside = {child for child, path in paths.items() if beings.isdisjoint(path[1:])}
+    views = (
+        (
+            await session.execute(
+                select(VItemInstance)
+                .where(VItemInstance.entity_id.in_(inside), VItemInstance.tenant_id == tenant_id)
+                .options(*eager_load_options(VItemInstance.entity))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    to_give = sorted(
+        (view for view in views if view.owner_entity_id != owner_id),
+        key=lambda view: (-len(paths[view.entity_id]), str(view.entity_id)),
+    )
+
+    problems: dict[uuid.UUID, ProblemOut | None] = {}
+    changes: list[Change] = []
+    for entity_id in [view.entity_id for view in to_give]:
+        try:
+            async with session.begin_nested():
+                await _authorize_instance_write(
+                    session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
+                )
+                before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
+                await _perform_set_owner(
+                    session, tenant_id=tenant_id, entity_id=entity_id, owner_character_id=owner_id
+                )
+        except Problem as exc:
+            problems[entity_id] = ProblemOut(**exc.marshal())
+            continue
+        problems[entity_id] = None
+        changes.append(Change(entity_id=entity_id, before=before, both_kind=None))
+
+    # Who owns each afterwards. A kept thing's owner is unchanged; the views
+    # are too, since a rolled-back savepoint only expires what it modified.
+    owner_after = {
+        view.entity_id: owner_id if problems[view.entity_id] is None else view.owner_entity_id
+        for view in to_give
+    }
+    owners = {
+        entity.id: EntitySummary.from_entity(entity)
+        for entity in (
+            await session.execute(
+                select(Entity).where(
+                    Entity.id.in_({o for o in owner_after.values() if o is not None}),
+                    Entity.tenant_id == tenant_id,
+                )
+            )
+        ).scalars()
+    }
+    # Outermost first, the way a board reads.
+    return [
+        ContentsResultItem.from_v_item_instance(
+            view,
+            status="ok" if problems[view.entity_id] is None else "kept",
+            owner=None if (o := owner_after[view.entity_id]) is None else owners.get(o),
+            problem=problems[view.entity_id],
+        )
+        for view in reversed(to_give)
+    ], changes
+
+
 @router.post("/bulk-assign")
 async def bulk_assign_item_instances(
     tenant_id: uuid.UUID,
@@ -1328,6 +1919,7 @@ async def bulk_assign_item_instances(
     request: Request,
     session: SessionDep,
     user: CurrentUser,
+    dry_run: Annotated[bool, Query()] = False,
 ) -> list[BulkAssignResultItem]:
     """Assigns several already-decided items to characters in one call
     (ADR 0044) - a GM's own "resolve a whole loot session" step. quantity
@@ -1347,16 +1939,41 @@ async def bulk_assign_item_instances(
     here and fails the whole request as a 500 - this only ever gracefully
     handles anticipated, typed failure modes, matching this codebase's
     general practice.
+
+    with_contents (ADR 0125) also gives everything inside the entry's item,
+    before the item itself: whether someone may give an ownerless thing
+    inside depends on reaching it, which handing the container over could
+    end. dry_run does all of it and rolls it back.
     """
     results: list[BulkAssignResultItem] = []
+    lifted: set[uuid.UUID] = set()
     for item in body:
+        contents: list[ContentsResultItem] = []
         try:
             async with session.begin_nested():
                 entity = await _get_item_instance_entity_or_404(tenant_id, item.entity_id, session)
                 check_if_match(item.if_match, updated_at=entity.updated_at)
                 await _authorize_instance_write(
-                    session, tenant_id=tenant_id, user=user, entity_id=item.entity_id
+                    session,
+                    tenant_id=tenant_id,
+                    user=user,
+                    entity_id=item.entity_id,
+                    kind=await _change_kind(
+                        session,
+                        tenant_id=tenant_id,
+                        entity_id=item.entity_id,
+                        owner=item.owner_character_id,
+                    ),
                 )
+                if await _gm_flags(
+                    session,
+                    tenant_id=tenant_id,
+                    user=user,
+                    entity_id=item.entity_id,
+                    override=item.override,
+                    lift=item.lift_binding,
+                ):
+                    lifted.add(item.entity_id)
                 before = await holders(session, tenant_id=tenant_id, entity_id=item.entity_id)
                 if item.quantity is not None:
                     result_entity_id = await _perform_split(
@@ -1367,6 +1984,7 @@ async def bulk_assign_item_instances(
                         owner_character_id=item.owner_character_id,
                         user=user,
                         into_owner=item.move_to_owner,
+                        override=item.override,
                     )
                     changes = [
                         Change(
@@ -1377,17 +1995,29 @@ async def bulk_assign_item_instances(
                         )
                     ]
                 else:
+                    content_changes: list[Change] = []
+                    if item.with_contents:
+                        contents, content_changes = await _give_contents(
+                            session,
+                            tenant_id=tenant_id,
+                            user=user,
+                            container_id=item.entity_id,
+                            owner_id=item.owner_character_id,
+                            recursive=True,
+                        )
                     changed = await _perform_set_owner(
                         session,
                         tenant_id=tenant_id,
                         entity_id=item.entity_id,
                         owner_character_id=item.owner_character_id,
+                        override=item.override,
                     )
                     moved = item.move_to_owner and await _perform_set_container(
                         session,
                         tenant_id=tenant_id,
                         entity_id=item.entity_id,
                         container_entity_id=item.owner_character_id,
+                        override=item.override,
                     )
                     result_entity_id = item.entity_id
                     changes = (
@@ -1400,7 +2030,7 @@ async def bulk_assign_item_instances(
                         ]
                         if changed or moved
                         else []
-                    )
+                    ) + content_changes
                 # Inside the savepoint: a failed item rolls back its feed rows too.
                 await record_change(session, tenant_id=tenant_id, actor_id=user.id, changes=changes)
         except Problem as exc:
@@ -1418,10 +2048,17 @@ async def bulk_assign_item_instances(
         )
         results.append(
             BulkAssignResultItem(
-                entity_id=item.entity_id, status="ok", item_instance=item_instance, problem=None
+                entity_id=item.entity_id,
+                status="ok",
+                item_instance=item_instance,
+                problem=None,
+                contents=contents,
             )
         )
 
+    if dry_run:
+        await session.rollback()
+        return results
     await _record_bulk_activity(
         session,
         tenant_id=tenant_id,
@@ -1429,9 +2066,63 @@ async def bulk_assign_item_instances(
         action="item_instance.bulk_assigned",
         target_id=None,
         results=results,
+        overridden=any(
+            entry.override and result.status == "ok"
+            for entry, result in zip(body, results, strict=True)
+        ),
+        lifted=any(
+            entry.entity_id in lifted and result.status == "ok"
+            for entry, result in zip(body, results, strict=True)
+        ),
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
+    return results
+
+
+@router.post("/{entity_id}/give-contents")
+async def give_item_instance_contents(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: GiveContentsRequest,
+    session: SessionDep,
+    user: CurrentUser,
+    dry_run: Annotated[bool, Query()] = False,
+) -> list[ContentsResultItem]:
+    """Gives everything inside a container, not the container itself (ADR
+    0125) - one answer per thing, given or kept, never all-or-nothing. The
+    caller must be able to move the container: one they can't reach isn't
+    one whose contents they may look into. dry_run does all of it and rolls
+    it back.
+    """
+    await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
+    await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await get_entity_or_404(session, body.owner_character_id, tenant_id)
+
+    results, changes = await _give_contents(
+        session,
+        tenant_id=tenant_id,
+        user=user,
+        container_id=entity_id,
+        owner_id=body.owner_character_id,
+        recursive=body.recursive,
+    )
+    if dry_run:
+        await session.rollback()
+        return results
+    await record_change(session, tenant_id=tenant_id, actor_id=user.id, changes=changes)
+    given = sum(1 for result in results if result.status == "ok")
+    if given:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.contents_given",
+            target_type="item_instance",
+            target_id=entity_id,
+            detail=f"owner={body.owner_character_id}; {given} given, {len(results) - given} kept",
+        )
+    await session.commit()
     return results
 
 
@@ -1487,6 +2178,7 @@ async def bulk_move_item_instances(
         if_match_by_id = {item.entity_id: item.if_match for item in items}
 
     results: list[BulkMoveResultItem] = []
+    lifted: set[uuid.UUID] = set()
     for entity_id in entity_ids:
         try:
             async with session.begin_nested():
@@ -1495,12 +2187,22 @@ async def bulk_move_item_instances(
                 await _authorize_instance_write(
                     session, tenant_id=tenant_id, user=user, entity_id=entity_id
                 )
+                if await _gm_flags(
+                    session,
+                    tenant_id=tenant_id,
+                    user=user,
+                    entity_id=entity_id,
+                    override=body.override,
+                    lift=body.lift_binding,
+                ):
+                    lifted.add(entity_id)
                 before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
                 moved = await _perform_set_container(
                     session,
                     tenant_id=tenant_id,
                     entity_id=entity_id,
                     container_entity_id=body.to_container_entity_id,
+                    override=body.override,
                 )
                 if moved:
                     await record_change(
@@ -1533,6 +2235,8 @@ async def bulk_move_item_instances(
         action="item_instance.bulk_moved",
         target_id=body.to_container_entity_id,
         results=results,
+        overridden=body.override,
+        lifted=any(r.entity_id in lifted and r.status == "ok" for r in results),
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)

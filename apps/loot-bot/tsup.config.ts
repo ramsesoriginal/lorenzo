@@ -15,4 +15,9 @@ export default defineConfig({
   // ".js on every relative import" bookkeeping to maintain by hand (ADR 0050).
   splitting: false,
   skipNodeModulesBundle: true,
+  // @lorenzo/api-client ships TypeScript source (ADR 0122), which `node`
+  // can't run from node_modules, so it's bundled in. Its own imports
+  // (openapi-fetch, zod) stay external and resolve from this app's own
+  // dependencies, which is why loot-bot still lists them.
+  noExternal: ["@lorenzo/api-client"],
 });
