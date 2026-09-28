@@ -23,8 +23,9 @@ from lorenzo_api.campaign_access import (
     campaign_ids_for_owner,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
+    is_tenant_participant,
 )
-from lorenzo_api.capacity import CapacityCheck
+from lorenzo_api.capacity import CapacityCheck, lock_ahead
 from lorenzo_api.change_feed import Change, holders, record_change
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -2040,6 +2041,20 @@ async def bulk_assign_item_instances(
     """
     results: list[BulkAssignResultItem] = []
     lifted: set[uuid.UUID] = set()
+    # Every entry's locks up front, since what an entry locks stays locked
+    # while the others run: each one's ownership rows share-lock its owner,
+    # and handing over or splitting off into the owner's hands locks the
+    # owner's chain for capacity (ADR 0128). Not for a caller with no part in
+    # the tenant, whose every entry fails.
+    if await is_tenant_participant(session, tenant_id=tenant_id, user_id=user.id):
+        await lock_ahead(
+            session,
+            tenant_id=tenant_id,
+            target_ids={
+                item.owner_character_id for item in body if item.move_to_owner and not item.override
+            },
+            shared_ids={item.owner_character_id for item in body},
+        )
     for item in body:
         contents: list[ContentsResultItem] = []
         try:
