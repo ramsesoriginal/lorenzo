@@ -2585,6 +2585,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/item-instances/controlled-by/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Item Instances Controlled By
+         * @description What entity_id's board shows (ADR 0130, RFC 0031): a being's or a
+         *     group's Controlled item instances, as columns - Equipped for a being,
+         *     Not carried, every controlled container, and read-only columns for
+         *     whatever else holds something of theirs. controlled.py has the rules;
+         *     this walks, loads, names, and orders.
+         *
+         *     Access is held-by's: an entity the caller doesn't reach is a 404, the
+         *     same as one that doesn't exist. Within it, Controlled decides what's
+         *     listed, not ADR 0040's owner reach: what the being doesn't know about
+         *     is visible_to_characters' to hide, once knowledge backs it.
+         */
+        get: operations["list_item_instances_controlled_by"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/item-instances/unowned": {
         parameters: {
             query?: never;
@@ -4048,6 +4077,112 @@ export interface components {
             name: string;
             /** Mode */
             mode: ("copied" | "merged") | null;
+        };
+        /**
+         * ControlledByResponse
+         * @description GET .../item-instances/controlled-by/{entity_id} (ADR 0130): a being's
+         *     or a group's board. Equipped (beings only) and not_carried first and
+         *     always, then containers, carried ones first, then read-only columns.
+         *     `owners` names every owner of a listed item once. Not paginated, like
+         *     held-by.
+         */
+        ControlledByResponse: {
+            /** Columns */
+            columns: components["schemas"]["ControlledColumnOut"][];
+            /** Owners */
+            owners: components["schemas"]["EntitySummary"][];
+        };
+        /**
+         * ControlledColumnOut
+         * @description One column of a board (ADR 0130). `container` is null only for
+         *     not_carried. `path` is the containers around it, nearest first, by
+         *     containment alone; a carried column's stops short of the being.
+         *     `contents_hidden`: its container directly holds something this column
+         *     doesn't list.
+         */
+        ControlledColumnOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "equipped" | "not_carried" | "container" | "read_only";
+            container: components["schemas"]["EntitySummary"] | null;
+            /** Container Kind */
+            container_kind: ("being" | "item_instance" | "other") | null;
+            /** Path */
+            path: components["schemas"]["EntitySummary"][];
+            /** Carried */
+            carried: boolean;
+            /** Contents Hidden */
+            contents_hidden: boolean;
+            /** Item Instances */
+            item_instances: components["schemas"]["ControlledItemInstanceOut"][];
+        };
+        /**
+         * ControlledItemInstanceOut
+         * @description An item on a board (ADR 0130): ItemInstanceOut, plus whether the
+         *     being or group the board is for knows it's there. Always true until
+         *     knowledge backs it (RFC 0031 §4).
+         */
+        ControlledItemInstanceOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Title */
+            title: string;
+            /** Weight */
+            weight: number | null;
+            /** Height */
+            height: number | null;
+            /** Price */
+            price: number | null;
+            /** Rarity */
+            rarity: number | null;
+            /** Hp */
+            hp: number | null;
+            /** Armor */
+            armor: number | null;
+            /** Container Entity Id */
+            container_entity_id: string | null;
+            /** Quantity */
+            quantity: number | null;
+            /** Prototype Ids */
+            prototype_ids: string[];
+            /** Is Container */
+            is_container: boolean | null;
+            /** Descriptions */
+            descriptions: components["schemas"]["DescriptionOut"][];
+            /** Pictures */
+            pictures: components["schemas"]["PictureRefOut"][];
+            /** Physical Stats */
+            physical_stats: components["schemas"]["StatValueOut"][];
+            /** Economic Stats */
+            economic_stats: components["schemas"]["StatValueOut"][];
+            /** Destroyable Stats */
+            destroyable_stats: components["schemas"]["StatValueOut"][];
+            /** Damaging Stats */
+            damaging_stats: components["schemas"]["StatValueOut"][];
+            /** Tags */
+            tags: components["schemas"]["TagValueOut"][];
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Owner Entity Id */
+            owner_entity_id: string | null;
+            /** Slug */
+            slug: string | null;
+            /** Bound */
+            bound: boolean;
+            /** Visible To Characters */
+            visible_to_characters: boolean;
         };
         /**
          * CopyOut
@@ -15757,6 +15892,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HeldByResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_item_instances_controlled_by: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlledByResponse"];
                 };
             };
             /** @description Validation Error */
