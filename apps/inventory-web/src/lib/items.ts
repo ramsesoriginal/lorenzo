@@ -81,14 +81,24 @@ export async function setContainer(
   );
 }
 
+// Setting something down (ADR 0132) may also split it: a stack of n, out of every
+// container, becomes n single items - only when asked, or the API refuses a stack.
+export type SetDownFlags = AnywayFlags & Readonly<{ split?: boolean }>;
+
+function setDownQuery({ split = false, ...flags }: SetDownFlags) {
+  const anyway = anywayQuery(flags);
+  return split ? { query: { ...('query' in anyway ? anyway.query : {}), split } } : anyway;
+}
+
+// Out of every container: sets it down (ADR 0132).
 export async function clearContainer(
   tenantId: string,
   entityId: string,
-  flags: AnywayFlags = {},
+  flags: SetDownFlags = {},
 ): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}/container', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...anywayQuery(flags) },
+      params: { path: { tenant_id: tenantId, entity_id: entityId }, ...setDownQuery(flags) },
     }),
   );
 }
@@ -247,11 +257,20 @@ export async function deleteCatalogItem(tenantId: string, entityId: string): Pro
   );
 }
 
-// DELETE /tenants/{t}/item-instances/{id} - 204 No Content on success.
-export async function deleteItemInstance(tenantId: string, entityId: string): Promise<void> {
+// DELETE /tenants/{t}/item-instances/{id} - 204 No Content on success. What's inside moves
+// to where it was; from a container in none, it's set down, and a stack among it only
+// with `split` (ADR 0132).
+export async function deleteItemInstance(
+  tenantId: string,
+  entityId: string,
+  { split = false }: Readonly<{ split?: boolean }> = {},
+): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/item-instances/{entity_id}', {
-      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      params: {
+        path: { tenant_id: tenantId, entity_id: entityId },
+        ...(split ? { query: { split } } : {}),
+      },
     }),
   );
 }

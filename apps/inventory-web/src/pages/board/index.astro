@@ -182,7 +182,6 @@ import HolderListItem from '../../components/HolderListItem.astro';
     import { groupsOf } from '../../lib/groups';
     import { LorenzoApiError } from '../../lib/api';
     import {
-      type AnywayFlags,
       bulkAssignItemInstances,
       bulkMoveItemInstances,
       clearContainer,
@@ -213,6 +212,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
       withContentsQuestion,
     } from '../../lib/givingContents';
     import { renderNotes } from '../../lib/notes';
+    import { splitQuestion } from '../../lib/settingDown';
     import { getTenant } from '../../lib/tenants';
     import type {
       BeingRef,
@@ -589,16 +589,6 @@ import HolderListItem from '../../components/HolderListItem.astro';
       return boardContainers.get(id) ?? { id, name: 'container' };
     }
 
-    // Out of every container: into the hands of the being whose board this is, so a stack
-    // keeps its count (ADR 0115, 0124). On a group's board, or the board of unowned things,
-    // there's no one to hold it; out of every container, it's with its owner, and the API
-    // refuses a stack.
-    function takeOut(entityId: string, flags: AnywayFlags = {}) {
-      return boardOwnerId
-        ? setContainer(tenantId as string, entityId, boardOwnerId, flags)
-        : clearContainer(tenantId as string, entityId, flags);
-    }
-
     // A GM whose move or give is refused, because it doesn't fit or something is bound, is
     // asked, and may do it anyway (ADR 0128, 0129).
     function moveAnyway(): MoveAnywayOptions {
@@ -950,8 +940,10 @@ import HolderListItem from '../../components/HolderListItem.astro';
       const panel = document.createElement('div');
       panel.className = 'character-picker-panel';
 
+      // Equipping is moving into the being: Move to… lists Equipped among its targets.
       const targets = collectMoveTargets(item, boardContainers.values(), boardItems.values());
-      const inContainer = containerOf(item) !== null;
+      // Anything in a container can be set down, what's equipped too (ADR 0132).
+      const inContainer = item.container_entity_id !== null;
 
       if (targets.length === 0 && !inContainer) {
         const note = document.createElement('p');
@@ -970,6 +962,9 @@ import HolderListItem from '../../components/HolderListItem.astro';
       list.className = 'merge-candidates';
 
       async function performMove(targetId: string | null) {
+        // Set down, a stack becomes single items: asked first, and then there's no Undo.
+        const question = targetId === null ? splitQuestion([item]) : null;
+        if (question !== null && !window.confirm(question)) return;
         for (const b of list.querySelectorAll('button')) (b as HTMLButtonElement).disabled = true;
         try {
           if (targetId) {
@@ -978,12 +973,23 @@ import HolderListItem from '../../components/HolderListItem.astro';
               moveAnyway(),
             );
           } else {
-            await moveOrAsk((flags) => takeOut(item.entity_id, flags), moveAnyway());
+            await moveOrAsk(
+              (flags) =>
+                clearContainer(tenantId as string, item.entity_id, {
+                  ...flags,
+                  split: question !== null,
+                }),
+              moveAnyway(),
+            );
           }
-          recordUndo(
-            { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
-            `Moved ${item.title}.`,
-          );
+          if (question === null) {
+            recordUndo(
+              { kind: 'restore-container', entityId: item.entity_id, previousContainerId },
+              `${targetId === null ? 'Set down' : 'Moved'} ${item.title}.`,
+            );
+          } else {
+            forgetUndo();
+          }
           finishAction();
         } catch (e) {
           statusEl.hidden = false;
@@ -996,11 +1002,11 @@ import HolderListItem from '../../components/HolderListItem.astro';
       }
 
       if (inContainer) {
-        const clearButton = document.createElement('button');
-        clearButton.type = 'button';
-        clearButton.textContent = 'Remove from container';
-        clearButton.addEventListener('click', () => void performMove(null));
-        list.append(clearButton);
+        const setDownButton = document.createElement('button');
+        setDownButton.type = 'button';
+        setDownButton.textContent = 'Set down';
+        setDownButton.addEventListener('click', () => void performMove(null));
+        list.append(setDownButton);
       }
       for (const target of targets) {
         const button = document.createElement('button');
@@ -1190,9 +1196,22 @@ import HolderListItem from '../../components/HolderListItem.astro';
           .filter((c): c is HTMLLIElement => c !== null);
         // Where it really was: a card in the owner's own column may be carried by the owner.
         const previousContainerId = boardItems.get(entityId)?.container_entity_id ?? null;
-        // The owner's own column puts things into the owner, who carries them (ADR 0115);
-        // only unowned things leave every container.
-        const target = containerEntityId ?? boardOwnerId;
+        // A column with no container is Not carried, on every board: dropping there sets
+        // things down (ADR 0132). Equipped names the being as its container.
+        const target = containerEntityId;
+        // A stack set down becomes single items: asked first, and then there's no Undo.
+        const question =
+          target === null
+            ? splitQuestion(
+                idsToMove.flatMap((id) => {
+                  const item = boardItems.get(id);
+                  return item ? [item] : [];
+                }),
+              )
+            : null;
+        if (question !== null && !window.confirm(question)) return;
+        const splitting = question !== null;
+        const isStack = (id: string) => (boardItems.get(id)?.quantity ?? 1) > 1;
 
         withReflow(() => {
           removePlaceholder(list);
@@ -1234,7 +1253,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
           // (not Promise.all) so one rejection doesn't mask which of the
           // others actually cleared.
           request = Promise.allSettled(
-            idsToMove.map((id) => clearContainer(tenantId as string, id)),
+            idsToMove.map((id) => clearContainer(tenantId as string, id, { split: isStack(id) })),
           ).then((settled) => ({
             failedIds: new Set(
               settled.flatMap((result, i) => (result.status === 'rejected' ? [idsToMove[i]] : [])),
@@ -1245,7 +1264,7 @@ import HolderListItem from '../../components/HolderListItem.astro';
             (flags) =>
               target
                 ? setContainer(tenantId as string, entityId, target, flags)
-                : clearContainer(tenantId as string, entityId, flags),
+                : clearContainer(tenantId as string, entityId, { ...flags, split: splitting }),
             moveAnyway(),
           ).then(() => undefined);
         }
@@ -1267,11 +1286,16 @@ import HolderListItem from '../../components/HolderListItem.astro';
               // Multi-item moves aren't undoable here (would need
               // per-item previous state) - deliberately not recorded.
               setSelectMode(false);
-            } else {
+            } else if (!splitting) {
               recordUndo(
                 { kind: 'restore-container', entityId, previousContainerId },
-                `Moved ${boardItems.get(entityId)?.title ?? 'item'}.`,
+                `${target === null ? 'Set down' : 'Moved'} ${boardItems.get(entityId)?.title ?? 'item'}.`,
               );
+            }
+            // The pieces a split made are cards of their own.
+            if (splitting) {
+              forgetUndo();
+              reloadCurrentView?.();
             }
           })
           .catch((e) => {

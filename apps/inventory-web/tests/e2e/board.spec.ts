@@ -191,9 +191,10 @@ test('moves an item into another container and out again', async ({ world, as })
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(card(page, 'Belt Pouch', 'Ornate Spellbook')).toBeVisible();
 
+  // Equipping is moving it into Ashfang's hands.
   await card(page, 'Belt Pouch', 'Ornate Spellbook').click();
   await page.getByRole('button', { name: 'Move to…' }).click();
-  await page.getByRole('button', { name: 'Remove from container' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Equipped', exact: true }).click();
   await expect(card(page, 'Equipped', 'Ornate Spellbook')).toBeVisible();
   expect(await world.carried(world.pia)).toContain('(none): Ornate Spellbook');
 });

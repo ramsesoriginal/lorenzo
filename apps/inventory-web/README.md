@@ -27,8 +27,11 @@ From that detail view, or when multiple cards are multi-selected:
   tenant's characters, a GM any being. **Hand it over** to take it out of its
   container and into their hands too; otherwise it stays where it is, theirs
   now ([ADR 0115](../../docs/adr/0115-hand-over-on-give-and-stacks-leave-containers-into-their-owner.md))
-- **Move** it between containers, or out of them and into the character's own
-  hands: a stack keeps its count
+- **Move** it between containers, or into the character's own hands (Equipped):
+  a stack keeps its count
+- **Set it down**, out of every container, into Not carried: a stack becomes
+  single items, after asking ([ADR
+  0132](../../docs/adr/0132-setting-things-down.md))
 - **Note** it: add, edit, or delete notes, in LorenzoScript. A note is private
   to the character that owns the item (and the campaign's GMs) unless
   "Everyone can read this"; the item page shows them too
