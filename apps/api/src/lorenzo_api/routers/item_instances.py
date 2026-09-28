@@ -66,6 +66,8 @@ from lorenzo_api.models import (
     Entity,
     EntityPrototype,
     EntitySlug,
+    EntityStat,
+    EntityStatGroup,
     Item,
     ItemInstance,
     Ownership,
@@ -1259,17 +1261,22 @@ async def delete_item_instance(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
+    split: Annotated[bool, Query()] = False,
 ) -> None:
     """A cascade delete - an instance has nothing else depending on it the
     way a base item does (ADR 0018) - except for what's inside it, which
-    moves out to where it was first (ADR 0128), keeping its counts.
+    moves out to where it was first (ADR 0128), keeping its counts. From a
+    container in none, that's out of every container (ADR 0132): a stack
+    there refuses the delete unless `split` sets it down as single items.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(
         session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
     )
-    kept = await _keep_contents(session, tenant_id=tenant_id, actor_id=user.id, container=entity)
+    kept = await _keep_contents(
+        session, tenant_id=tenant_id, actor_id=user.id, container=entity, split=split
+    )
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1297,15 +1304,108 @@ async def delete_item_instance(
     await session.commit()
 
 
+async def _set_down_pieces(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    stack_id: uuid.UUID,
+    quantity: int,
+    actor_id: uuid.UUID,
+) -> list[uuid.UUID]:
+    """A stack of `quantity` set down (ADR 0132): out of every container it
+    has no count, so it becomes that many single items. The stack itself is
+    one of them, keeping its id, information, notes and slug; this makes the
+    other `quantity - 1`, each a new instance of the same prototype(s), with
+    the same owner and a copy of every stat value (and stat group) the stack
+    has of its own - so a +1 or a lifted binding holds for every piece. None
+    is in a container; the caller removes the stack's own containment row.
+    Returns the new pieces' ids."""
+    stack = await session.get_one(Entity, stack_id)
+    prototype_ids = (
+        await session.scalars(
+            select(EntityPrototype.prototype_id).where(
+                EntityPrototype.entity_id == stack_id, EntityPrototype.tenant_id == tenant_id
+            )
+        )
+    ).all()
+    owner_id = await _current_owner_character_id(session, entity_id=stack_id, tenant_id=tenant_id)
+    stats = (
+        await session.scalars(
+            select(EntityStat).where(
+                EntityStat.entity_id == stack_id, EntityStat.tenant_id == tenant_id
+            )
+        )
+    ).all()
+    group_ids = (
+        await session.scalars(
+            select(EntityStatGroup.stat_group_id).where(
+                EntityStatGroup.entity_id == stack_id, EntityStatGroup.tenant_id == tenant_id
+            )
+        )
+    ).all()
+    pieces: list[uuid.UUID] = []
+    for _ in range(quantity - 1):
+        piece = Entity(
+            tenant_id=tenant_id, name=stack.name, created_by=actor_id, updated_by=actor_id
+        )
+        session.add(piece)
+        await session.flush()
+        session.add(ItemInstance(entity_id=piece.id, tenant_id=tenant_id))
+        session.add_all(
+            EntityPrototype(entity_id=piece.id, prototype_id=prototype_id, tenant_id=tenant_id)
+            for prototype_id in prototype_ids
+        )
+        if owner_id is not None:
+            session.add(
+                Ownership(
+                    owned_entity_id=piece.id, owner_character_id=owner_id, tenant_id=tenant_id
+                )
+            )
+        session.add_all(
+            EntityStatGroup(entity_id=piece.id, stat_group_id=group_id, tenant_id=tenant_id)
+            for group_id in group_ids
+        )
+        session.add_all(
+            EntityStat(
+                entity_id=piece.id,
+                stat_definition_id=stat.stat_definition_id,
+                tenant_id=tenant_id,
+                value_int=stat.value_int,
+                value_text=stat.value_text,
+                value_float=stat.value_float,
+                value_bool=stat.value_bool,
+            )
+            for stat in stats
+        )
+        pieces.append(piece.id)
+    await session.flush()
+    return pieces
+
+
+def _stack_detail(what: str, quantity: int) -> str:
+    """Why a stack refuses to be set down (ADR 0115, 0132), and the way out."""
+    return (
+        f"{what} a stack of {quantity}: out of every container it can't keep its count. "
+        f"Set it down with split=true to make it {quantity} single items."
+    )
+
+
 async def _keep_contents(
-    session: SessionDep, *, tenant_id: uuid.UUID, actor_id: uuid.UUID, container: Entity
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    container: Entity,
+    split: bool = False,
 ) -> int:
     """Before a container is deleted, what's directly inside it moves to
     where the container was (ADR 0128, RFC 0030 §10): into its own
-    container, else into its owner, else out of every container - which a
-    stack can't do without losing its count, so that refuses the delete.
-    Counts are kept, and capacity isn't checked: what was inside was
-    already being carried. Returns how many moved."""
+    container, or, for a container in none, out of every container - set
+    down, not handed to its owner (ADR 0132). A stack can't leave every
+    container with its count, so it refuses the delete unless `split`, which
+    sets it down as single items. Counts are kept otherwise, and capacity
+    isn't checked: what was inside was already being carried. Returns how
+    many moved."""
     inside = (
         (
             await session.execute(
@@ -1321,25 +1421,29 @@ async def _keep_contents(
     if not inside:
         return 0
     own = await session.get(Containment, container.id)
-    destination = (
-        own.parent_entity_id
-        if own is not None
-        else await _current_owner_character_id(session, entity_id=container.id, tenant_id=tenant_id)
-    )
+    destination = own.parent_entity_id if own is not None else None
     changes: list[Change] = []
     for row in inside:
         # A cycle can make the destination the thing itself.
         target = destination if destination != row.child_entity_id else None
-        if target is None and row.quantity > 1:
+        if target is None and row.quantity > 1 and not split:
             name = await session.scalar(select(Entity.name).where(Entity.id == row.child_entity_id))
             raise StackNeedsContainerError(
-                detail=(
-                    f"{container.name} holds a stack of {row.quantity} {name}, which would lose "
-                    "its count out of every container. Move it out first."
-                )
+                detail=_stack_detail(f"{container.name} holds {name},", row.quantity)
             )
         before = await holders(session, tenant_id=tenant_id, entity_id=row.child_entity_id)
         if target is None:
+            if row.quantity > 1:
+                pieces = await _set_down_pieces(
+                    session,
+                    tenant_id=tenant_id,
+                    stack_id=row.child_entity_id,
+                    quantity=row.quantity,
+                    actor_id=actor_id,
+                )
+                changes.extend(
+                    Change(entity_id=p, before=frozenset(), both_kind=None) for p in pieces
+                )
             await session.delete(row)
         else:
             row.parent_entity_id = target
@@ -1640,15 +1744,17 @@ async def clear_item_instance_container(
     if_match: Annotated[str | None, Header()] = None,
     override: Annotated[bool, Query()] = False,
     lift_binding: Annotated[bool, Query()] = False,
+    split: Annotated[bool, Query()] = False,
 ) -> ItemInstanceOut:
-    """Takes it out of every container. Refused for a stack of more than one
-    (409, ADR 0115): its count lives on the containment row (ADR 0041), so
-    deleting the row would drop it. A stack leaves a container into its
-    owner instead, with PUT .../container.
+    """Takes it out of every container: sets it down (ADR 0132). A stack of
+    more than one is refused (409, ADR 0115) - its count lives on the
+    containment row (ADR 0041), so deleting the row would drop it - unless
+    `split`, which sets it down as that many single items, this one keeping
+    its id.
 
     Refused too when it takes a bound thing out of what binds it (ADR 0129);
-    `override` and `lift_binding` are query parameters here, with no body to
-    carry them.
+    `override`, `lift_binding` and `split` are query parameters here, with no
+    body to carry them.
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
@@ -1663,13 +1769,8 @@ async def clear_item_instance_container(
     )
 
     existing = await session.get(Containment, entity_id)
-    if existing is not None and existing.quantity > 1:
-        raise StackNeedsContainerError(
-            detail=(
-                f"Item instance {entity_id} is a stack of {existing.quantity}: out of every "
-                "container it would lose its count. Move it into its owner instead."
-            )
-        )
+    if existing is not None and existing.quantity > 1 and not split:
+        raise StackNeedsContainerError(detail=_stack_detail(f"{entity.name} is", existing.quantity))
     if existing is not None:
         binding = (
             None
@@ -1677,6 +1778,20 @@ async def clear_item_instance_container(
             else await BindingCheck.start(session, tenant_id=tenant_id, moved_id=entity_id)
         )
         before = await holders(session, tenant_id=tenant_id, entity_id=entity_id)
+        pieces = (
+            await _set_down_pieces(
+                session,
+                tenant_id=tenant_id,
+                stack_id=entity_id,
+                quantity=existing.quantity,
+                actor_id=user.id,
+            )
+            if existing.quantity > 1
+            else []
+        )
+        detail = f"container={existing.parent_entity_id}"
+        if pieces:
+            detail += f"; split into {existing.quantity}"
         await session.delete(existing)
         if binding is not None:
             await binding.finish()
@@ -1687,13 +1802,16 @@ async def clear_item_instance_container(
             action="item_instance.container_cleared",
             target_type="item_instance",
             target_id=entity_id,
-            detail=_overridden(f"container={existing.parent_entity_id}", override, lifted=lifted),
+            detail=_overridden(detail, override, lifted=lifted),
         )
         await record_change(
             session,
             tenant_id=tenant_id,
             actor_id=user.id,
-            changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
+            changes=[
+                Change(entity_id=entity_id, before=before, both_kind="moved"),
+                *(Change(entity_id=p, before=frozenset(), both_kind=None) for p in pieces),
+            ],
         )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)

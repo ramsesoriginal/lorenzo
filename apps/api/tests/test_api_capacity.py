@@ -434,7 +434,7 @@ async def test_deleting_a_container_keeps_what_was_inside(
     assert detail == "contents moved out: 2"
     assert chest.status_code == 409
     assert chest.json()["type"] == "stack-needs-container"
-    assert "stack of 12 Loose arrows" in chest.json()["detail"]
+    assert "Chest holds Loose arrows, a stack of 12" in chest.json()["detail"]
     assert crate.status_code == 204
     await delete_tenant(t)
 

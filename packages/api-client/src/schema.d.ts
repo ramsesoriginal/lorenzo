@@ -2704,7 +2704,9 @@ export interface paths {
          * Delete Item Instance
          * @description A cascade delete - an instance has nothing else depending on it the
          *     way a base item does (ADR 0018) - except for what's inside it, which
-         *     moves out to where it was first (ADR 0128), keeping its counts.
+         *     moves out to where it was first (ADR 0128), keeping its counts. From a
+         *     container in none, that's out of every container (ADR 0132): a stack
+         *     there refuses the delete unless `split` sets it down as single items.
          */
         delete: operations["delete_item_instance"];
         options?: never;
@@ -2766,14 +2768,15 @@ export interface paths {
         post?: never;
         /**
          * Clear Item Instance Container
-         * @description Takes it out of every container. Refused for a stack of more than one
-         *     (409, ADR 0115): its count lives on the containment row (ADR 0041), so
-         *     deleting the row would drop it. A stack leaves a container into its
-         *     owner instead, with PUT .../container.
+         * @description Takes it out of every container: sets it down (ADR 0132). A stack of
+         *     more than one is refused (409, ADR 0115) - its count lives on the
+         *     containment row (ADR 0041), so deleting the row would drop it - unless
+         *     `split`, which sets it down as that many single items, this one keeping
+         *     its id.
          *
          *     Refused too when it takes a bound thing out of what binds it (ADR 0129);
-         *     `override` and `lift_binding` are query parameters here, with no body to
-         *     carry them.
+         *     `override`, `lift_binding` and `split` are query parameters here, with no
+         *     body to carry them.
          */
         delete: operations["clear_item_instance_container"];
         options?: never;
@@ -16204,7 +16207,9 @@ export interface operations {
     };
     delete_item_instance: {
         parameters: {
-            query?: never;
+            query?: {
+                split?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -16560,6 +16565,7 @@ export interface operations {
             query?: {
                 override?: boolean;
                 lift_binding?: boolean;
+                split?: boolean;
             };
             header?: {
                 "if-match"?: string | null;
