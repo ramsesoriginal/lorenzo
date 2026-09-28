@@ -58,6 +58,7 @@ from lorenzo_api.exceptions import (
     OverrideForbiddenError,
     StackNeedsContainerError,
 )
+from lorenzo_api.identical import signatures
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
@@ -1679,6 +1680,71 @@ async def _perform_set_container(
     return True
 
 
+async def _merge_identical(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    actor_id: uuid.UUID,
+) -> uuid.UUID:
+    """After a move with merge_identical (ADR 0133): if what entity_id was
+    moved into directly holds an identical instance, entity_id merges into
+    it as POST .../merge does - the one with the lowest id, if there are
+    several. Returns where it ended up: that instance, or entity_id itself.
+    Nothing merges in no container, where a stack has no count to add to."""
+    moved = await session.get(Containment, entity_id)
+    if moved is None:
+        return entity_id
+    siblings = (
+        await session.scalars(
+            select(Containment.child_entity_id)
+            .join(ItemInstance, ItemInstance.entity_id == Containment.child_entity_id)
+            .where(
+                Containment.parent_entity_id == moved.parent_entity_id,
+                Containment.child_entity_id != entity_id,
+                Containment.tenant_id == tenant_id,
+            )
+        )
+    ).all()
+    if not siblings:
+        return entity_id
+    signed = await signatures(
+        session, tenant_id=tenant_id, entity_ids=frozenset({entity_id, *siblings})
+    )
+    mine = signed[entity_id]
+    same = sorted(sibling for sibling in siblings if mine is not None and signed[sibling] == mine)
+    if not same:
+        return entity_id
+    into = same[0]
+    target = await session.get_one(Containment, into)
+    target.quantity += moved.quantity
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        action="item_instance.merged",
+        target_type="item_instance",
+        target_id=into,
+        detail=f"source={entity_id}, quantity={moved.quantity}; identical, on a move",
+    )
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        changes=[
+            Change(
+                entity_id=into,
+                before=await holders(session, tenant_id=tenant_id, entity_id=into),
+                both_kind="merged",
+                detail=f"quantity={moved.quantity}",
+            )
+        ],
+    )
+    await session.delete(await session.get_one(Entity, entity_id))
+    await session.flush()
+    return into
+
+
 @router.put("/{entity_id}/container")
 async def set_item_instance_container(
     tenant_id: uuid.UUID,
@@ -1728,9 +1794,15 @@ async def set_item_instance_container(
             actor_id=user.id,
             changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
         )
+    # Where it ended up (ADR 0133): itself, or what it merged into.
+    ended_up = (
+        await _merge_identical(session, tenant_id=tenant_id, entity_id=entity_id, actor_id=user.id)
+        if changed and body.merge_identical
+        else entity_id
+    )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return await _item_instance_out(tenant_id, entity_id, request, response, session, user)
+    return await _item_instance_out(tenant_id, ended_up, request, response, session, user)
 
 
 @router.delete("/{entity_id}/container")
@@ -2535,6 +2607,15 @@ async def bulk_move_item_instances(
                         actor_id=user.id,
                         changes=[Change(entity_id=entity_id, before=before, both_kind="moved")],
                     )
+                # What earlier entries moved is already there, so things moved together
+                # that are identical end up one stack (ADR 0133).
+                ended_up = (
+                    await _merge_identical(
+                        session, tenant_id=tenant_id, entity_id=entity_id, actor_id=user.id
+                    )
+                    if moved and body.merge_identical
+                    else entity_id
+                )
         except Problem as exc:
             results.append(
                 BulkMoveResultItem(
@@ -2545,7 +2626,7 @@ async def bulk_move_item_instances(
                 )
             )
             continue
-        item_instance = await _item_instance_out(tenant_id, entity_id, request, None, session, user)
+        item_instance = await _item_instance_out(tenant_id, ended_up, request, None, session, user)
         results.append(
             BulkMoveResultItem(
                 entity_id=entity_id, status="ok", item_instance=item_instance, problem=None

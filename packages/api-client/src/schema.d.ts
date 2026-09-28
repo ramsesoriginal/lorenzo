@@ -3494,6 +3494,11 @@ export interface components {
              * @default false
              */
             lift_binding: boolean;
+            /**
+             * Merge Identical
+             * @default false
+             */
+            merge_identical: boolean;
         };
         /**
          * BulkMoveItem
@@ -3517,7 +3522,8 @@ export interface components {
          *     for every resolved item regardless of outcome (ADR 0065: never
          *     all-or-nothing). Exactly one of item_instance/problem is set, matching
          *     status - the identical shape `BulkAssignResultItem` already
-         *     established.
+         *     established. `item_instance` is where it ended up: itself, or, with
+         *     merge_identical, the instance it merged into (ADR 0133).
          */
         BulkMoveResultItem: {
             /**
@@ -6301,6 +6307,8 @@ export interface components {
          * @description PUT /item-instances/{id}/container body. `override` (ADR 0128,
          *     0129): the item's GM moves it anyway, past capacity and binding.
          *     `lift_binding` (ADR 0129): and lifts its binding for good.
+         *     `merge_identical` (ADR 0133): it merges into an identical instance
+         *     already directly there, and the answer is that instance.
          */
         SetContainerRequest: {
             /**
@@ -6318,6 +6326,11 @@ export interface components {
              * @default false
              */
             lift_binding: boolean;
+            /**
+             * Merge Identical
+             * @default false
+             */
+            merge_identical: boolean;
         };
         /**
          * SetEntityStatRequest

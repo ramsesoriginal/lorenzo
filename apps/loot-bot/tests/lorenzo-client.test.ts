@@ -811,6 +811,7 @@ describe("setItemInstanceContainer", () => {
       container_entity_id: "container-2",
       override: false,
       lift_binding: false,
+      merge_identical: false,
     });
     expect(result.container_entity_id).toBe("container-2");
   });
@@ -1259,6 +1260,7 @@ describe("bulkMoveItemInstances", () => {
       items: [{ entity_id: "a" }, { entity_id: "b" }],
       override: false,
       lift_binding: false,
+      merge_identical: false,
     });
     expect(results.map((r) => r.status)).toEqual(["ok", "error"]);
   });

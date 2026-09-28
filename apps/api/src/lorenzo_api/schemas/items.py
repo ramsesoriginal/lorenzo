@@ -402,11 +402,14 @@ class SetOwnerRequest(BaseModel):
 class SetContainerRequest(BaseModel):
     """PUT /item-instances/{id}/container body. `override` (ADR 0128,
     0129): the item's GM moves it anyway, past capacity and binding.
-    `lift_binding` (ADR 0129): and lifts its binding for good."""
+    `lift_binding` (ADR 0129): and lifts its binding for good.
+    `merge_identical` (ADR 0133): it merges into an identical instance
+    already directly there, and the answer is that instance."""
 
     container_entity_id: uuid.UUID
     override: bool = False
     lift_binding: bool = False
+    merge_identical: bool = False
 
 
 class SetPrototypesRequest(BaseModel):
@@ -587,6 +590,9 @@ class BulkMoveContainerRequest(BaseModel):
     # binding; and lifts each one's binding for good.
     override: bool = False
     lift_binding: bool = False
+    # ADR 0133: each merges into an identical instance already there, what
+    # earlier entries moved included.
+    merge_identical: bool = False
 
     @model_validator(mode="after")
     def _exactly_one_source(self) -> Self:
@@ -600,7 +606,8 @@ class BulkMoveResultItem(BaseModel):
     for every resolved item regardless of outcome (ADR 0065: never
     all-or-nothing). Exactly one of item_instance/problem is set, matching
     status - the identical shape `BulkAssignResultItem` already
-    established.
+    established. `item_instance` is where it ended up: itself, or, with
+    merge_identical, the instance it merged into (ADR 0133).
     """
 
     entity_id: uuid.UUID

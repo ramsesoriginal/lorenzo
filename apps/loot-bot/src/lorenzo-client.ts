@@ -543,7 +543,12 @@ export function createLorenzoApiClient(baseUrl: string) {
             ...(ifMatch !== undefined ? { header: { "if-match": ifMatch } } : {}),
           },
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: { container_entity_id: containerEntityId, override, lift_binding: liftBinding },
+          body: {
+            container_entity_id: containerEntityId,
+            override,
+            lift_binding: liftBinding,
+            merge_identical: false,
+          },
         },
       );
       if (error !== undefined) throw toLorenzoApiError(error, response.status);
@@ -989,6 +994,7 @@ export function createLorenzoApiClient(baseUrl: string) {
             from_container_entity_id: fromContainerEntityId,
             override: false,
             lift_binding: false,
+            merge_identical: false,
           },
         },
       );
@@ -1017,6 +1023,7 @@ export function createLorenzoApiClient(baseUrl: string) {
             items: entityIds.map((entity_id) => ({ entity_id })),
             override: false,
             lift_binding: false,
+            merge_identical: false,
           },
         },
       );
