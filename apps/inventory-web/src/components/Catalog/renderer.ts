@@ -30,19 +30,23 @@ import type {
   EntitySummary,
 } from '../../lib/types';
 
+export type RenderedPanel = {
+  element: HTMLElement;
+  destroy(): void;
+};
+
 export type CatalogOptions = {
   root: HTMLElement;
-
   tenantId: string;
   viewerId: string;
   viewerIsGm: boolean;
-
+  showIntro: boolean;
   renderer: Renderer;
 
-  onInstantiate: (
+  renderInstantiate(
     item: CatalogItem,
     onDone: () => void,
-  ) => HTMLElement;
+  ): RenderedPanel;
 };
 
 export type RenderedCatalog = {
@@ -192,10 +196,14 @@ export function renderCatalog(
     );
 
     let destroyEditForm = () => {};
+    let destroyInstantiate = () => {};
 
     function closePanel() {
       destroyEditForm();
       destroyEditForm = () => {};
+
+      destroyInstantiate();
+      destroyInstantiate = () => {};
 
       panel.replaceChildren();
 
@@ -331,11 +339,17 @@ export function renderCatalog(
 
         instantiate.textContent = 'Cancel';
 
-        panel.replaceChildren(
-          options.onInstantiate(
+        const rendered =
+          options.renderInstantiate(
             item,
             closePanel,
-          ),
+          );
+
+        destroyInstantiate =
+          rendered.destroy;
+
+        panel.replaceChildren(
+          rendered.element,
         );
       },
       { signal },
