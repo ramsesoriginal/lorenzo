@@ -1,0 +1,5 @@
+{
+  "about": "A file that throws doesn't stop the run: what it defined before throwing stays, the error is reported against the file, and the next file still runs.",
+  "base": [],
+  "files": ["syntax_error.js", "runtime_error.js", "fine.js"]
+}

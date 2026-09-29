@@ -1,0 +1,193 @@
+{
+  "ok": true,
+  "restarts": 0,
+  "files": [
+    [
+      "weapons.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {
+      "purple sword": {
+        "regExpSearch": {
+          "$re": [
+            "^(?=.*sword)(?=.*purple).*$",
+            "i"
+          ]
+        },
+        "name": "Purple sword",
+        "source": [
+          [
+            "T:W",
+            4
+          ],
+          [
+            "P",
+            149
+          ]
+        ],
+        "type": "Martial",
+        "list": "melee",
+        "ability": 1,
+        "abilitytodamage": true,
+        "damage": [
+          1,
+          8,
+          "slashing"
+        ],
+        "range": "Melee",
+        "weight": 3,
+        "description": "Versatile (1d10)",
+        "alternatives": [
+          "violet sword",
+          {
+            "$re": [
+              "lilac\\s+blade",
+              "i"
+            ]
+          }
+        ],
+        "calcChanges": {
+          "atkAdd": [
+            {
+              "$fn": "function (fields, v) {\n\t\t\t\tfields.Description += \"; Never runs\";\n\t\t\t}"
+            },
+            "Adds a note"
+          ]
+        }
+      },
+      "purple bow": {
+        "regExpSearch": {
+          "$re": [
+            "purple.*bow",
+            "i"
+          ]
+        },
+        "name": "Purple bow",
+        "source": [
+          [
+            "T:W",
+            5
+          ]
+        ],
+        "type": "Martial",
+        "list": "ranged",
+        "ability": 2,
+        "damage": [
+          1,
+          8,
+          "piercing"
+        ],
+        "range": "150/600 ft",
+        "weight": 2,
+        "description": "Ammunition, heavy, two-handed"
+      },
+      "purple dart": {
+        "regExpSearch": {
+          "$re": [
+            "purple dart",
+            "i"
+          ]
+        },
+        "name": "Purple dart",
+        "source": [
+          [
+            "T:W",
+            6
+          ]
+        ],
+        "type": "Simple",
+        "ability": 2,
+        "damage": [
+          1,
+          4,
+          "piercing"
+        ],
+        "range": "Melee, 20/60 ft",
+        "weight": 0.25,
+        "description": "Finesse, thrown"
+      },
+      "purple glare": {
+        "regExpSearch": {
+          "$re": [
+            "purple glare",
+            "i"
+          ]
+        },
+        "name": "Purple glare",
+        "source": [
+          [
+            "T:W",
+            7
+          ]
+        ],
+        "type": "Cantrip",
+        "list": "spell",
+        "ability": 6,
+        "damage": [
+          "C",
+          10,
+          "radiant"
+        ],
+        "range": "60 ft"
+      },
+      "moon whip": {
+        "regExpSearch": {
+          "$re": [
+            "moon whip",
+            "i"
+          ]
+        },
+        "name": "Moon whip",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Exotic",
+        "list": "melee",
+        "ability": 2,
+        "damage": [
+          1,
+          6,
+          "slashing"
+        ],
+        "range": "Melee",
+        "weight": 2
+      }
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {
+      "T:W": {
+        "name": "Test Weapons Book",
+        "abbreviation": "TWB",
+        "group": "Homebrew",
+        "date": "2026/01/02"
+      }
+    }
+  },
+  "origins": {
+    "WeaponsList": {
+      "purple sword": "weapons.js",
+      "purple bow": "weapons.js",
+      "purple dart": "weapons.js",
+      "purple glare": "weapons.js",
+      "moon whip": "weapons.js"
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {
+      "T:W": "weapons.js"
+    }
+  },
+  "stubs": [],
+  "stubs_in_data": []
+}
