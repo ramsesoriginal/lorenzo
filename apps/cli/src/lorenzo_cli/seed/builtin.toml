@@ -1,0 +1,275 @@
+# The built-in seed (RFC 0025 R8 and R9, ADR 0143): the item taxonomy, the stat groups and
+# definitions, and the weight recipe that `lorenzo seed` finds-or-creates in a tenant.
+#
+# Every group, definition and node carries a `layer`:
+#   core   - nothing specific to one game system. Bare slugs.
+#   dnd5e  - D&D 5e's own categories and dice. Slugs prefixed `dnd5e-`.
+# so the dnd5e layer can later become a repository of its own as a filter, not a rewrite.
+#
+# Stat definitions and groups can't be renamed, retyped or removed once a tenant has them (no
+# PATCH or DELETE, ADR 0014), and are frozen in every copy of a repository (ADR 0119, 0121):
+# what is written here is chosen once. Changing a `value_type` later cannot be applied.
+
+schema = 1
+version = "1"
+
+# ---- stat groups: the five conventional ones exist in every tenant that is seeded, empty or
+# not, so two system layers never collide on creating the same group ---------------------------
+
+[[group]]
+name = "physical"
+layer = "core"
+
+[[group]]
+name = "economic"
+layer = "core"
+
+[[group]]
+name = "destroyable"
+layer = "core"
+
+[[group]]
+name = "damaging"
+layer = "core"
+
+[[group]]
+name = "tags"
+layer = "core"
+
+[[group]]
+name = "sourcebook"
+layer = "core"
+
+# ---- stat definitions ---------------------------------------------------------------------------
+
+# MPMB's `weight` is written to `own_weight`, never to `weight`: `weight` is the recipe below
+# (own weight plus what is inside), and a direct value would beat it and stop a container
+# counting its contents. Floats, because MPMB has 0.05 and 0.2.
+[[definition]]
+name = "own_weight"
+group = "physical"
+value_type = "float"
+layer = "core"
+
+[[definition]]
+name = "weight"
+group = "physical"
+value_type = "float"
+layer = "core"
+
+[[definition]]
+name = "contents_weight"
+group = "physical"
+value_type = "float"
+layer = "core"
+
+[[definition]]
+name = "range_normal"
+group = "physical"
+value_type = "int"
+layer = "core"
+
+[[definition]]
+name = "range_long"
+group = "physical"
+value_type = "int"
+layer = "core"
+
+# In copper pieces, so no fractions and no currency to choose.
+[[definition]]
+name = "price"
+group = "economic"
+value_type = "int"
+layer = "core"
+
+[[definition]]
+name = "armor"
+group = "destroyable"
+value_type = "int"
+layer = "core"
+
+[[definition]]
+name = "is_container"
+group = "tags"
+value_type = "bool"
+layer = "core"
+
+# The item's citation, such as "SRD 204; E 7, S 115". Never part of its identity.
+[[definition]]
+name = "sourcebook"
+group = "sourcebook"
+value_type = "text"
+layer = "core"
+
+# Dice are D&D's: the group is core, the definitions belong to the layer, because a definition
+# can't be moved later.
+[[definition]]
+name = "damage_dice_count"
+group = "damaging"
+value_type = "int"
+layer = "dnd5e"
+
+[[definition]]
+name = "damage_die"
+group = "damaging"
+value_type = "int"
+layer = "dnd5e"
+
+[[definition]]
+name = "damage_type"
+group = "damaging"
+value_type = "text"
+layer = "dnd5e"
+
+# ---- the core taxonomy: forms ---------------------------------------------------------------------
+
+[[node]]
+slug = "physical-object"
+name = "Physical object"
+layer = "core"
+
+[[node]]
+slug = "weapon"
+name = "Weapon"
+layer = "core"
+parents = ["physical-object"]
+
+[[node]]
+slug = "melee-weapon"
+name = "Melee weapon"
+layer = "core"
+parents = ["weapon"]
+
+[[node]]
+slug = "ranged-weapon"
+name = "Ranged weapon"
+layer = "core"
+parents = ["weapon"]
+
+[[node]]
+slug = "armor"
+name = "Armor"
+layer = "core"
+parents = ["physical-object"]
+
+[[node]]
+slug = "shield"
+name = "Shield"
+layer = "core"
+parents = ["armor"]
+
+[[node]]
+slug = "tool"
+name = "Tool"
+layer = "core"
+parents = ["physical-object"]
+
+[[node]]
+slug = "container"
+name = "Container"
+layer = "core"
+parents = ["physical-object"]
+# `is_container` is a tag, so it is inherited by everything under this node.
+tags = ["is_container"]
+
+[[node]]
+slug = "ammunition"
+name = "Ammunition"
+layer = "core"
+parents = ["physical-object"]
+
+[[node]]
+slug = "gear"
+name = "Gear"
+layer = "core"
+parents = ["physical-object"]
+
+# ---- the dnd5e layer: parentless mixins under one abstract root per axis -------------------------------
+
+[[node]]
+slug = "dnd5e-weapon-proficiency"
+name = "Weapon proficiency (D&D 5e)"
+layer = "dnd5e"
+
+[[node]]
+slug = "dnd5e-simple"
+name = "Simple weapon"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-proficiency"]
+
+[[node]]
+slug = "dnd5e-martial"
+name = "Martial weapon"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-proficiency"]
+
+[[node]]
+slug = "dnd5e-improvised"
+name = "Improvised weapon"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-proficiency"]
+
+[[node]]
+slug = "dnd5e-armor-tier"
+name = "Armor tier (D&D 5e)"
+layer = "dnd5e"
+
+[[node]]
+slug = "dnd5e-light-armor"
+name = "Light armor"
+layer = "dnd5e"
+parents = ["dnd5e-armor-tier"]
+
+[[node]]
+slug = "dnd5e-medium-armor"
+name = "Medium armor"
+layer = "dnd5e"
+parents = ["dnd5e-armor-tier"]
+
+[[node]]
+slug = "dnd5e-heavy-armor"
+name = "Heavy armor"
+layer = "dnd5e"
+parents = ["dnd5e-armor-tier"]
+
+[[node]]
+slug = "dnd5e-tool-proficiency"
+name = "Tool proficiency (D&D 5e)"
+layer = "dnd5e"
+
+[[node]]
+slug = "dnd5e-artisans-tools"
+name = "Artisan's tools"
+layer = "dnd5e"
+parents = ["dnd5e-tool-proficiency"]
+
+[[node]]
+slug = "dnd5e-gaming-set"
+name = "Gaming set"
+layer = "dnd5e"
+parents = ["dnd5e-tool-proficiency"]
+
+[[node]]
+slug = "dnd5e-musical-instrument"
+name = "Musical instrument"
+layer = "dnd5e"
+parents = ["dnd5e-tool-proficiency"]
+
+# ---- the weight recipe, on the base of the form tree (docs/reference/well-known-stats.md) ---------------
+
+# contents_weight = contents(weight): what the things directly inside weigh, times how many.
+[[recipe]]
+node = "physical-object"
+stat = "contents_weight"
+kind = "contents"
+source = "weight"
+layer = "core"
+
+# weight = sum(own_weight, contents_weight). A direct `weight` on a thing (a Bag of Holding)
+# beats this inherited formula, so its contents don't weigh on its carrier.
+[[recipe]]
+node = "physical-object"
+stat = "weight"
+kind = "sum"
+terms = ["own_weight", "contents_weight"]
+layer = "core"
