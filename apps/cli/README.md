@@ -16,7 +16,7 @@ The tool needs an access token for `apps/api`. Until `lorenzo login` works again
 
 ```bash
 export LORENZO_API_URL=http://localhost:8000
-export LORENZO_TOKEN=$(cd ../api && uv run python scripts/get_dev_token.py | tail -n +3 | head -n 1)
+export LORENZO_TOKEN=...   # the token that `mise run //apps/api:dev-token` prints
 uv run lorenzo tenant show <tenant-id-or-slug>
 ```
 
