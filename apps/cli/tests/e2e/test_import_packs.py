@@ -22,8 +22,8 @@ CONTENTS = (
     "  - 5 x [Rations (1 day)](basic-gear-rations-1-day)\n"
     "  - 2 x [Torch](basic-gear-torch)\n"
     "  - 1 x [Rope, hempen (50 feet)](basic-gear-rope-hempen-50-feet)\n"
-    "  - 1 x Alms box\n"
-    "  - 1 x Mystery thing"
+    "  - 1 x [Alms box](basic-gear-alms-box)\n"
+    "  - 1 x [Mystery thing](basic-gear-mystery-thing)"
 )
 
 

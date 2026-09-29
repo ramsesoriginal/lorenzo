@@ -30,6 +30,7 @@ WeaponsList["purple bow"] = {
 WeaponsList["purple dart"] = {
 	regExpSearch : /purple dart/i,
 	name : "Purple dart",
+	nameAlt : ["Dart, Purple", "Violet dart"],
 	source : [["T:W", 6]],
 	type : "Simple",
 	ability : 2,

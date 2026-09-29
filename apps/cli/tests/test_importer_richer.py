@@ -124,11 +124,24 @@ def test_a_weapon_that_is_not_special_is_not_marked() -> None:
     assert "dnd5e-special" not in draft("weapons", "x", {**PLAIN, "special": False}).parents
 
 
-def test_the_ammunition_a_weapon_fires_is_a_property_and_a_stat() -> None:
-    result = draft("weapons", "shortbow", {**PLAIN, "name": "Shortbow", "ammo": "arrow"})
+def test_the_ammunition_a_weapon_fires_is_a_stat_and_the_property_comes_from_its_description() -> (
+    None
+):
+    entry = {**PLAIN, "name": "Shortbow", "ammo": "arrow", "description": "Ammunition, two-handed"}
+
+    result = draft("weapons", "shortbow", entry)
 
     assert "dnd5e-uses-ammunition" in result.parents
     assert result.stats["ammo_type"] == "arrow"
+
+
+def test_a_thrown_flask_that_names_itself_as_ammo_does_not_use_ammunition() -> None:
+    entry = {**PLAIN, "name": "Vial of Acid", "ammo": "Acid", "description": "Thrown"}
+
+    result = draft("weapons", "acid", entry)
+
+    assert "dnd5e-uses-ammunition" not in result.parents
+    assert result.stats["ammo_type"] == "Acid"
 
 
 def test_what_the_source_says_about_a_weapon_is_kept_as_stats() -> None:
