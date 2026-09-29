@@ -44,8 +44,8 @@ A node may now carry a `description` in the seed; `lorenzo seed` writes it as th
 | `nameAlt`, unused name variants, `alternatives` (patterns are not names) | an information entry, type `alias`, "Also known as", one name a line |
 | `tooltip` | an information entry, type `note`, "Special rules" |
 | `ability` 1–6 | text stat `attack_ability` (Strength…Charisma) |
-| `abilitytodamage`, `dc`, `monkweapon`, `isNotWeapon`, `stealthdis`, `addMod`, `isMagicAmmo`, `special` | bool stats or property tags |
-| `ammo` | property `uses-ammunition` and text stat `ammo_type` |
+| `abilitytodamage`, `dc`, `monkweapon`, `isNotWeapon`, `stealthdis`, `addMod`, `isMagicAmmo` | bool stats or property tags |
+| `ammo` | text stat `ammo_type` (the property `uses-ammunition` comes from the description's word "Ammunition": a thrown flask names itself as its ammo and is not a launcher) |
 | versatile die | int stat `damage_versatile_die` |
 | `baseWeapon` | text stat `base_weapon` |
 | `strReq` (0 means none) | int stat `strength_required` |
