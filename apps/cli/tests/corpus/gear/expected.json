@@ -1,0 +1,183 @@
+{
+  "ok": true,
+  "restarts": 0,
+  "files": [
+    [
+      "armour.js",
+      "content",
+      "ok"
+    ],
+    [
+      "gear.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {},
+    "ArmourList": {
+      "purple plate": {
+        "regExpSearch": {
+          "$re": [
+            "^(?=.*purple)(?=.*plate).*$",
+            "i"
+          ]
+        },
+        "name": "Purple plate",
+        "source": [
+          [
+            "HB",
+            0
+          ]
+        ],
+        "type": "heavy",
+        "ac": 18,
+        "stealthdis": true,
+        "weight": 60,
+        "strReq": 15
+      },
+      "violet robe": {
+        "regExpSearch": {
+          "$re": [
+            "violet robe",
+            "i"
+          ]
+        },
+        "name": "Violet robe",
+        "source": [
+          [
+            "HB",
+            0
+          ]
+        ],
+        "ac": "10+Wis",
+        "addMod": true,
+        "weight": 4
+      },
+      "tower shield": {
+        "regExpSearch": {
+          "$re": [
+            "tower shield",
+            "i"
+          ]
+        },
+        "name": "Tower shield",
+        "source": [
+          [
+            "HB",
+            0
+          ]
+        ],
+        "type": "",
+        "ac": 3,
+        "weight": 20
+      }
+    },
+    "GearList": {
+      "purple lamp": {
+        "infoname": "Purple lamp [5 gp]",
+        "name": "Purple lamp",
+        "amount": "",
+        "weight": 1,
+        "type": "equipment"
+      },
+      "violet bullets": {
+        "infoname": "Bullets, Violet (10) [5 sp]",
+        "name": "Bullets, Violet",
+        "amount": 10,
+        "weight": 0.05,
+        "type": "ammunition"
+      }
+    },
+    "PacksList": {
+      "purple pack": {
+        "name": "Purple pack (10 gp)",
+        "source": [
+          [
+            "HB",
+            0
+          ]
+        ],
+        "items": [
+          [
+            "Backpack, with:",
+            "",
+            5
+          ],
+          [
+            "Rations, days of",
+            5,
+            2
+          ],
+          [
+            "Tinderbox",
+            "",
+            1
+          ],
+          [
+            "Waterskin",
+            "",
+            5
+          ],
+          [
+            "Hempen rope, feet of",
+            50,
+            0.2
+          ]
+        ]
+      }
+    },
+    "ToolsList": {
+      "purplemancer's tools": {
+        "name": "Purplemancer's tools",
+        "infoname": "Purplemancer's tools [500 gp]",
+        "type": "artisan's tools",
+        "weight": 8
+      }
+    },
+    "AmmoList": {
+      "purple arrow": {
+        "name": "Purple arrows",
+        "weight": 0.05,
+        "icon": "Arrows",
+        "invName": "Arrows, purple",
+        "alternatives": [
+          "arrows, purple",
+          "violet arrows",
+          {
+            "$re": [
+              "purple\\s+arrows?",
+              "i"
+            ]
+          }
+        ]
+      }
+    },
+    "SourceList": {}
+  },
+  "origins": {
+    "WeaponsList": {},
+    "ArmourList": {
+      "purple plate": "armour.js",
+      "violet robe": "armour.js",
+      "tower shield": "armour.js"
+    },
+    "GearList": {
+      "purple lamp": "gear.js",
+      "violet bullets": "gear.js"
+    },
+    "PacksList": {
+      "purple pack": "gear.js"
+    },
+    "ToolsList": {
+      "purplemancer's tools": "gear.js"
+    },
+    "AmmoList": {
+      "purple arrow": "gear.js"
+    },
+    "SourceList": {}
+  },
+  "overrides": [],
+  "stubs": [],
+  "stubs_in_data": []
+}

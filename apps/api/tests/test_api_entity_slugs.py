@@ -294,3 +294,104 @@ async def test_an_item_instance_slug_follows_the_same_grammar(
     )
     assert [r["entity_id"] for r in resolved.json()] == [str(legacy)]
     await delete_tenant(tenant_id)
+
+
+async def test_an_item_is_named_when_it_is_created(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0139: POST /items takes a slug, so create-and-name is one step."""
+    tenant_id = await make_tenant(test_user_id)
+
+    created = await client.post(
+        f"/tenants/{tenant_id}/items", json={"name": "Longsword", "slug": "basic-weapons-longsword"}
+    )
+
+    assert created.status_code == 201
+    entity_id = created.json()["entity_id"]
+    by_slug = await client.get(f"/tenants/{tenant_id}/entities/by-slug/basic-weapons-longsword")
+    assert by_slug.status_code == 200
+    assert by_slug.json()["id"] == entity_id
+    resolved = await client.get(
+        f"/tenants/{tenant_id}/entities/resolve", params={"slug": "basic-weapons-longsword"}
+    )
+    assert resolved.json()[0]["kinds"] == ["item"]
+    await delete_tenant(tenant_id)
+
+
+async def test_an_item_without_a_slug_is_created_as_before(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    created = await client.post(f"/tenants/{tenant_id}/items", json={"name": "Longsword"})
+
+    assert created.status_code == 201
+    detail = await client.get(f"/tenants/{tenant_id}/entities/{created.json()['entity_id']}")
+    assert detail.json()["slug"] is None
+    await delete_tenant(tenant_id)
+
+
+async def test_creating_the_same_item_twice_is_a_conflict_not_a_duplicate(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    body = {"name": "Longsword", "slug": "basic-weapons-longsword"}
+    first = await client.post(f"/tenants/{tenant_id}/items", json=body)
+    assert first.status_code == 201
+
+    again = await client.post(f"/tenants/{tenant_id}/items", json=body)
+
+    assert again.status_code == 409
+    assert again.json()["type"] == "entity-slug-conflict"
+    listed = await client.get(f"/tenants/{tenant_id}/items")
+    assert [item["entity_id"] for item in listed.json()["items"]] == [first.json()["entity_id"]]
+    await delete_tenant(tenant_id)
+
+
+async def test_an_item_slug_must_be_free_across_all_entities(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    await _make_entity(tenant_id, "Emberdeep", slug="emberdeep")
+
+    taken = await client.post(
+        f"/tenants/{tenant_id}/items", json={"name": "Another", "slug": "emberdeep"}
+    )
+
+    assert taken.status_code == 409
+    listed = await client.get(f"/tenants/{tenant_id}/items")
+    assert listed.json()["items"] == []  # nothing was created
+    await delete_tenant(tenant_id)
+
+
+async def test_an_item_slug_follows_the_same_grammar(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+
+    rejected = await client.post(
+        f"/tenants/{tenant_id}/items", json={"name": "Longsword", "slug": "the old sword"}
+    )
+
+    assert rejected.status_code == 422
+    await delete_tenant(tenant_id)
+
+
+async def test_an_item_can_be_named_and_given_prototypes_at_once(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    weapon = await client.post(f"/tenants/{tenant_id}/items", json={"name": "Weapon"})
+
+    created = await client.post(
+        f"/tenants/{tenant_id}/items",
+        json={
+            "name": "Longsword",
+            "slug": "basic-weapons-longsword",
+            "prototype_ids": [weapon.json()["entity_id"]],
+        },
+    )
+
+    assert created.status_code == 201
+    assert created.json()["prototype_ids"] == [weapon.json()["entity_id"]]
+    await delete_tenant(tenant_id)

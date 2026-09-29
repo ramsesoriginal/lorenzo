@@ -4858,7 +4858,10 @@ export interface components {
          * ItemCreate
          * @description POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
          *     EntityPrototype row per id in prototype_ids, one transaction.
-         *     in_public_catalog (ADR 0116): whether players may list it too.
+         *     in_public_catalog (ADR 0116): whether players may list it too. slug
+         *     (ADR 0139) names it in the same transaction, like ItemInstanceCreate's:
+         *     optional, unique per tenant across every entity (ADR 0107), and 409 if
+         *     taken, so creating the same thing twice is a conflict, not a duplicate.
          */
         ItemCreate: {
             /** Name */
@@ -4873,6 +4876,8 @@ export interface components {
              * @default false
              */
             in_public_catalog: boolean;
+            /** Slug */
+            slug?: string | null;
         };
         /**
          * ItemInstanceCreate
@@ -4885,7 +4890,8 @@ export interface components {
          *     tenant when set - across every entity since ADR 0107 - and resolvable
          *     later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
          *     like every slug write (ADR 0107) - a deliberately accepted breaking
-         *     change to ADR 0043's unrestricted string.
+         *     change to ADR 0043's unrestricted string. quantity (ADR 0140) makes it a
+         *     stack of that many, held by the Containment row, so it needs a container.
          */
         ItemInstanceCreate: {
             /** Name */
@@ -4901,6 +4907,11 @@ export interface components {
             container_entity_id?: string | null;
             /** Slug */
             slug?: string | null;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
             /**
              * Override
              * @default false
@@ -6344,10 +6355,17 @@ export interface components {
          *     (422 InvalidStatValueTypeError otherwise), not left to entity_stat's own
          *     CHECK constraint (which only enforces "exactly one value_* column is
          *     set," not which one).
+         *     `acquire_group` (ADR 0142) also adds the stat's group to the entity, as the tag
+         *     routes do; off by default, so nothing changes for a caller that doesn't ask.
          */
         SetEntityStatRequest: {
             /** Value */
             value: number | string | boolean;
+            /**
+             * Acquire Group
+             * @default false
+             */
+            acquire_group: boolean;
         };
         /**
          * SetOwnerRequest
@@ -6522,7 +6540,7 @@ export interface components {
         /**
          * StatValueOut
          * @description Wraps one entry of physical_stats/economic_stats/destroyable_stats/
-         *     damaging_stats (each `list[tuple[str, int | None]]`).
+         *     damaging_stats (each `list[tuple[str, int | float | None]]`, ADR 0141).
          */
         StatValueOut: {
             /** Name */
