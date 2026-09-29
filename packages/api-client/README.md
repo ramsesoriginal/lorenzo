@@ -1,6 +1,6 @@
 # @lorenzo/api-client
 
-The typed client for [`apps/api`](../../apps/api) that [`apps/loot-bot`](../../apps/loot-bot) and [`apps/inventory-web`](../../apps/inventory-web) share. See [ADR 0122](../../docs/adr/0122-api-client-package.md) for why it exists and what it deliberately leaves out.
+The typed client for [`apps/api`](../../apps/api) that [`apps/loot-bot`](../../apps/loot-bot), [`apps/inventory-web`](../../apps/inventory-web), and [`apps/account-hub`](../../apps/account-hub) share. See [ADR 0122](../../docs/adr/0122-api-client-package.md) for why it exists and what it deliberately leaves out.
 
 ## What's in it
 

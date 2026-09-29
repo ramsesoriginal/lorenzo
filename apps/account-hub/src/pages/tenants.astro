@@ -16,6 +16,7 @@ import Base from '../layouts/Base.astro';
   <ul id="tenant-list"></ul>
 
   <script>
+    import { renderTenantSlug } from '../lib/tenantSlugUi';
     import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
     import { renderCampaignRoster } from '../lib/campaignRosterUi';
@@ -190,7 +191,7 @@ import Base from '../layouts/Base.astro';
       roleBadge.className = 'badge';
       roleBadge.textContent = tenant.role;
       heading.append(roleBadge);
-      item.append(heading);
+      item.append(heading, renderTenantSlug(tenant));
 
       const admin = isTenantAdmin(tenant);
       // get_tenant_context (the real gate behind list_tenant_roster/
@@ -272,8 +273,10 @@ import Base from '../layouts/Base.astro';
       const tenantsPage = await listMyTenants();
       if (tenantsPage.items.length === 0) {
         emptyState.hidden = false;
+        tenantList.replaceChildren();
         return;
       }
+      emptyState.hidden = true;
       const withCampaigns = await Promise.all(
         tenantsPage.items.map(async (tenant) => ({
           tenant,

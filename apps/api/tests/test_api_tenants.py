@@ -941,3 +941,31 @@ async def test_delete_membership_precondition_failed_with_stale_if_match(
     async with admin_session_factory() as session:
         await session.delete(await session.get_one(User, member_id))
         await session.commit()
+
+
+async def test_tenant_detail_etag_protects_slug_edit(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    try:
+        before = await client.get(f"/tenants/{tenant_id}")
+        assert before.status_code == 200
+        etag = before.headers["etag"]
+        updated = await client.patch(
+            f"/tenants/{tenant_id}",
+            json={"slug": f"renamed-{uuid.uuid4().hex}"},
+            headers={"If-Match": etag},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["name"] == before.json()["name"]
+        after = await client.get(f"/tenants/{tenant_id}")
+        assert after.headers["etag"] != etag
+        stale = await client.patch(
+            f"/tenants/{tenant_id}",
+            json={"slug": f"stale-{uuid.uuid4().hex}"},
+            headers={"If-Match": etag},
+        )
+        assert stale.status_code == 412
+        assert (await client.get(f"/tenants/{tenant_id}")).json() == after.json()
+    finally:
+        await delete_tenant(tenant_id)

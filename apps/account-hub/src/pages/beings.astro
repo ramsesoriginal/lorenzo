@@ -221,7 +221,7 @@ import Base from '../layouts/Base.astro';
         renderCreateForm('New being name', 'Create being', (name) =>
           // No owner_player_id - that's exactly what makes this a being
           // (is_pc: false) rather than a player character.
-          createCharacter(tenant.id, { name }).then(onChanged),
+          createCharacter(tenant.id, { name, player_ids: [] }).then(onChanged),
         ),
       );
       return section;

@@ -20,3 +20,24 @@
   font-size: 13px;
   color: var(--text-tertiary);
 }
+
+/* Tenant slug editor (ADR 0136). */
+.tenant-slug {
+  margin-block: 1rem;
+}
+.tenant-slug-value {
+  overflow-wrap: anywhere;
+}
+.tenant-slug-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+}
+.tenant-slug-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+.tenant-slug-hint {
+  flex-basis: 100%;
+}

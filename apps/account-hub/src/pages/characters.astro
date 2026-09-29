@@ -124,7 +124,11 @@ import Base from '../layouts/Base.astro';
 
       section.append(
         renderCreateForm('New character name', 'Create character', (name) =>
-          createCharacter(player.tenant_id, { name, owner_player_id: player.id }).then(onChanged),
+          createCharacter(player.tenant_id, {
+            name,
+            owner_player_id: player.id,
+            player_ids: [],
+          }).then(onChanged),
         ),
       );
 
