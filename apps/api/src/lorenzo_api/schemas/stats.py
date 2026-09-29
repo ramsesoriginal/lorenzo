@@ -108,6 +108,9 @@ class SetEntityStatRequest(BaseModel):
     (422 InvalidStatValueTypeError otherwise), not left to entity_stat's own
     CHECK constraint (which only enforces "exactly one value_* column is
     set," not which one).
+    `acquire_group` (ADR 0142) also adds the stat's group to the entity, as the tag
+    routes do; off by default, so nothing changes for a caller that doesn't ask.
     """
 
     value: int | str | float | bool
+    acquire_group: bool = False

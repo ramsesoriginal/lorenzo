@@ -469,6 +469,9 @@ class ItemCreate(BaseModel):
     name: str = Field(..., title="Name")
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
     in_public_catalog: bool | None = Field(False, title="In Public Catalog")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
 
 
 class ItemInstanceCreate(BaseModel):
@@ -479,6 +482,7 @@ class ItemInstanceCreate(BaseModel):
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"
     )
+    quantity: conint(ge=1) | None = Field(1, title="Quantity")
     override: bool | None = Field(False, title="Override")
 
 
@@ -900,6 +904,7 @@ class SetContainerRequest(BaseModel):
 
 class SetEntityStatRequest(BaseModel):
     value: int | str | float | bool = Field(..., title="Value")
+    acquire_group: bool | None = Field(False, title="Acquire Group")
 
 
 class SetOwnerRequest(BaseModel):
@@ -940,7 +945,7 @@ class StatGroupOut(BaseModel):
 
 class StatValueOut(BaseModel):
     name: str = Field(..., title="Name")
-    value: int | None = Field(..., title="Value")
+    value: int | float | None = Field(..., title="Value")
 
 
 class StatValueType(StrEnum):
@@ -1185,12 +1190,12 @@ class InformationOut(BaseModel):
 class ItemInstanceOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     title: str = Field(..., title="Title")
-    weight: int | None = Field(..., title="Weight")
-    height: int | None = Field(..., title="Height")
-    price: int | None = Field(..., title="Price")
-    rarity: int | None = Field(..., title="Rarity")
-    hp: int | None = Field(..., title="Hp")
-    armor: int | None = Field(..., title="Armor")
+    weight: int | float | None = Field(..., title="Weight")
+    height: int | float | None = Field(..., title="Height")
+    price: int | float | None = Field(..., title="Price")
+    rarity: int | float | None = Field(..., title="Rarity")
+    hp: int | float | None = Field(..., title="Hp")
+    armor: int | float | None = Field(..., title="Armor")
     container_entity_id: UUID | None = Field(..., title="Container Entity Id")
     quantity: int | None = Field(..., title="Quantity")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
@@ -1213,12 +1218,12 @@ class ItemInstanceOut(BaseModel):
 class ItemOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     title: str = Field(..., title="Title")
-    weight: int | None = Field(..., title="Weight")
-    height: int | None = Field(..., title="Height")
-    price: int | None = Field(..., title="Price")
-    rarity: int | None = Field(..., title="Rarity")
-    hp: int | None = Field(..., title="Hp")
-    armor: int | None = Field(..., title="Armor")
+    weight: int | float | None = Field(..., title="Weight")
+    height: int | float | None = Field(..., title="Height")
+    price: int | float | None = Field(..., title="Price")
+    rarity: int | float | None = Field(..., title="Rarity")
+    hp: int | float | None = Field(..., title="Hp")
+    armor: int | float | None = Field(..., title="Armor")
     container_entity_id: UUID | None = Field(..., title="Container Entity Id")
     quantity: int | None = Field(..., title="Quantity")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
@@ -1532,12 +1537,12 @@ class ComputedStatPreviewIn(BaseModel):
 class ControlledItemInstanceOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     title: str = Field(..., title="Title")
-    weight: int | None = Field(..., title="Weight")
-    height: int | None = Field(..., title="Height")
-    price: int | None = Field(..., title="Price")
-    rarity: int | None = Field(..., title="Rarity")
-    hp: int | None = Field(..., title="Hp")
-    armor: int | None = Field(..., title="Armor")
+    weight: int | float | None = Field(..., title="Weight")
+    height: int | float | None = Field(..., title="Height")
+    price: int | float | None = Field(..., title="Price")
+    rarity: int | float | None = Field(..., title="Rarity")
+    hp: int | float | None = Field(..., title="Hp")
+    armor: int | float | None = Field(..., title="Armor")
     container_entity_id: UUID | None = Field(..., title="Container Entity Id")
     quantity: int | None = Field(..., title="Quantity")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
