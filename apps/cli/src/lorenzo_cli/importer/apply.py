@@ -90,7 +90,11 @@ def apply_import(
         for slug, hit in tenant_view.resolve_slugs(client, plan.tenant.id, sorted(needed)).items()
     }
 
-    todo = [i for i in plan.items if i.status in ("create", "complete")]
+    # Packs last: their contents name items, and are written once those items exist (ADR 0145).
+    todo = sorted(
+        (i for i in plan.items if i.status in ("create", "complete")),
+        key=lambda i: i.draft.list_name == "packs",
+    )
     for number, item in enumerate(todo, start=1):
         progress(f"{number}/{len(todo)} {item.slug}")
         try:

@@ -30,11 +30,9 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo login` / `lorenzo login --no-browser` / `lorenzo logout` | Stores or forgets a login (needs the Authgear client, see below) |
 | `lorenzo inspect [--base FILE...] FILE...` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login |
 | `lorenzo seed --tenant <tenant>` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first |
-
 | `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
 | `lorenzo apply --tenant <tenant> FILES... --yes` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended |
-
-Pack contents (the items inside an Explorer's pack) arrive with the last slice of RFC 0025.
+| `lorenzo pack give <pack> --tenant <tenant>` | Creates an imported pack's contents in a tenant: its container, then what is inside, with quantities. `--owner`, `--into`, `--dry-run` |
 
 ## Importing MPMB items
 
@@ -74,6 +72,8 @@ flavour = { transform = "text", stat = "flavour_text", group = "lore" }   # crea
 ```
 
 **What it won't guess.** A value with no row (a weapon `type` of `Exotic`), a price it can't read, or a weapon that is neither melee nor ranged holds that item back, and everything held is written to `review-queue.json` with a row to paste, and to `proposed.map.toml`. Your map file is never edited. `--teach`, at a terminal, asks about each unknown value once, uses the answer straight away, and offers to append the rows to your map afterwards. Attributes no rule mentions are listed and don't block an item; under `--strict` they count as unresolved.
+
+**Packs.** An Explorer's pack is imported as an item whose public description lists its contents (`- 5 x [Rations (1 day)](basic-gear-rations-1-day)`, nested under its container, [ADR 0145](../../docs/adr/0145-pack-contents-in-the-description.md)). It copies with a repository, and `lorenzo pack give basic-packs-explorer --tenant my-campaign --owner alice` creates the backpack and everything in it. A name the pack uses that no item answers to stays plain text and is reported (add a `[pack_items]` row to link it, or mark it `"text"`).
 
 Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--allow-play-tenant`, as for `seed`.
 

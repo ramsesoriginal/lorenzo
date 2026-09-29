@@ -190,3 +190,23 @@ regExpSearch = "drop"
 name = "name_and_price"
 source = "sourcebook"
 items = "pack_contents"
+
+# ---- pack contents: a pack lists its items by display name, not by key ---------------------------------------------
+# A name is looked up exactly (case-insensitively) among the names of the items in the run. A row here
+# answers the ones that don't match: "list:key" links to that entry, "text" says it is not a catalog
+# item and stays plain text in the description. Names nothing answers are reported, never guessed at.
+
+[pack_items]
+"candles" = "gear:candle"
+"pitons" = "gear:piton"
+"torches" = "gear:torch"
+"costumes" = "gear:costume"
+"perfume, vial of" = "gear:perfume (vial)"
+# The sheet has no gear entry for these, only the packs that mention them.
+"string, feet of" = "text"
+"alms box" = "text"
+"incense, blocks of" = "text"
+"censer" = "text"
+"vestments" = "text"
+"book of lore" = "text"
+"little bag of sand" = "text"

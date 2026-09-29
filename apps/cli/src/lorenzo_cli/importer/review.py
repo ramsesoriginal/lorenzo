@@ -95,6 +95,14 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
                 "would_change_parents": item.reparent,
                 "moved_from": item.moved_from,
                 "skipped_because": item.draft.skip_reason,
+                "pack": (
+                    {
+                        "lines": len(item.draft.pack_lines),
+                        "plain_text": [u.name for u in item.draft.pack_unresolved],
+                    }
+                    if item.draft.list_name == "packs"
+                    else None
+                ),
                 "issues": _issue_dict(item),
             }
             for item in plan.items
@@ -132,6 +140,19 @@ def review_queue(plan: ImportPlan) -> list[dict[str, Any]]:
                     "suggestion": "Fix the namespace in the map, or run with --accept-moves.",
                 }
             )
+    for item, missing in plan.pack_unresolved():
+        queue.append(
+            {
+                "kind": "pack",
+                "list": "packs",
+                "key": item.draft.key,
+                "file": item.draft.file,
+                "attribute": "items",
+                "value": repr(missing.name),
+                "reason": missing.reason,
+                "suggestion": missing.suggestion,
+            }
+        )
     for (list_name, attribute), count in plan.unmapped().items():
         queue.append(
             {
@@ -166,6 +187,10 @@ def proposed_map(plan: ImportPlan) -> str:
                 and issue.suggestion not in sections[issue.suggestion.split("\n")[0]]
             ):
                 sections[issue.suggestion.split("\n")[0]].append(issue.suggestion)
+    for _, missing in plan.pack_unresolved():
+        header = missing.suggestion.split("\n")[0]
+        if missing.suggestion not in sections[header]:
+            sections[header].append(missing.suggestion)
     for (list_name, attribute), _ in plan.unmapped().items():
         header = f"[attributes.{list_name}]"
         row = _unmapped_suggestion(list_name, attribute)

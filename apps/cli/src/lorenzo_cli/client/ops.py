@@ -20,6 +20,8 @@ from lorenzo_cli.client.models import (
     InformationCreate,
     InformationOut,
     ItemCreate,
+    ItemInstanceCreate,
+    ItemInstanceOut,
     ItemOut,
     LinearFormulaBodyInput,
     PageStatDefinitionOut,
@@ -136,6 +138,13 @@ CREATE_INFORMATION: Op[InformationOut] = Op(
     request_type=InformationCreate,
     response_type=InformationOut,
 )
+CREATE_ITEM_INSTANCE: Op[ItemInstanceOut] = Op(
+    "create_item_instance",
+    "POST",
+    f"{_TENANT}/item-instances",
+    request_type=ItemInstanceCreate,
+    response_type=ItemInstanceOut,
+)
 REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
     "replace_item_prototypes",
     "PUT",
@@ -161,4 +170,5 @@ ALL_OPS: tuple[Op[Any], ...] = (
     SET_ENTITY_STAT,
     CREATE_INFORMATION,
     REPLACE_ITEM_PROTOTYPES,
+    CREATE_ITEM_INSTANCE,
 )

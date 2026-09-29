@@ -96,7 +96,8 @@ def print_seed_plan(console: Console, plan: SeedPlan, *, applied: bool = False) 
 
 def import_exit_code(plan: ImportPlan, *, strict: bool, reconcile: bool) -> int:
     """0 nothing to do, 2 changes pending, 1 something unresolved (RFC 0025 R6)."""
-    if plan.problems or plan.held or plan.file_errors or (strict and plan.unmapped()):
+    unexplained = plan.unmapped() or plan.pack_unresolved()
+    if plan.problems or plan.held or plan.file_errors or (strict and unexplained):
         return 1
     if plan.pending or (reconcile and plan.reparent_count):
         return 2
@@ -132,6 +133,14 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
         console.print(
             f"{override['list']} {override['key']!r}: {override['by_file']} replaces "
             f"{override['replaced_file']}"
+        )
+    unlinked = plan.pack_unresolved()
+    if unlinked:
+        style = "red" if strict else "yellow"
+        console.print(
+            f"[{style}]In a pack but not a catalog item here (plain text in its contents): "
+            + ", ".join(sorted({f"{m.name} ({i.draft.key})" for i, m in unlinked}))
+            + f"[/{style}]"
         )
     unmapped = plan.unmapped()
     if unmapped:
