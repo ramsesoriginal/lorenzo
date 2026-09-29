@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from lorenzo_cli.evalworker import STANDARD_LISTS, EvalResult
+from lorenzo_cli.seed import SeedPlan
 
 
 def print_evaluation(console: Console, result: EvalResult) -> None:
@@ -43,3 +44,50 @@ def print_evaluation(console: Console, result: EvalResult) -> None:
             "are unknown; the first is "
             f"{result.stubs_in_data[0].path}.[/yellow]"
         )
+
+
+def seed_plan_json(plan: SeedPlan) -> dict[str, object]:
+    """The plan as plain data for `--json`: what a script would chain on."""
+    return {
+        "tenant": {
+            "id": str(plan.tenant.id),
+            "slug": plan.tenant.slug,
+            "kind": plan.tenant.kind.value,
+            "published": plan.tenant.published_at is not None,
+        },
+        "seed_version": plan.spec_version,
+        "layers": list(plan.layers),
+        "existing": plan.existing,
+        "actions": [
+            {"kind": a.kind, "name": a.name, "layer": a.layer, "detail": a.detail}
+            for a in plan.actions
+        ],
+        "problems": plan.problems,
+        "warnings": plan.warnings,
+    }
+
+
+def print_seed_plan(console: Console, plan: SeedPlan, *, applied: bool = False) -> None:
+    tenant = plan.tenant
+    published = " (published: subscribers will see these changes)" if tenant.published_at else ""
+    console.print(
+        f"Tenant [bold]{tenant.slug}[/bold], a {tenant.kind.value} tenant{published}. "
+        f"Layers: {', '.join(plan.layers)}. Seed version {plan.spec_version}."
+    )
+    if plan.actions:
+        table = Table(
+            "what",
+            "name",
+            "layer",
+            "",
+            title="Done" if applied else "To create",
+            title_justify="left",
+        )
+        for action in plan.actions:
+            table.add_row(action.kind, action.name, action.layer, action.detail)
+        console.print(table)
+    console.print(f"Already there: {plan.existing}. To create: {len(plan.actions)}.")
+    for warning in plan.warnings:
+        console.print(f"[yellow]{warning}[/yellow]")
+    for problem in plan.problems:
+        console.print(f"[red]{problem}[/red]")

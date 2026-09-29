@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import types
 from pathlib import Path
 from typing import Any, get_args, get_origin
 
@@ -47,6 +48,9 @@ def _ref_name(schema_part: dict[str, Any] | None) -> str | None:
     if schema_part.get("type") == "array":
         inner = _ref_name(schema_part.get("items"))
         return f"list[{inner}]"
+    if "anyOf" in schema_part:
+        parts = (_ref_name(part) for part in schema_part["anyOf"])
+        return "|".join(sorted(part for part in parts if part))
     return None
 
 
@@ -55,6 +59,8 @@ def _expected_name(response_type: Any) -> str | None:
         return None
     if get_origin(response_type) is list:
         return f"list[{_normal(get_args(response_type)[0].__name__)}]"
+    if get_origin(response_type) is types.UnionType:
+        return "|".join(sorted(_normal(arg.__name__) for arg in get_args(response_type)))
     return _normal(response_type.__name__)
 
 
@@ -75,7 +81,7 @@ def test_op_matches_the_schema(op: Op[Any], schema: dict[str, Any]) -> None:
     else:
         assert body is not None
         actual = _ref_name(body["content"]["application/json"]["schema"])
-        assert actual == _normal(op.request_type.__name__)
+        assert actual == _expected_name(op.request_type)
 
     success = next(code for code in operation["responses"] if code.startswith("2"))
     content = operation["responses"][success].get("content", {})
