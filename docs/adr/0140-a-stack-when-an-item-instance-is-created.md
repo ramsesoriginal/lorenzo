@@ -21,6 +21,6 @@ RFC 0025 R7 puts a pack's contents in its description, and a client that hands t
 
 ## Consequences
 
-- Additive and optional: no migration, and a caller that doesn't send it gets what it always did.
+- Additive and optional on the wire: no migration, and a caller that doesn't send it gets what it always did. The generated TypeScript types (`openapi-typescript`) make a field that has a default *required*, though, so the code in loot-bot and inventory-web that builds this body now sends `quantity: 1`, as it already sends `override: false`. That change ships with this one.
 - Making a stack is one write, so it is atomic. A client that hands out a pack no longer needs a merge pass afterwards.
 - One instance holding a quantity has one slug at most, and that slug names the whole stack; that is what a stack already is (ADR 0041).
