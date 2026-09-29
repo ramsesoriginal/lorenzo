@@ -31,7 +31,51 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo inspect [--base FILE...] FILE...` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login |
 | `lorenzo seed --tenant <tenant>` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first |
 
-`plan` and `apply` arrive with the later slices of RFC 0025.
+| `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
+| `lorenzo apply --tenant <tenant> FILES... --yes` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended |
+
+Pack contents (the items inside an Explorer's pack) arrive with the last slice of RFC 0025.
+
+## Importing MPMB items
+
+The order is: seed the tenant once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)).
+
+```bash
+uv run lorenzo seed --tenant my-repository --yes
+
+# The sheet's own SRD items (its data files are GPL-3.0 and are not shipped; clone the repository):
+S=/tmp/mpmb/_variables
+uv run lorenzo plan  --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js
+uv run lorenzo apply --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js --yes
+
+# Homebrew on top of it (a later file wins), with your own map:
+uv run lorenzo apply --tenant my-repository --base $S/ListsSources.js --base $S/Lists.js \
+  --base $S/ListsGear.js --map my.map.toml my-homebrew.js --yes
+```
+
+An item's identity is its slug, `<namespace>-<list>-<key>` (`basic-weapons-longsword`), so a second run finds what the first made. The namespace comes from the map, per input file (`[namespaces]`, default `basic`); it is a commitment, since a rename doesn't rewrite `[[links]]`.
+
+**What is decided by data, not code.** `src/lorenzo_cli/importer/builtin_map.toml` says what each MPMB value means (a `Martial` weapon is `dnd5e-martial`; `Natural`, `Cantrip` and `Spell` aren't items; an `ammunition` gear entry is ammunition), and your map, in the same format, overlays it row by row:
+
+```toml
+schema = 1
+
+[namespaces]
+"my-homebrew.js" = "hb-alice"
+
+[currencies]
+mark = 250                       # 3 marks is 750 copper
+
+[classify.weapons.type]
+exotic = { disposition = "create-under", axis = "proficiency", slug = "hb-exotic", name = "Exotic weapon" }
+
+[attributes.weapons]
+flavour = { transform = "text", stat = "flavour_text", group = "lore" }   # creates the stat
+```
+
+**What it won't guess.** A value with no row (a weapon `type` of `Exotic`), a price it can't read, or a weapon that is neither melee nor ranged holds that item back, and everything held is written to `review-queue.json` with a row to paste, and to `proposed.map.toml`. Your map file is never edited. `--teach`, at a terminal, asks about each unknown value once, uses the answer straight away, and offers to append the rows to your map afterwards. Attributes no rule mentions are listed and don't block an item; under `--strict` they count as unresolved.
+
+Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--allow-play-tenant`, as for `seed`.
 
 ## Seeding a tenant
 

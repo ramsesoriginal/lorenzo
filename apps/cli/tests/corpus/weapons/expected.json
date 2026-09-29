@@ -188,6 +188,7 @@
       "T:W": "weapons.js"
     }
   },
+  "overrides": [],
   "stubs": [],
   "stubs_in_data": []
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tomllib
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -28,7 +29,20 @@ from lorenzo_cli.client.errors import (
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.config import ConfigError, Settings, load_settings
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
-from lorenzo_cli.report import print_evaluation, print_seed_plan, seed_plan_json
+from lorenzo_cli.importer.apply import ApplyOptions, apply_import
+from lorenzo_cli.importer.manifest import Manifest
+from lorenzo_cli.importer.mapping import MappingError
+from lorenzo_cli.importer.plan import ImportPlan, Options
+from lorenzo_cli.importer.review import plan_json, proposed_map, write_review_queue
+from lorenzo_cli.importer.run import prepare
+from lorenzo_cli.importer.teach import ask, rows_toml, unknown_values
+from lorenzo_cli.report import (
+    import_exit_code,
+    print_evaluation,
+    print_import_plan,
+    print_seed_plan,
+    seed_plan_json,
+)
 from lorenzo_cli.seed import LAYERS, apply_plan, load_builtin, make_plan, read_state
 from lorenzo_cli.tenants import (
     TenantNotFoundError,
@@ -58,10 +72,18 @@ class Runtime:
     stdin: TextIO
     store: CredentialsFile
     transport: httpx.BaseTransport | None = None
+    # Whether someone can be asked; None means: whether stdin is a terminal.
+    interactive_override: bool | None = None
     # Evaluates MPMB files; the worker subprocess unless a test hands in another.
     engine: Engine = field(default_factory=WorkerEngine)
     api_url: str | None = None
     token_stdin: bool = False
+
+    @property
+    def interactive(self) -> bool:
+        if self.interactive_override is not None:
+            return self.interactive_override
+        return self.stdin.isatty()
 
     @property
     def settings(self) -> Settings:
@@ -107,6 +129,7 @@ def _reporting_errors() -> Iterator[None]:
         NotLoggedInError,
         LoginError,
         EvalError,
+        MappingError,
         WrongTenantKindError,
         TenantNotFoundError,
         LorenzoConnectionError,
@@ -278,7 +301,7 @@ def seed(
         if not plan.actions:
             return
         if not yes:
-            if not runtime.stdin.isatty():
+            if not runtime.interactive:
                 _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
                 raise typer.Exit(1)
             if not typer.confirm("Create these?"):
@@ -288,3 +311,276 @@ def seed(
         _out.print(
             f"Created {len(plan.actions)}. Run it again to check: it should find nothing to do."
         )
+
+
+TenantOption = Annotated[
+    str,
+    typer.Option(
+        "--tenant", "-t", envvar="LORENZO_TENANT", help="The repository tenant's id or slug."
+    ),
+]
+FilesArgument = Annotated[
+    list[Path] | None,
+    typer.Argument(
+        exists=True,
+        dir_okay=False,
+        help="MPMB .js files, in order: a later one wins. None is fine with --base.",
+    ),
+]
+BaseOption = Annotated[
+    list[Path] | None,
+    typer.Option(
+        "--base",
+        exists=True,
+        dir_okay=False,
+        help="The sheet's own data (Lists*.js), evaluated first; the lists start from it.",
+    ),
+]
+MapOption = Annotated[
+    Path | None,
+    typer.Option("--map", "-m", exists=True, dir_okay=False, help="Your mapping file."),
+]
+StrictOption = Annotated[
+    bool,
+    typer.Option("--strict", help="Never ask; treat attributes no rule mentions as unresolved."),
+]
+AllowPlayOption = Annotated[
+    bool,
+    typer.Option(
+        "--allow-play-tenant", help="Write to a play tenant, whose content can't be published."
+    ),
+]
+StateOption = Annotated[
+    Path | None, typer.Option("--state", help="The run manifest (default: under XDG_STATE_HOME).")
+]
+ReviewOption = Annotated[
+    Path, typer.Option("--review-queue", help="Where to write what needs a decision.")
+]
+ProposedOption = Annotated[
+    Path, typer.Option("--proposed-map", help="Where to write map rows to consider.")
+]
+
+
+TeachOption = Annotated[
+    bool,
+    typer.Option(
+        "--teach",
+        help="At a terminal, ask about each value the map doesn't know, once, and use the answer.",
+    ),
+]
+
+
+@dataclass(frozen=True)
+class ImportArgs:
+    """What `plan` and `apply` share."""
+
+    tenant: str
+    files: list[Path] | None
+    base: list[Path] | None
+    map_file: Path | None
+    allow_play_tenant: bool
+    options: Options
+    state: Path | None
+    teach: bool
+
+
+def _write_review_files(plan: ImportPlan, review: Path, proposed: Path) -> None:
+    written = write_review_queue(review, plan) if (plan.held or plan.unmapped()) else 0
+    if written:
+        proposed.write_text(proposed_map(plan), encoding="utf-8")
+        _err.print(f"{written} thing(s) need a decision: see {review} and {proposed}.")
+
+
+def _prepare_plan(
+    runtime: Runtime, client: LorenzoClient, args: ImportArgs
+) -> tuple[ImportPlan, Manifest, dict[tuple[str, str], list[str]]]:
+    """Plan, asking about unknown values first when asked to and someone is there to answer."""
+    inputs = _inputs(args.files, args.base)
+    map_text = args.map_file.read_text(encoding="utf-8") if args.map_file else None
+    taught: dict[tuple[str, str], list[str]] = {}
+    asked: set[tuple[str, str, str]] = set()
+    while True:
+        plan, manifest = prepare(
+            client,
+            runtime.engine,
+            runtime.env,
+            tenant_ref=args.tenant,
+            files=inputs,
+            base=args.base or [],
+            map_text=map_text,
+            taught=rows_toml(taught),
+            allow_play_tenant=args.allow_play_tenant,
+            options=args.options,
+            state_path=args.state,
+        )
+        if not (args.teach and runtime.interactive):
+            return plan, manifest, taught
+        fresh = [u for u in unknown_values(plan) if (u.list_name, u.attribute, u.key) not in asked]
+        answered = False
+        for unknown in fresh:
+            asked.add((unknown.list_name, unknown.attribute, unknown.key))
+            row = ask(
+                unknown,
+                plan.loaded.mapping,
+                lambda text, default: typer.prompt(
+                    text, default=default, show_default=bool(default)
+                ),
+                _out.print,
+            )
+            if row is not None:
+                taught.setdefault((unknown.list_name, unknown.attribute), []).append(row)
+                answered = True
+        if not answered:
+            return plan, manifest, taught
+
+
+def _save_taught(
+    runtime: Runtime,
+    taught: dict[tuple[str, str], list[str]],
+    map_file: Path | None,
+    proposed: Path,
+) -> None:
+    """Keep what was answered: always as a snippet, and, if asked, appended to the map."""
+    if not taught:
+        return
+    text = rows_toml(taught)
+    proposed.write_text(text, encoding="utf-8")
+    _out.print(f"The rows you chose are in {proposed}.")
+    if map_file is None or not runtime.interactive:
+        return
+    if not typer.confirm(f"Append them to {map_file}?"):
+        return
+    combined = map_file.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + text
+    try:
+        tomllib.loads(combined)
+    except tomllib.TOMLDecodeError:
+        _err.print(
+            f"[yellow]Not appended: {map_file} already has one of those tables, so the result "
+            f"wouldn't be valid TOML. Paste the rows from {proposed} under it.[/yellow]"
+        )
+        return
+    map_file.write_text(combined, encoding="utf-8")
+    _out.print(f"Appended to {map_file}.")
+
+
+@app.command()
+def plan(
+    ctx: typer.Context,
+    tenant: TenantOption,
+    files: FilesArgument = None,
+    base: BaseOption = None,
+    map_file: MapOption = None,
+    strict: StrictOption = False,
+    allow_play_tenant: AllowPlayOption = False,
+    accept_moves: Annotated[
+        bool, typer.Option("--accept-moves", help="Create items whose namespace changed.")
+    ] = False,
+    reconcile: Annotated[
+        bool, typer.Option("--reconcile", help="Count changed parents as pending changes.")
+    ] = False,
+    teach: TeachOption = False,
+    state: StateOption = None,
+    review_queue: ReviewOption = Path("review-queue.json"),
+    proposed_map_file: ProposedOption = Path("proposed.map.toml"),
+    as_json: Annotated[bool, typer.Option("--json", help="Print the plan as JSON.")] = False,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write the plan JSON.")
+    ] = None,
+) -> None:
+    """Work out what importing these files would do, and change nothing.
+
+    Exit codes: 0 nothing to do, 2 changes pending, 1 something unresolved.
+    """
+    runtime: Runtime = ctx.obj
+    args = ImportArgs(
+        tenant, files, base, map_file, allow_play_tenant,
+        Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
+    )  # fmt: skip
+    with _reporting_errors(), _client(runtime) as client:
+        result, _, taught = _prepare_plan(runtime, client, args)
+    document = json.dumps(plan_json(result), indent=2, ensure_ascii=False)
+    if output is not None:
+        output.write_text(document + "\n", encoding="utf-8")
+    if as_json:
+        typer.echo(document)
+    else:
+        print_import_plan(_out, result, strict=strict)
+    _write_review_files(result, review_queue, proposed_map_file)
+    _save_taught(runtime, taught, None, proposed_map_file)
+    raise typer.Exit(import_exit_code(result, strict=strict, reconcile=reconcile))
+
+
+@app.command()
+def apply(
+    ctx: typer.Context,
+    tenant: TenantOption,
+    files: FilesArgument = None,
+    base: BaseOption = None,
+    map_file: MapOption = None,
+    strict: StrictOption = False,
+    allow_play_tenant: AllowPlayOption = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")] = False,
+    accept_moves: Annotated[
+        bool, typer.Option("--accept-moves", help="Create items whose namespace changed.")
+    ] = False,
+    reconcile: Annotated[
+        bool, typer.Option("--reconcile", help="Also re-parent items the map now files elsewhere.")
+    ] = False,
+    public_catalog: Annotated[
+        bool, typer.Option("--public-catalog", help="Let players list the imported items too.")
+    ] = False,
+    teach: TeachOption = False,
+    state: StateOption = None,
+    review_queue: ReviewOption = Path("review-queue.json"),
+    proposed_map_file: ProposedOption = Path("proposed.map.toml"),
+) -> None:
+    """Import these files: what the plan says, and nothing it holds back for review.
+
+    Safe to run again, and unattended with --yes. Exit codes: 0 done, 1 something was left
+    unresolved or failed.
+    """
+    runtime: Runtime = ctx.obj
+    args = ImportArgs(
+        tenant, files, base, map_file, allow_play_tenant,
+        Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
+    )  # fmt: skip
+    with _reporting_errors(), _client(runtime) as client:
+        result, manifest, taught = _prepare_plan(runtime, client, args)
+        print_import_plan(_out, result, strict=strict)
+        _write_review_files(result, review_queue, proposed_map_file)
+        if result.problems:
+            raise typer.Exit(1)
+        unresolved = import_exit_code(result, strict=strict, reconcile=False) == 1
+        if not result.pending and not (reconcile and result.reparent_count):
+            raise typer.Exit(1 if unresolved else 0)
+        if not yes:
+            if not runtime.interactive:
+                _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
+                raise typer.Exit(1)
+            if not typer.confirm("Import these?"):
+                raise typer.Exit(1)
+        report = apply_import(
+            client,
+            result,
+            manifest,
+            ApplyOptions(reconcile=reconcile, public_catalog=public_catalog),
+            progress=lambda line: _err.print(line, highlight=False, style="dim"),
+        )
+        manifest.save()
+    _out.print(
+        f"Created {report.created}, finished {report.completed}, re-parented {report.reparented}; "
+        f"{report.categories} new categories, {report.definitions} new stat definitions."
+    )
+    for failure in report.failures:
+        _err.print(f"[red]{failure}[/red]")
+    if not report.failures:
+        _save_taught(runtime, taught, map_file, proposed_map_file)
+    raise typer.Exit(1 if (unresolved or report.failures) else 0)
+
+
+def _inputs(files: list[Path] | None, base: list[Path] | None) -> list[Path]:
+    if not files and not base:
+        raise typer.BadParameter(
+            "Give some .js files to import, or --base files (the sheet's own)."
+        )
+    return files or []

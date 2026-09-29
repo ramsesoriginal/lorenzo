@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from lorenzo_cli.evalworker import STANDARD_LISTS, EvalResult
+from lorenzo_cli.importer.plan import ImportPlan
 from lorenzo_cli.seed import SeedPlan
 
 
@@ -91,3 +92,62 @@ def print_seed_plan(console: Console, plan: SeedPlan, *, applied: bool = False) 
         console.print(f"[yellow]{warning}[/yellow]")
     for problem in plan.problems:
         console.print(f"[red]{problem}[/red]")
+
+
+def import_exit_code(plan: ImportPlan, *, strict: bool, reconcile: bool) -> int:
+    """0 nothing to do, 2 changes pending, 1 something unresolved (RFC 0025 R6)."""
+    if plan.problems or plan.held or plan.file_errors or (strict and plan.unmapped()):
+        return 1
+    if plan.pending or (reconcile and plan.reparent_count):
+        return 2
+    return 0
+
+
+def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> None:
+    tenant = plan.tenant
+    published = " (published: subscribers will see these changes)" if tenant.published_at else ""
+    console.print(
+        f"Tenant [bold]{tenant.slug}[/bold], a {tenant.kind.value} tenant{published}. "
+        f"Map: built-in {plan.loaded.builtin_version}"
+        f"{', project ' + plan.loaded.user_map_sha256[:8] if plan.loaded.user_map_sha256 else ''}."
+    )
+    table = Table("what", "items", title="Plan", title_justify="left")
+    for label, count in (
+        ("to create", plan.count("create")),
+        ("to finish (created, not complete)", plan.count("complete")),
+        ("already there", plan.count("exists")),
+        ("held for review", plan.count("held")),
+        ("moved to another namespace", plan.count("moved")),
+        ("not items (skipped)", plan.count("skipped")),
+        ("would change parents (with --reconcile)", plan.reparent_count),
+        ("new categories", len(plan.categories)),
+        ("new stat definitions", len(plan.definitions)),
+    ):
+        if count:
+            table.add_row(label, str(count))
+    console.print(table)
+    for line in plan.file_errors:
+        console.print(f"[red]A file stopped part-way: {line}[/red]")
+    for override in plan.overrides:
+        console.print(
+            f"{override['list']} {override['key']!r}: {override['by_file']} replaces "
+            f"{override['replaced_file']}"
+        )
+    unmapped = plan.unmapped()
+    if unmapped:
+        style = "red" if strict else "yellow"
+        console.print(
+            f"[{style}]Attributes no rule mentions: "
+            + ", ".join(f"{a} ({lst}, {n})" for (lst, a), n in unmapped.items())
+            + f"[/{style}]"
+        )
+    for problem in plan.problems:
+        console.print(f"[red]{problem}[/red]")
+    held: dict[tuple[str, str, str], int] = {}
+    for item in plan.items:
+        if item.status == "held":
+            for issue in item.draft.issues:
+                held_key = (item.draft.list_name, issue.attribute or issue.kind, issue.reason)
+                held[held_key] = held.get(held_key, 0) + 1
+    for (list_name, attribute, reason), count in sorted(held.items()):
+        console.print(f"[red]{count} x {list_name}.{attribute}: {reason}[/red]")

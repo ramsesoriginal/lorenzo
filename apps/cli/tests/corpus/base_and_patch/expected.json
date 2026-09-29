@@ -105,6 +105,14 @@
       "P": "base.js"
     }
   },
+  "overrides": [
+    [
+      "WeaponsList",
+      "dagger",
+      "base.js",
+      "homebrew.js"
+    ]
+  ],
   "stubs": [],
   "stubs_in_data": []
 }
