@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lorenzo_cli.importer.mapping import Mapping, Row
+from lorenzo_cli.importer.packs import PackLine, Unresolved
 from lorenzo_cli.importer.transforms import Context, Effect, Issue, StatValue, apply_rule
 from lorenzo_cli.seed import SeedSpec
 
@@ -47,6 +48,13 @@ class ItemDraft:
     skip_reason: str | None = None
     uncategorised: bool = False
     pack_items: list[Any] | None = None
+    # How many units the entry stands for (a coil of 50 feet of rope), or 1: a pack counts in units.
+    bundle: int = 1
+    # Every name the item goes by (a pack's contents are found by them).
+    names: list[str] = field(default_factory=list)
+    # A pack's contents once linked, and the entries nothing could be linked to.
+    pack_lines: list[PackLine] = field(default_factory=list)
+    pack_unresolved: list[Unresolved] = field(default_factory=list)
 
 
 class Ancestry:
@@ -164,6 +172,16 @@ def draft_item(
 
     if draft.name is None and not any(i.kind == "name" for i in draft.issues):
         draft.issues.append(Issue("name", "name", "", "the entry has no name to give the item"))
+    amount = entry.get("amount")
+    if isinstance(amount, int) and not isinstance(amount, bool) and amount > 1:
+        draft.bundle = amount
+    draft.names = sorted(
+        {
+            n
+            for n in (entry.get("name"), entry.get("invName"), draft.name)
+            if isinstance(n, str) and n.strip()
+        }
+    )
 
     classified, replace_form, explicit_reach = _classify(list_name, entry, mapping, draft)
     parents |= classified

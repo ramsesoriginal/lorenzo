@@ -17,7 +17,15 @@ from lorenzo_cli.evalworker import EvalResult
 from lorenzo_cli.importer import tenant_view
 from lorenzo_cli.importer.draft import Ancestry, ItemDraft, NewCategory, draft_item
 from lorenzo_cli.importer.manifest import Manifest
-from lorenzo_cli.importer.mapping import LoadedMapping
+from lorenzo_cli.importer.mapping import LoadedMapping, Mapping
+from lorenzo_cli.importer.packs import (
+    NameIndex,
+    Target,
+    Unresolved,
+    parse_entries,
+    render,
+    resolve,
+)
 from lorenzo_cli.importer.slugs import LIST_TOKENS, assign_slugs
 from lorenzo_cli.seed import SeedSpec
 
@@ -80,6 +88,15 @@ class ImportPlan:
             if item.status != "skipped":
                 counts.update((item.draft.list_name, a) for a in item.draft.unmapped)
         return dict(sorted(counts.items()))
+
+    def pack_unresolved(self) -> list[tuple[PlannedItem, Unresolved]]:
+        """Entries of a pack that nothing could be linked to: reported, never guessed at."""
+        return [
+            (i, u)
+            for i in self.items
+            if i.status not in ("skipped", "held")
+            for u in i.draft.pack_unresolved
+        ]
 
     @property
     def pending(self) -> bool:
@@ -154,6 +171,7 @@ def build_plan(
     slugs, found = _final_slugs(client, tenant.id, [p.draft for p in live])
     for item in live:
         item.slug = slugs[(item.draft.list_name, item.draft.key)]
+    _attach_pack_contents(live, loaded.mapping)
 
     categories: dict[str, NewCategory] = {}
     for item in live:
@@ -256,5 +274,27 @@ def _decide(
     wanted = {parent_ids[p] for p in draft.parents if p in parent_ids}
     if {p.id for p in detail.prototypes} != wanted and len(wanted) == len(draft.parents):
         item.reparent = True
-    incomplete = MARKER_STAT in draft.stats and MARKER_STAT not in item.have_stats
+    incomplete = (MARKER_STAT in draft.stats and MARKER_STAT not in item.have_stats) or (
+        bool(draft.pack_lines) and not item.has_description
+    )
     item.status = "complete" if incomplete else "exists"
+
+
+def _attach_pack_contents(live: list[PlannedItem], mapping: Mapping) -> None:
+    """Link each pack's entries to the items of the run. Slugs are final by now, so a link is to
+    where the item will be, whether or not it has been created yet."""
+    index = NameIndex()
+    for item in live:
+        draft = item.draft
+        if draft.list_name != "packs":
+            target = Target(item.slug, draft.name or draft.key, draft.bundle)
+            index.add(draft.list_name, draft.key, target, draft.names)
+    for item in live:
+        draft = item.draft
+        if draft.list_name == "packs" and draft.pack_items is not None:
+            contents = resolve(parse_entries(draft.pack_items), index, mapping)
+            draft.pack_lines = contents.lines
+            draft.pack_unresolved = contents.unresolved
+            draft.notes.extend(contents.notes)
+            if contents.lines:
+                draft.description = render(contents.lines)
