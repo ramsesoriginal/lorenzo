@@ -40,7 +40,7 @@ The built-in map answers the SRD's own gaps: five plurals and wordings of real g
 
 **Quantities are converted to the item's own unit.** A pack counts in units of its name (`["Hempen rope, feet of", 50, …]` is 50 feet); the item is a coil of 50 feet. Taken literally that is 50 coils. The count is divided by the item's bundle size (50 feet → 1 coil), rounded up and noted when it doesn't divide, and the line is labelled with the item's own name so the number reads correctly.
 
-An entry nothing could be linked to does **not** hold the pack back. It is listed in the plan (`pack.plain_text`), in `review-queue.json` (kind `pack`, with the row to add), and in `proposed.map.toml`, and under `--strict` it makes the exit code `1`.
+An entry nothing could be linked to does **not** hold the pack back. It is listed in the plan (`pack.unresolved`), in `review-queue.json` (kind `pack`, with the row to add), and in `proposed.map.toml`, and under `--strict` it makes the exit code `1`.
 
 ### When it is written
 
