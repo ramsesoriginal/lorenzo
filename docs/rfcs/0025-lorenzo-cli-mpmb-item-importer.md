@@ -311,4 +311,6 @@ Moved from `proposed` to `accepted`, decided with the maintainer on 2026-09-29. 
 5. **The taxonomy and stat seed** (R3, R8, R9). Built: [ADR 0143](../adr/0143-lorenzo-seed-taxonomy-and-stats.md).
 6. **Packs** (R7). Built: [ADR 0145](../adr/0145-pack-contents-in-the-description.md).
 
+After the six slices, two follow-ups were built the same way: [ADR 0146](../adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md) (a richer taxonomy: weapon families and properties as prototypes, kinds of gear; what the sheet says beyond that is kept as information and stats instead of dropped; a pack entry that is not an item becomes a plain item, superseding R7's "plain-text line") and [ADR 0147](../adr/0147-lorenzo-tenant-create.md) (`lorenzo tenant create`, so a repository needs no raw `POST /tenants`; the importer still never creates its own target, R3).
+
 An ADR number was claimed for a slice when its work started, as [AGENTS.md](../../AGENTS.md) describes. Building it against the sheet's real data confirmed the design and refined it in places, all recorded in those ADRs (for example: evaluation needs the sheet's base data first, a pack counts in the units of its name, and stat-group acquisition needed a fourth `apps/api` addition).

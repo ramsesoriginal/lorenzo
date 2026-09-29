@@ -4,6 +4,17 @@ The `lorenzo` command-line tool. Its first feature is the MPMB standard-item imp
 
 Python 3.14, run and tested on Linux (WSL included). Native Windows is not a supported target.
 
+## Install it
+
+On Linux or macOS (WSL included), with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"
+lorenzo --help
+```
+
+That installs the `lorenzo` command from this repository's `main` branch, into its own environment. It isn't on PyPI: it only works against a Lorenzo `apps/api`, and its client is generated from that API's schema, so the two move together. Put `@<tag>` (or `@<commit>`) before the `#` to pin a version, and update with `uv tool upgrade lorenzo-cli`. To run it from a checkout of the repository instead, see below.
+
 ## Run it
 
 ```bash
