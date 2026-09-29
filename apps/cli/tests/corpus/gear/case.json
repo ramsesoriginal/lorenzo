@@ -1,0 +1,5 @@
+{
+  "about": "Armour (numeric and formula AC), gear, tools, ammunition and packs: prices only inside display strings, an ', with:' pack, and mixed string/RegExp alternatives.",
+  "base": [],
+  "files": ["armour.js", "gear.js"]
+}

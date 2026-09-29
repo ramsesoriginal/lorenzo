@@ -1,0 +1,87 @@
+{
+  "ok": true,
+  "restarts": 3,
+  "files": [
+    [
+      "uses_sheet.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {
+      "plain": {
+        "name": "Plain",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Simple",
+        "list": "melee",
+        "weight": 2,
+        "unknown": {
+          "$stub": "What"
+        },
+        "fromChain": {
+          "$stub": "Value"
+        }
+      },
+      "later": {
+        "name": "Later",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Simple",
+        "list": "melee",
+        "weight": 1
+      }
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "origins": {
+    "WeaponsList": {
+      "plain": "uses_sheet.js",
+      "later": "uses_sheet.js"
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "overrides": [],
+  "stubs": [
+    [
+      "Value",
+      2,
+      "uses_sheet.js"
+    ],
+    [
+      "What",
+      2,
+      "uses_sheet.js"
+    ],
+    [
+      "tDoc",
+      0,
+      ""
+    ]
+  ],
+  "stubs_in_data": [
+    [
+      "WeaponsList.plain.unknown",
+      "What"
+    ],
+    [
+      "WeaponsList.plain.fromChain",
+      "Value"
+    ]
+  ]
+}

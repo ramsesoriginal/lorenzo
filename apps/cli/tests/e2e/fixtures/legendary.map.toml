@@ -1,0 +1,8 @@
+schema = 1
+
+# Homebrew "Legendary" weapons: a proficiency category of their own, under D&D's weapon axis.
+[classify.weapons.type]
+legendary = { disposition = "create-under", axis = "proficiency", slug = "hb-legendary", name = "Legendary weapon" }
+
+[attributes.weapons]
+flavour = "drop"

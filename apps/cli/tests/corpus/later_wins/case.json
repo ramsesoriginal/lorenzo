@@ -1,0 +1,5 @@
+{
+  "about": "Two content files define the same key: the later one wins, as in the sheet, and is the entry's origin.",
+  "base": [],
+  "files": ["a.js", "b.js"]
+}

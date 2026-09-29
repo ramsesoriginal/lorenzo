@@ -2346,3 +2346,101 @@ async def test_bulk_move_404_for_unknown_source_container(
 
     assert response.status_code == 404
     await delete_tenant(tenant_id)
+
+
+async def test_create_item_instance_as_a_stack_in_a_container(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0140: "5 x Rations" is one create - the Containment row holds the quantity."""
+    tenant_id = await make_tenant(test_user_id)
+    rations_id = await _make_item(tenant_id, "Rations")
+    async with admin_session_factory() as session:
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        session.add(backpack)
+        await session.commit()
+        backpack_id = backpack.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={
+            "prototype_id": str(rations_id),
+            "container_entity_id": str(backpack_id),
+            "quantity": 5,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["quantity"] == 5
+    assert body["container_entity_id"] == str(backpack_id)
+    async with admin_session_factory() as session:
+        row = await session.get(Containment, uuid.UUID(body["entity_id"]))
+        assert row is not None
+        assert row.quantity == 5
+    await delete_tenant(tenant_id)
+
+
+async def test_a_new_item_instance_is_one_of_them_by_default(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    rations_id = await _make_item(tenant_id, "Rations")
+    async with admin_session_factory() as session:
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        session.add(backpack)
+        await session.commit()
+        backpack_id = backpack.id
+
+    response = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(rations_id), "container_entity_id": str(backpack_id)},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["quantity"] == 1
+    await delete_tenant(tenant_id)
+
+
+async def test_a_stack_needs_a_container_to_be_held_in(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    rations_id = await _make_item(tenant_id, "Rations")
+
+    stack = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(rations_id), "quantity": 5},
+    )
+    single = await client.post(
+        f"/tenants/{tenant_id}/item-instances",
+        json={"prototype_id": str(rations_id), "quantity": 1},
+    )
+
+    assert stack.status_code == 422
+    assert "container_entity_id" in stack.text
+    assert single.status_code == 201
+    await delete_tenant(tenant_id)
+
+
+async def test_the_quantity_of_an_item_instance_is_at_least_one(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    rations_id = await _make_item(tenant_id, "Rations")
+    async with admin_session_factory() as session:
+        backpack = Entity(tenant_id=tenant_id, name="Backpack")
+        session.add(backpack)
+        await session.commit()
+        backpack_id = backpack.id
+
+    for quantity in (0, -3):
+        response = await client.post(
+            f"/tenants/{tenant_id}/item-instances",
+            json={
+                "prototype_id": str(rations_id),
+                "container_entity_id": str(backpack_id),
+                "quantity": quantity,
+            },
+        )
+        assert response.status_code == 422
+    await delete_tenant(tenant_id)

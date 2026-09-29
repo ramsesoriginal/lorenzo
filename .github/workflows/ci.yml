@@ -70,6 +70,9 @@ jobs:
       - run: mise run test
         working-directory: ${{ matrix.app }}
         env:
+          # apps/cli's end-to-end tests start the real API on this job's Postgres; if that
+          # can't work here it must fail, not skip (ADR 0143). Ignored by the other apps.
+          LORENZO_REQUIRE_E2E: "1"
           # DATABASE_URL: what the app/tests connect as - a restricted role
           # RLS actually applies to (ADR 0021). MIGRATIONS_DATABASE_URL:
           # what Alembic connects as - stays privileged, since it's what
@@ -159,6 +162,9 @@ jobs:
       - run: corepack enable
       - run: mise run check-schema
         working-directory: packages/api-client
+      # The Python CLI's generated models and its operations table (ADR 0137).
+      - run: mise run check-schema
+        working-directory: apps/cli
 
   # inventory-web's end-to-end tests (ADR 0114): the built site in a browser, against the real
   # apps/api and a fake Authgear. Its own job rather than a `test` matrix entry, since it needs

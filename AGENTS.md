@@ -16,6 +16,7 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 | `apps/loot-bot` | Discord bot — talks to `apps/api`; account linking, inventory, loot-splitting, GM drops/claims |
 | `apps/inventory-web` | Static Astro frontend — GM item catalog/instance management, kanban-style container board, LorenzoScript descriptions, tag, information and slug editing, players' notes, handing items over, a public catalog for players; end-to-end tests against the real API (`mise run //apps/inventory-web:test-e2e`, ADR 0114) |
 | `apps/account-hub` | Static Astro frontend — a user's own account: profile, notifications, tenant/campaign roster and admin |
+| `apps/cli` | The `lorenzo` command line (Python) - talks to `apps/api`; the MPMB standard-item importer of RFC 0025 is its first feature, built slice by slice (ADR 0137) |
 | `apps/*` (further) | One directory per deployable app, named by purpose (not type) — next one not yet started |
 | `packages/*` | Extracted generic libraries, each its own small, independently versioned package — `packages/api-client` (the typed `apps/api` client loot-bot and inventory-web share, ADR 0122), `packages/brand` (shared brand CSS, ADR 0098), `packages/lorenzoscript` (the LorenzoScript Markdown parser/renderer, RFC 0027), and `packages/lorenzoscript-editor` (its textarea editor) so far |
 | `docs/adr` | Why things are the way they are — read before proposing an architectural change |
@@ -26,12 +27,12 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 mise install                                        # toolchains
 docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
 mise run //apps/api:dev                              # apps/api, with autoreload
-mise run lint                                          # fans out to every app (apps/api, apps/loot-bot, apps/inventory-web, apps/account-hub)
+mise run lint                                          # fans out to every app (apps/api, apps/cli, apps/loot-bot, apps/inventory-web, apps/account-hub)
 mise run test                                           # ditto
 mise run check                                          # lint + test - the full pre-PR gate
 ```
 
-`apps/api`, `apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
+`apps/api`, `apps/cli`, `apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
 
 ## Conventions
 
