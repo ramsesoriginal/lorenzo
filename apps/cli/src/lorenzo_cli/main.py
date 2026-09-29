@@ -26,6 +26,8 @@ from lorenzo_cli.client.errors import (
     LorenzoConnectionError,
     LorenzoResponseError,
 )
+from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut
+from lorenzo_cli.client.ops import CREATE_TENANT
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.config import ConfigError, Settings, load_settings
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
@@ -58,7 +60,7 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
-tenant_app = typer.Typer(help="Read a tenant.", no_args_is_help=True)
+tenant_app = typer.Typer(help="Read or create a tenant.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
 pack_app = typer.Typer(help="Hand out an imported pack.", no_args_is_help=True)
 app.add_typer(pack_app, name="pack")
@@ -171,6 +173,10 @@ def tenant_show(
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:
         found = resolve_tenant(client, tenant)
+    _print_tenant(found, as_json)
+
+
+def _print_tenant(found: TenantOut, as_json: bool) -> None:
     if as_json:
         typer.echo(found.model_dump_json(indent=2))
         return
@@ -181,6 +187,38 @@ def tenant_show(
     table.add_row("kind", found.kind.value)
     table.add_row("published", str(found.published_at) if found.published_at else "no")
     _out.print(table)
+
+
+@tenant_app.command("create")
+def tenant_create(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="The tenant's name.")],
+    slug: Annotated[
+        str | None, typer.Option("--slug", help="Its address (default: derived from the name).")
+    ] = None,
+    description: Annotated[str | None, typer.Option("--description")] = None,
+    kind: Annotated[
+        TenantKind,
+        typer.Option(
+            "--kind",
+            help="repository holds content to publish and copy (what an import needs); play is "
+            "a table's own. Fixed for good once created.",
+        ),
+    ] = TenantKind.repository,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the tenant as JSON.")] = False,
+) -> None:
+    """Create a tenant, a repository unless told otherwise, and become its owner.
+
+    Needs the tenant-creator role. Then `lorenzo seed --tenant <slug>` makes a repository ready
+    to import into.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        body = TenantCreate(name=name, slug=slug, description=description, kind=kind)
+        created = client.call(CREATE_TENANT, body=body).value
+    _print_tenant(created, as_json)
+    if not as_json and created.kind == TenantKind.repository:
+        _out.print(f"Next: lorenzo seed --tenant {created.slug}")
 
 
 @app.command()
