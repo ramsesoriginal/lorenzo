@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Literal, Self
 
 from fastapi import Request
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, VItem, VItemInstance
@@ -110,12 +110,12 @@ def _picture_refs(
 
 class StatValueOut(BaseModel):
     """Wraps one entry of physical_stats/economic_stats/destroyable_stats/
-    damaging_stats (each `list[tuple[str, int | None]]`)."""
+    damaging_stats (each `list[tuple[str, int | float | None]]`, ADR 0141)."""
 
     model_config = ConfigDict(from_attributes=True)
 
     name: str
-    value: int | None
+    value: int | float | None
 
 
 class TagValueOut(BaseModel):
@@ -154,7 +154,7 @@ def _described_out(
     )
 
 
-def _stats_out(pairs: list[tuple[str, int | None]]) -> list[StatValueOut]:
+def _stats_out(pairs: list[tuple[str, int | float | None]]) -> list[StatValueOut]:
     return [StatValueOut(name=name, value=value) for name, value in pairs]
 
 
@@ -204,12 +204,16 @@ def _is_container_out(tags: list[tuple[str, bool | None]], *, has_children: bool
 class ItemCreate(BaseModel):
     """POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
     EntityPrototype row per id in prototype_ids, one transaction.
-    in_public_catalog (ADR 0116): whether players may list it too.
+    in_public_catalog (ADR 0116): whether players may list it too. slug
+    (ADR 0139) names it in the same transaction, like ItemInstanceCreate's:
+    optional, unique per tenant across every entity (ADR 0107), and 409 if
+    taken, so creating the same thing twice is a conflict, not a duplicate.
     """
 
     name: str
     prototype_ids: list[uuid.UUID] = []
     in_public_catalog: bool = False
+    slug: Slug | None = None
 
 
 class ItemUpdate(BaseModel):
@@ -230,14 +234,14 @@ def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
     return sorted((link.prototype_id for link in entity.prototype_links), key=str)
 
 
-def _named_int(view: VItem | VItemInstance, name: str, column: int | None) -> int | None:
-    """A named v_item/v_item_instance column holds stored values only - SQL
-    can't evaluate a formula - so a computed winner comes from the Python
-    pass instead (ADR 0104)."""
+def _named_number(view: VItem | VItemInstance, name: str, column: int | None) -> int | float | None:
+    """A named v_item/v_item_instance column holds stored integers only - SQL can't
+    evaluate a formula, and the view reads the integer column - so a computed winner (ADR 0104)
+    or a stored float (ADR 0141) comes from the Python pass instead."""
     if column is not None:
         return column
     value = view.resolved_value_by_name(name)
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
+    return value if isinstance(value, int | float) and not isinstance(value, bool) else None
 
 
 def _common_item_fields(
@@ -257,12 +261,12 @@ def _common_item_fields(
     return dict(
         entity_id=view.entity_id,
         title=_title_out(view.title, name=view.entity.name),
-        weight=_named_int(view, "weight", view.weight),
-        height=_named_int(view, "height", view.height),
-        price=_named_int(view, "price", view.price),
-        rarity=_named_int(view, "rarity", view.rarity),
-        hp=_named_int(view, "hp", view.hp),
-        armor=_named_int(view, "armor", view.armor),
+        weight=_named_number(view, "weight", view.weight),
+        height=_named_number(view, "height", view.height),
+        price=_named_number(view, "price", view.price),
+        rarity=_named_number(view, "rarity", view.rarity),
+        hp=_named_number(view, "hp", view.hp),
+        armor=_named_number(view, "armor", view.armor),
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
         prototype_ids=_prototype_ids_out(view.entity),
@@ -307,12 +311,12 @@ class _ItemFields(BaseModel):
 
     entity_id: uuid.UUID
     title: str
-    weight: int | None
-    height: int | None
-    price: int | None
-    rarity: int | None
-    hp: int | None
-    armor: int | None
+    weight: int | float | None
+    height: int | float | None
+    price: int | float | None
+    rarity: int | float | None
+    hp: int | float | None
+    armor: int | float | None
     container_entity_id: uuid.UUID | None
     quantity: int | None
     prototype_ids: list[uuid.UUID]
@@ -363,7 +367,8 @@ class ItemInstanceCreate(BaseModel):
     tenant when set - across every entity since ADR 0107 - and resolvable
     later via GET .../by-slug/{slug}. It follows RFC 0027's slug grammar,
     like every slug write (ADR 0107) - a deliberately accepted breaking
-    change to ADR 0043's unrestricted string.
+    change to ADR 0043's unrestricted string. quantity (ADR 0140) makes it a
+    stack of that many, held by the Containment row, so it needs a container.
     """
 
     name: str | None = None
@@ -371,8 +376,18 @@ class ItemInstanceCreate(BaseModel):
     owner_character_id: uuid.UUID | None = None
     container_entity_id: uuid.UUID | None = None
     slug: Slug | None = None
+    quantity: int = Field(default=1, ge=1)
     # ADR 0128: a GM creates it inside anyway, past capacity.
     override: bool = False
+
+    @model_validator(mode="after")
+    def _a_stack_needs_a_container(self) -> Self:
+        if self.quantity > 1 and self.container_entity_id is None:
+            raise ValueError(
+                "A quantity above 1 is held by the container it is created in: "
+                "give container_entity_id, or leave quantity out"
+            )
+        return self
 
 
 class ItemInstanceUpdate(BaseModel):

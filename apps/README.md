@@ -8,3 +8,4 @@ See [ADR 0007](../docs/adr/0007-apps-layout-and-multiplicity.md) for the reasoni
 - [`loot-bot`](loot-bot) — Discord bot. Account linking, self-service inventory viewing/managing, loot-splitting, GM loot drops with claims, and item awarding — see its own README for the full command list.
 - [`inventory-web`](inventory-web) — static Astro frontend. GM item catalog/instance management, kanban-style container board.
 - [`account-hub`](account-hub) — static Astro frontend. A user's own account: profile, notifications, tenant/campaign roster and admin, character/being management.
+- [`cli`](cli) - the `lorenzo` command line (Python). Talks to the API: creates and seeds a repository tenant, imports MPMB standard items into it, and hands packs out (RFC 0025). Install it with `uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"`.

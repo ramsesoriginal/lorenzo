@@ -304,11 +304,13 @@ Out of scope on purpose: unattended use and its machine credential (R2), `repo o
 
 Moved from `proposed` to `accepted`, decided with the maintainer on 2026-09-29. Every persona signed the ten amendments (Quiril, Rasmus, and Silva after small wording changes, Tonja after two corrections to how her taxonomy was transcribed), and the maintainer then decided each point the review left open: the bundle list, the JS host, unattended use, the `sourcebook` stat, the `dnd5e` layer, and the `apps/api` gaps. What is left in [Unresolved](#unresolved) is checked while building, and each item has its fallback written down. It is built in slices, each recorded as its own ADR when it lands, with a tracking Issue per slice under [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md):
 
-1. **The `apps/cli` app** and its stack: scaffolding per [docs/guides/adding-an-app.md](../guides/adding-an-app.md), the Python client, and auth (R2).
-2. **The JS host**: the worker, its protocol, and the golden corpus (R1).
-3. **The `apps/api` additions** (R11).
-4. **The mapping file and identity**: the seed format, dispositions, namespaces, slugs, and the `plan`/`apply` contract (R4, R5, R6).
-5. **The taxonomy and stat seed** (R3, R8, R9).
-6. **Packs** (R7).
+1. **The `apps/cli` app** and its stack: scaffolding per [docs/guides/adding-an-app.md](../guides/adding-an-app.md), the Python client, and auth (R2). Built: [ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md).
+2. **The JS host**: the worker, its protocol, and the golden corpus (R1). Built: [ADR 0138](../adr/0138-lorenzo-cli-js-host.md), with the spike's results.
+3. **The `apps/api` additions** (R11). Built: [ADR 0139](../adr/0139-name-an-item-when-it-is-created.md), [0140](../adr/0140-a-stack-when-an-item-instance-is-created.md), [0141](../adr/0141-fractional-weights-in-the-named-columns.md), and, a fourth the review had missed, [0142](../adr/0142-acquiring-a-stat-group-on-the-generic-stat-put.md).
+4. **The mapping file and identity**: the seed format, dispositions, namespaces, slugs, and the `plan`/`apply` contract (R4, R5, R6). Built: [ADR 0144](../adr/0144-lorenzo-import-mapping-identity-plan-apply.md).
+5. **The taxonomy and stat seed** (R3, R8, R9). Built: [ADR 0143](../adr/0143-lorenzo-seed-taxonomy-and-stats.md).
+6. **Packs** (R7). Built: [ADR 0145](../adr/0145-pack-contents-in-the-description.md).
 
-An ADR number is claimed for a slice when its work starts, as [AGENTS.md](../../AGENTS.md) describes.
+After the six slices, two follow-ups were built the same way: [ADR 0146](../adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md) (a richer taxonomy: weapon families and properties as prototypes, kinds of gear; what the sheet says beyond that is kept as information and stats instead of dropped; a pack entry that is not an item becomes a plain item, superseding R7's "plain-text line") and [ADR 0147](../adr/0147-lorenzo-tenant-create.md) (`lorenzo tenant create`, so a repository needs no raw `POST /tenants`; the importer still never creates its own target, R3).
+
+An ADR number was claimed for a slice when its work started, as [AGENTS.md](../../AGENTS.md) describes. Building it against the sheet's real data confirmed the design and refined it in places, all recorded in those ADRs (for example: evaluation needs the sheet's base data first, a pack counts in the units of its name, and stat-group acquisition needed a fourth `apps/api` addition).

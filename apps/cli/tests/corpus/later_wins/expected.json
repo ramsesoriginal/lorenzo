@@ -1,0 +1,78 @@
+{
+  "ok": true,
+  "restarts": 0,
+  "files": [
+    [
+      "a.js",
+      "content",
+      "ok"
+    ],
+    [
+      "b.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {
+      "rapier": {
+        "name": "Rapier (revised)",
+        "source": [
+          "HB",
+          1
+        ],
+        "type": "Martial",
+        "list": "melee",
+        "damage": [
+          1,
+          10,
+          "piercing"
+        ],
+        "weight": 2
+      },
+      "cutlass": {
+        "name": "Cutlass",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Martial",
+        "list": "melee",
+        "damage": [
+          1,
+          6,
+          "slashing"
+        ],
+        "weight": 3
+      }
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "origins": {
+    "WeaponsList": {
+      "rapier": "b.js",
+      "cutlass": "a.js"
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "overrides": [
+    [
+      "WeaponsList",
+      "rapier",
+      "a.js",
+      "b.js"
+    ]
+  ],
+  "stubs": [],
+  "stubs_in_data": []
+}

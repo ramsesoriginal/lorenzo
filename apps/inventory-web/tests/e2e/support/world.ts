@@ -154,7 +154,7 @@ export async function buildWorld() {
       await ok(
         api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
           params: { path: { ...entity, stat_definition_id: stats[stat as Stat] } },
-          body: { value },
+          body: { value, acquire_group: false },
         }),
       );
     }
@@ -162,7 +162,7 @@ export async function buildWorld() {
       await ok(
         api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
           params: { path: { ...entity, stat_definition_id: binding.id } },
-          body: { value: options.binding },
+          body: { value: options.binding, acquire_group: false },
         }),
       );
     }
@@ -180,6 +180,7 @@ export async function buildWorld() {
           container_entity_id: options.container ?? null,
           slug: options.slug ?? null,
           override: false,
+          quantity: 1,
         },
       }),
     );
@@ -193,7 +194,7 @@ export async function buildWorld() {
         params: {
           path: { tenant_id: tenant.id, entity_id: entityId, stat_definition_id: stats[stat] },
         },
-        body: { value },
+        body: { value, acquire_group: false },
       }),
     );
   }

@@ -29,6 +29,7 @@
         "required_status_checks": [
           { "context": "ci-summary" },
           { "context": "test (apps/api)" },
+          { "context": "test (apps/cli)" },
           { "context": "test (apps/loot-bot)" },
           { "context": "codeql (python)" },
           { "context": "codeql (javascript-typescript)" }

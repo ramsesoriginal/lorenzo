@@ -1191,6 +1191,7 @@ async def create_item_instance(
                 child_entity_id=entity.id,
                 parent_entity_id=body.container_entity_id,
                 tenant_id=tenant_id,
+                quantity=body.quantity,  # a stack of that many (ADR 0140)
             )
         )
         if check is not None:

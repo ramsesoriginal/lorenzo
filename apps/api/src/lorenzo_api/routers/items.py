@@ -27,6 +27,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityPrototypeCycleError,
+    EntitySlugConflictError,
     InvalidPrototypeError,
     ItemNotFoundError,
     ItemPrototypeInUseError,
@@ -36,6 +37,7 @@ from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
     Entity,
     EntityPrototype,
+    EntitySlug,
     Information,
     Item,
     ItemInstance,
@@ -372,9 +374,22 @@ async def create_item(
     (get_tenant_context, unchanged, per ADR 0032/RFC 0005) - not
     self-or-managed, unlike item-instances below.
     """
+    if body.slug is not None:
+        # Every entity's slug lives in entity_slug (ADR 0107), so this is unique across the
+        # tenant, not only among items. Checked first, as PUT .../slug does, so a taken slug is
+        # a 409 and creates nothing.
+        slug_stmt = select(EntitySlug.entity_id).where(
+            EntitySlug.tenant_id == tenant_id, EntitySlug.slug == body.slug
+        )
+        if (await session.execute(slug_stmt)).first() is not None:
+            raise EntitySlugConflictError(
+                detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
+            )
     entity = Entity(tenant_id=tenant_id, name=body.name, created_by=user.id, updated_by=user.id)
     session.add(entity)
     await session.flush()
+    if body.slug is not None:
+        session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
         Item(entity_id=entity.id, tenant_id=tenant_id, in_public_catalog=body.in_public_catalog)
     )
