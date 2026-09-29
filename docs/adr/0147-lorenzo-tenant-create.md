@@ -6,7 +6,7 @@ Follow-up to [RFC 0025](../rfcs/0025-lorenzo-cli-mpmb-item-importer.md) (R3) and
 
 ## Context
 
-Importing needs a `repository` tenant, and a tenant's kind is fixed when it is created ([ADR 0118](0118-tenant-kind-and-repository-access.md)). The only way to make one was a raw `POST /tenants`: account-hub's create form sends no `kind`, so it makes `play` tenants, and the API treats an omitted kind as `play`. Someone who wants to import homebrew had to `curl` first.
+Importing needs a `repository` tenant, and a tenant's kind is fixed when it is created ([ADR 0118](0118-repository-tenants-subscriptions-and-a-gated-read.md)). The only way to make one was a raw `POST /tenants`: account-hub's create form sends no `kind`, so it makes `play` tenants, and the API treats an omitted kind as `play`. Someone who wants to import homebrew had to `curl` first.
 
 R3 decided the importer never creates its target ("No `--create-if-missing`"): `seed` and `apply` write only into a tenant that already exists and is the right kind, so a typo in `--tenant` can't mint a tenant.
 
