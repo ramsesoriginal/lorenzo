@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections.abc import Iterator, Mapping
@@ -27,8 +28,14 @@ from lorenzo_cli.client.errors import (
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.config import ConfigError, Settings, load_settings
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
-from lorenzo_cli.report import print_evaluation
-from lorenzo_cli.tenants import TenantNotFoundError, resolve_tenant
+from lorenzo_cli.report import print_evaluation, print_seed_plan, seed_plan_json
+from lorenzo_cli.seed import LAYERS, apply_plan, load_builtin, make_plan, read_state
+from lorenzo_cli.tenants import (
+    TenantNotFoundError,
+    WrongTenantKindError,
+    require_repository,
+    resolve_tenant,
+)
 
 app = typer.Typer(
     name="lorenzo",
@@ -100,6 +107,7 @@ def _reporting_errors() -> Iterator[None]:
         NotLoggedInError,
         LoginError,
         EvalError,
+        WrongTenantKindError,
         TenantNotFoundError,
         LorenzoConnectionError,
         LorenzoResponseError,
@@ -216,3 +224,67 @@ def inspect_files(
         _err.print(f"[red]{result.error}[/red]")
     if not result.ok or any(f.status != "ok" for f in result.files):
         raise typer.Exit(1)
+
+
+@app.command()
+def seed(
+    ctx: typer.Context,
+    tenant: Annotated[
+        str,
+        typer.Option(
+            "--tenant", "-t", envvar="LORENZO_TENANT", help="The repository tenant's id or slug."
+        ),
+    ],
+    layers: Annotated[
+        list[str] | None,
+        typer.Option("--layer", help=f"Only these layers of the seed ({', '.join(LAYERS)})."),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would be created; exit 2 if anything.")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")] = False,
+    allow_play_tenant: Annotated[
+        bool,
+        typer.Option(
+            "--allow-play-tenant", help="Write to a play tenant, whose content can't be published."
+        ),
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the plan as JSON.")] = False,
+) -> None:
+    """Create the item taxonomy and the stat definitions in a tenant; safe to run again.
+
+    Finds or creates by name and slug, and never changes or removes anything. Exit codes: 0 done
+    or nothing to do, 2 with --dry-run when there is something to create, 1 on a problem.
+    """
+    runtime: Runtime = ctx.obj
+    chosen = tuple(layers) if layers else LAYERS
+    unknown = [layer for layer in chosen if layer not in LAYERS]
+    if unknown:
+        raise typer.BadParameter(f"{', '.join(unknown)}: choose from {', '.join(LAYERS)}")
+    spec = load_builtin()
+    with _reporting_errors(), _client(runtime) as client:
+        target = resolve_tenant(client, tenant)
+        require_repository(target, allow_play=allow_play_tenant)
+        state = read_state(client, target.id, spec)
+        plan = make_plan(spec, state, target, chosen)
+        if as_json:
+            typer.echo(json.dumps(seed_plan_json(plan), indent=2))
+        else:
+            print_seed_plan(_out, plan)
+        if plan.problems:
+            raise typer.Exit(1)
+        if dry_run:
+            raise typer.Exit(2 if plan.actions else 0)
+        if not plan.actions:
+            return
+        if not yes:
+            if not runtime.stdin.isatty():
+                _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
+                raise typer.Exit(1)
+            if not typer.confirm("Create these?"):
+                raise typer.Exit(1)
+        apply_plan(client, spec, plan, state)
+    if not as_json:
+        _out.print(
+            f"Created {len(plan.actions)}. Run it again to check: it should find nothing to do."
+        )

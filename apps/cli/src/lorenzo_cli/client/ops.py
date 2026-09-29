@@ -10,19 +10,43 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import TypeAdapter
 
-from lorenzo_cli.client.models import PageTenantSummaryOut, TenantOut
+from lorenzo_cli.client.models import (
+    ComparisonFormulaBodyInput,
+    ComputedStatOut,
+    ContentsFormulaBody,
+    EntityDetailOut,
+    ItemCreate,
+    ItemOut,
+    LinearFormulaBodyInput,
+    PageStatDefinitionOut,
+    PageStatGroupOut,
+    PageTenantSummaryOut,
+    ResolvedSlugOut,
+    StatDefinitionCreate,
+    StatDefinitionOut,
+    StatGroupCreate,
+    StatGroupOut,
+    SumFormulaBodyInput,
+    TenantOut,
+)
+
+# What PUT .../computed-stats/{id} accepts: the formula itself, of any kind.
+ComputedStatBody = (
+    LinearFormulaBodyInput | ComparisonFormulaBodyInput | SumFormulaBodyInput | ContentsFormulaBody
+)
 
 
 @dataclass(frozen=True)
 class Op[T]:
-    """One API operation. `response_type` is a model class, `list[Model]`, or None (no body)."""
+    """One API operation. `request_type` is a model class or a union of them, `response_type` a
+    model class, `list[Model]`, or None (no body)."""
 
     operation_id: str
     method: str
     path: str
-    request_type: type[BaseModel] | None = None
+    request_type: Any = None
     response_type: Any = None
     adapter: TypeAdapter[T] | None = field(init=False, default=None, repr=False, compare=False)
 
@@ -31,9 +55,77 @@ class Op[T]:
             object.__setattr__(self, "adapter", TypeAdapter(self.response_type))
 
 
-GET_TENANT: Op[TenantOut] = Op("get_tenant", "GET", "/tenants/{tenant_id}", response_type=TenantOut)
+_TENANT = "/tenants/{tenant_id}"
+
+GET_TENANT: Op[TenantOut] = Op("get_tenant", "GET", _TENANT, response_type=TenantOut)
 LIST_TENANTS: Op[PageTenantSummaryOut] = Op(
     "list_tenants", "GET", "/tenants", response_type=PageTenantSummaryOut
 )
 
-ALL_OPS: tuple[Op[Any], ...] = (GET_TENANT, LIST_TENANTS)
+LIST_STAT_GROUPS: Op[PageStatGroupOut] = Op(
+    "list_stat_groups", "GET", f"{_TENANT}/stat-groups", response_type=PageStatGroupOut
+)
+CREATE_STAT_GROUP: Op[StatGroupOut] = Op(
+    "create_stat_group",
+    "POST",
+    f"{_TENANT}/stat-groups",
+    request_type=StatGroupCreate,
+    response_type=StatGroupOut,
+)
+LIST_STAT_DEFINITIONS: Op[PageStatDefinitionOut] = Op(
+    "list_stat_definitions",
+    "GET",
+    f"{_TENANT}/stat-definitions",
+    response_type=PageStatDefinitionOut,
+)
+CREATE_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
+    "create_stat_definition",
+    "POST",
+    f"{_TENANT}/stat-definitions",
+    request_type=StatDefinitionCreate,
+    response_type=StatDefinitionOut,
+)
+
+RESOLVE_SLUGS: Op[list[ResolvedSlugOut]] = Op(
+    "resolve_slugs", "GET", f"{_TENANT}/entities/resolve", response_type=list[ResolvedSlugOut]
+)
+GET_ITEM: Op[ItemOut] = Op(
+    "get_item", "GET", f"{_TENANT}/items/{{entity_id}}", response_type=ItemOut
+)
+CREATE_ITEM: Op[ItemOut] = Op(
+    "create_item", "POST", f"{_TENANT}/items", request_type=ItemCreate, response_type=ItemOut
+)
+SET_ENTITY_TAG: Op[EntityDetailOut] = Op(
+    "set_entity_tag",
+    "PUT",
+    f"{_TENANT}/entities/{{entity_id}}/tags/{{stat_definition_id}}",
+    response_type=EntityDetailOut,
+)
+LIST_ENTITY_COMPUTED_STATS: Op[list[ComputedStatOut]] = Op(
+    "list_entity_computed_stats",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/computed-stats",
+    response_type=list[ComputedStatOut],
+)
+SET_COMPUTED_STAT: Op[ComputedStatOut] = Op(
+    "set_computed_stat",
+    "PUT",
+    f"{_TENANT}/entities/{{entity_id}}/computed-stats/{{stat_definition_id}}",
+    request_type=ComputedStatBody,
+    response_type=ComputedStatOut,
+)
+
+ALL_OPS: tuple[Op[Any], ...] = (
+    GET_TENANT,
+    LIST_TENANTS,
+    LIST_STAT_GROUPS,
+    CREATE_STAT_GROUP,
+    LIST_STAT_DEFINITIONS,
+    CREATE_STAT_DEFINITION,
+    RESOLVE_SLUGS,
+    GET_ITEM,
+    CREATE_ITEM,
+    SET_ENTITY_TAG,
+    LIST_ENTITY_COMPUTED_STATS,
+    SET_COMPUTED_STAT,
+)
