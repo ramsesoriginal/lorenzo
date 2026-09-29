@@ -29,7 +29,7 @@ from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.seed.spec import SeedSpec
 
-ActionKind = Literal["group", "definition", "node", "tag", "recipe"]
+ActionKind = Literal["group", "definition", "node", "description", "tag", "recipe"]
 _RESOLVE_BATCH = 100  # GET .../entities/resolve takes at most this many slugs (ADR 0107)
 
 
@@ -180,6 +180,10 @@ def make_plan(
             have_nodes.add(node.slug)
         else:
             continue
+        if node.description:
+            written = exists and bool(state.items[node.slug].descriptions)
+            if not written:
+                plan.actions.append(Action("description", node.slug, node.layer))
         for tag in node.tags:
             if tag not in have_definitions:
                 missing("the definition", tag, "core", f"The node {node.slug!r}")

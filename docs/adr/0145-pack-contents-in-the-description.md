@@ -24,7 +24,7 @@ This pack contains:
 ```
 
 - **A line with a link is an item of the catalog.** `[Label](slug)` is LorenzoScript's own entity link ([ADR 0105](0105-lorenzoscript-entity-references-and-resolver.md)), so the description renders as a list with links, and its links are references: `GET …/entities/{id}/backlinks` on Rations answers "which packs contain this" with no table of its own.
-- **A line without one is plain text,** for something the sheet has no gear entry for.
+- **A line without one is plain text,** for something the sheet has no gear entry for. (Changed by [ADR 0146](0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md): such an entry now becomes a simple plain item, so every line links; plain text remains for what a `[pack_items]` row marks `"text"`.)
 - **Everything listed after a `, with:` entry goes inside it** (two-space indent), as the sheet's own comment says. Entries before any container are at the top.
 - **The parser is strict and reads nothing else.** A line is `- N x [Label](slug)` or `- N x text`, indented by whole levels, at most three deep. Prose, a mis-indented line or a link with a bad slug is ignored, so a person who adds a sentence to the description cannot break handing the pack out. It is Python, since `packages/lorenzoscript` is TypeScript; the format was chosen to be valid LorenzoScript, and to be read by anything with a regular expression.
 
@@ -40,7 +40,7 @@ The built-in map answers the SRD's own gaps: five plurals and wordings of real g
 
 **Quantities are converted to the item's own unit.** A pack counts in units of its name (`["Hempen rope, feet of", 50, …]` is 50 feet); the item is a coil of 50 feet. Taken literally that is 50 coils. The count is divided by the item's bundle size (50 feet → 1 coil), rounded up and noted when it doesn't divide, and the line is labelled with the item's own name so the number reads correctly.
 
-An entry nothing could be linked to does **not** hold the pack back. It is listed in the plan (`pack.plain_text`), in `review-queue.json` (kind `pack`, with the row to add), and in `proposed.map.toml`, and under `--strict` it makes the exit code `1`.
+An entry nothing could be linked to does **not** hold the pack back. It is listed in the plan (`pack.unresolved`), in `review-queue.json` (kind `pack`, with the row to add), and in `proposed.map.toml`, and under `--strict` it makes the exit code `1`.
 
 ### When it is written
 

@@ -11,6 +11,7 @@ from uuid import UUID
 
 from lorenzo_cli.client.models import (
     ContentsFormulaBody,
+    InformationCreate,
     ItemCreate,
     StatDefinitionCreate,
     StatGroupCreate,
@@ -19,6 +20,7 @@ from lorenzo_cli.client.models import (
     SumTermBodyInput,
 )
 from lorenzo_cli.client.ops import (
+    CREATE_INFORMATION,
     CREATE_ITEM,
     CREATE_STAT_DEFINITION,
     CREATE_STAT_GROUP,
@@ -70,6 +72,19 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
                 ),
             )
             nodes[node.slug] = created_node.value.entity_id
+        elif action.kind == "description":
+            node = spec.node(action.name)
+            client.call(
+                CREATE_INFORMATION,
+                path={**tenant, "entity_id": nodes[node.slug]},
+                body=InformationCreate(
+                    title="Description",
+                    type="description",
+                    is_public=True,
+                    content=node.description,
+                    locale="en-US",
+                ),
+            )
         elif action.kind == "tag":
             slug, tag = action.name.split(": ")
             client.call(

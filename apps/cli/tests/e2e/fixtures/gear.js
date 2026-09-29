@@ -62,3 +62,20 @@ PacksList["purple pack"] = {
 	source : [["HB", 0]],
 	items : [["Backpack, with:", "", 5], ["Rations, days of", 5, 2]]
 };
+
+GearList["torch, signal"] = {
+	infoname : "Torch, signal [1 sp]",
+	name : "Torch, signal",
+	amount : 5,
+	weight : 1
+};
+
+ArmourList["dented plate"] = {
+	regExpSearch : /dented plate/i,
+	name : "Dented plate",
+	invName : "Dented plate armor",
+	source : [["HB", 0]],
+	type : "heavy",
+	ac : 17,
+	weight : 55
+};

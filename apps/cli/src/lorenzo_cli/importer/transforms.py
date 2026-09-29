@@ -27,6 +27,15 @@ class Issue:
     suggestion: str = ""
 
 
+@dataclass(frozen=True)
+class InfoDraft:
+    """An information entry to write on the item (ADR 0146): a titled, public piece of text."""
+
+    type: str
+    title: str
+    content: str
+
+
 @dataclass
 class Effect:
     name: str | None = None
@@ -39,6 +48,9 @@ class Effect:
     notes: list[str] = field(default_factory=list)
     issues: list[Issue] = field(default_factory=list)
     pack_items: list[Any] | None = None
+    # Other names the item goes by; the draft joins them into one "Also known as" entry.
+    aliases: list[str] = field(default_factory=list)
+    information: list[InfoDraft] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -162,10 +174,14 @@ def _range(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
 
 
 def _armor(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
+    """A number is the armour class; a formula (`10+Wis`) is kept as text: no number is right."""
     number = _number(value)
     if number is not None and float(number).is_integer():
         return Effect(stats={"armor": int(number)})
-    return Effect(notes=[f"armour class {value!r} is a formula, so it isn't stored as a number"])
+    text = _text(value)
+    if text is None:
+        return Effect()
+    return Effect(stats={"armor_formula": text})
 
 
 def _pack_contents(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
@@ -258,6 +274,9 @@ def _typed(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
     stat = str(rule.params["stat"])
     kind = rule.transform
     coerced: StatValue | None
+    if value in ("", None):  # the source left it blank: nothing to say, not something wrong
+        _declare(effect, rule, stat, kind)
+        return effect
     if kind == "text":
         coerced = _text(value)
     elif kind == "bool":
@@ -269,8 +288,11 @@ def _typed(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
             coerced = None
     if coerced is None:
         return _bad(effect, "value", attribute, value, f"can't be read as {kind}")
-    effect.stats[stat] = coerced
     _declare(effect, rule, stat, kind)
+    minimum = rule.params.get("minimum")
+    if minimum is not None and isinstance(coerced, int | float) and coerced < minimum:
+        return effect  # below the smallest value worth keeping (a strength requirement of 0)
+    effect.stats[stat] = coerced
     return effect
 
 
@@ -363,3 +385,51 @@ _HANDLERS = {
     "keyword_flag": _keyword_flag,
     "first_of": _first_of,
 }
+
+
+_ABILITIES = {
+    1: "Strength",
+    2: "Dexterity",
+    3: "Constitution",
+    4: "Intelligence",
+    5: "Wisdom",
+    6: "Charisma",
+}
+
+
+def _ability_name(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
+    """The sheet numbers the abilities 1 to 6; a stat is easier to read as the ability's name."""
+    effect = Effect()
+    stat = str(rule.params["stat"])
+    _declare(effect, rule, stat, "text")
+    if value in ("", None, 0):
+        return effect
+    number = _number(value)
+    name = (
+        _ABILITIES.get(int(number)) if number is not None and float(number).is_integer() else None
+    )
+    if name is None:
+        return _bad(effect, "value", attribute, value, "isn't an ability number from 1 to 6")
+    effect.stats[stat] = name
+    return effect
+
+
+def _aliases(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
+    """Other names (`nameAlt`, or a list mixing names and patterns): the names only, in order."""
+    names = value if isinstance(value, list) else [value]
+    return Effect(aliases=[t for n in names if isinstance(n, str) and (t := _text(n)) is not None])
+
+
+def _information(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect:
+    """The text of an attribute as an entry of the item's own, with a type and a title."""
+    text = value.strip() if isinstance(value, str) else ""
+    if not text:
+        return Effect()
+    return Effect(
+        information=[InfoDraft(str(rule.params["type"]), str(rule.params["title"]), text)]
+    )
+
+
+_HANDLERS["ability_name"] = _ability_name
+_HANDLERS["aliases"] = _aliases
+_HANDLERS["information"] = _information

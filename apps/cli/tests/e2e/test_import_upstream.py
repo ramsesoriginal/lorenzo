@@ -56,11 +56,19 @@ def test_the_srd_imports_with_nothing_left_unresolved_and_a_second_run_finds_not
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)
         longsword = by_slug(api, tid, "basic-weapons-longsword")
-        assert parent_names(longsword) == ["Martial weapon", "Melee weapon"]
+        assert parent_names(longsword) == ["Blade", "Martial weapon", "Melee weapon", "Versatile"]
         assert own_stats(longsword)["own_weight"] == 3.0
         assert own_stats(longsword)["damage_die"] == 8
         dagger = by_slug(api, tid, "basic-weapons-dagger")
-        assert parent_names(dagger) == ["Melee weapon", "Ranged weapon", "Simple weapon"]
+        assert parent_names(dagger) == [
+            "Blade",
+            "Finesse",
+            "Light",
+            "Melee weapon",
+            "Ranged weapon",
+            "Simple weapon",
+            "Throwable",
+        ]
         assert own_stats(dagger)["range_long"] == 60
         chain_mail = by_slug(api, tid, "basic-armour-chain-mail")
         assert parent_names(chain_mail) == ["Armor", "Heavy armor"]
@@ -71,7 +79,7 @@ def test_the_srd_imports_with_nothing_left_unresolved_and_a_second_run_finds_not
         assert own_stats(rope)["own_weight"] == 10.0  # 50 feet at 0.2 each
         assert own_stats(rope)["price"] == 100
         arrows = by_slug(api, tid, "basic-gear-arrows-20")
-        assert parent_names(arrows) == ["Ammunition"]
+        assert parent_names(arrows) == ["Ammunition"]  # a consumable, by being its child
 
 
 def test_the_srd_packs_link_cleanly_and_can_be_handed_out(stack: Stack, tmp_path: Path) -> None:
@@ -82,7 +90,7 @@ def test_the_srd_packs_link_cleanly_and_can_be_handed_out(stack: Stack, tmp_path
     strict = plan(stack, token, tmp_path, tenant, *srd_arguments(), "--strict", "--json")
     assert strict.exit_code == 0, json.loads(strict.stdout)["unmapped_attributes"]
     packs = [i for i in json.loads(strict.stdout)["items"] if i["list"] == "packs"]
-    assert len(packs) == 7 and all(p["pack"]["plain_text"] == [] for p in packs)
+    assert len(packs) == 7 and all(p["pack"]["unresolved"] == [] for p in packs)
 
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)

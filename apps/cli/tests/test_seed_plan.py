@@ -79,6 +79,7 @@ def fully_seeded() -> TenantState:
         tags = [{"name": t, "value": True} for t in spec_node.tags]
         items[spec_node.slug] = ItemOut.model_construct(
             entity_id=nodes[spec_node.slug].entity_id,
+            descriptions=[object()] if spec_node.description else [],
             prototype_ids=[nodes[p].entity_id for p in spec_node.parents],
             tags=[type("Tag", (), t)() for t in tags],
         )
@@ -106,10 +107,14 @@ def test_an_empty_tenant_gets_everything_in_dependency_order() -> None:
     assert last["node"] < first["recipe"]
     assert order[("node", "container")] < order[("tag", "container: is_container")]
     assert order[("definition", "is_container")] < order[("tag", "container: is_container")]
+    assert order[("node", "consumable")] < order[("node", "ammunition")]
+    # A description is written once its node exists.
+    assert order[("node", "dnd5e-finesse")] < order[("description", "dnd5e-finesse")]
     assert kinds.count("group") == 6
-    assert kinds.count("definition") == 12
-    assert kinds.count("node") == 22
-    assert kinds.count("tag") == 1
+    assert kinds.count("definition") == len(SPEC.definitions) == 40
+    assert kinds.count("node") == len(SPEC.nodes) == 61
+    assert kinds.count("tag") == sum(len(n.tags) for n in SPEC.nodes) == 14
+    assert kinds.count("description") == sum(1 for n in SPEC.nodes if n.description) == 18
     assert kinds.count("recipe") == 2
     names = [a.name for a in plan.actions if a.kind == "node"]
     assert names.index("physical-object") < names.index("weapon") < names.index("melee-weapon")
@@ -120,7 +125,9 @@ def test_a_seeded_tenant_needs_nothing() -> None:
 
     assert plan.actions == []
     assert plan.problems == [] and plan.warnings == []
-    assert plan.existing == 6 + 12 + 22 + 2  # tags on an existing node are not counted twice
+    assert (
+        plan.existing == 6 + len(SPEC.definitions) + len(SPEC.nodes) + 2
+    )  # tags and descriptions are not counted twice
 
 
 def test_only_what_is_missing_is_planned() -> None:
@@ -165,14 +172,21 @@ def test_the_dnd5e_layer_alone_works_once_core_is_there() -> None:
     state = fully_seeded()
     for slug in [n.slug for n in SPEC.nodes if n.layer == "dnd5e"]:
         del state.nodes[slug], state.items[slug]
-    for name in ("damage_dice_count", "damage_die", "damage_type"):
-        del state.definitions[name]
+    for definition_ in [d for d in SPEC.definitions if d.layer == "dnd5e"]:
+        del state.definitions[definition_.name]
 
     plan = make_plan(SPEC, state, TENANT, ("dnd5e",))
 
     assert plan.problems == []
     assert {a.layer for a in plan.actions} == {"dnd5e"}
-    assert len(plan.actions) == 3 + 12
+    layer_nodes = [n for n in SPEC.nodes if n.layer == "dnd5e"]
+    expected = (
+        len([d for d in SPEC.definitions if d.layer == "dnd5e"])
+        + len(layer_nodes)
+        + sum(len(n.tags) for n in layer_nodes)
+        + sum(1 for n in layer_nodes if n.description)
+    )
+    assert len(plan.actions) == expected == 22 + 28 + 10 + 12
 
 
 def test_a_slug_held_by_something_else_is_a_problem() -> None:
@@ -188,7 +202,7 @@ def test_a_slug_held_by_something_else_is_a_problem() -> None:
 def test_a_node_under_the_wrong_parent_is_left_alone_with_a_warning() -> None:
     state = fully_seeded()
     state.items["shield"] = ItemOut.model_construct(
-        entity_id=state.nodes["shield"].entity_id, prototype_ids=[], tags=[]
+        entity_id=state.nodes["shield"].entity_id, prototype_ids=[], tags=[], descriptions=[]
     )
 
     plan = make_plan(SPEC, state, TENANT, ALL)
@@ -218,6 +232,7 @@ def test_the_container_tag_is_planned_when_the_node_lacks_it() -> None:
         entity_id=state.nodes["container"].entity_id,
         prototype_ids=state.items["container"].prototype_ids,
         tags=[],
+        descriptions=state.items["container"].descriptions,
     )
 
     plan = make_plan(SPEC, state, TENANT, ALL)
@@ -231,3 +246,17 @@ def test_the_plan_names_the_layers_and_the_seed_version() -> None:
     assert plan.layers == ("core",)
     assert plan.spec_version == SPEC.version
     assert {a.layer for a in plan.actions} == {"core"}
+
+
+def test_a_node_without_its_description_gets_one_written() -> None:
+    state = fully_seeded()
+    state.items["dnd5e-heavy"] = ItemOut.model_construct(
+        entity_id=state.nodes["dnd5e-heavy"].entity_id,
+        prototype_ids=state.items["dnd5e-heavy"].prototype_ids,
+        tags=state.items["dnd5e-heavy"].tags,
+        descriptions=[],
+    )
+
+    plan = make_plan(SPEC, state, TENANT, ALL)
+
+    assert [(a.kind, a.name) for a in plan.actions] == [("description", "dnd5e-heavy")]

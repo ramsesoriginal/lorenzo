@@ -25,6 +25,7 @@ EVERYTHING = (
     + len(SPEC.definitions)
     + len(SPEC.nodes)
     + sum(len(n.tags) for n in SPEC.nodes)
+    + sum(1 for n in SPEC.nodes if n.description)
     + len(SPEC.recipes)
 )
 

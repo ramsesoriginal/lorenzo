@@ -31,7 +31,7 @@ def teach(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str, ans
     )
 
 
-CATEGORY_ANSWERS = "c\nproficiency\nhb-exotic\nExotic weapon\n"
+CATEGORY_ANSWERS = "c\nproficiency\nhb-legendary\nLegendary weapon\n"
 
 
 def test_an_unknown_value_is_asked_once_used_at_once_and_offered_to_the_map(
@@ -42,7 +42,7 @@ def test_an_unknown_value_is_asked_once_used_at_once_and_offered_to_the_map(
     map_file = tmp_path / "mine.map.toml"
     map_file.write_text('schema = 1\n[attributes.weapons]\nflavour = "drop"\n')
 
-    # Create a category for "Exotic", then agree to import, then agree to save the row.
+    # Create a category for "Legendary", then agree to import, then agree to save the row.
     result = teach(
         stack,
         token,
@@ -55,14 +55,14 @@ def test_an_unknown_value_is_asked_once_used_at_once_and_offered_to_the_map(
 
     assert result.exit_code == 0, result.output
     assert result.output.count("What should it be?") == 1
-    assert "weapons.type = 'Exotic' (1 item(s): Moon whip)" in result.output
+    assert "weapons.type = 'Legendary' (1 item(s): Moon whip)" in result.output
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)
         whip = by_slug(api, tid, "basic-weapons-moon-whip")
-        assert parent_names(whip) == ["Exotic weapon", "Melee weapon"]
+        assert parent_names(whip) == ["Legendary weapon", "Melee weapon", "Whip"]
     saved = map_file.read_text()
     assert 'flavour = "drop"' in saved  # what was there is kept
-    assert '"exotic" = { disposition = "create-under"' in saved
+    assert '"legendary" = { disposition = "create-under"' in saved
     assert (tmp_path / "proposed.map.toml").read_text().startswith("[classify.weapons.type]")
     # The file is now enough on its own: nothing is left to ask or to do.
     again = run_cli(
@@ -125,7 +125,7 @@ def test_a_row_is_not_appended_when_the_map_already_has_that_table(
         "\n", " "
     )
     assert map_file.read_text() == original  # never left half-edited
-    assert '"exotic"' in (tmp_path / "proposed.map.toml").read_text()
+    assert '"legendary"' in (tmp_path / "proposed.map.toml").read_text()
 
 
 def test_without_a_terminal_teach_asks_nothing(stack: Stack, tmp_path: Path) -> None:
