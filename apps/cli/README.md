@@ -26,6 +26,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 
 | Command | What it does |
 | --- | --- |
+| `lorenzo tenant create <name> [--slug S] [--kind KIND]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo login` / `lorenzo login --no-browser` / `lorenzo logout` | Stores or forgets a login (needs the Authgear client, see below) |
 | `lorenzo inspect [--base FILE...] FILE...` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login |
@@ -36,7 +37,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 
 ## Importing MPMB items
 
-The order is: seed the tenant once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)).
+The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), seed it once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)).
 
 ```bash
 uv run lorenzo seed --tenant my-repository --yes
