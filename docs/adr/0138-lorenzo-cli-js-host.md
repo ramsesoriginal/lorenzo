@@ -51,8 +51,8 @@ Run against `morepurplemorebetter/MPMBs-Character-Record-Sheet` at `076507d` (20
 | Question (from R1) | Result |
 | --- | --- |
 | The sheet's own SRD data in one ordered context | `ListsSources.js`, `Lists.js`, `ListsGear.js`: 84 weapons, 14 armours, 107 gear, 11 packs, 37 tools, 16 ammunition, 6 sources. 12 stubbed names, 12 restarts. |
-| Wall time | About 1.1 s for the whole worker, startup included, from a checkout on `/mnt/c`. Every restart together is a small part of it. |
-| Peak heap | 0.9 MB live after the SRD run; 7.4 MB with every `_variables/*.js` file loaded (317 spells, 239 magic items, 131 creatures...). The 64 MB cap has a wide margin. |
+| Wall time | About 1.1 s for the whole worker, startup included, from a checkout on `/mnt/c`. The 12 restarts are included. |
+| Peak heap | 0.9 MB live after the SRD run; 7.4 MB with every `_variables/*.js` file loaded (319 spells, 239 magic items, 131 creatures...). The 64 MB cap has a wide margin. |
 | `$fn` on items | None on the SRD's weapons, armour, gear, packs, tools or ammunition. 98 `RegExp` attributes. No stub reached the data. |
 | Chained call on a stub (`X("a").b`) | Works; the result is a stub, marked `$stub` if it reaches the data. |
 | Stub-retry bound | 12 needed for the SRD, 16 for everything. 100 is generous, and each restart is cheap. |
@@ -66,7 +66,7 @@ Three findings changed the design:
 
 ## Consequences
 
-- `mini-racer` is a dependency (a wheel of about 80 MB that bundles V8). Linux, including WSL, is the supported target; native Windows is untested.
+- `mini-racer` is a dependency (82 MB installed, since it bundles V8). Linux, including WSL, is the supported target; native Windows is untested.
 - The sheet's data is not shipped with Lorenzo (GPL-3.0). To import the SRD items, or homebrew that patches them, the person supplies the sheet's `_variables` files as `--base`. How the SRD import itself is offered is for slice 4.
 - A per-file failure doesn't stop a run, so callers decide whether it is fatal. `lorenzo inspect` treats it as failure (exit 1); the importer will treat an unresolved file as review-queue material rather than guess.
 - The worker's start-up (about a second on a slow filesystem) is paid once per run.
