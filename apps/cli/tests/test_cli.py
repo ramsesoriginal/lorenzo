@@ -175,3 +175,58 @@ def test_no_arguments_shows_the_help() -> None:
     result = runner.invoke(app, [])
     assert "tenant" in result.output
     assert "login" in result.output
+
+
+CORPUS = Path(__file__).parent / "corpus"
+
+
+def test_inspect_shows_the_files_lists_and_what_was_stubbed(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["inspect", str(CORPUS / "stubs" / "uses_sheet.js")],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "uses_sheet.js" in result.output
+    assert "WeaponsList" in result.output
+    assert "What (2)" in result.output
+    assert "stubbed sheet call" in result.output
+
+
+def test_inspect_starts_the_lists_from_the_base_files_and_names_each_entrys_file(
+    tmp_path: Path,
+) -> None:
+    case = CORPUS / "base_and_patch"
+    result = runner.invoke(
+        app,
+        ["inspect", "--base", str(case / "base.js"), str(case / "homebrew.js"), "--json"],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 0, result.output
+    origins = json.loads(result.output)["origins"]["WeaponsList"]
+    assert origins == {
+        "longsword": "base.js",
+        "dagger": "homebrew.js",
+        "glass sword": "homebrew.js",
+    }
+
+
+def test_inspect_exits_1_when_a_file_fails_but_still_reports_the_rest(tmp_path: Path) -> None:
+    errors = CORPUS / "errors"
+    result = runner.invoke(
+        app,
+        ["inspect", str(errors / "syntax_error.js"), str(errors / "fine.js")],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 1
+    assert "fine.js" in result.output
+    assert "WeaponsList" in result.output
+
+
+def test_inspect_reports_a_missing_file_as_a_usage_error(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["inspect", str(tmp_path / "nope.js")], obj=runtime(tmp_path, []))
+
+    assert result.exit_code == 2

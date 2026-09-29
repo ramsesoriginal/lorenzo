@@ -1,0 +1,5 @@
+{
+  "about": "A weapon in every shape the upstream template shows: RegExp literals, a repeated key, a polymorphic source, a proficiency type with no list, a custom type, and a function attribute that must never run.",
+  "base": [],
+  "files": ["weapons.js"]
+}
