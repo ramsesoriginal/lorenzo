@@ -1,0 +1,5 @@
+{
+  "about": "Names the sheet supplies and the host doesn't: calls, chained calls, property writes and a comparison are absorbed; the run restarts with a stub, reports it, and marks data a stub reached.",
+  "base": [],
+  "files": ["uses_sheet.js"]
+}

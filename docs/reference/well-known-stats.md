@@ -16,7 +16,7 @@ This page lists them, and the recipes built on formulas ([ADR 0104](../adr/0104-
 | `max_item_size` | a container | number | Nothing whose `size` is over it goes in. |
 | `binding` | items | `enum`: `on_pickup`, `on_equip`, `on_own`, `none` | Binds the item to its owner, when the owner is a being ([ADR 0129](../adr/0129-binding-and-lifting-it.md)). `on_own`: bound while a being owns it, and once it's carried it can't leave what the owner carries. `on_pickup`: bound while its owner carries it, and can't leave what the owner carries. `on_equip`: bound while its owner has it equipped, and can't leave the owner. A bound item's owner can't change. `none` is "not this one", under a prototype that binds. |
 
-Each is read as resolved, so a formula counts, and something without a `weight` or `size` counts as 0. A GM can move anyway ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)), and lift a binding ([ADR 0129](../adr/0129-binding-and-lifting-it.md)).
+Each is read as resolved, so a formula counts, and something without a `weight` or `size` counts as 0. A GM can move anyway ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)), and lift a binding ([ADR 0129](../adr/0129-binding-and-lifting-it.md)). A weight can be fractional (a `float` stat): the item lists and boards show it as it is stored ([ADR 0141](../adr/0141-fractional-weights-in-the-named-columns.md)).
 
 `is_magical` and `is_cursed` used to be read by name too. They aren't anymore: a tenant's own tags by those names are just tags.
 

@@ -198,8 +198,8 @@ async def _write_own_value(
     the stat PUT and ADR 0103's tag PUT/PATCH so they can't drift. 409 if
     the entity holds a formula for this stat (ADR 0104: one or the other).
     `acquire_group` adds the stat's group to the entity (entity_stat_group)
-    when missing: the tag routes do, closing ADR 0037's named gap for them;
-    the generic stat PUT keeps its original behavior. The caller has
+    when missing: the tag routes always do, closing ADR 0037's named gap for
+    them, and the generic stat PUT does when asked (ADR 0142). The caller has
     already authorized and validated `value`.
     """
     if await session.get(ComputedStat, (entity_id, stat_definition.id)) is not None:
@@ -294,7 +294,7 @@ async def set_entity_stat(
         stat_definition=stat_definition,
         value=body.value,
         if_match=if_match,
-        acquire_group=False,
+        acquire_group=body.acquire_group,
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)

@@ -23,9 +23,9 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^apps/api/
+        files: ^apps/(api|cli)/
       - id: ruff-format
-        files: ^apps/api/
+        files: ^apps/(api|cli)/
 
   # mypy needs the project's own dependencies (Pydantic plugin, stubs) on its
   # path, which the official pre-commit mirror doesn't give it without
@@ -38,6 +38,12 @@ repos:
         entry: uv run --directory apps/api mypy src
         language: system
         files: ^apps/api/src/.*\.py$
+        pass_filenames: false
+      - id: mypy-cli
+        name: mypy (apps/cli)
+        entry: uv run --directory apps/cli mypy src
+        language: system
+        files: ^apps/cli/src/.*\.py$
         pass_filenames: false
 
   # Same tools, same exclusions, same versions as docs.yml - if these fail

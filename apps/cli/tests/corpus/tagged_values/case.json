@@ -1,0 +1,5 @@
+{
+  "about": "Values JSON can't hold: non-finite numbers, a Date, a getter that throws, a cycle, undefined, and regular expressions nested in arrays and objects.",
+  "base": [],
+  "files": ["odd_values.js"]
+}

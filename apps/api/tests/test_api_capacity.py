@@ -817,3 +817,41 @@ async def test_a_check_holds_up_another_but_not_what_points_into_its_chain(
         await other.rollback()
         await holding.rollback()
     await delete_tenant(t)
+
+
+async def test_a_stack_created_inside_weighs_all_of_it(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """ADR 0140: a stack of n made in one create is checked as n, not as one."""
+    camp = await _camp(test_user_id)
+    t, ids = camp.tenant_id, camp.ids
+    async with admin_session_factory() as session:
+        pebble = Entity(tenant_id=t, name="Pebble pattern")
+        session.add(pebble)
+        await session.flush()
+        session.add(Item(entity_id=pebble.id, tenant_id=t))
+        session.add(EntityPrototype(entity_id=pebble.id, prototype_id=ids["gear"], tenant_id=t))
+        await _set(session, t, pebble.id, ids["stat:own_weight"], 1)
+        await session.commit()
+        pebble_id = pebble.id
+
+    def create(quantity: int):
+        return client.post(
+            f"/tenants/{t}/item-instances",
+            json={
+                "prototype_id": str(pebble_id),
+                "owner_character_id": str(ids["alice"]),
+                "container_entity_id": str(ids["backpack"]),
+                "quantity": quantity,
+            },
+        )
+
+    too_many = await create(25)
+    fits = await create(5)
+
+    # The Backpack carries 20 and already holds the Rope (1): 1 + 25 is too much, 1 + 5 is not.
+    assert too_many.status_code == 409
+    assert too_many.json()["detail"] == "Backpack can carry 20, and this would make it 26."
+    assert fits.status_code == 201, fits.text
+    assert fits.json()["quantity"] == 5
+    await delete_tenant(t)
