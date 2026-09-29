@@ -90,19 +90,34 @@ def test_the_plan_says_what_each_item_will_be(stack: Stack, tmp_path: Path) -> N
     assert items["purple glare"]["status"] == "skipped"
     assert "Cantrip" in items["purple glare"]["skipped_because"]
     sword = items["purple sword"]
-    assert sword["parents"] == ["dnd5e-martial", "melee-weapon"]
+    assert sword["parents"] == ["blade", "dnd5e-martial", "dnd5e-versatile", "melee-weapon"]
     assert sword["stats"] == {
         "sourcebook": "T:W 4, P 149",
         "own_weight": 3.0,
         "damage_dice_count": 1,
         "damage_die": 8,
         "damage_type": "slashing",
+        "damage_versatile_die": 10,
+        "attack_ability": "Strength",
+        "ability_to_damage": True,
     }
-    assert items["purple bow"]["parents"] == ["dnd5e-martial", "ranged-weapon"]
+    assert items["purple bow"]["parents"] == [
+        "bow",
+        "dnd5e-heavy",
+        "dnd5e-martial",
+        "dnd5e-two-handed",
+        "dnd5e-uses-ammunition",
+    ]
     assert items["purple bow"]["stats"]["range_normal"] == 150
     assert items["purple bow"]["stats"]["range_long"] == 600
     # A thrown dagger-like weapon is melee and ranged, from its range text alone.
-    assert items["purple dart"]["parents"] == ["dnd5e-simple", "melee-weapon", "ranged-weapon"]
+    assert items["purple dart"]["parents"] == [
+        "dnd5e-finesse",
+        "dnd5e-simple",
+        "dnd5e-throwable",
+        "melee-weapon",
+        "ranged-weapon",
+    ]
     header = document["header"]
     assert header["tenant"]["kind"] == "repository"
     assert header["counts"]["create"] == 3 and header["counts"]["held"] == 1
@@ -120,8 +135,8 @@ def test_what_needs_a_decision_goes_to_the_review_queue_with_a_row_to_paste(
     queue = json.loads((tmp_path / "review-queue.json").read_text())
     value = next(q for q in queue if q["kind"] == "value")
     assert (value["list"], value["key"], value["attribute"]) == ("weapons", "moon whip", "type")
-    assert value["value"] == "'Exotic'"
-    assert '"exotic" = "attach-form-only"' in value["suggestion"]
+    assert value["value"] == "'Legendary'"
+    assert '"legendary" = "attach-form-only"' in value["suggestion"]
     assert {"kind": "attribute", "attribute": "flavour"}.items() <= next(
         q for q in queue if q["kind"] == "attribute"
     ).items()
@@ -143,20 +158,37 @@ def test_apply_imports_what_is_resolved_and_leaves_the_rest_for_review(
         tid = tenant_id(api, tenant)
         sword = by_slug(api, tid, "basic-weapons-purple-sword")
         assert sword["name"] == "Purple sword"
-        assert parent_names(sword) == ["Martial weapon", "Melee weapon"]
+        assert parent_names(sword) == ["Blade", "Martial weapon", "Melee weapon", "Versatile"]
         assert own_stats(sword) == {
             "sourcebook": "T:W 4, P 149",
             "own_weight": 3.0,
             "damage_dice_count": 1,
             "damage_die": 8,
             "damage_type": "slashing",
+            "damage_versatile_die": 10,
+            "attack_ability": "Strength",
+            "ability_to_damage": True,
         }
         descriptions = [i for i in sword["information"] if i["type"] == "description"]
         assert [p["content"] for d in descriptions for p in d["payloads"]] == ["Versatile (1d10)"]
         assert {g["name"] for g in sword["stat_groups"]} >= {"physical", "damaging", "sourcebook"}
         dart = by_slug(api, tid, "basic-weapons-purple-dart")
-        assert parent_names(dart) == ["Melee weapon", "Ranged weapon", "Simple weapon"]
+        assert parent_names(dart) == [
+            "Finesse",
+            "Melee weapon",
+            "Ranged weapon",
+            "Simple weapon",
+            "Throwable",
+        ]
         assert own_stats(dart)["own_weight"] == 0.25
+        # The property is a category with its own description, so it shows up where it is used,
+        # and the category lists every weapon that has it.
+        versatile = by_slug(api, tid, "dnd5e-versatile")
+        assert [i["type"] for i in versatile["information"]] == ["description"]
+        assert "two hands" in versatile["information"][0]["payloads"][0]["content"]
+        assert "Purple sword" in [e["name"] for e in versatile["instances"]]
+        heavy = by_slug(api, tid, "dnd5e-heavy")
+        assert [e["name"] for e in heavy["instances"]] == ["Purple bow"]
         held = api.get(
             f"/tenants/{tid}/entities/resolve", params={"slug": "basic-weapons-moon-whip"}
         )
@@ -172,7 +204,7 @@ def test_a_row_in_the_map_settles_it_and_a_second_run_finds_nothing(
 ) -> None:
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
-    map_file = str(FIXTURES / "exotic.map.toml")
+    map_file = str(FIXTURES / "legendary.map.toml")
     files = str(FIXTURES / "weapons.js")
 
     dry = plan(stack, token, tmp_path, tenant, files, "--map", map_file, "--json")
@@ -184,8 +216,8 @@ def test_a_row_in_the_map_settles_it_and_a_second_run_finds_nothing(
     plan_document = json.loads(dry.stdout)
     assert plan_document["new_categories"] == [
         {
-            "slug": "hb-exotic",
-            "name": "Exotic weapon",
+            "slug": "hb-legendary",
+            "name": "Legendary weapon",
             "under": "dnd5e-weapon-proficiency",
             "axis": "proficiency",
         }
@@ -198,8 +230,8 @@ def test_a_row_in_the_map_settles_it_and_a_second_run_finds_nothing(
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)
         whip = by_slug(api, tid, "basic-weapons-moon-whip")
-        assert parent_names(whip) == ["Exotic weapon", "Melee weapon"]
-        category = by_slug(api, tid, "hb-exotic")
+        assert parent_names(whip) == ["Legendary weapon", "Melee weapon", "Whip"]
+        category = by_slug(api, tid, "hb-legendary")
         assert parent_names(category) == ["Weapon proficiency (D&D 5e)"]
 
 
@@ -214,7 +246,13 @@ def test_gear_armour_tools_ammo_and_packs(stack: Stack, tmp_path: Path) -> None:
         tid = tenant_id(api, tenant)
         plate = by_slug(api, tid, "basic-armour-purple-plate")
         assert parent_names(plate) == ["Armor", "Heavy armor"]
-        assert own_stats(plate) == {"armor": 18, "own_weight": 60.0, "sourcebook": "HB"}
+        assert own_stats(plate) == {
+            "armor": 18,
+            "own_weight": 60.0,
+            "sourcebook": "HB",
+            "strength_required": 15,
+            "stealth_disadvantage": True,
+        }
         robe = by_slug(api, tid, "basic-armour-violet-robe")
         assert parent_names(robe) == ["Armor"]
         assert "armor" not in own_stats(robe)  # a formula has no number to store

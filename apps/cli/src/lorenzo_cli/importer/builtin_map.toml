@@ -1,8 +1,11 @@
-# The built-in mapping (RFC 0025 R5, ADR 0144): what each MPMB value means in Lorenzo terms.
+# The built-in mapping (RFC 0025 R5, ADR 0144 and 0146): what each MPMB value means in Lorenzo terms.
 # A project map file (same format) overlays this one: its rows win, key by key.
 #
 # Read it as data, not as code. Values are matched exactly, case-insensitively. A value with no
 # row, and no "*" fallback, is not guessed at: the item is held for review.
+#
+# Nothing the source says is dropped without a reason: what has a place in the model goes there
+# (a stat, a category, an entry of its own), and `drop` is kept for what only the PDF needs.
 
 schema = 1
 version = "1"
@@ -24,12 +27,15 @@ reach_required = true
 [lists.weapons.roots]
 form = "physical-object"
 proficiency = "dnd5e-weapon-proficiency"
+property = "dnd5e-weapon-property"
+material = "material"
 
 [lists.armour]
 form = ["armor"]
 [lists.armour.roots]
 form = "physical-object"
 tier = "dnd5e-armor-tier"
+material = "material"
 
 [lists.gear]
 form = ["gear"]
@@ -65,6 +71,7 @@ form = "physical-object"
 [classify.weapons.type]
 simple = ["dnd5e-simple"]
 martial = ["dnd5e-martial"]
+exotic = ["dnd5e-exotic"]
 "improvised weapons" = ["dnd5e-improvised"]
 # Not items: a bare hand, a spell attack, cantrips the sheet lists as attacks.
 natural = "skip"
@@ -77,9 +84,18 @@ alwaysprof = "skip"
 [classify.weapons.list]
 melee = ["melee-weapon"]
 ranged = ["ranged-weapon"]
-firearm = ["ranged-weapon"]
+firearm = ["firearm"]
 improvised = []
 spell = "skip"
+
+# `special = true` marks a weapon with rules of its own; the rules are in its `tooltip`.
+[classify.weapons.special]
+"true" = ["dnd5e-special"]
+"false" = []
+
+# `ammo` names the ammunition the weapon fires ("arrow"): it needs ammunition, whatever it is.
+[classify.weapons.ammo]
+"*" = ["dnd5e-uses-ammunition"]
 
 # Armour `type` is light, medium or heavy, and absent for what isn't armour that is worn.
 [classify.armour.type]
@@ -97,16 +113,171 @@ magic = "skip"
 "gaming set" = ["dnd5e-gaming-set"]
 "musical instrument" = ["dnd5e-musical-instrument"]
 
-# Gear that comes as a bundle of ammunition is ammunition. The other kinds (a focus, clothes, a
-# saddle) are gear, and need no category of their own.
+# Gear that comes as a bundle of ammunition is ammunition. A focus, clothes and a saddle each have
+# a category. Any other kind is gear, and needs none of its own.
 [classify.gear.type]
 ammunition = { parents = ["ammunition"], replace_form = true }
+clothes = ["clothing"]
+saddle = ["tack"]
+"arcane focus" = ["dnd5e-arcane-focus"]
+"druidic focus" = ["dnd5e-druidic-focus"]
+"holy symbol" = ["dnd5e-holy-symbol"]
 "*" = "attach-form-only"
 
-# ---- name rules: what the sheet doesn't say, from the item's name ------------------------------------
-# The first rule of a list that matches adds its parents. `starts_with` compares the lower-cased
-# name, and is deliberately a short curated list.
+# ---- text rules: what the source doesn't say as a field, from its words ----------------------------
+# Every rule that matches applies, except that of the rules sharing a `group` only the first does.
+# `starts_with` compares a prefix, `contains` a substring, `words` a whole word (a hyphen is part of
+# a word). `attribute` is what is read; the item's name by default.
 
+# -- weapons: what kind of weapon it is (one kind: the first that fits) --
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["crossbow"]
+parents = ["crossbow"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["bow"]
+parents = ["bow"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["sling"]
+parents = ["sling"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["axe"]
+parents = ["axe"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["hammer", "maul"]
+parents = ["hammer"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["sword", "rapier", "scimitar", "dagger", "sickle", "blade", "knife"]
+parents = ["blade"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["club", "mace", "flail", "morningstar", "staff"]
+parents = ["bludgeon"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["glaive", "halberd", "pike", "lance"]
+parents = ["polearm"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["spear", "javelin", "trident"]
+parents = ["spear"]
+
+[[name_rule]]
+in_list = "weapons"
+group = "family"
+contains = ["whip"]
+parents = ["whip"]
+
+# -- weapons: the properties the description lists ("Finesse, light, thrown") --
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["finesse"]
+parents = ["dnd5e-finesse"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["heavy"]
+parents = ["dnd5e-heavy"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["light"]
+parents = ["dnd5e-light"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["loading"]
+parents = ["dnd5e-loading"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["reach"]
+parents = ["dnd5e-reach"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["special"]
+parents = ["dnd5e-special"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["thrown"]
+parents = ["dnd5e-throwable"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["two-handed"]
+parents = ["dnd5e-two-handed"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["versatile"]
+parents = ["dnd5e-versatile"]
+
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["ammunition"]
+parents = ["dnd5e-uses-ammunition"]
+
+# -- what it is made of --
+[[name_rule]]
+in_list = "weapons"
+words = ["silvered"]
+parents = ["silvered"]
+
+[[name_rule]]
+in_list = "weapons"
+words = ["adamantine"]
+parents = ["adamantine"]
+
+[[name_rule]]
+in_list = "armour"
+words = ["silvered"]
+parents = ["silvered"]
+
+[[name_rule]]
+in_list = "armour"
+words = ["adamantine"]
+parents = ["adamantine"]
+
+[[name_rule]]
+in_list = "armour"
+starts_with = ["shield"]
+parents = ["shield"]
+
+# -- gear: kinds of gear, from a curated list of names --
 [[name_rule]]
 in_list = "gear"
 starts_with = [
@@ -116,36 +287,91 @@ starts_with = [
 parents = ["container"]
 
 [[name_rule]]
-in_list = "armour"
-starts_with = ["shield"]
-parents = ["shield"]
+in_list = "gear"
+starts_with = [
+  "acid", "alchemist's fire", "animal feed", "antitoxin", "candle", "chalk", "holy water",
+  "incense", "ink (", "oil", "paper", "parchment", "perfume", "poison", "potion", "rations",
+  "sealing wax", "soap", "torch",
+]
+parents = ["consumable"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["robes"]
+parents = ["clothing"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["rope", "piton", "grappling hook", "climber's kit", "block and tackle", "ladder"]
+parents = ["climbing"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["fishing tackle", "spyglass"]
+parents = ["nautical"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["candle", "lamp", "lantern", "torch", "tinderbox"]
+parents = ["lighting"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["ink", "paper", "parchment", "sealing wax", "book", "spellbook"]
+parents = ["writing"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["bedroll", "blanket", "mess kit", "tent", "hunting trap", "waterskin"]
+parents = ["camping"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["bit and bridle", "saddlebags"]
+parents = ["tack"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["healer's kit", "antitoxin", "potion of healing"]
+parents = ["medicine"]
+
+[[name_rule]]
+in_list = "gear"
+starts_with = ["component pouch"]
+parents = ["dnd5e-spellcasting-focus"]
 
 # ---- attributes: what each MPMB attribute becomes ---------------------------------------------------------
-# A rule is a transform's name, or a table `{ transform = "...", ...parameters }`. The set of
-# transforms is closed (see ADR 0144); a new kind of extraction is a code change, a new attribute
-# is a row. `drop` says the attribute has no meaning here and is not worth mentioning.
-# An attribute with no rule is reported (it never blocks the item).
+# A rule is a transform's name, a table `{ transform = "...", ...parameters }`, or a list of them
+# when an attribute means several things. The set of transforms is closed (see ADR 0144, 0146); a
+# new kind of extraction is a code change, a new attribute is a row. `drop` says the attribute has
+# no meaning here and is not worth mentioning. An attribute with no rule is reported (it never
+# blocks the item).
 
 [attributes.weapons]
 name = "name"
 source = "sourcebook"
 weight = "own_weight"
-description = "description"
+# The text is the description; "Versatile (1d10)" also gives the two-handed die.
+description = [
+  "description",
+  { transform = "regex_extract", pattern = "(?i)versatile \\(1d(\\d+)\\)", group = 1, stat = "damage_versatile_die", as = "int", examples = [{ input = "Versatile (1d10)", output = "10" }, { input = "Finesse, versatile (1d8)", output = "8" }] },
+]
 damage = "damage"
 range = "range"
 type = "classify"
 list = "classify"
+special = "classify"
+ammo = ["classify", { transform = "text", stat = "ammo_type" }]
+ability = { transform = "ability_name", stat = "attack_ability" }
+abilitytodamage = { transform = "bool", stat = "ability_to_damage" }
+monkweapon = { transform = "bool", stat = "is_monk_weapon" }
+isNotWeapon = { transform = "bool", stat = "is_not_weapon" }
+dc = { transform = "bool", stat = "has_save_dc" }
+baseWeapon = { transform = "text", stat = "base_weapon" }
+tooltip = { transform = "information", type = "note", title = "Special rules" }
+nameAlt = "aliases"
+# What the PDF uses to recognise the weapon in a text field; nothing here needs it.
 regExpSearch = "drop"
-nameAlt = "drop"
-ability = "drop"
-abilitytodamage = "drop"
-monkweapon = "drop"
-ammo = "drop"
-isNotWeapon = "drop"
-dc = "drop"
-tooltip = "drop"
-special = "drop"
-baseWeapon = "drop"
 
 [attributes.armour]
 name = "name"
@@ -155,17 +381,18 @@ weight = "own_weight"
 ac = "armor"
 type = "classify"
 list = "classify"
+strReq = { transform = "int", stat = "strength_required", minimum = 1 }
+stealthdis = { transform = "bool", stat = "stealth_disadvantage" }
+addMod = { transform = "bool", stat = "adds_modifier" }
+affectsWildShape = { transform = "bool", stat = "affects_wild_shape" }
+isMagicArmor = { transform = "bool", stat = "is_magical" }
 regExpSearch = "drop"
-# Deferred (RFC 0025 R8): stealth, strength and dexterity limits, and the AC formulas.
-stealthdis = "drop"
-strReq = "drop"
-addMod = "drop"
-affectsWildShape = "drop"
 
 [attributes.gear]
 infoname = "name_and_price"
+# The inventory name; it is kept among the item's other names.
 name = "drop"
-amount = "drop"
+amount = { transform = "int", stat = "bundle_amount", minimum = 2 }
 weight = "own_weight"
 type = "classify"
 
@@ -181,9 +408,10 @@ name = "name"
 invName = "name"
 source = "sourcebook"
 weight = "own_weight"
+isMagicAmmo = { transform = "bool", stat = "is_magical" }
+alternatives = "aliases"
+# A picture for the sheet's ammunition counter, and what it uses to recognise the ammunition.
 icon = "drop"
-isMagicAmmo = "drop"
-alternatives = "drop"
 regExpSearch = "drop"
 
 [attributes.packs]
@@ -193,8 +421,9 @@ items = "pack_contents"
 
 # ---- pack contents: a pack lists its items by display name, not by key ---------------------------------------------
 # A name is looked up exactly (case-insensitively) among the names of the items in the run. A row here
-# answers the ones that don't match: "list:key" links to that entry, "text" says it is not a catalog
-# item and stays plain text in the description. Names nothing answers are reported, never guessed at.
+# answers the ones that don't match: "list:key" links to that entry; "item" says it is a plain item
+# of its own (the importer makes it); "text" says it is not an item at all and stays plain text.
+# A name nothing answers is made a plain item as well, and reported, so it can be linked instead.
 
 [pack_items]
 "candles" = "gear:candle"
@@ -203,10 +432,10 @@ items = "pack_contents"
 "costumes" = "gear:costume"
 "perfume, vial of" = "gear:perfume (vial)"
 # The sheet has no gear entry for these, only the packs that mention them.
-"string, feet of" = "text"
-"alms box" = "text"
-"incense, blocks of" = "text"
-"censer" = "text"
-"vestments" = "text"
-"book of lore" = "text"
-"little bag of sand" = "text"
+"string, feet of" = "item"
+"alms box" = "item"
+"incense, blocks of" = "item"
+"censer" = "item"
+"vestments" = "item"
+"book of lore" = "item"
+"little bag of sand" = "item"

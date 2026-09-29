@@ -21,7 +21,12 @@ def test_the_builtin_map_loads_and_says_what_a_martial_weapon_is() -> None:
     assert mapping.classify["gear"]["type"]["*"].disposition == "attach-form-only"
     assert mapping.lists["weapons"].reach_required is True
     assert mapping.currencies == {"cp": 1, "sp": 10, "ep": 50, "gp": 100, "pp": 1000}
-    assert mapping.attributes["weapons"]["damage"].transform == "damage"
+    assert [r.transform for r in mapping.attributes["weapons"]["damage"]] == ["damage"]
+    assert [r.transform for r in mapping.attributes["weapons"]["description"]] == [
+        "description",
+        "regex_extract",
+    ]  # an attribute can feed more than one stat
+    assert "property" in mapping.lists["weapons"].roots
 
 
 def test_a_project_map_overlays_the_builtin_one_row_by_row() -> None:
@@ -47,8 +52,8 @@ flavour = "drop"
     assert mapping.classify["weapons"]["type"]["martial"].parents == ["hb-heavy"]  # replaced
     assert mapping.classify["weapons"]["type"]["simple"].parents == ["dnd5e-simple"]  # kept
     assert mapping.classify["weapons"]["type"]["exotic"].disposition == "attach-form-only"
-    assert mapping.attributes["weapons"]["flavour"].transform == "drop"
-    assert mapping.attributes["weapons"]["damage"].transform == "damage"
+    assert [r.transform for r in mapping.attributes["weapons"]["flavour"]] == ["drop"]
+    assert [r.transform for r in mapping.attributes["weapons"]["damage"]] == ["damage"]
     assert len(loaded.user_map_sha256) == 64
 
 
@@ -187,3 +192,60 @@ capacity = { transform = "regex_extract", pattern = "(\\\\d+) lb", group = 1, st
 def test_a_wrong_map_is_refused_with_a_reason(text: str, message: str) -> None:
     with pytest.raises(MappingError, match=message):
         load_mapping(text)
+
+
+def test_an_attribute_takes_one_rule_or_a_list_of_them() -> None:
+    mapping = load_mapping(
+        """
+schema = 1
+[attributes.gear]
+one = "drop"
+two = ["drop", { transform = "int", stat = "s" }]
+"""
+    ).mapping
+
+    assert [r.transform for r in mapping.attributes["gear"]["one"]] == ["drop"]
+    assert [r.transform for r in mapping.attributes["gear"]["two"]] == ["drop", "int"]
+
+
+def test_a_name_rule_can_read_another_attribute_and_share_an_exclusive_group() -> None:
+    mapping = load_mapping(
+        """
+schema = 1
+[[name_rule]]
+in_list = "weapons"
+attribute = "description"
+words = ["two-handed"]
+group = "g"
+parents = ["dnd5e-two-handed"]
+"""
+    ).mapping
+
+    rule = mapping.name_rules[0]
+    assert (rule.attribute, rule.words, rule.group) == ("description", ["two-handed"], "g")
+
+
+def test_the_builtin_map_knows_the_families_the_properties_and_the_materials() -> None:
+    mapping = load_mapping().mapping
+
+    parents = {p for rule in mapping.name_rules for p in rule.parents}
+    assert {
+        "blade",
+        "axe",
+        "hammer",
+        "bow",
+        "crossbow",
+        "sling",
+        "silvered",
+        "consumable",
+    } <= parents
+    assert {"dnd5e-finesse", "dnd5e-throwable", "dnd5e-two-handed", "dnd5e-versatile"} <= parents
+    assert mapping.classify["weapons"]["type"]["exotic"].parents == ["dnd5e-exotic"]
+    assert mapping.classify["weapons"]["list"]["firearm"].parents == ["firearm"]
+
+
+def test_a_pack_entry_can_be_named_a_plain_item() -> None:
+    mapping = load_mapping().mapping
+
+    assert mapping.pack_items["alms box"] == "item"
+    assert mapping.pack_items["candles"] == "gear:candle"

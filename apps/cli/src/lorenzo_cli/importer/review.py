@@ -90,6 +90,7 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
                 "parents": item.draft.parents,
                 "stats": item.draft.stats,
                 "description": bool(item.draft.description),
+                "information": [{"type": i.type, "title": i.title} for i in item.draft.information],
                 "uncategorised": item.draft.uncategorised,
                 "notes": item.draft.notes,
                 "would_change_parents": item.reparent,
@@ -98,7 +99,7 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
                 "pack": (
                     {
                         "lines": len(item.draft.pack_lines),
-                        "plain_text": [u.name for u in item.draft.pack_unresolved],
+                        "unresolved": [u.name for u in item.draft.pack_unresolved],
                     }
                     if item.draft.list_name == "packs"
                     else None

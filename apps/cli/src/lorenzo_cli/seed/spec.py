@@ -42,6 +42,8 @@ class NodeSpec(_Strict):
     parents: list[str] = Field(default_factory=list)
     # Bool stats set to true on this node (tags), inherited by everything under it.
     tags: list[str] = Field(default_factory=list)
+    # What the category means, written as its public description: every item under it shows it.
+    description: str = ""
 
 
 class RecipeSpec(_Strict):

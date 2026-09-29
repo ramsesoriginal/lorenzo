@@ -176,6 +176,7 @@ def _write_item(
     tenant = {"tenant_id": plan.tenant.id}
     entity_id = item.entity_id
     have_stats, has_description = item.have_stats, item.has_description
+    have_information = item.have_information
     if item.status == "create":
         try:
             created = client.call(
@@ -200,6 +201,7 @@ def _write_item(
             detail = tenant_view.entity_detail(client, plan.tenant.id, entity_id)
             have_stats = frozenset(s.name for s in detail.stats if s.own)
             has_description = any(i.type == "description" for i in detail.information)
+            have_information = frozenset(i.type for i in detail.information)
             report.completed += 1
     else:
         report.completed += 1
@@ -231,6 +233,19 @@ def _write_item(
                 locale="en-US",
             ),
         )
+    for entry in draft.information:
+        if entry.type not in have_information:
+            client.call(
+                CREATE_INFORMATION,
+                path={**tenant, "entity_id": entity_id},
+                body=InformationCreate(
+                    title=entry.title,
+                    type=entry.type,
+                    is_public=True,
+                    content=entry.content,
+                    locale="en-US",
+                ),
+            )
     if MARKER_STAT in draft.stats:
         write(MARKER_STAT)  # last: its presence says the item is finished
 

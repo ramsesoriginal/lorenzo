@@ -18,7 +18,7 @@ from e2e.stack import Stack
 from e2e.test_import import apply, plan, seeded_tenant, statuses
 
 WEAPONS = str(FIXTURES / "weapons.js")
-EXOTIC = str(FIXTURES / "exotic.map.toml")
+LEGENDARY = str(FIXTURES / "legendary.map.toml")
 
 
 def write(path: Path, text: str) -> str:
@@ -34,7 +34,7 @@ def test_the_namespace_comes_from_the_map_and_a_change_of_it_is_a_move_not_a_dup
     alice = write(
         tmp_path / "alice.map.toml",
         'schema = 1\n[namespaces]\n"weapons.js" = "hb-alice"\n'
-        + Path(EXOTIC).read_text().replace("schema = 1", ""),
+        + Path(LEGENDARY).read_text().replace("schema = 1", ""),
     )
     assert apply(stack, token, tmp_path, tenant, WEAPONS, "--map", alice, "--yes").exit_code == 0
     with stack.api(token) as api:
@@ -42,7 +42,7 @@ def test_the_namespace_comes_from_the_map_and_a_change_of_it_is_a_move_not_a_dup
         assert by_slug(api, tid, "hb-alice-weapons-purple-sword")["name"] == "Purple sword"
 
     # The same files under the default namespace: the plan notices, and creates nothing.
-    moved = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
+    moved = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
     document = json.loads(moved.stdout)
     assert moved.exit_code == 1
     assert document["header"]["counts"]["moved"] == 4
@@ -56,7 +56,7 @@ def test_the_namespace_comes_from_the_map_and_a_change_of_it_is_a_move_not_a_dup
     )
 
     accepted = apply(
-        stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--accept-moves", "--yes"
+        stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--accept-moves", "--yes"
     )
     assert accepted.exit_code == 0, accepted.output
     with stack.api(token) as api:
@@ -85,10 +85,10 @@ def test_an_item_an_earlier_run_stopped_in_the_middle_of_is_finished_not_mistake
         )
         assert created.status_code == 201
 
-    half = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
+    half = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
     assert statuses(json.loads(half.stdout))["basic-weapons-purple-sword"] == "complete"
-    finished = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--yes")
-    settled = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
+    finished = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--yes")
+    settled = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
 
     assert finished.exit_code == 0, finished.output
     assert settled.exit_code == 0
@@ -104,7 +104,9 @@ def test_changed_parents_are_reported_and_only_reconciled_when_asked(
 ) -> None:
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
-    assert apply(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--yes").exit_code == 0
+    assert (
+        apply(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--yes").exit_code == 0
+    )
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)
         sword = by_slug(api, tid, "basic-weapons-purple-sword")
@@ -119,14 +121,16 @@ def test_changed_parents_are_reported_and_only_reconciled_when_asked(
         )
         assert moved.status_code == 200, moved.text
 
-    reported = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
+    reported = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
     counted = plan(
-        stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--reconcile", "--json"
+        stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--reconcile", "--json"
     )
-    left_alone = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--yes")
+    left_alone = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--yes")
     with stack.api(token) as api:
         assert parent_names(by_slug(api, tid, "basic-weapons-purple-sword")) == ["Ranged weapon"]
-    fixed = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--reconcile", "--yes")
+    fixed = apply(
+        stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--reconcile", "--yes"
+    )
 
     assert json.loads(reported.stdout)["header"]["counts"]["would_change_parents"] == 1
     assert reported.exit_code == 0  # create-only by default: it is a report, not pending work
@@ -135,8 +139,10 @@ def test_changed_parents_are_reported_and_only_reconciled_when_asked(
     assert fixed.exit_code == 0, fixed.output
     with stack.api(token) as api:
         assert parent_names(by_slug(api, tid, "basic-weapons-purple-sword")) == [
+            "Blade",
             "Martial weapon",
             "Melee weapon",
+            "Versatile",
         ]
 
 
@@ -149,8 +155,8 @@ def test_strict_treats_an_attribute_no_rule_mentions_as_unresolved(
         tmp_path / "category.map.toml",
         "schema = 1\n"
         "[classify.weapons.type]\n"
-        'exotic = { disposition = "create-under", axis = "proficiency", '
-        'slug = "hb-exotic", name = "Exotic weapon" }\n',
+        'legendary = { disposition = "create-under", axis = "proficiency", '
+        'slug = "hb-legendary", name = "Legendary weapon" }\n',
     )
 
     lenient = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", only_the_category)
@@ -169,7 +175,7 @@ def test_a_rule_can_write_a_stat_the_tenant_does_not_have_yet(stack: Stack, tmp_
     tenant = seeded_tenant(stack, token, tmp_path)
     lore = write(
         tmp_path / "lore.map.toml",
-        Path(EXOTIC)
+        Path(LEGENDARY)
         .read_text()
         .replace(
             'flavour = "drop"',
@@ -232,8 +238,8 @@ def test_the_imported_items_are_not_public_unless_asked(stack: Stack, tmp_path: 
     private = seeded_tenant(stack, token, tmp_path)
     public = seeded_tenant(stack, token, tmp_path)
 
-    apply(stack, token, tmp_path, private, WEAPONS, "--map", EXOTIC, "--yes")
-    apply(stack, token, tmp_path, public, WEAPONS, "--map", EXOTIC, "--public-catalog", "--yes")
+    apply(stack, token, tmp_path, private, WEAPONS, "--map", LEGENDARY, "--yes")
+    apply(stack, token, tmp_path, public, WEAPONS, "--map", LEGENDARY, "--public-catalog", "--yes")
 
     with stack.api(token) as api:
         for tenant, expected in ((private, False), (public, True)):
@@ -267,8 +273,8 @@ def test_two_plans_of_the_same_inputs_are_the_same_document(stack: Stack, tmp_pa
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
 
-    one = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
-    two = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
+    one = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
+    two = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
 
     assert one.stdout == two.stdout
 
@@ -279,9 +285,34 @@ def test_nothing_is_written_without_yes_when_nobody_can_be_asked(
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
 
-    refused = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC)
-    still = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", EXOTIC, "--json")
+    refused = apply(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY)
+    still = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
 
     assert refused.exit_code == 1 and "--yes" in refused.output
     assert set(statuses(json.loads(still.stdout)).values()) == {"create"}
     assert run_cli  # (imported for the fixtures' sake)
+
+
+def test_what_the_sheet_says_beyond_the_stats_is_kept_as_information(
+    stack: Stack, tmp_path: Path
+) -> None:
+    token = stack.creator_token()
+    tenant = seeded_tenant(stack, token, tmp_path)
+
+    result = apply(stack, token, tmp_path, tenant, str(FIXTURES / "gear.js"), "--yes")
+    again = plan(stack, token, tmp_path, tenant, str(FIXTURES / "gear.js"), "--json")
+
+    assert result.exit_code == 0, result.output
+    assert again.exit_code == 0, again.output  # the entries written once are not written again
+    with stack.api(token) as api:
+        tid = tenant_id(api, tenant)
+        torch = by_slug(api, tid, "basic-gear-signal-torch")
+        assert parent_names(torch) == ["Consumable", "Lighting"]
+        assert own_stats(torch)["bundle_amount"] == 5
+        [aliases] = [i for i in torch["information"] if i["type"] == "alias"]
+        assert aliases["title"] == "Also known as"
+        assert [p["content"] for p in aliases["payloads"]] == ["Flare stick\nBeacon"]
+        plate = by_slug(api, tid, "basic-armour-dented-plate")
+        [known] = [i for i in plate["information"] if i["type"] == "alias"]
+        assert [p["content"] for p in known["payloads"]] == ["Battered plate"]
+        assert parent_names(plate) == ["Armor", "Heavy armor"]

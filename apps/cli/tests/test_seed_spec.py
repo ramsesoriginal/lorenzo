@@ -35,30 +35,35 @@ def test_the_builtin_seed_is_the_taxonomy_and_stats_the_rfc_decided() -> None:
     core = [n.slug for n in seed.nodes if n.layer == "core"]
     dnd5e = [n.slug for n in seed.nodes if n.layer == "dnd5e"]
     assert core == [
-        "physical-object", "weapon", "melee-weapon", "ranged-weapon", "armor", "shield", "tool",
-        "container", "ammunition", "gear",
+        "physical-object", "weapon", "melee-weapon", "ranged-weapon", "blade", "axe", "hammer",
+        "bludgeon", "spear", "polearm", "whip", "bow", "crossbow", "sling", "firearm", "armor",
+        "shield", "tool", "container", "consumable", "ammunition", "gear", "clothing", "climbing",
+        "nautical", "lighting", "writing", "camping", "tack", "medicine", "material", "silvered",
+        "adamantine",
     ]  # fmt: skip
-    assert len(dnd5e) == 12
+    assert len(dnd5e) == 28
     assert all(slug.startswith("dnd5e-") for slug in dnd5e)
     assert {g.name for g in seed.groups} == {
         "physical", "economic", "destroyable", "damaging", "tags", "sourcebook",
     }  # fmt: skip
-    assert {d.name: d.value_type for d in seed.definitions} == {
-        "own_weight": "float", "weight": "float", "contents_weight": "float",
-        "range_normal": "int", "range_long": "int", "price": "int", "armor": "int",
-        "is_container": "bool", "sourcebook": "text",
-        "damage_dice_count": "int", "damage_die": "int", "damage_type": "text",
-    }  # fmt: skip
+    types = {d.name: d.value_type for d in seed.definitions}
+    assert len(types) == 40
+    assert types["own_weight"] == "float" and types["price"] == "int"
+    assert types["armor"] == "int" and types["armor_formula"] == "text"
+    assert types["attack_ability"] == "text" and types["ability_to_damage"] == "bool"
+    assert types["bundle_amount"] == "int" and types["damage_versatile_die"] == "int"
+    # The properties a category stands for are tags: bool stats, so a node can be found by them.
+    assert all(types[name] == "bool" for name in types if name.startswith("is_"))
 
 
-def test_only_the_damage_dice_belong_to_the_dnd5e_layer_among_the_definitions() -> None:
+def test_the_game_system_definitions_belong_to_the_dnd5e_layer() -> None:
     seed = load_builtin()
 
-    assert {d.name for d in seed.definitions if d.layer == "dnd5e"} == {
-        "damage_dice_count",
-        "damage_die",
-        "damage_type",
-    }
+    dnd5e = {d.name for d in seed.definitions if d.layer == "dnd5e"}
+    assert {"damage_dice_count", "damage_die", "damage_type", "attack_ability"} <= dnd5e
+    assert {"is_finesse", "is_heavy", "uses_ammunition", "is_monk_weapon"} <= dnd5e
+    assert len(dnd5e) == 22
+    assert not dnd5e & {"own_weight", "price", "armor", "is_container", "is_consumable"}
     # The group is core, so two game systems never both create it.
     assert next(g for g in seed.groups if g.name == "damaging").layer == "core"
 
@@ -73,10 +78,37 @@ def test_a_shield_is_under_armor_and_the_proficiencies_are_mixins_under_one_root
     forms = {
         "physical-object": [], "weapon": ["physical-object"], "melee-weapon": ["weapon"],
         "ranged-weapon": ["weapon"], "armor": ["physical-object"], "tool": ["physical-object"],
-        "container": ["physical-object"], "ammunition": ["physical-object"],
+        "container": ["physical-object"], "consumable": ["physical-object"],
         "gear": ["physical-object"],
     }  # fmt: skip
     assert {slug: seed.node(slug).parents for slug in forms} == forms
+
+
+def test_the_weapon_families_hang_where_their_kind_of_attack_is() -> None:
+    seed = load_builtin()
+
+    for family in ("blade", "axe", "hammer", "bludgeon", "spear", "polearm", "whip"):
+        assert seed.node(family).parents == ["weapon"], family  # melee or ranged is a mixin apart
+    for ranged in ("bow", "crossbow", "sling", "firearm"):
+        assert seed.node(ranged).parents == ["ranged-weapon"], ranged  # so they reach far already
+
+
+def test_ammunition_is_a_consumable_and_the_kinds_of_gear_are_gear() -> None:
+    seed = load_builtin()
+
+    assert seed.node("ammunition").parents == ["consumable"]
+    assert seed.node("consumable").tags == ["is_consumable"]
+    for kind in ("clothing", "climbing", "nautical", "lighting", "writing", "camping", "tack"):
+        assert seed.node(kind).parents == ["gear"], kind
+
+
+def test_every_weapon_property_is_a_node_with_a_tag_and_a_description() -> None:
+    seed = load_builtin()
+
+    properties = [n for n in seed.nodes if n.parents == ["dnd5e-weapon-property"]]
+    assert len(properties) == 10
+    for prop in properties:
+        assert len(prop.tags) == 1 and prop.description, prop.slug
 
 
 def test_the_weight_recipe_sums_own_weight_and_contents() -> None:

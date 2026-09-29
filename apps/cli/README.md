@@ -53,7 +53,7 @@ uv run lorenzo apply --tenant my-repository --base $S/ListsSources.js --base $S/
 
 An item's identity is its slug, `<namespace>-<list>-<key>` (`basic-weapons-longsword`), so a second run finds what the first made. The namespace comes from the map, per input file (`[namespaces]`, default `basic`); it is a commitment, since a rename doesn't rewrite `[[links]]`.
 
-**What is decided by data, not code.** `src/lorenzo_cli/importer/builtin_map.toml` says what each MPMB value means (a `Martial` weapon is `dnd5e-martial`; `Natural`, `Cantrip` and `Spell` aren't items; an `ammunition` gear entry is ammunition), and your map, in the same format, overlays it row by row:
+**What is decided by data, not code.** `src/lorenzo_cli/importer/builtin_map.toml` says what each MPMB value means (a `Martial` weapon is `dnd5e-martial`; `Natural`, `Cantrip` and `Spell` aren't items; an `ammunition` gear entry is ammunition; a longsword is a `blade` with the `Versatile` property, found from its name and description), and your map, in the same format, overlays it row by row:
 
 ```toml
 schema = 1
@@ -71,9 +71,9 @@ exotic = { disposition = "create-under", axis = "proficiency", slug = "hb-exotic
 flavour = { transform = "text", stat = "flavour_text", group = "lore" }   # creates the stat
 ```
 
-**What it won't guess.** A value with no row (a weapon `type` of `Exotic`), a price it can't read, or a weapon that is neither melee nor ranged holds that item back, and everything held is written to `review-queue.json` with a row to paste, and to `proposed.map.toml`. Your map file is never edited. `--teach`, at a terminal, asks about each unknown value once, uses the answer straight away, and offers to append the rows to your map afterwards. Attributes no rule mentions are listed and don't block an item; under `--strict` they count as unresolved.
+**What it won't guess.** A value with no row (a weapon `type` the map has never heard of), a price it can't read, or a weapon that is neither melee nor ranged holds that item back, and everything held is written to `review-queue.json` with a row to paste, and to `proposed.map.toml`. Your map file is never edited. `--teach`, at a terminal, asks about each unknown value once, uses the answer straight away, and offers to append the rows to your map afterwards. Attributes no rule mentions are listed and don't block an item; under `--strict` they count as unresolved.
 
-**Packs.** An Explorer's pack is imported as an item whose public description lists its contents (`- 5 x [Rations (1 day)](basic-gear-rations-1-day)`, nested under its container, [ADR 0145](../../docs/adr/0145-pack-contents-in-the-description.md)). It copies with a repository, and `lorenzo pack give basic-packs-explorer --tenant my-campaign --owner alice` creates the backpack and everything in it. A name the pack uses that no item answers to stays plain text and is reported (add a `[pack_items]` row to link it, or mark it `"text"`).
+**Packs.** An Explorer's pack is imported as an item whose public description lists its contents (`- 5 x [Rations (1 day)](basic-gear-rations-1-day)`, nested under its container, [ADR 0145](../../docs/adr/0145-pack-contents-in-the-description.md)). It copies with a repository, and `lorenzo pack give basic-packs-explorer --tenant my-campaign --owner alice` creates the backpack and everything in it. An entry the sheet has no gear entry for (an alms box) becomes a simple plain gear item so the pack can be given complete; a name the map does not know is made one too and reported, with a `[pack_items]` row to link it to a real item instead (`"item"` says it is a plain item, `"text"` that it is no item at all).
 
 Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--allow-play-tenant`, as for `seed`.
 
@@ -85,6 +85,8 @@ An import needs somewhere to put things: item prototypes to descend from (weapon
 uv run lorenzo seed --tenant my-repository --dry-run   # what would be created (exit 2 if anything)
 uv run lorenzo seed --tenant my-repository --yes       # create it
 ```
+
+The taxonomy is a graph with multiple inheritance, so a weapon is several things at once: `longsword` descends from `blade`, `dnd5e-martial` and `dnd5e-versatile`. Weapon families (blade, axe, hammer, bow, crossbow, sling, firearm), weapon properties (finesse, heavy, light, reach, thrown, two-handed, versatile…), materials, consumables and kinds of gear (clothing, climbing, nautical…) are nodes of their own; a property carries its rules as a public description, which shows on every weapon that has it, and the property lists the weapons that do ([ADR 0146](../../docs/adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md)). What the sheet says beyond that is kept: other names as an "Also known as" entry, a weapon's special rules as a note, and the ability, strength requirement, bundle size and flags as stats.
 
 It writes to an existing `repository` tenant. A `play` tenant is refused, because a tenant's kind can't be changed and nothing in it could ever be published; `--allow-play-tenant` writes there anyway. The seed is in `src/lorenzo_cli/seed/builtin.toml`, tagged by layer (`core`, and `dnd5e` for D&D 5e's categories and dice, chosen with `--layer`). Stat names and types can't be changed once a tenant has them, so read that file before the first run against a tenant that matters.
 

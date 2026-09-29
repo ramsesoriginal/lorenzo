@@ -1,14 +1,17 @@
-# The built-in seed (RFC 0025 R8 and R9, ADR 0143): the item taxonomy, the stat groups and
+# The built-in seed (RFC 0025 R8 and R9, ADR 0143 and 0146): the item taxonomy, the stat groups and
 # definitions, and the weight recipe that `lorenzo seed` finds-or-creates in a tenant.
 #
 # Every group, definition and node carries a `layer`:
 #   core   - nothing specific to one game system. Bare slugs.
-#   dnd5e  - D&D 5e's own categories and dice. Slugs prefixed `dnd5e-`.
+#   dnd5e  - D&D 5e's own categories, properties and dice. Slugs prefixed `dnd5e-`.
 # so the dnd5e layer can later become a repository of its own as a filter, not a rewrite.
 #
 # Stat definitions and groups can't be renamed, retyped or removed once a tenant has them (no
 # PATCH or DELETE, ADR 0014), and are frozen in every copy of a repository (ADR 0119, 0121):
 # what is written here is chosen once. Changing a `value_type` later cannot be applied.
+#
+# A category is a prototype, so an item that has it inherits it: its tags (`is_finesse`), and its
+# description, which the item's view shows. "Every heavy weapon" is the backlinks of `dnd5e-heavy`.
 
 schema = 1
 version = "1"
@@ -40,7 +43,7 @@ layer = "core"
 name = "sourcebook"
 layer = "core"
 
-# ---- stat definitions ---------------------------------------------------------------------------
+# ---- stat definitions: physical ---------------------------------------------------------------------
 
 # MPMB's `weight` is written to `own_weight`, never to `weight`: `weight` is the recipe below
 # (own weight plus what is inside), and a direct value would beat it and stop a container
@@ -75,6 +78,16 @@ group = "physical"
 value_type = "int"
 layer = "core"
 
+# How many of a thing one entry is: a bundle of 20 arrows, 50 feet of rope. The weight above
+# already counts them all.
+[[definition]]
+name = "bundle_amount"
+group = "physical"
+value_type = "int"
+layer = "core"
+
+# ---- economic ------------------------------------------------------------------------------------------------
+
 # In copper pieces, so no fractions and no currency to choose.
 [[definition]]
 name = "price"
@@ -82,11 +95,42 @@ group = "economic"
 value_type = "int"
 layer = "core"
 
+# ---- destroyable: what armour does and asks ---------------------------------------------------------
+
 [[definition]]
 name = "armor"
 group = "destroyable"
 value_type = "int"
 layer = "core"
+
+# An armour class that is a formula ("10+Wis") has no honest number; the text is kept as written.
+[[definition]]
+name = "armor_formula"
+group = "destroyable"
+value_type = "text"
+layer = "core"
+
+[[definition]]
+name = "strength_required"
+group = "destroyable"
+value_type = "int"
+layer = "core"
+
+[[definition]]
+name = "stealth_disadvantage"
+group = "destroyable"
+value_type = "bool"
+layer = "core"
+
+# The wearer's ability modifier is added to the armour class.
+[[definition]]
+name = "adds_modifier"
+group = "destroyable"
+value_type = "bool"
+layer = "core"
+
+# ---- tags: bool stats that things are marked with (and categories carry, for everything under
+# them to inherit) ---------------------------------------------------------------------------------------------
 
 [[definition]]
 name = "is_container"
@@ -94,12 +138,38 @@ group = "tags"
 value_type = "bool"
 layer = "core"
 
-# The item's citation, such as "SRD 204; E 7, S 115". Never part of its identity.
+[[definition]]
+name = "is_consumable"
+group = "tags"
+value_type = "bool"
+layer = "core"
+
+[[definition]]
+name = "is_magical"
+group = "tags"
+value_type = "bool"
+layer = "core"
+
+[[definition]]
+name = "is_silvered"
+group = "tags"
+value_type = "bool"
+layer = "core"
+
+[[definition]]
+name = "is_adamantine"
+group = "tags"
+value_type = "bool"
+layer = "core"
+
+# The item's citation, such as "SRD 204, E 7". Never part of its identity.
 [[definition]]
 name = "sourcebook"
 group = "sourcebook"
 value_type = "text"
 layer = "core"
+
+# ---- the dnd5e layer: damage and weapon properties --------------------------------------------------
 
 # Dice are D&D's: the group is core, the definitions belong to the layer, because a definition
 # can't be moved later.
@@ -119,6 +189,125 @@ layer = "dnd5e"
 name = "damage_type"
 group = "damaging"
 value_type = "text"
+layer = "dnd5e"
+
+# The die a versatile weapon does when used with two hands: the 10 of "Versatile (1d10)".
+[[definition]]
+name = "damage_versatile_die"
+group = "damaging"
+value_type = "int"
+layer = "dnd5e"
+
+# The ability an attack is made with, by name ("Strength"), not the sheet's number for it.
+[[definition]]
+name = "attack_ability"
+group = "damaging"
+value_type = "text"
+layer = "dnd5e"
+
+[[definition]]
+name = "ability_to_damage"
+group = "damaging"
+value_type = "bool"
+layer = "dnd5e"
+
+# A variant weapon's base ("baseWeapon" in the source), by the sheet's key for it.
+[[definition]]
+name = "base_weapon"
+group = "damaging"
+value_type = "text"
+layer = "dnd5e"
+
+# Which ammunition a weapon fires ("arrow", "bolt"), as the sheet names it.
+[[definition]]
+name = "ammo_type"
+group = "damaging"
+value_type = "text"
+layer = "dnd5e"
+
+[[definition]]
+name = "has_save_dc"
+group = "damaging"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_finesse"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_heavy"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_light"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_loading"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_reach"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_special"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_throwable"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_two_handed"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_versatile"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "uses_ammunition"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "is_monk_weapon"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+# The sheet lists some throwables (a vial of acid) among weapons and marks them as not really one.
+[[definition]]
+name = "is_not_weapon"
+group = "tags"
+value_type = "bool"
+layer = "dnd5e"
+
+[[definition]]
+name = "affects_wild_shape"
+group = "tags"
+value_type = "bool"
 layer = "dnd5e"
 
 # ---- the core taxonomy: forms ---------------------------------------------------------------------
@@ -146,6 +335,77 @@ name = "Ranged weapon"
 layer = "core"
 parents = ["weapon"]
 
+# Kinds of weapon, by what they are made like. A longsword is a blade; a battleaxe an axe.
+[[node]]
+slug = "blade"
+name = "Blade"
+layer = "core"
+parents = ["weapon"]
+
+[[node]]
+slug = "axe"
+name = "Axe"
+layer = "core"
+parents = ["weapon"]
+
+[[node]]
+slug = "hammer"
+name = "Hammer"
+layer = "core"
+parents = ["weapon"]
+
+[[node]]
+slug = "bludgeon"
+name = "Bludgeon"
+layer = "core"
+parents = ["weapon"]
+description = "A club, mace, flail or staff: a weapon that hits with weight rather than an edge."
+
+[[node]]
+slug = "spear"
+name = "Spear"
+layer = "core"
+parents = ["weapon"]
+
+[[node]]
+slug = "polearm"
+name = "Polearm"
+layer = "core"
+parents = ["weapon"]
+description = "A long shaft with a head at the end: a glaive, halberd, pike or lance."
+
+[[node]]
+slug = "whip"
+name = "Whip"
+layer = "core"
+parents = ["weapon"]
+
+# Ranged weapons, and what they shoot.
+[[node]]
+slug = "bow"
+name = "Bow"
+layer = "core"
+parents = ["ranged-weapon"]
+
+[[node]]
+slug = "crossbow"
+name = "Crossbow"
+layer = "core"
+parents = ["ranged-weapon"]
+
+[[node]]
+slug = "sling"
+name = "Sling"
+layer = "core"
+parents = ["ranged-weapon"]
+
+[[node]]
+slug = "firearm"
+name = "Firearm"
+layer = "core"
+parents = ["ranged-weapon"]
+description = "A ranged weapon that fires its ammunition with gunpowder."
+
 [[node]]
 slug = "armor"
 name = "Armor"
@@ -172,17 +432,97 @@ parents = ["physical-object"]
 # `is_container` is a tag, so it is inherited by everything under this node.
 tags = ["is_container"]
 
+# Things that are used up by using them: a potion, a day's rations, oil, ammunition.
+[[node]]
+slug = "consumable"
+name = "Consumable"
+layer = "core"
+parents = ["physical-object"]
+tags = ["is_consumable"]
+description = "Used up by using it: a potion, a day's rations, a flask of oil, an arrow."
+
 [[node]]
 slug = "ammunition"
 name = "Ammunition"
 layer = "core"
-parents = ["physical-object"]
+parents = ["consumable"]
 
 [[node]]
 slug = "gear"
 name = "Gear"
 layer = "core"
 parents = ["physical-object"]
+
+# Kinds of gear.
+[[node]]
+slug = "clothing"
+name = "Clothing"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "climbing"
+name = "Climbing gear"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "nautical"
+name = "Nautical gear"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "lighting"
+name = "Lighting"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "writing"
+name = "Writing and reading"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "camping"
+name = "Camping gear"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "tack"
+name = "Tack and riding gear"
+layer = "core"
+parents = ["gear"]
+
+[[node]]
+slug = "medicine"
+name = "Medicine"
+layer = "core"
+parents = ["gear"]
+
+# What a thing is made of. Not a form: a silvered dagger is still a dagger.
+[[node]]
+slug = "material"
+name = "Material"
+layer = "core"
+
+[[node]]
+slug = "silvered"
+name = "Silvered"
+layer = "core"
+parents = ["material"]
+tags = ["is_silvered"]
+description = "Coated or edged in silver, so that it harms creatures that ordinary weapons hurt little or not at all, such as werewolves."
+
+[[node]]
+slug = "adamantine"
+name = "Adamantine"
+layer = "core"
+parents = ["material"]
+tags = ["is_adamantine"]
+description = "Made of adamantine, an extremely hard metal. Weapons of it are especially good at breaking objects."
 
 # ---- the dnd5e layer: parentless mixins under one abstract root per axis -------------------------------
 
@@ -202,6 +542,14 @@ slug = "dnd5e-martial"
 name = "Martial weapon"
 layer = "dnd5e"
 parents = ["dnd5e-weapon-proficiency"]
+
+# Not in the 5e rules, but in many homebrew and other d20 games: needing training of its own.
+[[node]]
+slug = "dnd5e-exotic"
+name = "Exotic weapon"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-proficiency"]
+description = "A weapon that needs training of its own, beyond that for simple and martial weapons."
 
 [[node]]
 slug = "dnd5e-improvised"
@@ -254,6 +602,118 @@ slug = "dnd5e-musical-instrument"
 name = "Musical instrument"
 layer = "dnd5e"
 parents = ["dnd5e-tool-proficiency"]
+
+# Weapon properties. Each carries its tag and says what it means, so a weapon that has it
+# inherits both, and "all the heavy weapons" is a list of backlinks.
+[[node]]
+slug = "dnd5e-weapon-property"
+name = "Weapon property (D&D 5e)"
+layer = "dnd5e"
+
+[[node]]
+slug = "dnd5e-finesse"
+name = "Finesse"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_finesse"]
+description = "When attacking with a finesse weapon you may use your Strength or your Dexterity modifier for both the attack and the damage roll. Use the same one for both."
+
+[[node]]
+slug = "dnd5e-heavy"
+name = "Heavy"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_heavy"]
+description = "Small creatures have disadvantage on attack rolls with a heavy weapon: its size and bulk make it too large for them to use effectively."
+
+[[node]]
+slug = "dnd5e-light"
+name = "Light"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_light"]
+description = "A light weapon is small and easy to handle, which makes it right for fighting with a weapon in each hand."
+
+[[node]]
+slug = "dnd5e-loading"
+name = "Loading"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_loading"]
+description = "Because of the time needed to load a loading weapon, you can fire only one piece of ammunition from it when you use an action, bonus action or reaction to fire it, however many attacks you can normally make."
+
+[[node]]
+slug = "dnd5e-reach"
+name = "Reach"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_reach"]
+description = "A reach weapon adds 5 feet to your reach when you attack with it, and when you work out the reach for opportunity attacks with it."
+
+[[node]]
+slug = "dnd5e-special"
+name = "Special"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_special"]
+description = "A special weapon has unusual rules for using it. They are given with the weapon itself."
+
+[[node]]
+slug = "dnd5e-throwable"
+name = "Throwable"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_throwable"]
+description = "You can throw a throwable weapon to make a ranged attack, using the same ability modifier as for a melee attack with it. Its range is the two distances in its range."
+
+[[node]]
+slug = "dnd5e-two-handed"
+name = "Two-handed"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_two_handed"]
+description = "A two-handed weapon needs both hands to attack with."
+
+[[node]]
+slug = "dnd5e-versatile"
+name = "Versatile"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["is_versatile"]
+description = "A versatile weapon can be used with one hand or two. The damage in parentheses is what it does when used with two hands."
+
+[[node]]
+slug = "dnd5e-uses-ammunition"
+name = "Uses ammunition"
+layer = "dnd5e"
+parents = ["dnd5e-weapon-property"]
+tags = ["uses_ammunition"]
+description = "You need ammunition to make a ranged attack with this weapon. Each attack uses up one piece, and you can recover about half of what you fired once the fight is over."
+
+# Spellcasting focuses, a kind of gear.
+[[node]]
+slug = "dnd5e-spellcasting-focus"
+name = "Spellcasting focus (D&D 5e)"
+layer = "dnd5e"
+description = "An object a spellcaster can hold in place of the material components of a spell that need none with a cost."
+
+[[node]]
+slug = "dnd5e-arcane-focus"
+name = "Arcane focus"
+layer = "dnd5e"
+parents = ["dnd5e-spellcasting-focus"]
+
+[[node]]
+slug = "dnd5e-druidic-focus"
+name = "Druidic focus"
+layer = "dnd5e"
+parents = ["dnd5e-spellcasting-focus"]
+
+[[node]]
+slug = "dnd5e-holy-symbol"
+name = "Holy symbol"
+layer = "dnd5e"
+parents = ["dnd5e-spellcasting-focus"]
 
 # ---- the weight recipe, on the base of the form tree (docs/reference/well-known-stats.md) ---------------
 

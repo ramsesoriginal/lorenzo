@@ -19,6 +19,17 @@ def draft(
     return draft_item(list_name, key, entry, file, mapping, Ancestry(load_builtin()))
 
 
+# A weapon with nothing in its name or description that a rule reacts to.
+PLAIN = {
+    "name": "Stick thing",
+    "source": [["HB", 0]],
+    "list": "melee",
+    "type": "Martial",
+    "damage": [1, 6, "bludgeoning"],
+    "range": "Melee",
+    "weight": 2,
+}
+
 LONGSWORD = {
     "name": "Longsword",
     "source": [["SRD", 66], ["P", 149]],
@@ -38,13 +49,17 @@ def test_a_weapon_is_named_parented_and_given_its_stats() -> None:
     result = draft("weapons", "longsword", LONGSWORD)
 
     assert result.name == "Longsword"
-    assert result.parents == ["dnd5e-martial", "melee-weapon"]  # `weapon` is implied by melee
+    # A blade, martial, versatile (the description says so) and melee; `weapon` is implied.
+    assert result.parents == ["blade", "dnd5e-martial", "dnd5e-versatile", "melee-weapon"]
     assert result.stats == {
         "sourcebook": "SRD 66, P 149",
         "own_weight": 3.0,
         "damage_dice_count": 1,
         "damage_die": 8,
         "damage_type": "slashing",
+        "damage_versatile_die": 10,
+        "attack_ability": "Strength",
+        "ability_to_damage": True,
     }
     assert result.description == "Versatile (1d10)"
     assert result.issues == [] and result.skip_reason is None
@@ -52,7 +67,7 @@ def test_a_weapon_is_named_parented_and_given_its_stats() -> None:
 
 
 def test_a_thrown_weapon_is_melee_and_ranged_from_its_range_text() -> None:
-    entry = {**LONGSWORD, "range": "Melee, 20/60 ft", "type": "Simple", "list": "melee"}
+    entry = {**PLAIN, "range": "Melee, 20/60 ft", "type": "Simple", "list": "melee"}
 
     result = draft("weapons", "dagger", entry)
 
@@ -61,13 +76,13 @@ def test_a_thrown_weapon_is_melee_and_ranged_from_its_range_text() -> None:
 
 
 def test_a_weapon_with_no_list_gets_its_reach_from_its_range() -> None:
-    entry = {k: v for k, v in LONGSWORD.items() if k != "list"}
+    entry = {k: v for k, v in PLAIN.items() if k != "list"}
 
     assert draft("weapons", "x", entry).parents == ["dnd5e-martial", "melee-weapon"]
 
 
 def test_a_weapon_that_says_neither_melee_nor_ranged_is_held() -> None:
-    entry = {k: v for k, v in LONGSWORD.items() if k not in ("list", "range")}
+    entry = {k: v for k, v in PLAIN.items() if k not in ("list", "range")}
 
     result = draft("weapons", "x", entry)
 
@@ -76,7 +91,7 @@ def test_a_weapon_that_says_neither_melee_nor_ranged_is_held() -> None:
 
 
 def test_a_row_that_settles_the_reach_counts_even_if_it_has_no_parents() -> None:
-    entry = {**LONGSWORD, "list": "improvised", "range": "", "type": "Improvised Weapons"}
+    entry = {**PLAIN, "list": "improvised", "range": "", "type": "Improvised Weapons"}
 
     result = draft("weapons", "improvised weapon", entry)
 
@@ -85,7 +100,7 @@ def test_a_row_that_settles_the_reach_counts_even_if_it_has_no_parents() -> None
 
 
 def test_what_the_sheet_treats_as_not_an_item_is_skipped_with_the_reason_first_found() -> None:
-    entry = {**LONGSWORD, "type": "Cantrip", "list": "spell"}
+    entry = {**PLAIN, "type": "Cantrip", "list": "spell"}
 
     result = draft("weapons", "fire bolt", entry)
 
@@ -93,17 +108,17 @@ def test_what_the_sheet_treats_as_not_an_item_is_skipped_with_the_reason_first_f
 
 
 def test_an_unknown_value_is_held_with_a_row_to_paste() -> None:
-    result = draft("weapons", "moon whip", {**LONGSWORD, "type": "Exotic"})
+    result = draft("weapons", "moon whip", {**PLAIN, "type": "Legendary"})
 
     issue = next(i for i in result.issues if i.kind == "value")
-    assert (issue.attribute, issue.value) == ("type", "'Exotic'")
+    assert (issue.attribute, issue.value) == ("type", "'Legendary'")
     assert issue.suggestion.startswith("[classify.weapons.type]\n")
-    assert '"exotic" = "attach-form-only"' in issue.suggestion
+    assert '"legendary" = "attach-form-only"' in issue.suggestion
 
 
 def test_a_value_is_matched_case_insensitively() -> None:
-    assert draft("weapons", "x", {**LONGSWORD, "type": "MARTIAL"}).issues == []
-    assert "dnd5e-martial" in draft("weapons", "x", {**LONGSWORD, "type": "martial"}).parents
+    assert draft("weapons", "x", {**PLAIN, "type": "MARTIAL"}).issues == []
+    assert "dnd5e-martial" in draft("weapons", "x", {**PLAIN, "type": "martial"}).parents
 
 
 def test_the_project_map_can_create_a_category_under_an_axis_root() -> None:
@@ -112,7 +127,7 @@ def test_the_project_map_can_create_a_category_under_an_axis_root() -> None:
         'exotic = { disposition = "create-under", axis = "proficiency", slug = "hb-exotic", name = "Exotic weapon" }\n'
     ).mapping
 
-    result = draft("weapons", "moon whip", {**LONGSWORD, "type": "Exotic"}, mapping)
+    result = draft("weapons", "moon whip", {**PLAIN, "type": "Exotic"}, mapping)
 
     assert result.issues == []
     assert "hb-exotic" in result.parents
@@ -127,7 +142,7 @@ def test_the_project_map_can_create_a_category_under_an_axis_root() -> None:
 def test_a_fail_row_refuses_the_item() -> None:
     mapping = load_mapping('schema = 1\n[classify.weapons.type]\nexotic = "fail"\n').mapping
 
-    result = draft("weapons", "x", {**LONGSWORD, "type": "Exotic"}, mapping)
+    result = draft("weapons", "x", {**PLAIN, "type": "Exotic"}, mapping)
 
     assert [i.kind for i in result.issues] == ["fail"]
 
@@ -137,7 +152,7 @@ def test_attach_form_only_files_it_under_its_form_and_says_uncategorised() -> No
         'schema = 1\n[classify.weapons.type]\nexotic = "attach-form-only"\n'
     ).mapping
 
-    result = draft("weapons", "x", {**LONGSWORD, "type": "Exotic"}, mapping)
+    result = draft("weapons", "x", {**PLAIN, "type": "Exotic"}, mapping)
 
     assert result.issues == [] and result.uncategorised is True
     assert result.parents == ["melee-weapon"]
@@ -176,11 +191,11 @@ def test_what_the_sheet_uses_to_work_out_ac_is_not_an_item() -> None:
     ).skip_reason
 
 
-def test_an_ac_formula_is_noted_and_not_stored() -> None:
+def test_an_ac_formula_is_kept_as_text_since_no_number_is_right() -> None:
     result = draft("armour", "robe", {"name": "Robe", "ac": "10+Wis"})
 
     assert "armor" not in result.stats
-    assert "formula" in result.notes[0]
+    assert result.stats["armor_formula"] == "10+Wis"
 
 
 def test_a_shield_is_found_by_its_name() -> None:
@@ -203,20 +218,20 @@ def test_gear_takes_its_name_and_price_from_the_display_string_and_its_weight_ti
     result = draft("gear", "arrows (20)", entry)
 
     assert result.name == "Arrows (20)"
-    assert result.stats == {"price": 100, "own_weight": 1.0}
+    assert result.stats == {"price": 100, "own_weight": 1.0, "bundle_amount": 20}
     assert result.parents == ["ammunition"]  # bundles of ammunition replace the gear form
 
 
 def test_gear_with_an_unlisted_kind_is_just_gear() -> None:
     entry = {
-        "infoname": "Saddle [10 gp]",
-        "name": "Saddle",
+        "infoname": "Anvil [10 gp]",
+        "name": "Anvil",
         "amount": "",
         "weight": 25,
-        "type": "saddle",
+        "type": "smithing",
     }
 
-    result = draft("gear", "saddle", entry)
+    result = draft("gear", "anvil", entry)
 
     assert result.parents == ["gear"] and result.uncategorised is True and result.issues == []
 

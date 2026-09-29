@@ -8,12 +8,20 @@ is reproducible, and it never guesses: a value with no row, or a price it can't 
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from lorenzo_cli.importer.mapping import Mapping, Row
-from lorenzo_cli.importer.packs import PackLine, Unresolved
-from lorenzo_cli.importer.transforms import Context, Effect, Issue, StatValue, apply_rule
+from lorenzo_cli.importer.mapping import Mapping, NameRule, Row
+from lorenzo_cli.importer.packs import PackLine, Resolution, Unresolved
+from lorenzo_cli.importer.transforms import (
+    Context,
+    Effect,
+    InfoDraft,
+    Issue,
+    StatValue,
+    apply_rule,
+)
 from lorenzo_cli.seed import SeedSpec
 
 MELEE_OR_RANGED = frozenset({"melee-weapon", "ranged-weapon"})
@@ -55,6 +63,12 @@ class ItemDraft:
     # A pack's contents once linked, and the entries nothing could be linked to.
     pack_lines: list[PackLine] = field(default_factory=list)
     pack_unresolved: list[Unresolved] = field(default_factory=list)
+    # What each of a pack's entries refers to, decided before slugs exist.
+    pack_resolution: Resolution | None = None
+    # The pack an item was made for, when the source has no entry of its own for it.
+    made_for: str | None = None
+    # Entries of their own to write on the item (other names, special rules...), by type.
+    information: list[InfoDraft] = field(default_factory=list)
 
 
 class Ancestry:
@@ -100,8 +114,9 @@ def _classify(
     replace_form = False
     explicit_reach = False
     roots = mapping.lists[list_name].roots if list_name in mapping.lists else {}
-    for attribute, rule in mapping.attributes.get(list_name, {}).items():
-        if rule.transform != "classify" or entry.get(attribute) in (None, ""):
+    for attribute, attribute_rules in mapping.attributes.get(list_name, {}).items():
+        classifies = any(r.transform == "classify" for r in attribute_rules)
+        if not classifies or entry.get(attribute) in (None, ""):
             continue
         raw = entry[attribute]
         rows = mapping.classify[list_name][attribute]
@@ -153,21 +168,26 @@ def draft_item(
     rules = mapping.attributes.get(list_name, {})
 
     parents: set[str] = set()
-    for attribute, rule in rules.items():  # the map's order, so "the last name wins" is stable
+    aliases: list[str] = []
+    # The map's order, so "the last name wins" is stable.
+    for attribute, attribute_rules in rules.items():
         if attribute not in entry:
             continue
-        effect: Effect = apply_rule(rule, attribute, entry[attribute], context)
-        draft.name = effect.name or draft.name
-        draft.description = effect.description or draft.description
-        for stat, value in effect.stats.items():
-            draft.stats.setdefault(stat, value)  # first_of and friends: the first to say wins
-        draft.stat_types.update(effect.stat_types)
-        draft.stat_groups.update(effect.stat_groups)
-        parents |= effect.parents
-        draft.notes.extend(effect.notes)
-        draft.issues.extend(effect.issues)
-        if effect.pack_items is not None:
-            draft.pack_items = effect.pack_items
+        for rule in attribute_rules:
+            effect: Effect = apply_rule(rule, attribute, entry[attribute], context)
+            draft.name = effect.name or draft.name
+            draft.description = effect.description or draft.description
+            for stat, value in effect.stats.items():
+                draft.stats.setdefault(stat, value)  # first_of and friends: the first to say wins
+            draft.stat_types.update(effect.stat_types)
+            draft.stat_groups.update(effect.stat_groups)
+            parents |= effect.parents
+            aliases.extend(effect.aliases)
+            draft.information.extend(effect.information)
+            draft.notes.extend(effect.notes)
+            draft.issues.extend(effect.issues)
+            if effect.pack_items is not None:
+                draft.pack_items = effect.pack_items
     draft.unmapped = [attribute for attribute in entry if attribute not in rules]
 
     if draft.name is None and not any(i.kind == "name" for i in draft.issues):
@@ -182,19 +202,18 @@ def draft_item(
             if isinstance(n, str) and n.strip()
         }
     )
+    alias_entry = _aliases_entry(draft, aliases)
+    if alias_entry is not None:
+        draft.information.append(alias_entry)
+        draft.names = sorted({*draft.names, *aliases})
 
     classified, replace_form, explicit_reach = _classify(list_name, entry, mapping, draft)
     parents |= classified
-    lowered = (draft.name or "").lower()
-    for name_rule in mapping.name_rules:
-        if name_rule.in_list == list_name and any(
-            lowered.startswith(s) for s in name_rule.starts_with
-        ):
-            parents.update(name_rule.parents)
-            break
+    parents |= _text_rule_parents(list_name, entry, draft, mapping)
 
     spec = mapping.lists.get(list_name)
-    needs_reach = spec is not None and spec.reach_required and not (parents & MELEE_OR_RANGED)
+    reaches = parents | {a for p in parents for a in ancestry.ancestors(p)}
+    needs_reach = spec is not None and spec.reach_required and not (reaches & MELEE_OR_RANGED)
     if needs_reach and not explicit_reach and draft.skip_reason is None:
         draft.issues.append(
             Issue(
@@ -212,3 +231,46 @@ def draft_item(
         ancestry.add(category.slug, category.parent)
     draft.parents = ancestry.reduce(parents)
     return draft
+
+
+_WORD = re.compile(r"[a-z0-9][a-z0-9'-]*")
+
+
+def _matches(rule: NameRule, text: str) -> bool:
+    words = set(_WORD.findall(text))
+    return (
+        any(text.startswith(prefix) for prefix in rule.starts_with)
+        or any(fragment in text for fragment in rule.contains)
+        or any(word in words for word in rule.words)
+    )
+
+
+def _text_rule_parents(
+    list_name: str, entry: dict[str, Any], draft: ItemDraft, mapping: Mapping
+) -> set[str]:
+    """Parents from what the name (or another text attribute) says. Every rule that matches
+    applies, except that of the rules sharing a group only the first does."""
+    parents: set[str] = set()
+    used: set[str] = set()
+    for rule in mapping.name_rules:
+        if rule.in_list != list_name or (rule.group and rule.group in used):
+            continue
+        source = draft.name if rule.attribute == "name" else entry.get(rule.attribute)
+        text = source.lower() if isinstance(source, str) else ""
+        if text and _matches(rule, text):
+            parents.update(rule.parents)
+            if rule.group:
+                used.add(rule.group)
+    return parents
+
+
+def _aliases_entry(draft: ItemDraft, given: list[str]) -> InfoDraft | None:
+    """One "Also known as" entry: the names the source gives, and the other names it uses for the
+    item, without the one the item is called."""
+    seen = {(draft.name or "").lower()}
+    names: list[str] = []
+    for name in [*given, *draft.names]:
+        if name.lower() not in seen:
+            seen.add(name.lower())
+            names.append(name)
+    return InfoDraft("alias", "Also known as", "\n".join(names)) if names else None
