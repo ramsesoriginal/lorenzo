@@ -69,6 +69,15 @@ class StubInData(BaseModel):
     stub: str
 
 
+class Override(BaseModel):
+    """An entry one file defined and a later file replaced (the later one wins, as in the sheet)."""
+
+    list: str
+    key: str
+    replaced_file: str
+    by_file: str
+
+
 class EvalResult(BaseModel):
     version: Literal[1] = 1
     # False when the run couldn't finish (the stub-retry bound was hit); per-file errors don't
@@ -82,6 +91,7 @@ class EvalResult(BaseModel):
     # put a new object under the key, or the base file that defined it.
     origins: dict[str, dict[str, str]] = Field(default_factory=dict)
     files: list[FileResult] = Field(default_factory=list)
+    overrides: list[Override] = Field(default_factory=list)
     stubs: list[StubInfo] = Field(default_factory=list)
     # Places a stubbed sheet call's result ended up inside the returned data.
     stubs_in_data: list[StubInData] = Field(default_factory=list)

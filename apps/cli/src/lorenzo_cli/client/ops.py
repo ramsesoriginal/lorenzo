@@ -17,6 +17,8 @@ from lorenzo_cli.client.models import (
     ComputedStatOut,
     ContentsFormulaBody,
     EntityDetailOut,
+    InformationCreate,
+    InformationOut,
     ItemCreate,
     ItemOut,
     LinearFormulaBodyInput,
@@ -24,6 +26,8 @@ from lorenzo_cli.client.models import (
     PageStatGroupOut,
     PageTenantSummaryOut,
     ResolvedSlugOut,
+    SetEntityStatRequest,
+    SetPrototypesRequest,
     StatDefinitionCreate,
     StatDefinitionOut,
     StatGroupCreate,
@@ -115,6 +119,31 @@ SET_COMPUTED_STAT: Op[ComputedStatOut] = Op(
     response_type=ComputedStatOut,
 )
 
+GET_ENTITY: Op[EntityDetailOut] = Op(
+    "get_entity", "GET", f"{_TENANT}/entities/{{entity_id}}", response_type=EntityDetailOut
+)
+SET_ENTITY_STAT: Op[EntityDetailOut] = Op(
+    "set_entity_stat",
+    "PUT",
+    f"{_TENANT}/entities/{{entity_id}}/stats/{{stat_definition_id}}",
+    request_type=SetEntityStatRequest,
+    response_type=EntityDetailOut,
+)
+CREATE_INFORMATION: Op[InformationOut] = Op(
+    "create_information",
+    "POST",
+    f"{_TENANT}/entities/{{entity_id}}/information",
+    request_type=InformationCreate,
+    response_type=InformationOut,
+)
+REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
+    "replace_item_prototypes",
+    "PUT",
+    f"{_TENANT}/items/{{entity_id}}/prototypes",
+    request_type=SetPrototypesRequest,
+    response_type=ItemOut,
+)
+
 ALL_OPS: tuple[Op[Any], ...] = (
     GET_TENANT,
     LIST_TENANTS,
@@ -128,4 +157,8 @@ ALL_OPS: tuple[Op[Any], ...] = (
     SET_ENTITY_TAG,
     LIST_ENTITY_COMPUTED_STATS,
     SET_COMPUTED_STAT,
+    GET_ENTITY,
+    SET_ENTITY_STAT,
+    CREATE_INFORMATION,
+    REPLACE_ITEM_PROTOTYPES,
 )

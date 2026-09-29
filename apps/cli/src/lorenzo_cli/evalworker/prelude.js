@@ -32,6 +32,8 @@ var __lorenzo = (function (global) {
   // doesn't take it over. `known` holds the object last seen under each key.
   var known = Object.create(null);
   var origins = Object.create(null);
+  // Entries a later file replaced, for the plan to report: {list, key, replaced_file, by_file}.
+  var overrides = [];
 
   function cloneDeep(value) {
     if (value instanceof RegExp) return new RegExp(value.source, value.flags);
@@ -55,6 +57,9 @@ var __lorenzo = (function (global) {
       var from = origins[listName] || (origins[listName] = Object.create(null));
       Object.keys(list).forEach(function (key) {
         if (!(key in seen) || seen[key] !== list[key]) {
+          if ((key in seen) && from[key] && from[key] !== file) {
+            overrides.push({ list: name, key: key, replaced_file: from[key], by_file: file });
+          }
           seen[key] = list[key];
           from[key] = file;
         }
@@ -202,6 +207,7 @@ var __lorenzo = (function (global) {
     });
     return JSON.stringify({
       lists: lists, origins: fromFile, counts: counts, stubs: stubs, stubs_in_data: stubsInData,
+      overrides: overrides,
     });
   }
 

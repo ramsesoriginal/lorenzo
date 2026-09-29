@@ -1,0 +1,192 @@
+# The built-in mapping (RFC 0025 R5, ADR 0144): what each MPMB value means in Lorenzo terms.
+# A project map file (same format) overlays this one: its rows win, key by key.
+#
+# Read it as data, not as code. Values are matched exactly, case-insensitively. A value with no
+# row, and no "*" fallback, is not guessed at: the item is held for review.
+
+schema = 1
+version = "1"
+
+# How many copper pieces one unit of each currency is worth. Prices are stored in copper.
+[currencies]
+cp = 1
+sp = 10
+ep = 50
+gp = 100
+pp = 1000
+
+# ---- per list: the form every item of that list has, and where a new category goes -------------
+
+[lists.weapons]
+form = ["weapon"]
+# A weapon must come out melee or ranged, or have a row that says it is neither.
+reach_required = true
+[lists.weapons.roots]
+form = "physical-object"
+proficiency = "dnd5e-weapon-proficiency"
+
+[lists.armour]
+form = ["armor"]
+[lists.armour.roots]
+form = "physical-object"
+tier = "dnd5e-armor-tier"
+
+[lists.gear]
+form = ["gear"]
+[lists.gear.roots]
+form = "physical-object"
+
+[lists.tools]
+form = ["tool"]
+[lists.tools.roots]
+form = "physical-object"
+proficiency = "dnd5e-tool-proficiency"
+
+[lists.ammo]
+form = ["ammunition"]
+[lists.ammo.roots]
+form = "physical-object"
+
+[lists.packs]
+form = ["gear"]
+[lists.packs.roots]
+form = "physical-object"
+
+# ---- classification: an attribute's value -> parents, or skip -------------------------------------
+# A row is a list of parent slugs (map), or a table with a `disposition`:
+#   map                a list of `parents`
+#   skip               not an item; leave it out
+#   attach-form-only   only the list's form; mark the item uncategorised
+#   create-under       mint a category under an axis root (axis, slug, name)
+#   fail               refuse, so nobody imports it by accident
+# `replace_form = true` drops the list's own form in favour of the row's parents.
+
+# A weapon's `type` is a proficiency category, an open vocabulary, not melee/ranged.
+[classify.weapons.type]
+simple = ["dnd5e-simple"]
+martial = ["dnd5e-martial"]
+"improvised weapons" = ["dnd5e-improvised"]
+# Not items: a bare hand, a spell attack, cantrips the sheet lists as attacks.
+natural = "skip"
+cantrip = "skip"
+spell = "skip"
+alwaysprof = "skip"
+
+# `list` says melee or ranged, when it says anything. What `range` says is used as well
+# (a dagger is melee and, thrown, ranged), so `improvised` needs no reach of its own.
+[classify.weapons.list]
+melee = ["melee-weapon"]
+ranged = ["ranged-weapon"]
+firearm = ["ranged-weapon"]
+improvised = []
+spell = "skip"
+
+# Armour `type` is light, medium or heavy, and absent for what isn't armour that is worn.
+[classify.armour.type]
+light = ["dnd5e-light-armor"]
+medium = ["dnd5e-medium-armor"]
+heavy = ["dnd5e-heavy-armor"]
+
+# `firstlist` (unarmoured) and `magic` (mage armor) are ways the sheet works out AC, not items.
+[classify.armour.list]
+firstlist = "skip"
+magic = "skip"
+
+[classify.tools.type]
+"artisan's tools" = ["dnd5e-artisans-tools"]
+"gaming set" = ["dnd5e-gaming-set"]
+"musical instrument" = ["dnd5e-musical-instrument"]
+
+# Gear that comes as a bundle of ammunition is ammunition. The other kinds (a focus, clothes, a
+# saddle) are gear, and need no category of their own.
+[classify.gear.type]
+ammunition = { parents = ["ammunition"], replace_form = true }
+"*" = "attach-form-only"
+
+# ---- name rules: what the sheet doesn't say, from the item's name ------------------------------------
+# The first rule of a list that matches adds its parents. `starts_with` compares the lower-cased
+# name, and is deliberately a short curated list.
+
+[[name_rule]]
+in_list = "gear"
+starts_with = [
+  "backpack", "barrel", "basket", "bucket", "case", "chest", "component pouch", "pouch",
+  "quiver", "sack",
+]
+parents = ["container"]
+
+[[name_rule]]
+in_list = "armour"
+starts_with = ["shield"]
+parents = ["shield"]
+
+# ---- attributes: what each MPMB attribute becomes ---------------------------------------------------------
+# A rule is a transform's name, or a table `{ transform = "...", ...parameters }`. The set of
+# transforms is closed (see ADR 0144); a new kind of extraction is a code change, a new attribute
+# is a row. `drop` says the attribute has no meaning here and is not worth mentioning.
+# An attribute with no rule is reported (it never blocks the item).
+
+[attributes.weapons]
+name = "name"
+source = "sourcebook"
+weight = "own_weight"
+description = "description"
+damage = "damage"
+range = "range"
+type = "classify"
+list = "classify"
+regExpSearch = "drop"
+nameAlt = "drop"
+ability = "drop"
+abilitytodamage = "drop"
+monkweapon = "drop"
+ammo = "drop"
+isNotWeapon = "drop"
+dc = "drop"
+tooltip = "drop"
+special = "drop"
+baseWeapon = "drop"
+
+[attributes.armour]
+name = "name"
+invName = "name"
+source = "sourcebook"
+weight = "own_weight"
+ac = "armor"
+type = "classify"
+list = "classify"
+regExpSearch = "drop"
+# Deferred (RFC 0025 R8): stealth, strength and dexterity limits, and the AC formulas.
+stealthdis = "drop"
+strReq = "drop"
+addMod = "drop"
+affectsWildShape = "drop"
+
+[attributes.gear]
+infoname = "name_and_price"
+name = "drop"
+amount = "drop"
+weight = "own_weight"
+type = "classify"
+
+[attributes.tools]
+infoname = "name_and_price"
+name = "drop"
+amount = "drop"
+weight = "own_weight"
+type = "classify"
+
+[attributes.ammo]
+name = "name"
+invName = "name"
+source = "sourcebook"
+weight = "own_weight"
+icon = "drop"
+isMagicAmmo = "drop"
+alternatives = "drop"
+regExpSearch = "drop"
+
+[attributes.packs]
+name = "name_and_price"
+source = "sourcebook"
+items = "pack_contents"

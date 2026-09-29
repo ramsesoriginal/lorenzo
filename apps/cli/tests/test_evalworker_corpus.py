@@ -32,6 +32,7 @@ def snapshot(result: EvalResult) -> dict[str, Any]:
         "files": [[f.name, f.role, f.status] for f in result.files],
         "lists": result.lists,
         "origins": result.origins,
+        "overrides": [[o.list, o.key, o.replaced_file, o.by_file] for o in result.overrides],
         "stubs": [[s.name, s.calls, s.first_file] for s in result.stubs],
         "stubs_in_data": [[s.path, s.stub] for s in result.stubs_in_data],
     }
