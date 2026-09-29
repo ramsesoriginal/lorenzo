@@ -21,4 +21,3 @@ The tenant PATCH already checks `If-Match`, but the detail response exposed neit
 ## Consequences
 
 Account-hub joins the single generated schema and drift check. Slug editing needs no schema migration or new backend route. The migration is tracked by #276; the slug UI has its own checklist under this decision. The docs PR remains open for review independently of implementation.
-
