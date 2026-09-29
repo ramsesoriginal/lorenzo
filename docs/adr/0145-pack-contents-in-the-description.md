@@ -24,7 +24,7 @@ This pack contains:
 ```
 
 - **A line with a link is an item of the catalog.** `[Label](slug)` is LorenzoScript's own entity link ([ADR 0105](0105-lorenzoscript-entity-references-and-resolver.md)), so the description renders as a list with links, and its links are references: `GET …/entities/{id}/backlinks` on Rations answers "which packs contain this" with no table of its own.
-- **A line without one is plain text,** for something the sheet has no gear entry for.
+- **A line without one is plain text,** for something the sheet has no gear entry for. (Changed by [ADR 0146](0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md): such an entry now becomes a simple plain item, so every line links; plain text remains for what a `[pack_items]` row marks `"text"`.)
 - **Everything listed after a `, with:` entry goes inside it** (two-space indent), as the sheet's own comment says. Entries before any container are at the top.
 - **The parser is strict and reads nothing else.** A line is `- N x [Label](slug)` or `- N x text`, indented by whole levels, at most three deep. Prose, a mis-indented line or a link with a bad slug is ignored, so a person who adds a sentence to the description cannot break handing the pack out. It is Python, since `packages/lorenzoscript` is TypeScript; the format was chosen to be valid LorenzoScript, and to be read by anything with a regular expression.
 
