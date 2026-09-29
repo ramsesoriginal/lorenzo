@@ -175,3 +175,138 @@ def test_no_arguments_shows_the_help() -> None:
     result = runner.invoke(app, [])
     assert "tenant" in result.output
     assert "login" in result.output
+
+
+CORPUS = Path(__file__).parent / "corpus"
+
+
+def test_inspect_shows_the_files_lists_and_what_was_stubbed(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["inspect", str(CORPUS / "stubs" / "uses_sheet.js")],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "uses_sheet.js" in result.output
+    assert "WeaponsList" in result.output
+    assert "What (2)" in result.output
+    assert "stubbed sheet call" in result.output
+
+
+def test_inspect_starts_the_lists_from_the_base_files_and_names_each_entrys_file(
+    tmp_path: Path,
+) -> None:
+    case = CORPUS / "base_and_patch"
+    result = runner.invoke(
+        app,
+        ["inspect", "--base", str(case / "base.js"), str(case / "homebrew.js"), "--json"],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 0, result.output
+    origins = json.loads(result.output)["origins"]["WeaponsList"]
+    assert origins == {
+        "longsword": "base.js",
+        "dagger": "homebrew.js",
+        "glass sword": "homebrew.js",
+    }
+
+
+def test_inspect_exits_1_when_a_file_fails_but_still_reports_the_rest(tmp_path: Path) -> None:
+    errors = CORPUS / "errors"
+    result = runner.invoke(
+        app,
+        ["inspect", str(errors / "syntax_error.js"), str(errors / "fine.js")],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 1
+    assert "fine.js" in result.output
+    assert "WeaponsList" in result.output
+
+
+def test_inspect_reports_a_missing_file_as_a_usage_error(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["inspect", str(tmp_path / "nope.js")], obj=runtime(tmp_path, []))
+
+    assert result.exit_code == 2
+
+
+def creating(seen: list[httpx.Request], *, status: int = 201) -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "POST" and request.url.path == "/tenants":
+            body = json.loads(request.content)
+            if status != 201:
+                return httpx.Response(
+                    status, json={"title": "Forbidden", "detail": "You can't create tenants."}
+                )
+            return httpx.Response(
+                201, json={**TENANT, "name": body["name"], "slug": body["slug"] or "derived",
+                           "kind": body["kind"]}
+            )  # fmt: skip
+        return httpx.Response(404, json={"title": "Not Found", "detail": "No such thing."})
+
+    return httpx.MockTransport(handler)
+
+
+def creator(tmp_path: Path, transport: httpx.MockTransport) -> Runtime:
+    return Runtime(
+        env={"LORENZO_API_URL": "https://api.example", "LORENZO_TOKEN": "tok"},
+        stdin=io.StringIO(),
+        store=CredentialsFile(tmp_path / "credentials.json"),
+        transport=transport,
+    )
+
+
+def test_tenant_create_makes_a_repository_unless_told_otherwise(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    result = runner.invoke(
+        app,
+        ["tenant", "create", "My Homebrew", "--slug", "my-homebrew"],
+        obj=creator(tmp_path, creating(seen)),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(seen[0].content) == {
+        "name": "My Homebrew",
+        "slug": "my-homebrew",
+        "description": None,
+        "kind": "repository",
+    }
+    assert "repository" in result.output
+    assert "lorenzo seed --tenant my-homebrew" in result.output
+
+
+def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    result = runner.invoke(
+        app,
+        ["tenant", "create", "Our Table", "--kind", "play", "--description", "Fridays", "--json"],
+        obj=creator(tmp_path, creating(seen)),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(seen[0].content)["kind"] == "play"
+    assert json.loads(seen[0].content)["description"] == "Fridays"
+    assert json.loads(result.output)["kind"] == "play"
+
+
+def test_tenant_create_without_the_creator_role_shows_why(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["tenant", "create", "X"], obj=creator(tmp_path, creating([], status=403))
+    )
+
+    assert result.exit_code == 1
+    assert "can't create tenants" in result.output
+    assert "403" in result.output
+
+
+def test_a_kind_that_does_not_exist_is_refused_before_any_request(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    result = runner.invoke(
+        app, ["tenant", "create", "X", "--kind", "castle"], obj=creator(tmp_path, creating(seen))
+    )
+
+    assert result.exit_code == 2
+    assert seen == []

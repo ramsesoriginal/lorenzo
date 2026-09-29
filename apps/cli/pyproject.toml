@@ -9,6 +9,7 @@ dependencies = [
   "pydantic>=2.10",
   "typer>=0.15",
   "rich>=13.9",
+  "mini-racer>=0.14",
 ]
 
 [project.scripts]
@@ -21,6 +22,8 @@ dev = [
   "ruff>=0.8",
   "mypy>=2.3.1",
   "datamodel-code-generator>=0.28",
+  "psycopg[binary]>=3.2",
+  "pyjwt[crypto]>=2.9",
 ]
 
 [tool.ruff]
@@ -33,6 +36,11 @@ extend-exclude = ["src/lorenzo_cli/client/models.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Whole TOML documents in a string, one per case: long lines are the point.
+"tests/test_importer_*.py" = ["E501"]
+"tests/e2e/*.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.14"

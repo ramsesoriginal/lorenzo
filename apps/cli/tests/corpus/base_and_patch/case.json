@@ -1,0 +1,5 @@
+{
+  "about": "The sheet's base data comes first and the lists are reset from it; homebrew then adds, patches in place (origin stays the base file) and replaces (origin becomes the homebrew file).",
+  "base": ["base.js"],
+  "files": ["homebrew.js"]
+}
