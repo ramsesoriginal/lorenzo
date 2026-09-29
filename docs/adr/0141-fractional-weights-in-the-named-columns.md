@@ -14,7 +14,7 @@ RFC 0025 R9 stores weight as a `float` because the source data has `0.05` and `0
 
 The named columns and the per-group stat values return a number when the stat is a number.
 
-- `weight`, `height`, `price`, `rarity`, `hp` and `armor` become `int | float | null`. A value stored as an `int` still reads as an `int`; one stored as a `float` reads as a `float`. The definition's `value_type` decides, as it does everywhere else.
+- `weight`, `height`, `price`, `rarity`, `hp` and `armor` become `int | float | null`. A value stored as an `int` still reads as an `int`; one stored as a `float` reads as a `float`. A stat of any other type (text, bool, enum) is still `null` in these fields and in the group lists, as before; its value is in `stats` on `GET .../entities/{id}`.
 - `StatValueOut.value` and the values in `physical_stats` (and the other per-group maps built by the same function) widen the same way.
 - Nothing is stored differently. The values are already resolved in the application from the generic stat view ([ADR 0039](0039-generic-effective-stat-view.md)); the change is what the schema allows through. No migration.
 - `PUT .../stats/{id}` still does not coerce: a `float` stat must be sent as `1.0`, not `1`, as today.
