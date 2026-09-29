@@ -65,6 +65,14 @@
     "AmmoList": {},
     "SourceList": {}
   },
+  "overrides": [
+    [
+      "WeaponsList",
+      "rapier",
+      "a.js",
+      "b.js"
+    ]
+  ],
   "stubs": [],
   "stubs_in_data": []
 }
