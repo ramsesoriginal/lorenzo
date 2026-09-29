@@ -23,6 +23,6 @@ RFC 0025 R9 assumed the importer could acquire groups itself. It can't, without 
 
 ## Consequences
 
-- Additive and optional; no migration. The default keeps every existing caller's behaviour, which ADR 0037 chose deliberately for hand edits.
+- Additive and optional on the wire; no migration. The default keeps every existing caller's behaviour, which ADR 0037 chose deliberately for hand edits. The generated TypeScript types make a field with a default required, so the callers of this route in inventory-web's end-to-end support code now send `acquire_group: false`; that change ships with this one.
 - The importer sets `acquire_group: true` on the first stat it writes from each group, so the groups reach a copy.
 - The choice is the caller's. A client that wants a value stored without listing its group still can.

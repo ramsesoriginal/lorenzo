@@ -341,6 +341,7 @@ export async function createItemInstance(
       body: {
         prototype_id: prototypeId,
         override: false,
+        quantity: 1,
         ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
         ...(slug ? { slug } : {}),
       },
