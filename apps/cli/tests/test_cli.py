@@ -230,3 +230,83 @@ def test_inspect_reports_a_missing_file_as_a_usage_error(tmp_path: Path) -> None
     result = runner.invoke(app, ["inspect", str(tmp_path / "nope.js")], obj=runtime(tmp_path, []))
 
     assert result.exit_code == 2
+
+
+def creating(seen: list[httpx.Request], *, status: int = 201) -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "POST" and request.url.path == "/tenants":
+            body = json.loads(request.content)
+            if status != 201:
+                return httpx.Response(
+                    status, json={"title": "Forbidden", "detail": "You can't create tenants."}
+                )
+            return httpx.Response(
+                201, json={**TENANT, "name": body["name"], "slug": body["slug"] or "derived",
+                           "kind": body["kind"]}
+            )  # fmt: skip
+        return httpx.Response(404, json={"title": "Not Found", "detail": "No such thing."})
+
+    return httpx.MockTransport(handler)
+
+
+def creator(tmp_path: Path, transport: httpx.MockTransport) -> Runtime:
+    return Runtime(
+        env={"LORENZO_API_URL": "https://api.example", "LORENZO_TOKEN": "tok"},
+        stdin=io.StringIO(),
+        store=CredentialsFile(tmp_path / "credentials.json"),
+        transport=transport,
+    )
+
+
+def test_tenant_create_makes_a_repository_unless_told_otherwise(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    result = runner.invoke(
+        app,
+        ["tenant", "create", "My Homebrew", "--slug", "my-homebrew"],
+        obj=creator(tmp_path, creating(seen)),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(seen[0].content) == {
+        "name": "My Homebrew",
+        "slug": "my-homebrew",
+        "description": None,
+        "kind": "repository",
+    }
+    assert "repository" in result.output
+    assert "lorenzo seed --tenant my-homebrew" in result.output
+
+
+def test_tenant_create_can_make_a_play_tenant_and_prints_json(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    result = runner.invoke(
+        app,
+        ["tenant", "create", "Our Table", "--kind", "play", "--description", "Fridays", "--json"],
+        obj=creator(tmp_path, creating(seen)),
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(seen[0].content)["kind"] == "play"
+    assert json.loads(seen[0].content)["description"] == "Fridays"
+    assert json.loads(result.output)["kind"] == "play"
+
+
+def test_tenant_create_without_the_creator_role_shows_why(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["tenant", "create", "X"], obj=creator(tmp_path, creating([], status=403))
+    )
+
+    assert result.exit_code == 1
+    assert "can't create tenants" in result.output
+    assert "403" in result.output
+
+
+def test_a_kind_that_does_not_exist_is_refused_before_any_request(tmp_path: Path) -> None:
+    seen: list[httpx.Request] = []
+    result = runner.invoke(
+        app, ["tenant", "create", "X", "--kind", "castle"], obj=creator(tmp_path, creating(seen))
+    )
+
+    assert result.exit_code == 2
+    assert seen == []

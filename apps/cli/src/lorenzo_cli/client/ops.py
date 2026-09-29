@@ -35,6 +35,7 @@ from lorenzo_cli.client.models import (
     StatGroupCreate,
     StatGroupOut,
     SumFormulaBodyInput,
+    TenantCreate,
     TenantOut,
 )
 
@@ -66,6 +67,9 @@ _TENANT = "/tenants/{tenant_id}"
 GET_TENANT: Op[TenantOut] = Op("get_tenant", "GET", _TENANT, response_type=TenantOut)
 LIST_TENANTS: Op[PageTenantSummaryOut] = Op(
     "list_tenants", "GET", "/tenants", response_type=PageTenantSummaryOut
+)
+CREATE_TENANT: Op[TenantOut] = Op(
+    "create_tenant", "POST", "/tenants", request_type=TenantCreate, response_type=TenantOut
 )
 
 LIST_STAT_GROUPS: Op[PageStatGroupOut] = Op(
@@ -156,6 +160,7 @@ REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
 ALL_OPS: tuple[Op[Any], ...] = (
     GET_TENANT,
     LIST_TENANTS,
+    CREATE_TENANT,
     LIST_STAT_GROUPS,
     CREATE_STAT_GROUP,
     LIST_STAT_DEFINITIONS,
