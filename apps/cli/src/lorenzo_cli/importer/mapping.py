@@ -18,7 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from lorenzo_cli.seed import load_builtin
 
 LIST_NAMES = ("weapons", "armour", "gear", "tools", "ammo", "packs")
-AXES = ("form", "proficiency", "tier")
+AXES = ("form", "proficiency", "tier", "property", "material")
+# The axes whose roots belong to a game system: a category minted there says whose it is.
+SYSTEM_AXES = frozenset({"proficiency", "tier", "property"})
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
 _NAMESPACE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 DEFAULT_NAMESPACE = "basic"
@@ -31,7 +33,7 @@ REGEX_INPUT_CAP = 300
 PLAIN_TRANSFORMS = frozenset(
     {
         "drop", "name", "sourcebook", "description", "own_weight", "damage", "range", "armor",
-        "classify", "name_and_price", "pack_contents",
+        "classify", "name_and_price", "pack_contents", "aliases",
     }
 )  # fmt: skip
 PARAM_TRANSFORMS = frozenset(
@@ -44,6 +46,8 @@ PARAM_TRANSFORMS = frozenset(
         "regex_extract",
         "keyword_flag",
         "first_of",
+        "ability_name",
+        "information",
     }
 )
 
@@ -60,7 +64,7 @@ class Row(BaseModel):
     disposition: Literal["map", "skip", "attach-form-only", "create-under", "fail"] = "map"
     parents: list[str] = Field(default_factory=list)
     replace_form: bool = False
-    axis: Literal["form", "proficiency", "tier"] | None = None
+    axis: Literal["form", "proficiency", "tier", "property", "material"] | None = None
     slug: str | None = None
     name: str | None = None
 
@@ -111,11 +115,30 @@ class ListSpec(BaseModel):
 
 
 class NameRule(BaseModel):
+    """Parents from what an attribute (by default the name) says, where the source has no field.
+
+    Matches on the lower-cased text: `starts_with` a prefix, `contains` a substring, `words` a
+    whole word (a hyphen is part of a word, so `two-handed` is one). Every rule that matches
+    applies, except that of the rules sharing a `group` only the first does.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     in_list: str
-    starts_with: list[str]
+    attribute: str = "name"
+    starts_with: list[str] = Field(default_factory=list)
+    contains: list[str] = Field(default_factory=list)
+    words: list[str] = Field(default_factory=list)
+    group: str = ""
     parents: list[str]
+
+    @model_validator(mode="after")
+    def _says_something(self) -> NameRule:
+        if not (self.starts_with or self.contains or self.words):
+            raise ValueError("a name_rule needs starts_with, contains or words")
+        if not self.parents:
+            raise ValueError("a name_rule needs parents")
+        return self
 
 
 class Mapping(BaseModel):
@@ -126,7 +149,7 @@ class Mapping(BaseModel):
     lists: dict[str, ListSpec]
     classify: dict[str, dict[str, dict[str, Row]]]
     name_rules: list[NameRule]
-    attributes: dict[str, dict[str, Rule]]
+    attributes: dict[str, dict[str, list[Rule]]]
     namespaces: dict[str, str]
     # A pack item's display name (lower-cased) -> "list:key", or "text" for not-a-catalog-item.
     pack_items: dict[str, str]
@@ -159,6 +182,12 @@ def _rule(value: Any) -> Rule:
     if isinstance(value, dict):
         return Rule.model_validate(value)
     raise ValueError(f"a rule is a transform's name or a table; got {value!r}")
+
+
+def _rules(value: Any) -> list[Rule]:
+    """An attribute's rules: one, or a list when it means several things (a description is text, a
+    die and some properties)."""
+    return [_rule(v) for v in value] if isinstance(value, list) else [_rule(value)]
 
 
 def _read_builtin() -> dict[str, Any]:
@@ -242,7 +271,7 @@ def load_mapping(user_text: str | None = None, *, taught: str = "") -> LoadedMap
             },
             name_rules=[NameRule.model_validate(r) for r in merged["name_rule"]],
             attributes={
-                list_name: {attribute: _rule(rule) for attribute, rule in rules.items()}
+                list_name: {attribute: _rules(rule) for attribute, rule in rules.items()}
                 for list_name, rules in merged["attributes"].items()
             },
             namespaces={str(k): str(v) for k, v in merged["namespaces"].items()},
@@ -278,26 +307,28 @@ def _check(mapping: Mapping) -> None:
             )
     for name, target in mapping.pack_items.items():
         list_name, _, key = target.partition(":")
-        if target != "text" and not (list_name in LIST_NAMES and key):
+        if target not in ("text", "item") and not (list_name in LIST_NAMES and key):
             raise MappingError(
-                f"pack_items.{name!r} is {target!r}: say 'text', or 'list:key' with a list from "
-                f"{', '.join(LIST_NAMES)}."
+                f"pack_items.{name!r} is {target!r}: say 'item' (a plain catalog item), 'text' "
+                f"(plain text), or 'list:key' with a list from {', '.join(LIST_NAMES)}."
             )
     for name_rule in mapping.name_rules:
         if name_rule.in_list not in LIST_NAMES:
             raise MappingError(
                 f"A name_rule names the list “{name_rule.in_list}”, which doesn't exist."
             )
-    for list_name, rules in mapping.attributes.items():
-        for attribute, rule in rules.items():
+    for list_name, attribute_rules in mapping.attributes.items():
+        for attribute, rules in attribute_rules.items():
             where = f"attributes.{list_name}.{attribute}"
-            if rule.transform == "classify" and attribute not in mapping.classify.get(
-                list_name, {}
-            ):
-                raise MappingError(
-                    f"{where} is `classify`, but there is no [classify.{list_name}.{attribute}]."
-                )
-            _check_params(where, rule)
+            for rule in rules:
+                if rule.transform == "classify" and attribute not in mapping.classify.get(
+                    list_name, {}
+                ):
+                    raise MappingError(
+                        f"{where} is `classify`, but there is no "
+                        f"[classify.{list_name}.{attribute}]."
+                    )
+                _check_params(where, rule)
     for list_name, sections in mapping.classify.items():
         for attribute, rows in sections.items():
             for value, row in rows.items():
@@ -315,7 +346,7 @@ def _check_row(mapping: Mapping, where: str, list_name: str, row: Row) -> None:
         raise MappingError(f"{where}: the list {list_name} has no {row.axis} axis to create under.")
     # A category under a game system's axis must say which system it is not part of: a bare slug
     # is a core form, and `dnd5e-` is D&D's own (RFC 0025 R5). `hb-`, or any other prefix, is yours.
-    system_axis = row.axis != "form"
+    system_axis = row.axis in SYSTEM_AXES
     if row.slug.startswith("dnd5e-") and not system_axis:
         raise MappingError(f"{where}: a dnd5e- slug can't go under the form axis.")
     if system_axis and "-" not in row.slug:
@@ -331,8 +362,13 @@ def _check_params(where: str, rule: Rule) -> None:
     if transform in PLAIN_TRANSFORMS and params:
         raise MappingError(f"{where}: {transform} takes no parameters ({', '.join(params)}).")
     if transform in {"int", "float", "text", "bool", "keyword_flag", "first_of", "regex_extract",
-                     "denomination_sum"} and not params.get("stat"):  # fmt: skip
+                     "denomination_sum", "ability_name"} and not params.get("stat"):  # fmt: skip
         raise MappingError(f"{where}: {transform} needs `stat`, the stat to write.")
+    if transform == "information" and not (params.get("type") and params.get("title")):
+        raise MappingError(f"{where}: information needs `type` and `title`.")
+    minimum = params.get("minimum")
+    if minimum is not None and (isinstance(minimum, bool) or not isinstance(minimum, int | float)):
+        raise MappingError(f"{where}: `minimum` must be a number.")
     if transform == "regex_extract":
         _check_regex(where, params)
     if transform == "keyword_flag" and not params.get("keywords"):

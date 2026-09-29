@@ -6,11 +6,14 @@ from lorenzo_cli.importer.mapping import load_mapping
 from lorenzo_cli.importer.packs import (
     NameIndex,
     PackLine,
+    Ref,
     Target,
+    build_contents,
     parse_description,
     parse_entries,
     render,
     resolve,
+    resolve_refs,
 )
 
 MAPPING = load_mapping().mapping
@@ -123,13 +126,18 @@ def test_the_builtin_map_knows_the_srds_plurals_and_what_is_not_an_item() -> Non
     assert contents.unresolved == []
 
 
-def test_a_name_nothing_finds_stays_plain_text_and_is_reported_with_a_row() -> None:
-    contents = resolve(parse_entries([["Mystery thing", 1, 1]]), index(), MAPPING)
+def test_a_name_nothing_finds_becomes_a_plain_item_and_is_reported_with_a_row() -> None:
+    resolution = resolve_refs(parse_entries([["Mystery thing", 1, 1]]), index(), MAPPING)
 
-    assert contents.lines == [PackLine(0, 1, "Mystery thing", None)]
-    [missing] = contents.unresolved
+    [placed] = resolution.placed
+    assert placed.ref == Ref("item", "gear", "mystery thing")
+    [missing] = resolution.unresolved
     assert missing.name == "Mystery thing"
+    assert "a plain item is made for it" in missing.reason
     assert missing.suggestion.startswith('[pack_items]\n"mystery thing" = ')
+    slugs = {"mystery thing": "basic-gear-mystery-thing"}
+    lines = build_contents(resolution, index(), slugs).lines
+    assert lines == [PackLine(0, 1, "Mystery thing", "basic-gear-mystery-thing")]
 
 
 def test_a_row_pointing_somewhere_that_is_not_in_the_run_is_reported() -> None:
@@ -142,12 +150,26 @@ def test_a_row_pointing_somewhere_that_is_not_in_the_run_is_reported() -> None:
 
 def test_a_name_two_items_answer_to_is_reported_not_picked() -> None:
     both = index()
-    both.add("tools", "torch", Target("basic-tools-torch", "Torch"), ["Torch"])
+    both.add("tools", "bell", Target("basic-tools-bell", "Bell"), ["Bell"])
+    both.add("gear", "bell", Target("basic-gear-bell", "Bell"), ["Bell"])
 
-    contents = resolve(parse_entries([["Torch", 1, 1]]), both, MAPPING)
+    contents = resolve(parse_entries([["Bell", 1, 1]]), both, MAPPING)
 
-    assert contents.lines[0].slug is None
-    assert "could be any of gear:torch, tools:torch" in contents.unresolved[0].reason
+    assert "could be any of gear:bell, tools:bell" in contents.unresolved[0].reason
+    # Neither is picked: the gear entry under the entry's own key is what is linked, in the open.
+    assert contents.lines[0].slug == "basic-gear-bell"
+    assert "the gear entry of that name is used instead" in contents.unresolved[0].reason
+
+
+def test_a_name_two_items_answer_to_gets_a_plain_item_when_there_is_no_gear_entry() -> None:
+    both = index()
+    both.add("tools", "bell", Target("basic-tools-bell", "Bell"), ["Bell"])
+    both.add("weapons", "bell", Target("basic-weapons-bell", "Bell"), ["Bell"])
+
+    resolution = resolve_refs(parse_entries([["Bell", 1, 1]]), both, MAPPING)
+
+    assert resolution.placed[0].ref == Ref("item", "gear", "bell")
+    assert "a plain item is made instead" in resolution.unresolved[0].reason
 
 
 def test_the_description_is_an_introduction_and_a_list() -> None:
@@ -219,3 +241,42 @@ def test_windows_line_endings_are_fine() -> None:
         PackLine(0, 1, "A", "a"),
         PackLine(1, 2, "B", "b"),
     ]
+
+
+def test_a_row_saying_item_makes_a_plain_item_and_reports_nothing() -> None:
+    resolution = resolve_refs(parse_entries([["Alms box", "", ""]]), index(), MAPPING)
+
+    assert resolution.placed[0].ref == Ref("item", "gear", "alms box")
+    assert resolution.unresolved == []
+
+
+def test_a_row_saying_text_keeps_the_entry_as_plain_text() -> None:
+    mapping = load_mapping('schema = 1\n[pack_items]\n"air" = "text"\n').mapping
+
+    contents = resolve(parse_entries([["Air", 1, 1]]), index(), mapping)
+
+    assert contents.lines == [PackLine(0, 1, "Air", None)]
+    assert contents.unresolved == []
+
+
+def test_an_entry_whose_key_a_gear_entry_already_has_links_that_entry() -> None:
+    have = index()
+    have.add("gear", "alms box", Target("basic-gear-alms-box", "Alms box"), ["Alms box (sheet)"])
+
+    contents = resolve(parse_entries([["Alms box", 1, 1]]), have, MAPPING)
+
+    assert contents.lines == [PackLine(0, 1, "Alms box", "basic-gear-alms-box")]
+
+
+def test_the_weight_the_pack_gives_is_kept_for_the_plain_item() -> None:
+    [entry] = parse_entries([["Censer", 1, 4]])
+
+    assert entry.weight == 4.0
+    assert parse_entries([["Censer", 1, ""]])[0].weight is None
+    assert parse_entries([["Censer", 1, 0]])[0].weight is None
+
+
+def test_plain_items_are_named_once_however_many_packs_mention_them() -> None:
+    from lorenzo_cli.importer.packs import plain_key
+
+    assert plain_key("  Alms   BOX ") == plain_key("alms box") == "alms box"

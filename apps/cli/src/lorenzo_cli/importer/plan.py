@@ -20,11 +20,13 @@ from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.mapping import LoadedMapping, Mapping
 from lorenzo_cli.importer.packs import (
     NameIndex,
+    Placed,
     Target,
     Unresolved,
+    build_contents,
     parse_entries,
     render,
-    resolve,
+    resolve_refs,
 )
 from lorenzo_cli.importer.slugs import LIST_TOKENS, assign_slugs
 from lorenzo_cli.seed import SeedSpec
@@ -47,6 +49,8 @@ class PlannedItem:
     # What an existing item already holds, so `complete` writes only what is missing.
     have_stats: frozenset[str] = frozenset()
     has_description: bool = False
+    # The types of information entries it already has (other names, notes...).
+    have_information: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -163,6 +167,8 @@ def build_plan(
 
     drafts = build_drafts(result, loaded, seed)
     planned = [PlannedItem(d) for d in drafts]
+    index, plain_items = _resolve_packs(planned, loaded.mapping)
+    planned += plain_items
     live = [p for p in planned if p.draft.skip_reason is None]
     for item in planned:
         if item.draft.skip_reason is not None:
@@ -171,7 +177,7 @@ def build_plan(
     slugs, found = _final_slugs(client, tenant.id, [p.draft for p in live])
     for item in live:
         item.slug = slugs[(item.draft.list_name, item.draft.key)]
-    _attach_pack_contents(live, loaded.mapping)
+    _render_packs(live, index, slugs)
 
     categories: dict[str, NewCategory] = {}
     for item in live:
@@ -271,6 +277,7 @@ def _decide(
     detail = tenant_view.entity_detail(client, tenant_id, hit.entity_id)
     item.have_stats = frozenset(s.name for s in detail.stats if s.own)
     item.has_description = any(i.type == "description" for i in detail.information)
+    item.have_information = frozenset(i.type for i in detail.information)
     wanted = {parent_ids[p] for p in draft.parents if p in parent_ids}
     if {p.id for p in detail.prototypes} != wanted and len(wanted) == len(draft.parents):
         item.reparent = True
@@ -280,21 +287,62 @@ def _decide(
     item.status = "complete" if incomplete else "exists"
 
 
-def _attach_pack_contents(live: list[PlannedItem], mapping: Mapping) -> None:
-    """Link each pack's entries to the items of the run. Slugs are final by now, so a link is to
-    where the item will be, whether or not it has been created yet."""
+def _resolve_packs(
+    planned: list[PlannedItem], mapping: Mapping
+) -> tuple[NameIndex, list[PlannedItem]]:
+    """First step of a pack's contents: decide what each entry refers to. An entry the sheet has no
+    item for becomes a simple plain item of its own, one per name however many packs mention it;
+    these are added to the run so they get slugs like everything else."""
     index = NameIndex()
+    live = [p for p in planned if p.draft.skip_reason is None]
     for item in live:
         draft = item.draft
         if draft.list_name != "packs":
-            target = Target(item.slug, draft.name or draft.key, draft.bundle)
-            index.add(draft.list_name, draft.key, target, draft.names)
+            index.add(
+                draft.list_name,
+                draft.key,
+                Target("", draft.name or draft.key, draft.bundle),
+                draft.names,
+            )
+    plain: dict[str, PlannedItem] = {}
     for item in live:
         draft = item.draft
-        if draft.list_name == "packs" and draft.pack_items is not None:
-            contents = resolve(parse_entries(draft.pack_items), index, mapping)
-            draft.pack_lines = contents.lines
-            draft.pack_unresolved = contents.unresolved
-            draft.notes.extend(contents.notes)
-            if contents.lines:
-                draft.description = render(contents.lines)
+        if draft.list_name != "packs" or draft.pack_items is None:
+            continue
+        draft.pack_resolution = resolve_refs(parse_entries(draft.pack_items), index, mapping)
+        for placed in draft.pack_resolution.placed:
+            if placed.ref.kind == "item" and placed.ref.key not in plain:
+                plain[placed.ref.key] = PlannedItem(_plain_draft(placed, draft))
+    return index, list(plain.values())
+
+
+def _plain_draft(placed: Placed, pack: ItemDraft) -> ItemDraft:
+    """A simple plain item for a pack entry: its name, gear, the pack's citation, its weight."""
+    draft = ItemDraft("gear", placed.ref.key, pack.file, pack.namespace)
+    draft.name = placed.entry.name
+    draft.names = [placed.entry.name]
+    draft.parents = ["gear"]
+    draft.made_for = pack.key
+    if "sourcebook" in pack.stats:
+        draft.stats["sourcebook"] = pack.stats["sourcebook"]
+    if placed.entry.weight is not None:
+        draft.stats["own_weight"] = placed.entry.weight
+    return draft
+
+
+def _render_packs(
+    live: list[PlannedItem], index: NameIndex, slugs: dict[tuple[str, str], str]
+) -> None:
+    """Second step: with every slug known, write each pack's lines."""
+    index.set_slugs(slugs)
+    plain_slugs = {key: slug for (list_name, key), slug in slugs.items() if list_name == "gear"}
+    for item in live:
+        draft = item.draft
+        if draft.pack_resolution is None:
+            continue
+        contents = build_contents(draft.pack_resolution, index, plain_slugs)
+        draft.pack_lines = contents.lines
+        draft.pack_unresolved = contents.unresolved
+        draft.notes.extend(contents.notes)
+        if contents.lines:
+            draft.description = render(contents.lines)

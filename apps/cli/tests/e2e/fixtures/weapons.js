@@ -54,7 +54,7 @@ WeaponsList["moon whip"] = {
 	regExpSearch : /moon whip/i,
 	name : "Moon whip",
 	source : ["HB", 0],
-	type : "Exotic",
+	type : "Legendary",
 	list : "melee",
 	ability : 2,
 	damage : [1, 6, "slashing"],

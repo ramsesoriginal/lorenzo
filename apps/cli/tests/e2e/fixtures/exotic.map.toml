@@ -1,8 +1,0 @@
-schema = 1
-
-# Homebrew "Exotic" weapons: a proficiency category of their own, under D&D's weapon axis.
-[classify.weapons.type]
-exotic = { disposition = "create-under", axis = "proficiency", slug = "hb-exotic", name = "Exotic weapon" }
-
-[attributes.weapons]
-flavour = "drop"

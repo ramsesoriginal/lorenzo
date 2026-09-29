@@ -162,11 +162,11 @@ def test_a_range_that_says_nothing_readable_is_noted() -> None:
     assert run("range", 5).issues[0].kind == "range"
 
 
-def test_an_armour_class_that_is_a_number_is_stored_and_a_formula_is_noted() -> None:
+def test_an_armour_class_that_is_a_number_is_stored_and_a_formula_is_kept_as_text() -> None:
     assert run("armor", 16).stats == {"armor": 16}
     effect = run("armor", "10+Wis")
-    assert effect.stats == {}
-    assert "formula" in effect.notes[0]
+    assert effect.stats == {"armor_formula": "10+Wis"}
+    assert effect.notes == []
 
 
 def test_names_are_tidied_and_an_empty_one_is_an_issue() -> None:
@@ -262,3 +262,54 @@ def test_drop_and_classify_have_no_effect_of_their_own() -> None:
     for transform in ("drop", "classify"):
         effect = run(transform, "anything")
         assert (effect.stats, effect.parents, effect.issues, effect.name) == ({}, set(), [], None)
+
+
+@pytest.mark.parametrize(
+    ("value", "name"),
+    [(1, "Strength"), (2, "Dexterity"), (3, "Constitution"), (4, "Intelligence"), (6, "Charisma")],
+)
+def test_an_ability_number_becomes_its_name(value: int, name: str) -> None:
+    assert run("ability_name", value, stat="attack_ability").stats == {"attack_ability": name}
+
+
+@pytest.mark.parametrize("value", [0, 7, "", None, True, "Strength"])
+def test_an_ability_that_isnt_one_of_the_six_says_nothing(value: Any) -> None:
+    effect = run("ability_name", value, stat="attack_ability")
+
+    assert effect.stats == {}
+
+
+def test_other_names_are_kept_as_text_and_patterns_are_not_names() -> None:
+    effect = run("aliases", ["Axe, Hand", {"$re": ["hand", "i"]}, 5, "  Hatchet "])
+
+    assert effect.aliases == ["Axe, Hand", "Hatchet"]
+
+
+def test_a_single_other_name_is_a_list_of_one() -> None:
+    assert run("aliases", "Hatchet").aliases == ["Hatchet"]
+    assert run("aliases", None).aliases == []
+
+
+def test_information_carries_its_type_title_and_text() -> None:
+    effect = run("information", " Disadvantage. ", type="note", title="Special rules")
+
+    [entry] = effect.information
+    assert (entry.type, entry.title, entry.content) == ("note", "Special rules", "Disadvantage.")
+
+
+def test_information_with_no_text_is_nothing() -> None:
+    assert run("information", "  ", type="note", title="T").information == []
+    assert run("information", None, type="note", title="T").information == []
+
+
+def test_a_number_below_the_minimum_is_not_worth_a_stat() -> None:
+    assert run("int", 0, stat="strength_required", minimum=1).stats == {}
+    assert run("int", 13, stat="strength_required", minimum=1).stats == {"strength_required": 13}
+    assert run("int", 1, stat="bundle_amount", minimum=2).stats == {}
+    assert run("int", 20, stat="bundle_amount", minimum=2).stats == {"bundle_amount": 20}
+
+
+def test_an_empty_value_writes_no_stat() -> None:
+    assert run("text", "", stat="ammo_type").stats == {}
+    assert run("text", None, stat="ammo_type").stats == {}
+    assert run("int", "", stat="strength_required").stats == {}
