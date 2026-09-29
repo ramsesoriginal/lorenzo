@@ -81,34 +81,34 @@ class EntityViewMixin:
                 return values.get(stat.stat_definition_id)
         return None
 
-    def _stats_for_group(self, group_name: str) -> list[tuple[str, int | None]]:
-        # Int values only, as before: a stat of any other type in the
-        # group still appears, with None (ADR 0039's shape, unchanged).
+    def _stats_for_group(self, group_name: str) -> list[tuple[str, int | float | None]]:
+        # Numbers only (ADR 0141: a float reads as a float, no longer None): a stat of any
+        # other type in the group still appears, with None (ADR 0039's shape, unchanged).
         values = self.resolved_stat_values()
-        pairs: list[tuple[str, int | None]] = []
+        pairs: list[tuple[str, int | float | None]] = []
         for stat in self.entity.effective_stats:
             if stat.stat_definition.stat_group.name != group_name:
                 continue
             value = values.get(stat.stat_definition_id)
-            if isinstance(value, bool) or not isinstance(value, int):
+            if isinstance(value, bool) or not isinstance(value, int | float):
                 value = None
             pairs.append((stat.stat_definition.name, value))
         return pairs
 
     @property
-    def physical_stats(self) -> list[tuple[str, int | None]]:
+    def physical_stats(self) -> list[tuple[str, int | float | None]]:
         return self._stats_for_group("physical")
 
     @property
-    def economic_stats(self) -> list[tuple[str, int | None]]:
+    def economic_stats(self) -> list[tuple[str, int | float | None]]:
         return self._stats_for_group("economic")
 
     @property
-    def destroyable_stats(self) -> list[tuple[str, int | None]]:
+    def destroyable_stats(self) -> list[tuple[str, int | float | None]]:
         return self._stats_for_group("destroyable")
 
     @property
-    def damaging_stats(self) -> list[tuple[str, int | None]]:
+    def damaging_stats(self) -> list[tuple[str, int | float | None]]:
         return self._stats_for_group("damaging")
 
     @property
