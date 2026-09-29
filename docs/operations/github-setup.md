@@ -20,6 +20,8 @@ Re-importing the file doesn't happen automatically, though — the live ruleset 
 
 `apps/account-hub` and `apps/inventory-web` now also have their own `mise.toml` with `lint`/`test` tasks, so `ci.yml`'s `discover` job (which matrixes over every `apps/*/mise.toml` automatically) now also produces `test (apps/account-hub)` and `test (apps/inventory-web)` contexts — but neither [.github/rulesets/main.json](../../.github/rulesets/main.json) nor the live ruleset requires them yet. Same manual step as above: add both contexts by hand once they've run at least once on `main`.
 
+`test (apps/cli)` ([ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)) is in [.github/rulesets/main.json](../../.github/rulesets/main.json) from the start. Same manual step for the live ruleset: add the context by hand once it has run at least once on `main`.
+
 ## Actions: allow workflows to open pull requests
 
 Settings → Actions → General → Workflow permissions → check **"Allow GitHub Actions to create and approve pull requests"**.
