@@ -17,12 +17,14 @@
     "lint": "biome check . && astro check && prettier --check \"**/*.astro\"",
     "format": "biome check --write . && prettier --write \"**/*.astro\"",
     "test": "vitest run --passWithNoTests",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:real-api": "playwright test --config playwright.real-api.config.ts"
   },
   "dependencies": {
     "@authgear/web": "^6.0.0",
     "@lorenzo/brand": "workspace:*",
-    "astro": "^7.3.3"
+    "astro": "^7.3.3",
+    "@lorenzo/api-client": "workspace:*"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

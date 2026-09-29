@@ -22,7 +22,7 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
-from lorenzo_api.etag import check_if_match
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     InvalidUserError,
     LastOwnerError,
@@ -180,6 +180,7 @@ async def list_tenants(
 
 @router.get("/{tenant_id}")
 async def get_tenant(
+    response: Response,
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_or_404)],
     session: SessionDep,
     user: CurrentUser,
@@ -200,7 +201,9 @@ async def get_tenant(
     # Membership) got exactly this 404 from apps/inventory-web's board page,
     # despite their own GM being able to see their character fine.
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    return await _tenant_out(tenant_id, session)
+    tenant = await session.get_one(Tenant, tenant_id)
+    response.headers["ETag"] = etag_for(tenant.updated_at)
+    return TenantOut.model_validate(tenant)
 
 
 async def _tenant_out(tenant_id: uuid.UUID, session: SessionDep) -> TenantOut:
