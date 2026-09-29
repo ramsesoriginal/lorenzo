@@ -17,7 +17,7 @@ RFC 0025 names an `apps/cli` and defers its scaffolding to implementation. The r
 
 `apps/cli` is a standalone uv project like `apps/api`: `src/lorenzo_cli`, hatchling, Python 3.14, `uv.lock` committed, ruff (`line-length = 100`), strict mypy, pytest. It installs a `lorenzo` console script. Its `mise.toml` has the contract every app has (`dev`, `lint`, `format`, `test`, `build`) plus `lock` and `check-schema`. There is no Dockerfile and no deploy workflow: it is installed, not deployed.
 
-The command line uses `typer` (which brings `rich` for the output the RFC asks for). Commands are added by the slices that need them: `seed`, `plan`, `apply`, `login`.
+The command line uses `typer` (which brings `rich` for the output the RFC asks for). Commands are added by the slices that need them. This slice has `login`, `logout` and `tenant show` (which reads a tenant by id or slug, and so is the first call through the client); `seed`, `plan` and `apply` come with the later slices.
 
 ### The client
 
@@ -36,7 +36,9 @@ The client stays inside `apps/cli`. A shared `packages/api-client-py` waits for 
 The CLI is run by a person with their own token. Unattended use is out of scope.
 
 - `LORENZO_TOKEN` or `--token-stdin` supply a token directly. This unblocks development (feed it from `apps/api/scripts/get_dev_token.py`) and scripts.
-- A stored login lives in a `0600` file under `$XDG_CONFIG_HOME/lorenzo/`. The `keyring` package is an optional extra.
+- A stored login (issuer, client id, access token, refresh token, expiry) lives in a `0600` file under `$XDG_CONFIG_HOME/lorenzo/`, created private from the start. The access token is renewed with the refresh token shortly before it expires and once after a `401`. Storing it in the OS keychain (the `keyring` package) is left for when someone needs it; a headless WSL has no keychain to talk to.
+- The order of use is `--token-stdin`, then `LORENZO_TOKEN`, then the stored login.
+- There is no default API URL: `LORENZO_API_URL` or `--api-url` must name it, so a token never goes to a host nobody chose.
 - `login` runs the authorization code flow with PKCE against a **new public Authgear client** on a fixed loopback port, asking for `openid offline_access`. `login --no-browser` prints the URL and reads the redirected URL back, which covers WSL and SSH. Authgear has no device authorization grant.
 - Registering that client is an operations step, not code, and it is unverified whether Authgear accepts a secret-less native client on a fixed loopback port. Until it is registered, `login` fails with a message saying so; nothing else depends on it.
 
