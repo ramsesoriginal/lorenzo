@@ -128,6 +128,8 @@ class Mapping(BaseModel):
     name_rules: list[NameRule]
     attributes: dict[str, dict[str, Rule]]
     namespaces: dict[str, str]
+    # A pack item's display name (lower-cased) -> "list:key", or "text" for not-a-catalog-item.
+    pack_items: dict[str, str]
 
     def namespace_for(self, file_name: str) -> str:
         return self.namespaces.get(file_name, DEFAULT_NAMESPACE)
@@ -175,6 +177,10 @@ def _merge(builtin: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
         "attributes": {},
         # The project's rules first: the first matching rule of a list wins.
         "name_rule": [*user.get("name_rule", []), *builtin.get("name_rule", [])],
+        "pack_items": {
+            **{str(k).lower(): v for k, v in builtin.get("pack_items", {}).items()},
+            **{str(k).lower(): v for k, v in user.get("pack_items", {}).items()},
+        },
     }
     for name in {*builtin.get("lists", {}), *user.get("lists", {})}:
         merged["lists"][name] = {
@@ -216,7 +222,7 @@ def load_mapping(user_text: str | None = None, *, taught: str = "") -> LoadedMap
         user["schema"] = 1
     unknown = set(user) - {
         "schema", "version", "currencies", "namespaces", "lists", "classify", "attributes",
-        "name_rule",
+        "name_rule", "pack_items",
     }  # fmt: skip
     if unknown:
         raise MappingError(f"Unknown top-level keys in the map file: {', '.join(sorted(unknown))}")
@@ -240,6 +246,7 @@ def load_mapping(user_text: str | None = None, *, taught: str = "") -> LoadedMap
                 for list_name, rules in merged["attributes"].items()
             },
             namespaces={str(k): str(v) for k, v in merged["namespaces"].items()},
+            pack_items={str(k): str(v) for k, v in merged["pack_items"].items()},
         )
     except (ValidationError, ValueError) as exc:
         raise MappingError(f"The map isn't valid: {exc}") from exc
@@ -268,6 +275,13 @@ def _check(mapping: Mapping) -> None:
             raise MappingError(
                 f"Namespace {namespace!r} for {file_name} must be lower-case letters, digits "
                 "and single hyphens."
+            )
+    for name, target in mapping.pack_items.items():
+        list_name, _, key = target.partition(":")
+        if target != "text" and not (list_name in LIST_NAMES and key):
+            raise MappingError(
+                f"pack_items.{name!r} is {target!r}: say 'text', or 'list:key' with a list from "
+                f"{', '.join(LIST_NAMES)}."
             )
     for name_rule in mapping.name_rules:
         if name_rule.in_list not in LIST_NAMES:

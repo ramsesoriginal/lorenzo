@@ -30,6 +30,7 @@ from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.config import ConfigError, Settings, load_settings
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
 from lorenzo_cli.importer.apply import ApplyOptions, apply_import
+from lorenzo_cli.importer.give import PackError, entity_id_of, give_pack
 from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.mapping import MappingError
 from lorenzo_cli.importer.plan import ImportPlan, Options
@@ -59,6 +60,8 @@ app = typer.Typer(
 )
 tenant_app = typer.Typer(help="Read a tenant.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
+pack_app = typer.Typer(help="Hand out an imported pack.", no_args_is_help=True)
+app.add_typer(pack_app, name="pack")
 
 _out = Console()
 _err = Console(stderr=True)
@@ -130,6 +133,7 @@ def _reporting_errors() -> Iterator[None]:
         LoginError,
         EvalError,
         MappingError,
+        PackError,
         WrongTenantKindError,
         TenantNotFoundError,
         LorenzoConnectionError,
@@ -385,7 +389,8 @@ class ImportArgs:
 
 
 def _write_review_files(plan: ImportPlan, review: Path, proposed: Path) -> None:
-    written = write_review_queue(review, plan) if (plan.held or plan.unmapped()) else 0
+    unresolved = plan.held or plan.unmapped() or plan.pack_unresolved()
+    written = write_review_queue(review, plan) if unresolved else 0
     if written:
         proposed.write_text(proposed_map(plan), encoding="utf-8")
         _err.print(f"{written} thing(s) need a decision: see {review} and {proposed}.")
@@ -584,3 +589,42 @@ def _inputs(files: list[Path] | None, base: list[Path] | None) -> list[Path]:
             "Give some .js files to import, or --base files (the sheet's own)."
         )
     return files or []
+
+
+@pack_app.command("give")
+def pack_give(
+    ctx: typer.Context,
+    pack: Annotated[str, typer.Argument(help="The pack's slug or id, as imported.")],
+    tenant: TenantOption,
+    owner: Annotated[
+        str | None,
+        typer.Option("--owner", help="The character (slug or id) who gets it. Default: nobody."),
+    ] = None,
+    into: Annotated[
+        str | None,
+        typer.Option("--into", help="A container (slug or id) to put it in. Default: none."),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Say what would be created, and create nothing.")
+    ] = False,
+) -> None:
+    """Create a pack's contents in a tenant: its container, then what is inside, with quantities.
+
+    The contents are read from the pack's description, where the importer put them.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        target = resolve_tenant(client, tenant)
+        owner_id = entity_id_of(client, target.id, owner, "character") if owner else None
+        into_id = entity_id_of(client, target.id, into, "container") if into else None
+        given = give_pack(
+            client,
+            target.id,
+            pack,
+            owner=owner_id,
+            into=into_id,
+            dry_run=dry_run,
+            say=_out.print,
+        )
+    verb = "Would create" if dry_run else "Created"
+    _out.print(f"{verb} {sum(g.created for g in given)} item(s).")

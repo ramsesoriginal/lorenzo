@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from e2e.helpers import by_slug, own_stats, parent_names, tenant_id
+from e2e.helpers import by_slug, own_stats, parent_names, run_cli, tenant_id
 from e2e.stack import Stack
 from e2e.test_import import apply, plan, seeded_tenant, statuses
 
@@ -72,3 +72,32 @@ def test_the_srd_imports_with_nothing_left_unresolved_and_a_second_run_finds_not
         assert own_stats(rope)["price"] == 100
         arrows = by_slug(api, tid, "basic-gear-arrows-20")
         assert parent_names(arrows) == ["Ammunition"]
+
+
+def test_the_srd_packs_link_cleanly_and_can_be_handed_out(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token()
+    tenant = seeded_tenant(stack, token, tmp_path)
+    assert apply(stack, token, tmp_path, tenant, *srd_arguments(), "--yes").exit_code == 0
+
+    strict = plan(stack, token, tmp_path, tenant, *srd_arguments(), "--strict", "--json")
+    assert strict.exit_code == 0, json.loads(strict.stdout)["unmapped_attributes"]
+    packs = [i for i in json.loads(strict.stdout)["items"] if i["list"] == "packs"]
+    assert len(packs) == 7 and all(p["pack"]["plain_text"] == [] for p in packs)
+
+    with stack.api(token) as api:
+        tid = tenant_id(api, tenant)
+        explorer = by_slug(api, tid, "basic-packs-explorer")
+        [text] = [
+            p["content"]
+            for i in explorer["information"]
+            if i["type"] == "description"
+            for p in i["payloads"]
+        ]
+    assert text.startswith("This pack contains:\n\n- 1 x [Backpack](basic-gear-backpack)\n")
+    assert "  - 10 x [Rations (1 day)](basic-gear-rations-1-day)" in text
+    assert "[Rope, hempen (50 feet)](basic-gear-rope-hempen-50-feet)" in text  # 50 feet, one coil
+
+    given = run_cli(
+        stack, token, tmp_path, "pack", "give", "basic-packs-explorer", "--tenant", tenant
+    )
+    assert given.exit_code == 0, given.output
