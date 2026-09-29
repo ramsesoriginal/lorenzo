@@ -93,10 +93,6 @@ spell = "skip"
 "true" = ["dnd5e-special"]
 "false" = []
 
-# `ammo` names the ammunition the weapon fires ("arrow"): it needs ammunition, whatever it is.
-[classify.weapons.ammo]
-"*" = ["dnd5e-uses-ammunition"]
-
 # Armour `type` is light, medium or heavy, and absent for what isn't armour that is worn.
 [classify.armour.type]
 light = ["dnd5e-light-armor"]
@@ -361,7 +357,9 @@ range = "range"
 type = "classify"
 list = "classify"
 special = "classify"
-ammo = ["classify", { transform = "text", stat = "ammo_type" }]
+# What the weapon draws on ("arrow"). A thrown flask names itself, so this alone does not make a
+# weapon one that uses ammunition: the description's word "Ammunition" does.
+ammo = { transform = "text", stat = "ammo_type" }
 ability = { transform = "ability_name", stat = "attack_ability" }
 abilitytodamage = { transform = "bool", stat = "ability_to_damage" }
 monkweapon = { transform = "bool", stat = "is_monk_weapon" }
@@ -431,6 +429,8 @@ items = "pack_contents"
 "torches" = "gear:torch"
 "costumes" = "gear:costume"
 "perfume, vial of" = "gear:perfume (vial)"
+# The sheet's light-hammer ammunition also answers to "hammer".
+"hammer" = "gear:hammer"
 # The sheet has no gear entry for these, only the packs that mention them.
 "string, feet of" = "item"
 "alms box" = "item"

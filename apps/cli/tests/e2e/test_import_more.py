@@ -299,20 +299,23 @@ def test_what_the_sheet_says_beyond_the_stats_is_kept_as_information(
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
 
-    result = apply(stack, token, tmp_path, tenant, str(FIXTURES / "gear.js"), "--yes")
-    again = plan(stack, token, tmp_path, tenant, str(FIXTURES / "gear.js"), "--json")
+    files = [str(FIXTURES / "gear.js"), str(FIXTURES / "weapons.js")]
+    result = apply(stack, token, tmp_path, tenant, *files, "--map", LEGENDARY, "--yes")
+    again = plan(stack, token, tmp_path, tenant, *files, "--map", LEGENDARY, "--json")
 
     assert result.exit_code == 0, result.output
     assert again.exit_code == 0, again.output  # the entries written once are not written again
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)
-        torch = by_slug(api, tid, "basic-gear-signal-torch")
+        torch = by_slug(api, tid, "basic-gear-torch-signal")
         assert parent_names(torch) == ["Consumable", "Lighting"]
         assert own_stats(torch)["bundle_amount"] == 5
-        [aliases] = [i for i in torch["information"] if i["type"] == "alias"]
-        assert aliases["title"] == "Also known as"
-        assert [p["content"] for p in aliases["payloads"]] == ["Flare stick\nBeacon"]
         plate = by_slug(api, tid, "basic-armour-dented-plate")
+        assert plate["name"] == "Dented plate armor"
         [known] = [i for i in plate["information"] if i["type"] == "alias"]
-        assert [p["content"] for p in known["payloads"]] == ["Battered plate"]
+        assert known["title"] == "Also known as"
+        assert [p["content"] for p in known["payloads"]] == ["Dented plate"]
         assert parent_names(plate) == ["Armor", "Heavy armor"]
+        dart = by_slug(api, tid, "basic-weapons-purple-dart")
+        [names] = [i for i in dart["information"] if i["type"] == "alias"]
+        assert [p["content"] for p in names["payloads"]] == ["Dart, Purple\nViolet dart"]
