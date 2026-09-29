@@ -1,0 +1,61 @@
+[project]
+name = "lorenzo-cli"
+version = "0.0.0"
+description = "Lorenzo command-line tool: bulk import into a tenant's catalog (RFC 0025)"
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "httpx>=0.28",
+  "pydantic>=2.10",
+  "typer>=0.15",
+  "rich>=13.9",
+]
+
+[project.scripts]
+lorenzo = "lorenzo_cli.main:app"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+  "mypy>=2.3.1",
+  "datamodel-code-generator>=0.28",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src"]
+# Generated from apps/api's OpenAPI document by `mise run generate-schema`; checked
+# for drift, not for style (ADR 0137).
+extend-exclude = ["src/lorenzo_cli/client/models.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.14"
+plugins = ["pydantic.mypy"]
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = "lorenzo_cli.client.models"
+ignore_errors = true
+
+[tool.coverage.run]
+# sys.monitoring (Python 3.12+): faster than trace-function instrumentation (as in apps/api).
+core = "sysmon"
+source = ["src"]
+omit = ["src/lorenzo_cli/client/models.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lorenzo_cli"]

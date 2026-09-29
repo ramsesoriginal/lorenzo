@@ -9,6 +9,10 @@
       "release-type": "python",
       "component": "api"
     },
+    "apps/cli": {
+      "release-type": "python",
+      "component": "cli"
+    },
     "apps/inventory-web": {
       "release-type": "node",
       "component": "inventory-web"

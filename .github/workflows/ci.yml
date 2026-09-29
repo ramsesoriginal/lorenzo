@@ -159,6 +159,9 @@ jobs:
       - run: corepack enable
       - run: mise run check-schema
         working-directory: packages/api-client
+      # The Python CLI's generated models and its operations table (ADR 0137).
+      - run: mise run check-schema
+        working-directory: apps/cli
 
   # inventory-web's end-to-end tests (ADR 0114): the built site in a browser, against the real
   # apps/api and a fake Authgear. Its own job rather than a `test` matrix entry, since it needs
