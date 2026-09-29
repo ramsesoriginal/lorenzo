@@ -72,6 +72,6 @@ For each item: create it (parents, slug), write its stats with `acquire_group` (
 - Slugs are baked into copies and `[[slug]]` links, and a rename doesn't rewrite them. The namespace is therefore a commitment; the plan prints it, and a change is a "moved", not a quiet duplicate.
 - Importing the SRD itself means giving the sheet's data files as `--base` (they are GPL-3.0 and are not shipped). Homebrew that patches SRD entries needs them too.
 - Reading the tenant costs one `GET` per already-imported item, and writing about three to six calls per new one; nothing is parallel yet. The SRD takes a couple of minutes against a local API.
-- A pack's contents are read and kept on the draft but not yet written: that is slice 6, before any repository is published.
+- A pack's contents are written into its description in a second pass, after the items they name; that is [ADR 0145](0145-pack-contents-in-the-description.md).
 - The built-in map is a maintained artefact. MPMB will add attributes and homebrew will invent more; the answer is a row, and the cost is that someone keeps the built-in one current.
 - `plan` and `apply` write `review-queue.json` and `proposed.map.toml` in the working directory (or where `--review-queue` and `--proposed-map` say) when there is something to decide, and leave an older copy alone when there isn't.
