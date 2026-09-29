@@ -1,0 +1,110 @@
+{
+  "ok": true,
+  "restarts": 0,
+  "files": [
+    [
+      "base.js",
+      "base",
+      "ok"
+    ],
+    [
+      "homebrew.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {
+      "longsword": {
+        "regExpSearch": {
+          "$re": [
+            "^(?=.*long)(?=.*sword).*$",
+            "i"
+          ]
+        },
+        "name": "Longsword",
+        "source": [
+          [
+            "SRD",
+            66
+          ],
+          [
+            "P",
+            149
+          ]
+        ],
+        "list": "melee",
+        "type": "Martial",
+        "damage": [
+          1,
+          8,
+          "slashing"
+        ],
+        "range": "Melee",
+        "weight": 4
+      },
+      "dagger": {
+        "regExpSearch": {
+          "$re": [
+            "dagger",
+            "i"
+          ]
+        },
+        "name": "Dagger",
+        "source": [
+          "HB",
+          0
+        ],
+        "list": "melee",
+        "type": "Simple",
+        "damage": [
+          1,
+          4,
+          "piercing"
+        ],
+        "range": "Melee, 20/60 ft",
+        "weight": 0.5
+      },
+      "glass sword": {
+        "name": "Glass sword",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Martial",
+        "list": "melee",
+        "weight": 2
+      }
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {
+      "P": {
+        "name": "Player's Handbook",
+        "abbreviation": "PHB",
+        "group": "Primary",
+        "date": "2014/08/19"
+      }
+    }
+  },
+  "origins": {
+    "WeaponsList": {
+      "longsword": "base.js",
+      "dagger": "homebrew.js",
+      "glass sword": "homebrew.js"
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {
+      "P": "base.js"
+    }
+  },
+  "stubs": [],
+  "stubs_in_data": []
+}

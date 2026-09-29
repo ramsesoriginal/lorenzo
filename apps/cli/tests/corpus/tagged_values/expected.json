@@ -1,0 +1,82 @@
+{
+  "ok": true,
+  "restarts": 0,
+  "files": [
+    [
+      "odd_values.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {
+      "odd": {
+        "name": "Odd",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Simple",
+        "list": "melee",
+        "notANumber": {
+          "$num": "NaN"
+        },
+        "endless": {
+          "$num": "Infinity"
+        },
+        "when": {
+          "$date": 86400000
+        },
+        "nested": [
+          [
+            {
+              "$re": [
+                "a+",
+                "g"
+              ]
+            },
+            "text"
+          ],
+          {
+            "deeper": {
+              "$re": [
+                "b$",
+                "im"
+              ]
+            }
+          }
+        ],
+        "loop": {
+          "name": "loop",
+          "self": {
+            "$cycle": true
+          }
+        },
+        "broken": {
+          "$error": "Error: nope"
+        },
+        "randomness": 0.5,
+        "clock": 0
+      }
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "origins": {
+    "WeaponsList": {
+      "odd": "odd_values.js"
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "stubs": [],
+  "stubs_in_data": []
+}

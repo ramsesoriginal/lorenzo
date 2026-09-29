@@ -6,7 +6,7 @@ import os
 import sys
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, TextIO
 
@@ -26,6 +26,8 @@ from lorenzo_cli.client.errors import (
 )
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.config import ConfigError, Settings, load_settings
+from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
+from lorenzo_cli.report import print_evaluation
 from lorenzo_cli.tenants import TenantNotFoundError, resolve_tenant
 
 app = typer.Typer(
@@ -49,6 +51,8 @@ class Runtime:
     stdin: TextIO
     store: CredentialsFile
     transport: httpx.BaseTransport | None = None
+    # Evaluates MPMB files; the worker subprocess unless a test hands in another.
+    engine: Engine = field(default_factory=WorkerEngine)
     api_url: str | None = None
     token_stdin: bool = False
 
@@ -95,6 +99,7 @@ def _reporting_errors() -> Iterator[None]:
         ConfigError,
         NotLoggedInError,
         LoginError,
+        EvalError,
         TenantNotFoundError,
         LorenzoConnectionError,
         LorenzoResponseError,
@@ -176,3 +181,38 @@ def logout(ctx: typer.Context) -> None:
     runtime: Runtime = ctx.obj
     removed = runtime.store.delete()
     _out.print("Signed out." if removed else "There was no stored login.")
+
+
+@app.command("inspect")
+def inspect_files(
+    ctx: typer.Context,
+    files: Annotated[
+        list[Path],
+        typer.Argument(exists=True, dir_okay=False, help="MPMB additional-content .js files."),
+    ],
+    base: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--base",
+            exists=True,
+            dir_okay=False,
+            help="The sheet's own data (Lists*.js), evaluated first; the lists start from it.",
+        ),
+    ] = None,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the whole evaluation as JSON.")
+    ] = False,
+) -> None:
+    """Show what the JavaScript host reads from MPMB files, without touching any tenant."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors():
+        request = EvalRequest(base=read_sources(base or []), files=read_sources(files))
+        result = runtime.engine.evaluate(request)
+    if as_json:
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        print_evaluation(_out, result)
+    if not result.ok:
+        _err.print(f"[red]{result.error}[/red]")
+    if not result.ok or any(f.status != "ok" for f in result.files):
+        raise typer.Exit(1)
