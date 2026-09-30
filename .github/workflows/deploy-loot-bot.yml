@@ -41,7 +41,7 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           minimum_release_age: 7d
-      - run: corepack enable
+      - run: npm install --global corepack@latest && corepack enable
       - run: mise run lint
         working-directory: apps/loot-bot
       - run: mise run test
@@ -104,7 +104,7 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           minimum_release_age: 7d
-      - run: corepack enable
+      - run: npm install --global corepack@latest && corepack enable
 
       - name: Run migrations against the shared Neon instance's loot_bot schema
         working-directory: apps/loot-bot
