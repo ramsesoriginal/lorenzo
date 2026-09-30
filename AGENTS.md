@@ -32,7 +32,7 @@ mise run test                                           # ditto
 mise run check                                          # lint + test - the full pre-PR gate
 ```
 
-`apps/api`, `apps/cli`, `apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract.
+`apps/api`, `apps/cli`, `apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract. PR CI tests only what a change can affect, so a node in a language whose dependencies CI can't read (Kotlin, C#, ...) must also be declared in `.github/ci-graph.yml`, see [ADR 0148](docs/adr/0148-dependency-aware-pr-ci.md).
 
 ## Conventions
 
@@ -55,6 +55,15 @@ Four layers, each with one job — don't blur them:
 - **`ROADMAP.md`** — deliberately doesn't exist yet. Don't add one speculatively; see ADR 0070 for the named trigger and the exact (link-only, no independent prose) shape it gets built in when that trigger fires.
 
 At the start of a session, `gh issue list --state open --milestone <N>` (or unscoped) is the live "what's actually in flight" query — prefer it over re-deriving status from memory or from `docs/architecture/overview.md`'s roadmap section, which is an append-only historical chronicle, not a live status board.
+
+**Every issue and PR gets labels, an assignee, a milestone, and links, when it is opened.** Never leave it for a later cleanup. The full rules, label tables, and `gh` recipes are in [docs/guides/labels-milestones-and-metadata.md](docs/guides/labels-milestones-and-metadata.md); the short version:
+
+- **Labels**: one type label (`enhancement`/`bug`/`documentation`/`chore`/`ci`/`test`, plus `breaking-change`, `infra`, `rfc`, `adr`, `release` where they apply, taken from the conventional-commit prefix) and one scope label per app or package the change lands in (`app:<name>` for `apps/<name>`, `pkg:<name>` for `packages/<name>`). Tracking issues also carry `tracking`. Reuse an existing label; a new one is added to the guide and created with `gh label create`.
+- **Assignee**: yourself (`--assignee @me`) — for now the maintainer is the only developer.
+- **Milestone**: the RFC/ADR slice it implements or documents (docs PR, implementation PRs, follow-up fixes, tracking issues all share it). Create the milestone when the RFC/ADR is accepted, and close it when nothing in it is open. Dependabot, release-please, "merge `main` into a branch", and docs-upkeep PRs, and PRs for still-undecided RFCs, deliberately have none.
+- **Links**: `Closes #N` in the PR description (one per issue) for what it finishes, `Related to #N` for the rest; a stacked PR names the PR below it.
+- **New app or package**: create its `app:<name>`/`pkg:<name>` label in the same PR that scaffolds it (see [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)).
+- **Tools**: `gh` is installed either directly or inside WSL (`wsl gh ...`, where arguments are re-parsed: pass bodies and JSON on stdin with `--body-file -`/`--input -`, and run it from the main checkout, not a worktree). The GitHub MCP server may also be available. Use whichever works; `gh pr create`/`gh issue create` accept `--label`, `--assignee`, and `--milestone`, so set them in the same call.
 
 **Claim RFC/ADR numbers early, to avoid collisions — but never merge that PR yourself.** This project's ADR numbering has already collided several times across long-lived parallel branches (see the renumbering notes on ADR 0050/0054, and the Addendum on [ADR 0070](docs/adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md) for a fourth, live example). The exact procedure, precisely because "merge it early" was ambiguous enough once to get misread as "merge the PR yourself":
 
@@ -79,3 +88,4 @@ Bigger changes — a big feature, a full-app refactor, a new app, or anything th
 2. If this is about adding a new app: read [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md) and confirm scope with the user before writing code.
 3. Prefer the smallest vertical slice that's actually tested end to end over a broad partial implementation — but only once asked to build, not while still preparing structure.
 4. Decide whether this needs its own [worktree](#worktrees) before creating or switching branches.
+5. When you open the issue or PR, set its labels, assignee, milestone, and `Closes #N` links in the same step ([the rules](#planning-rfcadr-issues-and-milestones)).
