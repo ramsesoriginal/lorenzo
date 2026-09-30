@@ -1,8 +1,8 @@
 import {
-  LorenzoApiError,
   type components,
   createLorenzoClient,
   etagOf,
+  LorenzoApiError,
   toLorenzoApiError,
 } from "@lorenzo/api-client";
 

@@ -1,11 +1,11 @@
 import { SlashCommandBuilder } from "discord.js";
 import { formatInventoryEmbed } from "../format-inventory.js";
 import {
+  createLorenzoApiClient,
   type GroupSummary,
   type HeldByResponse,
   type LorenzoApiClient,
   LorenzoApiError,
-  createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import type { Command } from "./types.js";

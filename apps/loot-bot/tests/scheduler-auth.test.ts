@@ -1,4 +1,4 @@
-import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { beforeAll, describe, expect, it } from "vitest";
 import { verifySchedulerRequest } from "../src/scheduler-auth.js";
 

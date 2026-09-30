@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  GIVE_CONTENTS_CANCEL_CUSTOM_ID,
   buildGiveContentsComponents,
   buildGiveContentsCustomId,
   formatContentsGiven,
@@ -9,6 +8,7 @@ import {
   formatKeptNote,
   formatNothingInsideToGive,
   formatWithContentsNote,
+  GIVE_CONTENTS_CANCEL_CUSTOM_ID,
   parseGiveContentsCustomId,
 } from "../src/format-give-contents.js";
 import type { ContentsResultItem } from "../src/lorenzo-client.js";

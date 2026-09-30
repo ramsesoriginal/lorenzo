@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_FILL_OPTIONS,
   buildFillComponents,
   buildFillCustomId,
+  MAX_FILL_OPTIONS,
   parseFillCustomId,
 } from "../src/format-container.js";
 

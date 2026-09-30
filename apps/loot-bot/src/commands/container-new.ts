@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { clearContainerPrototypeId } from "../db.js";
-import { MAX_FILL_OPTIONS, buildFillComponents, parseFillCustomId } from "../format-container.js";
-import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
+import { buildFillComponents, MAX_FILL_OPTIONS, parseFillCustomId } from "../format-container.js";
+import { createLorenzoApiClient, LorenzoApiError } from "../lorenzo-client.js";
 import { resolveCurrentCharacter } from "../preferences.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices } from "./autocomplete.js";
