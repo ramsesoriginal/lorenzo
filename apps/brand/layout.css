@@ -170,6 +170,14 @@ body:has(.full-width) {
   gap: var(--space-1);
 }
 
+.grow {
+   flex: 1;
+}
+
+.row.sticky-top {
+  align-items: start;
+}
+
 /* A vertical stack of elements with consistent spacing between them - the
    vertical counterpart to .row, so stacked pieces never need their own
    one-off margin. */
@@ -235,4 +243,9 @@ body:has(.full-width) {
   background: var(--fill-soft);
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.vertical-window {
+    max-height: 70vh;
+    overflow-y: auto;
 }

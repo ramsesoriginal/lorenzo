@@ -56,6 +56,8 @@ export type ItemFormOptions = {
    */
   followSlug?: boolean;
 
+  hideCurrentName?: boolean;
+
   onSubmit(values: ItemFormValues): Promise<void>;
 };
 
@@ -251,6 +253,8 @@ export function renderItemForm(
 
   currentName.textContent =
     options.initial.name || 'New item';
+
+  currentName.hidden = options.hideCurrentName ?? false;
 
   submitButton.textContent = options.submitLabel;
 
