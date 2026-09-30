@@ -1,0 +1,8 @@
+# Read by the `init` step of .github/workflows/security.yml.
+#
+# Test fixtures, not product code. The CLI's MPMB importer tests run it against sample sheet files,
+# and apps/cli/tests/corpus/errors/syntax_error.js is broken on purpose (to test the error report).
+# CodeQL can't parse it and says so on every run ("Could not process some files due to syntax
+# errors"). Nothing here ships, so there is nothing to find.
+paths-ignore:
+  - apps/cli/tests/corpus/**
