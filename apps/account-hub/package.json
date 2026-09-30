@@ -23,14 +23,14 @@
   "dependencies": {
     "@authgear/web": "^6.0.0",
     "@lorenzo/brand": "workspace:*",
-    "astro": "^7.3.3",
+    "astro": "^7.3.5",
     "@lorenzo/api-client": "workspace:*"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
     "@biomejs/biome": "^2.3.0",
     "@playwright/test": "^1.55.0",
-    "prettier": "^3.6.0",
+    "prettier": "^3.9.9",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.9.0",
     "vitest": "^4.1.11"
