@@ -128,8 +128,9 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Project name**: `lorenzo-account-hub`. **Production branch**: `main`.
 4. **Build settings** — this is a pnpm workspace monorepo (root `pnpm-workspace.yaml` lists `apps/*`), but Cloudflare's "Root directory" setting still clones the whole repo and only changes the working directory build commands run from, so `pnpm install` from `apps/account-hub` still finds the true workspace root (pnpm walks up looking for `pnpm-workspace.yaml`) and its `allowBuilds`/`minimumReleaseAgeExclude` config:
    - **Root directory**: `apps/account-hub`
-   - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
+   - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
    - **Build output directory**: `dist`
+   - **Node version**: set the environment variable `NODE_VERSION` to the major in `mise.toml` (26); Pages otherwise builds with its own default. Node 25+ no longer ships corepack, which is why the build command installs it first.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own Pages project (below) can use the exact same variable names for its own, different values with no collision.
 6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/**`, `packages/api-client/**`, and `packages/brand/**` (ADR 0136; changes to bundled packages must also rebuild the site; double star, not single — a single `*` doesn't match across `/`, so it would only catch changes to files directly in `apps/account-hub/` and silently never rebuild for anything under `src/`, which is everything that actually matters; confirmed against a real deploy that stopped rebuilding entirely) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
 
@@ -152,8 +153,9 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Project name**: `lorenzo-inventory-web`. **Production branch**: `main`.
 4. **Build settings** — same reasoning as `apps/account-hub`'s own build settings above (Cloudflare's "Root directory" still clones the whole repo, so `pnpm install` from `apps/inventory-web` still finds the true workspace root's `pnpm-workspace.yaml`):
    - **Root directory**: `apps/inventory-web`
-   - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build`
+   - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
+   - **Node version**: set the environment variable `NODE_VERSION` to the major in `mise.toml` (26), same as `apps/account-hub`; Pages otherwise builds with its own default.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
 6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/**` plus every workspace package it builds in: `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, and `packages/lorenzoscript-editor/**` (double star, not single — see `apps/account-hub`'s own note above). Pushes touching unrelated apps in this monorepo don't trigger a rebuild; a change to one of those packages does, since the site bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
 
