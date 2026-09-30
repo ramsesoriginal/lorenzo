@@ -10,38 +10,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Finds every apps/*/mise.toml and packages/*/mise.toml - that file is the
-  # "this is a real, scaffolded app/package" marker (see
-  # docs/adr/0007-apps-layout-and-multiplicity.md; packages since ADR 0100).
-  # A future app with no mise.toml yet simply isn't matched, so the test
-  # job's matrix below runs zero times for it, rather than failing.
+  # Decides what this change can affect (ADR 0148). Every apps/*/mise.toml and packages/*/mise.toml is a
+  # node (docs/adr/0007-apps-layout-and-multiplicity.md; packages since ADR 0100); a change reaches its
+  # own node and everything that depends on it, never what it depends on. Dependencies are derived from
+  # package.json and uv path sources, plus the hand-written .github/ci-graph.toml. A push to main is
+  # the full run: everything is affected. A node CI can't read and that isn't declared fails this job.
+  # Nothing here needs mise or a toolchain: the script is standard-library Python, so it is fast.
   discover:
     runs-on: ubuntu-latest
     outputs:
-      apps: ${{ steps.find.outputs.apps }}
+      test_matrix: ${{ steps.find.outputs.test_matrix }}
+      drift_matrix: ${{ steps.find.outputs.drift_matrix }}
+      suites: ${{ steps.find.outputs.suites }}
+      openapi_diff: ${{ steps.find.outputs.openapi_diff }}
     steps:
       - uses: actions/checkout@v7
+      - name: Fetch the pull request's base
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.sha }}"
       - id: find
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          apps=$(find apps packages -mindepth 2 -maxdepth 2 -name mise.toml | xargs -n1 dirname | sort -u | jq -R -s -c 'split("\n")[:-1]')
-          echo "Discovered apps: $apps"
-          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python3 .github/scripts/affected.py --root . --base "$BASE_SHA" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          else
+            python3 .github/scripts/affected.py --root . --all --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          fi
+
+  # The script's own tests. Always runs, and is cheap: it decides what every other job runs.
+  ci-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest discover -s .github/scripts -v
 
   test:
+    name: test (${{ matrix.app }})
     needs: discover
-    if: needs.discover.outputs.apps != '[]'
+    if: needs.discover.outputs.test_matrix != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        app: ${{ fromJson(needs.discover.outputs.apps) }}
+        include: ${{ fromJson(needs.discover.outputs.test_matrix) }}
     steps:
       - uses: actions/checkout@v7
-      # Only these legs touch Postgres (apps/api's tests, apps/cli's end-to-end stack, apps/loot-bot's
-      # own schema); a service container on every leg cost the others 15-25 s each (ADR 0148). A
-      # hand-kept list for now: the dependency graph moves it into .github/ci-graph.yml.
+      # Only nodes marked `postgres = true` in .github/ci-graph.toml touch Postgres (apps/api's tests,
+      # apps/cli's end-to-end stack, apps/loot-bot's own schema); a service container on every leg
+      # cost the others 15-25 s each (ADR 0148).
       - name: Start Postgres
-        if: contains(fromJson('["apps/api", "apps/cli", "apps/loot-bot"]'), matrix.app)
+        if: matrix.postgres
         run: |
           docker run -d --name postgres -p 5432:5432 \
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
@@ -105,7 +124,8 @@ jobs:
   # no retention/staleness concerns, and it diffs against the PR's actual
   # base commit rather than main's last green build.
   openapi-diff:
-    if: github.event_name == 'pull_request'
+    needs: discover
+    if: github.event_name == 'pull_request' && needs.discover.outputs.openapi_diff == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -137,16 +157,21 @@ jobs:
           # file's own header. Everything else still fails the job.
           err-ignore: revision/apps/api/openapi-breaking-accepted.txt
 
-  # The generated API schema (packages/api-client/src/schema.d.ts, ADR 0122)
-  # is committed, so it can silently fall behind apps/api's routes/schemas -
-  # the same class of gap release.yml's sync-lockfile job catches for uv.lock.
-  # One check covers every app that uses the package (loot-bot and
-  # inventory-web). Not matrixed over discover's output for the same reason
-  # openapi-diff above isn't: this pairs one specific consumer with apps/api,
-  # not a universal per-app contract. Runs on push to main too, not just PRs,
+  # A generated client's committed schema can silently fall behind apps/api's routes/schemas (the same
+  # class of gap release.yml's sync-lockfile job catches for uv.lock), so every node with a
+  # `check-schema` task is checked whenever it, or the node it is generated from, is affected (ADR
+  # 0148; `generated_from` in .github/ci-graph.toml). Today that is packages/api-client (ADR 0122)
+  # and apps/cli's generated models and operations table (ADR 0137). A push to main checks them all,
   # so a drift that slips in some other way still shows up red.
   client-drift:
+    name: client-drift (${{ matrix.app }})
+    needs: discover
+    if: needs.discover.outputs.drift_matrix != '[]'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.discover.outputs.drift_matrix) }}
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
@@ -154,15 +179,15 @@ jobs:
           minimum_release_age: 7d
       - run: corepack enable
       - run: mise run check-schema
-        working-directory: packages/api-client
-      # The Python CLI's generated models and its operations table (ADR 0137).
-      - run: mise run check-schema
-        working-directory: apps/cli
+        working-directory: ${{ matrix.app }}
 
   # inventory-web's end-to-end tests (ADR 0114): the built site in a browser, against the real
   # apps/api and a fake Authgear. Its own job rather than a `test` matrix entry, since it needs
-  # uv for the API and a browser besides Postgres.
+  # uv for the API and a browser besides Postgres. It is the `inventory-web-e2e` suite in
+  # .github/ci-graph.toml: it runs when inventory-web, anything it depends on, or the API is affected.
   e2e:
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'inventory-web-e2e')
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -207,7 +232,7 @@ jobs:
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
   ci-summary:
-    needs: [discover, test, openapi-diff, client-drift, e2e]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
