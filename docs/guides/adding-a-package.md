@@ -10,6 +10,7 @@ Generic code (anything not specific to one app's domain logic) doesn't go in an 
    - JS/TS: add `"packages/*"` to `pnpm-workspace.yaml`, if it isn't there yet.
 3. Add a `release-please-config.json` entry so it gets its own version/changelog.
 4. Add a `mise.toml` if it needs its own dev/test tasks, and list it in the root `mise.toml`'s `[monorepo].config_roots` (already there, alongside `apps/api`).
+5. Create its `pkg:<name>` label (`gh label create "pkg:<name>" --color <hex> --description "packages/<name>"`), add it to the scope table in [labels-milestones-and-metadata.md](labels-milestones-and-metadata.md), and put it on the PR that adds the package.
 
 ## When *not* to do this
 

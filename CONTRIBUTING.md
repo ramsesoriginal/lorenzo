@@ -23,6 +23,10 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md) for the ful
 - PRs merge with a **real merge commit** (not squash, not rebase), so `git log --graph` keeps showing actual branch history. Branches are not auto-deleted after merge.
 - Bigger changes get their own git worktree instead of switching branches in place, so several can be checked out side by side — see [AGENTS.md#worktrees](AGENTS.md#worktrees) for the layout convention.
 
+## Labels, milestones, and links
+
+Every issue and PR is opened with labels (a type such as `bug` or `enhancement`, plus a scope such as `app:api` or `pkg:brand`), an assignee, a milestone (the RFC/ADR slice it belongs to), and `Closes #N` in the PR description for the issues it finishes. That is what keeps "everything touching `apps/loot-bot`" or "everything in RFC 0031" one filter away. The rules and the `gh` commands are in [docs/guides/labels-milestones-and-metadata.md](docs/guides/labels-milestones-and-metadata.md). A new app or package adds its own label in the PR that scaffolds it.
+
 ## Before you open a PR
 
 ```bash

@@ -14,6 +14,7 @@ See [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md) for why this exists:
 6. **Add a Dependabot entry** in `.github/dependabot.yml` for its package ecosystem, with a `groups:` block (`patterns: ["*"]`) so weekly bumps land as one PR instead of one per dependency — match the existing entries.
 7. **If it's a deployed service**, add its own deploy workflow (e.g. `deploy-<name>.yml`) — don't generalize this into a shared one across apps that might deploy completely differently (a static site vs. a container vs. a mobile app store release). **Exception**: a Cloudflare Pages static site connected via Cloudflare's own Git integration needs no GitHub Actions deploy workflow at all - Cloudflare builds and deploys directly from pushes to `main` (see [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload) and [docs/operations/deployment-setup.md](../operations/deployment-setup.md)); `ci.yml`'s own auto-discovered matrix already covers lint/test for it.
 8. **Add pre-commit hooks** for its language in `.pre-commit-config.yaml` if one doesn't already cover it.
+9. **Create its `app:<name>` label** (`gh label create "app:<name>" --color <hex> --description "apps/<name>"`), add it to the scope table in [labels-milestones-and-metadata.md](labels-milestones-and-metadata.md), and put it on the scaffolding PR and its tracking issues. Without it, the app's issues and PRs can't be filtered.
 
 ## What this deliberately doesn't cover
 
