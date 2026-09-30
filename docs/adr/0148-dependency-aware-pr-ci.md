@@ -1,6 +1,6 @@
 # 0148 - Dependency-aware PR CI: test what a change can affect, never what it can't
 
-Status: accepted (decided with the maintainer on 2026-09-30); implementation follows, in the order under [Decision](#decision)
+Status: accepted (decided with the maintainer on 2026-09-30); implemented the same day, see the addenda at the end. Not built, on purpose: the Playwright browser cache (measured, about 10 s per shard) and the items under "Not in scope"
 
 ## Context
 
