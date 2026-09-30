@@ -35,8 +35,8 @@
     "@types/pg": "^8.11.10",
     "pg": "^8.13.1",
     "prettier": "^3.9.9",
-    "prettier-plugin-astro": "^0.14.1",
-    "typescript": "^5.9.0",
-    "vitest": "^4.1.11"
+    "prettier-plugin-astro": "^1.1.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
   }
 }
