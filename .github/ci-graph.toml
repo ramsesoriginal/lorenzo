@@ -13,6 +13,8 @@
 #                  (the drift check), but not its tests: they run only if the regenerated code,
 #                  or anything else in the node, changed.
 #   postgres       its `test` leg needs a Postgres container.
+#   shards         split its `test` leg over this many runners (TEST_SHARD=i/n; the node's tests
+#                  have to honour it, as apps/api's conftest.py does). Default 1.
 
 [global]
 # A change to any of these runs every node.
@@ -32,13 +34,13 @@ openapi_source = "apps/api"
 
 [nodes."apps/api"]
 postgres = true
+# 1084 tests over two runners, each with its own database (apps/api/tests/conftest.py).
+shards = 2
 
 [nodes."apps/cli"]
-# Its tests start the real API (until the end-to-end stack is split out, ADR 0148 step c), and its
-# generated models come from the API's OpenAPI schema.
-depends_on = ["apps/api"]
+# Its unit tests need neither the API nor a database; the end-to-end tests, which start the real API,
+# are the cli-e2e suite below. Its generated models come from the API's OpenAPI schema.
 generated_from = ["apps/api"]
-postgres = true
 
 [nodes."apps/loot-bot"]
 postgres = true
@@ -58,4 +60,9 @@ generated_from = ["apps/api"]
 [suites.inventory-web-e2e]
 node = "apps/inventory-web"
 # Playwright against the real API and a fake Authgear (ADR 0114).
+depends_on = ["apps/api"]
+
+[suites.cli-e2e]
+node = "apps/cli"
+# The real API on a fresh database behind a fake Authgear (ADR 0137), split over three runners.
 depends_on = ["apps/api"]

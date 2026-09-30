@@ -17,6 +17,7 @@ openapi_source = "apps/api"
 
 [nodes."apps/api"]
 postgres = true
+shards = 2
 
 [nodes."apps/kt-app"]
 depends_on = ["packages/kt-client"]
@@ -183,7 +184,10 @@ class Matrices(unittest.TestCase):
         root = make_repo()
         graph = affected.load_graph(root)
         out = affected.matrices(graph, affected.affected(graph, ["apps/api/a.py"]))
-        self.assertIn({"app": "apps/api", "postgres": True}, json.loads(out["test_matrix"]))
+        self.assertIn(
+            {"app": "apps/api", "label": "apps/api 1/2", "shard": "1/2", "postgres": True}, json.loads(out["test_matrix"])
+        )
+        self.assertIn({"app": "apps/bot", "label": "apps/bot", "shard": "", "postgres": False}, json.loads(affected.matrices(graph, affected.affected(graph, ["apps/bot/a.ts"]))["test_matrix"]))
         self.assertEqual(out["openapi_diff"], "true")
         self.assertEqual(json.loads(out["suites"]), ["web-e2e"])
 
@@ -211,16 +215,27 @@ class ThisRepository(unittest.TestCase):
 
     def test_an_api_change_does_not_retest_the_typescript_apps(self) -> None:
         result = affected.affected(self.graph, ["apps/api/src/lorenzo_api/main.py"])
-        self.assertEqual(result.tests, {"apps/api", "apps/cli"})
+        self.assertEqual(result.tests, {"apps/api"})
         self.assertEqual(result.drift, {"apps/cli", "packages/api-client"})
-        self.assertEqual(result.suites, {"inventory-web-e2e"})
+        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e"})
         self.assertTrue(result.openapi_diff)
 
     def test_documentation_runs_nothing(self) -> None:
         self.assertEqual(affected.affected(self.graph, ["docs/adr/0148-dependency-aware-pr-ci.md"]).tests, set())
 
     def test_the_postgres_legs(self) -> None:
-        self.assertEqual({n for n, v in self.graph.nodes.items() if v.postgres}, {"apps/api", "apps/cli", "apps/loot-bot"})
+        self.assertEqual({n for n, v in self.graph.nodes.items() if v.postgres}, {"apps/api", "apps/loot-bot"})
+
+    def test_the_api_suite_is_split_over_two_runners(self) -> None:
+        self.assertEqual(self.graph.nodes["apps/api"].shards, 2)
+        matrix = json.loads(affected.matrices(self.graph, affected.affected(self.graph, ["apps/api/a.py"]))["test_matrix"])
+        self.assertEqual([(leg["app"], leg["shard"]) for leg in matrix], [("apps/api", "1/2"), ("apps/api", "2/2")])
+
+    def test_cli_unit_tests_do_not_run_for_an_api_change_but_its_e2e_does(self) -> None:
+        result = affected.affected(self.graph, ["apps/api/a.py"])
+        self.assertNotIn("apps/cli", result.tests)
+        self.assertIn("cli-e2e", result.suites)
+        self.assertEqual(affected.affected(self.graph, ["apps/cli/src/x.py"]).suites, {"cli-e2e"})
 
 
 if __name__ == "__main__":

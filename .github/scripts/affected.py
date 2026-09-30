@@ -47,6 +47,7 @@ class Node:
     python: bool
     declared: bool = False
     postgres: bool = False
+    shards: int = 1
     check_schema: bool = False
     depends_on: set[str] = field(default_factory=set)
     generated_from: set[str] = field(default_factory=set)
@@ -136,6 +137,9 @@ def load_graph(root: Path) -> Graph:
         node = nodes[name]
         where = f'{GRAPH_FILE} [nodes."{name}"]'
         node.postgres = bool(table.get("postgres", False))
+        node.shards = int(table.get("shards", 1))
+        if node.shards < 1:
+            raise GraphError(f"{where}: `shards` must be at least 1")
         node.depends_on |= _as_set(table, "depends_on", where)
         node.generated_from |= _as_set(table, "generated_from", where)
 
@@ -258,7 +262,12 @@ def affected(graph: Graph, changed: list[str], everything: bool = False, why: st
 
 
 def matrices(graph: Graph, result: Result) -> dict[str, str]:
-    test = [{"app": n, "postgres": graph.nodes[n].postgres} for n in sorted(result.tests)]
+    test = []
+    for name in sorted(result.tests):
+        node = graph.nodes[name]
+        for index in range(1, node.shards + 1):
+            shard = f"{index}/{node.shards}" if node.shards > 1 else ""
+            test.append({"app": name, "label": f"{name} {shard}".strip(), "shard": shard, "postgres": node.postgres})
     drift = [{"app": n} for n in sorted(result.drift)]
     return {
         "test_matrix": json.dumps(test),

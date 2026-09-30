@@ -11,8 +11,15 @@ description = "Ruff autoformat"
 run = "uv run ruff format ."
 
 [tasks.test]
-description = "Run the test suite with coverage"
-run = "uv run pytest --cov"
+description = "Run the unit tests with coverage (the end-to-end tests are test-e2e)"
+run = "uv run pytest --cov --ignore=tests/e2e"
+
+# Not part of `test`: it starts the real API on a Postgres (infra/docker-compose.yml locally, a service
+# in CI) and takes minutes. CI runs it as the sharded `cli-e2e` job, with TEST_SHARD=2/3 selecting
+# one third of the test files (tests/e2e/conftest.py, ADR 0148).
+[tasks.test-e2e]
+description = "Run the end-to-end tests against the real API (ADR 0137)"
+run = "uv run pytest tests/e2e --no-cov"
 
 [tasks.build]
 description = "Build the wheel and sdist"
