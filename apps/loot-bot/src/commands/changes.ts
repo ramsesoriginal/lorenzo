@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { getChangesSeenAt, setChangesSeenAt } from "../db.js";
-import { MAX_CHANGES_SHOWN, buildChangesEmbed, describeChange } from "../format-changes.js";
+import { buildChangesEmbed, describeChange, MAX_CHANGES_SHOWN } from "../format-changes.js";
 import { createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import type { Command } from "./types.js";

@@ -11,7 +11,7 @@ import {
 } from "./db.js";
 import { sendDirectMessage, serializeMessagePayload } from "./discord-rest.js";
 import { buildNotificationEmbed } from "./format-notification.js";
-import { type NotificationOut, createLorenzoApiClient } from "./lorenzo-client.js";
+import { createLorenzoApiClient, type NotificationOut } from "./lorenzo-client.js";
 import { getValidAccessToken } from "./token-provider.js";
 
 /**

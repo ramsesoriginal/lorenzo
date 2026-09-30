@@ -4,11 +4,11 @@ import type { CommandContext } from "./commands/types.js";
 import { verifyDiscordSignature } from "./discord-signature.js";
 import type { RouteHandler } from "./http-server.js";
 import {
-  type RawInteractionPayload,
-  type ResponseBody,
   buildAdapterInteraction,
   isPing,
   pongResponse,
+  type RawInteractionPayload,
+  type ResponseBody,
 } from "./interaction-adapter.js";
 
 async function readRawBody(req: IncomingMessage): Promise<string> {

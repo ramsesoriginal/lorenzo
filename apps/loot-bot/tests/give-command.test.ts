@@ -5,7 +5,7 @@ import type {
   ChatInputCommandInteraction,
 } from "../src/commands/types.js";
 import type { Config } from "../src/config.js";
-import { GIVE_CANCEL_CUSTOM_ID, buildGiveConfirmCustomId } from "../src/format-give.js";
+import { buildGiveConfirmCustomId, GIVE_CANCEL_CUSTOM_ID } from "../src/format-give.js";
 import { LorenzoApiError } from "../src/lorenzo-client.js";
 
 const { getValidAccessToken } = vi.hoisted(() => ({ getValidAccessToken: vi.fn() }));

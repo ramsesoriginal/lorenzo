@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { listLootClaims, listOpenLootDrops } from "../db.js";
-import { type PendingDropSummary, formatPendingDropsEmbed } from "../format-drop.js";
+import { formatPendingDropsEmbed, type PendingDropSummary } from "../format-drop.js";
 import { createLorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import type { Command } from "./types.js";

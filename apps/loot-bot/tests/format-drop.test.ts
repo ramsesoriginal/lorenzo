@@ -148,7 +148,7 @@ describe("buildDropComponents", () => {
     const [takeRow] = buildDropComponents("drop-1", items);
     const menu = takeRow?.components[0];
     // biome-ignore lint/suspicious/noExplicitAny: see customIdOf above
-    expect((menu?.toJSON() as any).options).toHaveLength(25);
+    expect((menu?.toJSON() as any)?.options).toHaveLength(25);
   });
 });
 

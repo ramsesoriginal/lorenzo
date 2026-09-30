@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_CHANGES_SHOWN, buildChangesEmbed, describeChange } from "../src/format-changes.js";
+import { buildChangesEmbed, describeChange, MAX_CHANGES_SHOWN } from "../src/format-changes.js";
 
 const AT = new Date("2026-09-20T10:00:00Z");
 const UNIX = Math.floor(AT.getTime() / 1000);

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { getRecentChannelAuthorIds } from "../discord-rest.js";
-import { LorenzoApiError, createLorenzoApiClient } from "../lorenzo-client.js";
+import { createLorenzoApiClient, LorenzoApiError } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices } from "./autocomplete.js";
 import { resolveOrCreateGroup } from "./group-lookup.js";

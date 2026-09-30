@@ -1,4 +1,4 @@
-import { type JWTVerifyGetKey, createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from "jose";
 
 /**
  * Proves a request to `/internal/deliver-notifications` really came from
