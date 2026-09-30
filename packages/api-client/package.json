@@ -14,7 +14,7 @@
     "generate-schema": "openapi-typescript ../../apps/api/openapi.json -o src/schema.d.ts"
   },
   "dependencies": {
-    "openapi-fetch": "^0.13.4",
+    "openapi-fetch": "^0.17.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
