@@ -46,7 +46,7 @@ jobs:
       - run: python3 -m unittest discover -s .github/scripts -v
 
   test:
-    name: test (${{ matrix.app }})
+    name: test (${{ matrix.label }})
     needs: discover
     if: needs.discover.outputs.test_matrix != '[]'
     runs-on: ubuntu-latest
@@ -77,14 +77,15 @@ jobs:
       # 0003) - needed job-wide once any app is a pnpm workspace member
       # (apps/loot-bot, ADR 0029); a no-op for apps/api's own matrix entry.
       - run: corepack enable
+      # A node split over several runners (`shards` in .github/ci-graph.toml) lints once, on the first.
       - run: mise run lint
+        if: matrix.shard == '' || startsWith(matrix.shard, '1/')
         working-directory: ${{ matrix.app }}
       - run: mise run test
         working-directory: ${{ matrix.app }}
         env:
-          # apps/cli's end-to-end tests start the real API on this job's Postgres; if that
-          # can't work here it must fail, not skip (ADR 0143). Ignored by the other apps.
-          LORENZO_REQUIRE_E2E: "1"
+          # "2/3": run the second of three groups of test files (apps/api's conftest.py). Empty: all.
+          TEST_SHARD: ${{ matrix.shard }}
           # DATABASE_URL: what the app/tests connect as - a restricted role
           # RLS actually applies to (ADR 0021). MIGRATIONS_DATABASE_URL:
           # what Alembic connects as - stays privileged, since it's what
@@ -186,9 +187,15 @@ jobs:
   # uv for the API and a browser besides Postgres. It is the `inventory-web-e2e` suite in
   # .github/ci-graph.toml: it runs when inventory-web, anything it depends on, or the API is affected.
   e2e:
+    name: e2e (inventory-web ${{ matrix.shard }})
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'inventory-web-e2e')
     runs-on: ubuntu-latest
+    # Playwright splits the spec files over three runners, each with its own Postgres and API.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/3", "2/3", "3/3"]
     services:
       postgres:
         image: postgres:17-alpine
@@ -213,7 +220,7 @@ jobs:
         working-directory: apps/inventory-web
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/inventory-web
-      - run: mise run test-e2e
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}
         working-directory: apps/inventory-web
         env:
           E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
@@ -221,18 +228,50 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ strategy.job-index }}
           path: |
             apps/inventory-web/playwright-report/
             apps/inventory-web/test-results/
           retention-days: 7
+
+  # apps/cli's end-to-end tests (ADR 0137, ADR 0148): the real API on a fresh database behind a fake
+  # Authgear, the CLI run against it. The `cli-e2e` suite in .github/ci-graph.toml: it runs when the CLI
+  # or the API is affected. Split over three runners, each with its own Postgres; conftest.py's
+  # TEST_SHARD picks the test files. If the stack can't start here it must fail, not skip (ADR 0143).
+  cli-e2e:
+    name: cli-e2e (${{ matrix.shard }})
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'cli-e2e')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/3", "2/3", "3/3"]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start Postgres
+        run: |
+          docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine
+          timeout 60 sh -c 'until docker exec postgres pg_isready -U lorenzo; do sleep 1; done'
+      - uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+      - run: mise run test-e2e
+        working-directory: apps/cli
+        env:
+          LORENZO_REQUIRE_E2E: "1"
+          TEST_SHARD: ${{ matrix.shard }}
+          # Where the stack finds Postgres (tests/e2e/stack.py); it makes its own database there.
+          MIGRATIONS_DATABASE_URL: postgresql+asyncpg://lorenzo:lorenzo@localhost:5432/lorenzo
 
   # The one required status check (besides CodeQL) - .github/rulesets/main.json, ADR 0148. It always
   # runs, so it is meaningful even when a matrix is empty or a job is skipped, and it covers every job
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, cli-e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:

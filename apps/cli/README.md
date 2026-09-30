@@ -135,4 +135,4 @@ Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_AUT
 
 ## Tests
 
-`mise run test` runs everything. `tests/e2e/` starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service) and skips without it. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does.
+`mise run test` runs the unit tests, with coverage. `mise run test-e2e` runs `tests/e2e/`, which starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it takes minutes, needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service), and skips without it. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does, and `TEST_SHARD=2/3` runs one third of the test files (CI splits them over three runners, ADR 0148). `mise run check` does not include `test-e2e`, like inventory-web's.
