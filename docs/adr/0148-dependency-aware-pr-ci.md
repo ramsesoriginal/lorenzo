@@ -26,10 +26,10 @@ One obstacle: the `main` ruleset requires `test (apps/api)`, `test (apps/cli)`, 
 **2. Where the edges come from.**
 
 - **Derived, so they can't drift:** JS/TS edges from each `package.json`'s workspace dependencies (`workspace:*`), and Python edges from `[tool.uv.sources]` path dependencies in `pyproject.toml`.
-- **Declared, in one file:** `.github/ci-graph.yml` holds every edge no package manager sees, today `apps/api` -> `packages/api-client` and `apps/api` -> `apps/cli` (generated from its OpenAPI schema, and the CLI's e2e runs the real API), and any edge in a language the script can't read.
-- **A node the script can't read must be declared.** A node with no `package.json` and no `pyproject.toml` (Kotlin, C#, ...) that is missing from `.github/ci-graph.yml` fails the `discover` job with a message saying so, rather than being skipped or silently always run. That is what makes registering it impossible to forget; the PR that adds the node is also the PR that adds its entry.
+- **Declared, in one file:** `.github/ci-graph.toml` holds every edge no package manager sees, today `apps/api` -> `packages/api-client` and `apps/api` -> `apps/cli` (generated from its OpenAPI schema, and the CLI's e2e runs the real API), and any edge in a language the script can't read.
+- **A node the script can't read must be declared.** A node with no `package.json` and no `pyproject.toml` (Kotlin, C#, ...) that is missing from `.github/ci-graph.toml` fails the `discover` job with a message saying so, rather than being skipped or silently always run. That is what makes registering it impossible to forget; the PR that adds the node is also the PR that adds its entry.
 
-**3. Some changes affect everything.** A change to the root `mise.toml`, `.github/workflows/ci.yml`, `.github/ci-graph.yml`, the discovery script, `pnpm-workspace.yaml`, the root `package.json`, or the toolchain pins runs every node. The root `pnpm-lock.yaml` runs every pnpm node (per-importer filtering of the lockfile is a later refinement if Dependabot PRs make it worth it). Documentation-only changes run no test leg.
+**3. Some changes affect everything.** A change to the root `mise.toml`, `.github/workflows/ci.yml`, `.github/ci-graph.toml`, the discovery script, `pnpm-workspace.yaml`, the root `package.json`, or the toolchain pins runs every node. The root `pnpm-lock.yaml` runs every pnpm node (per-importer filtering of the lockfile is a later refinement if Dependabot PRs make it worth it). Documentation-only changes run no test leg.
 
 **4. Jobs follow the graph, not hardcoded names.**
 
@@ -52,8 +52,8 @@ One obstacle: the `main` ruleset requires `test (apps/api)`, `test (apps/cli)`, 
 This is the checklist [docs/guides/adding-an-app.md](../guides/adding-an-app.md) and [docs/guides/adding-a-package.md](../guides/adding-a-package.md) carry:
 
 1. A `mise.toml` with `dev`/`lint`/`test`/`build` makes the directory a node.
-2. Its dependencies on other nodes: a JS node lists them in `package.json`, a Python node as a uv path source; both are then derived. **Any other language declares them in `.github/ci-graph.yml`, and must be declared there even with no dependencies, or `discover` fails.**
-3. A node that consumes generated code from another (a client generated from `apps/api`'s OpenAPI schema) declares that edge in `.github/ci-graph.yml` and gets a `check-schema` task so `client-drift` picks it up.
+2. Its dependencies on other nodes: a JS node lists them in `package.json`, a Python node as a uv path source; both are then derived. **Any other language declares them in `.github/ci-graph.toml`, and must be declared there even with no dependencies, or `discover` fails.**
+3. A node that consumes generated code from another (a client generated from `apps/api`'s OpenAPI schema) declares that edge in `.github/ci-graph.toml` and gets a `check-schema` task so `client-drift` picks it up.
 4. A slow integration suite gets a `test-e2e` task (and keeps `test` fast); say in the graph file if it needs Postgres.
 5. A compiled language's CodeQL support, and its toolchain in the root `mise.toml` (`security.yml` has the marker comment).
 
@@ -70,6 +70,14 @@ A future `packages/python-api-client` is node + derived edge (the CLI points a u
 
 - PR CI gets cheaper (a docs-only PR runs no tests; a single-app PR runs that app and its dependents) and, with sharding and the e2e split, shorter on the API path too.
 - **A gap, accepted:** an API change that alters behavior without changing its OpenAPI schema runs the API's own tests on the PR, not its downstream apps'. The push to `main` runs everything and catches it there.
-- `.github/ci-graph.yml` is a new file to keep right. Most of it is derived on purpose; the hand-written part is short and validated (`discover` fails on a node it can't place).
+- `.github/ci-graph.toml` is a new file to keep right. Most of it is derived on purpose; the hand-written part is short and validated (`discover` fails on a node it can't place).
 - Changing the required checks is a repo-settings change and happens as step (a), before any job can be skipped.
 - Every job that gates a merge must be a dependency of `ci-summary`; a new one left out would never block a PR.
+
+## Addendum (2026-09-30): what the implementation of step (b) settled
+
+- **The graph file is TOML** (`.github/ci-graph.toml`), not YAML as written above. The discovery script is standard-library Python so the job every other job waits on needs no toolchain; Python reads TOML (`tomllib`) but not YAML, and the repo already uses TOML for `mise.toml`.
+- **Three relations, not one.** `depends_on` (derived from `package.json` and uv path sources, or declared) runs a node's tests when something it uses changes. `generated_from` (declared) runs a node's `check-schema` task when its source changes but **not** its tests: they run only if the regenerated code, or anything else in the node, changed. That is what makes an API change that leaves the OpenAPI schema alone skip the TypeScript apps. A suite (`[suites.<name>]`) runs when its node, or any node it runs against, is affected. `packages/api-client` is `generated_from` the API; `apps/cli` is both `depends_on` and `generated_from` it, until step (c) splits its end-to-end tests out.
+- **`mise` task references are not edges.** `check-schema` tasks call `//apps/api:openapi-schema`, which would turn the generated-from relation into a test-propagating one.
+- **What `discover` emits:** the `test` matrix (with each leg's `postgres` flag, replacing the hard-coded list in `ci.yml`), the `client-drift` matrix (every affected node with a `check-schema` task), the suites to run, and whether `openapi-diff` runs. It also writes a table to the job summary saying what ran and why. `ci-tools` runs the script's own unit tests on every PR.
+- **The graph is checked against the repository** by those tests: every discovered node is placed, and a `loot-bot` change runs `loot-bot` only, an `api-client` change runs the three apps, an API change runs `apps/api` and `apps/cli` (drift-checking the clients and running the inventory-web suite), and documentation runs nothing.

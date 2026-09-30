@@ -32,7 +32,7 @@ mise run test                                           # ditto
 mise run check                                          # lint + test - the full pre-PR gate
 ```
 
-`apps/api`, `apps/cli`, `apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract. PR CI tests only what a change can affect, so a node in a language whose dependencies CI can't read (Kotlin, C#, ...) must also be declared in `.github/ci-graph.yml`, see [ADR 0148](docs/adr/0148-dependency-aware-pr-ci.md).
+`apps/api`, `apps/cli`, `apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` each already own `dev`/`lint`/`test`/`build` tasks in their own `mise.toml` (see [ADR 0007](docs/adr/0007-apps-layout-and-multiplicity.md) and [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md)); CI discovers them automatically, and the next app just needs the same contract. PR CI tests only what a change can affect, so a node in a language whose dependencies CI can't read (Kotlin, C#, ...) must also be declared in `.github/ci-graph.toml`, see [ADR 0148](docs/adr/0148-dependency-aware-pr-ci.md).
 
 ## Conventions
 

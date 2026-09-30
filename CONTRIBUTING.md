@@ -33,7 +33,7 @@ Every issue and PR is opened with labels (a type such as `bug` or `enhancement`,
 mise run check   # lint (incl. type check) + test, fans out to every app
 ```
 
-[ci.yml](.github/workflows/ci.yml) discovers apps automatically — nothing to configure per app, including the next one, except that an app in a language whose dependencies CI can't read must be declared in `.github/ci-graph.yml` ([ADR 0148](docs/adr/0148-dependency-aware-pr-ci.md)); the guides say when.
+[ci.yml](.github/workflows/ci.yml) discovers apps automatically — nothing to configure per app, including the next one, except that an app in a language whose dependencies CI can't read must be declared in `.github/ci-graph.toml` ([ADR 0148](docs/adr/0148-dependency-aware-pr-ci.md)); the guides say when.
 
 ## Architectural changes
 

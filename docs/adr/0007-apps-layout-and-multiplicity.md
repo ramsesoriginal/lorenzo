@@ -22,4 +22,4 @@ The one thing every real app provides, regardless of language, is a small task c
 
 ## Addendum (2026-09-30): discovery finds the nodes, the graph decides which ones a PR tests
 
-Discovery by `mise.toml` is unchanged, but PR CI no longer runs every discovered app: [ADR 0148](0148-dependency-aware-pr-ci.md) tests the changed nodes and what depends on them. Dependencies are derived from `package.json` and uv path sources; an app in any other language must also be declared in `.github/ci-graph.yml`, and CI fails until it is.
+Discovery by `mise.toml` is unchanged, but PR CI no longer runs every discovered app: [ADR 0148](0148-dependency-aware-pr-ci.md) tests the changed nodes and what depends on them. Dependencies are derived from `package.json` and uv path sources; an app in any other language must also be declared in `.github/ci-graph.toml`, and CI fails until it is.
