@@ -3,7 +3,9 @@ import Base from '../../layouts/Base.astro';
 ---
 
 <Base title="Item — Lorenzo">
-  <p><a href="/">&larr; Tenants</a></p>
+  <p>
+    <a href="/">&larr; Tenants</a>
+  </p>
   <p id="status">Loading&hellip;</p>
 
   <div id="page" hidden>
@@ -11,7 +13,9 @@ import Base from '../../layouts/Base.astro';
       <h1 class="display" id="item-title"></h1>
       <p id="item-slug" class="item-detail-slug" hidden></p>
       <p id="item-qty" class="item-detail-qty" hidden></p>
-      <button type="button" id="copy-link-button">Copy link</button>
+      <button type="button" id="copy-link-button">
+        Copy link
+      </button>
 
       <div id="item-view" class="item-view"></div>
       <button type="button" id="description-edit" class="btn btn-secondary" hidden>

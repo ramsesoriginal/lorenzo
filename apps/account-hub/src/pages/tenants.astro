@@ -4,14 +4,18 @@ import Base from '../layouts/Base.astro';
 
 <Base title="Your tenants and campaigns — Lorenzo">
   <h1 class="display">Your tenants and campaigns</h1>
-  <p><a href="/">&larr; Back</a></p>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
 
   <div id="create-tenant-container"></div>
 
-  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
+  <p id="empty-state" hidden>
+    You don't belong to any tenant yet.
+  </p>
 
   <ul id="tenant-list"></ul>
 

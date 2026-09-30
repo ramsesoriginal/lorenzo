@@ -87,9 +87,15 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
           />
         </a>
         <nav class="row" aria-label="Subpages">
-          <a href="/" data-path="/">Home</a>
-          <a href="/board/" data-path="/board/" data-needs-tenant hidden>Board</a>
-          <a href="/items/" data-path="/items/" data-needs-tenant hidden>Items</a>
+          <a href="/" data-path="/">
+            Home
+          </a>
+          <a href="/board/" data-path="/board/" data-needs-tenant hidden>
+            Board
+          </a>
+          <a href="/items/" data-path="/items/" data-needs-tenant hidden>
+            Items
+          </a>
         </nav>
       </div>
       <div class="row">
@@ -97,7 +103,11 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
           <svg class="icon" aria-hidden="true">
             <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
           </svg>
-          <select id="tenant-switcher" aria-label="Library" class="text-input" style="width: auto;"
+          <select
+            id="tenant-switcher"
+            aria-label="Library"
+            class="text-input"
+            style="width: auto;"
           ></select>
         </div>
 
@@ -113,14 +123,18 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
             </button>
           </div>
           <div id="account-signed-in" class="row" hidden>
-            <span>Signed in as <strong id="account-email"></strong>.</span>
+            <span>
+              Signed in as <strong id="account-email"></strong>.
+            </span>
             <button id="logout-button" type="button" class="btn btn-secondary row-tight">
               <svg class="icon" aria-hidden="true">
                 <use href={`${BRANDING_CSS_URL}/icons.svg#icon-logout`}></use>
               </svg>
               Log out
             </button>
-            <a href="/debug/me">Debug: <code>GET /me</code></a>
+            <a href="/debug/me">
+              Debug: <code>GET /me</code>
+            </a>
           </div>
         </div>
 
