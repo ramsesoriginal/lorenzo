@@ -3,7 +3,9 @@ import Base from '../../layouts/Base.astro';
 ---
 
 <Base title="Manage items — Lorenzo">
-  <p><a href="/">&larr; Tenants</a></p>
+  <p>
+    <a href="/">&larr; Tenants</a>
+  </p>
   <p id="status">Loading&hellip;</p>
 
   <div id="page" hidden>
@@ -29,7 +31,9 @@ import Base from '../../layouts/Base.astro';
         />
       </div>
 
-      <p id="catalog-empty" hidden>No items match.</p>
+      <p id="catalog-empty" hidden>
+        No items match.
+      </p>
       <p id="catalog-error" class="error-text" hidden></p>
       <ul id="catalog-list" class="catalog-list" hidden></ul>
     </section>
@@ -37,7 +41,9 @@ import Base from '../../layouts/Base.astro';
     <section id="instances" class="section-lg" aria-labelledby="instances-heading" hidden>
       <h2 id="instances-heading">Instances</h2>
       <div class="field">
-        <span class="field-label" id="browse-label">View a being's inventory</span>
+        <span class="field-label" id="browse-label">
+          View a being's inventory
+        </span>
         <div class="combobox" id="browse-combobox">
           <input
             type="text"
