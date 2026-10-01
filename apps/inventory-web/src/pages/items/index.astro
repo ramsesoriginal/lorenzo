@@ -7,7 +7,9 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
 ---
 
 <Base title="Manage items — Lorenzo">
-  <p id="status">Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span> </p>
+  <p id="status">
+    Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
+  </p>
 
   <div id="page" hidden>
     <h1 class="display" id="tenant-name"></h1>
@@ -16,12 +18,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
 
     <Instances />
 
-    <section
-      id="new-item"
-      class="section-lg"
-      aria-labelledby="new-item-heading"
-      hidden
-    >
+    <section id="new-item" class="section-lg" aria-labelledby="new-item-heading" hidden>
       <h2 id="new-item-heading">New item</h2>
       <div id="create-item-mount"></div>
     </section>
@@ -42,57 +39,26 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     import { descriptionRenderer } from '../../lib/descriptions';
     import { saveDescription } from '../../lib/information';
     import { createCatalogItem } from '../../lib/items';
-    import {
-      isCampaignGm,
-      isTenantMember,
-      viewerId,
-    } from '../../lib/me';
+    import { isCampaignGm, isTenantMember, viewerId } from '../../lib/me';
     import { saveSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
 
-    const status =
-      document.getElementById('status')!;
-
-    const page =
-      document.getElementById('page')!;
-
-    const tenantName =
-      document.getElementById('tenant-name')!;
-
-    const createItemMount =
-      document.getElementById('create-item-mount')!;
-
-    const params =
-      new URLSearchParams(window.location.search);
+    const status = document.getElementById('status')!;
+    const page = document.getElementById('page')!;
+    const tenantName = document.getElementById('tenant-name')!;
+    const createItemMount = document.getElementById('create-item-mount')!;
 
     // By id or by slug (ADR 0135).
-    const addressed =
-      await addressedTenant(params.get('tenant'));
+    const addressed = await addressedTenant(
+      new URLSearchParams(window.location.search).get('tenant'),
+    );
+    const tenantId = addressed.id;
 
-    const tenantId =
-      addressed.id;
+    let renderer: ReturnType<typeof descriptionRenderer>;
+    let catalog: ReturnType<typeof renderCatalog>;
+    let createForm: ReturnType<typeof renderItemForm> | null = null;
 
-    let viewerIsGm = false;
-    let viewer = '';
-
-    let renderer:
-      ReturnType<typeof descriptionRenderer>;
-
-    let catalog:
-      ReturnType<typeof renderCatalog>;
-
-    const reason = (error: unknown) =>
-      error instanceof Error
-        ? error.message
-        : String(error);
-
-    // ---------------------------------------------------------------------
-    // Create item
-    // ---------------------------------------------------------------------
-
-    let createForm:
-      | ReturnType<typeof renderItemForm>
-      | null = null;
+    const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
     function mountCreateItemForm() {
       createForm?.destroy();
@@ -100,7 +66,6 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
       const rendered = renderItemForm({
         tenantId: tenantId as string,
         renderer,
-
         initial: {
           name: '',
           parents: new Map(),
@@ -108,11 +73,9 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           slug: '',
           inPublicCatalog: false,
         },
-
         submitLabel: 'Create item',
         followName: true,
         followSlug: true,
-
         onSubmit: async (values) => {
           const item = await createCatalogItem(
             tenantId as string,
@@ -121,13 +84,9 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
             values.inPublicCatalog,
           );
 
-          /*
-           * The catalog item exists after createCatalogItem().
-           *
-           * Description and slug are separate writes. If either of those
-           * fails, replace the form anyway so submitting it again doesn't
-           * accidentally create the same catalog item twice.
-           */
+          // The item exists now. Its description and slug are separate writes, so
+          // the form is replaced even when one fails: submitting it again would
+          // create the item twice.
           const failed = (
             await Promise.all([
               saveDescription(
@@ -138,22 +97,10 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
                 values.name,
               )
                 .then(() => null)
-                .catch(
-                  (error: unknown) =>
-                    `its description (${reason(error)})`,
-                ),
-
-              saveSlug(
-                tenantId as string,
-                item.entity_id,
-                null,
-                values.slug,
-              )
+                .catch((error: unknown) => `its description (${reason(error)})`),
+              saveSlug(tenantId as string, item.entity_id, null, values.slug)
                 .then(() => null)
-                .catch(
-                  (error: unknown) =>
-                    `its slug (${reason(error)})`,
-                ),
+                .catch((error: unknown) => `its slug (${reason(error)})`),
             ])
           ).filter(Boolean);
 
@@ -161,137 +108,56 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           createForm = null;
 
           await catalog.reload();
-
           mountCreateItemForm();
 
           if (failed.length > 0) {
-            window.alert(
-              `“${values.name}” was created, but not ${failed.join(' or ')}.`,
-            );
+            window.alert(`“${values.name}” was created, but not ${failed.join(' or ')}.`);
           }
         },
       });
 
       createForm = rendered;
-
-      createItemMount.replaceChildren(
-        rendered.element,
-      );
+      createItemMount.replaceChildren(rendered.element);
     }
 
-    // ---------------------------------------------------------------------
-    // Page initialization
-    // ---------------------------------------------------------------------
-
     if (!(await isAuthenticated())) {
-      status.textContent =
-        "You're not logged in. Log in to continue.";
+      status.textContent = "You're not logged in. Log in to continue.";
     } else if (!tenantId) {
-      status.textContent =
-        addressed.problem ?? 'No tenant selected. Pick one to continue.';
+      status.textContent = addressed.problem ?? 'No tenant selected. Pick one to continue.';
     } else {
       try {
-        /*
-         * tenantId is known from here on, so tenant-specific components
-         * can be initialized safely.
-         */
-        renderer =
-          descriptionRenderer(tenantId);
+        renderer = descriptionRenderer(tenantId);
 
-        [viewerIsGm, viewer] =
-          await Promise.all([
-            isCampaignGm(tenantId),
-            viewerId(),
-          ]);
-
-        const [
-          tenant,
-          viewerIsMember,
-        ] = await Promise.all([
+        const [viewerIsGm, viewer, tenant, viewerIsMember] = await Promise.all([
+          isCampaignGm(tenantId),
+          viewerId(),
           getTenant(tenantId),
           isTenantMember(tenantId),
         ]);
 
-        tenantName.textContent =
-          tenant.name;
+        tenantName.textContent = tenant.name;
+        document.title = viewerIsGm ? 'Manage items — Lorenzo' : 'Catalog — Lorenzo';
 
-        document.title =
-          viewerIsGm
-            ? 'Manage items — Lorenzo'
-            : 'Catalog — Lorenzo';
+        const catalogRoot = document.querySelector<HTMLElement>('[data-catalog]');
+        const instancesRoot = document.querySelector<HTMLElement>('[data-instances]');
 
-        // -----------------------------------------------------------------
-        // Catalog
-        // -----------------------------------------------------------------
-
-        const catalogRoot =
-          document.querySelector<HTMLElement>(
-            '[data-catalog]',
-          );
-
-        if (!catalogRoot) {
-          throw new Error(
-            'Catalog component not found.',
-          );
+        if (!catalogRoot || !instancesRoot) {
+          throw new Error('Catalog or Instances component not found.');
         }
 
         catalog = renderCatalog({
           root: catalogRoot,
-
           tenantId,
           viewerId: viewer,
           viewerIsGm,
-
-          showIntro:
-            !viewerIsGm &&
-            !viewerIsMember,
-
+          showIntro: !viewerIsGm && !viewerIsMember,
           renderer,
-
-          renderInstantiate: (
-            item,
-            onDone,
-          ) =>
-            renderInstantiateItem({
-              tenantId,
-              item,
-              onDone,
-            }),
+          renderInstantiate: (item, onDone) => renderInstantiateItem({ tenantId, item, onDone }),
         });
 
-        // -----------------------------------------------------------------
-        // Instances
-        // -----------------------------------------------------------------
+        const instances = renderInstances({ root: instancesRoot, tenantId, viewerIsGm });
 
-        const instancesRoot =
-          document.querySelector<HTMLElement>(
-            '[data-instances]',
-          );
-
-        if (!instancesRoot) {
-          throw new Error(
-            'Instances component not found.',
-          );
-        }
-
-        const instances =
-          renderInstances({
-            root: instancesRoot,
-            tenantId,
-            viewerIsGm,
-          });
-
-        // -----------------------------------------------------------------
-        // GM-only UI
-        // -----------------------------------------------------------------
-
-        const newItemSection =
-          document.getElementById(
-            'new-item',
-          )!;
-
-        newItemSection.hidden =
-          !viewerIsGm;
+        document.getElementById('new-item')!.hidden = !viewerIsGm;
 
         if (viewerIsGm) {
           mountCreateItemForm();
@@ -300,21 +166,13 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           instances.hide();
         }
 
-        // -----------------------------------------------------------------
-        // Ready
-        // -----------------------------------------------------------------
-
         page.hidden = false;
         status.hidden = true;
 
         await catalog.reload();
       } catch (error) {
         status.hidden = false;
-
-        status.textContent =
-          error instanceof Error
-            ? error.message
-            : String(error);
+        status.textContent = reason(error);
       }
     }
   </script>

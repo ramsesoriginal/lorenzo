@@ -1,24 +1,9 @@
-import {
-  renderBeingActionPanel,
-  renderBeingSuggestions,
-} from '../../lib/beingPicker';
+import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
 import { listBeings } from '../../lib/beings';
-import {
-  deleteItemInstance,
-  getOwnedItemInstances,
-  setOwner,
-  unsetOwner,
-} from '../../lib/items';
+import { deleteItemInstance, getOwnedItemInstances, setOwner, unsetOwner } from '../../lib/items';
 import { giveOrAsk } from '../../lib/moveAnyway';
-import {
-  deleteSplitQuestion,
-  isStackRefusal,
-} from '../../lib/settingDown';
-import type {
-  BeingRef,
-  ItemInstance,
-  OwnedGroup,
-} from '../../lib/types';
+import { deleteSplitQuestion, isStackRefusal } from '../../lib/settingDown';
+import type { BeingRef, ItemInstance, OwnedGroup } from '../../lib/types';
 
 export type InstancesOptions = {
   root: HTMLElement;
@@ -32,10 +17,7 @@ export type RenderedInstances = {
   destroy(): void;
 };
 
-function required<T extends Element>(
-  root: ParentNode,
-  selector: string,
-): T {
+function required<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
 
   if (!element) {
@@ -45,15 +27,9 @@ function required<T extends Element>(
   return element;
 }
 
-function cloneTemplate<T extends Element>(
-  root: ParentNode,
-  selector: string,
-): T {
-  const template =
-    required<HTMLTemplateElement>(root, selector);
-
-  const first =
-    template.content.firstElementChild;
+function cloneTemplate<T extends Element>(root: ParentNode, selector: string): T {
+  const template = required<HTMLTemplateElement>(root, selector);
+  const first = template.content.firstElementChild;
 
   if (!first) {
     throw new Error(`Instances template ${selector} is empty.`);
@@ -62,91 +38,31 @@ function cloneTemplate<T extends Element>(
   return first.cloneNode(true) as T;
 }
 
-export function renderInstances(
-  options: InstancesOptions,
-): RenderedInstances {
-  const { root, tenantId } = options;
+const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+export function renderInstances(options: InstancesOptions): RenderedInstances {
+  const { root, tenantId } = options;
   const controller = new AbortController();
   const { signal } = controller;
 
-  const browseLabel =
-    required<HTMLElement>(
-      root,
-      '[data-browse-label]',
-    );
+  const browseLabel = required<HTMLElement>(root, '[data-browse-label]');
+  const browseCombobox = required<HTMLElement>(root, '[data-browse-combobox]');
+  const browseSearch = required<HTMLInputElement>(root, '[data-browse-search]');
+  const browseSuggestions = required<HTMLUListElement>(root, '[data-browse-suggestions]');
+  const viewing = required<HTMLElement>(root, '[data-viewing]');
+  const empty = required<HTMLElement>(root, '[data-empty]');
+  const error = required<HTMLElement>(root, '[data-error]');
+  const groups = required<HTMLElement>(root, '[data-groups]');
 
-  const browseCombobox =
-    required<HTMLElement>(
-      root,
-      '[data-browse-combobox]',
-    );
-
-  const browseSearch =
-    required<HTMLInputElement>(
-      root,
-      '[data-browse-search]',
-    );
-
-  const browseSuggestions =
-    required<HTMLUListElement>(
-      root,
-      '[data-browse-suggestions]',
-    );
-
-  const viewing =
-    required<HTMLElement>(
-      root,
-      '[data-viewing]',
-    );
-
-  const empty =
-    required<HTMLElement>(
-      root,
-      '[data-empty]',
-    );
-
-  const error =
-    required<HTMLElement>(
-      root,
-      '[data-error]',
-    );
-
-  const groups =
-    required<HTMLElement>(
-      root,
-      '[data-groups]',
-    );
-
-  /*
-   * Unique accessibility ids.
-   */
-  const labelId =
-    `instances-browse-label-${crypto.randomUUID()}`;
-
-  const suggestionsId =
-    `instances-browse-suggestions-${crypto.randomUUID()}`;
-
-  browseLabel.id = labelId;
-  browseSuggestions.id = suggestionsId;
-
-  browseSearch.setAttribute(
-    'aria-labelledby',
-    labelId,
-  );
-
-  browseSearch.setAttribute(
-    'aria-controls',
-    suggestionsId,
-  );
+  browseLabel.id = `instances-browse-label-${crypto.randomUUID()}`;
+  browseSuggestions.id = `instances-browse-suggestions-${crypto.randomUUID()}`;
+  browseSearch.setAttribute('aria-labelledby', browseLabel.id);
+  browseSearch.setAttribute('aria-controls', browseSuggestions.id);
 
   let currentCharacter: BeingRef | null = null;
   let requestId = 0;
 
-  function viewHref(
-    entityId: string,
-    slug?: string | null,
-  ): string {
+  function viewHref(entityId: string, slug?: string | null): string {
     return slug
       ? `/item/?tenant=${tenantId}&slug=${encodeURIComponent(slug)}`
       : `/item/?tenant=${tenantId}&id=${entityId}`;
@@ -155,57 +71,17 @@ export function renderInstances(
   function closeBrowseSuggestions() {
     browseSuggestions.hidden = true;
     browseSuggestions.replaceChildren();
-
-    browseSearch.setAttribute(
-      'aria-expanded',
-      'false',
-    );
+    browseSearch.setAttribute('aria-expanded', 'false');
   }
 
-  function renderRow(
-    instance: ItemInstance,
-  ): HTMLLIElement {
-    const row =
-      cloneTemplate<HTMLLIElement>(
-        root,
-        '[data-row-template]',
-      );
-
-    const title =
-      required<HTMLElement>(
-        row,
-        '[data-title]',
-      );
-
-    const view =
-      required<HTMLAnchorElement>(
-        row,
-        '[data-view]',
-      );
-
-    const reassign =
-      required<HTMLButtonElement>(
-        row,
-        '[data-reassign]',
-      );
-
-    const unassign =
-      required<HTMLButtonElement>(
-        row,
-        '[data-unassign]',
-      );
-
-    const remove =
-      required<HTMLButtonElement>(
-        row,
-        '[data-delete]',
-      );
-
-    const panel =
-      required<HTMLElement>(
-        row,
-        '[data-panel]',
-      );
+  function renderRow(instance: ItemInstance): HTMLLIElement {
+    const row = cloneTemplate<HTMLLIElement>(root, '[data-row-template]');
+    const title = required<HTMLElement>(row, '[data-title]');
+    const view = required<HTMLAnchorElement>(row, '[data-view]');
+    const reassign = required<HTMLButtonElement>(row, '[data-reassign]');
+    const unassign = required<HTMLButtonElement>(row, '[data-unassign]');
+    const remove = required<HTMLButtonElement>(row, '[data-delete]');
+    const panel = required<HTMLElement>(row, '[data-panel]');
 
     title.textContent =
       instance.quantity && instance.quantity > 1
@@ -213,26 +89,15 @@ export function renderInstances(
         : instance.title;
 
     if (instance.slug) {
-      const slug =
-        document.createElement('code');
+      const slug = document.createElement('code');
 
-      slug.className =
-        'catalog-row-slug';
-
-      slug.textContent =
-        instance.slug;
-
+      slug.className = 'catalog-row-slug';
+      slug.textContent = instance.slug;
       title.append(' ', slug);
     }
 
-    view.href =
-      viewHref(
-        instance.entity_id,
-        instance.slug,
-      );
-
-    unassign.hidden =
-      !instance.owner_entity_id;
+    view.href = viewHref(instance.entity_id, instance.slug);
+    unassign.hidden = !instance.owner_entity_id;
 
     unassign.addEventListener(
       'click',
@@ -240,31 +105,17 @@ export function renderInstances(
         unassign.disabled = true;
 
         try {
-          await giveOrAsk(
-            (flags) =>
-              unsetOwner(
-                tenantId,
-                instance.entity_id,
-                flags,
-              ),
-            {
-              canOverride: options.viewerIsGm,
-              ask: (question) =>
-                window.confirm(question),
-            },
-          );
+          await giveOrAsk((flags) => unsetOwner(tenantId, instance.entity_id, flags), {
+            canOverride: options.viewerIsGm,
+            ask: (question) => window.confirm(question),
+          });
 
           if (currentCharacter) {
             void loadFor(currentCharacter);
           }
-        } catch (e) {
+        } catch (error) {
           unassign.disabled = false;
-
-          window.alert(
-            e instanceof Error
-              ? e.message
-              : String(e),
-          );
+          window.alert(reason(error));
         }
       },
       { signal },
@@ -273,58 +124,39 @@ export function renderInstances(
     reassign.addEventListener(
       'click',
       () => {
-        const wasOpen =
-          panel.childElementCount > 0;
+        const wasOpen = panel.childElementCount > 0;
 
         panel.replaceChildren();
 
         if (wasOpen) {
-          reassign.textContent =
-            'Reassign';
+          reassign.textContent = 'Reassign';
           return;
         }
 
-        reassign.textContent =
-          'Cancel';
+        reassign.textContent = 'Cancel';
 
-        const picker =
-          renderBeingActionPanel(
-            tenantId,
+        const picker = renderBeingActionPanel(
+          tenantId,
+          async (being) => {
+            await giveOrAsk(
+              (flags) => setOwner(tenantId, instance.entity_id, being.entity_id, false, flags),
+              {
+                canOverride: options.viewerIsGm,
+                ask: (question) => window.confirm(question),
+              },
+            );
 
-            async (being) => {
-              await giveOrAsk(
-                (flags) =>
-                  setOwner(
-                    tenantId,
-                    instance.entity_id,
-                    being.entity_id,
-                    false,
-                    flags,
-                  ),
-                {
-                  canOverride:
-                    options.viewerIsGm,
-                  ask: (question) =>
-                    window.confirm(question),
-                },
-              );
+            return `Reassigned to ${being.name}.`;
+          },
+          () => {
+            panel.replaceChildren();
+            reassign.textContent = 'Reassign';
 
-              return `Reassigned to ${being.name}.`;
-            },
-
-            () => {
-              panel.replaceChildren();
-
-              reassign.textContent =
-                'Reassign';
-
-              if (currentCharacter) {
-                void loadFor(
-                  currentCharacter,
-                );
-              }
-            },
-          );
+            if (currentCharacter) {
+              void loadFor(currentCharacter);
+            }
+          },
+        );
 
         panel.append(picker);
       },
@@ -334,11 +166,7 @@ export function renderInstances(
     remove.addEventListener(
       'click',
       async () => {
-        if (
-          !window.confirm(
-            `Delete "${instance.title}"? This can't be undone.`,
-          )
-        ) {
+        if (!window.confirm(`Delete "${instance.title}"? This can't be undone.`)) {
           return;
         }
 
@@ -346,42 +174,21 @@ export function renderInstances(
 
         try {
           try {
-            await deleteItemInstance(
-              tenantId,
-              instance.entity_id,
-            );
-          } catch (e) {
-            if (
-              !isStackRefusal(e) ||
-              !window.confirm(
-                deleteSplitQuestion(
-                  instance.title,
-                ),
-              )
-            ) {
-              throw e;
+            await deleteItemInstance(tenantId, instance.entity_id);
+          } catch (error) {
+            if (!isStackRefusal(error) || !window.confirm(deleteSplitQuestion(instance.title))) {
+              throw error;
             }
 
-            await deleteItemInstance(
-              tenantId,
-              instance.entity_id,
-              { split: true },
-            );
+            await deleteItemInstance(tenantId, instance.entity_id, { split: true });
           }
 
           if (currentCharacter) {
-            void loadFor(
-              currentCharacter,
-            );
+            void loadFor(currentCharacter);
           }
-        } catch (e) {
+        } catch (error) {
           remove.disabled = false;
-
-          window.alert(
-            e instanceof Error
-              ? e.message
-              : String(e),
-          );
+          window.alert(reason(error));
         }
       },
       { signal },
@@ -390,168 +197,83 @@ export function renderInstances(
     return row;
   }
 
-  function renderGroup(
-    group: OwnedGroup,
-    rootTitle: string,
-  ): HTMLElement {
-    const section =
-      cloneTemplate<HTMLElement>(
-        root,
-        '[data-group-template]',
-      );
+  function renderGroup(group: OwnedGroup, rootTitle: string): HTMLElement {
+    const section = cloneTemplate<HTMLElement>(root, '[data-group-template]');
+    const heading = required<HTMLElement>(section, '[data-heading]');
+    const list = required<HTMLUListElement>(section, '[data-list]');
 
-    const heading =
-      required<HTMLElement>(
-        section,
-        '[data-heading]',
-      );
-
-    const list =
-      required<HTMLUListElement>(
-        section,
-        '[data-list]',
-      );
-
-    heading.textContent =
-      group.container?.name ??
-      rootTitle;
-
-    list.replaceChildren(
-      ...group.item_instances.map(
-        renderRow,
-      ),
-    );
+    heading.textContent = group.container?.name ?? rootTitle;
+    list.replaceChildren(...group.item_instances.map(renderRow));
 
     return section;
   }
 
-  async function loadFor(
-    character: BeingRef,
-  ) {
+  async function loadFor(character: BeingRef) {
     currentCharacter = character;
-
-    const thisRequest =
-      ++requestId;
+    const thisRequest = ++requestId;
 
     viewing.hidden = false;
-    viewing.textContent =
-      `Viewing ${character.name}'s inventory.`;
-
+    viewing.textContent = `Viewing ${character.name}'s inventory.`;
     empty.hidden = true;
     error.hidden = true;
-
     groups.replaceChildren();
 
     try {
-      const response =
-        await getOwnedItemInstances(
-          tenantId,
-          character.entity_id,
-        );
+      const response = await getOwnedItemInstances(tenantId, character.entity_id);
 
-      if (
-        thisRequest !== requestId
-      ) {
+      if (thisRequest !== requestId) {
         return;
       }
 
-      const nonEmptyGroups =
-        response.groups.filter(
-          (group) =>
-            group.item_instances.length > 0,
-        );
+      const nonEmptyGroups = response.groups.filter((group) => group.item_instances.length > 0);
 
       if (nonEmptyGroups.length === 0) {
         empty.hidden = false;
-
-        empty.textContent =
-          `${character.name} isn't carrying anything.`;
-
+        empty.textContent = `${character.name} isn't carrying anything.`;
         return;
       }
 
-      groups.replaceChildren(
-        ...nonEmptyGroups.map(
-          (group) =>
-            renderGroup(
-              group,
-              character.name,
-            ),
-        ),
-      );
-    } catch (e) {
-      if (
-        thisRequest !== requestId
-      ) {
+      groups.replaceChildren(...nonEmptyGroups.map((group) => renderGroup(group, character.name)));
+    } catch (cause) {
+      if (thisRequest !== requestId) {
         return;
       }
 
       error.hidden = false;
-
-      error.textContent =
-        e instanceof Error
-          ? e.message
-          : String(e);
+      error.textContent = reason(cause);
     }
   }
 
-  let browseDebounce:
-    | ReturnType<typeof setTimeout>
-    | undefined;
+  let browseDebounce: ReturnType<typeof setTimeout> | undefined;
 
   browseSearch.addEventListener(
     'input',
     () => {
-      clearTimeout(
-        browseDebounce,
-      );
+      clearTimeout(browseDebounce);
 
-      const query =
-        browseSearch.value.trim();
+      const query = browseSearch.value.trim();
 
       if (!query) {
         closeBrowseSuggestions();
         return;
       }
 
-      browseDebounce =
-        setTimeout(
-          async () => {
-            try {
-              const result =
-                await listBeings(
-                  tenantId,
-                  query,
-                );
+      browseDebounce = setTimeout(async () => {
+        try {
+          const result = await listBeings(tenantId, query);
 
-              renderBeingSuggestions(
-                browseSuggestions,
-                result.items,
-                (being) => {
-                  browseSearch.value =
-                    being.name;
+          renderBeingSuggestions(browseSuggestions, result.items, (being) => {
+            browseSearch.value = being.name;
+            closeBrowseSuggestions();
+            void loadFor(being);
+          });
 
-                  closeBrowseSuggestions();
-
-                  void loadFor(
-                    being,
-                  );
-                },
-              );
-
-              browseSuggestions.hidden =
-                false;
-
-              browseSearch.setAttribute(
-                'aria-expanded',
-                'true',
-              );
-            } catch {
-              closeBrowseSuggestions();
-            }
-          },
-          200,
-        );
+          browseSuggestions.hidden = false;
+          browseSearch.setAttribute('aria-expanded', 'true');
+        } catch {
+          closeBrowseSuggestions();
+        }
+      }, 200);
     },
     { signal },
   );
@@ -559,9 +281,7 @@ export function renderInstances(
   browseSearch.addEventListener(
     'keydown',
     (event) => {
-      if (
-        event.key === 'Escape'
-      ) {
+      if (event.key === 'Escape') {
         closeBrowseSuggestions();
       }
     },
@@ -571,11 +291,7 @@ export function renderInstances(
   document.addEventListener(
     'click',
     (event) => {
-      if (
-        !browseCombobox.contains(
-          event.target as Node,
-        )
-      ) {
+      if (!browseCombobox.contains(event.target as Node)) {
         closeBrowseSuggestions();
       }
     },
@@ -592,10 +308,7 @@ export function renderInstances(
     },
 
     destroy() {
-      clearTimeout(
-        browseDebounce,
-      );
-
+      clearTimeout(browseDebounce);
       controller.abort();
     },
   };

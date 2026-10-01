@@ -1,7 +1,5 @@
-import { createPrototypeFilter } from './filter';
-import { createCatalogSearch } from './search';
-import { renderItemForm } from '../ItemForm/renderer';
-
+import type { Renderer } from '../../lib/descriptions';
+import { getDescription, saveDescription } from '../../lib/information';
 import {
   deleteCatalogItem,
   getEntityDetail,
@@ -9,22 +7,11 @@ import {
   setItemPrototypes,
   updateCatalogItem,
 } from '../../lib/items';
-
-import {
-  getDescription,
-  saveDescription,
-} from '../../lib/information';
-
-import {
-  saveSlug,
-  suggestSlug,
-} from '../../lib/slugs';
-
-import type { Renderer } from '../../lib/descriptions';
-import type {
-  CatalogItem,
-  EntitySummary,
-} from '../../lib/types';
+import { saveSlug, suggestSlug } from '../../lib/slugs';
+import type { CatalogItem, EntitySummary } from '../../lib/types';
+import { renderItemForm } from '../ItemForm/renderer';
+import { createPrototypeFilter } from './filter';
+import { createCatalogSearch } from './search';
 
 export type RenderedPanel = {
   element: HTMLElement;
@@ -39,10 +26,7 @@ export type CatalogOptions = {
   showIntro: boolean;
   renderer: Renderer;
 
-  renderInstantiate(
-    item: CatalogItem,
-    onDone: () => void,
-  ): RenderedPanel;
+  renderInstantiate(item: CatalogItem, onDone: () => void): RenderedPanel;
 };
 
 export type RenderedCatalog = {
@@ -50,282 +34,113 @@ export type RenderedCatalog = {
   destroy(): void;
 };
 
-function required<T extends Element>(
-  root: ParentNode,
-  selector: string,
-): T {
-  const element =
-    root.querySelector<T>(selector);
+function required<T extends Element>(root: ParentNode, selector: string): T {
+  const element = root.querySelector<T>(selector);
 
   if (!element) {
-    throw new Error(
-      `Catalog is missing ${selector}.`,
-    );
+    throw new Error(`Catalog is missing ${selector}.`);
   }
 
   return element;
 }
 
-export function renderCatalog(
-  options: CatalogOptions,
-): RenderedCatalog {
+function cloneTemplate<T extends Element>(template: HTMLTemplateElement): T {
+  const element = template.content.firstElementChild;
+
+  if (!element) {
+    throw new Error('Catalog template is empty.');
+  }
+
+  return element.cloneNode(true) as T;
+}
+
+const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+export function renderCatalog(options: CatalogOptions): RenderedCatalog {
   const { root } = options;
+  const controller = new AbortController();
+  const { signal } = controller;
 
-  const controller =
-    new AbortController();
+  const intro = required<HTMLElement>(root, '[data-intro]');
+  const searchInput = required<HTMLInputElement>(root, '[data-search]');
+  const filterRoot = required<HTMLUListElement>(root, '[data-filter]');
+  const empty = required<HTMLElement>(root, '[data-empty]');
+  const error = required<HTMLElement>(root, '[data-error]');
+  const list = required<HTMLUListElement>(root, '[data-list]');
+  const rowTemplate = required<HTMLTemplateElement>(root, '[data-row-template]');
+  const skeletonTemplate = required<HTMLTemplateElement>(root, '[data-skeleton-template]');
+  const filterBranchTemplate = required<HTMLTemplateElement>(root, '[data-filter-branch-template]');
+  const filterLeafTemplate = required<HTMLTemplateElement>(root, '[data-filter-leaf-template]');
 
-  const { signal } =
-    controller;
+  intro.hidden = !options.showIntro;
 
-  const intro =
-    required<HTMLElement>(
-      root,
-      '[data-intro]',
-    );
+  // What shows is the text search's result, narrowed by the ticked prototypes.
+  let searchedItems: CatalogItem[] = [];
 
-  const searchInput =
-    required<HTMLInputElement>(
-      root,
-      '[data-search]',
-    );
+  const prototypeFilter = createPrototypeFilter({
+    root: filterRoot,
+    branchTemplate: filterBranchTemplate,
+    leafTemplate: filterLeafTemplate,
+    signal,
+    onChange() {
+      renderItems(prototypeFilter.apply(searchedItems));
+    },
+  });
 
-  const filterRoot =
-    required<HTMLUListElement>(
-      root,
-      '[data-filter]',
-    );
+  function renderRow(item: CatalogItem): HTMLLIElement {
+    const row = cloneTemplate<HTMLLIElement>(rowTemplate);
+    const title = required<HTMLElement>(row, '[data-title]');
+    const publicChip = required<HTMLElement>(row, '[data-public]');
+    const view = required<HTMLAnchorElement>(row, '[data-view]');
+    const edit = required<HTMLButtonElement>(row, '[data-edit]');
+    const instantiate = required<HTMLButtonElement>(row, '[data-instantiate]');
+    const remove = required<HTMLButtonElement>(row, '[data-delete]');
+    const panel = required<HTMLElement>(row, '[data-panel]');
 
-  const empty =
-    required<HTMLElement>(
-      root,
-      '[data-empty]',
-    );
-
-  const error =
-    required<HTMLElement>(
-      root,
-      '[data-error]',
-    );
-
-  const list =
-    required<HTMLUListElement>(
-      root,
-      '[data-list]',
-    );
-
-  const rowTemplate =
-    required<HTMLTemplateElement>(
-      root,
-      '[data-row-template]',
-    );
-
-  const skeletonTemplate =
-    required<HTMLTemplateElement>(
-      root,
-      '[data-skeleton-template]',
-    );
-
-  const filterBranchTemplate =
-    required<HTMLTemplateElement>(
-      root,
-      '[data-filter-branch-template]',
-    );
-
-  const filterLeafTemplate =
-    required<HTMLTemplateElement>(
-      root,
-      '[data-filter-leaf-template]',
-    );
-
-  intro.hidden =
-    !options.showIntro;
-
-  function cloneRow():
-    HTMLLIElement {
-    return rowTemplate
-      .content
-      .firstElementChild!
-      .cloneNode(true) as HTMLLIElement;
-  }
-
-  function cloneSkeleton():
-    HTMLLIElement {
-    return skeletonTemplate
-      .content
-      .firstElementChild!
-      .cloneNode(true) as HTMLLIElement;
-  }
-
-  function viewHref(
-    entityId: string,
-  ) {
-    return `/item/?tenant=${options.tenantId}&id=${entityId}`;
-  }
-
-  /*
-   * Search results before prototype filtering.
-   *
-   * Whenever either text search or checkbox state changes, the final
-   * visible catalog is:
-   *
-   *     text results ∩ selected prototype branches
-   */
-  let searchedItems:
-    CatalogItem[] = [];
-
-  let catalogSearch:
-    ReturnType<typeof createCatalogSearch>;
-
-  const prototypeFilter =
-    createPrototypeFilter({
-      root: filterRoot,
-      branchTemplate:
-        filterBranchTemplate,
-      leafTemplate:
-        filterLeafTemplate,
-      signal,
-
-      onChange() {
-        renderItems(
-          prototypeFilter.apply(
-            searchedItems,
-          ),
-        );
-      },
-    });
-
-  function renderRow(
-    item: CatalogItem,
-  ): HTMLLIElement {
-    const row =
-      cloneRow();
-
-    const title =
-      required<HTMLElement>(
-        row,
-        '[data-title]',
-      );
-
-    const publicChip =
-      required<HTMLElement>(
-        row,
-        '[data-public]',
-      );
-
-    const view =
-      required<HTMLAnchorElement>(
-        row,
-        '[data-view]',
-      );
-
-    const edit =
-      required<HTMLButtonElement>(
-        row,
-        '[data-edit]',
-      );
-
-    const instantiate =
-      required<HTMLButtonElement>(
-        row,
-        '[data-instantiate]',
-      );
-
-    const remove =
-      required<HTMLButtonElement>(
-        row,
-        '[data-delete]',
-      );
-
-    const panel =
-      required<HTMLElement>(
-        row,
-        '[data-panel]',
-      );
-
-    title.textContent =
-      item.title;
-
-    publicChip.hidden =
-      !options.viewerIsGm ||
-      !item.in_public_catalog;
-
-    view.href =
-      viewHref(
-        item.entity_id,
-      );
-
-    edit.hidden =
-      !options.viewerIsGm;
-
-    instantiate.hidden =
-      !options.viewerIsGm;
-
-    remove.hidden =
-      !options.viewerIsGm;
+    title.textContent = item.title;
+    publicChip.hidden = !options.viewerIsGm || !item.in_public_catalog;
+    view.href = `/item/?tenant=${options.tenantId}&id=${item.entity_id}`;
+    edit.hidden = !options.viewerIsGm;
+    instantiate.hidden = !options.viewerIsGm;
+    remove.hidden = !options.viewerIsGm;
 
     remove.addEventListener(
       'click',
       async () => {
-        if (
-          !window.confirm(
-            `Delete "${item.title}"? This can't be undone.`,
-          )
-        ) {
+        if (!window.confirm(`Delete "${item.title}"? This can't be undone.`)) {
           return;
         }
 
         remove.disabled = true;
 
         try {
-          await deleteCatalogItem(
-            options.tenantId,
-            item.entity_id,
-          );
-
+          await deleteCatalogItem(options.tenantId, item.entity_id);
           await catalogSearch.reload();
         } catch (error) {
           remove.disabled = false;
-
-          window.alert(
-            error instanceof Error
-              ? error.message
-              : String(error),
-          );
+          window.alert(reason(error));
         }
       },
       { signal },
     );
 
-    let destroyEditForm =
-      () => {};
-
-    let destroyInstantiate =
-      () => {};
+    let destroyEditForm = () => {};
+    let destroyInstantiate = () => {};
 
     function closePanel() {
       destroyEditForm();
-      destroyEditForm =
-        () => {};
-
+      destroyEditForm = () => {};
       destroyInstantiate();
-      destroyInstantiate =
-        () => {};
-
+      destroyInstantiate = () => {};
       panel.replaceChildren();
-
-      edit.textContent =
-        'Edit';
-
-      instantiate.textContent =
-        'Create instance';
+      edit.textContent = 'Edit';
+      instantiate.textContent = 'Create instance';
     }
 
     edit.addEventListener(
       'click',
       async () => {
-        const wasOpen =
-          edit.textContent ===
-          'Cancel';
+        const wasOpen = edit.textContent === 'Cancel';
 
         closePanel();
 
@@ -333,134 +148,65 @@ export function renderCatalog(
           return;
         }
 
-        edit.textContent =
-          'Cancel';
-
-        panel.textContent =
-          'Loading…';
+        edit.textContent = 'Cancel';
+        panel.textContent = 'Loading…';
 
         try {
-          const [
-            entity,
-            usedBy,
-            info,
-          ] = await Promise.all([
-            getEntityDetail(
-              options.tenantId,
-              item.entity_id,
-            ),
-
-            listItemsUsingPrototype(
-              options.tenantId,
-              item.entity_id,
-            ),
-
-            getDescription(
-              options.tenantId,
-              item.entity_id,
-            ),
+          const [entity, usedBy, info] = await Promise.all([
+            getEntityDetail(options.tenantId, item.entity_id),
+            listItemsUsingPrototype(options.tenantId, item.entity_id),
+            getDescription(options.tenantId, item.entity_id),
           ]);
 
-          const parents =
-            new Map(
-              entity.prototypes.map(
-                (
-                  prototype:
-                    EntitySummary,
-                ) => [
-                  prototype.id,
-                  prototype.name,
-                ],
-              ),
-            );
+          const parents = new Map(
+            entity.prototypes.map((prototype: EntitySummary) => [prototype.id, prototype.name]),
+          );
 
           const slug =
             entity.slug ??
-            (await suggestSlug(
-              options.tenantId,
-              item.title,
-              'item',
-            ).catch(() => ''));
+            (await suggestSlug(options.tenantId, item.title, 'item').catch(() => ''));
 
-          const rendered =
-            renderItemForm({
-              tenantId:
+          const rendered = renderItemForm({
+            tenantId: options.tenantId,
+            renderer: options.renderer,
+            initial: {
+              name: entity.name,
+              parents,
+              description: info,
+              slug,
+              inPublicCatalog: item.in_public_catalog,
+              usedBy,
+            },
+            submitLabel: 'Save',
+            hideCurrentName: true,
+            onSubmit: async (values) => {
+              await Promise.all([
+                updateCatalogItem(
+                  options.tenantId,
+                  item.entity_id,
+                  values.name,
+                  values.inPublicCatalog,
+                ),
+                setItemPrototypes(options.tenantId, item.entity_id, values.parentIds),
+              ]);
+              await saveDescription(
                 options.tenantId,
+                item.entity_id,
+                info,
+                values.description,
+                values.name,
+              );
+              await saveSlug(options.tenantId, item.entity_id, entity.slug, values.slug);
 
-              renderer:
-                options.renderer,
+              closePanel();
+              await catalogSearch.reload();
+            },
+          });
 
-              initial: {
-                name:
-                  entity.name,
-
-                parents,
-
-                description:
-                  info,
-
-                slug,
-
-                inPublicCatalog:
-                  item.in_public_catalog,
-
-                usedBy,
-              },
-
-              submitLabel:
-                'Save',
-
-              hideCurrentName: true,
-
-              onSubmit:
-                async (values) => {
-                  await Promise.all([
-                    updateCatalogItem(
-                      options.tenantId,
-                      item.entity_id,
-                      values.name,
-                      values.inPublicCatalog,
-                    ),
-
-                    setItemPrototypes(
-                      options.tenantId,
-                      item.entity_id,
-                      values.parentIds,
-                    ),
-                  ]);
-
-                  await saveDescription(
-                    options.tenantId,
-                    item.entity_id,
-                    info,
-                    values.description,
-                    values.name,
-                  );
-
-                  await saveSlug(
-                    options.tenantId,
-                    item.entity_id,
-                    entity.slug,
-                    values.slug,
-                  );
-
-                  closePanel();
-
-                  await catalogSearch.reload();
-                },
-            });
-
-          destroyEditForm =
-            rendered.destroy;
-
-          panel.replaceChildren(
-            rendered.element,
-          );
+          destroyEditForm = rendered.destroy;
+          panel.replaceChildren(rendered.element);
         } catch (error) {
-          panel.textContent =
-            error instanceof Error
-              ? error.message
-              : String(error);
+          panel.textContent = reason(error);
         }
       },
       { signal },
@@ -469,9 +215,7 @@ export function renderCatalog(
     instantiate.addEventListener(
       'click',
       () => {
-        const wasOpen =
-          instantiate.textContent ===
-          'Cancel';
+        const wasOpen = instantiate.textContent === 'Cancel';
 
         closePanel();
 
@@ -479,21 +223,12 @@ export function renderCatalog(
           return;
         }
 
-        instantiate.textContent =
-          'Cancel';
+        instantiate.textContent = 'Cancel';
 
-        const rendered =
-          options.renderInstantiate(
-            item,
-            closePanel,
-          );
+        const rendered = options.renderInstantiate(item, closePanel);
 
-        destroyInstantiate =
-          rendered.destroy;
-
-        panel.replaceChildren(
-          rendered.element,
-        );
+        destroyInstantiate = rendered.destroy;
+        panel.replaceChildren(rendered.element);
       },
       { signal },
     );
@@ -501,12 +236,8 @@ export function renderCatalog(
     return row;
   }
 
-  function renderItems(
-    items: CatalogItem[],
-  ) {
-    list.removeAttribute(
-      'aria-busy',
-    );
+  function renderItems(items: CatalogItem[]) {
+    list.removeAttribute('aria-busy');
 
     if (items.length === 0) {
       empty.hidden = false;
@@ -515,94 +246,48 @@ export function renderCatalog(
     }
 
     empty.hidden = true;
-
-    list.replaceChildren(
-      ...items.map(renderRow),
-    );
-
+    list.replaceChildren(...items.map(renderRow));
     list.hidden = false;
   }
 
   function renderSkeleton() {
     empty.hidden = true;
-
-    list.setAttribute(
-      'aria-busy',
-      'true',
-    );
-
+    list.setAttribute('aria-busy', 'true');
     list.replaceChildren(
-      ...Array.from(
-        { length: 4 },
-        () => cloneSkeleton(),
-      ),
+      ...Array.from({ length: 4 }, () => cloneTemplate<HTMLLIElement>(skeletonTemplate)),
     );
-
     list.hidden = false;
   }
 
-  catalogSearch =
-    createCatalogSearch({
-      input: searchInput,
-      tenantId:
-        options.tenantId,
-      viewerId:
-        options.viewerId,
-      signal,
-
-      /*
-       * This is always the complete visible catalog, never just the
-       * current q= result. It is therefore safe to build the taxonomy
-       * from it.
-       */
-      onCatalog(items) {
-        prototypeFilter.updateCatalog(
-          items,
-        );
-      },
-
-      /*
-       * Text search happens first; prototype filtering is then local.
-       */
-      onResult(items) {
-        searchedItems = items;
-
-        renderItems(
-          prototypeFilter.apply(
-            searchedItems,
-          ),
-        );
-      },
-
-      onLoading() {
-        renderSkeleton();
-      },
-
-      onClearError() {
-        error.hidden = true;
-        error.textContent = '';
-      },
-
-      onError(reason) {
-        list.removeAttribute(
-          'aria-busy',
-        );
-
-        list.hidden = true;
-        empty.hidden = true;
-        error.hidden = false;
-
-        error.textContent =
-          reason instanceof Error
-            ? reason.message
-            : String(reason);
-      },
-    });
+  const catalogSearch = createCatalogSearch({
+    input: searchInput,
+    tenantId: options.tenantId,
+    viewerId: options.viewerId,
+    signal,
+    // Always the whole catalog, never just a q= result, so it can feed the filter tree.
+    onCatalog(items) {
+      prototypeFilter.updateCatalog(items);
+    },
+    onResult(items) {
+      searchedItems = items;
+      renderItems(prototypeFilter.apply(searchedItems));
+    },
+    onLoading: renderSkeleton,
+    onClearError() {
+      error.hidden = true;
+      error.textContent = '';
+    },
+    onError(cause) {
+      list.removeAttribute('aria-busy');
+      list.hidden = true;
+      empty.hidden = true;
+      error.hidden = false;
+      error.textContent = reason(cause);
+    },
+  });
 
   return {
-    reload:
-      catalogSearch.reload,
-
+    reload: catalogSearch.reload,
     destroy() {
       catalogSearch.destroy();
       prototypeFilter.destroy();

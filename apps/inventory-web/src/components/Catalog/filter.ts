@@ -8,22 +8,10 @@ type PrototypeNode = {
 };
 
 export type PrototypeFilter = {
-  /**
-   * Replace the catalog the taxonomy is built from.
-   *
-   * Active filters that no longer exist as filterable prototypes
-   * are removed automatically.
-   */
+  // Rebuilds the tree; selections that are no longer filterable are dropped.
   updateCatalog(items: CatalogItem[]): void;
-
-  /**
-   * Apply the currently selected prototype filters.
-   *
-   * No selections = everything.
-   * Multiple selections = OR.
-   */
+  // No selection keeps everything; several selections are OR-ed.
   apply(items: CatalogItem[]): CatalogItem[];
-
   destroy(): void;
 };
 
@@ -32,18 +20,10 @@ export type PrototypeFilterOptions = {
   branchTemplate: HTMLTemplateElement;
   leafTemplate: HTMLTemplateElement;
   signal: AbortSignal;
-
-  /**
-   * Runs whenever the user changes a checkbox.
-   * The caller can then repaint its current search result.
-   */
   onChange(): void;
 };
 
-function required<T extends Element>(
-  root: ParentNode,
-  selector: string,
-): T {
+function required<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
 
   if (!element) {
@@ -53,9 +33,7 @@ function required<T extends Element>(
   return element;
 }
 
-function cloneTemplate<T extends Element>(
-  template: HTMLTemplateElement,
-): T {
+function cloneTemplate<T extends Element>(template: HTMLTemplateElement): T {
   const element = template.content.firstElementChild;
 
   if (!element) {
@@ -65,45 +43,22 @@ function cloneTemplate<T extends Element>(
   return element.cloneNode(true) as T;
 }
 
-export function createPrototypeFilter(
-  options: PrototypeFilterOptions,
-): PrototypeFilter {
+export function createPrototypeFilter(options: PrototypeFilterOptions): PrototypeFilter {
   let graph = new Map<string, PrototypeNode>();
 
-  /*
-   * A prototype can occur at several locations in the rendered DAG.
-   * State therefore belongs here, keyed by entity id, rather than
-   * belonging to any one checkbox.
-   */
+  // A prototype can sit on several paths of the tree, so the selection is
+  // keyed by id and every checkbox for that id is kept in step.
   const active = new Set<string>();
+  const checkboxes = new Map<string, Set<HTMLInputElement>>();
 
-  /*
-   * Transitive descendant sets are stable until updateCatalog().
-   * Each contains the prototype itself as well as everything built
-   * on top of it.
-   */
-  const descendantCache =
-    new Map<string, Set<string>>();
+  // Each set holds the prototype itself plus everything built on it.
+  const descendantCache = new Map<string, Set<string>>();
 
-  /*
-   * One entity can be rendered along several DAG paths. Keep every
-   * checkbox for it here so toggling one updates all the others.
-   */
-  const checkboxes =
-    new Map<string, Set<HTMLInputElement>>();
-
-  const byTitle = (
-    leftId: string,
-    rightId: string,
-  ) => {
+  const byTitle = (leftId: string, rightId: string) => {
     const left = graph.get(leftId)?.title ?? '';
     const right = graph.get(rightId)?.title ?? '';
 
-    return left.localeCompare(
-      right,
-      undefined,
-      { sensitivity: 'base' },
-    );
+    return left.localeCompare(right, undefined, { sensitivity: 'base' });
   };
 
   function isFilterable(id: string): boolean {
@@ -111,9 +66,7 @@ export function createPrototypeFilter(
   }
 
   function filterableChildren(id: string): string[] {
-    return (graph.get(id)?.childIds ?? [])
-      .filter(isFilterable)
-      .sort(byTitle);
+    return (graph.get(id)?.childIds ?? []).filter(isFilterable).sort(byTitle);
   }
 
   function descendantsOf(id: string): Set<string> {
@@ -127,19 +80,14 @@ export function createPrototypeFilter(
     const pending = [id];
 
     while (pending.length > 0) {
-      const current = pending.pop()!;
+      const current = pending.pop();
 
-      if (result.has(current)) {
+      if (current === undefined || result.has(current)) {
         continue;
       }
 
       result.add(current);
-
-      const node = graph.get(current);
-
-      if (node) {
-        pending.push(...node.childIds);
-      }
+      pending.push(...(graph.get(current)?.childIds ?? []));
     }
 
     descendantCache.set(id, result);
@@ -147,10 +95,7 @@ export function createPrototypeFilter(
     return result;
   }
 
-  function registerCheckbox(
-    id: string,
-    checkbox: HTMLInputElement,
-  ) {
+  function registerCheckbox(id: string, checkbox: HTMLInputElement) {
     let registered = checkboxes.get(id);
 
     if (!registered) {
@@ -169,60 +114,24 @@ export function createPrototypeFilter(
     }
   }
 
-  function renderNode(
-    id: string,
-    seenOnPath: ReadonlySet<string>,
-  ): HTMLLIElement {
+  // seenOnPath stops a cycle from recursing forever.
+  function renderNode(id: string, seenOnPath: ReadonlySet<string>): HTMLLIElement {
     const node = graph.get(id);
 
     if (!node) {
-      throw new Error(
-        `Catalog filter prototype ${id} is missing.`,
-      );
+      throw new Error(`Catalog filter prototype ${id} is missing.`);
     }
 
-    const children =
-      filterableChildren(id).filter(
-        (childId) => !seenOnPath.has(childId),
-      );
+    const children = filterableChildren(id).filter((childId) => !seenOnPath.has(childId));
+    const template = children.length > 0 ? options.branchTemplate : options.leafTemplate;
+    const row = cloneTemplate<HTMLLIElement>(template);
+    const checkbox = required<HTMLInputElement>(row, '[data-filter-checkbox]');
+    const title = required<HTMLElement>(row, '[data-filter-title]');
 
-    const template =
-      children.length > 0
-        ? options.branchTemplate
-        : options.leafTemplate;
-
-    const row =
-      cloneTemplate<HTMLLIElement>(template);
-
-    const checkbox =
-      required<HTMLInputElement>(
-        row,
-        '[data-filter-checkbox]',
-      );
-
-    const title =
-      required<HTMLElement>(
-        row,
-        '[data-filter-title]',
-      );
-
-    /*
-     * Count includes the prototype itself, because selecting the
-     * prototype also shows that item itself.
-     */
-    const count =
-      descendantsOf(id).size;
-
-    title.textContent =
-      `${node.title} (${count})`;
-
-    checkbox.checked =
-      active.has(id);
-
-    registerCheckbox(
-      id,
-      checkbox,
-    );
+    // The count includes the prototype itself: ticking it shows it too.
+    title.textContent = `${node.title} (${descendantsOf(id).size})`;
+    checkbox.checked = active.has(id);
+    registerCheckbox(id, checkbox);
 
     checkbox.addEventListener(
       'change',
@@ -240,24 +149,10 @@ export function createPrototypeFilter(
     );
 
     if (children.length > 0) {
-      const childrenElement =
-        required<HTMLUListElement>(
-          row,
-          '[data-filter-children]',
-        );
+      const nextPath = new Set(seenOnPath).add(id);
 
-      const nextPath =
-        new Set(seenOnPath);
-
-      nextPath.add(id);
-
-      childrenElement.replaceChildren(
-        ...children.map((childId) =>
-          renderNode(
-            childId,
-            nextPath,
-          ),
-        ),
+      required<HTMLUListElement>(row, '[data-filter-children]').replaceChildren(
+        ...children.map((childId) => renderNode(childId, nextPath)),
       );
     }
 
@@ -267,87 +162,44 @@ export function createPrototypeFilter(
   function renderTree() {
     checkboxes.clear();
 
-    const filterableIds =
-      [...graph.keys()].filter(isFilterable);
+    // A root has no filterable parent in this catalog. A player's catalog
+    // can lack a private ancestor, which then simply isn't a parent here.
+    const roots = [...graph.keys()]
+      .filter(isFilterable)
+      .filter((id) =>
+        graph
+          .get(id)
+          ?.parentIds.every((parentId) => !graph.has(parentId) || !isFilterable(parentId)),
+      )
+      .sort(byTitle);
 
-    /*
-     * A filterable node is a root when none of its parents are
-     * themselves visible/filterable nodes.
-     *
-     * This also handles a player catalog where a private ancestor
-     * isn't part of the viewer's returned ItemOut set.
-     */
-    const roots =
-      filterableIds
-        .filter((id) => {
-          const node = graph.get(id)!;
-
-          return !node.parentIds.some(
-            (parentId) =>
-              graph.has(parentId) &&
-              isFilterable(parentId),
-          );
-        })
-        .sort(byTitle);
-
-    options.root.replaceChildren(
-      ...roots.map((id) =>
-        renderNode(
-          id,
-          new Set(),
-        ),
-      ),
-    );
+    options.root.replaceChildren(...roots.map((id) => renderNode(id, new Set())));
   }
 
-  function updateCatalog(
-    items: CatalogItem[],
-  ) {
-    const next =
-      new Map<string, PrototypeNode>();
+  function updateCatalog(items: CatalogItem[]) {
+    const next = new Map<string, PrototypeNode>();
 
-    /*
-     * First create every known node.
-     */
     for (const item of items) {
       next.set(item.entity_id, {
         id: item.entity_id,
         title: item.title,
-        parentIds: [
-          ...item.prototype_ids,
-        ],
+        parentIds: [...item.prototype_ids],
         childIds: [],
       });
     }
 
-    /*
-     * Then build the reverse edges needed by the UI:
-     *
-     *     prototype -> items using it
-     *
-     * Parents not visible in this catalog are deliberately ignored.
-     */
+    // Parents missing from the catalog are ignored.
     for (const node of next.values()) {
       for (const parentId of node.parentIds) {
-        next.get(parentId)?.childIds.push(
-          node.id,
-        );
+        next.get(parentId)?.childIds.push(node.id);
       }
     }
 
     graph = next;
-
     descendantCache.clear();
 
-    /*
-     * Don't retain a checked category that disappeared, or one that
-     * no longer has anything built on top of it.
-     */
     for (const id of [...active]) {
-      if (
-        !graph.has(id) ||
-        !isFilterable(id)
-      ) {
+      if (!isFilterable(id)) {
         active.delete(id);
       }
     }
@@ -355,28 +207,20 @@ export function createPrototypeFilter(
     renderTree();
   }
 
-  function apply(
-    items: CatalogItem[],
-  ): CatalogItem[] {
+  function apply(items: CatalogItem[]): CatalogItem[] {
     if (active.size === 0) {
       return items;
     }
 
-    const allowed =
-      new Set<string>();
+    const allowed = new Set<string>();
 
     for (const filterId of active) {
-      for (
-        const itemId of
-        descendantsOf(filterId)
-      ) {
+      for (const itemId of descendantsOf(filterId)) {
         allowed.add(itemId);
       }
     }
 
-    return items.filter((item) =>
-      allowed.has(item.entity_id),
-    );
+    return items.filter((item) => allowed.has(item.entity_id));
   }
 
   return {
