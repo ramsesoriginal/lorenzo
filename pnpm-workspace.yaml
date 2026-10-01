@@ -7,9 +7,18 @@ packages:
 # to actually work.
 allowBuilds:
   esbuild: true
+  # msw's postinstall only copies the browser service worker when package.json sets
+  # `msw.workerDirectory`. We use msw in Node tests only, so it is denied on purpose
+  # (pnpm 12 fails the install on a build script that is neither allowed nor denied).
+  msw: false
 
 # astro@7.3.3 is intentionally bleeding-edge — younger than pnpm's default
 # minimum-release-age security window, so it needs an explicit exclude to
 # install at all.
 minimumReleaseAgeExclude:
   - astro@7.3.3
+
+# esbuild-kit (a transitive dependency of the deprecated esbuild-kit chain) pins an old esbuild;
+# force the patched one. pnpm 10+ reads overrides from here, not from package.json's `pnpm` field.
+overrides:
+  esbuild: ^0.28.1

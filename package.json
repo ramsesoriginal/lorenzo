@@ -1,10 +1,5 @@
 {
   "name": "lorenzo",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
-  "pnpm": {
-    "overrides": {
-      "esbuild": "^0.28.1"
-    }
-  }
+  "packageManager": "pnpm@12.8.1"
 }
