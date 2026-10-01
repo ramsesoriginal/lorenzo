@@ -99,6 +99,14 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    # TypeScript 7 is not usable here yet: `astro check` refuses it ("install TypeScript 6
+    # instead") in account-hub and inventory-web, and openapi-typescript crashes on it in
+    # packages/api-client (`createKeywordTypeNode`), so every PR carrying it fails. Lift this once
+    # both support it: bump `typescript` by hand to 7, run `mise run check`, then delete the entry.
+    # TypeScript 6 is not ignored.
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7"]
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
