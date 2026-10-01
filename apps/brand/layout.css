@@ -170,10 +170,13 @@ body:has(.full-width) {
   gap: var(--space-1);
 }
 
+/* Takes the free space left in a flex .row. */
 .grow {
-   flex: 1;
+  flex: 1;
 }
 
+/* A .row whose items align to the top instead of centering - for when one
+   of them (an opened panel, say) grows taller than the rest. */
 .row.sticky-top {
   align-items: start;
 }
@@ -245,7 +248,9 @@ body:has(.full-width) {
   font-weight: 600;
 }
 
+/* A list or column that scrolls inside the page instead of growing it.
+   Pair with .vertical-mask (components.css) to fade the cut-off edges. */
 .vertical-window {
-    max-height: 70vh;
-    overflow-y: auto;
+  max-height: 70vh;
+  overflow-y: auto;
 }

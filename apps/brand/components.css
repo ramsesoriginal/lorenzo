@@ -409,8 +409,10 @@ dialog::backdrop {
   background: var(--fill-soft);
 }
 
-/*********************************************/
-
+/* Fades a scrolling element's top and bottom edges while there is more to
+   scroll to on that side (pair with .vertical-window). Scroll-driven, so the
+   animation sits behind @supports like motion.css's other scroll effects;
+   without it the edges stay fully opaque. */
 @property --scroll-fade-top {
   syntax: "<number>";
   inherits: false;
@@ -426,11 +428,6 @@ dialog::backdrop {
 .vertical-mask {
   --fade-size: var(--space-6);
   --fade-distance: var(--space-3);
-
-  /*
-   * Defaults are fully opaque at both edges.
-   * This is also what we get when the list isn't scrollable.
-   */
   --scroll-fade-top: 1;
   --scroll-fade-bottom: 1;
 
@@ -441,33 +438,24 @@ dialog::backdrop {
     #000 calc(100% - var(--fade-size)),
     rgb(0 0 0 / var(--scroll-fade-bottom)) 100%
   );
+}
 
-  animation-name:
-    scroll-fade-top,
-    scroll-fade-bottom;
-
-  animation-timing-function:
-    linear,
-    linear;
-
-  animation-fill-mode:
-    both,
-    both;
-
-  animation-timeline:
-    scroll(self block),
-    scroll(self block);
-
-  animation-range:
-    0 var(--fade-distance),
-    calc(100% - var(--fade-distance)) 100%;
+@supports (animation-timeline: scroll()) {
+  .vertical-mask {
+    animation-name: scroll-fade-top, scroll-fade-bottom;
+    animation-timing-function: linear, linear;
+    animation-fill-mode: both, both;
+    animation-timeline: scroll(self block), scroll(self block);
+    animation-range:
+      0 var(--fade-distance),
+      calc(100% - var(--fade-distance)) 100%;
+  }
 }
 
 @keyframes scroll-fade-top {
   from {
     --scroll-fade-top: 1;
   }
-
   to {
     --scroll-fade-top: 0;
   }
@@ -477,13 +465,10 @@ dialog::backdrop {
   from {
     --scroll-fade-bottom: 0;
   }
-
   to {
     --scroll-fade-bottom: 1;
   }
 }
-
-/*********************************************/
 
 /* .tree-toggle, not the generic .icon - a summary row often carries a
    second, semantic icon (a type marker) alongside the disclosure chevron,
