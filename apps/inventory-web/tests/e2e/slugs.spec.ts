@@ -7,7 +7,7 @@ import type { World } from './support/world.ts';
 const row = (list: Locator, name: string) =>
   list.getByRole('listitem').filter({ has: list.page().getByText(name, { exact: true }) });
 const catalogList = (page: Page) =>
-  page.getByRole('region', { name: 'Catalog' }).getByRole('list').first();
+  page.getByRole('region', { name: 'Catalog' }).getByRole('list', { name: 'Catalog items' });
 const slugRegion = (page: Page) => page.getByRole('region', { name: 'Slug' });
 
 async function slugOf(world: World, id: string) {
@@ -34,10 +34,10 @@ test('a new item gets the slug its wikilinks look for', async ({ world, as }) =>
   await page.goto(`/items/?tenant=${world.tenantId}`);
   const form = page.getByRole('region', { name: 'New item' });
 
-  await form.getByLabel('Name').fill('Pouch');
+  await form.getByLabel('Name', { exact: true }).fill('Pouch');
   await expect(form.getByLabel('Slug')).toHaveValue('pouch');
   // It follows the title the item is shown by.
-  await form.getByLabel('Display title').fill('Belt Pouch');
+  await form.getByLabel('Display name').fill('Belt Pouch');
   await expect(form.getByLabel('Slug')).toHaveValue('belt-pouch');
   await form.getByRole('button', { name: 'Create item' }).click();
   await expect(row(catalogList(page), 'Belt Pouch')).toBeVisible();
@@ -56,11 +56,11 @@ test('stops following the title once the slug is edited', async ({ world, as }) 
   await page.goto(`/items/?tenant=${world.tenantId}`);
   const form = page.getByRole('region', { name: 'New item' });
 
-  await form.getByLabel('Name').fill('Lantern');
+  await form.getByLabel('Name', { exact: true }).fill('Lantern');
   await expect(form.getByLabel('Slug')).toHaveValue('lantern');
   await form.getByLabel('Slug').fill('the-lamp');
-  await form.getByLabel('Name').fill('Storm Lantern');
-  await expect(form.getByLabel('Display title')).toHaveValue('Storm Lantern');
+  await form.getByLabel('Name', { exact: true }).fill('Storm Lantern');
+  await expect(form.getByLabel('Display name')).toHaveValue('Storm Lantern');
   await page.waitForTimeout(500);
   await expect(form.getByLabel('Slug')).toHaveValue('the-lamp');
 });
@@ -70,7 +70,7 @@ test("refuses a slug that can't be one before creating anything", async ({ world
   await page.goto(`/items/?tenant=${world.tenantId}`);
   const form = page.getByRole('region', { name: 'New item' });
 
-  await form.getByLabel('Name').fill('Odd Thing');
+  await form.getByLabel('Name', { exact: true }).fill('Odd Thing');
   await form.getByLabel('Slug').fill('odd thing');
   await form.getByRole('button', { name: 'Create item' }).click();
   await expect(form.getByText(/A slug starts with a letter or digit/)).toBeVisible();
@@ -88,6 +88,8 @@ test('suggests the next free slug for an item, and shows the one it has', async 
   const oldRow = row(catalogList(page), 'Old Lantern');
   await oldRow.getByRole('button', { name: 'Edit' }).click();
   await expect(oldRow.getByLabel('Slug')).toHaveValue('lantern');
+  // Its open form holds the name "Lantern" too, which would make the next row ambiguous.
+  await oldRow.getByRole('button', { name: 'Cancel' }).click();
 
   const newRow = row(catalogList(page), 'Lantern');
   await newRow.getByRole('button', { name: 'Edit' }).click();

@@ -20,13 +20,19 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       </div>
       <div class="stack">
         <strong>Filter:</strong>
-        <ul class="tree stagger" data-filter></ul>
+        <ul class="tree stagger" aria-label="Filter by prototype" data-filter></ul>
       </div>
     </div>
     <div class="stack">
       <p data-empty hidden>No items match.</p>
       <p class="error-text" data-error hidden></p>
-      <ul class="catalog-list list stagger vertical-window vertical-mask" data-list hidden></ul>
+      <ul
+        class="catalog-list list stagger vertical-window vertical-mask"
+        aria-label="Catalog items"
+        data-list
+        hidden
+      >
+      </ul>
     </div>
   </div>
 

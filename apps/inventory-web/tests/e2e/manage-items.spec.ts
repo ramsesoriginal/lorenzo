@@ -15,7 +15,7 @@ const row = (list: Locator, name: string) =>
   list.getByRole('listitem').filter({ has: list.page().getByText(name, { exact: true }) });
 
 const catalogList = (page: Page) =>
-  page.getByRole('region', { name: 'Catalog' }).getByRole('list').first();
+  page.getByRole('region', { name: 'Catalog' }).getByRole('list', { name: 'Catalog items' });
 
 async function entity(world: World, id: string) {
   return ok(
@@ -57,7 +57,7 @@ test('a player gets the public catalog, to look items up, and nothing to change'
 test('a GM puts an item in the public catalog, and takes it out again', async ({ world, as }) => {
   const page = await manageItems(as, world);
   const form = page.getByRole('region', { name: 'New item' });
-  await form.getByLabel('Name').fill('Robe');
+  await form.getByLabel('Name', { exact: true }).fill('Robe');
   await form.getByLabel('In the public catalog').check();
   await form.getByRole('button', { name: 'Create item' }).click();
 
@@ -76,7 +76,7 @@ test('a GM puts an item in the public catalog, and takes it out again', async ({
   await expect(robeRow.getByLabel('In the public catalog')).toBeChecked();
   await robeRow.getByLabel('In the public catalog').uncheck();
   await robeRow.getByRole('button', { name: 'Save' }).click();
-  await expect(robeRow.getByLabel('Name')).toBeHidden();
+  await expect(robeRow.getByLabel('Name', { exact: true })).toBeHidden();
   await expect(row(catalogList(page), 'Robe').getByText('Public', { exact: true })).toBeHidden();
   expect((await entity(world, robe?.entity_id as string)).name).toBe('Robe');
   const pia = await as(world.pia);
@@ -89,18 +89,18 @@ test('creates an item with parents, a description, and a display title', async (
   const page = await manageItems(as, world);
   const form = page.getByRole('region', { name: 'New item' });
 
-  await form.getByLabel('Name').fill('Grimoire');
+  await form.getByLabel('Name', { exact: true }).fill('Grimoire');
   // The display title follows the name until it's edited.
-  await expect(form.getByLabel('Display title')).toHaveValue('Grimoire');
-  await form.getByLabel('Search items to inherit from').fill('Spellb');
+  await expect(form.getByLabel('Display name')).toHaveValue('Grimoire');
+  await form.getByLabel('Parents').fill('Spellb');
   await form.getByRole('option').getByRole('button', { name: 'Spellbook', exact: true }).click();
   await expect(form.getByRole('listitem').filter({ hasText: 'Spellbook' })).toBeVisible();
-  await form.getByLabel('Display title').fill('Grimoire of Ash');
+  await form.getByLabel('Display name').fill('Grimoire of Ash');
   await form.getByRole('textbox', { name: 'Description' }).fill('Bound in ash-grey hide.');
   await form.getByRole('button', { name: 'Create item' }).click();
 
   await expect(row(catalogList(page), 'Grimoire of Ash')).toBeVisible();
-  await expect(form.getByLabel('Name')).toHaveValue('');
+  await expect(form.getByLabel('Name', { exact: true })).toHaveValue('');
   const items = await ok(
     world.gm.api.GET('/tenants/{tenant_id}/items', {
       params: { path: { tenant_id: world.tenantId }, query: { q: 'Grimoire' } },
@@ -121,14 +121,14 @@ test('edits an item: the name field holds its name, not its display title', asyn
 
   const lanternRow = row(catalogList(page), 'Hooded Lantern');
   await lanternRow.getByRole('button', { name: 'Edit' }).click();
-  await expect(lanternRow.getByLabel('Name')).toHaveValue('Lantern');
-  await expect(lanternRow.getByLabel('Display title')).toHaveValue('Hooded Lantern');
-  await lanternRow.getByLabel('Name').fill('Storm Lantern');
+  await expect(lanternRow.getByLabel('Name', { exact: true })).toHaveValue('Lantern');
+  await expect(lanternRow.getByLabel('Display name')).toHaveValue('Hooded Lantern');
+  await lanternRow.getByLabel('Name', { exact: true }).fill('Storm Lantern');
   await lanternRow.getByRole('textbox', { name: 'Description' }).fill('Shuttered, and oiled.');
   await lanternRow.getByRole('button', { name: 'Save' }).click();
 
   // Saving closes the panel; the row still shows the display title.
-  await expect(lanternRow.getByLabel('Name')).toBeHidden();
+  await expect(lanternRow.getByLabel('Name', { exact: true })).toBeHidden();
   await expect(row(catalogList(page), 'Hooded Lantern')).toBeVisible();
   const saved = await entity(world, lantern);
   expect(saved.name).toBe('Storm Lantern');
