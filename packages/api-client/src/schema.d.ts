@@ -16477,6 +16477,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description A dry run: what would be made. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackGivenOut"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {
