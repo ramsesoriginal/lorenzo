@@ -45,7 +45,7 @@ All `422`, each its own problem type, none of them partial:
   - more than 200 instances to create.
 - **`invalid-pack-owner`**: `owner_entity_id` is neither a `Being` nor named as a group by `group_member`. (An empty group isn't recognisable, a consequence of ADR 0028's data model that ADR 0045 already accepted.)
 
-An owner that isn't an entity of the tenant is the usual `404`.
+An owner that isn't an entity of the tenant is the usual `404`. Both are checked after authorization (below), which only admits a character the caller plays or whose campaign they GM, or a group with such a member; so today neither is reachable over HTTP. They are the guard for the day authorization is widened, and the service's tests call them directly.
 
 ### What it creates
 
@@ -63,6 +63,8 @@ The pack item itself is not instantiated.
 ### Who may
 
 The caller must be allowed to create an instance for that owner: `_authorize_create_instance`, once. `override` is `_authorize_override`, a GM's alone, refused up front (`403 override-forbidden`). Both come before anything is read, so a caller who may not learns nothing of the pack, the owner or the list.
+
+That is `POST /item-instances`'s own rule, and it has one consequence worth naming: a bare being (an NPC with no player) has no one with standing, so no one can be handed a pack yet. Giving things to NPCs is a gap in `_authorize_create_instance` that this slice neither opens nor closes.
 
 ### Capacity
 
