@@ -828,3 +828,14 @@ async def test_an_owner_must_be_a_being_or_a_group_with_members(
     assert await _count(world) == 0
 
     await _tear_down(world)
+
+
+async def test_the_contract_declares_both_answers(client: AsyncClient) -> None:
+    """A dry run answers 200 and a real call 201, and a generated client has to know both."""
+    document = (await client.get("/openapi.json")).json()
+    operation = document["paths"]["/tenants/{tenant_id}/item-instances/from-pack"]["post"]
+
+    assert {"200", "201"} <= set(operation["responses"])
+    for status in ("200", "201"):
+        schema = operation["responses"][status]["content"]["application/json"]["schema"]
+        assert schema["$ref"].endswith("/PackGivenOut")

@@ -1232,7 +1232,11 @@ def _flatten(created: list[Created]) -> list[Created]:
     return flat
 
 
-@router.post("/from-pack", status_code=201)
+@router.post(
+    "/from-pack",
+    status_code=201,
+    responses={200: {"model": PackGivenOut, "description": "A dry run: what would be made."}},
+)
 async def create_item_instances_from_pack(
     tenant_id: uuid.UUID,
     body: GivePackRequest,
