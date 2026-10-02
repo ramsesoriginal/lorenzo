@@ -93,7 +93,7 @@ One transaction. Anything that fails, fails the whole call and nothing exists.
 - **`--owner` is required**, a being or a group, by id or slug. A pack with no one to hold it isn't a thing the API creates.
 - **`--into` goes.** The API puts things in the being; there is nowhere else to put them. This is a breaking change to a pre-1.0 command and is released as one.
 - **`--dry-run`** becomes `?dry_run=true`. Its output is the API's answer, rendered.
-- **The importer makes sure every line links.** The built-in map already answers its seven gaps with `"item"`; what's left is the `"text"` disposition a map of your own can still choose. It stops being valid in `[pack_items]`, with an error that says to use `"item"`, and the importer no longer has a "no item" outcome for a pack entry. A pack whose list has a line without a link counts as unfinished, so the next `apply` completes it, as it does for a pack without a description today.
+- **The importer makes sure every line links.** The built-in map already answers its seven gaps with `"item"`; what's left is the `"text"` disposition a map of your own can still choose. It stops being valid in `[pack_items]`, with an error that says to use `"item"`, and the importer no longer has a "no item" outcome for a pack entry. What it writes is therefore always a list in which every line links. A pack it wrote earlier with a line that doesn't is not rewritten (a description is written once, [ADR 0121](../adr/0121-repository-updates-and-re-sync.md)): the API's refusal names the lines, and editing the description fixes it.
 - **The CLI's own give code goes**: `importer/give.py`, its container/stack orchestration, and its `MAX_LOOSE` guard. The list *writer* in `packs.py` stays, and so does its parser, as the CLI's half of §2's shared fixtures: what the importer writes is then proven to parse the way the API will read it.
 
 ## Slices
@@ -125,4 +125,4 @@ Each is a tested vertical slice with its own ADR and tracking issue. They are bu
 - There are two parsers, in two languages, held to one set of examples.
 - ADR 0145's "needs no `apps/api` capability" no longer holds for handing out, and that section is marked superseded when ADR for slice 1 lands. How a pack is written and resolved is unchanged.
 - `lorenzo pack give` loses `--into` and gains a required `--owner`.
-- A pack imported with a map of its own that used `"text"`, or written by hand with a plain line, refuses until the next `apply` completes it. The built-in map has no such line, so the SRD's packs are unaffected. Copies made before then keep what they had, since information is copy-once ([ADR 0121](../adr/0121-repository-updates-and-re-sync.md)).
+- A pack imported with a map of its own that used `"text"`, or written by hand with a plain line, refuses until its description is edited, with the lines named. The built-in map has no such line, so the SRD's packs are unaffected.
