@@ -1,0 +1,108 @@
+<section class="section stack" data-picker>
+  <div class="tabs" role="tablist" aria-label="Whose inventory to view" data-tablist hidden>
+    <button
+      type="button"
+      id="tab-characters"
+      class="tab"
+      role="tab"
+      aria-selected="true"
+      aria-controls="panel-characters"
+      data-tab="characters">Your characters</button
+    >
+    <button
+      type="button"
+      id="tab-browse"
+      class="tab"
+      role="tab"
+      aria-selected="false"
+      aria-controls="panel-browse"
+      data-tab="browse"
+      hidden>Browse a being</button
+    >
+    <button
+      type="button"
+      id="tab-unowned"
+      class="tab"
+      role="tab"
+      aria-selected="false"
+      aria-controls="panel-unowned"
+      data-tab="unowned"
+      hidden>Unowned items</button
+    >
+  </div>
+
+  <div
+    id="panel-characters"
+    class="tab-panel stack"
+    role="tabpanel"
+    aria-labelledby="tab-characters"
+    data-panel="characters"
+  >
+    <p data-loading>Loading characters&hellip;</p>
+    <p data-empty hidden>You don't have a character in this tenant yet.</p>
+    <p class="error-text" data-error hidden></p>
+    <ul class="list" aria-label="Your characters and groups" data-holders></ul>
+  </div>
+
+  <div
+    id="panel-browse"
+    class="tab-panel card card-body"
+    role="tabpanel"
+    aria-labelledby="tab-browse"
+    data-panel="browse"
+    hidden
+  >
+    <div class="field">
+      <label class="field-label" id="browse-label" for="browse-search">Search beings</label>
+      <div class="combobox" data-browse-combobox>
+        <input
+          type="text"
+          id="browse-search"
+          class="text-input"
+          placeholder="Search beings…"
+          autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="browse-suggestions"
+          aria-labelledby="browse-label"
+          data-browse-search
+        />
+        <ul
+          id="browse-suggestions"
+          class="combobox-suggestions"
+          role="listbox"
+          data-browse-suggestions
+          hidden
+        >
+        </ul>
+      </div>
+    </div>
+    <div class="being-id-row">
+      <input
+        type="text"
+        class="text-input"
+        placeholder="or a being's id or slug…"
+        aria-label="Being's id or slug"
+        data-browse-raw-id
+      />
+      <button type="button" data-browse-raw-id-button>View</button>
+    </div>
+  </div>
+
+  <div
+    id="panel-unowned"
+    class="tab-panel"
+    role="tabpanel"
+    aria-labelledby="tab-unowned"
+    data-panel="unowned"
+    hidden
+  >
+  </div>
+
+  <template data-holder-template>
+    <li>
+      <a class="btn" data-name>Name</a>
+      <span class="badge" hidden data-group>Group</span>
+    </li>
+  </template>
+</section>

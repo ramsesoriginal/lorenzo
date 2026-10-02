@@ -1,0 +1,53 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<section class="section" data-board>
+  <p class="next-up" data-viewing hidden></p>
+
+  <div class="selection-toolbar" data-selection-toolbar hidden>
+    <span data-selection-count></span>
+    <button type="button" data-selection-give>Give selected to&hellip;</button>
+    <button type="button" data-selection-clear>Clear</button>
+  </div>
+  <div data-selection-panel></div>
+
+  <p class="next-up" data-empty hidden></p>
+  <p class="error-text" data-error hidden></p>
+  <div class="grid full-width h-scroll board-row" style="--grid-min: 260px" data-columns></div>
+
+  <section class="board-toolbar card card-body">
+    <input
+      type="search"
+      class="text-input"
+      data-search
+      placeholder="Search this inventory…"
+      aria-label="Search this inventory"
+    />
+    <button type="button" data-select-mode>Select items</button>
+  </section>
+
+  <template data-column-template>
+    <section class="card card-body stack board-column" data-column>
+      <div class="row">
+        <h3 data-name>Name</h3>
+        <span class="pill" hidden data-note>Note</span>
+      </div>
+      <ul class="list" data-items></ul>
+    </section>
+  </template>
+
+  <template data-card-template>
+    <li class="item-card" tabindex="0" role="button">
+      <span class="badge" hidden data-container>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-container`}></use></svg
+        >
+      </span>
+      <span data-name>Name</span>
+      <span class="badge" hidden data-count>×3</span>
+      <span class="badge" hidden data-owner-mark>Someone's</span>
+      <span class="badge" hidden data-bound>Bound</span>
+    </li>
+  </template>
+</section>
