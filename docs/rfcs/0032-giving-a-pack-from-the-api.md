@@ -61,7 +61,9 @@ The pack item is not instantiated. Its list is the recipe, as ADR 0145 has it.
 
 ### 5. Authorization
 
-The caller must be allowed to create an instance for that owner: ADR 0032's self-or-managed rule, `_authorize_create_instance` as it is today, once for the whole pack. `override` is a GM's alone, refused up front whether or not the pack would have needed it (`403 override-forbidden`, [ADR 0129](../adr/0129-binding-and-lifting-it.md)). Nothing new.
+The caller must be allowed to create an instance for that owner: ADR 0032's self-or-managed rule, `_authorize_create_instance`, once for the whole pack. `override` is a GM's alone, refused up front whether or not the pack would have needed it (`403 override-forbidden`, [ADR 0129](../adr/0129-binding-and-lifting-it.md)).
+
+One thing is new, and not only for packs: a being or group in no campaign, such as an NPC, had nobody with standing, so nobody could give it anything new. The maintainer asked that items and packs go to any being, so the tenant's GMs and administrators stand in for its GM, as they do for an ownerless instance ([ADR 0151](../adr/0151-a-being-in-no-campaign-and-who-stands-in-for-its-gm.md)). That applies to `POST /item-instances` as much as to this route.
 
 ### 6. All or nothing, with capacity
 
