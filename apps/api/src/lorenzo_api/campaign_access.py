@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.entity_access import controlled_character_entity_ids
 from lorenzo_api.models import (
+    Being,
     CampaignGm,
     CharacterPlayer,
     GroupMember,
@@ -209,6 +210,39 @@ async def campaign_ids_for_owner(
         )
     )
     return frozenset((await session.execute(stmt)).scalars().all())
+
+
+async def can_manage_owner(
+    session: AsyncSession, *, user_id: uuid.UUID, owner_entity_id: uuid.UUID, tenant_id: uuid.UUID
+) -> bool:
+    """Whether the caller may act as a GM for what `owner_entity_id` holds:
+    a GM of a campaign it plays in (ADR 0124), a group's being its members'.
+
+    A being or a group in no campaign (an NPC, a character with no player
+    seat) has none, so the tenant's GMs and administrators stand in for it, as
+    they do for an ownerless instance (ADR 0151). Anything else - an item, a
+    place - has nobody with standing.
+    """
+    campaign_ids = await campaign_ids_for_owner(
+        session, owner_entity_id=owner_entity_id, tenant_id=tenant_id
+    )
+    if campaign_ids:
+        return await can_manage_any_of_campaigns(
+            session, user_id=user_id, campaign_ids=campaign_ids, tenant_id=tenant_id
+        )
+    is_being = await session.scalar(
+        select(Being.entity_id).where(
+            Being.entity_id == owner_entity_id, Being.tenant_id == tenant_id
+        )
+    )
+    is_group = await session.scalar(
+        select(GroupMember.group_entity_id)
+        .where(GroupMember.group_entity_id == owner_entity_id, GroupMember.tenant_id == tenant_id)
+        .limit(1)
+    )
+    if is_being is None and is_group is None:
+        return False
+    return await can_manage_any_campaign_in_tenant(session, user_id=user_id, tenant_id=tenant_id)
 
 
 async def can_manage_any_of_campaigns(
