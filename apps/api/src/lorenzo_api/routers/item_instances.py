@@ -20,9 +20,8 @@ from lorenzo_api.binding import (
     refuse_owner_change,
 )
 from lorenzo_api.campaign_access import (
-    campaign_ids_for_owner,
     can_manage_any_campaign_in_tenant,
-    can_manage_any_of_campaigns,
+    can_manage_owner,
     is_tenant_participant,
 )
 from lorenzo_api.capacity import CapacityCheck, lock_ahead
@@ -997,10 +996,10 @@ async def _manages_owner(
     session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, owner: uuid.UUID
 ) -> bool:
     """A GM of any campaign the owner plays in - for a group, any campaign
-    one of its members plays in (ADR 0124)."""
-    campaign_ids = await campaign_ids_for_owner(session, owner_entity_id=owner, tenant_id=tenant_id)
-    return bool(campaign_ids) and await can_manage_any_of_campaigns(
-        session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
+    one of its members plays in (ADR 0124); for a being or group in no
+    campaign, any GM or administrator of the tenant (ADR 0151)."""
+    return await can_manage_owner(
+        session, user_id=user.id, owner_entity_id=owner, tenant_id=tenant_id
     )
 
 
