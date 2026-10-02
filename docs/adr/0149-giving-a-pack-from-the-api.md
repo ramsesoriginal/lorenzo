@@ -28,7 +28,7 @@ ADR 0145 left handing a pack out to the CLI: read the list from the description,
 - A line two levels or more below the line above it, or indented with nothing above it, is ignored, as is anything that isn't a line of that shape, a quantity below 1, and a level beyond the third.
 - The slug is 1 to 100 characters of letters, digits, `_` and `-`, starting with a letter or digit.
 
-`apps/api/tests/data/pack_lists.json` holds the examples, each a text and the lines and tree it reads as. The API's tests run every one, and the CLI's tests do too once slice 2 lands (it declares `apps/cli` as depending on `apps/api` in `.github/ci-graph.toml` for it).
+`apps/api/tests/data/pack_lists.json` holds the examples, each a text and the lines and tree it reads as. The API's tests run every one, and the CLI's parser is held to them too (ADR 0150).
 
 The text is the pack item's own **public description**: the payloads of its `description` information when `is_public`, in `order`, joined with a newline, only those with a description row. A GM-only description is never read, and nothing the caller can see changes the answer.
 

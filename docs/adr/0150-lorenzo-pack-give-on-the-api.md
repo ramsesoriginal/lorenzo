@@ -36,7 +36,7 @@ The importer writes lists in which every line links, since the API refuses one t
 
 ### One grammar, two parsers
 
-`apps/cli`'s parser, which stays (the importer's own tests prove what it writes reads back), runs `apps/api/tests/data/pack_lists.json`, the examples ADR 0149's parser runs. `.github/ci-graph.toml` gains `depends_on = ["apps/api"]` for `apps/cli`, so a change to the examples runs the CLI's tests (ADR 0148); its unit tests still need neither a running API nor a database.
+`apps/cli`'s parser, which stays (the importer's own tests prove what it writes reads back), is held to `apps/api/tests/data/pack_lists.json`, the examples ADR 0149's parser runs. The check lives in `tests/e2e/`, not with the unit tests, for where CI runs a test: ADR 0148 keeps the CLI's unit tests from running for a change to `apps/api`, but its end-to-end suite does run for one, so a change to the examples reaches this check there. It needs no stack. (Declaring `apps/cli` as depending on `apps/api` in `.github/ci-graph.toml` would run all the unit tests too, which the graph's own tests rule out on purpose.)
 
 ## Not in scope
 
