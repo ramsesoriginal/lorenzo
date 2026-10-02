@@ -151,7 +151,7 @@ class Mapping(BaseModel):
     name_rules: list[NameRule]
     attributes: dict[str, dict[str, list[Rule]]]
     namespaces: dict[str, str]
-    # A pack item's display name (lower-cased) -> "list:key", or "text" for not-a-catalog-item.
+    # A pack item's display name (lower-cased) -> "list:key", or "item" for a plain catalog item.
     pack_items: dict[str, str]
 
     def namespace_for(self, file_name: str) -> str:
@@ -307,10 +307,16 @@ def _check(mapping: Mapping) -> None:
             )
     for name, target in mapping.pack_items.items():
         list_name, _, key = target.partition(":")
-        if target not in ("text", "item") and not (list_name in LIST_NAMES and key):
+        if target == "text":
             raise MappingError(
-                f"pack_items.{name!r} is {target!r}: say 'item' (a plain catalog item), 'text' "
-                f"(plain text), or 'list:key' with a list from {', '.join(LIST_NAMES)}."
+                f"pack_items.{name!r} is 'text', which is no longer a choice: every line of a "
+                "pack's list links to an item (ADR 0150). Say 'item' for a plain catalog item "
+                f"made for it, or 'list:key' with a list from {', '.join(LIST_NAMES)}."
+            )
+        if target != "item" and not (list_name in LIST_NAMES and key):
+            raise MappingError(
+                f"pack_items.{name!r} is {target!r}: say 'item' (a plain catalog item) or "
+                f"'list:key' with a list from {', '.join(LIST_NAMES)}."
             )
     for name_rule in mapping.name_rules:
         if name_rule.in_list not in LIST_NAMES:

@@ -17,6 +17,7 @@ from lorenzo_cli.client.models import (
     ComputedStatOut,
     ContentsFormulaBody,
     EntityDetailOut,
+    GivePackRequest,
     InformationCreate,
     InformationOut,
     ItemCreate,
@@ -24,6 +25,7 @@ from lorenzo_cli.client.models import (
     ItemInstanceOut,
     ItemOut,
     LinearFormulaBodyInput,
+    PackGivenOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
     PageTenantSummaryOut,
@@ -149,6 +151,13 @@ CREATE_ITEM_INSTANCE: Op[ItemInstanceOut] = Op(
     request_type=ItemInstanceCreate,
     response_type=ItemInstanceOut,
 )
+CREATE_ITEM_INSTANCES_FROM_PACK: Op[PackGivenOut] = Op(
+    "create_item_instances_from_pack",
+    "POST",
+    f"{_TENANT}/item-instances/from-pack",
+    request_type=GivePackRequest,
+    response_type=PackGivenOut,
+)
 REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
     "replace_item_prototypes",
     "PUT",
@@ -176,4 +185,5 @@ ALL_OPS: tuple[Op[Any], ...] = (
     CREATE_INFORMATION,
     REPLACE_ITEM_PROTOTYPES,
     CREATE_ITEM_INSTANCE,
+    CREATE_ITEM_INSTANCES_FROM_PACK,
 )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from lorenzo_cli.importer.mapping import load_mapping
+from lorenzo_cli.importer.mapping import MappingError, load_mapping
 from lorenzo_cli.importer.packs import (
     NameIndex,
     PackLine,
@@ -250,13 +250,20 @@ def test_a_row_saying_item_makes_a_plain_item_and_reports_nothing() -> None:
     assert resolution.unresolved == []
 
 
-def test_a_row_saying_text_keeps_the_entry_as_plain_text() -> None:
-    mapping = load_mapping('schema = 1\n[pack_items]\n"air" = "text"\n').mapping
+def test_a_row_saying_text_is_refused_since_every_line_links() -> None:
+    with pytest.raises(MappingError, match="no longer a choice.*Say 'item'"):
+        load_mapping('schema = 1\n[pack_items]\n"air" = "text"\n')
 
-    contents = resolve(parse_entries([["Air", 1, 1]]), index(), mapping)
 
-    assert contents.lines == [PackLine(0, 1, "Air", None)]
-    assert contents.unresolved == []
+def test_an_entry_is_never_left_without_an_item() -> None:
+    entries = parse_entries([["Air", 1, 1], ["Backpack", 1, 1]])
+
+    contents = resolve(entries, index(), MAPPING)
+
+    # The tenant has no "Air": it is reported so a row can link it, and the importer makes a plain
+    # item for it (planning gives that item its slug), so the entry is never dropped or left text.
+    assert [line.label for line in contents.lines] == ["Air", "Backpack"]
+    assert [u.name for u in contents.unresolved] == ["Air"]
 
 
 def test_an_entry_whose_key_a_gear_entry_already_has_links_that_entry() -> None:

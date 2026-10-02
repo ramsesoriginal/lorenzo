@@ -420,7 +420,7 @@ items = "pack_contents"
 # ---- pack contents: a pack lists its items by display name, not by key ---------------------------------------------
 # A name is looked up exactly (case-insensitively) among the names of the items in the run. A row here
 # answers the ones that don't match: "list:key" links to that entry; "item" says it is a plain item
-# of its own (the importer makes it); "text" says it is not an item at all and stays plain text.
+# of its own (the importer makes it). Every line of a pack links to an item (ADR 0150).
 # A name nothing answers is made a plain item as well, and reported, so it can be linked instead.
 
 [pack_items]
