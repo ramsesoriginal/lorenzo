@@ -70,7 +70,7 @@ One transaction. Anything that fails, fails the whole call and nothing exists.
 - **Capacity is checked as creation inside something is checked** (ADR 0128): for a being, the being and everything it's inside are measured before and after for the top-level things; each new container is measured for what goes into it. A group's top level has no target, so only the new containers are.
 - **A pack that would overfill something is refused** with `409 capacity-exceeded`, naming the container.
 - **`override`** (GM only) skips capacity, as for any create. Binding never refuses a create, so it has nothing to skip.
-- The chains are locked together up front (`lock_ahead`), as bulk moves do.
+- The being's chain is locked by its capacity check, as for any create, which keeps two packs into one being in order.
 - **A limit on the total instances one call creates**, set in the ADR, so a pack list is bounded whatever it holds.
 
 ### 7. Dry run

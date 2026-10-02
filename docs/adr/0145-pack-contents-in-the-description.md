@@ -49,6 +49,8 @@ An entry nothing could be linked to does **not** hold the pack back. It is liste
 
 ### Handing a pack out
 
+> Superseded by [ADR 0149](0149-giving-a-pack-from-the-api.md) and, for the CLI, slice 2 of [RFC 0032](../rfcs/0032-giving-a-pack-from-the-api.md): the API now creates the instances in one transaction. What follows describes the client-side version this ADR was built with.
+
 `lorenzo pack give <pack> --tenant T [--owner CHARACTER] [--into CONTAINER] [--dry-run]` reads the description, creates the container's instance, then each thing inside it with `container_entity_id` and its `quantity` (ADR 0140), and prints what it made. It is client-side orchestration over routes that exist; it needs no `apps/api` capability, and any client can do the same from the same text.
 
 - Plain-text lines are skipped, and said so.
