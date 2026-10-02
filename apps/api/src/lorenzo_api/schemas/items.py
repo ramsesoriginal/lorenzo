@@ -30,6 +30,9 @@ __all__ = [
     "HeldByResponse",
     "ContentsResultItem",
     "GiveContentsRequest",
+    "GivePackRequest",
+    "PackItemOut",
+    "PackGivenOut",
     "SetOwnerRequest",
     "SetContainerRequest",
     "SetPrototypesRequest",
@@ -577,6 +580,36 @@ class GiveContentsRequest(BaseModel):
 
     owner_character_id: uuid.UUID
     recursive: bool = True
+
+
+class GivePackRequest(BaseModel):
+    """POST /item-instances/from-pack (ADR 0149): hands out what a pack's
+    public description lists - the pack item itself isn't instantiated. The
+    owner is a being (the top-level things are also put into its hands) or
+    a group (they are owned and in no container). `override` is a GM's: it
+    skips capacity (ADR 0128)."""
+
+    pack_id: uuid.UUID
+    owner_entity_id: uuid.UUID
+    override: bool = False
+
+
+class PackItemOut(BaseModel):
+    """One instance a pack made, with what's inside it."""
+
+    item_instance: ItemInstanceOut
+    children: list[PackItemOut]
+
+
+class PackGivenOut(BaseModel):
+    """POST /item-instances/from-pack - what was made, or with `dry_run`
+    would have been: the ids name nothing then. `created` is in the order of
+    the pack's list, a container once for each of its units."""
+
+    pack_id: uuid.UUID
+    owner_entity_id: uuid.UUID
+    dry_run: bool
+    created: list[PackItemOut]
 
 
 class BulkMoveItem(BaseModel):

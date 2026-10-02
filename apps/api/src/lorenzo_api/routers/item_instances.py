@@ -76,6 +76,7 @@ from lorenzo_api.models import (
     Ownership,
     VItemInstance,
 )
+from lorenzo_api.pack_giving import Created, hand_out
 from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.items import (
@@ -88,6 +89,7 @@ from lorenzo_api.schemas.items import (
     ControlledColumnOut,
     ControlledItemInstanceOut,
     GiveContentsRequest,
+    GivePackRequest,
     HeldByResponse,
     HeldGroupOut,
     ItemInstanceCreate,
@@ -96,6 +98,8 @@ from lorenzo_api.schemas.items import (
     MergeItemInstanceRequest,
     OwnedByResponse,
     OwnedGroupOut,
+    PackGivenOut,
+    PackItemOut,
     ProblemOut,
     SetContainerRequest,
     SetOwnerRequest,
@@ -1218,6 +1222,94 @@ async def create_item_instance(
         request.url_for("get_item_instance", tenant_id=tenant_id, entity_id=entity.id)
     )
     return await _item_instance_out(tenant_id, entity.id, request, response, session, user)
+
+
+def _flatten(created: list[Created]) -> list[Created]:
+    flat: list[Created] = []
+    for item in created:
+        flat.append(item)
+        flat.extend(_flatten(item.children))
+    return flat
+
+
+@router.post("/from-pack", status_code=201)
+async def create_item_instances_from_pack(
+    tenant_id: uuid.UUID,
+    body: GivePackRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    dry_run: Annotated[bool, Query()] = False,
+) -> PackGivenOut:
+    """Hands out what a pack's public description lists, to a being or a
+    group, in one transaction (ADR 0149): `POST /item-instances` for a whole
+    pack. The caller needs the same standing as for creating an instance
+    owned by that owner, checked before anything is read, so someone who may
+    not learns nothing of the pack. dry_run does all of it, capacity
+    included, and rolls it back (so `200`, not `201`, and ids that name
+    nothing).
+    """
+    await _authorize_create_instance(
+        session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_entity_id
+    )
+    if body.override:
+        await _authorize_override(
+            session, tenant_id=tenant_id, user=user, owner=body.owner_entity_id
+        )
+    created = await hand_out(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        pack_id=body.pack_id,
+        owner_id=body.owner_entity_id,
+        override=body.override,
+    )
+
+    async def out(item: Created) -> PackItemOut:
+        return PackItemOut(
+            item_instance=await _item_instance_out(
+                tenant_id, item.entity_id, request, None, session, user
+            ),
+            children=[await out(child) for child in item.children],
+        )
+
+    answer = PackGivenOut(
+        pack_id=body.pack_id,
+        owner_entity_id=body.owner_entity_id,
+        dry_run=dry_run,
+        created=[await out(item) for item in created],
+    )
+    if dry_run:
+        await session.rollback()
+        response.status_code = 200
+        return answer
+
+    made = _flatten(created)
+    for item in made:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item_instance.created",
+            target_type="item_instance",
+            target_id=item.entity_id,
+            detail=_overridden(
+                f"prototype={item.prototype_id}; pack={body.pack_id}", body.override
+            ),
+        )
+    # New and in someone's possession: each holder is told what they received.
+    await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        changes=[
+            Change(entity_id=item.entity_id, before=frozenset(), both_kind=None) for item in made
+        ],
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return answer
 
 
 @router.patch("/{entity_id}")

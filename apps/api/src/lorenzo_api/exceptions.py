@@ -80,6 +80,9 @@ __all__ = [
     "CapacityExceededError",
     "ItemBoundError",
     "OverrideForbiddenError",
+    "NotAPackError",
+    "PackListError",
+    "InvalidPackOwnerError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
@@ -851,6 +854,29 @@ class OverrideForbiddenError(ForbiddenProblem):
     a binding, are a GM's call alone."""
 
     title = "Only a GM can do that"
+
+
+class NotAPackError(UnprocessableProblem):
+    """POST /item-instances/from-pack - `pack_id` isn't an item of the
+    tenant, or its public description holds no contents list - ADR 0149."""
+
+    title = "Not a pack"
+
+
+class PackListError(UnprocessableProblem):
+    """POST /item-instances/from-pack - a pack's contents list can't be
+    handed out as it is: a line without a link, a slug that isn't an item of
+    the tenant, a quantity or a count over its limit - ADR 0149. Carries
+    `lines`, one entry for each thing wrong; nothing was created."""
+
+    title = "The pack's list can't be handed out"
+
+
+class InvalidPackOwnerError(UnprocessableProblem):
+    """POST /item-instances/from-pack - `owner_entity_id` is neither a being
+    nor a group (an entity named by `group_member` rows) - ADR 0149."""
+
+    title = "A pack goes to a being or a group"
 
 
 class ItemBoundError(ConflictProblem):
