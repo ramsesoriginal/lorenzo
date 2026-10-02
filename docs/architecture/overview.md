@@ -200,6 +200,13 @@ The `lorenzo` command line ([`apps/cli`](../../apps/cli), Python; [RFC 0025](../
 - **The taxonomy.** Weapon families and properties as prototypes with their own descriptions, materials, consumables and kinds of gear; what the sheet says beyond that is kept as information and stats, and a pack entry that is not an item becomes a plain item ([ADR 0146](../adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md)).
 - **Kept as given.** The address keeps its slugs. What the app writes itself, and what it remembers, stays ids.
 
+A pack can be handed out by the API in one request ([ADR 0149](../adr/0149-giving-a-pack-from-the-api.md), [RFC 0032](../rfcs/0032-giving-a-pack-from-the-api.md) slice 1):
+
+- **One route.** `POST .../item-instances/from-pack` takes a pack item and an owner. It reads the pack's own public description, the list [ADR 0145](../adr/0145-pack-contents-in-the-description.md) put there, with a Python parser held to the same examples as the CLI's, and creates what it names: a line with lines under it is a container made once per unit, any other line one stack. The pack item itself isn't instantiated.
+- **A being or a group.** A being gets the top of the list in its hands, Equipped, and owns all of it; a group owns all of it with nothing in a container, so a loose stack becomes single items. Standing is `POST /item-instances`'s own: someone who plays the character or GMs its campaign, or a member of the group.
+- **All or nothing.** One transaction. A line without a link, a slug that isn't an item, a quantity or a count over its limit, or a capacity that would be passed (the being and each new container are measured, [ADR 0128](../adr/0128-capacity-and-moving-anyway.md)) refuses the whole pack, naming what's wrong; a GM's `override` skips capacity. `?dry_run=true` does all of it and rolls it back.
+- **Recorded** as one `item_instance.created` per instance, with the pack's id, and one change-feed call, so each holder hears what they received. `lorenzo pack give` still hands a pack out client-side until the CLI moves onto the route.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
