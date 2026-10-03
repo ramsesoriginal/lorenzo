@@ -10,9 +10,12 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lorenzo_cli.importer.plan import ImportPlan, PlannedItem
+
+if TYPE_CHECKING:
+    from lorenzo_cli.importer.apply import ApplyReport
 
 
 def _issue_dict(item: PlannedItem) -> list[dict[str, str]]:
@@ -108,6 +111,25 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
             }
             for item in plan.items
         ],
+    }
+
+
+def apply_json(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -> dict[str, Any]:
+    """What `apply --json` prints (ADR 0156): the plan as `plan --json` gives it, and what was
+    written, which is `None` when nothing was."""
+    return {
+        "plan": plan_json(plan),
+        "applied": None
+        if report is None
+        else {
+            "created": report.created,
+            "completed": report.completed,
+            "reparented": report.reparented,
+            "categories": report.categories,
+            "definitions": report.definitions,
+        },
+        "failures": [] if report is None else list(report.failures),
+        "unresolved": unresolved,
     }
 
 

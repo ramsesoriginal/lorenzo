@@ -113,7 +113,8 @@ def test_an_api_error_shows_its_detail_and_status(tmp_path: Path) -> None:
 def test_no_api_url_is_refused_before_any_request(tmp_path: Path) -> None:
     seen: list[httpx.Request] = []
     rt = runtime(tmp_path, seen)
-    rt.env = {"LORENZO_TOKEN": "tok"}
+    # Another issuer named: no official default is filled in around it (ADR 0164).
+    rt.env = {"LORENZO_TOKEN": "tok", "LORENZO_AUTHGEAR_ISSUER": "https://other.example"}
     result = runner.invoke(app, ["tenant", "show", TENANT_ID], obj=rt)
 
     assert result.exit_code == 1

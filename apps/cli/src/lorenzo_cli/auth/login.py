@@ -156,10 +156,11 @@ def run_login(
 ) -> StoredLogin:
     if not settings.issuer or not settings.client_id:
         raise LoginError(
-            "No Authgear client is configured for the CLI. Register a public client on the "
-            "Authgear project (docs/operations/local-authgear-setup.md), then set "
-            "LORENZO_AUTHGEAR_ISSUER and LORENZO_AUTHGEAR_CLIENT_ID. Until then, use "
-            "LORENZO_TOKEN or --token-stdin."
+            "Both the issuer and the client id of the Authgear client are needed: pass --issuer "
+            "and --client-id once (login remembers them) or set LORENZO_AUTHGEAR_ISSUER and "
+            "LORENZO_AUTHGEAR_CLIENT_ID. Naming one of the three settings (API URL, issuer, "
+            "client id) other than the official Lorenzo's turns the official defaults off. "
+            "Or use LORENZO_TOKEN or --token-stdin."
         )
     try:
         endpoints = oidc.discover(settings.issuer, http_client)

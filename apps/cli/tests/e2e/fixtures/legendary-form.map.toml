@@ -1,0 +1,9 @@
+schema = 1
+
+# Homebrew "Legendary" weapons as a form of their own, under the core `physical-object` root:
+# the one axis root that lives in the core repository once the D&D layer is split out (ADR 0162).
+[classify.weapons.type]
+legendary = { disposition = "create-under", axis = "form", slug = "hb-legendary-form", name = "Legendary weapon" }
+
+[attributes.weapons]
+flavour = "drop"

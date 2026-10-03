@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import sys
@@ -9,14 +10,17 @@ import tomllib
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, TextIO
+from urllib.parse import urlsplit
 
 import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from lorenzo_cli import rawapi, repo_report, repos
 from lorenzo_cli.auth import store as credentials
 from lorenzo_cli.auth.login import LoginError, run_login
 from lorenzo_cli.auth.store import CredentialsFile
@@ -26,12 +30,29 @@ from lorenzo_cli.client.errors import (
     LorenzoConnectionError,
     LorenzoResponseError,
 )
-from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut
-from lorenzo_cli.client.ops import CREATE_TENANT
+from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut, TenantSummaryOut
+from lorenzo_cli.client.ops import (
+    CREATE_TENANT,
+    GET_ME,
+    GRANT_REPOSITORY,
+    LIST_REPOSITORY_UPDATES,
+    LIST_TENANTS,
+    PLAN_REPOSITORY_COPY,
+    PUBLISH_REPOSITORY,
+    REVOKE_REPOSITORY,
+    UNPUBLISH_REPOSITORY,
+)
+from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
-from lorenzo_cli.config import ConfigError, Settings, load_settings
+from lorenzo_cli.config import (
+    ConfigError,
+    Settings,
+    SettingsFile,
+    default_config_path,
+    load_settings,
+)
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
-from lorenzo_cli.importer.apply import ApplyOptions, apply_import
+from lorenzo_cli.importer.apply import ApplyOptions, ApplyReport, apply_import
 from lorenzo_cli.importer.give import (
     PackError,
     count_instances,
@@ -41,7 +62,12 @@ from lorenzo_cli.importer.give import (
 from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.mapping import MappingError
 from lorenzo_cli.importer.plan import ImportPlan, Options
-from lorenzo_cli.importer.review import plan_json, proposed_map, write_review_queue
+from lorenzo_cli.importer.review import (
+    apply_json,
+    plan_json,
+    proposed_map,
+    write_review_queue,
+)
 from lorenzo_cli.importer.run import prepare
 from lorenzo_cli.importer.teach import ask, rows_toml, unknown_values
 from lorenzo_cli.report import (
@@ -51,6 +77,7 @@ from lorenzo_cli.report import (
     print_seed_plan,
     seed_plan_json,
 )
+from lorenzo_cli.repos import RepoError
 from lorenzo_cli.seed import LAYERS, apply_plan, load_builtin, make_plan, read_state
 from lorenzo_cli.tenants import (
     TenantNotFoundError,
@@ -63,15 +90,24 @@ app = typer.Typer(
     name="lorenzo",
     help="The Lorenzo command line.",
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
 )
-tenant_app = typer.Typer(help="Read or create a tenant.", no_args_is_help=True)
+tenant_app = typer.Typer(help="List, read or create a tenant.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
 pack_app = typer.Typer(help="Hand out an imported pack.", no_args_is_help=True)
 app.add_typer(pack_app, name="pack")
+repo_app = typer.Typer(
+    help="Publish a repository, grant it, copy it into a tenant, and take its updates.",
+    no_args_is_help=True,
+)
+app.add_typer(repo_app, name="repo")
 
 _out = Console()
 _err = Console(stderr=True)
+
+
+def _warn(message: str) -> None:
+    _err.print(f"[yellow]{message}[/yellow]")
 
 
 @dataclass
@@ -88,6 +124,8 @@ class Runtime:
     engine: Engine = field(default_factory=WorkerEngine)
     api_url: str | None = None
     token_stdin: bool = False
+    # What `login` remembered (ADR 0157); None means there is no file to read, as in most tests.
+    config: SettingsFile | None = None
 
     @property
     def interactive(self) -> bool:
@@ -97,7 +135,20 @@ class Runtime:
 
     @property
     def settings(self) -> Settings:
-        return load_settings(self.env, api_url=self.api_url)
+        return self.resolve_settings()
+
+    def resolve_settings(
+        self, *, issuer: str | None = None, client_id: str | None = None
+    ) -> Settings:
+        """Flag, then environment, then the remembered file (ADR 0157)."""
+        remembered = self.config.load(warn=_warn) if self.config else {}
+        return load_settings(
+            self.env,
+            api_url=self.api_url,
+            issuer=issuer,
+            client_id=client_id,
+            remembered=remembered,
+        )
 
 
 def default_runtime() -> Runtime:
@@ -106,18 +157,40 @@ def default_runtime() -> Runtime:
         env=env,
         stdin=sys.stdin,
         store=CredentialsFile(Path(credentials.default_path(env))),
+        config=SettingsFile(default_config_path(env)),
     )
+
+
+def _show_version(show: bool) -> None:
+    """Answer `--version` before anything else is read: no login, no API URL, no network."""
+    if not show:
+        return
+    try:
+        installed = importlib.metadata.version("lorenzo-cli")
+    except importlib.metadata.PackageNotFoundError:
+        installed = "unknown (not installed as a package)"
+    typer.echo(f"lorenzo {installed}")
+    raise typer.Exit()
 
 
 @app.callback()
 def main(
     ctx: typer.Context,
     api_url: Annotated[
-        str | None, typer.Option("--api-url", help="The API's base URL (or LORENZO_API_URL).")
+        str | None,
+        typer.Option(
+            "--api-url", help="The API's base URL (or LORENZO_API_URL; `login` remembers it)."
+        ),
     ] = None,
     token_stdin: Annotated[
         bool,
         typer.Option("--token-stdin", help="Read the access token from the first line of stdin."),
+    ] = False,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version", callback=_show_version, is_eager=True, help="Show the version and exit."
+        ),
     ] = False,
 ) -> None:
     if ctx.obj is None:
@@ -145,17 +218,20 @@ def _reporting_errors() -> Iterator[None]:
         TenantNotFoundError,
         LorenzoConnectionError,
         LorenzoResponseError,
+        RepoError,
     ) as exc:
         _err.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc
     except LorenzoApiError as exc:
-        _err.print(f"[red]{exc} (HTTP {exc.status})[/red]")
+        _err.print(f"[red]{repos.in_words(exc)} (HTTP {exc.status})[/red]", highlight=False)
         raise typer.Exit(1) from exc
 
 
 @contextmanager
-def _client(runtime: Runtime) -> Iterator[LorenzoClient]:
-    base_url = runtime.settings.require_api_url()
+def _client(runtime: Runtime, *, writes: bool = False) -> Iterator[LorenzoClient]:
+    """The API client; a command that writes says so when it is the official default (ADR 0164)."""
+    settings = runtime.settings
+    base_url = settings.require_api_url()
     with httpx.Client(transport=runtime.transport, timeout=30.0) as auth_http:
         tokens = resolve_token_source(
             token_stdin=runtime.token_stdin,
@@ -164,6 +240,10 @@ def _client(runtime: Runtime) -> Iterator[LorenzoClient]:
             store=runtime.store,
             http=auth_http,
         )
+        if writes and settings.defaulted:
+            _err.print(
+                f"Using the official Lorenzo at {base_url}.", highlight=False, soft_wrap=True
+            )
         with LorenzoClient(base_url, tokens, transport=runtime.transport) as client:
             yield client
 
@@ -194,6 +274,40 @@ def _print_tenant(found: TenantOut, as_json: bool) -> None:
     _out.print(table)
 
 
+@tenant_app.command("list")
+def tenant_list(
+    ctx: typer.Context,
+    kind: Annotated[
+        TenantKind | None,
+        typer.Option("--kind", help="Only repositories, or only play tenants."),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the tenants as JSON.")] = False,
+) -> None:
+    """List the tenants you belong to, with each one's kind and your role in it."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        rows = list(
+            all_items(
+                client,
+                LIST_TENANTS,
+                query={"kind": kind.value if kind else None},
+                of=TenantSummaryOut,
+            )
+        )
+    if as_json:
+        typer.echo(json.dumps([row.model_dump(mode="json") for row in rows], indent=2))
+        return
+    if not rows:
+        _out.print("You don't belong to any tenant yet. `lorenzo tenant create` makes one.")
+        return
+    table = Table(box=None, pad_edge=False)
+    for heading in ("slug", "name", "kind", "role"):
+        table.add_column(heading)
+    for row in rows:
+        table.add_row(row.slug, row.name, row.kind.value, row.role.value)
+    _out.print(table)
+
+
 @tenant_app.command("create")
 def tenant_create(
     ctx: typer.Context,
@@ -218,12 +332,62 @@ def tenant_create(
     to import into.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         body = TenantCreate(name=name, slug=slug, description=description, kind=kind)
         created = client.call(CREATE_TENANT, body=body).value
     _print_tenant(created, as_json)
     if not as_json and created.kind == TenantKind.repository:
         _out.print(f"Next: lorenzo seed --tenant {created.slug}")
+
+
+def _require_address(name: str, value: str | None) -> None:
+    """A remembered address has to look like one, or the next run would fail far from the cause."""
+    if value is None:
+        return
+    parsed = urlsplit(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ConfigError(f"{name} “{value}” isn't an address: it should start with https://")
+
+
+def _signing_in(settings: Settings) -> str:
+    """Where `login` is about to sign in and for which API, before anything opens (ADR 0164)."""
+    where = f"Signing in at {settings.issuer}"
+    if settings.api_url:
+        where += f", for the API at {settings.api_url}"
+    return where + (" (the official Lorenzo)." if settings.defaulted else ".")
+
+
+def _remember(runtime: Runtime, settings: Settings) -> None:
+    """After a login that worked, keep the three settings it used for the next one (ADR 0157)."""
+    if runtime.config is None:
+        return
+    if settings.defaulted:
+        # The official set is never kept: a copy would outlive the defaults it came from.
+        if runtime.config.delete():
+            _out.print(
+                f"Forgot the settings remembered in {runtime.config.path}: "
+                "the official Lorenzo is the default again."
+            )
+        return
+    used = {
+        key: value
+        for key, value in (
+            ("api_url", settings.api_url),
+            ("issuer", settings.issuer),
+            ("client_id", settings.client_id),
+        )
+        if value
+    }
+    before = runtime.config.load()
+    if all(before.get(key) == value for key, value in used.items()):
+        return
+    runtime.config.save(used)
+    _out.print(
+        f"Remembered the {', '.join(_SETTING_NAMES[k] for k in used)} in {runtime.config.path}."
+    )
+
+
+_SETTING_NAMES = {"api_url": "API URL", "issuer": "issuer", "client_id": "client id"}
 
 
 @app.command()
@@ -235,27 +399,91 @@ def login(
             "--no-browser", help="Print the address and paste the redirect back (WSL, SSH)."
         ),
     ] = False,
+    issuer: Annotated[
+        str | None,
+        typer.Option("--issuer", help="The Authgear issuer (or LORENZO_AUTHGEAR_ISSUER)."),
+    ] = None,
+    client_id: Annotated[
+        str | None,
+        typer.Option(
+            "--client-id", help="The Authgear client's id (or LORENZO_AUTHGEAR_CLIENT_ID)."
+        ),
+    ] = None,
 ) -> None:
-    """Sign in and store the login."""
+    """Sign in and store the login, and remember the API URL, issuer and client id it used."""
     runtime: Runtime = ctx.obj
     with (
         _reporting_errors(),
         httpx.Client(transport=runtime.transport, timeout=30.0) as http_client,
     ):
+        settings = runtime.resolve_settings(issuer=issuer, client_id=client_id)
+        _require_address("The API URL", settings.api_url)
+        _require_address("The issuer", settings.issuer)
+        if settings.issuer:
+            _out.print(_signing_in(settings), highlight=False, soft_wrap=True)
         run_login(
-            runtime.settings,
+            settings,
             no_browser=no_browser,
             http_client=http_client,
             store=runtime.store,
             echo=_out.print,
             read_line=lambda prompt: typer.prompt(prompt, prompt_suffix=""),
         )
+        _remember(runtime, settings)
     _out.print("Signed in.")
+
+
+def _token_origin(runtime: Runtime) -> str:
+    """Where the token came from, in the order ADR 0137 fixes."""
+    if runtime.token_stdin:
+        return "--token-stdin"
+    if runtime.env.get("LORENZO_TOKEN"):
+        return "LORENZO_TOKEN"
+    return "the stored login"
+
+
+@app.command()
+def whoami(
+    ctx: typer.Context,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print what the API says as JSON.")
+    ] = False,
+) -> None:
+    """Ask the API who the token you would use belongs to: a check that a login works."""
+    runtime: Runtime = ctx.obj
+    origin = _token_origin(runtime)
+    with _reporting_errors(), _client(runtime) as client:
+        try:
+            me = client.call(GET_ME).value
+        except LorenzoApiError as exc:
+            if exc.status == 401:
+                raise LorenzoApiError(
+                    f"The API didn't accept the token from {origin}. Run `lorenzo login` again, "
+                    "or check LORENZO_TOKEN.",
+                    exc.status,
+                    exc.problem,
+                ) from exc
+            raise
+    if as_json:
+        typer.echo(me.model_dump_json(indent=2))
+        return
+    table = Table(show_header=False, box=None)
+    table.add_row("user", str(me.id))
+    name = me.display_name or me.nickname
+    if name:
+        table.add_row("name", name)
+    if me.email:
+        table.add_row("email", me.email)
+    settings = runtime.settings
+    table.add_row("api", f"{settings.api_url}{' (the default)' if settings.defaulted else ''}")
+    table.add_row("token", origin)
+    table.add_row("tenants", str(len(me.memberships)))
+    _out.print(table)
 
 
 @app.command()
 def logout(ctx: typer.Context) -> None:
-    """Forget the stored login."""
+    """Forget the stored login (the API URL, issuer and client id it remembered stay)."""
     runtime: Runtime = ctx.obj
     removed = runtime.store.delete()
     _out.print("Signed out." if removed else "There was no stored login.")
@@ -332,7 +560,7 @@ def seed(
     if unknown:
         raise typer.BadParameter(f"{', '.join(unknown)}: choose from {', '.join(LAYERS)}")
     spec = load_builtin()
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
         require_repository(target, allow_play=allow_play_tenant)
         state = read_state(client, target.id, spec)
@@ -341,6 +569,12 @@ def seed(
             typer.echo(json.dumps(seed_plan_json(plan), indent=2))
         else:
             print_seed_plan(_out, plan)
+            if layers is None and plan.actions:
+                _err.print(
+                    "[dim]Both layers are going into this one repository, which is fine for your "
+                    "own use. To publish core and D&D 5e as separate repositories, seed --layer "
+                    "core and --layer dnd5e into separate ones (README, ADR 0162).[/dim]"
+                )
         if plan.problems:
             raise typer.Exit(1)
         if dry_run:
@@ -581,6 +815,14 @@ def apply(
     state: StateOption = None,
     review_queue: ReviewOption = Path("review-queue.json"),
     proposed_map_file: ProposedOption = Path("proposed.map.toml"),
+    as_json: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Print one JSON document: the plan, what was written, what failed. Never asks, "
+            "so it needs --yes to write.",
+        ),
+    ] = False,
 ) -> None:
     """Import these files: what the plan says, and nothing it holds back for review.
 
@@ -588,22 +830,35 @@ def apply(
     unresolved or failed.
     """
     runtime: Runtime = ctx.obj
+    if as_json and teach:
+        raise typer.BadParameter("--json never asks, so it can't be used with --teach.")
     args = ImportArgs(
         tenant, files, base, map_file, allow_play_tenant,
         Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
     )  # fmt: skip
-    with _reporting_errors(), _client(runtime) as client:
+
+    def emit(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -> None:
+        if as_json:
+            typer.echo(
+                json.dumps(apply_json(plan, report, unresolved), indent=2, ensure_ascii=False)
+            )
+
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         result, manifest, taught = _prepare_plan(runtime, client, args)
-        print_import_plan(_out, result, strict=strict)
+        if not as_json:
+            print_import_plan(_out, result, strict=strict)
         _write_review_files(result, review_queue, proposed_map_file)
         if result.problems:
+            emit(result, None, True)
             raise typer.Exit(1)
         unresolved = import_exit_code(result, strict=strict, reconcile=False) == 1
         if not result.pending and not (reconcile and result.reparent_count):
+            emit(result, None, unresolved)
             raise typer.Exit(1 if unresolved else 0)
         if not yes:
-            if not runtime.interactive:
+            if as_json or not runtime.interactive:
                 _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
+                emit(result, None, unresolved)
                 raise typer.Exit(1)
             if not typer.confirm("Import these?"):
                 raise typer.Exit(1)
@@ -615,6 +870,12 @@ def apply(
             progress=lambda line: _err.print(line, highlight=False, style="dim"),
         )
         manifest.save()
+    failed = bool(unresolved or report.failures)
+    if as_json:
+        emit(result, report, unresolved)
+        for failure in report.failures:
+            _err.print(f"[red]{failure}[/red]")
+        raise typer.Exit(1 if failed else 0)
     _out.print(
         f"Created {report.created}, finished {report.completed}, re-parented {report.reparented}; "
         f"{report.categories} new categories, {report.definitions} new stat definitions."
@@ -623,7 +884,7 @@ def apply(
         _err.print(f"[red]{failure}[/red]")
     if not report.failures:
         _save_taught(runtime, taught, map_file, proposed_map_file)
-    raise typer.Exit(1 if (unresolved or report.failures) else 0)
+    raise typer.Exit(1 if failed else 0)
 
 
 def _inputs(files: list[Path] | None, base: list[Path] | None) -> list[Path]:
@@ -661,6 +922,9 @@ def pack_give(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Say what would be made, and make nothing.")
     ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print what the API made (or would make) as JSON.")
+    ] = False,
 ) -> None:
     """Hand a pack out: its containers, and what is inside them, with quantities.
 
@@ -668,10 +932,633 @@ def pack_give(
     everything in one go or nothing at all.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
         given = give_pack(client, target.id, pack, owner, override=override, dry_run=dry_run)
+    if as_json:
+        typer.echo(given.model_dump_json(indent=2))
+        return
     for line in tree_lines(given):
         _out.print(line, highlight=False)
     verb = "Would give" if dry_run else "Gave"
     _out.print(f"{verb} {count_instances(given)} item(s).")
+
+
+@app.command("api")
+def api_request(
+    ctx: typer.Context,
+    method: Annotated[str, typer.Argument(help="GET, POST, PUT, PATCH or DELETE.")],
+    path: Annotated[
+        str, typer.Argument(help="A path on the API, like /tenants. Never a full address.")
+    ],
+    data: Annotated[
+        str | None,
+        typer.Option(
+            "--data", "-d", help="The JSON body: text, @file, or - for stdin (POST, PUT, PATCH)."
+        ),
+    ] = None,
+    query: Annotated[
+        list[str] | None,
+        typer.Option("--query", "-q", help="A query parameter, KEY=VALUE. Repeat for more."),
+    ] = None,
+    if_match: Annotated[
+        str | None,
+        typer.Option("--if-match", help="Send If-Match: an ETag from an earlier read."),
+    ] = None,
+    include: Annotated[
+        bool,
+        typer.Option("--include", "-i", help="Print the status line and the headers first."),
+    ] = False,
+    paginate: Annotated[
+        bool,
+        typer.Option("--paginate", help="GET only: walk every page and print one array of items."),
+    ] = False,
+    raw: Annotated[bool, typer.Option("--raw", help="Print the body exactly as it came.")] = False,
+) -> None:
+    """Make one authenticated request to the API, and print its answer.
+
+    The body goes to stdout. Exit 0 for a 2xx answer, 1 for anything else (the API's own
+    explanation is still printed, and its status goes to stderr).
+    """
+    runtime: Runtime = ctx.obj
+    try:
+        verb = rawapi.check_method(method)
+        target = rawapi.check_path(path)
+        pairs = rawapi.parse_query(query or [])
+        if paginate and verb != "GET":
+            raise rawapi.RequestUsageError("--paginate only walks a GET.", "--paginate")
+        if paginate and include:
+            raise rawapi.RequestUsageError(
+                "--include shows one response; --paginate makes many.", "--paginate"
+            )
+        body = rawapi.read_body(data, verb, runtime.stdin)
+    except rawapi.RequestUsageError as exc:
+        raise typer.BadParameter(str(exc), param_hint=exc.hint) from exc
+
+    with _reporting_errors(), _client(runtime, writes=verb != "GET") as client:
+        items: list[object] | None = None
+        if paginate:
+            response, items = rawapi.paginate(client, target, query=pairs)
+        else:
+            response = rawapi.send(client, verb, target, query=pairs, body=body, if_match=if_match)
+
+    if include:
+        typer.echo(rawapi.status_line(response))
+        for line in rawapi.header_lines(response):
+            typer.echo(line)
+        typer.echo("")
+    if items is not None:
+        typer.echo(json.dumps(items, indent=2, ensure_ascii=False))
+    elif response.content:
+        typer.echo(response.content if raw else rawapi.pretty(response.content), nl=False)
+    if response.is_error:
+        _err.print(f"[red]{rawapi.failure_summary(response)}[/red]", highlight=False)
+        raise typer.Exit(1)
+
+
+# --- lorenzo repo (ADR 0159, 0160) ------------------------------------------------------------
+
+
+class OnCollision(StrEnum):
+    merge = "merge"
+    skip = "skip"
+
+
+class Again(StrEnum):
+    keep = "keep"
+    purge = "purge"
+
+
+RepositoryTenant = Annotated[
+    str,
+    typer.Option("--tenant", "-t", envvar="LORENZO_TENANT", help="The repository: its id or slug."),
+]
+DrawingTenant = Annotated[
+    str,
+    typer.Option(
+        "--tenant",
+        "-t",
+        envvar="LORENZO_TENANT",
+        help="The tenant that draws on the repository, and copies it: its id or slug.",
+    ),
+]
+RepositoryArgument = Annotated[
+    str,
+    typer.Argument(help="The repository: its id, or its slug among those granted to or copied."),
+]
+JsonOption = Annotated[bool, typer.Option("--json", help="Print the answer as JSON.")]
+YesOption = Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")]
+OnCollisionOption = Annotated[
+    OnCollision | None,
+    typer.Option(
+        "--on-collision",
+        help="Answer every name already in use here that allows it: merge into the local one, or "
+        "skip. A slug can only be skipped or renamed.",
+    ),
+]
+ChoicesOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--choices",
+        exists=True,
+        dir_okay=False,
+        help="A JSON file of choices (kind, source_id, action, name), as copy-plan --json lists "
+        "the collisions.",
+    ),
+]
+
+
+def _may_write(runtime: Runtime, *, yes: bool, as_json: bool, prompt: str) -> None:
+    """Ask before writing, unless told not to; never with --json, or when nobody can answer."""
+    if yes:
+        return
+    if as_json or not runtime.interactive:
+        _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
+        raise typer.Exit(1)
+    if not typer.confirm(prompt):
+        raise typer.Exit(1)
+
+
+def _echo_json(value: object) -> None:
+    typer.echo(json.dumps(value, indent=2, ensure_ascii=False))
+
+
+@repo_app.command("publish")
+def repo_publish(ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False) -> None:
+    """Publish a repository, or announce an update to one already published.
+
+    Only its owners can. Until the first publish no tenant it is granted to can see anything of
+    it; publishing again tells each of them it has changed.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="published")
+        was_published = repository.published_at is not None
+        published = client.call(PUBLISH_REPOSITORY, path={"tenant_id": repository.id}).value
+    if as_json:
+        typer.echo(published.model_dump_json(indent=2))
+        return
+    if was_published:
+        _out.print(
+            f"Published an update to {published.slug}: every tenant it is granted to has been told."
+        )
+    else:
+        _out.print(f"{published.slug} is published. Tenants it is granted to have been told.")
+
+
+@repo_app.command("unpublish")
+def repo_unpublish(
+    ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
+) -> None:
+    """Back to a draft: nobody it is granted to can browse it, copy it or check its updates.
+
+    What they already copied stays theirs.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="unpublished")
+        withdrawn = client.call(UNPUBLISH_REPOSITORY, path={"tenant_id": repository.id}).value
+    if as_json:
+        typer.echo(withdrawn.model_dump_json(indent=2))
+        return
+    _out.print(f"{withdrawn.slug} is a draft again. Copies tenants already made stay theirs.")
+
+
+@repo_app.command("grant")
+def repo_grant(
+    ctx: typer.Context,
+    subscriber: Annotated[
+        str,
+        typer.Argument(help="The tenant to give access to: its id, or its slug if it is yours."),
+    ],
+    tenant: RepositoryTenant,
+    as_json: JsonOption = False,
+) -> None:
+    """Give a tenant access to a repository. Only its owners can; the tenant's members are told.
+
+    A tenant that isn't yours can only be named by its id, which its members can give you.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="granted")
+        subscriber_id = repos.resolve_subscriber_to_grant(client, subscriber)
+        reply = client.call(
+            GRANT_REPOSITORY,
+            path={"tenant_id": repository.id, "subscriber_tenant_id": subscriber_id},
+        )
+    granted = reply.value
+    if as_json:
+        typer.echo(granted.model_dump_json(indent=2))
+        return
+    if reply.status != 201:
+        _out.print(f"{granted.slug} already had access to {repository.slug}.")
+        return
+    _out.print(f"Granted {repository.slug} to {granted.slug}; its members have been told.")
+    if repository.published_at is None:
+        _out.print(
+            f"It isn't published yet, so nothing is visible to them: "
+            f"lorenzo repo publish --tenant {repository.slug}"
+        )
+
+
+@repo_app.command("revoke")
+def repo_revoke(
+    ctx: typer.Context,
+    subscriber: Annotated[str, typer.Argument(help="The tenant: its id or slug, as listed.")],
+    tenant: RepositoryTenant,
+    as_json: JsonOption = False,
+) -> None:
+    """Take a tenant's access back. What it already copied stays its own."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="revoked")
+        held = repos.resolve_subscriber_to_revoke(client, repository.id, subscriber)
+        client.call(
+            REVOKE_REPOSITORY,
+            path={"tenant_id": repository.id, "subscriber_tenant_id": held.tenant_id},
+        )
+    if as_json:
+        _echo_json({"revoked": held.model_dump(mode="json")})
+        return
+    _out.print(f"{held.slug} can no longer reach {repository.slug}. What it copied stays its own.")
+
+
+@repo_app.command("subscribers")
+def repo_subscribers(
+    ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
+) -> None:
+    """List the tenants a repository is granted to, with each one's id."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="granted")
+        rows = repos.list_subscribers(client, repository.id)
+    if as_json:
+        _echo_json([row.model_dump(mode="json") for row in rows])
+        return
+    repo_report.print_subscribers(_out, rows)
+
+
+@repo_app.command("list")
+def repo_list(ctx: typer.Context, tenant: DrawingTenant, as_json: JsonOption = False) -> None:
+    """List the repositories granted to a tenant or copied by it, and whether any has changed."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        drawing = resolve_tenant(client, tenant)
+        rows = repos.list_repositories(client, drawing.id)
+    if as_json:
+        _echo_json([row.model_dump(mode="json") for row in rows])
+        return
+    repo_report.print_repositories(_out, rows, drawing.slug)
+
+
+@repo_app.command("copy-plan")
+def repo_copy_plan(
+    ctx: typer.Context,
+    repository: RepositoryArgument,
+    tenant: DrawingTenant,
+    as_json: JsonOption = False,
+) -> None:
+    """Say what copying a repository into a tenant would do, and write nothing.
+
+    Exit codes: 0 the copy could go ahead as it stands, 2 it needs a choice for some names, 1 it
+    would be refused (not granted, not published, or already copied).
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        drawing = resolve_tenant(client, tenant)
+        repository_id = repos.resolve_repository(client, drawing, repository)
+        plan = client.call(
+            PLAN_REPOSITORY_COPY, path={"tenant_id": drawing.id, "repository_id": repository_id}
+        ).value
+    code = repos.copy_plan_exit_code(plan, repository_id)
+    if as_json:
+        typer.echo(plan.model_dump_json(indent=2))
+        raise typer.Exit(code)
+    repo_report.print_copy_plan(_out, plan)
+    for blocker in repos.copy_plan_blockers(plan, repository_id):
+        _out.print(f"[red]{blocker}[/red]")
+    if code == 2:
+        _out.print(
+            "Give a choice for each with `lorenzo repo copy --choices FILE`, or answer them all "
+            "with --on-collision merge|skip."
+        )
+    raise typer.Exit(code)
+
+
+@repo_app.command("copy")
+def repo_copy(
+    ctx: typer.Context,
+    repository: RepositoryArgument,
+    tenant: DrawingTenant,
+    on_collision: OnCollisionOption = None,
+    choices: ChoicesOption = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Do every check and say what would be copied.")
+    ] = False,
+    again: Annotated[
+        Again | None,
+        typer.Option(
+            "--again",
+            help="Copy afresh a repository already copied: keep leaves the earlier copy as the "
+            "tenant's own rows, purge deletes what it created and what hangs off it.",
+        ),
+    ] = None,
+    yes: YesOption = False,
+    as_json: JsonOption = False,
+) -> None:
+    """Copy a repository into a tenant: its content becomes the tenant's own.
+
+    A name already in use here needs a choice (rename, merge or skip) before anything is written;
+    one that has none stops it with nothing copied (exit 2). Exit 1 if it is refused.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
+        explicit = repos.read_choices(choices) if choices else []
+        drawing = resolve_tenant(client, tenant)
+        repository_id = repos.resolve_repository(client, drawing, repository)
+        name = repos.repository_name(client, drawing, repository_id)
+        if not dry_run and not yes:
+            if not as_json and again is None:
+                plan = client.call(
+                    PLAN_REPOSITORY_COPY,
+                    path={"tenant_id": drawing.id, "repository_id": repository_id},
+                ).value
+                repo_report.print_copy_plan(_out, plan)
+            prompt = f"Copy {name} into {drawing.slug}?"
+            if again == Again.purge:
+                prompt = (
+                    "This deletes what the earlier copy created, and whatever hangs off it in "
+                    f"{drawing.slug}. --dry-run shows how much. Copy {name} afresh?"
+                )
+            _may_write(runtime, yes=yes, as_json=as_json, prompt=prompt)
+        outcome = repos.copy_with_choices(
+            client,
+            drawing.id,
+            repository_id,
+            explicit=explicit,
+            on_collision=on_collision.value if on_collision else None,
+            dry_run=dry_run,
+            again=again.value if again else None,
+        )
+    if isinstance(outcome, repos.NeedsChoices):
+        if as_json:
+            _echo_json({"open_collisions": [c.model_dump(mode="json") for c in outcome.collisions]})
+        else:
+            _out.print(
+                "Nothing was copied: these names are already in use here, and need a choice."
+            )
+            repo_report.print_collisions(_out, outcome.collisions)
+            _out.print("Use --choices FILE, or --on-collision merge|skip.")
+        raise typer.Exit(2)
+    if as_json:
+        typer.echo(outcome.model_dump_json(indent=2))
+        return
+    repo_report.print_copy_result(_out, outcome)
+
+
+@repo_app.command("updates")
+def repo_updates(
+    ctx: typer.Context,
+    repository: RepositoryArgument,
+    tenant: DrawingTenant,
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Take what needs no decision: changes that don't touch your own edits, and "
+            "additions that collide with nothing.",
+        ),
+    ] = False,
+    actions: Annotated[
+        Path | None,
+        typer.Option(
+            "--actions",
+            exists=True,
+            dir_okay=False,
+            help="A JSON file of the API's own actions (apply with keep_local and take_upstream, "
+            "add with a resolution, detach), to decide row by row.",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="With --apply or --actions: apply it all, then roll back."),
+    ] = False,
+    yes: YesOption = False,
+    as_json: JsonOption = False,
+) -> None:
+    """Show what a copied repository changed since the copy, row by row; or take it.
+
+    Alone it only shows (exit 0 nothing new, 2 there is something). With --apply or --actions it
+    writes, in one transaction. A change to something you also changed is never taken without your
+    naming it.
+    """
+    runtime: Runtime = ctx.obj
+    if apply and actions is not None:
+        raise typer.BadParameter("--apply and --actions can't be used together.")
+    if dry_run and not (apply or actions):
+        raise typer.BadParameter("--dry-run is for --apply or --actions.")
+    writes = (apply or actions is not None) and not dry_run
+    with _reporting_errors(), _client(runtime, writes=writes) as client:
+        explicit = repos.read_actions(actions) if actions else None
+        drawing = resolve_tenant(client, tenant)
+        repository_id = repos.resolve_repository(client, drawing, repository)
+        updates = client.call(
+            LIST_REPOSITORY_UPDATES,
+            path={"tenant_id": drawing.id, "repository_id": repository_id},
+        ).value
+        if not (apply or actions):
+            if as_json:
+                typer.echo(updates.model_dump_json(indent=2))
+            else:
+                name = repos.repository_name(client, drawing, repository_id)
+                repo_report.print_updates(_out, name, updates)
+                if repos.updates_waiting(updates):
+                    _out.print(
+                        f"`lorenzo repo updates {repository} --tenant {drawing.slug} --apply` "
+                        "takes what needs no decision."
+                    )
+            raise typer.Exit(2 if repos.updates_waiting(updates) else 0)
+        chosen = repos.clean_updates(updates)
+        wanted = explicit if explicit is not None else chosen.actions
+        if not wanted:
+            result = None
+        else:
+            if not dry_run and not yes:
+                if not as_json:
+                    name = repos.repository_name(client, drawing, repository_id)
+                    repo_report.print_updates(_out, name, updates)
+                _may_write(
+                    runtime,
+                    yes=yes,
+                    as_json=as_json,
+                    prompt=f"Take {len(wanted)} update(s) into {drawing.slug}?",
+                )
+            result = repos.apply_updates(client, drawing.id, repository_id, wanted, dry_run=dry_run)
+    left = chosen.left and explicit is None
+    if as_json:
+        _echo_json(
+            {
+                "result": result.model_dump(mode="json") if result else None,
+                "left": {
+                    "conflicts": [
+                        {"kind": r.kind.value, "source_id": str(r.source_id), "name": r.name}
+                        for r in chosen.conflicts
+                    ],
+                    "collisions": [
+                        {"kind": a.kind.value, "source_id": str(a.source_id), "name": a.name}
+                        for a in chosen.collisions
+                    ],
+                    "removed": chosen.removed,
+                }
+                if explicit is None
+                else None,
+            }
+        )
+    else:
+        if result is None:
+            _out.print("Nothing to take that needs no decision.")
+        else:
+            repo_report.print_applied(_out, result)
+        if explicit is None:
+            repo_report.print_left_for_a_decision(_out, chosen)
+    raise typer.Exit(2 if left else 0)
+
+
+@repo_app.command("offer")
+def repo_offer(
+    ctx: typer.Context,
+    subscriber: Annotated[
+        str,
+        typer.Argument(help="The tenant to offer it to: its id, or its slug if it is yours."),
+    ],
+    tenant: RepositoryTenant,
+    on_collision: OnCollisionOption = None,
+    choices: ChoicesOption = None,
+    apply_updates: Annotated[
+        bool,
+        typer.Option(
+            "--apply-updates",
+            help="If the tenant already has a copy, take the updates that need no decision.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Write nothing, the grant included; say what would be done."
+        ),
+    ] = False,
+    yes: YesOption = False,
+    as_json: JsonOption = False,
+) -> None:
+    """Offer a repository to a tenant: grant it, then copy it in. Safe to run again.
+
+    For whoever owns the repository and belongs to the tenant. It refuses a repository that isn't
+    published, grants (an existing grant is fine), and copies; a tenant that already has a copy is
+    a success. Exit 2 if names need a choice, or with --dry-run if there is something to do.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
+        explicit = repos.read_choices(choices) if choices else []
+        repository = resolve_tenant(client, tenant)
+        receiving = resolve_tenant(client, subscriber)
+        state = repos.read_offer_state(client, repository, receiving)
+        if dry_run:
+            _offer_dry_run(client, state, apply_updates=apply_updates, as_json=as_json)
+            return
+        if not as_json:
+            repo_report.print_offer_state(_out, state)
+        if state.steps or apply_updates:
+            _may_write(
+                runtime,
+                yes=yes,
+                as_json=as_json,
+                prompt=f"Offer {repository.slug} to {receiving.slug}?",
+            )
+        result = repos.perform_offer(
+            client,
+            state,
+            explicit=explicit,
+            on_collision=on_collision.value if on_collision else None,
+            apply_clean_updates=apply_updates,
+        )
+    if as_json:
+        _echo_json(
+            {
+                "repository": repository.slug,
+                "subscriber": receiving.slug,
+                "granted": result.granted if not state.granted else "existing",
+                "dependencies": result.dependencies,
+                "copied": result.copied,
+                "copy": result.copy.model_dump(mode="json") if result.copy else None,
+                "updates": {
+                    "applied": (
+                        result.updates_applied.model_dump(mode="json")
+                        if result.updates_applied
+                        else None
+                    ),
+                    "waiting": result.updates_waiting,
+                },
+                "open_collisions": [c.model_dump(mode="json") for c in result.needs_choices],
+            }
+        )
+    else:
+        repo_report.print_offer_result(_out, state, result)
+    raise typer.Exit(2 if result.needs_choices else 0)
+
+
+def _offer_dry_run(
+    client: LorenzoClient, state: repos.OfferState, *, apply_updates: bool, as_json: bool
+) -> None:
+    """What an offer would do, read without writing, grant included (ADR 0160)."""
+    plan = None
+    updates = None
+    if state.granted and not state.copied:
+        plan = client.call(
+            PLAN_REPOSITORY_COPY,
+            path={"tenant_id": state.subscriber.id, "repository_id": state.repository.id},
+        ).value
+    if state.copied and apply_updates:
+        updates = client.call(
+            LIST_REPOSITORY_UPDATES,
+            path={"tenant_id": state.subscriber.id, "repository_id": state.repository.id},
+        ).value
+    takes = repos.clean_updates(updates).actions if updates is not None else []
+    something = bool(state.steps or takes)
+    if as_json:
+        _echo_json(
+            {
+                "dry_run": True,
+                "steps": state.steps,
+                "dependencies": {
+                    d.repository.slug: (
+                        "copied"
+                        if d.copied
+                        else "granted"
+                        if d.granted
+                        else "unknown"
+                        if d.granted is None
+                        else "needs-grant"
+                    )
+                    for d in state.dependencies
+                },
+                "granted": state.granted,
+                "copied": state.copied,
+                "collisions": [c.model_dump(mode="json") for c in plan.collisions] if plan else [],
+                "clean_updates": len(takes),
+            }
+        )
+    else:
+        repo_report.print_offer_state(_out, state)
+        if plan is not None:
+            repo_report.print_copy_plan(_out, plan)
+        elif not state.granted:
+            _out.print("  (The copy can only be planned once the tenant is granted it.)")
+        if updates is not None:
+            _out.print(f"  updates: {len(takes)} take(s) need no decision.")
+        _out.print("Dry run: nothing was written." if something else "Nothing to do.")
+    raise typer.Exit(2 if something else 0)

@@ -258,7 +258,7 @@ def test_a_login_without_a_refresh_token_cannot_refresh(tmp_path: Path) -> None:
 def test_login_without_a_configured_client_says_what_to_do(tmp_path: Path) -> None:
     with (
         httpx.Client(transport=issuer_transport()) as http,
-        pytest.raises(LoginError, match="Register a public client"),
+        pytest.raises(LoginError, match="issuer and the client id"),
     ):
         run_login(
             Settings(None, None, None),

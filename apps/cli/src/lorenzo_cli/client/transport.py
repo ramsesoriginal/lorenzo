@@ -47,9 +47,10 @@ class TokenSource(Protocol):
 class Reply[T]:
     value: T
     etag: str | None = None
+    status: int = 200
 
 
-def _problem_message(status: int, problem: dict[str, Any]) -> str:
+def problem_message(status: int, problem: dict[str, Any]) -> str:
     for key in ("detail", "title"):
         value = problem.get(key)
         if isinstance(value, str) and value:
@@ -57,7 +58,7 @@ def _problem_message(status: int, problem: dict[str, Any]) -> str:
     return f"Request failed ({status})"
 
 
-def _read_problem(response: httpx.Response) -> dict[str, Any]:
+def read_problem(response: httpx.Response) -> dict[str, Any]:
     try:
         body = response.json()
     except ValueError:
@@ -102,25 +103,52 @@ class LorenzoClient:
         if_match: str | None = None,
     ) -> Reply[T]:
         """Run one operation. `body` is a request model instance; only the fields set are sent."""
-        url = self._url(op, path or {})
+        response = self.send(
+            op.method,
+            self._url(op, path or {}),
+            query=query,
+            json_body=None if body is None else body.model_dump(mode="json", exclude_unset=True),
+            if_match=if_match,
+        )
+        return self._reply(op, response)
+
+    def send(
+        self,
+        method: str,
+        url: str,
+        *,
+        query: Mapping[str, QueryValue] | None = None,
+        json_body: Any = None,
+        content: bytes | None = None,
+        if_match: str | None = None,
+    ) -> httpx.Response:
+        """One request, answered whatever its status, with the rules every request gets: the
+        bearer token, one renewal after a `401`, and retries of a safe method. `content` is a
+        body sent as it is, as JSON (`lorenzo api`, ADR 0161); `json_body` is encoded here."""
         params = {k: v for k, v in (query or {}).items() if v is not None}
         headers = {"Authorization": f"Bearer {self._tokens.token()}"}
         if if_match is not None:
             headers["If-Match"] = if_match
-        payload = None if body is None else body.model_dump(mode="json", exclude_unset=True)
+        if content is not None:
+            headers["Content-Type"] = "application/json"
 
-        attempts = self._max_attempts if op.method in _RETRYABLE_METHODS else 1
+        attempts = self._max_attempts if method in _RETRYABLE_METHODS else 1
         attempt = 1
         refreshed = False
         while True:
             try:
                 response = self._http.request(
-                    op.method, url, params=params, headers=headers, json=payload
+                    method,
+                    url,
+                    params=params or None,
+                    headers=headers,
+                    json=json_body,
+                    content=content,
                 )
             except httpx.TransportError as exc:
                 if attempt >= attempts:
                     raise LorenzoConnectionError(
-                        f"Couldn't reach the API for {op.method} {url}: {exc}"
+                        f"Couldn't reach the API for {method} {url}: {exc}"
                     ) from exc
                 self._sleep(_BACKOFF_SECONDS * attempt)
                 attempt += 1
@@ -135,7 +163,7 @@ class LorenzoClient:
                 self._sleep(_BACKOFF_SECONDS * attempt)
                 attempt += 1
                 continue
-            return self._reply(op, response)
+            return response
 
     @staticmethod
     def _url(op: Op[Any], path: Mapping[str, object]) -> str:
@@ -147,15 +175,15 @@ class LorenzoClient:
     @staticmethod
     def _reply[T](op: Op[T], response: httpx.Response) -> Reply[T]:
         if response.is_error:
-            problem = _read_problem(response)
-            message = _problem_message(response.status_code, problem)
+            problem = read_problem(response)
+            message = problem_message(response.status_code, problem)
             error_type = StaleResourceError if response.status_code == 412 else LorenzoApiError
             raise error_type(message, response.status_code, problem)
         etag = response.headers.get("ETag")
         if op.adapter is None or not response.content:
-            return Reply(None, etag)  # type: ignore[arg-type]
+            return Reply(None, etag, response.status_code)  # type: ignore[arg-type]
         try:
-            return Reply(op.adapter.validate_json(response.content), etag)
+            return Reply(op.adapter.validate_json(response.content), etag, response.status_code)
         except ValidationError as exc:
             raise LorenzoResponseError(
                 f"{op.operation_id} answered with a body the CLI doesn't understand "
