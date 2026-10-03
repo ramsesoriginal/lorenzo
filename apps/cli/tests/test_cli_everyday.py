@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import httpx
+from plain import plain
 from typer.testing import CliRunner
 
 from lorenzo_cli.auth.store import CredentialsFile, StoredLogin
@@ -124,8 +125,8 @@ def test_version_wins_over_a_command(tmp_path: Path) -> None:
 def test_help_offers_install_and_show_completion(tmp_path: Path) -> None:
     result = runner.invoke(app, ["--help"], obj=runtime(tmp_path, []))
 
-    assert "--install-completion" in result.output
-    assert "--show-completion" in result.output
+    assert "--install-completion" in plain(result.output)
+    assert "--show-completion" in plain(result.output)
 
 
 def test_show_completion_prints_a_script_without_touching_any_file(tmp_path: Path) -> None:

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from plain import plain
 from typer.testing import CliRunner
 
 from lorenzo_cli import main as main_module
@@ -263,8 +264,8 @@ def test_whoami_marks_the_default(tmp_path: Path) -> None:
     named = runner.invoke(app, ["--api-url", "https://mine.example", "whoami"], obj=elsewhere)
 
     assert shown.exit_code == 0 and named.exit_code == 0, (shown.output, named.output)
-    assert f"{OFFICIAL_API_URL} (the default)" in " ".join(shown.output.split())
-    assert "https://mine.example" in named.output
+    assert f"{OFFICIAL_API_URL} (the default)" in plain(shown.output)
+    assert "https://mine.example" in plain(named.output).split()
     assert "(the default)" not in named.output
 
 

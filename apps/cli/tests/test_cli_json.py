@@ -11,6 +11,7 @@ from typing import Any
 
 import httpx
 import pytest
+from plain import plain
 from test_importer_give import ALICE, PACK, answer
 from test_importer_review import VALUE, item, make_plan
 from typer.testing import CliRunner
@@ -203,7 +204,7 @@ def test_json_and_teach_cannot_be_combined(tmp_path: Path, monkeypatch: pytest.M
     result = runner.invoke(app, [*ARGS, "--yes", "--teach"], obj=runtime(tmp_path))
 
     assert result.exit_code == 2
-    assert "--teach" in " ".join(result.output.split())
+    assert "--teach" in plain(result.output)
 
 
 def test_without_json_apply_still_says_it_in_words(

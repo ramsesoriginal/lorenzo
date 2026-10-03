@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import io
 import json
-import re
 from pathlib import Path
 
 import httpx
 import pytest
+from plain import plain
 from typer.testing import CliRunner
 
 from lorenzo_cli.auth.store import CredentialsFile
@@ -88,8 +88,7 @@ def test_a_full_address_or_a_non_path_is_refused_before_any_request(
 def test_the_refusal_of_an_address_says_why(tmp_path: Path) -> None:
     result = invoke(tmp_path, ["GET", "https://evil.example/x"], serving([]))
 
-    said = " ".join(re.sub(r"[│╭╮╰╯─]", " ", result.output).split())
-    assert "only talks to the API you named" in said
+    assert "only talks to the API you named" in plain(result.output)
 
 
 @pytest.mark.parametrize("method", ["HEAD", "OPTIONS", "TRACE", "FETCH"])
