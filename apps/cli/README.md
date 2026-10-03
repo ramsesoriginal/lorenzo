@@ -84,7 +84,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 
 ## Importing MPMB items
 
-The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), seed it once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)).
+The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), seed it once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, seed core and D&D 5e into [two repositories](#core-and-dd-5e-are-two-repositories) instead.
 
 ```bash
 uv run lorenzo seed --tenant my-repository --yes
@@ -155,7 +155,28 @@ lorenzo repo updates my-homebrew --tenant table-one --actions mine.json   # deci
 
 `--apply` takes the changes that don't touch anything the tenant also changed, and additions that collide with nothing. A conflict is never taken without being named: put the field in `take_upstream` (or `keep_local`) in an `--actions` file, the API's own action list ([ADR 0121](../../docs/adr/0121-repository-updates-and-re-sync.md)). `--dry-run` applies it all and rolls it back.
 
-**Before the first publish**, read [RFC 0025 R8](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md): whether the `dnd5e` layer stays in this repository or becomes its own is to be decided before anything is published or granted, since splitting later costs more with every subscriber. These commands are what make that moment reachable from a terminal; they don't decide it.
+### Core and D&D 5e are two repositories
+
+What is meant to be published is split in two ([ADR 0162](../../docs/adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md)): **core**, the system-neutral taxonomy and stat definitions, and **D&D 5e**, a repository that has copied core and added its own layer on top. That makes D&D a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)), and the imported items live in it, since a longbow is a ranged weapon (core) and a martial one (D&D). Another system can then build on core without carrying D&D.
+
+```bash
+lorenzo tenant create "Core" --slug core
+lorenzo seed --tenant core --layer core --yes
+lorenzo repo publish --tenant core
+
+lorenzo tenant create "D&D 5e" --slug dnd5e
+lorenzo repo grant dnd5e --tenant core            # the bridge draws on core like any tenant
+lorenzo repo copy core --tenant dnd5e --yes
+lorenzo seed --tenant dnd5e --layer dnd5e --yes   # needs core's copy, which it now has
+lorenzo apply --tenant dnd5e --base ... --yes     # the items, parented in both layers
+lorenzo repo publish --tenant dnd5e
+
+lorenzo repo offer table-one --tenant dnd5e       # grants core too, then dnd5e, and copies both
+```
+
+A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes both, for whoever owns them all, and a single copy brings core in first. Someone who owns the bridge but not core is told which command to ask core's owners for. **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel (to change how a core entity behaves under D&D, author one that inherits from it).
+
+`lorenzo seed` without `--layer` still seeds both layers into one repository, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published.
 
 ## Scripting
 
@@ -182,7 +203,7 @@ uv run lorenzo seed --tenant my-repository --yes       # create it
 
 The taxonomy is a graph with multiple inheritance, so a weapon is several things at once: `longsword` descends from `blade`, `dnd5e-martial` and `dnd5e-versatile`. Weapon families (blade, axe, hammer, bow, crossbow, sling, firearm), weapon properties (finesse, heavy, light, reach, thrown, two-handed, versatile…), materials, consumables and kinds of gear (clothing, climbing, nautical…) are nodes of their own; a property carries its rules as a public description, which shows on every weapon that has it, and the property lists the weapons that do ([ADR 0146](../../docs/adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md)). What the sheet says beyond that is kept: other names as an "Also known as" entry, a weapon's special rules as a note, and the ability, strength requirement, bundle size and flags as stats.
 
-It writes to an existing `repository` tenant. A `play` tenant is refused, because a tenant's kind can't be changed and nothing in it could ever be published; `--allow-play-tenant` writes there anyway. The seed is in `src/lorenzo_cli/seed/builtin.toml`, tagged by layer (`core`, and `dnd5e` for D&D 5e's categories and dice, chosen with `--layer`). Stat names and types can't be changed once a tenant has them, so read that file before the first run against a tenant that matters.
+It writes to an existing `repository` tenant. A `play` tenant is refused, because a tenant's kind can't be changed and nothing in it could ever be published; `--allow-play-tenant` writes there anyway. The seed is in `src/lorenzo_cli/seed/builtin.toml`, tagged by layer (`core`, and `dnd5e` for D&D 5e's categories and dice, chosen with `--layer`; into [separate repositories](#core-and-dd-5e-are-two-repositories) if they are to be published). Stat names and types can't be changed once a tenant has them, so read that file before the first run against a tenant that matters.
 
 ## Reading MPMB files
 
