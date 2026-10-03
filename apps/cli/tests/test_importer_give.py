@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from typing import Any
 
@@ -236,5 +237,8 @@ def test_a_reference_is_an_id_or_a_slug_in_the_tenant() -> None:
 def test_an_owner_is_required() -> None:
     result = CliRunner().invoke(app, ["pack", "give", "explorers-pack", "--tenant", "camp"])
 
+    # Colour codes split the option's name where a terminal is forced (CI sets that), so compare
+    # the words, not the bytes.
+    shown = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", result.output).split())
     assert result.exit_code == 2
-    assert "--owner" in result.output
+    assert "Missing option '--owner'" in shown
