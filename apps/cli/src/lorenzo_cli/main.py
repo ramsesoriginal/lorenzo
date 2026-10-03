@@ -40,7 +40,7 @@ from lorenzo_cli.config import (
     load_settings,
 )
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
-from lorenzo_cli.importer.apply import ApplyOptions, apply_import
+from lorenzo_cli.importer.apply import ApplyOptions, ApplyReport, apply_import
 from lorenzo_cli.importer.give import (
     PackError,
     count_instances,
@@ -50,7 +50,12 @@ from lorenzo_cli.importer.give import (
 from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.mapping import MappingError
 from lorenzo_cli.importer.plan import ImportPlan, Options
-from lorenzo_cli.importer.review import plan_json, proposed_map, write_review_queue
+from lorenzo_cli.importer.review import (
+    apply_json,
+    plan_json,
+    proposed_map,
+    write_review_queue,
+)
 from lorenzo_cli.importer.run import prepare
 from lorenzo_cli.importer.teach import ask, rows_toml, unknown_values
 from lorenzo_cli.report import (
@@ -760,6 +765,14 @@ def apply(
     state: StateOption = None,
     review_queue: ReviewOption = Path("review-queue.json"),
     proposed_map_file: ProposedOption = Path("proposed.map.toml"),
+    as_json: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Print one JSON document: the plan, what was written, what failed. Never asks, "
+            "so it needs --yes to write.",
+        ),
+    ] = False,
 ) -> None:
     """Import these files: what the plan says, and nothing it holds back for review.
 
@@ -767,22 +780,35 @@ def apply(
     unresolved or failed.
     """
     runtime: Runtime = ctx.obj
+    if as_json and teach:
+        raise typer.BadParameter("--json never asks, so it can't be used with --teach.")
     args = ImportArgs(
         tenant, files, base, map_file, allow_play_tenant,
         Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
     )  # fmt: skip
+
+    def emit(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -> None:
+        if as_json:
+            typer.echo(
+                json.dumps(apply_json(plan, report, unresolved), indent=2, ensure_ascii=False)
+            )
+
     with _reporting_errors(), _client(runtime) as client:
         result, manifest, taught = _prepare_plan(runtime, client, args)
-        print_import_plan(_out, result, strict=strict)
+        if not as_json:
+            print_import_plan(_out, result, strict=strict)
         _write_review_files(result, review_queue, proposed_map_file)
         if result.problems:
+            emit(result, None, True)
             raise typer.Exit(1)
         unresolved = import_exit_code(result, strict=strict, reconcile=False) == 1
         if not result.pending and not (reconcile and result.reparent_count):
+            emit(result, None, unresolved)
             raise typer.Exit(1 if unresolved else 0)
         if not yes:
-            if not runtime.interactive:
+            if as_json or not runtime.interactive:
                 _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
+                emit(result, None, unresolved)
                 raise typer.Exit(1)
             if not typer.confirm("Import these?"):
                 raise typer.Exit(1)
@@ -794,6 +820,12 @@ def apply(
             progress=lambda line: _err.print(line, highlight=False, style="dim"),
         )
         manifest.save()
+    failed = bool(unresolved or report.failures)
+    if as_json:
+        emit(result, report, unresolved)
+        for failure in report.failures:
+            _err.print(f"[red]{failure}[/red]")
+        raise typer.Exit(1 if failed else 0)
     _out.print(
         f"Created {report.created}, finished {report.completed}, re-parented {report.reparented}; "
         f"{report.categories} new categories, {report.definitions} new stat definitions."
@@ -802,7 +834,7 @@ def apply(
         _err.print(f"[red]{failure}[/red]")
     if not report.failures:
         _save_taught(runtime, taught, map_file, proposed_map_file)
-    raise typer.Exit(1 if (unresolved or report.failures) else 0)
+    raise typer.Exit(1 if failed else 0)
 
 
 def _inputs(files: list[Path] | None, base: list[Path] | None) -> list[Path]:
@@ -840,6 +872,9 @@ def pack_give(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Say what would be made, and make nothing.")
     ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print what the API made (or would make) as JSON.")
+    ] = False,
 ) -> None:
     """Hand a pack out: its containers, and what is inside them, with quantities.
 
@@ -850,6 +885,9 @@ def pack_give(
     with _reporting_errors(), _client(runtime) as client:
         target = resolve_tenant(client, tenant)
         given = give_pack(client, target.id, pack, owner, override=override, dry_run=dry_run)
+    if as_json:
+        typer.echo(given.model_dump_json(indent=2))
+        return
     for line in tree_lines(given):
         _out.print(line, highlight=False)
     verb = "Would give" if dry_run else "Gave"
