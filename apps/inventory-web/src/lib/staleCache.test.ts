@@ -38,12 +38,36 @@ describe('createStaleCache', () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
-  it('shares one request between callers asking at the same time', async () => {
+  it('shares one request between callers asking at the same time with a maxAge', async () => {
     const { cache, fetch } = setup();
 
-    await Promise.all([cache.refresh('a'), cache.refresh('a'), cache.refresh('b')]);
+    await Promise.all([cache.refresh('a', 10), cache.refresh('a', 10), cache.refresh('b', 10)]);
 
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('never joins a request that started earlier when asked without a maxAge', async () => {
+    const { cache, fetch } = setup();
+    let release: () => void = () => {};
+
+    fetch.mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+
+      return 'before the change';
+    });
+
+    const early = cache.refresh('a', 10);
+    const reload = cache.refresh('a');
+
+    expect(await reload).toBe('a@0');
+
+    release();
+
+    expect(await early).toBe('before the change');
+    // The older answer arriving later doesn't replace the newer one.
+    expect(cache.peek('a')).toBe('a@0');
   });
 
   it('prefetches only what is not kept yet, and ignores a failure', async () => {
