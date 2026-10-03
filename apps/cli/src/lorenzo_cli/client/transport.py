@@ -47,6 +47,7 @@ class TokenSource(Protocol):
 class Reply[T]:
     value: T
     etag: str | None = None
+    status: int = 200
 
 
 def problem_message(status: int, problem: dict[str, Any]) -> str:
@@ -180,9 +181,9 @@ class LorenzoClient:
             raise error_type(message, response.status_code, problem)
         etag = response.headers.get("ETag")
         if op.adapter is None or not response.content:
-            return Reply(None, etag)  # type: ignore[arg-type]
+            return Reply(None, etag, response.status_code)  # type: ignore[arg-type]
         try:
-            return Reply(op.adapter.validate_json(response.content), etag)
+            return Reply(op.adapter.validate_json(response.content), etag, response.status_code)
         except ValidationError as exc:
             raise LorenzoResponseError(
                 f"{op.operation_id} answered with a body the CLI doesn't understand "

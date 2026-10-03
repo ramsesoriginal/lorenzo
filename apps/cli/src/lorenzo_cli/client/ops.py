@@ -13,9 +13,14 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from lorenzo_cli.client.models import (
+    ApplyUpdatesOut,
+    ApplyUpdatesRequest,
     ComparisonFormulaBodyInput,
     ComputedStatOut,
     ContentsFormulaBody,
+    CopyOut,
+    CopyPlanOut,
+    CopyRequest,
     EntityDetailOut,
     GivePackRequest,
     InformationCreate,
@@ -29,6 +34,8 @@ from lorenzo_cli.client.models import (
     PackGivenOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
+    PageSubscriberOut,
+    PageSubscriptionOut,
     PageTenantSummaryOut,
     ResolvedSlugOut,
     SetEntityStatRequest,
@@ -37,9 +44,11 @@ from lorenzo_cli.client.models import (
     StatDefinitionOut,
     StatGroupCreate,
     StatGroupOut,
+    SubscriberOut,
     SumFormulaBodyInput,
     TenantCreate,
     TenantOut,
+    UpdatesOut,
 )
 
 # What PUT .../computed-stats/{id} accepts: the formula itself, of any kind.
@@ -168,6 +177,51 @@ REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
     response_type=ItemOut,
 )
 
+# A repository's own side (an owner publishes and grants) and a granted tenant's (any member
+# lists, plans, copies and takes updates): ADR 0118 to 0121, the CLI's side in ADR 0159.
+_REPOSITORY = f"{_TENANT}/repositories/{{repository_id}}"
+PUBLISH_REPOSITORY: Op[TenantOut] = Op(
+    "publish_repository", "PUT", f"{_TENANT}/published", response_type=TenantOut
+)
+UNPUBLISH_REPOSITORY: Op[TenantOut] = Op(
+    "unpublish_repository", "DELETE", f"{_TENANT}/published", response_type=TenantOut
+)
+LIST_SUBSCRIBERS: Op[PageSubscriberOut] = Op(
+    "list_subscribers", "GET", f"{_TENANT}/subscribers", response_type=PageSubscriberOut
+)
+GRANT_REPOSITORY: Op[SubscriberOut] = Op(
+    "grant_repository",
+    "PUT",
+    f"{_TENANT}/subscribers/{{subscriber_tenant_id}}",
+    response_type=SubscriberOut,
+)
+REVOKE_REPOSITORY: Op[None] = Op(
+    "revoke_repository", "DELETE", f"{_TENANT}/subscribers/{{subscriber_tenant_id}}"
+)
+LIST_REPOSITORIES: Op[PageSubscriptionOut] = Op(
+    "list_repositories", "GET", f"{_TENANT}/repositories", response_type=PageSubscriptionOut
+)
+PLAN_REPOSITORY_COPY: Op[CopyPlanOut] = Op(
+    "plan_repository_copy", "GET", f"{_REPOSITORY}/copy-plan", response_type=CopyPlanOut
+)
+COPY_REPOSITORY: Op[CopyOut] = Op(
+    "copy_repository",
+    "POST",
+    f"{_REPOSITORY}/copy",
+    request_type=CopyRequest,
+    response_type=CopyOut,
+)
+LIST_REPOSITORY_UPDATES: Op[UpdatesOut] = Op(
+    "list_repository_updates", "GET", f"{_REPOSITORY}/updates", response_type=UpdatesOut
+)
+APPLY_REPOSITORY_UPDATES: Op[ApplyUpdatesOut] = Op(
+    "apply_repository_updates",
+    "POST",
+    f"{_REPOSITORY}/updates",
+    request_type=ApplyUpdatesRequest,
+    response_type=ApplyUpdatesOut,
+)
+
 ALL_OPS: tuple[Op[Any], ...] = (
     GET_ME,
     GET_TENANT,
@@ -189,4 +243,14 @@ ALL_OPS: tuple[Op[Any], ...] = (
     REPLACE_ITEM_PROTOTYPES,
     CREATE_ITEM_INSTANCE,
     CREATE_ITEM_INSTANCES_FROM_PACK,
+    PUBLISH_REPOSITORY,
+    UNPUBLISH_REPOSITORY,
+    LIST_SUBSCRIBERS,
+    GRANT_REPOSITORY,
+    REVOKE_REPOSITORY,
+    LIST_REPOSITORIES,
+    PLAN_REPOSITORY_COPY,
+    COPY_REPOSITORY,
+    LIST_REPOSITORY_UPDATES,
+    APPLY_REPOSITORY_UPDATES,
 )
