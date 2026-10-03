@@ -40,7 +40,7 @@ Step 2 is not in R1; the spike found it necessary (below).
 
 `lorenzo inspect [--base FILE...] FILE...` shows the files, per-list counts and origins, stubs, and any value a stub reached, without touching a tenant. `--json` prints the whole result. It exits 1 if any file failed.
 
-  - *Addendum, 2026-10-03: `FILE...` is optional when `--base` is given, as it already is for `plan` and `apply`, so `inspect --base ...` shows what the sheet ships. With neither it is a usage error.*
+*Addendum, 2026-10-03: `FILE...` is optional when `--base` is given, as it already is for `plan` and `apply`, so `inspect --base ...` shows what the sheet ships. With neither it is a usage error.*
 
 ### The golden corpus
 
