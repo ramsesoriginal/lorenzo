@@ -1,6 +1,6 @@
 # 0151 - A being in no campaign: the tenant's GMs stand in for its GM
 
-Status: accepted
+Status: accepted; amended by [ADR 0152](0152-a-gm-sees-every-being-in-no-campaign.md) (the standing described here follows a per-tenant setting)
 
 Amends [ADR 0124](0124-groups-own-things-and-moving-is-not-giving.md)'s standing over what an owner holds, found building [RFC 0032](../rfcs/0032-giving-a-pack-from-the-api.md) ([ADR 0149](0149-giving-a-pack-from-the-api.md)).
 
@@ -42,3 +42,7 @@ It does not change:
 - An NPC can be handed items and packs by any GM or administrator of the tenant, and its holdings managed by them.
 - Any GM of the tenant can do that to any NPC of it, across campaigns, as they can already to ownerless things. A tenant with several campaigns doesn't get a per-campaign boundary for NPCs.
 - `POST /item-instances` for a bare being goes from `403` to `201` for those callers: a widening of what the endpoint accepts, not of any read.
+
+## Amendment (ADR 0152)
+
+[ADR 0152](0152-a-gm-sees-every-being-in-no-campaign.md) makes the standing above depend on a per-tenant setting, `npcs_shared_with_gms`, on by default. With it **on**, everything in this ADR holds as written: any GM or administrator of the tenant. With it **off**, a being or group in no campaign is acted for only by an administrator, or by a GM who authored it or shares a campaign with its author. The Consequences line "any GM of the tenant can do that to any NPC of it" is true only with the setting on.
