@@ -504,8 +504,10 @@ def in_words(error: LorenzoApiError) -> LorenzoApiError:
             ]
             return LorenzoApiError(f"{error}{''.join(lines)}", error.status, error.problem)
     if error.problem_type == "repository-already-copied":
+        said = str(error).rstrip()
+        said += "" if said.endswith((".", "!", "?")) else "."
         return LorenzoApiError(
-            f"{error}. Take its changes with `lorenzo repo updates`, or copy it afresh with "
+            f"{said} Run `lorenzo repo updates` to take them, or copy it afresh with "
             "--again keep|purge.",
             error.status,
             error.problem,

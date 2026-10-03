@@ -463,8 +463,8 @@ def test_a_repository_already_copied_points_at_updates_and_again(tmp_path: Path)
     result = run(tmp_path, world, "copy", "sunken-vale", "-t", "table-one", "--yes")
 
     assert result.exit_code == 1
-    assert "already been copied" in said(result)
-    assert "lorenzo repo updates" in said(result)
+    assert "not another copy" in said(result)  # the API's own words
+    assert "Run `lorenzo repo updates` to take them" in said(result)
     assert "--again keep|purge" in said(result)
 
 

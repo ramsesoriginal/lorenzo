@@ -293,7 +293,9 @@ class World:
             return self.copy_answer
         if self.copied and not body.get("again"):
             return problem(
-                409, "repository-already-copied", "This repository has already been copied"
+                409,
+                "repository-already-copied",
+                "Its later changes come in through its updates, not another copy",
             )
         chosen = {(r["kind"], r["source_id"]): r["action"] for r in body.get("resolutions", [])}
         for c in self.collisions:
