@@ -32,7 +32,7 @@ lorenzo repo offer SUBSCRIBER --tenant REPOSITORY \
 
 - **`--dry-run` writes nothing at all**, which includes the grant. It reports the repository's state, whether the tenant already has a grant and a copy, and, if there is a grant, the copy plan with its collisions. Where there is no grant yet, it says that the plan can only be made after one. It exits 2 if there would be anything to do and 0 if not.
 - **Asking.** At a terminal, `offer` shows what it is about to do (grant, copy, updates) and asks once; `--yes` skips it, and `--json` never asks and needs `--yes` ([ADR 0156](0156-json-on-apply-and-pack-give.md)).
-- **`--json`** prints one document with what each step did: `granted` (`"new"`, `"existing"`), `copied` (`"copied"`, `"already"`, or the step counts), `updates` (applied counts or the number waiting).
+- **`--json`** prints one document with what each step did: `granted` (`"new"` or `"existing"`), `copied` (`"copied"` or `"already"`), `copy` (the API's answer for the copy, or `null`), `updates` (`applied`, the API's answer, or `null`, and `waiting`, how many are left for a decision), and `open_collisions`. With `--dry-run` it is `dry_run`, `steps` (`"grant"`, `"copy"`), `granted`, `copied`, `collisions` and `clean_updates`.
 
 ### Many tenants
 
