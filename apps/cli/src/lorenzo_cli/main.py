@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import sys
@@ -11,6 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, TextIO
+from urllib.parse import urlsplit
 
 import httpx
 import typer
@@ -26,10 +28,17 @@ from lorenzo_cli.client.errors import (
     LorenzoConnectionError,
     LorenzoResponseError,
 )
-from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut
-from lorenzo_cli.client.ops import CREATE_TENANT
+from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut, TenantSummaryOut
+from lorenzo_cli.client.ops import CREATE_TENANT, GET_ME, LIST_TENANTS
+from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
-from lorenzo_cli.config import ConfigError, Settings, load_settings
+from lorenzo_cli.config import (
+    ConfigError,
+    Settings,
+    SettingsFile,
+    default_config_path,
+    load_settings,
+)
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
 from lorenzo_cli.importer.apply import ApplyOptions, apply_import
 from lorenzo_cli.importer.give import (
@@ -63,15 +72,19 @@ app = typer.Typer(
     name="lorenzo",
     help="The Lorenzo command line.",
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
 )
-tenant_app = typer.Typer(help="Read or create a tenant.", no_args_is_help=True)
+tenant_app = typer.Typer(help="List, read or create a tenant.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
 pack_app = typer.Typer(help="Hand out an imported pack.", no_args_is_help=True)
 app.add_typer(pack_app, name="pack")
 
 _out = Console()
 _err = Console(stderr=True)
+
+
+def _warn(message: str) -> None:
+    _err.print(f"[yellow]{message}[/yellow]")
 
 
 @dataclass
@@ -88,6 +101,8 @@ class Runtime:
     engine: Engine = field(default_factory=WorkerEngine)
     api_url: str | None = None
     token_stdin: bool = False
+    # What `login` remembered (ADR 0157); None means there is no file to read, as in most tests.
+    config: SettingsFile | None = None
 
     @property
     def interactive(self) -> bool:
@@ -97,7 +112,20 @@ class Runtime:
 
     @property
     def settings(self) -> Settings:
-        return load_settings(self.env, api_url=self.api_url)
+        return self.resolve_settings()
+
+    def resolve_settings(
+        self, *, issuer: str | None = None, client_id: str | None = None
+    ) -> Settings:
+        """Flag, then environment, then the remembered file (ADR 0157)."""
+        remembered = self.config.load(warn=_warn) if self.config else {}
+        return load_settings(
+            self.env,
+            api_url=self.api_url,
+            issuer=issuer,
+            client_id=client_id,
+            remembered=remembered,
+        )
 
 
 def default_runtime() -> Runtime:
@@ -106,18 +134,40 @@ def default_runtime() -> Runtime:
         env=env,
         stdin=sys.stdin,
         store=CredentialsFile(Path(credentials.default_path(env))),
+        config=SettingsFile(default_config_path(env)),
     )
+
+
+def _show_version(show: bool) -> None:
+    """Answer `--version` before anything else is read: no login, no API URL, no network."""
+    if not show:
+        return
+    try:
+        installed = importlib.metadata.version("lorenzo-cli")
+    except importlib.metadata.PackageNotFoundError:
+        installed = "unknown (not installed as a package)"
+    typer.echo(f"lorenzo {installed}")
+    raise typer.Exit()
 
 
 @app.callback()
 def main(
     ctx: typer.Context,
     api_url: Annotated[
-        str | None, typer.Option("--api-url", help="The API's base URL (or LORENZO_API_URL).")
+        str | None,
+        typer.Option(
+            "--api-url", help="The API's base URL (or LORENZO_API_URL; `login` remembers it)."
+        ),
     ] = None,
     token_stdin: Annotated[
         bool,
         typer.Option("--token-stdin", help="Read the access token from the first line of stdin."),
+    ] = False,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version", callback=_show_version, is_eager=True, help="Show the version and exit."
+        ),
     ] = False,
 ) -> None:
     if ctx.obj is None:
@@ -194,6 +244,40 @@ def _print_tenant(found: TenantOut, as_json: bool) -> None:
     _out.print(table)
 
 
+@tenant_app.command("list")
+def tenant_list(
+    ctx: typer.Context,
+    kind: Annotated[
+        TenantKind | None,
+        typer.Option("--kind", help="Only repositories, or only play tenants."),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the tenants as JSON.")] = False,
+) -> None:
+    """List the tenants you belong to, with each one's kind and your role in it."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        rows = list(
+            all_items(
+                client,
+                LIST_TENANTS,
+                query={"kind": kind.value if kind else None},
+                of=TenantSummaryOut,
+            )
+        )
+    if as_json:
+        typer.echo(json.dumps([row.model_dump(mode="json") for row in rows], indent=2))
+        return
+    if not rows:
+        _out.print("You don't belong to any tenant yet. `lorenzo tenant create` makes one.")
+        return
+    table = Table(box=None, pad_edge=False)
+    for heading in ("slug", "name", "kind", "role"):
+        table.add_column(heading)
+    for row in rows:
+        table.add_row(row.slug, row.name, row.kind.value, row.role.value)
+    _out.print(table)
+
+
 @tenant_app.command("create")
 def tenant_create(
     ctx: typer.Context,
@@ -226,6 +310,40 @@ def tenant_create(
         _out.print(f"Next: lorenzo seed --tenant {created.slug}")
 
 
+def _require_address(name: str, value: str | None) -> None:
+    """A remembered address has to look like one, or the next run would fail far from the cause."""
+    if value is None:
+        return
+    parsed = urlsplit(value)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ConfigError(f"{name} “{value}” isn't an address: it should start with https://")
+
+
+def _remember(runtime: Runtime, settings: Settings) -> None:
+    """After a login that worked, keep the three settings it used for the next one (ADR 0157)."""
+    if runtime.config is None:
+        return
+    used = {
+        key: value
+        for key, value in (
+            ("api_url", settings.api_url),
+            ("issuer", settings.issuer),
+            ("client_id", settings.client_id),
+        )
+        if value
+    }
+    before = runtime.config.load()
+    if all(before.get(key) == value for key, value in used.items()):
+        return
+    runtime.config.save(used)
+    _out.print(
+        f"Remembered the {', '.join(_SETTING_NAMES[k] for k in used)} in {runtime.config.path}."
+    )
+
+
+_SETTING_NAMES = {"api_url": "API URL", "issuer": "issuer", "client_id": "client id"}
+
+
 @app.command()
 def login(
     ctx: typer.Context,
@@ -235,27 +353,88 @@ def login(
             "--no-browser", help="Print the address and paste the redirect back (WSL, SSH)."
         ),
     ] = False,
+    issuer: Annotated[
+        str | None,
+        typer.Option("--issuer", help="The Authgear issuer (or LORENZO_AUTHGEAR_ISSUER)."),
+    ] = None,
+    client_id: Annotated[
+        str | None,
+        typer.Option(
+            "--client-id", help="The Authgear client's id (or LORENZO_AUTHGEAR_CLIENT_ID)."
+        ),
+    ] = None,
 ) -> None:
-    """Sign in and store the login."""
+    """Sign in and store the login, and remember the API URL, issuer and client id it used."""
     runtime: Runtime = ctx.obj
     with (
         _reporting_errors(),
         httpx.Client(transport=runtime.transport, timeout=30.0) as http_client,
     ):
+        settings = runtime.resolve_settings(issuer=issuer, client_id=client_id)
+        _require_address("The API URL", settings.api_url)
+        _require_address("The issuer", settings.issuer)
         run_login(
-            runtime.settings,
+            settings,
             no_browser=no_browser,
             http_client=http_client,
             store=runtime.store,
             echo=_out.print,
             read_line=lambda prompt: typer.prompt(prompt, prompt_suffix=""),
         )
+        _remember(runtime, settings)
     _out.print("Signed in.")
+
+
+def _token_origin(runtime: Runtime) -> str:
+    """Where the token came from, in the order ADR 0137 fixes."""
+    if runtime.token_stdin:
+        return "--token-stdin"
+    if runtime.env.get("LORENZO_TOKEN"):
+        return "LORENZO_TOKEN"
+    return "the stored login"
+
+
+@app.command()
+def whoami(
+    ctx: typer.Context,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print what the API says as JSON.")
+    ] = False,
+) -> None:
+    """Ask the API who the token you would use belongs to: a check that a login works."""
+    runtime: Runtime = ctx.obj
+    origin = _token_origin(runtime)
+    with _reporting_errors(), _client(runtime) as client:
+        try:
+            me = client.call(GET_ME).value
+        except LorenzoApiError as exc:
+            if exc.status == 401:
+                raise LorenzoApiError(
+                    f"The API didn't accept the token from {origin}. Run `lorenzo login` again, "
+                    "or check LORENZO_TOKEN.",
+                    exc.status,
+                    exc.problem,
+                ) from exc
+            raise
+    if as_json:
+        typer.echo(me.model_dump_json(indent=2))
+        return
+    table = Table(show_header=False, box=None)
+    table.add_row("user", str(me.id))
+    name = me.display_name or me.nickname
+    if name:
+        table.add_row("name", name)
+    if me.email:
+        table.add_row("email", me.email)
+    table.add_row("api", runtime.settings.api_url or "")
+    table.add_row("token", origin)
+    table.add_row("tenants", str(len(me.memberships)))
+    _out.print(table)
 
 
 @app.command()
 def logout(ctx: typer.Context) -> None:
-    """Forget the stored login."""
+    """Forget the stored login (the API URL, issuer and client id it remembered stay)."""
     runtime: Runtime = ctx.obj
     removed = runtime.store.delete()
     _out.print("Signed out." if removed else "There was no stored login.")

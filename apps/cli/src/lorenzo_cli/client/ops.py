@@ -25,6 +25,7 @@ from lorenzo_cli.client.models import (
     ItemInstanceOut,
     ItemOut,
     LinearFormulaBodyInput,
+    MeOut,
     PackGivenOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
@@ -66,6 +67,7 @@ class Op[T]:
 
 _TENANT = "/tenants/{tenant_id}"
 
+GET_ME: Op[MeOut] = Op("get_me", "GET", "/me", response_type=MeOut)
 GET_TENANT: Op[TenantOut] = Op("get_tenant", "GET", _TENANT, response_type=TenantOut)
 LIST_TENANTS: Op[PageTenantSummaryOut] = Op(
     "list_tenants", "GET", "/tenants", response_type=PageTenantSummaryOut
@@ -167,6 +169,7 @@ REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
 )
 
 ALL_OPS: tuple[Op[Any], ...] = (
+    GET_ME,
     GET_TENANT,
     LIST_TENANTS,
     CREATE_TENANT,
