@@ -1,5 +1,118 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.7.0...api-v1.0.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** weight, height, price, rarity, hp and armor on item and item-instance responses, and the values in physical_stats, economic_stats, destroyable_stats and damaging_stats, are now numbers (integer or float) instead of integers, so a stat stored as a float reads as itself and no longer as null (ADR 0141). A JSON reader is unaffected; a client with a strict integer type for these fields needs to widen it. Accepted in openapi-breaking-accepted.txt.
+* **api:** weight, height, price, rarity, hp and armor on item and item-instance responses, and the values in physical_stats, economic_stats, destroyable_stats and damaging_stats, are now numbers (integer or float) instead of integers, so a stat stored as a float reads as itself and no longer as null (ADR 0141). A JSON reader is unaffected; a client with a strict integer type for these fields needs to widen it. Accepted in openapi-breaking-accepted.txt.
+* **api:** item and item-instance responses no longer carry `is_magical` or `is_cursed` (ADR 0129), and the 403 for a non-GM's `override` is now `override-forbidden`.
+* **api:** a formula in GET .../entities/{entity_id}/computed-stats and PUT .../computed-stats/{stat_definition_id} responses can now be `kind: "contents"`, and GET .../stat-definitions/{stat_definition_id}/dependents can report
+* **api:** a formula in GET .../entities/{entity_id}/computed-stats and PUT .../computed-stats/{stat_definition_id} responses can now be `kind: "sum"`, and GET .../stat-definitions/{stat_definition_id}/dependents can report `kind: "sum"`.
+* **api:** items[].granted_at in GET /tenants/{tenant_id}/repositories is now nullable - null for a repository that was copied but is no longer granted.
+* **api:** `slug` on POST /tenants/{tenant_id}/item-instances must now match `^[A-Za-z0-9][A-Za-z0-9_-]*$` and be at most 100 characters; anything else is a 422. Slugs already stored are untouched and still resolve.
+* **api:** `value_type` on StatDefinitionOut (GET/POST /tenants/{tenant_id}/stat-definitions, GET .../stat-definitions/{id}) can now be `enum` (ADR 0103). A client that switches exhaustively on it needs an `enum` branch; for display it behaves like `text`.
+
+### Features
+
+* **account-hub:** shared API client and tenant slug editing ([eb3a6e8](https://github.com/ramsesoriginal/lorenzo/commit/eb3a6e8919a19c02fb5abf1365ff363a93541067))
+* **account-hub:** use shared API client and edit tenant slugs ([e68e10b](https://github.com/ramsesoriginal/lorenzo/commit/e68e10b65458d55beca265092c21746d1a5972e1))
+* **api:** binding, derived from where things are and who owns them, and a GM lifting it ([639ec6d](https://github.com/ramsesoriginal/lorenzo/commit/639ec6daad7bd81d60ed16a106e72723a31f567e)), closes [#283](https://github.com/ramsesoriginal/lorenzo/issues/283)
+* **api:** capacity on every move, a GM's override, and keeping a deleted container's contents ([e33ba31](https://github.com/ramsesoriginal/lorenzo/commit/e33ba31ccee0ea92a414774e1e85cf53c55ee038))
+* **api:** computed stats - linear and comparison formulas (ADR 0104) ([ef4953a](https://github.com/ramsesoriginal/lorenzo/commit/ef4953a71f707408f822ae41dc23837c27935b58))
+* **api:** computed stats - linear and comparison formulas (ADR 0104) ([67ba505](https://github.com/ramsesoriginal/lorenzo/commit/67ba5052617fa6ec7960d8d049a261d275576d1b)), closes [#217](https://github.com/ramsesoriginal/lorenzo/issues/217)
+* **api:** content_reference table ([69941df](https://github.com/ramsesoriginal/lorenzo/commit/69941df89a873417d77e96792159a8c319fff716))
+* **api:** contents formulas, adding up a stat over what's inside ([bdd1a72](https://github.com/ramsesoriginal/lorenzo/commit/bdd1a72837c515e73336401f6b13c617cf2b33ea))
+* **api:** copy a repository into a tenant, bridges included (ADR 0119, 0120) ([ede5c93](https://github.com/ramsesoriginal/lorenzo/commit/ede5c9354f7d78cacd2190976b8ea7474d42e6d1))
+* **api:** editable information and description payloads (ADR 0101) ([348f3b6](https://github.com/ramsesoriginal/lorenzo/commit/348f3b668ca6f084074419f9dd4df1633b3d757e))
+* **api:** entity slugs and batch slug resolve (RFC 0027 stage 5) ([689b13b](https://github.com/ramsesoriginal/lorenzo/commit/689b13b6d4b4b158fcd2f87551d87e98a80c65de))
+* **api:** entity_slug table replacing item_instance.slug ([c213ad3](https://github.com/ramsesoriginal/lorenzo/commit/c213ad3d9b04a98244077ef21f1c8ca28c0e0356))
+* **api:** extract LorenzoScript references on the server ([6bac507](https://github.com/ramsesoriginal/lorenzo/commit/6bac5074e64f699802c6b4c09b158ba65599721e))
+* **api:** four small additions for the CLI importer (ADR 0139-0142) ([8fc2034](https://github.com/ramsesoriginal/lorenzo/commit/8fc20340d0bcdb498ccbd6754e15a395932645a5))
+* **api:** four small additions for the CLI importer (ADR 0139-0142) ([54348fc](https://github.com/ramsesoriginal/lorenzo/commit/54348fcd4a9570b501eeaf5dca9d0c021a15b855))
+* **api:** four small additions for the CLI importer (ADR 0139-0142) ([1e1c273](https://github.com/ramsesoriginal/lorenzo/commit/1e1c273611f33d3780191ac9e15025c84f330601))
+* **api:** give a container with what's inside it, or give only what's inside ([0b876b8](https://github.com/ramsesoriginal/lorenzo/commit/0b876b84372cdb540ea26bc7498b0b139744127f))
+* **api:** groups own things, and moving something isn't giving it away (ADR 0124) ([62d8c9b](https://github.com/ramsesoriginal/lorenzo/commit/62d8c9bf4e28ac36bfc3fbee5649606e105b51e6))
+* **api:** hand a pack out in one request ([3b146b8](https://github.com/ramsesoriginal/lorenzo/commit/3b146b87d76000ef0b98aa2c633db3285dc7b500))
+* **api:** hand a pack out in one request ([4f0d3a9](https://github.com/ramsesoriginal/lorenzo/commit/4f0d3a9893440bdcf921d5c056ed76b84752a0e6))
+* **api:** hand over on give, stacks leave containers into their owner, players read the catalog (ADR 0115, 0116) ([9a895fb](https://github.com/ramsesoriginal/lorenzo/commit/9a895fbcdaad73abcae8d87f7f06d026a5012697))
+* **api:** hand over on give, stacks leave containers into their owner, players read the catalog (ADR 0115, 0116) ([cdf14b2](https://github.com/ramsesoriginal/lorenzo/commit/cdf14b2b16062ec1f1457d74742825fcaa0b0104))
+* **api:** hold item-instance creation slugs to RFC 0027's grammar ([516ee49](https://github.com/ramsesoriginal/lorenzo/commit/516ee4960381adafc3223ead76cb441f1c072032))
+* **api:** item.in_public_catalog (ADR 0116) ([1d620dc](https://github.com/ramsesoriginal/lorenzo/commit/1d620dcad8b96be3d5e5860fbb92497ff7c4e24f))
+* **api:** items inherit descriptions and pictures; stats say if they are own (ADR 0111) ([512cd2a](https://github.com/ramsesoriginal/lorenzo/commit/512cd2ac3af46a449b4fff875e26a46f6d69863f))
+* **api:** items inherit descriptions and pictures; stats say if they're own ([42551d4](https://github.com/ramsesoriginal/lorenzo/commit/42551d43a60ef1b250eaa29e2de9a98996aa1a43))
+* **api:** let a tenant's GMs stand in for a being in no campaign ([89335b9](https://github.com/ramsesoriginal/lorenzo/commit/89335b90d0107734ec5090a9af817596cb1b8a87))
+* **api:** list what a being holds, Equipped first (ADR 0123) ([4f20eca](https://github.com/ramsesoriginal/lorenzo/commit/4f20ecada340632843ec14512a97158d0570a1cc))
+* **api:** make a GM's view of beings in no campaign a tenant setting ([0b879ac](https://github.com/ramsesoriginal/lorenzo/commit/0b879acd8f2deba8eedfa89b05fae059b124ba31))
+* **api:** make a GM's view of beings in no campaign a tenant setting ([5d5d16f](https://github.com/ramsesoriginal/lorenzo/commit/5d5d16f7d59f2c69089868225f592aa3ab4abd04)), closes [#384](https://github.com/ramsesoriginal/lorenzo/issues/384)
+* **api:** merge what's identical on a move, when asked (ADR 0133) ([eee2b3f](https://github.com/ramsesoriginal/lorenzo/commit/eee2b3f0aac702792b749019bf5e62aac4ee7204)), closes [#306](https://github.com/ramsesoriginal/lorenzo/issues/306)
+* **api:** player knowers, knower listing, and the entity information list (ADR 0109) ([1178ae7](https://github.com/ramsesoriginal/lorenzo/commit/1178ae77af0cd8f519b6e1046d4a9b30e251e364))
+* **api:** player knowers, knower listing, and the entity information list (ADR 0109) ([0e15cb9](https://github.com/ramsesoriginal/lorenzo/commit/0e15cb9ea16f49758264e134ab51fbb2a6130d4c)), closes [#230](https://github.com/ramsesoriginal/lorenzo/issues/230)
+* **api:** record description references and serve backlinks ([70d93a8](https://github.com/ramsesoriginal/lorenzo/commit/70d93a845655f1770cf65eefb4170945ad55d37e))
+* **api:** refusing to give away what you merely carry has its own problem type (ADR 0124) ([4e25094](https://github.com/ramsesoriginal/lorenzo/commit/4e25094a6baf00a3c4d6328e271c045c0f1de200))
+* **api:** repositories — grants, gated read, copy, bridges, updates (RFC 0024, ADR 0117-0121) ([d3b7644](https://github.com/ramsesoriginal/lorenzo/commit/d3b7644caf8fc731324363b9133bbed8a30751d9))
+* **api:** repository contributions, dry runs, and copying again (ADR 0119, 0121) ([9b1d1a4](https://github.com/ramsesoriginal/lorenzo/commit/9b1d1a4472e735c42b433cd373429e313453e66e))
+* **api:** repository contributions, dry runs, and copying again (ADR 0119, 0121) ([a6ab1d0](https://github.com/ramsesoriginal/lorenzo/commit/a6ab1d05fab2c5215b091279946608b19abec488))
+* **api:** repository grants and the gated cross-tenant read (ADR 0118) ([8002569](https://github.com/ramsesoriginal/lorenzo/commit/800256995e8a39d2a3537a0234d8395df9682f97)), closes [#265](https://github.com/ramsesoriginal/lorenzo/issues/265)
+* **api:** repository tenants - immutable kind, no campaigns, publishing (ADR 0118) ([14cde84](https://github.com/ramsesoriginal/lorenzo/commit/14cde84b13ab772cf8449909c9b9c87967cc40bb)), closes [#265](https://github.com/ramsesoriginal/lorenzo/issues/265)
+* **api:** repository updates and re-sync (ADR 0121) ([1037204](https://github.com/ramsesoriginal/lorenzo/commit/1037204d00950963b7b72c3a03fd8e88d3e1b7ad)), closes [#268](https://github.com/ramsesoriginal/lorenzo/issues/268)
+* **api:** same-tenant references by composite foreign keys (ADR 0117) ([9c2b090](https://github.com/ramsesoriginal/lorenzo/commit/9c2b090d2f35934e1769c3accde3472f2431358b)), closes [#264](https://github.com/ramsesoriginal/lorenzo/issues/264)
+* **api:** say who carries each controlled-by column (ADR 0134) ([0fd23ea](https://github.com/ramsesoriginal/lorenzo/commit/0fd23eaedaeb1d9f17b3c268e78a33fd96620891))
+* **api:** set a stack down as single items, and a deleted container's contents with it (ADR 0132) ([243a00c](https://github.com/ramsesoriginal/lorenzo/commit/243a00cab9a7e52e18b6ab3b2d069c604655355e)), closes [#305](https://github.com/ramsesoriginal/lorenzo/issues/305)
+* **api:** slug endpoints and batch slug resolve ([9c99992](https://github.com/ramsesoriginal/lorenzo/commit/9c999927f17691ad17f94d6d3dce6732f3c318e5))
+* **api:** stat tag endpoints, enum values, and mandatory groups (ADR 0103) ([92298fd](https://github.com/ramsesoriginal/lorenzo/commit/92298fdfd120f2f227ca0f739f6d7a154ff28da1))
+* **api:** sum formulas, adding up several stats of one entity ([9a5aca6](https://github.com/ramsesoriginal/lorenzo/commit/9a5aca67f89679510e0657065f31b6698d829a06))
+* **api:** the controlled-by listing, what a board shows (ADR 0130) ([07f81f2](https://github.com/ramsesoriginal/lorenzo/commit/07f81f2f68383fe3570860943bcf1b51e34d5111)), closes [#303](https://github.com/ramsesoriginal/lorenzo/issues/303)
+* board refinements - who has a column, read-only marked, and your character opened for you (ADR 0134) ([189dd3d](https://github.com/ramsesoriginal/lorenzo/commit/189dd3d10f132990ff0a19ff615d58a72db97bc9))
+* capacity on every move, a GM's "Move anyway", and a deleted container keeps its contents (RFC 0030 slice 6) ([8d37fa5](https://github.com/ramsesoriginal/lorenzo/commit/8d37fa545988b58254e152983040e204b44b8a1c))
+* give a container with what's inside it, or only what's inside (RFC 0030 slice 3) ([d600b81](https://github.com/ramsesoriginal/lorenzo/commit/d600b81ba7e2bf85f283ff44fe13c73698e76d45))
+* groups own things, and moving something isn't giving it away (ADR 0124) ([128bbde](https://github.com/ramsesoriginal/lorenzo/commit/128bbde26a55a1f7b13d4ecb6fbbb1c7c248a5db))
+* hand items over on give, stacks leave containers whole, players read the catalog (ADR 0115, 0116) ([8bc12a1](https://github.com/ramsesoriginal/lorenzo/commit/8bc12a17e9319efd16d86e1f2c5ebbf17a61c1e7))
+* **inventory-web:** LorenzoScript descriptions and editor (RFC 0027 stage 6) ([3a8c195](https://github.com/ramsesoriginal/lorenzo/commit/3a8c19556fe7c2f32e15ca2ff1fcecfc81c80ccd))
+* **inventory-web:** the whole item - view, description titles, tags, information (ADR 0112) ([f8f61c3](https://github.com/ramsesoriginal/lorenzo/commit/f8f61c39dd540a7d0d9a6d4a838aeab1a70a1fba))
+* LorenzoScript - Markdown for descriptions, editor, slugs, and backlinks (RFC 0027) ([e1877c5](https://github.com/ramsesoriginal/lorenzo/commit/e1877c577fad6c684d692726b3819c43cb172dd2))
+* LorenzoScript references and backlinks (RFC 0027 stage 7) ([d9e7ca9](https://github.com/ramsesoriginal/lorenzo/commit/d9e7ca949569a5b3942032aace3ee9541a65ed2b))
+* the whole item - inherited descriptions, one item view, and editing in inventory-web (ADR 0111, 0112) ([b26e3f2](https://github.com/ramsesoriginal/lorenzo/commit/b26e3f2d82288895a163bb1913102d313a55e0fd))
+* what a being holds, with an Equipped column that's always there (ADR 0123) ([7f6d4ca](https://github.com/ramsesoriginal/lorenzo/commit/7f6d4ca671e808777a7632ac7d526502879ba1fb))
+* what a board shows - controlled columns, setting things down, and merging what's identical (RFC 0031) ([9838682](https://github.com/ramsesoriginal/lorenzo/commit/9838682e0c78784c49fbc7b882e56706b6968d92))
+
+
+### Bug Fixes
+
+* **api:** a held-by path goes on through an uncontained container's owner (ADR 0123) ([e005262](https://github.com/ramsesoriginal/lorenzo/commit/e005262401e4d93d3012baccb3e8e055eae3dd40))
+* **api:** accept granted_at turning nullable in the repositories listing (ADR 0119) ([f0731cd](https://github.com/ramsesoriginal/lorenzo/commit/f0731cdcacfa3f36200c8efd374cedefc5156f63))
+* **api:** declare the dry run's 200 on from-pack ([4c5055e](https://github.com/ramsesoriginal/lorenzo/commit/4c5055ee7017451bb8a449e13e02c017b7a0116f))
+* **api:** keep bulk-assign's lock note out of its OpenAPI description ([01d8676](https://github.com/ramsesoriginal/lorenzo/commit/01d867692dab0f361cf789019606bb537e38c562))
+* **api:** keep ItemInstanceCreate.slug's existing contract ([6d05826](https://github.com/ramsesoriginal/lorenzo/commit/6d05826878a9b6d88fa2962b15b52ba884c92c05))
+* **api:** lock a hand-over's owner chain before its ownership row ([137c2ab](https://github.com/ramsesoriginal/lorenzo/commit/137c2ab48b26842d3b6ccc3ef1c01c76793b0731))
+* **api:** lock a hand-over's owner chain before its ownership row ([d31240c](https://github.com/ramsesoriginal/lorenzo/commit/d31240c90ed6cb378aa1f39d0287d8712cc91d72))
+* **api:** lock a new item's container chain before its ownership row ([712b336](https://github.com/ramsesoriginal/lorenzo/commit/712b3361f4fa91e8e963636cc69d919df8a03ff2))
+* **api:** lock capacity's chain FOR NO KEY UPDATE, which no share lock waits on ([8f16939](https://github.com/ramsesoriginal/lorenzo/commit/8f1693990292698494dd3f13eff23efb16fd45ee))
+* **api:** lock capacity's chain FOR NO KEY UPDATE, which no share lock waits on ([e691776](https://github.com/ramsesoriginal/lorenzo/commit/e691776bd9b076f7a6efdba29e55a22bda67b0b9))
+* **api:** lock every bulk-assign entry's owners before any entry runs ([8c6135b](https://github.com/ramsesoriginal/lorenzo/commit/8c6135b4d0a44be96b8947bad7fadc3ece58f625))
+* **api:** lock every bulk-assign entry's owners before any entry runs ([70d141f](https://github.com/ramsesoriginal/lorenzo/commit/70d141f22614e91bbfcdabeeec6db7b06d3fef80))
+* **api:** report an update that would loop prototypes instead of failing (ADR 0121) ([4fb6a50](https://github.com/ramsesoriginal/lorenzo/commit/4fb6a50082065b50fbc6eeb1d1a24938b6d2e09e)), closes [#268](https://github.com/ramsesoriginal/lorenzo/issues/268)
+* **api:** write ETags with the JSON updated_at text ([c253ef4](https://github.com/ramsesoriginal/lorenzo/commit/c253ef428de97951799c7c108268d773797a59b4))
+* **deps:** require PyJWT 2.14 or later (ten open security advisories) ([cae35fd](https://github.com/ramsesoriginal/lorenzo/commit/cae35fd7ea7d95a68fadded9f52a99ef1c88a8c2))
+* **deps:** require PyJWT 2.14 or later (ten open security advisories) ([f72c030](https://github.com/ramsesoriginal/lorenzo/commit/f72c030e488483c2e468f9a0aaf0a96ef5690ee0))
+* **deps:** upgrade urllib3 to 2.8.0 (three open security advisories) ([5dff4b5](https://github.com/ramsesoriginal/lorenzo/commit/5dff4b53b66f45db5169738ae73e6a8410ffaeac))
+* **deps:** upgrade urllib3 to 2.8.0 (three open security advisories) ([a671c8f](https://github.com/ramsesoriginal/lorenzo/commit/a671c8f16e8102e87c491087a607894a4594c59f))
+* **lorenzoscript:** keep every scan linear on hostile input ([19aeb85](https://github.com/ramsesoriginal/lorenzo/commit/19aeb85f8c68d55a207844ce7ed56c2e0f330f40))
+
+
+### Documentation
+
+* **api:** list the computed_stats router in the README ([142595c](https://github.com/ramsesoriginal/lorenzo/commit/142595c1b9a4c8b81c0934a432159b68673e40af))
+* chronicle repositories (ADR 0117-0121); mention them in README, AGENTS, and the ER diagram ([fae5d27](https://github.com/ramsesoriginal/lorenzo/commit/fae5d27f30deda19b2816f0c960c175f60448c51))
+* incorporate remote decision branch updates ([299f797](https://github.com/ramsesoriginal/lorenzo/commit/299f79749128e5563ccf736f611ad43325ff93b6))
+* merge current account-hub decision branch ([b7c32ad](https://github.com/ramsesoriginal/lorenzo/commit/b7c32adda873b27fbb4c429b4f74cc9e18468790))
+
+
+### Continuous Integration
+
+* **api:** accept the stat value_type enum addition in openapi-diff ([4a0c494](https://github.com/ramsesoriginal/lorenzo/commit/4a0c494443558cf51801c8f47b2d16f157122889))
+
 ## [0.7.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.6.0...api-v0.7.0) (2026-09-23)
 
 
