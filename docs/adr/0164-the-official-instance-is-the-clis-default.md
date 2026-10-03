@@ -57,4 +57,4 @@ They are one module and a release. The third risk is real and accepted: if the a
 - A newcomer's first run is `lorenzo login`, then `lorenzo whoami`. "Before you start" shrinks to the account and, for creating tenants, the `tenant-creator` role.
 - A self-hoster names all three once (flags, environment, or `login`, which remembers them), exactly as ADR 0157 described, and never touches the official instance by omission: naming any of them turns the defaults off for the rest.
 - ADR 0137's guarantee is weaker and different: not "a token never goes to a host nobody chose", but "never to a host the person didn't either name or accept as the official default, and never in a mixed pair". The stored login's own issuer and client id are unchanged.
-- About forty unit assertions that assumed "no address refuses" were rewritten around the set rule; the end-to-end tests already name every address.
+- The six unit tests that assumed "no address refuses" were rewritten around the set rule (a differing issuer stands in for "something else was named"); the end-to-end tests already name every address.
