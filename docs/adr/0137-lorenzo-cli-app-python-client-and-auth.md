@@ -41,6 +41,7 @@ The CLI is run by a person with their own token. Unattended use is out of scope.
 - There is no default API URL: `LORENZO_API_URL` or `--api-url` must name it, so a token never goes to a host nobody chose.
 - `login` runs the authorization code flow with PKCE against a **new public Authgear client** on a fixed loopback port, asking for `openid offline_access`. `login --no-browser` prints the URL and reads the redirected URL back, which covers WSL and SSH. Authgear has no device authorization grant.
 - Registering that client is an operations step, not code, and it is unverified whether Authgear accepts a secret-less native client on a fixed loopback port. Until it is registered, `login` fails with a message saying so; nothing else depends on it.
+  - *Addendum, 2026-10-03: the client is registered, as a Single Page Application (Authgear's public, PKCE type), and accepts `http://127.0.0.1:8766`, `:8767` and `:8768` `/callback`. The Native type wasn't needed. Whether it is given a refresh token, and for how long, is what the first real `lorenzo login` settles.*
 
 ## Consequences
 
