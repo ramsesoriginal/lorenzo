@@ -171,7 +171,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 
 ## The command line (apps/cli)
 
-`apps/cli` is installed, not deployed ([ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)), so there is no host to set up. It needs one thing from the Authgear project, a client of its own, and then each person needs three values.
+`apps/cli` is installed, not deployed ([ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)), so there is no host to set up. It needs one thing from the Authgear project, a client of its own. Its client id, the issuer and the API's address are built into the CLI as the default ([ADR 0164](../adr/0164-the-official-instance-is-the-clis-default.md)), so each person's setup is `lorenzo login`.
 
 ### `apps/cli`'s own Authgear application (ADR 0137, 0157)
 
@@ -180,7 +180,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 1. **Authgear Portal → your production project → Applications → New Application → Single Page Application** (under *Website*, "Other SPAs"). The Portal's quickstart list is grouped by framework, not by application type. Of the other choices, "Other OIDC/SAML compatible" is a confidential client with a secret, which the CLI can't hold, and *Machine-to-machine* tokens belong to a client rather than a person, so they carry no user and not the `tenant_creator` role ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)).
 2. **Authorized Redirect URIs**: `http://127.0.0.1:8766/callback`, `http://127.0.0.1:8767/callback` and `http://127.0.0.1:8768/callback`. These are the CLI's own `CALLBACK_PORTS`: it listens on the first that is free, and `login --no-browser` uses the first. Register all three rather than relying on Authgear matching any loopback port. The CLI sends no trailing slash; a registration may include the slash forms and `https` as well, which does no harm.
 3. No post-logout redirect URI is needed: `lorenzo logout` only deletes the local credentials file.
-4. From the application's **Endpoints** section, copy the **issuer** and the application's **Client ID**. Neither is a secret, as with the web apps' clients; they are given to `login` once, which remembers them ([ADR 0157](../adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)):
+4. From the application's **Endpoints** section, copy the **issuer** and the application's **Client ID**. Neither is a secret, as with the web apps' clients. For the official project they are already the CLI's default, in `apps/cli/src/lorenzo_cli/defaults.py` together with the API's address, and `lorenzo login` then needs nothing more. For any other project they are given to `login` once, which remembers them ([ADR 0157](../adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)):
 
    ```bash
    lorenzo login --api-url <the API's address> --issuer <the issuer> --client-id <the client id>
@@ -188,6 +188,8 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
    ```
 
 5. **It must be in the same project `apps/api` verifies** (`AUTHGEAR_ISSUER`). The API checks a token's issuer and audience, so a client in another project mints tokens it rejects, which `whoami` reports as "The API didn't accept the token".
+
+**If the API's address or the Authgear project moves** (a custom domain for the API, a new Authgear project or a paid plan with its own domain), change the three constants in `defaults.py` and release the CLI; people upgrade with `uv tool upgrade lorenzo-cli`. Someone whose environment or settings file names the old values keeps them, which is the point of naming them ([ADR 0164](../adr/0164-the-official-instance-is-the-clis-default.md)).
 
 `whoami` is the check that all of this agrees. What a first real login still settles, because Authgear's documentation doesn't say: whether this client is given a refresh token for `offline_access`, and for how long. Without one the CLI still works, and asks for a new `login` once the access token expires.
 

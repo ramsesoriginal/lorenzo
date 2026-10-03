@@ -19,28 +19,39 @@ That installs the `lorenzo` command from this repository's `main` branch, into i
 
 ## Before you start
 
-Four things have to be true before the first command does anything useful. The first three are about the Lorenzo you are talking to, not about this tool.
+Three things have to be true before the first command does anything useful. The first two are about you and the Lorenzo you talk to, not about this tool.
 
-1. **You know its API address.** There is no default, on purpose: the CLI sends your token only to an address you gave it. It is whatever your Lorenzo's operator tells you (for a local `apps/api`, `http://localhost:8000`).
-2. **You have an account on it, and the CLI has a way to sign in.** Signing in uses an Authgear client registered for the CLI: a *public* client, with no secret (a Single Page Application in the Portal), whose redirect URIs are `http://127.0.0.1:8766/callback`, `:8767` and `:8768`. Registering it is a one-time step for whoever runs the Authgear project ([deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)); you need its **issuer** and **client id**. Until one exists, a token from `LORENZO_TOKEN` or `--token-stdin` does everything `login` would.
-3. **To create a tenant, you need the `tenant-creator` role**, which the Authgear project's maintainer grants in its Portal. Nothing else in this tool needs it, and the API says so (`403`) if you lack it. (`whoami` can't tell you beforehand: the API doesn't report roles yet.)
-4. **To import MPMB items, you have the sheet's data.** It is GPL-3.0 and not shipped; clone it (see [Reading MPMB files](#reading-mpmb-files)).
+1. **You have an account on the official Lorenzo.** It is the default: with nothing named, the CLI talks to it and signs in at its Authgear project, and `lorenzo login` is the whole setup ([ADR 0164](../../docs/adr/0164-the-official-instance-is-the-clis-default.md)). Your own Lorenzo (a local `apps/api`, a staging one, a fork) is a matter of naming it, see [Another Lorenzo](#another-lorenzo).
+2. **To create a tenant, you need the `tenant-creator` role**, which the Authgear project's maintainer grants in its Portal. Nothing else in this tool needs it, and the API says so (`403`) if you lack it. (`whoami` can't tell you beforehand: the API doesn't report roles yet.)
+3. **To import MPMB items, you have the sheet's data.** It is GPL-3.0 and not shipped; clone it (see [Reading MPMB files](#reading-mpmb-files)).
 
 Python 3.14 is installed for you by `uv`. Linux and macOS (WSL included) are supported; native Windows isn't.
 
 ### The first run
 
 ```bash
-lorenzo login --api-url https://api.example --issuer https://example.authgear.cloud --client-id abc123
+lorenzo login           # opens your browser; --no-browser prints the address instead (WSL, SSH)
 lorenzo whoami          # the API says who it thinks you are: the check that it all works
 lorenzo tenant list     # the tenants you belong to
 ```
 
-`login` remembers the three values it used, so after that `lorenzo login` alone, from any shell, is enough, and every other command finds the API address by itself. `--no-browser` prints the address to open, for WSL and SSH.
+`login` says where it is signing in and for which API before it opens anything. A command that **writes** (creating a tenant, seeding, importing, handing out a pack, publishing, granting, copying, `lorenzo api` with anything but `GET`) prints `Using the official Lorenzo at <address>.` on stderr, once, whenever the official one is the default; reads and `whoami` stay quiet (`whoami` shows the API with `(the default)` beside it). It is a line to read, not a question.
+
+### Another Lorenzo
+
+Name **all three** once, and `login` remembers them:
+
+```bash
+lorenzo login --api-url http://localhost:8000 --issuer https://example.authgear.cloud --client-id abc123
+```
+
+The official values are a *set*. If any of the three is named as something other than the official one, none of the others is filled in from the default: an official issuer is never assumed for somebody else's API, and the other way round, so a token can't be sent to one party under another's name. `--api-url http://localhost:8000` alone means "that API, and no issuer": `login` then asks for the other two, and `LORENZO_TOKEN` (which needs no issuer) just works. Naming the official values themselves changes nothing. A habit worth having in a development shell: `export LORENZO_API_URL=http://localhost:8000`, so a forgotten flag can never reach the official one.
+
+To go back, `lorenzo login` with the official values (or without a file at all): when what a login used is the official set, it forgets the remembered file and says so, rather than keeping a copy that would outlive them.
 
 ### Where the settings come from
 
-Each of the three, for each command, in this order: **a flag** (`--api-url`, and `--issuer` and `--client-id` on `login`), then **the environment** (`LORENZO_API_URL`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`), then **the file** `login` wrote: `$XDG_CONFIG_HOME/lorenzo/config.toml` (`~/.config/lorenzo/config.toml`), three plain lines with nothing secret in them. Only `login` writes it. `lorenzo logout` forgets your tokens and keeps the file; delete the file to forget the addresses too ([ADR 0157](../../docs/adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)).
+Each of the three, for each command, in this order: **a flag** (`--api-url`, and `--issuer` and `--client-id` on `login`), then **the environment** (`LORENZO_API_URL`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`), then **the file** `login` wrote: `$XDG_CONFIG_HOME/lorenzo/config.toml` (`~/.config/lorenzo/config.toml`), up to three plain lines with nothing secret in them. Anything named there wins over the official default. Only `login` writes the file, and only what you named, never the official defaults. `lorenzo logout` forgets your tokens and keeps the file; delete the file to forget the addresses too ([ADR 0157](../../docs/adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)).
 
 The token is looked for in this order: `--token-stdin` (the first line of stdin), `LORENZO_TOKEN`, then the stored login (`credentials.json` beside the settings, readable only by you, renewed on its own). `--tenant` can come from `LORENZO_TENANT`. Unattended use, a script holding its own credentials, isn't supported: the CLI is run by a person with their own token.
 
@@ -52,7 +63,7 @@ mise run //apps/cli:dev -- --help
 
 or, from this directory, `uv run lorenzo --help`.
 
-The tool needs an access token for `apps/api`. Until `lorenzo login` works against a registered Authgear client (see [Before you start](#before-you-start)), supply one directly:
+The tool needs an access token for `apps/api`. `lorenzo login` gets one; to supply one yourself, against a local API:
 
 ```bash
 export LORENZO_API_URL=http://localhost:8000
@@ -71,7 +82,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo tenant list [--kind repository\|play] [--json]` | The tenants you belong to, with each one's kind and your role |
 | `lorenzo tenant create <name> [--slug S] [--kind KIND]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
-| `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers the three values `login` used (needs the Authgear client, see [Before you start](#before-you-start)) |
+| `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
 | `lorenzo inspect [--base FILE...] FILE...` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login |
 | `lorenzo seed --tenant <tenant>` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first |
 | `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
@@ -230,9 +241,9 @@ mise run //apps/cli:generate-schema
 
 CI's `client-drift` job runs `check-schema`, which fails on any difference. `src/lorenzo_cli/client/ops.py` lists the operations the CLI calls; a test checks each against the dumped schema.
 
-## Login needs an Authgear client
+## The Authgear client
 
-`login` uses the authorization code flow with PKCE against a public Authgear client on a fixed loopback port (8766, with 8767 and 8768 as fallbacks). That client has to be registered on the Authgear project first (an operations step, see [deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)), and its issuer and client id given to `login` once ([Before you start](#before-you-start)). Until then `login` says so and exits; tokens through `LORENZO_TOKEN` or `--token-stdin` work regardless.
+`login` uses the authorization code flow with PKCE against a public Authgear client (a Single Page Application, no secret) on a fixed loopback port: 8766, with 8767 and 8768 as fallbacks. The official one is registered and built in as the default ([deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)); for another Authgear project, register a client the same way and give its issuer and client id to `login` once. Tokens through `LORENZO_TOKEN` or `--token-stdin` work regardless.
 
 Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_TENANT`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`.
 
