@@ -11,6 +11,7 @@ import {
   textOf,
   updateInformation,
 } from '../../lib/information';
+import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { renderInfoForm, saveError } from '../InfoForm/renderer';
 
 // What a list shows and how it writes. The GM's whole Information section unless given.
@@ -48,6 +49,8 @@ export type RenderedInformation = {
   // Shows the information of `entityId`, replacing what was shown. Without `kind`, the GM's
   // whole Information section.
   load(entityId: string, kind?: Partial<InformationKind>): Promise<void>;
+  // Fetches the information of `entityId` of those types ahead of `load`.
+  prefetch(entityId: string, types?: string[]): void;
 };
 
 const INFORMATION: InformationKind = {
@@ -82,6 +85,8 @@ function required<T extends Element>(root: ParentNode, selector: string): T {
   return element;
 }
 
+const keyOf = (entityId: string, types?: string[]) => `${entityId}|${types?.join(',') ?? ''}`;
+
 // `root` is whatever contains <Information />.
 export function renderInformation(
   root: HTMLElement,
@@ -99,9 +104,19 @@ export function renderInformation(
     h4: required<HTMLTemplateElement>(root, '[data-row-template-h4]'),
   };
 
+  // The lists fetched so far, to show at once while they're fetched again.
+  const lists = createStaleCache<Information[]>((key) => {
+    const [entityId, types] = key.split('|');
+
+    return listInformation(tenantId, entityId, types ? types.split(',') : undefined);
+  });
+
   // What's shown now. A load replaces it, which retires whatever an earlier one still has
   // in flight.
   let session: { entityId: string; kind: InformationKind } | null = null;
+
+  // What the list has drawn, so a fetch that found the same needn't redraw it.
+  let painted: Information[] | null = null;
 
   // The status line and the form's mount only show while they have something in them.
   function setStatus(message: string, failed = false) {
@@ -125,19 +140,27 @@ export function renderInformation(
     visibilityNote: kind.visibilityNote,
   });
 
-  async function reload(shown: NonNullable<typeof session>) {
+  function paint(shown: NonNullable<typeof session>, infos: Information[]) {
+    const rows = infos.map((info) => renderRow(shown, info));
+
+    painted = infos;
+    list.replaceChildren(...rows);
+    list.hidden = rows.length === 0;
+    empty.hidden = rows.length > 0 || !empty.textContent;
+  }
+
+  // `quiet`: something is drawn already, so redraw only if the answer differs, and say nothing
+  // if the fetch fails.
+  async function reload(shown: NonNullable<typeof session>, maxAge = 0, quiet = false) {
     try {
-      const rows = (await listInformation(tenantId, shown.entityId, shown.kind.types)).map((info) =>
-        renderRow(shown, info),
-      );
+      const infos = await lists.refresh(keyOf(shown.entityId, shown.kind.types), maxAge);
 
       if (session !== shown) return;
+      if (quiet && JSON.stringify(infos) === JSON.stringify(painted)) return;
 
-      list.replaceChildren(...rows);
-      list.hidden = rows.length === 0;
-      empty.hidden = rows.length > 0 || !empty.textContent;
+      paint(shown, infos);
     } catch (error) {
-      if (session === shown) fail(error);
+      if (session === shown && !quiet) fail(error);
     }
   }
 
@@ -186,7 +209,13 @@ export function renderInformation(
             saved = true;
             await kind.afterSave?.({ id: info.id, isPublic: draft.isPublic }, info);
           },
-          onClose: () => void (saved ? afterWrite(shown) : reload(shown)),
+          onClose: () => {
+            if (saved) {
+              void afterWrite(shown);
+            } else if (painted) {
+              paint(shown, painted);
+            }
+          },
         }),
       );
     });
@@ -252,6 +281,7 @@ export function renderInformation(
       const shown = { entityId, kind };
 
       session = shown;
+      painted = null;
       list.replaceChildren();
       list.hidden = true;
       empty.textContent = kind.empty;
@@ -261,7 +291,13 @@ export function renderInformation(
       add.textContent = kind.addLabel;
       add.hidden = !kind.canWrite;
 
-      await reload(shown);
+      const cached = lists.peek(keyOf(entityId, kind.types));
+
+      if (cached) paint(shown, cached);
+
+      await reload(shown, RECENT_MS, Boolean(cached));
     },
+
+    prefetch: (entityId, types) => lists.prefetch(keyOf(entityId, types)),
   };
 }

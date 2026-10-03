@@ -1,8 +1,10 @@
 import { itemPageHref } from '../../lib/addresses';
+import { blobUrl } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/items';
 import { renderItemView } from '../../lib/itemView';
 import { withReflow } from '../../lib/reflow';
+import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
 import { renderAncestryTree } from '../AncestryTree/renderer';
 import type { BoardState } from '../Board/state';
@@ -45,11 +47,21 @@ export type RenderedItemDetail = {
   open(item: ItemInstance, card: HTMLElement): void;
   // Just the item.
   view(item: ShownItem): void;
+  // Fetches what showing the item needs, ahead of `open` or `view`.
+  prefetch(item: ShownItem): void;
   destroy(): void;
 };
 
 // An instance has an owner (maybe none, but the key); a catalog item doesn't.
 const isInstance = (item: ShownItem) => 'owner_entity_id' in item;
+
+// The full ancestry (ADR 0073) is of catalog items. An instance's starts at its own direct
+// prototype (id-only, from the instance), a catalog item's at itself; null if there's none.
+function ancestryRoot(item: ShownItem): string | null {
+  const rootId = isInstance(item) ? item.prototype_ids[0] : item.entity_id;
+
+  return item.prototype_ids.length > 0 && rootId ? rootId : null;
+}
 
 function required<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
@@ -169,21 +181,27 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     }
   }
 
-  // A catalog item's slug isn't in its listing: the link goes by the id until it's looked up.
+  // A catalog item's slug isn't in its listing: the link goes by what was looked up before, or
+  // by the id, until it's looked up.
+  const slugs = createStaleCache<string | null>((entityId) =>
+    getEntityDetail(tenantId, entityId).then((entity) => entity.slug),
+  );
   let slugRequest = 0;
 
   function linkTo(item: ShownItem) {
-    viewLink.href = itemPageHref(options.tenantSlug, item);
+    const hrefFor = (slug: string | null | undefined) =>
+      itemPageHref(options.tenantSlug, { entity_id: item.entity_id, slug });
+    const known = 'slug' in item ? item.slug : slugs.peek(item.entity_id);
+
+    viewLink.href = hrefFor(known);
 
     if ('slug' in item) return;
 
     const request = ++slugRequest;
 
-    getEntityDetail(tenantId, item.entity_id).then(
-      (entity) => {
-        if (request === slugRequest && entity.slug) {
-          viewLink.href = itemPageHref(options.tenantSlug, { ...item, slug: entity.slug });
-        }
+    slugs.refresh(item.entity_id, RECENT_MS).then(
+      (slug) => {
+        if (request === slugRequest && slug !== known) viewLink.href = hrefFor(slug);
       },
       () => {},
     );
@@ -227,14 +245,6 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     move.hidden = board.state.readOnly.has(item.entity_id);
   }
 
-  // The full ancestry (ADR 0073) is of catalog items. An instance's starts at its own direct
-  // prototype (id-only, from the instance), a catalog item's at itself.
-  function loadAncestry(item: ShownItem) {
-    const rootId = isInstance(item) ? item.prototype_ids[0] : item.entity_id;
-
-    void ancestryTree.load(item.prototype_ids.length > 0 && rootId ? rootId : null);
-  }
-
   required<HTMLElement>(root, '[data-close]').addEventListener('click', close, { signal });
 
   // Escape fires 'cancel' first: intercepting it gives Escape the animated close too.
@@ -273,7 +283,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         root.showModal();
       });
 
-      loadAncestry(item);
+      void ancestryTree.load(ancestryRoot(item));
     },
 
     view(item) {
@@ -285,7 +295,23 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
         root.showModal();
       });
 
-      loadAncestry(item);
+      void ancestryTree.load(ancestryRoot(item));
+    },
+
+    prefetch(item) {
+      const rootId = ancestryRoot(item);
+
+      if (rootId) ancestryTree.prefetch(rootId);
+
+      notes.prefetch(item.entity_id);
+
+      if (!('slug' in item)) slugs.prefetch(item.entity_id);
+
+      // Rendering its descriptions and pictures asks for what they link to: this has the
+      // answers by then.
+      options.renderer(item.descriptions.map((description) => description.content)).catch(() => {});
+
+      for (const picture of item.pictures) blobUrl(picture.url).catch(() => {});
     },
 
     destroy() {

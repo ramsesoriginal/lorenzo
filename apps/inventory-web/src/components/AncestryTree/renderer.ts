@@ -1,4 +1,5 @@
 import { type AncestryNode, fetchAncestry } from '../../lib/ancestryTree';
+import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 
 export type AncestryTreeOptions = {
   // The section holding <AncestryTree />, with its heading: hidden while there's nothing to show.
@@ -7,8 +8,11 @@ export type AncestryTreeOptions = {
 };
 
 export type RenderedAncestryTree = {
-  // Shows the ancestry of the catalog item `itemId`, or hides the section for null.
+  // Shows the ancestry of the catalog item `itemId`, or hides the section for null. What was
+  // fetched before shows at once, and is redrawn only if it changed.
   load(itemId: string | null): Promise<void>;
+  // Fetches it ahead of `load`.
+  prefetch(itemId: string): void;
 };
 
 function required<T extends Element>(root: ParentNode, selector: string): T {
@@ -27,6 +31,7 @@ export function renderAncestryTree(options: AncestryTreeOptions): RenderedAncest
   const list = required<HTMLUListElement>(root, '[data-ancestry-list]');
   const nodeTemplate = required<HTMLTemplateElement>(root, '[data-ancestry-node-template]');
   const loadingTemplate = required<HTMLTemplateElement>(root, '[data-ancestry-loading-template]');
+  const trees = createStaleCache((itemId) => fetchAncestry(options.tenantId, itemId));
 
   const clone = (template: HTMLTemplateElement) =>
     required<HTMLLIElement>(template.content.cloneNode(true) as DocumentFragment, 'li');
@@ -58,16 +63,22 @@ export function renderAncestryTree(options: AncestryTreeOptions): RenderedAncest
         return;
       }
 
+      const shown = trees.peek(itemId);
+
       root.hidden = false;
-      list.replaceChildren(clone(loadingTemplate));
+      list.replaceChildren(shown ? renderNode(shown) : clone(loadingTemplate));
 
       try {
-        const tree = await fetchAncestry(options.tenantId, itemId);
+        const tree = await trees.refresh(itemId, RECENT_MS);
 
-        if (request === latest) list.replaceChildren(renderNode(tree));
+        if (request === latest && JSON.stringify(tree) !== JSON.stringify(shown)) {
+          list.replaceChildren(renderNode(tree));
+        }
       } catch {
-        if (request === latest) root.hidden = true;
+        if (request === latest && !shown) root.hidden = true;
       }
     },
+
+    prefetch: trees.prefetch,
   };
 }

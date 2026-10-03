@@ -1,5 +1,6 @@
 import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
 import { listBeings } from '../../lib/beings';
+import { onIntent } from '../../lib/hoverIntent';
 import { deleteItemInstance, getOwnedItemInstances, setOwner, unsetOwner } from '../../lib/items';
 import { giveOrAsk } from '../../lib/moveAnyway';
 import { deleteSplitQuestion, isStackRefusal } from '../../lib/settingDown';
@@ -10,6 +11,8 @@ export type InstancesOptions = {
   tenantId: string;
   viewerIsGm: boolean;
   onView(instance: ItemInstance): void;
+  // A row's View is likely to be clicked next.
+  onPrefetch(instance: ItemInstance): void;
 };
 
 export type RenderedInstances = {
@@ -92,6 +95,7 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
     }
 
     view.addEventListener('click', () => options.onView(instance), { signal });
+    onIntent(view, () => options.onPrefetch(instance), signal);
     unassign.hidden = !instance.owner_entity_id;
 
     unassign.addEventListener(

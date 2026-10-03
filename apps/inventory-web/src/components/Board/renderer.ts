@@ -14,6 +14,7 @@ export type BoardOptions = {
   viewerIsGm: boolean;
   undo: RenderedUndoBanner;
   onOpenItem(item: ItemInstance, card: HTMLElement): void;
+  onPrefetchItem(item: ItemInstance): void;
 };
 
 export type RenderedBoard = {
@@ -88,6 +89,8 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     drops,
     query: () => search.value.trim().toLowerCase(),
     onOpenItem: options.onOpenItem,
+    onPrefetchItem: options.onPrefetchItem,
+    signal,
   });
 
   // A couple of fake columns and cards shaped like the real thing, without the heading,

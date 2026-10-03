@@ -21,6 +21,8 @@ export type RenderedNotes = {
   // Shows the notes of `entityId`, replacing what was shown. `canWrite`: the viewer may add,
   // edit and delete them. `reader`: who a private note is also for.
   load(entityId: string, viewer: { canWrite: boolean; reader: Reader | null }): Promise<void>;
+  // Fetches the notes of `entityId` ahead of `load`.
+  prefetch(entityId: string): void;
 };
 
 // Who, besides everyone, can read a private note: the reader's players and the GMs.
@@ -40,6 +42,8 @@ export function renderNotes(root: HTMLElement, options: NotesOptions): RenderedN
   });
 
   return {
+    prefetch: (entityId) => information.prefetch(entityId, ['note']),
+
     load(entityId, { canWrite, reader }) {
       return information.load(entityId, {
         types: ['note'],

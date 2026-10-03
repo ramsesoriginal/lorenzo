@@ -84,6 +84,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
           viewerIsGm,
           undo,
           onOpenItem: (item, card) => detail.open(item, card),
+          onPrefetchItem: (item) => detail.prefetch(item),
         });
 
         const detail = renderItemDetail({

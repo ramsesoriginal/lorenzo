@@ -1,4 +1,5 @@
 import type { Renderer } from '../../lib/descriptions';
+import { onIntent } from '../../lib/hoverIntent';
 import { getDescription, saveDescription } from '../../lib/information';
 import {
   deleteCatalogItem,
@@ -28,6 +29,8 @@ export type CatalogOptions = {
 
   renderInstantiate(item: CatalogItem, onDone: () => void): RenderedPanel;
   onView(item: CatalogItem): void;
+  // A row's View is likely to be clicked next.
+  onPrefetch(item: CatalogItem): void;
 };
 
 export type RenderedCatalog = {
@@ -105,6 +108,7 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     remove.hidden = !options.viewerIsGm;
 
     view.addEventListener('click', () => options.onView(item), { signal });
+    onIntent(view, () => options.onPrefetch(item), signal);
 
     remove.addEventListener(
       'click',

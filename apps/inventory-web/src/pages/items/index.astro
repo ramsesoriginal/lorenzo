@@ -168,6 +168,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           renderer,
           renderInstantiate: (item, onDone) => renderInstantiateItem({ tenantId, item, onDone }),
           onView: (item) => detail.view(item),
+          onPrefetch: (item) => detail.prefetch(item),
         });
 
         const instances = renderInstances({
@@ -175,6 +176,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           tenantId,
           viewerIsGm,
           onView: (instance) => detail.view(instance),
+          onPrefetch: (instance) => detail.prefetch(instance),
         });
 
         document.getElementById('new-item')!.hidden = !viewerIsGm;

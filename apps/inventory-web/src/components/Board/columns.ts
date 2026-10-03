@@ -1,4 +1,5 @@
 import { type BoardColumn, ownerMark } from '../../lib/boardColumns';
+import { onIntent } from '../../lib/hoverIntent';
 import type { ItemInstance } from '../../lib/types';
 import { fromTemplate, required } from './dom';
 import type { DropZones } from './dragDrop';
@@ -14,6 +15,9 @@ export type ColumnsOptions = {
   // The board search's current, lower-cased text.
   query(): string;
   onOpenItem(item: ItemInstance, card: HTMLElement): void;
+  // A card's item is likely to be opened next.
+  onPrefetchItem(item: ItemInstance): void;
+  signal: AbortSignal;
 };
 
 export function matchesSearch(item: ItemInstance, query: string): boolean {
@@ -42,6 +46,8 @@ export function createColumns(options: ColumnsOptions) {
 
     container.hidden = !item.is_container;
     name.textContent = item.title;
+
+    onIntent(card, () => options.onPrefetchItem(item), options.signal);
 
     card.addEventListener('dragstart', (event) => {
       event.dataTransfer?.setData('text/plain', item.entity_id);
