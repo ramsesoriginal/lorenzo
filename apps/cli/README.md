@@ -22,7 +22,7 @@ That installs the `lorenzo` command from this repository's `main` branch, into i
 Four things have to be true before the first command does anything useful. The first three are about the Lorenzo you are talking to, not about this tool.
 
 1. **You know its API address.** There is no default, on purpose: the CLI sends your token only to an address you gave it. It is whatever your Lorenzo's operator tells you (for a local `apps/api`, `http://localhost:8000`).
-2. **You have an account on it, and the CLI has a way to sign in.** Signing in uses an Authgear client registered for the CLI: a *public* client, with no secret, whose redirect URIs are `http://127.0.0.1:8766/callback`, `:8767` and `:8768`. Registering it is a one-time step for whoever runs the Authgear project ([docs/operations](../../docs/operations/README.md)); you need its **issuer** and **client id**. Until one exists, a token from `LORENZO_TOKEN` or `--token-stdin` does everything `login` would.
+2. **You have an account on it, and the CLI has a way to sign in.** Signing in uses an Authgear client registered for the CLI: a *public* client, with no secret (a Single Page Application in the Portal), whose redirect URIs are `http://127.0.0.1:8766/callback`, `:8767` and `:8768`. Registering it is a one-time step for whoever runs the Authgear project ([deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)); you need its **issuer** and **client id**. Until one exists, a token from `LORENZO_TOKEN` or `--token-stdin` does everything `login` would.
 3. **To create a tenant, you need the `tenant-creator` role**, which the Authgear project's maintainer grants in its Portal. Nothing else in this tool needs it, and the API says so (`403`) if you lack it. (`whoami` can't tell you beforehand: the API doesn't report roles yet.)
 4. **To import MPMB items, you have the sheet's data.** It is GPL-3.0 and not shipped; clone it (see [Reading MPMB files](#reading-mpmb-files)).
 
@@ -232,7 +232,7 @@ CI's `client-drift` job runs `check-schema`, which fails on any difference. `src
 
 ## Login needs an Authgear client
 
-`login` uses the authorization code flow with PKCE against a public Authgear client on a fixed loopback port (8766, with 8767 and 8768 as fallbacks). That client has to be registered on the Authgear project first (an operations step, see [docs/operations](../../docs/operations/local-authgear-setup.md)), and its issuer and client id given to `login` once ([Before you start](#before-you-start)). Until then `login` says so and exits; tokens through `LORENZO_TOKEN` or `--token-stdin` work regardless.
+`login` uses the authorization code flow with PKCE against a public Authgear client on a fixed loopback port (8766, with 8767 and 8768 as fallbacks). That client has to be registered on the Authgear project first (an operations step, see [deployment-setup](../../docs/operations/deployment-setup.md#appsclis-own-authgear-application-adr-0137-0157)), and its issuer and client id given to `login` once ([Before you start](#before-you-start)). Until then `login` says so and exits; tokens through `LORENZO_TOKEN` or `--token-stdin` work regardless.
 
 Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_TENANT`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`.
 

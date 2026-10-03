@@ -169,6 +169,28 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
 5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — by the time this app registers its own client, `apps/api`'s dev-token client, `apps/loot-bot`'s client, and `apps/account-hub`'s client may already be at or past that cap on a strict per-project reading. Confirm directly in the console rather than assuming either way.
 
+## The command line (apps/cli)
+
+`apps/cli` is installed, not deployed ([ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)), so there is no host to set up. It needs one thing from the Authgear project, a client of its own, and then each person needs three values.
+
+### `apps/cli`'s own Authgear application (ADR 0137, 0157)
+
+`lorenzo login` runs the authorization code flow with PKCE itself, with no Authgear SDK, so its client is a **public** one: no secret, since nothing installed on someone's machine can keep one. In the Portal that is a **Single Page Application**:
+
+1. **Authgear Portal → your production project → Applications → New Application → Single Page Application** (under *Website*, "Other SPAs"). The Portal's quickstart list is grouped by framework, not by application type. Of the other choices, "Other OIDC/SAML compatible" is a confidential client with a secret, which the CLI can't hold, and *Machine-to-machine* tokens belong to a client rather than a person, so they carry no user and not the `tenant_creator` role ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)).
+2. **Authorized Redirect URIs**: `http://127.0.0.1:8766/callback`, `http://127.0.0.1:8767/callback` and `http://127.0.0.1:8768/callback`. These are the CLI's own `CALLBACK_PORTS`: it listens on the first that is free, and `login --no-browser` uses the first. Register all three rather than relying on Authgear matching any loopback port. The CLI sends no trailing slash; a registration may include the slash forms and `https` as well, which does no harm.
+3. No post-logout redirect URI is needed: `lorenzo logout` only deletes the local credentials file.
+4. From the application's **Endpoints** section, copy the **issuer** and the application's **Client ID**. Neither is a secret, as with the web apps' clients; they are given to `login` once, which remembers them ([ADR 0157](../adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)):
+
+   ```bash
+   lorenzo login --api-url <the API's address> --issuer <the issuer> --client-id <the client id>
+   lorenzo whoami
+   ```
+
+5. **It must be in the same project `apps/api` verifies** (`AUTHGEAR_ISSUER`). The API checks a token's issuer and audience, so a client in another project mints tokens it rejects, which `whoami` reports as "The API didn't accept the token".
+
+`whoami` is the check that all of this agrees. What a first real login still settles, because Authgear's documentation doesn't say: whether this client is given a refresh token for `offline_access`, and for how long. Without one the CLI still works, and asks for a new `login` once the access token expires.
+
 ## Cloudflare Pages (apps/brand)
 
 `apps/brand` is a plain static site with **no build step at all** — no framework, no `package.json`, nothing to `pnpm install` — see [ADR 0098](../adr/0098-branding-css-app-and-package.md). Same Git-integration mechanism as `apps/account-hub`/`apps/inventory-web` above, but simpler: no Authgear application, no environment variables.
