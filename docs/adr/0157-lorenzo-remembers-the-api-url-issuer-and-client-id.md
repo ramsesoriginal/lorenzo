@@ -2,7 +2,7 @@
 
 Status: accepted
 
-Amends [ADR 0137](0137-lorenzo-cli-app-python-client-and-auth.md). Part of the set decided together on 2026-10-03 ([ADR 0153](0153-lorenzo-version.md)).
+Amends [ADR 0137](0137-lorenzo-cli-app-python-client-and-auth.md). Its "no default" clauses are superseded by [ADR 0164](0164-the-official-instance-is-the-clis-default.md); what `login` remembers is otherwise as here. Part of the set decided together on 2026-10-03 ([ADR 0153](0153-lorenzo-version.md)).
 
 ## Context
 
