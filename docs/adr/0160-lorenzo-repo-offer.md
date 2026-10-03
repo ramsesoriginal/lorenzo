@@ -1,6 +1,6 @@
 # 0160 - `lorenzo repo offer`
 
-Status: accepted
+Status: accepted. Amended by [ADR 0163](0163-lorenzo-repo-offer-offers-what-a-bridge-builds-on.md): it also offers what a bridge builds on.
 
 The follow-up [RFC 0025](../rfcs/0025-lorenzo-cli-mpmb-item-importer.md) R10 reserved. Builds on [ADR 0159](0159-lorenzo-repo-commands.md). Part of the set decided together on 2026-10-03 ([ADR 0153](0153-lorenzo-version.md)).
 
