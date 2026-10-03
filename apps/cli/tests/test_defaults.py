@@ -8,7 +8,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-from plain import plain
 from typer.testing import CliRunner
 
 from lorenzo_cli import main as main_module
@@ -24,6 +23,7 @@ OFFICIAL = (OFFICIAL_API_URL, OFFICIAL_ISSUER, OFFICIAL_CLIENT_ID)
 OFFICIAL_HOST = "lorenzo-api-100817212329.europe-west1.run.app"
 NOTE = f"Using the official Lorenzo at {OFFICIAL_API_URL}."
 LOCAL = "http://localhost:8000"
+MINE = "https://mine.example"
 OTHER_ISSUER = "https://other.authgear.cloud"
 
 
@@ -239,6 +239,12 @@ def test_the_remembered_file_wins_over_the_default_and_is_not_announced(tmp_path
     assert "official" not in result.output
 
 
+def api_row(output: str) -> list[str]:
+    """What `whoami` printed beside "api", as words."""
+    row = next(line for line in output.splitlines() if line.split()[:1] == ["api"])
+    return row.split()[1:]
+
+
 def test_whoami_marks_the_default(tmp_path: Path) -> None:
     me = {
         "id": "0a1b2c3d-1111-4222-8333-444455556666",
@@ -261,12 +267,11 @@ def test_whoami_marks_the_default(tmp_path: Path) -> None:
     shown = runner.invoke(app, ["whoami"], obj=by_default)
     elsewhere = runtime(tmp_path)
     elsewhere.transport = transport
-    named = runner.invoke(app, ["--api-url", "https://mine.example", "whoami"], obj=elsewhere)
+    named = runner.invoke(app, ["--api-url", MINE, "whoami"], obj=elsewhere)
 
     assert shown.exit_code == 0 and named.exit_code == 0, (shown.output, named.output)
-    assert f"{OFFICIAL_API_URL} (the default)" in plain(shown.output)
-    assert "https://mine.example" in plain(named.output).split()
-    assert "(the default)" not in named.output
+    assert api_row(shown.output) == [OFFICIAL_API_URL, "(the", "default)"]
+    assert api_row(named.output) == [MINE]
 
 
 # --- login ------------------------------------------------------------------------------------
