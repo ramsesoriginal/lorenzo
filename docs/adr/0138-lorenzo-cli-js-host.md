@@ -40,6 +40,8 @@ Step 2 is not in R1; the spike found it necessary (below).
 
 `lorenzo inspect [--base FILE...] FILE...` shows the files, per-list counts and origins, stubs, and any value a stub reached, without touching a tenant. `--json` prints the whole result. It exits 1 if any file failed.
 
+*Addendum, 2026-10-03: `FILE...` is optional when `--base` is given, as it already is for `plan` and `apply`, so `inspect --base ...` shows what the sheet ships. With neither it is a usage error.*
+
 ### The golden corpus
 
 `tests/corpus/<case>/` holds fixtures written for this repository in the shapes of the upstream templates, and an `expected.json` per case that the worker's output must equal. That, not the engine, is the contract. `LORENZO_UPDATE_GOLDEN=1` rewrites them after a deliberate change. The upstream repository and the sheet's data are GPL-3.0 and are **not** copied here; `tests/test_evalworker_upstream.py` runs against a local clone when `LORENZO_UPSTREAM_CORPUS` points at one.

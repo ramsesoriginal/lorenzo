@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import httpx
+from plain import plain
 from typer.testing import CliRunner
 
 from lorenzo_cli.auth.store import CredentialsFile, StoredLogin
@@ -213,6 +214,25 @@ def test_inspect_starts_the_lists_from_the_base_files_and_names_each_entrys_file
         "dagger": "homebrew.js",
         "glass sword": "homebrew.js",
     }
+
+
+def test_inspect_takes_the_base_alone_like_plan_and_apply(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["inspect", "--base", str(CORPUS / "base_and_patch" / "base.js"), "--json"],
+        obj=runtime(tmp_path, []),
+    )
+
+    assert result.exit_code == 0, result.output
+    origins = json.loads(result.output)["origins"]["WeaponsList"]
+    assert origins == {"longsword": "base.js", "dagger": "base.js"}
+
+
+def test_inspect_with_nothing_to_read_says_what_to_name(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["inspect"], obj=runtime(tmp_path, []))
+
+    assert result.exit_code == 2
+    assert "--base" in plain(result.output)
 
 
 def test_inspect_exits_1_when_a_file_fails_but_still_reports_the_rest(tmp_path: Path) -> None:
