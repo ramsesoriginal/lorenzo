@@ -6821,6 +6821,8 @@ export interface components {
             kind: components["schemas"]["TenantKind"];
             /** Published At */
             published_at: string | null;
+            /** Npcs Shared With Gms */
+            npcs_shared_with_gms: boolean;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -6866,6 +6868,8 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
+            /** Npcs Shared With Gms */
+            npcs_shared_with_gms?: boolean | null;
         };
         /**
          * UpdateActionIn

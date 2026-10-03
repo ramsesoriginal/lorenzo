@@ -7,8 +7,9 @@ than have its logic duplicated there.
 """
 
 import uuid
+from collections.abc import Iterable
 
-from sqlalchemy import or_, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.entity_access import controlled_character_entity_ids
@@ -16,10 +17,12 @@ from lorenzo_api.models import (
     Being,
     CampaignGm,
     CharacterPlayer,
+    Entity,
     GroupMember,
     Membership,
     MembershipRole,
     Player,
+    Tenant,
     TenantAdminCampaignOptOut,
 )
 
@@ -212,6 +215,70 @@ async def campaign_ids_for_owner(
     return frozenset((await session.execute(stmt)).scalars().all())
 
 
+async def campaignless_holders_for(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    among: Iterable[uuid.UUID] | None = None,
+) -> frozenset[uuid.UUID]:
+    """The beings and groups in no campaign that a GM has standing over, for
+    both reading and acting (ADR 0152): `among`, if given, narrows the answer
+    to those entities, so a check on one owner and a listing of all of them
+    are one query.
+
+    Only a caller who holds a CampaignGm row in the tenant is a GM here;
+    anyone else gets nothing, whatever else they are. "In no campaign" is
+    campaign_ids_for_owner coming back empty (ADR 0151): a being nobody has a
+    seat for, or a group none of whose members has one - so a being with a
+    campaign never appears, and neither does anything that is not a being or
+    a group.
+
+    With the tenant's `npcs_shared_with_gms` on (the default), every such
+    being is the GM's. With it off, only those authored (`entity.created_by`)
+    by the caller or by a co-GM: someone who GMs at least one campaign the
+    caller GMs. A being nobody authored (a deleted account) is nobody's then.
+    """
+    gm_campaigns = select(CampaignGm.campaign_id).where(
+        CampaignGm.user_id == user_id, CampaignGm.tenant_id == tenant_id
+    )
+    if (await session.execute(gm_campaigns.limit(1))).first() is None:
+        return frozenset()
+
+    seated = (
+        select(CharacterPlayer.character_entity_id)
+        .join(Player, Player.id == CharacterPlayer.player_id)
+        .where(Player.tenant_id == tenant_id)
+    )
+    seated_group = (
+        select(GroupMember.group_entity_id)
+        .join(
+            CharacterPlayer, CharacterPlayer.character_entity_id == GroupMember.character_entity_id
+        )
+        .where(GroupMember.tenant_id == tenant_id)
+    )
+    is_group = exists().where(
+        GroupMember.group_entity_id == Entity.id, GroupMember.tenant_id == tenant_id
+    )
+    is_being = exists().where(Being.entity_id == Entity.id, Being.tenant_id == tenant_id)
+    stmt = select(Entity.id).where(
+        Entity.tenant_id == tenant_id,
+        or_(is_being, is_group),
+        Entity.id.not_in(seated),
+        Entity.id.not_in(seated_group),
+    )
+    if among is not None:
+        stmt = stmt.where(Entity.id.in_(set(among)))
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None or not tenant.npcs_shared_with_gms:
+        co_gms = select(CampaignGm.user_id).where(
+            CampaignGm.campaign_id.in_(gm_campaigns), CampaignGm.tenant_id == tenant_id
+        )
+        stmt = stmt.where(Entity.created_by.in_(co_gms))
+    return frozenset((await session.execute(stmt)).scalars().all())
+
+
 async def can_manage_owner(
     session: AsyncSession, *, user_id: uuid.UUID, owner_entity_id: uuid.UUID, tenant_id: uuid.UUID
 ) -> bool:
@@ -219,8 +286,9 @@ async def can_manage_owner(
     a GM of a campaign it plays in (ADR 0124), a group's being its members'.
 
     A being or a group in no campaign (an NPC, a character with no player
-    seat) has none, so the tenant's GMs and administrators stand in for it, as
-    they do for an ownerless instance (ADR 0151). Anything else - an item, a
+    seat) has no such GM, so a tenant administrator stands in for it, and a GM
+    when the tenant shares such beings with its GMs, or when they authored it
+    or are a co-GM of its author (ADR 0151, 0152). Anything else - an item, a
     place - has nobody with standing.
     """
     campaign_ids = await campaign_ids_for_owner(
@@ -242,7 +310,11 @@ async def can_manage_owner(
     )
     if is_being is None and is_group is None:
         return False
-    return await can_manage_any_campaign_in_tenant(session, user_id=user_id, tenant_id=tenant_id)
+    if await is_tenant_admin(session, tenant_id=tenant_id, user_id=user_id):
+        return True
+    return owner_entity_id in await campaignless_holders_for(
+        session, user_id=user_id, tenant_id=tenant_id, among={owner_entity_id}
+    )
 
 
 async def can_manage_any_of_campaigns(

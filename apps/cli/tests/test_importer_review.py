@@ -22,6 +22,7 @@ TENANT = TenantOut.model_validate(
         "description": "",
         "kind": "repository",
         "published_at": None,
+        "npcs_shared_with_gms": True,
         "created_by": None,
         "updated_by": None,
     }
