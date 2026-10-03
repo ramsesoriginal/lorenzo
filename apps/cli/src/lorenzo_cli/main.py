@@ -32,7 +32,12 @@ from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.config import ConfigError, Settings, load_settings
 from lorenzo_cli.evalworker import Engine, EvalError, EvalRequest, WorkerEngine, read_sources
 from lorenzo_cli.importer.apply import ApplyOptions, apply_import
-from lorenzo_cli.importer.give import PackError, entity_id_of, give_pack
+from lorenzo_cli.importer.give import (
+    PackError,
+    count_instances,
+    give_pack,
+    tree_lines,
+)
 from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.mapping import MappingError
 from lorenzo_cli.importer.plan import ImportPlan, Options
@@ -633,36 +638,40 @@ def _inputs(files: list[Path] | None, base: list[Path] | None) -> list[Path]:
 def pack_give(
     ctx: typer.Context,
     pack: Annotated[str, typer.Argument(help="The pack's slug or id, as imported.")],
-    tenant: TenantOption,
+    tenant: Annotated[
+        str,
+        typer.Option(
+            "--tenant",
+            "-t",
+            envvar="LORENZO_TENANT",
+            help="The tenant's id or slug: one with the pack in it, and the owner.",
+        ),
+    ],
     owner: Annotated[
-        str | None,
-        typer.Option("--owner", help="The character (slug or id) who gets it. Default: nobody."),
-    ] = None,
-    into: Annotated[
-        str | None,
-        typer.Option("--into", help="A container (slug or id) to put it in. Default: none."),
-    ] = None,
+        str,
+        typer.Option(
+            "--owner",
+            help="The being or group (slug or id) who gets it. A being takes it into its hands.",
+        ),
+    ],
+    override: Annotated[
+        bool,
+        typer.Option("--override", help="A GM's: hand it out even past what the owner can carry."),
+    ] = False,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Say what would be created, and create nothing.")
+        bool, typer.Option("--dry-run", help="Say what would be made, and make nothing.")
     ] = False,
 ) -> None:
-    """Create a pack's contents in a tenant: its container, then what is inside, with quantities.
+    """Hand a pack out: its containers, and what is inside them, with quantities.
 
-    The contents are read from the pack's description, where the importer put them.
+    The API reads the contents from the pack's description, where the importer put them, and makes
+    everything in one go or nothing at all.
     """
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:
         target = resolve_tenant(client, tenant)
-        owner_id = entity_id_of(client, target.id, owner, "character") if owner else None
-        into_id = entity_id_of(client, target.id, into, "container") if into else None
-        given = give_pack(
-            client,
-            target.id,
-            pack,
-            owner=owner_id,
-            into=into_id,
-            dry_run=dry_run,
-            say=_out.print,
-        )
-    verb = "Would create" if dry_run else "Created"
-    _out.print(f"{verb} {sum(g.created for g in given)} item(s).")
+        given = give_pack(client, target.id, pack, owner, override=override, dry_run=dry_run)
+    for line in tree_lines(given):
+        _out.print(line, highlight=False)
+    verb = "Would give" if dry_run else "Gave"
+    _out.print(f"{verb} {count_instances(given)} item(s).")

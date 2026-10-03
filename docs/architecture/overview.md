@@ -205,7 +205,12 @@ A pack can be handed out by the API in one request ([ADR 0149](../adr/0149-givin
 - **One route.** `POST .../item-instances/from-pack` takes a pack item and an owner. It reads the pack's own public description, the list [ADR 0145](../adr/0145-pack-contents-in-the-description.md) put there, with a Python parser held to the same examples as the CLI's, and creates what it names: a line with lines under it is a container made once per unit, any other line one stack. The pack item itself isn't instantiated.
 - **A being or a group.** A being gets the top of the list in its hands, Equipped, and owns all of it; a group owns all of it with nothing in a container, so a loose stack becomes single items. Standing is `POST /item-instances`'s own: someone who plays the character or GMs its campaign, or a member of the group. A being or group in no campaign, such as an NPC, is covered by the tenant's GMs and administrators ([ADR 0151](../adr/0151-a-being-in-no-campaign-and-who-stands-in-for-its-gm.md)), so items and packs can be given to any being; for `POST /item-instances` too.
 - **All or nothing.** One transaction. A line without a link, a slug that isn't an item, a quantity or a count over its limit, or a capacity that would be passed (the being and each new container are measured, [ADR 0128](../adr/0128-capacity-and-moving-anyway.md)) refuses the whole pack, naming what's wrong; a GM's `override` skips capacity. `?dry_run=true` does all of it and rolls it back.
-- **Recorded** as one `item_instance.created` per instance, with the pack's id, and one change-feed call, so each holder hears what they received. `lorenzo pack give` still hands a pack out client-side until the CLI moves onto the route.
+- **Recorded** as one `item_instance.created` per instance, with the pack's id, and one change-feed call, so each holder hears what they received.
+
+`lorenzo pack give` moved onto that route ([ADR 0150](../adr/0150-lorenzo-pack-give-on-the-api.md), [RFC 0032](../rfcs/0032-giving-a-pack-from-the-api.md) slice 2):
+
+- **One call.** It resolves the pack and the owner to ids and makes the request; `--owner` is required, `--into` is gone (a breaking change to a pre-1.0 command), `--dry-run` is `?dry_run=true`, and `--override` is a GM's. What was made is printed as a tree, and the API's refusals are put into words, with a pack's unlinked lines each named.
+- **Every line links.** `"text"` is no longer a `[pack_items]` disposition, so the importer writes lists the API will accept. The CLI's parser is held to the API's examples by a check in the end-to-end suite, which CI runs for an API change.
 
 ### What's next
 

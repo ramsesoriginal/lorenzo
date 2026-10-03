@@ -145,10 +145,10 @@ class NameIndex:
 
 @dataclass(frozen=True)
 class Ref:
-    """What an entry refers to: an item of the run (`link`), a plain item to be made for it
-    (`item`, with its key in the `gear` list), or nothing (`text`)."""
+    """What an entry refers to: an item of the run (`link`), or a plain item to be made for it
+    (`item`, with its key in the `gear` list). Every entry is an item (ADR 0150)."""
 
-    kind: Literal["link", "item", "text"]
+    kind: Literal["link", "item"]
     list_name: str = ""
     key: str = ""
 
@@ -174,8 +174,7 @@ def plain_key(name: str) -> str:
 
 def _row_suggestion(name: str, hint: str) -> str:
     return (
-        f'[pack_items]\n"{name.lower()}" = "{hint}"'
-        '   # or "item" if it is a plain item of its own, "text" if it is no item'
+        f'[pack_items]\n"{name.lower()}" = "{hint}"   # or "item" if it is a plain item of its own'
     )
 
 
@@ -201,8 +200,6 @@ def _ref_for(entry: PackEntry, index: NameIndex, mapping: Mapping, out: Resoluti
         "the gear entry of that name is used" if plain.kind == "link" else "a plain item is made"
     )
     row = mapping.pack_items.get(entry.name.lower())
-    if row == "text":
-        return Ref("text")
     if row == "item":
         return plain
     if row is not None:
@@ -263,11 +260,9 @@ def build_contents(
             assert target is not None
             quantity = _quantity_of(entry, target, contents)
             contents.lines.append(PackLine(placed.depth, quantity, target.display, target.slug))
-        elif ref.kind == "item":
+        else:
             slug = (plain_slugs or {}).get(ref.key)
             contents.lines.append(PackLine(placed.depth, entry.quantity, entry.name, slug))
-        else:
-            contents.lines.append(PackLine(placed.depth, entry.quantity, entry.name))
     return contents
 
 

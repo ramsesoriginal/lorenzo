@@ -4,10 +4,13 @@ handing them out."""
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
-from e2e.helpers import FIXTURES, by_slug, run_cli, tenant_id
+import httpx
+
+from e2e.helpers import FIXTURES, by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
 from e2e.test_import import apply, plan, seeded_tenant, statuses
 
@@ -96,7 +99,7 @@ def test_a_row_in_the_map_links_the_entry_and_the_description_follows_on_a_new_t
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
     map_file = tmp_path / "packs.map.toml"
-    map_file.write_text('schema = 1\n[pack_items]\n"Mystery thing" = "text"\n')
+    map_file.write_text('schema = 1\n[pack_items]\n"Mystery thing" = "item"\n')
 
     result = plan(
         stack, token, tmp_path, tenant, PACKS, "--map", str(map_file), "--strict", "--json"
@@ -105,6 +108,21 @@ def test_a_row_in_the_map_links_the_entry_and_the_description_follows_on_a_new_t
     [pack] = [i for i in json.loads(result.stdout)["items"] if i["list"] == "packs"]
     assert pack["pack"]["unresolved"] == []
     assert result.exit_code == 2  # strict and nothing unresolved: only work to do
+
+
+def test_a_row_saying_text_is_refused_since_every_line_of_a_pack_links(
+    stack: Stack, tmp_path: Path
+) -> None:
+    token = stack.creator_token()
+    tenant = seeded_tenant(stack, token, tmp_path)
+    map_file = tmp_path / "packs.map.toml"
+    map_file.write_text('schema = 1\n[pack_items]\n"Mystery thing" = "text"\n')
+
+    result = plan(stack, token, tmp_path, tenant, PACKS, "--map", str(map_file))
+
+    assert result.exit_code == 1
+    assert "no longer a choice" in said(result)
+    assert "Say 'item'" in said(result)
 
 
 def test_a_pack_imported_without_its_contents_is_finished_by_the_next_run(
@@ -129,34 +147,77 @@ def test_a_pack_imported_without_its_contents_is_finished_by_the_next_run(
         assert description(by_slug(api, tid, "basic-packs-camper")) == [CONTENTS]
 
 
-def test_a_pack_is_handed_out_as_a_container_holding_stacks(stack: Stack, tmp_path: Path) -> None:
-    token = stack.creator_token()
-    tenant = imported(stack, token, tmp_path)
-
-    dry = run_cli(
-        stack,
-        token,
-        tmp_path,
-        "pack",
-        "give",
-        "basic-packs-camper",
-        "--tenant",
-        tenant,
-        "--dry-run",
+def a_party(stack: Stack, token: str, tmp_path: Path) -> tuple[str, str, dict[str, str]]:
+    """A play tenant with the packs imported, and someone to give them to: a campaign, the caller's
+    seat in it, their character Alice, and The Company, a group Alice is the one member of.
+    (A repository holds no campaigns, so nothing in it can be handed a pack.)"""
+    tenant = make_tenant(stack, token, kind="play")
+    seeded = run_cli(
+        stack, token, tmp_path, "seed", "--tenant", tenant, "--yes", "--allow-play-tenant"
     )
-    given = run_cli(
-        stack, token, tmp_path, "pack", "give", "basic-packs-camper", "--tenant", tenant
-    )
-
-    assert dry.exit_code == 0, dry.output
-    assert "would create 5 x Rations (1 day)" in dry.output
-    assert given.exit_code == 0, given.output
-    assert "skipped" not in given.output  # every entry is an item
-    assert "Created 11 item(s)" in given.output  # 1 + 5 + 2 + 1 + 1 + 1
+    assert seeded.exit_code == 0, seeded.output
+    applied = apply(stack, token, tmp_path, tenant, PACKS, "--yes", "--allow-play-tenant")
+    assert applied.exit_code == 0, applied.output
     with stack.api(token) as api:
         tid = tenant_id(api, tenant)
-        instances = api.get(f"/tenants/{tid}/item-instances", params={"size": 100}).json()["items"]
-        [backpack] = [i for i in instances if i["title"] == "Backpack"]
+        me = api.get("/me").json()
+        campaign = api.post(
+            f"/tenants/{tid}/campaigns",
+            json={"name": "Table", "game_system": "dnd5e", "slug": "table", "description": "x"},
+        )
+        assert campaign.status_code == 201, campaign.text
+        player = api.post(
+            f"/tenants/{tid}/campaigns/{campaign.json()['id']}/players",
+            json={"user_id": me["id"]},
+        )
+        assert player.status_code == 201, player.text
+        alice = api.post(
+            f"/tenants/{tid}/characters",
+            json={"name": "Alice", "owner_player_id": player.json()["id"]},
+        )
+        assert alice.status_code == 201, alice.text
+        company = api.post(
+            f"/tenants/{tid}/groups",
+            json={"name": "The Company", "member_character_ids": [alice.json()["entity_id"]]},
+        )
+        assert company.status_code == 201, company.text
+    return tenant, tid, {"alice": alice.json()["entity_id"], "company": company.json()["id"]}
+
+
+def instances_of(api: httpx.Client, tid: str) -> list[dict[str, Any]]:
+    listed: list[dict[str, Any]] = api.get(
+        f"/tenants/{tid}/item-instances", params={"size": 100}
+    ).json()["items"]
+    return listed
+
+
+def said(result: Any) -> str:
+    """The output as one line: the terminal wraps it where it likes."""
+    return " ".join(result.output.split())
+
+
+def test_a_pack_is_handed_to_a_being_into_its_hands(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token()
+    tenant, tid, who = a_party(stack, token, tmp_path)
+    give = ["pack", "give", "basic-packs-camper", "--tenant", tenant, "--owner", who["alice"]]
+
+    dry = run_cli(stack, token, tmp_path, *give, "--dry-run")
+    with stack.api(token) as api:
+        assert instances_of(api, tid) == []
+    given = run_cli(stack, token, tmp_path, *give)
+
+    assert dry.exit_code == 0, dry.output
+    assert "Would give 6 item(s)." in dry.output
+    assert "  5 x Rations (1 day)" in dry.output
+    assert given.exit_code == 0, given.output
+    assert "Gave 6 item(s)." in given.output  # a backpack and five stacks in it
+    assert "1 x Backpack" in given.output
+    with stack.api(token) as api:
+        [backpack] = [i for i in instances_of(api, tid) if i["title"] == "Backpack"]
+        assert backpack["owner_entity_id"] == who["alice"]
+        # In Alice's hands: contained directly in her.
+        hands = api.get(f"/tenants/{tid}/entities/{who['alice']}").json()["children"]
+        assert [c["name"] for c in hands] == ["Backpack"]
         detail = api.get(f"/tenants/{tid}/entities/{backpack['entity_id']}").json()
         held = {c["name"]: c["quantity"] for c in detail["children"]}
         assert held == {
@@ -174,26 +235,95 @@ def test_a_pack_is_handed_out_as_a_container_holding_stacks(stack: Stack, tmp_pa
         )
 
 
-def test_something_that_is_not_a_pack_is_not_handed_out(stack: Stack, tmp_path: Path) -> None:
+def test_a_pack_is_handed_to_a_group_which_owns_it_and_holds_nothing(
+    stack: Stack, tmp_path: Path
+) -> None:
     token = stack.creator_token()
-    tenant = imported(stack, token, tmp_path)
+    tenant, tid, who = a_party(stack, token, tmp_path)
+
+    given = run_cli(
+        stack,
+        token,
+        tmp_path,
+        *["pack", "give", "basic-packs-camper", "--tenant", tenant, "--owner", who["company"]],
+    )
+
+    assert given.exit_code == 0, given.output
+    assert "Gave 6 item(s)." in given.output
+    # A group has no container for a count, so its top level shows none: "Backpack", not "1 x".
+    assert any(line == "Backpack" for line in given.output.splitlines())
+    with stack.api(token) as api:
+        made = instances_of(api, tid)
+        assert {i["owner_entity_id"] for i in made} == {who["company"]}
+        # Nothing is in the group's hands: a group carries nothing.
+        assert api.get(f"/tenants/{tid}/entities/{who['company']}").json()["children"] == []
+        [backpack] = [i for i in made if i["title"] == "Backpack"]
+        assert backpack["quantity"] is None
+
+
+def test_a_pack_with_a_line_that_does_not_link_is_refused_and_says_which(
+    stack: Stack, tmp_path: Path
+) -> None:
+    token = stack.creator_token()
+    tenant, tid, who = a_party(stack, token, tmp_path)
+    with stack.api(token) as api:
+        item = api.post(f"/tenants/{tid}/items", json={"name": "Broken pack", "slug": "broken"})
+        assert item.status_code == 201, item.text
+        written = api.post(
+            f"/tenants/{tid}/entities/{item.json()['entity_id']}/information",
+            json={
+                "title": "Description",
+                "type": "description",
+                "content": "- 1 x [Backpack](basic-gear-backpack)\n- 1 x Alms box",
+                "is_public": True,
+            },
+        )
+        assert written.status_code == 201, written.text
 
     result = run_cli(
-        stack, token, tmp_path, "pack", "give", "basic-gear-backpack", "--tenant", tenant
+        stack,
+        token,
+        tmp_path,
+        *["pack", "give", "broken", "--tenant", tenant, "--owner", who["alice"]],
     )
 
     assert result.exit_code == 1
-    assert "no contents list" in result.output.replace("\n", " ")
+    assert "can't be handed out as it is" in said(result)
+    assert "“Alms box” has no link to an item" in said(result)
+    with stack.api(token) as api:
+        assert instances_of(api, tid) == []
+
+
+def test_something_that_is_not_a_pack_is_not_handed_out(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token()
+    tenant, tid, who = a_party(stack, token, tmp_path)
+
+    result = run_cli(
+        stack,
+        token,
+        tmp_path,
+        *["pack", "give", "basic-gear-backpack", "--tenant", tenant, "--owner", who["alice"]],
+    )
+
+    assert result.exit_code == 1
+    assert "isn't a pack" in said(result)
+    with stack.api(token) as api:
+        assert instances_of(api, tid) == []
 
 
 def test_a_pack_that_is_not_there_is_reported(stack: Stack, tmp_path: Path) -> None:
     token = stack.creator_token()
     tenant = imported(stack, token, tmp_path)
 
-    result = run_cli(stack, token, tmp_path, "pack", "give", "no-such-pack", "--tenant", tenant)
+    result = run_cli(
+        stack,
+        token,
+        tmp_path,
+        *["pack", "give", "no-such-pack", "--tenant", tenant, "--owner", str(uuid.uuid4())],
+    )
 
     assert result.exit_code == 1
-    assert "no pack “no-such-pack”" in result.output.replace("\n", " ")
+    assert "no pack “no-such-pack”" in said(result)
 
 
 def test_which_packs_contain_an_item_is_answered_by_the_backlinks(
