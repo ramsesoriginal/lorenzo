@@ -83,7 +83,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo tenant create <name> [--slug S] [--kind KIND]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
-| `lorenzo inspect [--base FILE...] FILE...` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login |
+| `lorenzo inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
 | `lorenzo seed --tenant <tenant>` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first |
 | `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
 | `lorenzo apply --tenant <tenant> FILES... --yes [--json]` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended. `--json` prints one document: the plan, what was written, what failed |
@@ -228,6 +228,8 @@ uv run lorenzo inspect \
   --base /tmp/mpmb/_variables/ListsSources.js --base /tmp/mpmb/_variables/Lists.js \
   --base /tmp/mpmb/_variables/ListsGear.js my-homebrew.js
 ```
+
+Leave `my-homebrew.js` out to see only what the sheet ships, as `plan` and `apply` also allow.
 
 The sheet's data is GPL-3.0 and is not shipped with Lorenzo. `tests/corpus/` holds the golden fixtures every engine must reproduce; `LORENZO_UPSTREAM_CORPUS=/tmp/mpmb uv run pytest tests/test_evalworker_upstream.py` runs the worker against the real thing.
 

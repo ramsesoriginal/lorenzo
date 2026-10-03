@@ -492,27 +492,22 @@ def logout(ctx: typer.Context) -> None:
 @app.command("inspect")
 def inspect_files(
     ctx: typer.Context,
-    files: Annotated[
-        list[Path],
-        typer.Argument(exists=True, dir_okay=False, help="MPMB additional-content .js files."),
-    ],
-    base: Annotated[
-        list[Path] | None,
-        typer.Option(
-            "--base",
-            exists=True,
-            dir_okay=False,
-            help="The sheet's own data (Lists*.js), evaluated first; the lists start from it.",
-        ),
-    ] = None,
+    files: FilesArgument = None,
+    base: BaseOption = None,
     as_json: Annotated[
         bool, typer.Option("--json", help="Print the whole evaluation as JSON.")
     ] = False,
 ) -> None:
-    """Show what the JavaScript host reads from MPMB files, without touching any tenant."""
+    """Show what the JavaScript host reads from MPMB files, without touching any tenant.
+
+    Name MPMB files, the sheet's own data with --base, or both: --base alone shows what the
+    sheet ships.
+    """
     runtime: Runtime = ctx.obj
+    if not files and not base:
+        raise typer.BadParameter("Name at least one file, or the sheet's own data with --base.")
     with _reporting_errors():
-        request = EvalRequest(base=read_sources(base or []), files=read_sources(files))
+        request = EvalRequest(base=read_sources(base or []), files=read_sources(files or []))
         result = runtime.engine.evaluate(request)
     if as_json:
         typer.echo(result.model_dump_json(indent=2))
