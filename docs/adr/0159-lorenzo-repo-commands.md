@@ -52,7 +52,8 @@ Every command takes `--json`, and `--tenant` takes `LORENZO_TENANT` like the oth
 - **`updates`** reads what a copied repository changed since the copy or last sync ([ADR 0121](0121-repository-updates-and-re-sync.md)), row by row, with each field marked clean or conflict. Exit 0 nothing to take, 2 updates available. Then it can apply:
   - **`--apply`** takes what needs no decision: every changed row whose fields are all clean, and every added row that has no collision. A row with any conflict is left alone and listed. A row gone upstream is left alone too, since detaching it is a decision about a row that may be in play.
   - **`--actions FILE`** is the API's own action list (`apply` with `keep_local` and `take_upstream` for each conflict, `add` with a resolution, `detach`), for anyone who wants to decide row by row. It cannot be combined with `--apply`.
-  - **`--dry-run`** and **`--yes`** as for `copy`.
+  - **`--dry-run`** and **`--yes`** as for `copy`; `--dry-run` is only for `--apply` or `--actions`, since `updates` alone writes nothing.
+  - **After `--apply`**, the exit code is 2 if anything was left for a decision (a conflict, a collision, a row gone upstream) and 0 if everything was taken. With `--json` it prints `{"result": <the API's answer or null>, "left": {...}}`.
 
 ### What it needs
 
