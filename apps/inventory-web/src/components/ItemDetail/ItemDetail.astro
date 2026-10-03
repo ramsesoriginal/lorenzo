@@ -2,6 +2,7 @@
 import AncestryTree from '../AncestryTree/AncestryTree.astro';
 import ItemView from '../ItemView/ItemView.astro';
 import Notes from '../Notes/Notes.astro';
+import ActionPanels from './ActionPanels.astro';
 ---
 
 <dialog class="card" aria-labelledby="item-detail-title" data-item-detail style="overflow-y: auto;">
@@ -35,5 +36,6 @@ import Notes from '../Notes/Notes.astro';
       <button type="button" data-merge>Merge into&hellip;</button>
     </div>
     <div data-action-panel></div>
+    <ActionPanels />
   </div>
 </dialog>

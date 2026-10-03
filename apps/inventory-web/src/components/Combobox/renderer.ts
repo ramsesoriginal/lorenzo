@@ -138,18 +138,3 @@ export function renderCombobox<T>(
 
   return { input, close };
 }
-
-// Makes a field from the page's <Combobox template /> and renders it. `label` and `placeholder`
-// are the field's own, as the inline one takes them as props.
-export function createCombobox<T>(
-  options: ComboboxOptions<T> & { label?: string; placeholder?: string },
-): RenderedCombobox & { element: HTMLElement } {
-  const template = required<HTMLTemplateElement>(document, '[data-combobox-template]');
-  const element = cloneTemplate<HTMLElement>(template);
-  const combobox = renderCombobox(element, options);
-
-  if (options.label) combobox.input.setAttribute('aria-label', options.label);
-  if (options.placeholder) combobox.input.placeholder = options.placeholder;
-
-  return { ...combobox, element };
-}

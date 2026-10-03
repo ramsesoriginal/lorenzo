@@ -1,4 +1,4 @@
-import { renderBeingActionPanel, searchBeings } from '../../lib/beingPicker';
+import { searchBeings } from '../../lib/beingPicker';
 import { errorMessage } from '../../lib/errorMessage';
 import { onIntent } from '../../lib/hoverIntent';
 import { deleteItemInstance, getOwnedItemInstances, setOwner, unsetOwner } from '../../lib/items';
@@ -6,6 +6,7 @@ import { giveOrAsk } from '../../lib/moveAnyway';
 import { deleteSplitQuestion, isStackRefusal } from '../../lib/settingDown';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { BeingRef, ItemInstance, OwnedGroup } from '../../lib/types';
+import { renderBeingPicker } from '../BeingPicker/renderer';
 import { renderCombobox } from '../Combobox/renderer';
 
 export type InstancesOptions = {
@@ -101,9 +102,10 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
 
         reassign.textContent = 'Cancel';
 
-        const picker = renderBeingActionPanel(
+        const picker = renderBeingPicker({
           tenantId,
-          async (being) => {
+
+          async perform(being) {
             await giveOrAsk(
               (flags) => setOwner(tenantId, instance.entity_id, being.entity_id, false, flags),
               {
@@ -114,7 +116,8 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
 
             return `Reassigned to ${being.name}.`;
           },
-          () => {
+
+          onDone() {
             panel.replaceChildren();
             reassign.textContent = 'Reassign';
 
@@ -122,7 +125,7 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
               void loadFor(currentCharacter);
             }
           },
-        );
+        });
 
         panel.append(picker);
       },

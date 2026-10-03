@@ -2,12 +2,12 @@
 // it, and its LorenzoScript text in the editor (ADR 0106), with notes on links readers won't be
 // able to follow, in a form of its own with Save, Cancel and a line saying what happened.
 
-import { createEditor } from '@lorenzo/lorenzoscript-editor';
 import { LorenzoApiError } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import type { InformationDraft } from '../../lib/information';
 import { cloneTemplate, requiredIn } from '../../lib/template';
+import { renderDescriptionEditor } from '../DescriptionEditor/renderer';
 
 export type InfoFormOptions = {
   initial: InformationDraft;
@@ -47,14 +47,11 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
 
   const title = required<HTMLInputElement>(form, '[data-title]');
   const type = required<HTMLInputElement>(form, '[data-type]');
-  const text = required<HTMLTextAreaElement>(form, '[data-text]');
-  const notes = required<HTMLUListElement>(form, '[data-notes]');
   const isPublic = required<HTMLInputElement>(form, '[data-public]');
   const save = required<HTMLButtonElement>(form, '[data-save]');
   const status = required<HTMLElement>(form, '[data-status]');
 
   required<HTMLElement>(form, '[data-title-label]').textContent = options.titleLabel ?? 'Title';
-  required<HTMLElement>(form, '[data-text-label]').textContent = options.textLabel ?? 'Text';
   required<HTMLElement>(form, '[data-type-field]').hidden = !options.showType;
   required<HTMLElement>(form, '[data-visibility]').hidden = !options.showVisibility;
   required<HTMLElement>(form, '[data-visibility-label]').textContent =
@@ -62,8 +59,6 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
 
   title.value = initial.title;
   type.value = initial.type;
-  text.value = initial.content;
-  text.setAttribute('aria-label', options.textLabel ?? 'Text');
   isPublic.checked = initial.isPublic;
 
   if (options.visibilityNote) {
@@ -75,30 +70,17 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
     isPublic.setAttribute('aria-describedby', note.id);
   }
 
-  const editor = createEditor({
-    textarea: text,
-    render: async (source) => {
-      const [rendered] = await options.renderer([source]);
-
-      notes.replaceChildren(
-        ...(rendered?.notes ?? []).map((note) => {
-          const item = document.createElement('li');
-
-          item.textContent = note;
-
-          return item;
-        }),
-      );
-
-      return rendered?.html ?? '';
-    },
+  const editor = renderDescriptionEditor(form, {
+    renderer: options.renderer,
+    label: options.textLabel ?? 'Text',
+    content: initial.content,
   });
 
   const read = (): InformationDraft => ({
     title: title.value.trim(),
     type: type.value.trim() || initial.type,
     isPublic: isPublic.checked,
-    content: text.value,
+    content: editor.value(),
   });
 
   function close() {

@@ -1,5 +1,6 @@
 ---
 import Combobox from '../Combobox/Combobox.astro';
+import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
 ---
 
 <template id="item-form-template">
@@ -46,11 +47,7 @@ import Combobox from '../Combobox/Combobox.astro';
       </div>
     </div>
 
-    <div class="field">
-      <span class="field-label">Description</span>
-      <textarea data-description rows="10" aria-label="Description"></textarea>
-      <ul class="status-text" data-description-notes></ul>
-    </div>
+    <DescriptionEditor />
 
     <!-- Edit form only -->
     <div class="field" data-used-by hidden>

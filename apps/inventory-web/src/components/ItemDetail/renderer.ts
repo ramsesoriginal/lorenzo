@@ -150,6 +150,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       viewerIsGm: options.viewerIsGm,
       board: board.state,
       undo: board.undo,
+      root,
       // The panel shows the item as it was, or one that's gone, so it closes onto the board
       // as it is now.
       finish() {

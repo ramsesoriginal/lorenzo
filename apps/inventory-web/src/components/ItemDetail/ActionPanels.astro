@@ -1,0 +1,27 @@
+<!-- What the dialog's actions open under their buttons, copied by panels.ts. -->
+<template data-quantity-field-template>
+  <label class="field">
+    <span class="field-label" data-label></span>
+    <input type="number" class="text-input" min="1" data-quantity />
+  </label>
+</template>
+
+<template data-split-panel-template>
+  <div class="character-picker-panel">
+    <div data-quantity-mount></div>
+    <button type="button" data-submit>Split</button>
+    <p class="picker-status" data-status hidden></p>
+  </div>
+</template>
+
+<!-- Merge into… and Move to…: a note when there's nothing to pick, else the choices. -->
+<template data-choices-panel-template>
+  <div class="character-picker-panel">
+    <p class="field-note" data-note hidden></p>
+    <div class="merge-candidates" data-choices></div>
+    <p class="picker-status" data-status hidden></p>
+    <template data-choice-template>
+      <button type="button"></button>
+    </template>
+  </div>
+</template>

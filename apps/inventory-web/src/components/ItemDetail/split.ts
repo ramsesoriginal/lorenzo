@@ -2,35 +2,16 @@ import { errorMessage } from '../../lib/errorMessage';
 import { splitItemInstance } from '../../lib/items';
 import { say } from '../../lib/statusLine';
 import type { ItemInstance } from '../../lib/types';
-import { type ActionContext, actionPanel, statusLine } from './panels';
+import { type ActionContext, splitPanelParts } from './panels';
 
 // Split…: splits part of a stack off into a new sibling with the same owner. Only for a
 // quantity above 1.
 export function splitPanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
-  const panel = actionPanel();
-
-  const field = document.createElement('label');
-  field.className = 'field';
-
-  const label = document.createElement('span');
-  label.className = 'field-label';
-  label.textContent = `Split off how many? (of ${item.quantity})`;
-
-  const input = document.createElement('input');
-  input.type = 'number';
-  input.className = 'text-input';
-  input.min = '1';
-  input.max = String((item.quantity ?? 1) - 1);
-
-  field.append(label, input);
-
-  const submit = document.createElement('button');
-  submit.type = 'button';
-  submit.textContent = 'Split';
-
-  const status = statusLine();
-
-  panel.append(field, submit, status);
+  const { element, input, submit, status } = splitPanelParts(
+    ctx,
+    `Split off how many? (of ${item.quantity})`,
+    (item.quantity ?? 1) - 1,
+  );
 
   submit.addEventListener('click', async () => {
     const quantity = Number.parseInt(input.value, 10);
@@ -54,5 +35,5 @@ export function splitPanel(ctx: ActionContext, item: ItemInstance): HTMLElement 
     }
   });
 
-  return panel;
+  return element;
 }

@@ -1,4 +1,3 @@
-import { createEditor } from '@lorenzo/lorenzoscript-editor';
 import type { Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import { descriptionDraft, type Information, type InformationDraft } from '../../lib/information';
@@ -7,6 +6,7 @@ import { slugProblem, suggestSlug } from '../../lib/slugs';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem } from '../../lib/types';
 import { renderCombobox } from '../Combobox/renderer';
+import { renderDescriptionEditor } from '../DescriptionEditor/renderer';
 
 export type ItemFormValues = {
   name: string;
@@ -91,8 +91,6 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
   const descriptionPublicInput = required<HTMLInputElement>(form, '[data-description-public]');
   const slugLabel = required<HTMLLabelElement>(form, '[data-slug-label]');
   const slugInput = required<HTMLInputElement>(form, '[data-slug]');
-  const descriptionInput = required<HTMLTextAreaElement>(form, '[data-description]');
-  const descriptionNotes = required<HTMLUListElement>(form, '[data-description-notes]');
   const usedByField = required<HTMLElement>(form, '[data-used-by]');
   const usedByEmpty = required<HTMLElement>(form, '[data-used-by-empty]');
   const usedByList = required<HTMLUListElement>(form, '[data-used-by-list]');
@@ -110,7 +108,6 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
 
   nameInput.value = options.initial.name;
   displayNameInput.value = initialDescription.title;
-  descriptionInput.value = initialDescription.content;
   descriptionPublicInput.checked = initialDescription.isPublic;
   slugInput.value = options.initial.slug;
   publicCatalogInput.checked = options.initial.inPublicCatalog;
@@ -238,22 +235,10 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
     displayNameInput.addEventListener('input', updateSlugSuggestion, { signal });
   }
 
-  const editor = createEditor({
-    textarea: descriptionInput,
-
-    render: async (source) => {
-      const [rendered] = await options.renderer([source]);
-
-      descriptionNotes.replaceChildren(
-        ...(rendered?.notes ?? []).map((note) => {
-          const li = document.createElement('li');
-          li.textContent = note;
-          return li;
-        }),
-      );
-
-      return rendered?.html ?? '';
-    },
+  const editor = renderDescriptionEditor(form, {
+    renderer: options.renderer,
+    label: 'Description',
+    content: initialDescription.content,
   });
 
   if (options.initial.usedBy !== undefined) {
@@ -301,7 +286,7 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
             options.initial.description !== null
               ? initialDescription.isPublic
               : descriptionPublicInput.checked,
-          content: descriptionInput.value,
+          content: editor.value(),
         };
 
         await options.onSubmit({

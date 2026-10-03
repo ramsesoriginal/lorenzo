@@ -3,14 +3,12 @@ import { clearContainer, setContainer } from '../../lib/items';
 import { moveAnywayOptions, moveOrAsk } from '../../lib/moveAnyway';
 import { collectMoveTargets } from '../../lib/moveTargets';
 import { splitQuestion } from '../../lib/settingDown';
-import { say } from '../../lib/statusLine';
 import type { ItemInstance } from '../../lib/types';
-import { type ActionContext, actionPanel, note, statusLine } from './panels';
+import { type ActionContext, choicesPanel } from './panels';
 
 // Move to…: the way to move a single item without dragging it. The candidates are the
 // containers on the board (lib/moveTargets.ts), as Merge into… finds its own.
 export function movePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
-  const panel = actionPanel();
   const previousContainerId = item.container_entity_id;
 
   // Equipping is moving into the being: Equipped is among the targets.
@@ -19,20 +17,12 @@ export function movePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
   // Anything in a container can be set down, what's equipped too (ADR 0132).
   const inContainer = item.container_entity_id !== null;
 
-  if (targets.length === 0 && !inContainer) {
-    panel.append(note('No other container is visible on the current board.'));
-
-    return panel;
-  }
-
-  const status = statusLine();
-  const list = document.createElement('div');
-
-  list.className = 'merge-candidates';
-
-  const setDisabled = (disabled: boolean) => {
-    for (const button of list.querySelectorAll('button')) button.disabled = disabled;
-  };
+  const panel = choicesPanel(
+    ctx,
+    targets.length === 0 && !inContainer
+      ? 'No other container is visible on the current board.'
+      : null,
+  );
 
   async function performMove(targetId: string | null) {
     // Set down, a stack becomes single items: asked first, and then there's no Undo.
@@ -40,7 +30,7 @@ export function movePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
     if (question !== null && !window.confirm(question)) return;
 
-    setDisabled(true);
+    panel.setDisabled(true);
 
     try {
       const anyway = moveAnywayOptions(ctx.viewerIsGm);
@@ -79,25 +69,14 @@ export function movePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
       ctx.finish();
     } catch (error) {
-      say(status, errorMessage(error), true);
-      setDisabled(false);
+      panel.fail(errorMessage(error));
+      panel.setDisabled(false);
     }
   }
 
-  const addChoice = (text: string, targetId: string | null) => {
-    const button = document.createElement('button');
+  if (inContainer) panel.addChoice('Set down', () => void performMove(null));
 
-    button.type = 'button';
-    button.textContent = text;
-    button.addEventListener('click', () => void performMove(targetId));
-    list.append(button);
-  };
+  for (const target of targets) panel.addChoice(target.name, () => void performMove(target.id));
 
-  if (inContainer) addChoice('Set down', null);
-
-  for (const target of targets) addChoice(target.name, target.id);
-
-  panel.append(list, status);
-
-  return panel;
+  return panel.element;
 }

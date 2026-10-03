@@ -1,7 +1,5 @@
 import { LorenzoApiError } from '../../lib/api';
-import { renderBeingActionPanel } from '../../lib/beingPicker';
 import { planGive } from '../../lib/boardLogic';
-import { checkboxField } from '../../lib/checkboxField';
 import {
   contentsDone,
   contentsQuestion,
@@ -12,8 +10,10 @@ import {
 import { bulkAssignItemInstances, giveContents, setOwner } from '../../lib/items';
 import { giveOrAsk, moveAnywayOptions } from '../../lib/moveAnyway';
 import type { BeingRef, ItemInstance, ProblemOut } from '../../lib/types';
+import { renderBeingPicker } from '../BeingPicker/renderer';
 import { containerOf } from '../Board/state';
-import type { ActionContext } from './panels';
+import { renderCheckboxField } from '../CheckboxField/renderer';
+import { type ActionContext, quantityField } from './panels';
 
 function problemText(problem: ProblemOut | null | undefined): string {
   return problem?.detail ?? problem?.title ?? 'Could not give that.';
@@ -62,31 +62,22 @@ async function giveWithContents(
 export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
   const hasStack = Boolean(item.quantity && item.quantity > 1);
 
-  const quantityField = document.createElement('label');
-  quantityField.className = 'field';
-
-  const quantityLabel = document.createElement('span');
-  quantityLabel.className = 'field-label';
-  quantityLabel.textContent = `How many? (of ${item.quantity}, blank for all)`;
-
-  const quantityInput = document.createElement('input');
-  quantityInput.type = 'number';
-  quantityInput.className = 'text-input';
-  quantityInput.min = '1';
-  if (item.quantity) quantityInput.max = String(item.quantity);
-
-  quantityField.append(quantityLabel, quantityInput);
+  const quantity = quantityField(
+    ctx,
+    `How many? (of ${item.quantity}, blank for all)`,
+    item.quantity ?? undefined,
+  );
 
   const previousOwnerId = item.owner_entity_id;
   const previousContainerId = item.container_entity_id;
   const where = containerOf(ctx.board, item);
   const handOver = where
-    ? checkboxField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
+    ? renderCheckboxField('Hand it over', `Otherwise it stays in the ${where.name}, theirs now.`)
     : null;
 
   // Only for a container whose column lists something (ADR 0131).
   const alsoInside = ctx.board.occupied.has(item.entity_id)
-    ? checkboxField(
+    ? renderCheckboxField(
         "Also give what's inside",
         "Otherwise what's inside stays whose it is. You'll be asked first.",
       )
@@ -94,10 +85,11 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
   const anyway = moveAnywayOptions(ctx.viewerIsGm);
 
-  return renderBeingActionPanel(
-    ctx.tenantId,
-    async (being) => {
-      const rawQuantity = quantityInput.value.trim();
+  return renderBeingPicker({
+    tenantId: ctx.tenantId,
+
+    async perform(being) {
+      const rawQuantity = quantity.input.value.trim();
       const requestedQuantity = rawQuantity ? Number.parseInt(rawQuantity, 10) : undefined;
       const plan = planGive(item, requestedQuantity);
       const moveToOwner = handOver?.input.checked ?? false;
@@ -157,21 +149,24 @@ export function givePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
       return `Given to ${being.name}.`;
     },
-    ctx.finish,
-    [
-      ...(hasStack ? [quantityField] : []),
+
+    onDone: ctx.finish,
+
+    extraFields: [
+      ...(hasStack ? [quantity.element] : []),
       ...(handOver ? [handOver.element] : []),
       ...(alsoInside ? [alsoInside.element] : []),
     ],
-  );
+  });
 }
 
 // Give what's inside… (ADR 0125): everything inside, not the container, after asking with a
 // dry run's answer. Anything not the caller's to give stays whose it is.
 export function giveContentsPanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
-  return renderBeingActionPanel(
-    ctx.tenantId,
-    async (being) => {
+  return renderBeingPicker({
+    tenantId: ctx.tenantId,
+
+    async perform(being) {
       const preview = await giveContents(ctx.tenantId, item.entity_id, being.entity_id, {
         dryRun: true,
       });
@@ -186,6 +181,7 @@ export function giveContentsPanel(ctx: ActionContext, item: ItemInstance): HTMLE
 
       return contentsDone(item.title, being.name, results);
     },
-    ctx.finish,
-  );
+
+    onDone: ctx.finish,
+  });
 }

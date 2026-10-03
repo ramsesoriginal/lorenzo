@@ -1,7 +1,7 @@
-import { renderBeingActionPanel } from '../../lib/beingPicker';
 import { summarizeBulkResults } from '../../lib/boardLogic';
-import { checkboxField } from '../../lib/checkboxField';
 import { bulkAssignItemInstances } from '../../lib/items';
+import { renderBeingPicker } from '../BeingPicker/renderer';
+import { renderCheckboxField } from '../CheckboxField/renderer';
 import { type BoardState, containerOf } from './state';
 
 export type Selection = {
@@ -109,12 +109,15 @@ export function createSelection(options: SelectionOptions): Selection {
         return item ? containerOf(options.state, item) !== null : false;
       });
       const handOver = inContainers
-        ? checkboxField('Hand them over', 'Otherwise they stay in their containers, theirs now.')
+        ? renderCheckboxField(
+            'Hand them over',
+            'Otherwise they stay in their containers, theirs now.',
+          )
         : null;
 
-      const panel = renderBeingActionPanel(
-        options.tenantId,
-        async (being) => {
+      const panel = renderBeingPicker({
+        tenantId: options.tenantId,
+        async perform(being) {
           const moveToOwner = handOver?.input.checked ?? false;
           const results = await bulkAssignItemInstances(
             options.tenantId,
@@ -142,14 +145,14 @@ export function createSelection(options: SelectionOptions): Selection {
 
           return `Gave ${selected.length} item(s) to ${being.name}.`;
         },
-        () => {
+        onDone() {
           givePanel.replaceChildren();
           giveButton.textContent = GIVE_LABEL;
           setMode(false);
           options.onGiven();
         },
-        handOver ? [handOver.element] : [],
-      );
+        extraFields: handOver ? [handOver.element] : [],
+      });
 
       givePanel.append(panel);
     },
