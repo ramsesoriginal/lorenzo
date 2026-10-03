@@ -1019,6 +1019,7 @@ class TenantOut(BaseModel):
     description: str = Field(..., title="Description")
     kind: TenantKind
     published_at: AwareDatetime | None = Field(..., title="Published At")
+    npcs_shared_with_gms: bool = Field(..., title="Npcs Shared With Gms")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
 
@@ -1041,6 +1042,7 @@ class TenantUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     slug: constr(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$") | None = Field(None, title="Slug")
     description: str | None = Field(None, title="Description")
+    npcs_shared_with_gms: bool | None = Field(None, title="Npcs Shared With Gms")
 
 
 class Action1(StrEnum):
