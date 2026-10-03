@@ -198,6 +198,18 @@ button:disabled {
   font-size: 13px;
 }
 
+/* A chip reads the same whether or not it links somewhere: the link takes the chip's own
+   colour and no underline, and only underlines once the pointer is on it. */
+.chip a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.chip a:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .chip-remove {
   background: none;
   border: none;
@@ -478,6 +490,106 @@ dialog::backdrop {
   }
 }
 
+/* A lineage: what something inherits from, nearest first. Each level indents under
+   the one it comes from, a ↳ marking the step, and the first one is set apart. A DAG,
+   not always a chain: something reachable through two parents (diamond inheritance)
+   appears twice, once per real path, rather than being flattened into one misleading
+   line. A <ul class="lineage"> of <li>s, each with its own nested <ul> of parents. */
+.lineage {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.lineage > li {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.lineage ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-4);
+  margin-top: var(--space-1);
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+/* Likewise a name in a lineage looks the same linked or not. */
+.lineage a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.lineage a:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.lineage ul li::before {
+  content: "↳ ";
+  color: var(--text-tertiary);
+}
+
+/* Names and values in two aligned columns: a <dl class="key-values"> of <dt>/<dd>
+   pairs, such as an item's stats. Values are monospaced. */
+.key-values {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.key-values dt {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.key-values dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* A wrapping row of pictures, each at most 240px: a <div class="gallery"> of <figure>s. */
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.gallery figure {
+  margin: 0;
+}
+
+.gallery img {
+  display: block;
+  max-width: 240px;
+  max-height: 240px;
+  border-radius: var(--radius-control);
+}
+
+/* Small print about where something comes from: "From Longsword". */
+.caption {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* A labelled row of choices, such as radios: the label gives every group the same width,
+   so the choices line up down a list of groups. A <div class="option-group" role="group">
+   of an .option-group-label and the choices. */
+.option-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.option-group-label {
+  min-width: 8rem;
+  font-weight: 600;
+}
 /* .tree-toggle, not the generic .icon - a summary row often carries a
    second, semantic icon (a type marker) alongside the disclosure chevron,
    and only the chevron itself should rotate open. */
