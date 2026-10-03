@@ -544,6 +544,12 @@ def seed(
             typer.echo(json.dumps(seed_plan_json(plan), indent=2))
         else:
             print_seed_plan(_out, plan)
+            if layers is None and plan.actions:
+                _err.print(
+                    "[dim]Both layers are going into this one repository, which is fine for your "
+                    "own use. To publish core and D&D 5e as separate repositories, seed --layer "
+                    "core and --layer dnd5e into separate ones (README, ADR 0162).[/dim]"
+                )
         if plan.problems:
             raise typer.Exit(1)
         if dry_run:
@@ -1460,6 +1466,7 @@ def repo_offer(
                 "repository": repository.slug,
                 "subscriber": receiving.slug,
                 "granted": result.granted if not state.granted else "existing",
+                "dependencies": result.dependencies,
                 "copied": result.copied,
                 "copy": result.copy.model_dump(mode="json") if result.copy else None,
                 "updates": {
@@ -1501,6 +1508,18 @@ def _offer_dry_run(
             {
                 "dry_run": True,
                 "steps": state.steps,
+                "dependencies": {
+                    d.repository.slug: (
+                        "copied"
+                        if d.copied
+                        else "granted"
+                        if d.granted
+                        else "unknown"
+                        if d.granted is None
+                        else "needs-grant"
+                    )
+                    for d in state.dependencies
+                },
                 "granted": state.granted,
                 "copied": state.copied,
                 "collisions": [c.model_dump(mode="json") for c in plan.collisions] if plan else [],

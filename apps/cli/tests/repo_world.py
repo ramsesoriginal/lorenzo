@@ -20,6 +20,7 @@ from lorenzo_cli.auth.store import CredentialsFile
 from lorenzo_cli.main import Runtime
 
 REPO_ID = uuid.UUID(int=10)
+CORE_ID = uuid.UUID(int=11)
 TARGET_ID = uuid.UUID(int=20)
 STRANGER_ID = uuid.UUID(int=30)
 GROUP_ID = uuid.UUID(int=41)
@@ -148,6 +149,13 @@ class World:
     copy_answer: httpx.Response | None = None
     previous: dict[str, Any] | None = None
     repo_kind: str = "repository"
+    # The repository is a bridge: it copied `core`, which a subscriber needs too (ADR 0120).
+    bridge: bool = False
+    core_granted: bool = False
+    core_copied: bool = False
+    core_published: bool = True
+    # Whether the caller owns `core`, and so can grant it and see who it is granted to.
+    core_owned: bool = True
     log: list[httpx.Request] = field(default_factory=list)
 
     # -- the routes ------------------------------------------------------------------------------
@@ -162,6 +170,36 @@ class World:
             for r in self.log
             if r.method == method and r.url.path.endswith(suffix)
         ]
+
+    def _row(self, *, granted: bool, copied: bool) -> dict[str, Any]:
+        return {
+            "repository": {
+                "id": str(REPO_ID),
+                "name": "Sunken Vale",
+                "slug": "sunken-vale",
+                "description": "",
+                "published_at": self.published_at,
+            },
+            "granted_at": PUBLISHED if granted else None,
+            "copied_at": COPIED if copied else None,
+            "synced_at": self.synced_at,
+            "contributed": None,
+        }
+
+    def _core_row(self, *, granted: bool, copied: bool) -> dict[str, Any]:
+        return {
+            "repository": {
+                "id": str(CORE_ID),
+                "name": "Core",
+                "slug": "core",
+                "description": "",
+                "published_at": PUBLISHED if self.core_published else None,
+            },
+            "granted_at": PUBLISHED if granted else None,
+            "copied_at": COPIED if copied else None,
+            "synced_at": None,
+            "contributed": None,
+        }
 
     def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: C901
         self.log.append(request)
@@ -238,37 +276,71 @@ class World:
             self.granted = False
             return httpx.Response(204)
 
+        core = f"/tenants/{CORE_ID}"
+        if path == f"{repo}/repositories" and method == "GET":
+            # What the repository itself holds: a bridge has copied core.
+            rows = [self._core_row(granted=True, copied=True)] if self.bridge else []
+            return httpx.Response(
+                200, json={"items": rows, "total": len(rows), "page": 1, "size": 100, "pages": 1}
+            )
+        if path == f"{core}/subscribers" and method == "GET":
+            if not self.core_owned:
+                return problem(404, "tenant-not-found", "No tenant of yours has that id.")
+            rows = (
+                [
+                    {
+                        "tenant_id": str(TARGET_ID),
+                        "name": "Table One",
+                        "slug": "table-one",
+                        "granted_at": PUBLISHED,
+                        "granted_by": None,
+                    }
+                ]
+                if self.core_granted
+                else []
+            )
+            return httpx.Response(
+                200, json={"items": rows, "total": len(rows), "page": 1, "size": 100, "pages": 1}
+            )
+        if path == f"{core}/subscribers/{TARGET_ID}" and method == "PUT":
+            if not self.core_owned:
+                return problem(403, "repository-management-forbidden", "Only an owner can do this")
+            new = not self.core_granted
+            self.core_granted = True
+            return httpx.Response(
+                201 if new else 200,
+                json={
+                    "tenant_id": str(TARGET_ID),
+                    "name": "Table One",
+                    "slug": "table-one",
+                    "granted_at": PUBLISHED,
+                    "granted_by": None,
+                },
+            )
+
         # A drawing tenant's side.
         if path == f"{target}/repositories" and method == "GET":
             rows = []
             if self.granted or self.copied:
-                rows.append(
-                    {
-                        "repository": {
-                            "id": str(REPO_ID),
-                            "name": "Sunken Vale",
-                            "slug": "sunken-vale",
-                            "description": "",
-                            "published_at": self.published_at,
-                        },
-                        "granted_at": PUBLISHED if self.granted else None,
-                        "copied_at": COPIED if self.copied else None,
-                        "synced_at": self.synced_at,
-                        "contributed": None,
-                    }
-                )
+                rows.append(self._row(granted=self.granted, copied=self.copied))
+            if self.bridge and (self.core_granted or self.core_copied):
+                rows.append(self._core_row(granted=self.core_granted, copied=self.core_copied))
             return httpx.Response(
                 200, json={"items": rows, "total": len(rows), "page": 1, "size": 100, "pages": 1}
             )
         copy_base = f"{target}/repositories/{REPO_ID}"
         if path == f"{copy_base}/copy-plan":
-            return httpx.Response(
-                200,
-                json={
-                    "steps": [step(granted=self.granted, copied=self.copied)],
-                    "collisions": self.collisions,
-                },
-            )
+            steps = [step(granted=self.granted, copied=self.copied)]
+            if self.bridge:
+                steps.insert(
+                    0,
+                    {
+                        **step(granted=self.core_granted, copied=self.core_copied, repo=CORE_ID),
+                        "published": self.core_published,
+                        "name": "Core",
+                    },
+                )
+            return httpx.Response(200, json={"steps": steps, "collisions": self.collisions})
         if path == f"{copy_base}/copy" and method == "POST":
             return self._copy(json.loads(request.content or b"{}"))
         if path == f"{copy_base}/updates" and method == "GET":
@@ -297,6 +369,20 @@ class World:
                 "repository-already-copied",
                 "Its later changes come in through its updates, not another copy",
             )
+        if self.bridge and not (self.core_granted or self.core_copied):
+            return problem(
+                409,
+                "repository-copy-needs-grants",
+                "Ask each one's owners for access, or to publish it",
+                missing=[
+                    {
+                        "repository_id": str(CORE_ID),
+                        "name": "Core",
+                        "granted": False,
+                        "published": self.core_published,
+                    }
+                ],
+            )
         chosen = {(r["kind"], r["source_id"]): r["action"] for r in body.get("resolutions", [])}
         for c in self.collisions:
             action = chosen.get((c["kind"], c["source_id"]))
@@ -315,6 +401,7 @@ class World:
         dry = bool(body.get("dry_run"))
         if not dry:
             self.copied = True
+            self.core_copied = self.core_copied or self.bridge
         return httpx.Response(
             200 if dry else 201,
             json={"steps": [step()], "dry_run": dry, "previous": self.previous},

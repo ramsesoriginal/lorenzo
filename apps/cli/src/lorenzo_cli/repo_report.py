@@ -180,6 +180,16 @@ def print_applied(console: Console, out: ApplyUpdatesOut) -> None:
 def print_offer_state(console: Console, state: OfferState) -> None:
     repo, tenant = state.repository.slug, state.subscriber.slug
     console.print(f"Offering [bold]{repo}[/bold] to [bold]{tenant}[/bold]:")
+    for dependency in state.dependencies:
+        if dependency.copied:
+            how = "already copied there"
+        elif dependency.granted:
+            how = "already granted"
+        elif dependency.granted is None:
+            how = "to be granted, by you if you own it"
+        else:
+            how = "to be granted (its members are told)"
+        console.print(f"  grant {dependency.repository.slug}, which {repo} builds on: {how}")
     console.print(
         f"  grant: {'already granted' if state.granted else 'to be granted (its members are told)'}"
     )
@@ -192,6 +202,11 @@ def print_offer_state(console: Console, state: OfferState) -> None:
 
 def print_offer_result(console: Console, state: OfferState, result: OfferResult) -> None:
     repo, tenant = state.repository.slug, state.subscriber.slug
+    for slug, how in result.dependencies.items():
+        if how == "new":
+            console.print(
+                f"Granted {slug} to {tenant}, which {repo} builds on; its members have been told."
+            )
     console.print(
         f"Granted {repo} to {tenant}; its members have been told."
         if result.granted == "new"

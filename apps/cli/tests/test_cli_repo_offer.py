@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 from repo_world import (
+    CORE_ID,
     GROUP_COLLISION,
     GROUP_ID,
     REPO_ID,
@@ -340,3 +341,100 @@ def test_json_with_open_collisions_lists_them_and_exits_two(tmp_path: Path) -> N
 
 def test_the_ids_in_the_world_are_distinct() -> None:
     assert len({REPO_ID, TARGET_ID, STRANGER_ID, uuid.UUID(int=1)}) == 4
+
+
+# --- a bridge: what it was built on is offered too (ADR 0163) ---
+
+CORE_GRANT = ("PUT", f"/tenants/{CORE_ID}/subscribers/{TARGET_ID}")
+
+
+def test_offering_a_bridge_grants_what_it_builds_on_first_then_itself_then_copies(
+    tmp_path: Path,
+) -> None:
+    world = World(bridge=True)
+    result = offer(tmp_path, world, "--yes")
+
+    assert result.exit_code == 0, result.output
+    assert world.writes() == [CORE_GRANT, GRANT, COPY]
+    text = said(result)
+    assert "Granted core to table-one, which sunken-vale builds on" in text
+    assert "Granted sunken-vale to table-one" in text
+    assert world.core_granted and world.granted and world.copied
+
+
+def test_a_dependency_that_is_already_granted_is_not_granted_again(tmp_path: Path) -> None:
+    world = World(bridge=True, core_granted=True)
+    result = offer(tmp_path, world, "--yes")
+
+    assert result.exit_code == 0, result.output
+    assert world.writes() == [GRANT, COPY]
+
+
+def test_a_dependency_the_tenant_already_copied_needs_no_grant(tmp_path: Path) -> None:
+    world = World(bridge=True, core_copied=True)
+    result = offer(tmp_path, world, "--yes", "--json")
+
+    assert result.exit_code == 0, result.output
+    assert world.writes() == [GRANT, COPY]
+    assert json.loads(result.stdout)["dependencies"] == {"core": "copied"}
+
+
+def test_a_dependency_that_is_not_published_is_refused_before_anything_is_written(
+    tmp_path: Path,
+) -> None:
+    world = World(bridge=True, core_published=False)
+    result = offer(tmp_path, world, "--yes")
+
+    assert result.exit_code == 1
+    assert world.writes() == []
+    assert "builds on “core”, which isn't published" in said(result)
+    assert "lorenzo repo publish --tenant core" in said(result)
+
+
+def test_a_dependency_only_someone_else_can_grant_says_who_to_ask_and_grants_nothing(
+    tmp_path: Path,
+) -> None:
+    world = World(bridge=True, core_owned=False)
+    result = offer(tmp_path, world, "--yes")
+
+    assert result.exit_code == 1
+    assert world.writes() == [CORE_GRANT]  # the attempt, refused: nothing was granted
+    assert not world.granted and not world.core_granted
+    text = said(result)
+    assert "only its owners can grant it" in text
+    assert f"lorenzo repo grant {TARGET_ID} --tenant core" in text
+
+
+def test_the_plan_before_asking_names_each_dependency_and_what_it_needs(tmp_path: Path) -> None:
+    world = World(bridge=True)
+    declined = offer(tmp_path, world, interactive=True, input="n\n")
+
+    assert declined.exit_code == 1
+    assert world.writes() == []
+    assert "grant core, which sunken-vale builds on: to be granted" in said(declined)
+
+
+def test_a_dry_run_names_the_dependencies_and_writes_nothing(tmp_path: Path) -> None:
+    world = World(bridge=True)
+    result = offer(tmp_path, world, "--dry-run", "--json")
+
+    assert result.exit_code == 2
+    assert world.writes() == []
+    document = json.loads(result.stdout)
+    assert document["dependencies"] == {"core": "needs-grant"}
+    assert document["steps"] == ["grant:core", "grant", "copy"]
+
+
+def test_a_dependency_the_caller_cannot_see_is_unknown_in_a_dry_run(tmp_path: Path) -> None:
+    world = World(bridge=True, core_owned=False)
+    result = offer(tmp_path, world, "--dry-run")
+
+    assert result.exit_code == 2
+    assert "to be granted, by you if you own it" in said(result)
+    assert world.writes() == []
+
+
+def test_a_repository_that_copied_nothing_has_no_dependencies(tmp_path: Path) -> None:
+    result = offer(tmp_path, World(), "--yes", "--json")
+
+    assert json.loads(result.stdout)["dependencies"] == {}

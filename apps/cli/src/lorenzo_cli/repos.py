@@ -26,6 +26,7 @@ from lorenzo_cli.client.models import (
     CopyOut,
     CopyPlanOut,
     CopyRequest,
+    RepositorySummaryOut,
     ResolutionIn,
     RowChangeOut,
     SubscriberOut,
@@ -375,6 +376,22 @@ def copy_plan_exit_code(plan: CopyPlanOut, repository_id: UUID) -> int:
 # --- offering ----------------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class Dependency:
+    """A repository the one being offered copied from (ADR 0120), which the subscriber needs too."""
+
+    repository: RepositorySummaryOut
+    # Whether it is granted to the subscriber; None when the caller isn't a member of it, who
+    # therefore can't tell (and can't grant it either).
+    granted: bool | None
+    # The subscriber already holds its copy, so a copy of the bridge reuses it and needs no grant.
+    copied: bool
+
+    @property
+    def needs_grant(self) -> bool:
+        return not self.copied and self.granted is not True
+
+
 @dataclass
 class OfferState:
     """What there is to do to offer a repository to a tenant, read without writing anything."""
@@ -384,10 +401,13 @@ class OfferState:
     granted: bool
     copied: bool
     published_since: bool
+    dependencies: list[Dependency] = field(default_factory=list)
 
     @property
     def steps(self) -> list[str]:
-        steps = [] if self.granted else ["grant"]
+        steps = [f"grant:{d.repository.slug}" for d in self.dependencies if d.needs_grant]
+        if not self.granted:
+            steps.append("grant")
         if not self.copied:
             steps.append("copy")
         return steps
@@ -396,11 +416,34 @@ class OfferState:
 @dataclass
 class OfferResult:
     granted: Literal["new", "existing"] = "existing"
+    # What each dependency needed: a new grant, an existing one, or nothing (already copied).
+    dependencies: dict[str, Literal["new", "existing", "copied"]] = field(default_factory=dict)
     copied: Literal["copied", "already"] = "already"
     copy: CopyOut | None = None
     updates_applied: ApplyUpdatesOut | None = None
     updates_waiting: int = 0
     needs_choices: list[CollisionOut] = field(default_factory=list)
+
+
+def bridge_dependencies(
+    client: LorenzoClient, repository: TenantOut, subscriber: TenantOut, held: set[UUID]
+) -> list[Dependency]:
+    """What the repository copied from others (ADR 0120): its manifest, one level, as its own
+    `repository_copy` rows name it. A subscriber needs each one too, as a grant or a copy."""
+    found: list[Dependency] = []
+    for row in list_repositories(client, repository.id):
+        if row.copied_at is None:
+            continue
+        try:
+            granted: bool | None = any(
+                s.tenant_id == subscriber.id for s in list_subscribers(client, row.repository.id)
+            )
+        except LorenzoApiError as exc:
+            if exc.status not in (403, 404):
+                raise
+            granted = None
+        found.append(Dependency(row.repository, granted, row.repository.id in held))
+    return found
 
 
 def read_offer_state(
@@ -416,16 +459,28 @@ def read_offer_state(
     if subscriber.id == repository.id:
         raise RepoError("A repository can't be offered to itself.")
     granted = any(s.tenant_id == subscriber.id for s in list_subscribers(client, repository.id))
-    held = next(
-        (s for s in list_repositories(client, subscriber.id) if s.repository.id == repository.id),
-        None,
+    drawn = list_repositories(client, subscriber.id)
+    held = next((s for s in drawn if s.repository.id == repository.id), None)
+    dependencies = bridge_dependencies(
+        client,
+        repository,
+        subscriber,
+        {s.repository.id for s in drawn if s.copied_at is not None},
     )
+    for dependency in dependencies:
+        if not dependency.copied and dependency.repository.published_at is None:
+            raise RepoError(
+                f"“{repository.slug}” builds on “{dependency.repository.slug}”, which isn't "
+                f"published, so a copy of it would be refused. Publish that first: "
+                f"lorenzo repo publish --tenant {dependency.repository.slug}"
+            )
     return OfferState(
         repository=repository,
         subscriber=subscriber,
         granted=granted,
         copied=held is not None and held.copied_at is not None,
         published_since=held is not None and has_published_since(held),
+        dependencies=dependencies,
     )
 
 
@@ -444,6 +499,16 @@ def perform_offer(
     stays, and are reported in the result.
     """
     result = OfferResult()
+    # Dependencies first, so one that can't be granted (only its owners can) leaves nothing
+    # half-offered.
+    for dependency in state.dependencies:
+        slug = dependency.repository.slug
+        if dependency.copied:
+            result.dependencies[slug] = "copied"
+        elif dependency.granted:
+            result.dependencies[slug] = "existing"
+        else:
+            result.dependencies[slug] = _grant_dependency(client, state, dependency)
     if not state.granted:
         reply = client.call(
             GRANT_REPOSITORY,
@@ -489,6 +554,29 @@ def perform_offer(
     # What is left is what needed a decision, whether or not anything was taken.
     result.updates_waiting = len(chosen.conflicts) + len(chosen.collisions) + chosen.removed
     return result
+
+
+def _grant_dependency(
+    client: LorenzoClient, state: OfferState, dependency: Dependency
+) -> Literal["new", "existing"]:
+    slug = dependency.repository.slug
+    try:
+        reply = client.call(
+            GRANT_REPOSITORY,
+            path={
+                "tenant_id": dependency.repository.id,
+                "subscriber_tenant_id": state.subscriber.id,
+            },
+        )
+    except LorenzoApiError as exc:
+        if exc.status not in (403, 404):
+            raise
+        raise RepoError(
+            f"“{state.repository.slug}” builds on “{slug}”, so {state.subscriber.slug} needs "
+            f"access to that too, and only its owners can grant it. Ask them to run: "
+            f"lorenzo repo grant {state.subscriber.id} --tenant {slug}"
+        ) from exc
+    return "new" if reply.status == 201 else "existing"
 
 
 def in_words(error: LorenzoApiError) -> LorenzoApiError:
