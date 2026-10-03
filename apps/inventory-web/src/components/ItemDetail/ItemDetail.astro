@@ -1,22 +1,30 @@
-<dialog class="item-detail" aria-labelledby="item-detail-title" data-item-detail>
-  <div class="item-detail-content">
+---
+import AncestryTree from '../AncestryTree/AncestryTree.astro';
+import Notes from '../Notes/Notes.astro';
+---
+
+<dialog class="item-detail card" aria-labelledby="item-detail-title" data-item-detail style="overflow-y: auto;">
+  <div class="item-detail-content card-body stack">
     <button type="button" class="item-detail-close" aria-label="Close" data-close>&times;</button>
-    <h2 id="item-detail-title" class="display" data-title></h2>
-    <p class="item-detail-slug" data-slug hidden></p>
-    <p class="item-detail-qty" data-quantity hidden></p>
-    <p class="item-detail-bound" data-bound hidden>Bound to its owner</p>
+    <div class="row">
+      <h2 id="item-detail-title" class="display" data-title></h2>
+      <span class="badge" data-quantity hidden></span>
+      <span class="badge" data-bound hidden>Bound to its owner</span>
+    </div>
     <div class="item-view" data-view></div>
     <div class="item-detail-ancestry" data-ancestry hidden>
       <h3>Ancestry</h3>
-      <ul data-ancestry-list></ul>
+      <AncestryTree />
     </div>
-    <section class="item-detail-notes" aria-labelledby="item-detail-notes-heading">
+    <section class="" aria-labelledby="item-detail-notes-heading">
       <h3 id="item-detail-notes-heading">Notes</h3>
-      <div data-notes></div>
+      <div data-notes>
+        <Notes />
+      </div>
     </section>
     <a class="btn btn-secondary" href="" data-view-link>View standalone page</a>
 
-    <div class="item-detail-actions">
+    <div class="row" data-actions>
       <button type="button" data-give>Give to&hellip;</button>
       <button type="button" data-give-contents hidden>Give what's inside&hellip;</button>
       <button type="button" data-move>Move to&hellip;</button>

@@ -27,6 +27,7 @@ export type CatalogOptions = {
   renderer: Renderer;
 
   renderInstantiate(item: CatalogItem, onDone: () => void): RenderedPanel;
+  onView(item: CatalogItem): void;
 };
 
 export type RenderedCatalog = {
@@ -91,7 +92,7 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
     const row = cloneTemplate<HTMLLIElement>(rowTemplate);
     const title = required<HTMLElement>(row, '[data-title]');
     const publicChip = required<HTMLElement>(row, '[data-public]');
-    const view = required<HTMLAnchorElement>(row, '[data-view]');
+    const view = required<HTMLButtonElement>(row, '[data-view]');
     const edit = required<HTMLButtonElement>(row, '[data-edit]');
     const instantiate = required<HTMLButtonElement>(row, '[data-instantiate]');
     const remove = required<HTMLButtonElement>(row, '[data-delete]');
@@ -99,10 +100,11 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
 
     title.textContent = item.title;
     publicChip.hidden = !options.viewerIsGm || !item.in_public_catalog;
-    view.href = `/item/?tenant=${options.tenantId}&id=${item.entity_id}`;
     edit.hidden = !options.viewerIsGm;
     instantiate.hidden = !options.viewerIsGm;
     remove.hidden = !options.viewerIsGm;
+
+    view.addEventListener('click', () => options.onView(item), { signal });
 
     remove.addEventListener(
       'click',

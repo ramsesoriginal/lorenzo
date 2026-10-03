@@ -1,5 +1,9 @@
 ---
 import Base from '../../layouts/Base.astro';
+import AncestryTree from '../../components/AncestryTree/AncestryTree.astro';
+import InfoForm from '../../components/InfoForm/InfoForm.astro';
+import Information from '../../components/Information/Information.astro';
+import Notes from '../../components/Notes/Notes.astro';
 ---
 
 <Base title="Item — Lorenzo">
@@ -23,12 +27,14 @@ import Base from '../../layouts/Base.astro';
 
       <section id="item-notes" class="section" aria-labelledby="item-notes-heading" hidden>
         <h2 id="item-notes-heading">Notes</h2>
-        <div id="item-notes-list"></div>
+        <div id="item-notes-list">
+          <Notes />
+        </div>
       </section>
 
       <div id="item-ancestry" class="item-detail-ancestry" hidden>
         <h2>Ancestry</h2>
-        <ul id="item-ancestry-list"></ul>
+        <AncestryTree />
       </div>
 
       <section
@@ -57,22 +63,28 @@ import Base from '../../layouts/Base.astro';
         </section>
         <section class="section" aria-labelledby="item-information-heading">
           <h2 id="item-information-heading">Information</h2>
-          <div id="item-information"></div>
+          <div id="item-information">
+            <Information />
+          </div>
         </section>
       </div>
     </div>
   </div>
 
+  <!-- Inert template for the description editor. -->
+  <InfoForm />
+
   <script>
     import { addressedTenant, isId } from '../../lib/addresses';
-    import { fetchAncestryTree } from '../../lib/ancestryTree';
+    import { renderAncestryTree } from '../../components/AncestryTree/renderer';
     import { LorenzoApiError } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
     import { descriptionRenderer, getBacklinks } from '../../lib/descriptions';
     import { entityHref } from '../../lib/entityLinks';
-    import { infoForm } from '../../lib/infoForm';
     import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
-    import { renderInformationManager } from '../../lib/informationManager';
+    import { renderInfoForm } from '../../components/InfoForm/renderer';
+    import { renderInformation } from '../../components/Information/renderer';
+    import { type Reader, renderNotes } from '../../components/Notes/renderer';
     import {
       getCatalogItem,
       getEntityDetail,
@@ -82,7 +94,6 @@ import Base from '../../layouts/Base.astro';
     import { renderItemView } from '../../lib/itemView';
     import { listMyCharacters } from '../../lib/characters';
     import { isCampaignGm } from '../../lib/me';
-    import { type Reader, renderNotes } from '../../lib/notes';
     import { renderSlugEditor, resolveSlugs } from '../../lib/slugs';
     import { renderTagEditor } from '../../lib/tagEditor';
     import type { ItemBase, ItemInstance } from '../../lib/types';
@@ -98,8 +109,6 @@ import Base from '../../layouts/Base.astro';
     const itemView = byId('item-view');
     const descriptionEdit = byId<HTMLButtonElement>('description-edit');
     const descriptionMount = byId('description-mount');
-    const itemAncestry = byId('item-ancestry');
-    const itemAncestryList = byId<HTMLUListElement>('item-ancestry-list');
     const itemUsedBy = byId('item-used-by');
     const itemUsedByList = byId<HTMLUListElement>('item-used-by-list');
     const itemMentionedIn = byId('item-mentioned-in');
@@ -119,6 +128,23 @@ import Base from '../../layouts/Base.astro';
     // ?slug=, or an ?id= that's a slug (ADR 0113, 0135).
     const itemSlugParam = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
     const renderer = descriptionRenderer(tenantId);
+    const ancestryTree = renderAncestryTree({ root: byId('item-ancestry'), tenantId });
+    // An instance's notes, for everyone (ADR 0113). The GM's Information section lists them
+    // too, so a change in either shows in the other.
+    const notes = renderNotes(itemNotesList, {
+      tenantId,
+      renderer,
+      rowHeading: 'h3',
+      onChanged: () => viewerIsGm && showInformation(),
+    });
+    const information = renderInformation(itemInformation, {
+      tenantId,
+      renderer,
+      onChanged: () => {
+        void refresh();
+        showNotes();
+      },
+    });
 
     // The shown item (set by show() before anything reads it), and which endpoint
     // reads it again after a change.
@@ -170,33 +196,14 @@ import Base from '../../layouts/Base.astro';
       );
     }
 
-    // An instance's notes, for everyone (ADR 0113). The GM's Information section lists them
-    // too, so a change in either shows in the other.
     function showNotes() {
       if (!isInstance) return;
       itemNotes.hidden = false;
-      void renderNotes(itemNotesList, {
-        tenantId,
-        entityId: shown.entity_id,
-        renderer,
-        canWrite: viewerIsGm || reader !== null,
-        reader,
-        rowHeading: 'h3',
-        onChanged: () => viewerIsGm && showInformation(),
-      });
+      void notes.load(shown.entity_id, { canWrite: viewerIsGm || reader !== null, reader });
     }
 
     function showInformation() {
-      const onChanged = () => {
-        void refresh();
-        showNotes();
-      };
-      void renderInformationManager(itemInformation, {
-        tenantId,
-        entityId: shown.entity_id,
-        renderer,
-        onChanged,
-      });
+      void information.load(shown.entity_id);
     }
 
     function showGmSections() {
@@ -223,7 +230,7 @@ import Base from '../../layouts/Base.astro';
         let saved = false;
         descriptionEdit.hidden = true;
         descriptionMount.replaceChildren(
-          infoForm({
+          renderInfoForm(document, {
             initial: descriptionDraft(info, shown.title),
             renderer,
             titleLabel: 'Display title',
@@ -246,19 +253,6 @@ import Base from '../../layouts/Base.astro';
         descriptionEdit.disabled = false;
       }
     });
-
-    async function loadAncestry(directPrototypeId: string) {
-      itemAncestry.hidden = false;
-      const loading = document.createElement('li');
-      loading.textContent = 'Loading…';
-      itemAncestryList.replaceChildren(loading);
-      try {
-        const rootLi = await fetchAncestryTree(tenantId, directPrototypeId);
-        itemAncestryList.replaceChildren(rootLi);
-      } catch {
-        itemAncestry.hidden = true;
-      }
-    }
 
     async function loadUsedBy(entityId: string) {
       itemUsedBy.hidden = false;
@@ -353,9 +347,9 @@ import Base from '../../layouts/Base.astro';
         const entityId = loaded.item.entity_id;
         if (isInstance) {
           const directId = loaded.item.prototype_ids[0];
-          if (directId) void loadAncestry(directId);
+          if (directId) void ancestryTree.load(directId);
         } else {
-          void loadAncestry(entityId);
+          void ancestryTree.load(entityId);
           void loadUsedBy(entityId);
           void getEntityDetail(tenantId, entityId).then(
             (entity) => showSlug(entity.slug),

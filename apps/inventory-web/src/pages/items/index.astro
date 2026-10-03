@@ -3,6 +3,7 @@ import Base from '../../layouts/Base.astro';
 import Catalog from '../../components/Catalog/Catalog.astro';
 import Instances from '../../components/Instances/Instances.astro';
 import InstantiateItem from '../../components/InstantiateItem/InstantiateItem.astro';
+import ItemDetail from '../../components/ItemDetail/ItemDetail.astro';
 import ItemForm from '../../components/ItemForm/ItemForm.astro';
 ---
 
@@ -27,14 +28,16 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
   <!-- Inert templates used by the client-side renderers. -->
   <ItemForm />
   <InstantiateItem />
+  <ItemDetail />
 
   <script>
     import { renderCatalog } from '../../components/Catalog/renderer';
     import { renderInstances } from '../../components/Instances/renderer';
     import { renderInstantiateItem } from '../../components/InstantiateItem/renderer';
+    import { renderItemDetail } from '../../components/ItemDetail/renderer';
     import { renderItemForm } from '../../components/ItemForm/renderer';
 
-    import { addressedTenant } from '../../lib/addresses';
+    import { addressedTenant, tenantAddress } from '../../lib/addresses';
     import { isAuthenticated } from '../../lib/auth';
     import { descriptionRenderer } from '../../lib/descriptions';
     import { saveDescription } from '../../lib/information';
@@ -140,10 +143,21 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
 
         const catalogRoot = document.querySelector<HTMLElement>('[data-catalog]');
         const instancesRoot = document.querySelector<HTMLElement>('[data-instances]');
+        const detailRoot = document.querySelector<HTMLDialogElement>('[data-item-detail]');
 
-        if (!catalogRoot || !instancesRoot) {
-          throw new Error('Catalog or Instances component not found.');
+        if (!catalogRoot || !instancesRoot || !detailRoot) {
+          throw new Error('Catalog, Instances or Item detail component not found.');
         }
+
+        // Items and instances open in the dialog the board uses, without the board's actions.
+        const detail = renderItemDetail({
+          root: detailRoot,
+          tenantId,
+          tenantSlug: await tenantAddress(tenant),
+          viewerIsGm,
+          renderer,
+          myCharacters: () => [],
+        });
 
         catalog = renderCatalog({
           root: catalogRoot,
@@ -153,9 +167,15 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           showIntro: !viewerIsGm && !viewerIsMember,
           renderer,
           renderInstantiate: (item, onDone) => renderInstantiateItem({ tenantId, item, onDone }),
+          onView: (item) => detail.view(item),
         });
 
-        const instances = renderInstances({ root: instancesRoot, tenantId, viewerIsGm });
+        const instances = renderInstances({
+          root: instancesRoot,
+          tenantId,
+          viewerIsGm,
+          onView: (instance) => detail.view(instance),
+        });
 
         document.getElementById('new-item')!.hidden = !viewerIsGm;
 

@@ -46,12 +46,56 @@ test('a player gets the public catalog, to look items up, and nothing to change'
   await expect(row(catalogList(page), 'Crown of Ash')).toBeHidden();
   await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
   await expect(page.getByRole('region', { name: 'Instances' })).toBeHidden();
-  await expect(row(catalogList(page), 'Robe').getByRole('button')).toHaveCount(0);
+  await expect(row(catalogList(page), 'Robe').getByRole('button')).toHaveText(['View']);
 
   await page.getByRole('searchbox', { name: 'Search the item catalog' }).fill('back');
   await expect(row(catalogList(page), 'Robe')).toBeHidden();
-  await row(catalogList(page), 'Backpack').getByRole('link', { name: 'View' }).click();
+  await row(catalogList(page), 'Backpack').getByRole('button', { name: 'View' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Backpack' })).toBeVisible();
+  // A catalog item has no board to act on.
+  await expect(dialog.getByRole('button', { name: 'Give to…' })).toBeHidden();
+  await dialog.getByRole('link', { name: 'View standalone page' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Backpack' })).toBeVisible();
+});
+
+test('opens an item or an instance in the dialog, linking to its page by slug', async ({
+  world,
+  as,
+}) => {
+  const { items, spellbook } = await packed(world, world.pia);
+  await world.slug(items.book, 'book');
+  await world.slug(spellbook, 'ornate-spellbook');
+  const page = await manageItems(as, world);
+  const dialog = page.getByRole('dialog');
+  const link = dialog.getByRole('link', { name: 'View standalone page' });
+
+  await row(catalogList(page), 'Book').getByRole('button', { name: 'View' }).click();
+  // A catalog item's title is marked, an instance's isn't.
+  await expect(dialog.getByRole('heading', { name: 'Book' })).toHaveClass(/canonical-marker/);
+  await expect(link).toHaveAttribute('href', `/item/?tenant=${world.tenantSlug}&slug=book`);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+
+  const instances = page.getByRole('region', { name: 'Instances' });
+  await page.getByRole('combobox', { name: "View a being's inventory" }).fill('Ashf');
+  await instances.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
+  // Its slug is shown beside its title, so the title alone isn't the row's whole text.
+  await instances
+    .getByRole('listitem')
+    .filter({ hasText: 'Ornate Spellbook' })
+    .getByRole('button', { name: 'View' })
+    .click();
+  await expect(link).toHaveAttribute(
+    'href',
+    `/item/?tenant=${world.tenantSlug}&slug=ornate-spellbook`,
+  );
+  await expect(dialog.getByRole('heading', { name: 'Ornate Spellbook' })).not.toHaveClass(
+    /canonical-marker/,
+  );
+  const ancestry = dialog.getByRole('heading', { name: 'Ancestry' }).locator('..');
+  await expect(ancestry.getByText('Spellbook', { exact: true })).toBeVisible();
+  await expect(ancestry.getByText('Book', { exact: true })).toBeVisible();
 });
 
 test('a GM puts an item in the public catalog, and takes it out again', async ({ world, as }) => {

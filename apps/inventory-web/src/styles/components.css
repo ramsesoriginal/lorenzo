@@ -38,13 +38,6 @@
   }
 }
 
-/* Bound to its owner (ADR 0129) - on a card, that's its [data-bound] badge. */
-.item-detail-bound {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
 .item-card--selected {
   border-color: var(--action) !important;
   background: color-mix(in srgb, var(--action) 10%, var(--surface-default)) !important;
@@ -83,25 +76,10 @@
   color: var(--text-secondary);
 }
 
-.item-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
 .merge-candidates {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-/* A bare <dialog> already gets @lorenzo/brand's border/radius/padding/
-   background/shadow/::backdrop defaults - this app's own item-detail
-   dialog only needs to fill that default max-width rather than shrink to
-   its content. */
-.item-detail {
-  width: 100%;
 }
 
 .item-detail-content {
@@ -125,12 +103,6 @@
   color: var(--text-primary);
 }
 
-.item-detail-qty {
-  font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
 .item-detail-stats {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -147,23 +119,6 @@
   margin: 0;
   font-family: var(--font-mono);
   font-size: 13px;
-}
-
-/* The item view (ADR 0112), shared by the board's panel and the item page:
-   stat groups, tags, pictures, and descriptions, inherited ones labelled. */
-.item-view {
-  margin: var(--space-3) 0;
-}
-
-.item-view-group {
-  margin: 0;
-}
-
-.item-view-group h3 {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: var(--space-3) 0 0;
 }
 
 .item-view-group .item-detail-stats {
@@ -235,17 +190,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.information-row h3 {
-  margin: 0;
-}
-
-.item-detail-ancestry h3 {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: var(--space-3) 0 var(--space-1);
 }
 
 .item-detail-ancestry ul {

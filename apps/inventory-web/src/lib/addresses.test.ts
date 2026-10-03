@@ -8,7 +8,15 @@ vi.mock('./api', async (importOriginal) => ({
   client: { GET: api.GET },
 }));
 
-import { addressedTenant, beingNamed, isId, tenantIdFor, tenantNamed } from './addresses';
+import {
+  addressedTenant,
+  beingNamed,
+  isId,
+  itemPageHref,
+  tenantAddress,
+  tenantIdFor,
+  tenantNamed,
+} from './addresses';
 import type { TenantSummary } from './types';
 
 const VALE = '0b6f7c1e-3a52-4d8e-9f10-2c4b6a8d0e13';
@@ -81,6 +89,23 @@ describe('tenantIdFor', () => {
   });
 });
 
+describe('tenantAddress', () => {
+  it("names a library by its slug when the viewer's libraries have it", async () => {
+    expect(await tenantAddress({ id: VALE, slug: 'sunken-vale' })).toBe('sunken-vale');
+  });
+
+  it('names it by its id when they do not, or the lookup fails', async () => {
+    expect(
+      await tenantAddress({ id: '7c1e0d2a-1b3c-4d5e-8f60-718293a4b5c6', slug: 'elsewhere' }),
+    ).toBe('7c1e0d2a-1b3c-4d5e-8f60-718293a4b5c6');
+    api.GET.mockResolvedValue({
+      error: { detail: 'Down.' },
+      response: new Response(null, { status: 503 }),
+    });
+    expect(await tenantAddress({ id: COAST, slug: 'down-coast' })).toBe(COAST);
+  });
+});
+
 describe('addressedTenant', () => {
   it('says nothing when there is no tenant in the address', async () => {
     expect(await addressedTenant(null)).toEqual({ id: null, problem: null });
@@ -112,5 +137,20 @@ describe('beingNamed', () => {
   it('resolves a slug to what holds it, and is null for one nothing holds', async () => {
     expect(await beingNamed(VALE, 'ashfang')).toEqual({ entity_id: ASHFANG, name: 'Ashfang' });
     expect(await beingNamed(VALE, 'brisk')).toBeNull();
+  });
+});
+
+describe('itemPageHref', () => {
+  it('names an item by its slug when it has one', () => {
+    expect(itemPageHref('sunken-vale', { entity_id: ASHFANG, slug: 'belt-pouch' })).toBe(
+      '/item/?tenant=sunken-vale&slug=belt-pouch',
+    );
+  });
+
+  it('falls back to its id when it has none', () => {
+    expect(itemPageHref(VALE, { entity_id: ASHFANG, slug: null })).toBe(
+      `/item/?tenant=${VALE}&id=${ASHFANG}`,
+    );
+    expect(itemPageHref(VALE, { entity_id: ASHFANG })).toBe(`/item/?tenant=${VALE}&id=${ASHFANG}`);
   });
 });

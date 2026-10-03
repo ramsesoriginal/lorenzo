@@ -288,10 +288,18 @@ button:disabled {
 /* An unread count or similar "needs attention" marker - gold, per
    identity.md §1.4's "gold is punctuation": marks significance, not a
    permanent surface treatment. */
-.canonical-marker {
+.canonical-marker:not(h1, h2, h3, h4, h5) {
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
+  color: var(--canonical);
+}
+
+h1.canonical-marker,
+h2.canonical-marker,
+h3.canonical-marker,
+h4.canonical-marker,
+h5.canonical-marker {
   color: var(--canonical);
 }
 

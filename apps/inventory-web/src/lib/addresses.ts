@@ -37,6 +37,15 @@ export function tenantIdFor(value: string): Promise<string | null> {
   return finding;
 }
 
+/**
+ * What to call `tenant` in an address: its slug if one of the viewer's own libraries has it
+ * (a slug is only looked up among those), else its id.
+ */
+export async function tenantAddress(tenant: { id: string; slug: string }): Promise<string> {
+  const found = await tenantIdFor(tenant.slug).catch(() => null);
+  return found === tenant.id ? tenant.slug : tenant.id;
+}
+
 /** What a page's `?tenant=` names: its id, or null and why (nothing, if there's no `?tenant=`). */
 export type AddressedTenant = { id: string; problem: null } | { id: null; problem: string | null };
 
@@ -59,6 +68,18 @@ export async function beingNamed(tenantId: string, value: string): Promise<Being
   if (isId(value)) return { entity_id: value, name: value };
   const [found] = await resolveSlugs(tenantId, [value]);
   return found ? { entity_id: found.entity_id, name: found.name } : null;
+}
+
+/**
+ * The standalone page of an item or instance in `tenant` (an id or a slug), named by its slug
+ * when it has one, else by its id.
+ */
+export function itemPageHref(
+  tenant: string,
+  item: { entity_id: string; slug?: string | null },
+): string {
+  const named = item.slug ? `slug=${encodeURIComponent(item.slug)}` : `id=${item.entity_id}`;
+  return `/item/?tenant=${encodeURIComponent(tenant)}&${named}`;
 }
 
 export const unknownSlug = (value: string) => `Nothing here has the slug “${value}”.`;

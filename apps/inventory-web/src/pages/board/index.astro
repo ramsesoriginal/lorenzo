@@ -89,12 +89,11 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         const detail = renderItemDetail({
           root: mount<HTMLDialogElement>('[data-item-detail]'),
           tenantId,
+          tenantSlug: tenant.slug,
           viewerIsGm,
           renderer: descriptionRenderer(tenantId),
-          board: board.state,
-          undo,
           myCharacters: () => picker.myCharacters(),
-          onChanged: () => board.reload(),
+          board: { state: board.state, undo, onChanged: () => board.reload() },
         });
 
         const picker = renderHolderPicker({

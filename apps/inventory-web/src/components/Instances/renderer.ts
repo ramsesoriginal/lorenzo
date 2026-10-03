@@ -9,6 +9,7 @@ export type InstancesOptions = {
   root: HTMLElement;
   tenantId: string;
   viewerIsGm: boolean;
+  onView(instance: ItemInstance): void;
 };
 
 export type RenderedInstances = {
@@ -62,12 +63,6 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
   let currentCharacter: BeingRef | null = null;
   let requestId = 0;
 
-  function viewHref(entityId: string, slug?: string | null): string {
-    return slug
-      ? `/item/?tenant=${tenantId}&slug=${encodeURIComponent(slug)}`
-      : `/item/?tenant=${tenantId}&id=${entityId}`;
-  }
-
   function closeBrowseSuggestions() {
     browseSuggestions.hidden = true;
     browseSuggestions.replaceChildren();
@@ -77,7 +72,7 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
   function renderRow(instance: ItemInstance): HTMLLIElement {
     const row = cloneTemplate<HTMLLIElement>(root, '[data-row-template]');
     const title = required<HTMLElement>(row, '[data-title]');
-    const view = required<HTMLAnchorElement>(row, '[data-view]');
+    const view = required<HTMLButtonElement>(row, '[data-view]');
     const reassign = required<HTMLButtonElement>(row, '[data-reassign]');
     const unassign = required<HTMLButtonElement>(row, '[data-unassign]');
     const remove = required<HTMLButtonElement>(row, '[data-delete]');
@@ -96,7 +91,7 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
       title.append(' ', slug);
     }
 
-    view.href = viewHref(instance.entity_id, instance.slug);
+    view.addEventListener('click', () => options.onView(instance), { signal });
     unassign.hidden = !instance.owner_entity_id;
 
     unassign.addEventListener(

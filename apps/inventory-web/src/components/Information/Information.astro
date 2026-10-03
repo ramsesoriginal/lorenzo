@@ -1,0 +1,43 @@
+---
+import InfoForm from '../InfoForm/InfoForm.astro';
+---
+
+<div class="stack">
+  <ul class="" data-list hidden></ul>
+  <p class="status-text" data-empty hidden></p>
+  <div data-add-mount hidden></div>
+  <div class="row">
+    <button type="button" class="btn btn-secondary" data-add hidden></button>
+  </div>
+  <p class="status-text" role="status" data-status hidden></p>
+</div>
+
+<template data-row-template-h3>
+  <li class="information-row">
+    <div class="row">
+      <h3 data-heading></h3>
+      <span class="badge-visibility" data-describe></span>
+    </div>
+    <div class="item-detail-descriptions" data-text></div>
+    <div class="row" data-actions>
+      <button type="button" class="btn btn-secondary" data-edit>Edit</button>
+      <button type="button" class="btn-danger" data-delete>Delete</button>
+    </div>
+  </li>
+</template>
+
+<template data-row-template-h4>
+  <li class="information-row">
+    <div class="row">
+      <h4 data-heading></h4>
+      <span class="badge-visibility" data-describe></span>
+    </div>
+    <div class="item-detail-descriptions" data-text></div>
+    <div class="row" data-actions>
+      <button type="button" class="btn btn-secondary" data-edit>Edit</button>
+      <button type="button" class="btn-danger" data-delete>Delete</button>
+    </div>
+  </li>
+</template>
+
+<InfoForm />
