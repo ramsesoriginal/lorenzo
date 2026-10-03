@@ -1,6 +1,8 @@
 // An entity's information, read and written (ADR 0101, 0109) for the item
 // page and Manage items (ADR 0112): its descriptions, notes, and the rest.
+
 import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
+import { errorMessage } from './errorMessage';
 import { viewerLocales } from './me';
 
 export type Information = components['schemas']['InformationOut'];
@@ -108,7 +110,7 @@ export async function updateInformation(
     );
   } catch (e) {
     if (!textChanged) throw e;
-    const reason = e instanceof Error ? e.message : String(e);
+    const reason = errorMessage(e);
     throw new Error(`The text was saved, but the rest wasn't: ${reason}`);
   }
 }

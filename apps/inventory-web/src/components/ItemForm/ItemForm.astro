@@ -1,5 +1,9 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
 <template id="item-form-template">
-  <form class="card card-body stack item-form" data-item-form>
+  <form class="card card-body stack" data-item-form>
     <h2 data-current-name></h2>
 
     <div class="grid">
@@ -17,18 +21,7 @@
       <div class="stack">
         <div class="field">
           <label class="field-label" data-parents-label>Parents</label>
-          <div class="combobox" data-parents-combobox>
-            <input
-              class="text-input"
-              data-parents-search
-              type="text"
-              placeholder="Search items to inherit from…"
-              autocomplete="off"
-              role="combobox"
-              aria-expanded="false"
-            />
-            <ul class="combobox-suggestions" data-parent-suggestions role="listbox" hidden></ul>
-          </div>
+          <Combobox placeholder="Search items to inherit from…" />
         </div>
         <ul class="row" data-parent-chips></ul>
       </div>
@@ -53,7 +46,7 @@
       </div>
     </div>
 
-    <div class="field description">
+    <div class="field">
       <span class="field-label">Description</span>
       <textarea data-description rows="10" aria-label="Description"></textarea>
       <ul class="status-text" data-description-notes></ul>
@@ -76,12 +69,6 @@
       <li class="chip">
         <span data-title></span>
         <button class="chip-remove" data-remove type="button" aria-label="Remove">×</button>
-      </li>
-    </template>
-
-    <template data-parent-suggestion-template>
-      <li class="combobox-suggestion" role="option">
-        <button data-select type="button"></button>
       </li>
     </template>
 

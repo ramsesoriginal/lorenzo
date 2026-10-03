@@ -1,4 +1,5 @@
 ---
+import Combobox from '../components/Combobox/Combobox.astro';
 import { BRANDING_CSS_URL } from '../lib/config';
 import '../styles/global.css';
 
@@ -93,7 +94,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
         </nav>
       </div>
       <div class="row">
-        <div id="tenant-switcher-group" class="account row-tight" hidden>
+        <div id="tenant-switcher-group" class="row-tight" hidden>
           <svg class="icon" aria-hidden="true">
             <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
           </svg>
@@ -101,7 +102,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
           ></select>
         </div>
 
-        <div class="account row-tight">
+        <div class="row-tight">
           <p id="account-loading">Checking your session&hellip;</p>
           <p id="account-error" class="error-text" hidden></p>
           <div id="account-signed-out" class="row" hidden>
@@ -135,6 +136,9 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
       </div>
     </main>
 
+    <!-- What lib/beingPicker's panels copy, as any page may open one. -->
+    <Combobox template />
+
     <footer>
       <div class="wrap">
         Part of <code>apps/inventory-web</code>
@@ -143,6 +147,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
 
     <script>
       import { tenantIdFor, tenantNamed } from '../lib/addresses';
+      import { errorMessage } from '../lib/errorMessage';
       import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
       import { LAST_TENANT_EVENT, getLastTenant, rememberTenant } from '../lib/lastTenant';
       import { listTenants } from '../lib/tenants';
@@ -250,7 +255,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
           document.getElementById('account-email')!.textContent = info.email ?? info.sub;
           document.getElementById('account-signed-in')!.hidden = false;
         } catch (e) {
-          showError(e instanceof Error ? e.message : String(e));
+          showError(errorMessage(e));
           return;
         }
 

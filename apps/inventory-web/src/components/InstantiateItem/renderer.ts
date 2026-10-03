@@ -1,8 +1,10 @@
-import { renderBeingSuggestions } from '../../lib/beingPicker';
-import { listBeings } from '../../lib/beings';
+import { searchBeings } from '../../lib/beingPicker';
+import { errorMessage } from '../../lib/errorMessage';
 import { createItemInstance } from '../../lib/items';
 import { slugProblem, suggestSlug } from '../../lib/slugs';
-import type { CatalogItem } from '../../lib/types';
+import { cloneTemplate, requiredIn } from '../../lib/template';
+import type { BeingRef, CatalogItem } from '../../lib/types';
+import { renderCombobox } from '../Combobox/renderer';
 
 export type InstantiateItemOptions = {
   tenantId: string;
@@ -15,15 +17,7 @@ export type RenderedInstantiateItem = {
   destroy(): void;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Instantiate item is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Instantiate item');
 
 function clonePanel(): HTMLElement {
   const template = document.querySelector<HTMLTemplateElement>('#instantiate-item-template');
@@ -32,13 +26,7 @@ function clonePanel(): HTMLElement {
     throw new Error('Instantiate item template not found. Did you render <InstantiateItem />?');
   }
 
-  const first = template.content.firstElementChild;
-
-  if (!first) {
-    throw new Error('Instantiate item template is empty.');
-  }
-
-  return first.cloneNode(true) as HTMLElement;
+  return cloneTemplate<HTMLElement>(template);
 }
 
 function checkSlug(value: string): void {
@@ -60,9 +48,6 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
 
   const slugLabel = required<HTMLLabelElement>(panel, '[data-slug-label]');
   const slugInput = required<HTMLInputElement>(panel, '[data-slug]');
-  const combobox = required<HTMLElement>(panel, '[data-combobox]');
-  const search = required<HTMLInputElement>(panel, '[data-search]');
-  const suggestions = required<HTMLUListElement>(panel, '[data-suggestions]');
   const noOwnerButton = required<HTMLButtonElement>(panel, '[data-no-owner]');
   const status = required<HTMLElement>(panel, '[data-status]');
 
@@ -71,8 +56,6 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
 
   slugInput.id = `instantiate-${id}-slug`;
   slugLabel.htmlFor = slugInput.id;
-  suggestions.id = `instantiate-${id}-suggestions`;
-  search.setAttribute('aria-controls', suggestions.id);
 
   // An instance gets no slug unless one is typed, so the suggestion is only a placeholder.
   slugInput.placeholder = 'e.g. iron-sword-1';
@@ -86,12 +69,6 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     () => {},
   );
 
-  function closeSuggestions() {
-    suggestions.hidden = true;
-    suggestions.replaceChildren();
-    search.setAttribute('aria-expanded', 'false');
-  }
-
   let busy = false;
 
   async function finish(action: () => Promise<string>) {
@@ -103,7 +80,7 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     search.disabled = true;
     slugInput.disabled = true;
     noOwnerButton.disabled = true;
-    closeSuggestions();
+    beings.close();
     status.hidden = true;
     status.classList.remove('error-text');
 
@@ -116,7 +93,7 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     } catch (error) {
       status.hidden = false;
       status.classList.add('error-text');
-      status.textContent = error instanceof Error ? error.message : String(error);
+      status.textContent = errorMessage(error);
       search.disabled = false;
       slugInput.disabled = false;
       noOwnerButton.disabled = false;
@@ -124,66 +101,25 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     }
   }
 
-  let debounce: ReturnType<typeof setTimeout> | undefined;
+  const beings = renderCombobox<BeingRef>(panel, {
+    search: (query) => searchBeings(options.tenantId, query),
 
-  search.addEventListener(
-    'input',
-    () => {
-      clearTimeout(debounce);
+    onPick(being) {
+      void finish(async () => {
+        await createItemInstance(
+          options.tenantId,
+          options.item.entity_id,
+          being.entity_id,
+          slugInput.value.trim() || undefined,
+        );
 
-      const query = search.value.trim();
-
-      if (!query) {
-        closeSuggestions();
-        return;
-      }
-
-      debounce = setTimeout(async () => {
-        try {
-          const result = await listBeings(options.tenantId, query);
-
-          renderBeingSuggestions(suggestions, result.items, (being) => {
-            void finish(async () => {
-              await createItemInstance(
-                options.tenantId,
-                options.item.entity_id,
-                being.entity_id,
-                slugInput.value.trim() || undefined,
-              );
-
-              return `Created and assigned to ${being.name}.`;
-            });
-          });
-
-          suggestions.hidden = false;
-          search.setAttribute('aria-expanded', 'true');
-        } catch {
-          closeSuggestions();
-        }
-      }, 200);
+        return `Created and assigned to ${being.name}.`;
+      });
     },
-    { signal },
-  );
 
-  search.addEventListener(
-    'keydown',
-    (event) => {
-      if (event.key === 'Escape') {
-        closeSuggestions();
-      }
-    },
-    { signal },
-  );
-
-  document.addEventListener(
-    'click',
-    (event) => {
-      if (!combobox.contains(event.target as Node)) {
-        closeSuggestions();
-      }
-    },
-    { signal },
-  );
+    signal,
+  });
+  const search = beings.input;
 
   noOwnerButton.addEventListener(
     'click',
@@ -208,7 +144,6 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     element: panel,
 
     destroy() {
-      clearTimeout(debounce);
       controller.abort();
     },
   };

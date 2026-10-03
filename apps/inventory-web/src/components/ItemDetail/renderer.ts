@@ -4,6 +4,7 @@ import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/items';
 import { withReflow } from '../../lib/reflow';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
+import { requiredIn } from '../../lib/template';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
 import { renderAncestryTree } from '../AncestryTree/renderer';
 import type { BoardState } from '../Board/state';
@@ -63,15 +64,7 @@ function ancestryRoot(item: ShownItem): string | null {
   return item.prototype_ids.length > 0 && rootId ? rootId : null;
 }
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Item detail is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Item detail');
 
 export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail {
   const { root, tenantId, board } = options;

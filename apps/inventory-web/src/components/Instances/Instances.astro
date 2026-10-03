@@ -1,3 +1,7 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
 <section
   id="instances"
   class="section-lg"
@@ -8,22 +12,11 @@
   <h2 id="instances-heading">Instances</h2>
 
   <div class="field">
-    <span class="field-label" data-browse-label>View a being's inventory</span>
-    <div class="combobox" data-browse-combobox>
-      <input
-        type="text"
-        class="text-input"
-        data-browse-search
-        placeholder="Search beings…"
-        autocomplete="off"
-        role="combobox"
-        aria-expanded="false"
-      />
-      <ul class="combobox-suggestions" data-browse-suggestions role="listbox" hidden></ul>
-    </div>
+    <span class="field-label" id="instances-browse-label">View a being's inventory</span>
+    <Combobox placeholder="Search beings…" labelledby="instances-browse-label" />
   </div>
 
-  <p class="next-up" data-viewing hidden></p>
+  <p data-viewing hidden></p>
   <p data-empty hidden></p>
   <p class="error-text" data-error hidden></p>
   <div data-groups></div>
@@ -31,22 +24,22 @@
   <template data-group-template>
     <div class="section">
       <h3 data-heading></h3>
-      <ul class="catalog-list" data-list></ul>
+      <ul class="list" data-list></ul>
     </div>
   </template>
 
   <template data-row-template>
-    <li class="catalog-row">
-      <div class="catalog-row-header">
-        <span class="catalog-row-title" data-title></span>
-        <div class="catalog-row-actions">
+    <li>
+      <div class="row grow sticky-top">
+        <span data-title></span>
+        <div class="grow" data-panel></div>
+        <div class="row">
           <button type="button" class="btn-secondary" data-view>View</button>
           <button type="button" data-reassign>Reassign</button>
           <button type="button" data-unassign>Unassign</button>
           <button type="button" class="btn-danger" data-delete>Delete</button>
         </div>
       </div>
-      <div data-panel></div>
     </li>
   </template>
 </section>

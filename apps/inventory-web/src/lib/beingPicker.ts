@@ -1,63 +1,45 @@
+import { createCombobox, type Suggestion } from '../components/Combobox/renderer';
 import { beingNamed, unknownSlug } from './addresses';
 import { listBeings } from './beings';
+import { errorMessage } from './errorMessage';
 import { listGroups, matchingGroups } from './groups';
 import type { BeingRef, BeingSummary } from './types';
 
-/** Beings, then groups (ADR 0124): a group can own things too, so it's offered alongside. */
-export function renderBeingSuggestions(
-  list: HTMLUListElement,
-  beings: BeingSummary[],
-  onPick: (being: BeingRef) => void,
-  groups: BeingRef[] = [],
-) {
-  if (beings.length === 0 && groups.length === 0) {
-    list.hidden = true;
-    list.replaceChildren();
-    return;
-  }
-  list.replaceChildren();
-  for (const being of beings) {
-    const li = document.createElement('li');
-    li.className = 'combobox-suggestion';
-    li.setAttribute('role', 'option');
-    const button = document.createElement('button');
-    button.type = 'button';
-    // is_pc is genuinely three-valued (BeingSummary) - null means no
-    // Character row exists at all, distinct from false.
-    button.textContent =
-      being.is_pc === null
-        ? `${being.name} (being)`
-        : being.is_pc
-          ? being.name
-          : `${being.name} (NPC)`;
-    button.addEventListener('click', () => onPick(being));
-    li.append(button);
-    list.append(li);
-  }
-  for (const group of groups) {
-    const li = document.createElement('li');
-    li.className = 'combobox-suggestion';
-    li.setAttribute('role', 'option');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = `${group.name} (group)`;
-    button.addEventListener('click', () => onPick(group));
-    li.append(button);
-    list.append(li);
-  }
-  list.hidden = false;
+function beingLabel(being: BeingSummary): string {
+  // is_pc is genuinely three-valued (BeingSummary) - null means no
+  // Character row exists at all, distinct from false.
+  if (being.is_pc === null) return `${being.name} (being)`;
+
+  return being.is_pc ? being.name : `${being.name} (NPC)`;
 }
 
-/** Beings and groups matching `query`, for a being search. */
+/** The beings matching `query`, as a combobox offers them. */
+export async function searchBeings(
+  tenantId: string,
+  query: string,
+): Promise<Suggestion<BeingRef>[]> {
+  const found = await listBeings(tenantId, query);
+
+  return found.items.map((being) => ({ label: beingLabel(being), value: being }));
+}
+
+/** Beings, then groups (ADR 0124): a group can own things too, so it's offered alongside. */
 export async function searchBeingsAndGroups(
   tenantId: string,
   query: string,
-): Promise<{ beings: BeingSummary[]; groups: BeingRef[] }> {
+): Promise<Suggestion<BeingRef>[]> {
   const [beings, groups] = await Promise.all([
-    listBeings(tenantId, query),
+    searchBeings(tenantId, query),
     listGroups(tenantId).catch(() => [] as BeingRef[]),
   ]);
-  return { beings: beings.items, groups: matchingGroups(groups, query) };
+
+  return [
+    ...beings,
+    ...matchingGroups(groups, query).map((group) => ({
+      label: `${group.name} (group)`,
+      value: group,
+    })),
+  ];
 }
 
 // A panel that finds a being - by name search against GET /tenants/{t}/beings
@@ -81,20 +63,6 @@ export function renderBeingActionPanel(
   panel.className = 'character-picker-panel';
   panel.append(...extraFields);
 
-  const combobox = document.createElement('div');
-  combobox.className = 'combobox';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'text-input';
-  input.placeholder = 'Search beings…';
-  input.autocomplete = 'off';
-  input.setAttribute('aria-label', 'Search beings');
-  const suggestions = document.createElement('ul');
-  suggestions.className = 'combobox-suggestions';
-  suggestions.setAttribute('role', 'listbox');
-  suggestions.hidden = true;
-  combobox.append(input, suggestions);
-
   const rawIdRow = document.createElement('div');
   rawIdRow.className = 'being-id-row';
   const rawIdInput = document.createElement('input');
@@ -111,7 +79,15 @@ export function renderBeingActionPanel(
   statusEl.className = 'picker-status';
   statusEl.hidden = true;
 
-  panel.append(combobox, rawIdRow, statusEl);
+  const picker = createCombobox<BeingRef>({
+    label: 'Search beings',
+    placeholder: 'Search beings…',
+    search: (query) => searchBeingsAndGroups(tenantId, query),
+    onPick: (being) => void pick(being),
+  });
+  const input = picker.input;
+
+  panel.append(picker.element, rawIdRow, statusEl);
 
   let busy = false;
   async function pick(being: BeingRef) {
@@ -119,7 +95,6 @@ export function renderBeingActionPanel(
     busy = true;
     input.disabled = true;
     rawIdButton.disabled = true;
-    suggestions.hidden = true;
     try {
       const message = await performAction(being);
       statusEl.hidden = false;
@@ -129,31 +104,12 @@ export function renderBeingActionPanel(
     } catch (e) {
       statusEl.hidden = false;
       statusEl.classList.add('error-text');
-      statusEl.textContent = e instanceof Error ? e.message : String(e);
+      statusEl.textContent = errorMessage(e);
       input.disabled = false;
       rawIdButton.disabled = false;
       busy = false;
     }
   }
-
-  let debounce: ReturnType<typeof setTimeout> | undefined;
-  input.addEventListener('input', () => {
-    clearTimeout(debounce);
-    const query = input.value.trim();
-    if (!query) {
-      suggestions.hidden = true;
-      suggestions.replaceChildren();
-      return;
-    }
-    debounce = setTimeout(async () => {
-      try {
-        const { beings, groups } = await searchBeingsAndGroups(tenantId, query);
-        renderBeingSuggestions(suggestions, beings, (being) => void pick(being), groups);
-      } catch {
-        suggestions.hidden = true;
-      }
-    }, 200);
-  });
 
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') onDone();
@@ -173,7 +129,7 @@ export function renderBeingActionPanel(
       if (being) void pick(being);
       else showError(unknownSlug(value));
     } catch (e) {
-      showError(e instanceof Error ? e.message : String(e));
+      showError(errorMessage(e));
     }
   });
 

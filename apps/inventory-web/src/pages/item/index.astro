@@ -74,6 +74,7 @@ import UsedBy from '../../components/UsedBy/UsedBy.astro';
   <InfoForm />
 
   <script>
+    import { errorMessage } from '../../lib/errorMessage';
     import { renderAncestryTree } from '../../components/AncestryTree/renderer';
     import { renderInfoForm } from '../../components/InfoForm/renderer';
     import { renderInformation } from '../../components/Information/renderer';
@@ -243,7 +244,7 @@ import UsedBy from '../../components/UsedBy/UsedBy.astro';
           }),
         );
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : String(e));
+        window.alert(errorMessage(e));
       } finally {
         descriptionEdit.disabled = false;
       }
@@ -296,7 +297,7 @@ import UsedBy from '../../components/UsedBy/UsedBy.astro';
       } catch (e) {
         status.hidden = false;
         page.hidden = true;
-        status.textContent = e instanceof Error ? e.message : String(e);
+        status.textContent = errorMessage(e);
       }
     }
   </script>

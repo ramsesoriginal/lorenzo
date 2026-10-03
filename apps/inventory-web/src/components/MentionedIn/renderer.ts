@@ -1,5 +1,6 @@
 import { getBacklinks } from '../../lib/descriptions';
 import { entityHref } from '../../lib/entityLinks';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 
 export type MentionedInOptions = {
   // The <MentionedIn /> section: hidden unless something links to the entity.
@@ -13,15 +14,7 @@ export type RenderedMentionedIn = {
   load(entityId: string): Promise<void>;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Mentioned in is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Mentioned in');
 
 export function renderMentionedIn(options: MentionedInOptions): RenderedMentionedIn {
   const { root, tenantId } = options;
@@ -35,10 +28,7 @@ export function renderMentionedIn(options: MentionedInOptions): RenderedMentione
 
         list.replaceChildren(
           ...backlinks.map((backlink) => {
-            const chip = required<HTMLLIElement>(
-              template.content.cloneNode(true) as DocumentFragment,
-              'li',
-            );
+            const chip = cloneTemplate<HTMLLIElement>(template, 'li');
             const link = required<HTMLAnchorElement>(chip, '[data-link]');
             const name = required<HTMLElement>(chip, '[data-name]');
             const href = entityHref(tenantId, backlink);

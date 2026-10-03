@@ -1,5 +1,6 @@
 import { itemPageHref } from '../../lib/addresses';
 import { listItemsUsingPrototype } from '../../lib/items';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 
 export type UsedByOptions = {
   // The <UsedBy /> section: hidden unless something is built on the item.
@@ -12,15 +13,7 @@ export type RenderedUsedBy = {
   load(entityId: string): Promise<void>;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Used by is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Used by');
 
 export function renderUsedBy(options: UsedByOptions): RenderedUsedBy {
   const { root } = options;
@@ -34,10 +27,7 @@ export function renderUsedBy(options: UsedByOptions): RenderedUsedBy {
 
         list.replaceChildren(
           ...items.map((item) => {
-            const chip = required<HTMLLIElement>(
-              template.content.cloneNode(true) as DocumentFragment,
-              'li',
-            );
+            const chip = cloneTemplate<HTMLLIElement>(template, 'li');
 
             const link = required<HTMLAnchorElement>(chip, '[data-name]');
 

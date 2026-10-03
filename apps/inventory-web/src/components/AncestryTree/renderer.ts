@@ -1,6 +1,7 @@
 import { itemPageHref } from '../../lib/addresses';
 import { type AncestryNode, fetchAncestry } from '../../lib/ancestryTree';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 
 export type AncestryTreeOptions = {
   // The section holding <AncestryTree />, with its heading: hidden while there's nothing to show.
@@ -16,15 +17,7 @@ export type RenderedAncestryTree = {
   prefetch(itemId: string): void;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Ancestry tree is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Ancestry tree');
 
 export function renderAncestryTree(options: AncestryTreeOptions): RenderedAncestryTree {
   const { root } = options;
@@ -34,11 +27,8 @@ export function renderAncestryTree(options: AncestryTreeOptions): RenderedAncest
   const loadingTemplate = required<HTMLTemplateElement>(root, '[data-ancestry-loading-template]');
   const trees = createStaleCache((itemId) => fetchAncestry(options.tenantId, itemId));
 
-  const clone = (template: HTMLTemplateElement) =>
-    required<HTMLLIElement>(template.content.cloneNode(true) as DocumentFragment, 'li');
-
   function renderNode(node: AncestryNode): HTMLLIElement {
-    const item = clone(nodeTemplate);
+    const item = cloneTemplate<HTMLLIElement>(nodeTemplate, 'li');
     const parents = required<HTMLUListElement>(item, '[data-parents]');
 
     const link = required<HTMLAnchorElement>(item, '[data-name]');
@@ -70,7 +60,9 @@ export function renderAncestryTree(options: AncestryTreeOptions): RenderedAncest
       const shown = trees.peek(itemId);
 
       root.hidden = false;
-      list.replaceChildren(shown ? renderNode(shown) : clone(loadingTemplate));
+      list.replaceChildren(
+        shown ? renderNode(shown) : cloneTemplate<HTMLLIElement>(loadingTemplate, 'li'),
+      );
 
       try {
         const tree = await trees.refresh(itemId, RECENT_MS);

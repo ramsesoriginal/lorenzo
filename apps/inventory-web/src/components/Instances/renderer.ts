@@ -1,10 +1,12 @@
-import { renderBeingActionPanel, renderBeingSuggestions } from '../../lib/beingPicker';
-import { listBeings } from '../../lib/beings';
+import { renderBeingActionPanel, searchBeings } from '../../lib/beingPicker';
+import { errorMessage } from '../../lib/errorMessage';
 import { onIntent } from '../../lib/hoverIntent';
 import { deleteItemInstance, getOwnedItemInstances, setOwner, unsetOwner } from '../../lib/items';
 import { giveOrAsk } from '../../lib/moveAnyway';
 import { deleteSplitQuestion, isStackRefusal } from '../../lib/settingDown';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { BeingRef, ItemInstance, OwnedGroup } from '../../lib/types';
+import { renderCombobox } from '../Combobox/renderer';
 
 export type InstancesOptions = {
   root: HTMLElement;
@@ -21,59 +23,25 @@ export type RenderedInstances = {
   destroy(): void;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Instances is missing ${selector}.`);
-  }
-
-  return element;
-}
-
-function cloneTemplate<T extends Element>(root: ParentNode, selector: string): T {
-  const template = required<HTMLTemplateElement>(root, selector);
-  const first = template.content.firstElementChild;
-
-  if (!first) {
-    throw new Error(`Instances template ${selector} is empty.`);
-  }
-
-  return first.cloneNode(true) as T;
-}
-
-const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const required = requiredIn('Instances');
 
 export function renderInstances(options: InstancesOptions): RenderedInstances {
   const { root, tenantId } = options;
   const controller = new AbortController();
   const { signal } = controller;
 
-  const browseLabel = required<HTMLElement>(root, '[data-browse-label]');
-  const browseCombobox = required<HTMLElement>(root, '[data-browse-combobox]');
-  const browseSearch = required<HTMLInputElement>(root, '[data-browse-search]');
-  const browseSuggestions = required<HTMLUListElement>(root, '[data-browse-suggestions]');
   const viewing = required<HTMLElement>(root, '[data-viewing]');
   const empty = required<HTMLElement>(root, '[data-empty]');
   const error = required<HTMLElement>(root, '[data-error]');
   const groups = required<HTMLElement>(root, '[data-groups]');
 
-  browseLabel.id = `instances-browse-label-${crypto.randomUUID()}`;
-  browseSuggestions.id = `instances-browse-suggestions-${crypto.randomUUID()}`;
-  browseSearch.setAttribute('aria-labelledby', browseLabel.id);
-  browseSearch.setAttribute('aria-controls', browseSuggestions.id);
-
   let currentCharacter: BeingRef | null = null;
   let requestId = 0;
 
-  function closeBrowseSuggestions() {
-    browseSuggestions.hidden = true;
-    browseSuggestions.replaceChildren();
-    browseSearch.setAttribute('aria-expanded', 'false');
-  }
-
   function renderRow(instance: ItemInstance): HTMLLIElement {
-    const row = cloneTemplate<HTMLLIElement>(root, '[data-row-template]');
+    const row = cloneTemplate<HTMLLIElement>(
+      required<HTMLTemplateElement>(root, '[data-row-template]'),
+    );
     const title = required<HTMLElement>(row, '[data-title]');
     const view = required<HTMLButtonElement>(row, '[data-view]');
     const reassign = required<HTMLButtonElement>(row, '[data-reassign]');
@@ -89,7 +57,6 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
     if (instance.slug) {
       const slug = document.createElement('code');
 
-      slug.className = 'catalog-row-slug';
       slug.textContent = instance.slug;
       title.append(' ', slug);
     }
@@ -114,7 +81,7 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
           }
         } catch (error) {
           unassign.disabled = false;
-          window.alert(reason(error));
+          window.alert(errorMessage(error));
         }
       },
       { signal },
@@ -187,7 +154,7 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
           }
         } catch (error) {
           remove.disabled = false;
-          window.alert(reason(error));
+          window.alert(errorMessage(error));
         }
       },
       { signal },
@@ -197,7 +164,9 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
   }
 
   function renderGroup(group: OwnedGroup, rootTitle: string): HTMLElement {
-    const section = cloneTemplate<HTMLElement>(root, '[data-group-template]');
+    const section = cloneTemplate<HTMLElement>(
+      required<HTMLTemplateElement>(root, '[data-group-template]'),
+    );
     const heading = required<HTMLElement>(section, '[data-heading]');
     const list = required<HTMLUListElement>(section, '[data-list]');
 
@@ -239,63 +208,18 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
       }
 
       error.hidden = false;
-      error.textContent = reason(cause);
+      error.textContent = errorMessage(cause);
     }
   }
 
-  let browseDebounce: ReturnType<typeof setTimeout> | undefined;
-
-  browseSearch.addEventListener(
-    'input',
-    () => {
-      clearTimeout(browseDebounce);
-
-      const query = browseSearch.value.trim();
-
-      if (!query) {
-        closeBrowseSuggestions();
-        return;
-      }
-
-      browseDebounce = setTimeout(async () => {
-        try {
-          const result = await listBeings(tenantId, query);
-
-          renderBeingSuggestions(browseSuggestions, result.items, (being) => {
-            browseSearch.value = being.name;
-            closeBrowseSuggestions();
-            void loadFor(being);
-          });
-
-          browseSuggestions.hidden = false;
-          browseSearch.setAttribute('aria-expanded', 'true');
-        } catch {
-          closeBrowseSuggestions();
-        }
-      }, 200);
+  const browse = renderCombobox<BeingRef>(root, {
+    search: (query) => searchBeings(tenantId, query),
+    onPick(being) {
+      browse.input.value = being.name;
+      void loadFor(being);
     },
-    { signal },
-  );
-
-  browseSearch.addEventListener(
-    'keydown',
-    (event) => {
-      if (event.key === 'Escape') {
-        closeBrowseSuggestions();
-      }
-    },
-    { signal },
-  );
-
-  document.addEventListener(
-    'click',
-    (event) => {
-      if (!browseCombobox.contains(event.target as Node)) {
-        closeBrowseSuggestions();
-      }
-    },
-    { signal },
-  );
+    signal,
+  });
 
   return {
     show() {
@@ -307,7 +231,6 @@ export function renderInstances(options: InstancesOptions): RenderedInstances {
     },
 
     destroy() {
-      clearTimeout(browseDebounce);
       controller.abort();
     },
   };

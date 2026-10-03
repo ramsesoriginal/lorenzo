@@ -27,7 +27,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <p data-empty hidden>No items match.</p>
       <p class="error-text" data-error hidden></p>
       <ul
-        class="catalog-list list stagger vertical-window vertical-mask"
+        class="list stagger vertical-window vertical-mask"
         aria-label="Catalog items"
         data-list
         hidden
@@ -63,15 +63,15 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   </template>
 
   <template data-row-template>
-    <li class="catalog-row">
+    <li>
       <div class="row grow sticky-top">
         <span data-name class="row">
-          <strong class="catalog-row-title" data-title></strong>
+          <strong data-title></strong>
           <span class="pill pill-success" data-public hidden>Public</span>
         </span>
 
         <div data-panel class="grow"></div>
-        <div class="catalog-row-actions row">
+        <div class="row">
           <button type="button" class="btn-secondary" data-view>View</button>
 
           <button type="button" data-edit>Edit</button>
@@ -83,6 +83,6 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   </template>
 
   <template data-skeleton-template>
-    <li class="catalog-row skeleton"></li>
+    <li class="skeleton"></li>
   </template>
 </section>

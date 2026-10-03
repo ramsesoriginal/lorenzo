@@ -1,7 +1,10 @@
 // The item page's slug editor for GMs (ADR 0113): the field, holding the entity's slug or a
 // suggestion, and Save.
+import { errorMessage } from '../../lib/errorMessage';
 import { getEntityDetail } from '../../lib/items';
 import { type SlugKind, saveSlug, suggestSlug } from '../../lib/slugs';
+import { say } from '../../lib/statusLine';
+import { requiredIn } from '../../lib/template';
 
 export type SlugEditorOptions = {
   // Whatever contains <SlugEditor />.
@@ -16,17 +19,7 @@ export type RenderedSlugEditor = {
   load(entityId: string, title: string, kind: SlugKind): Promise<void>;
 };
 
-const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Slug editor is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Slug editor');
 
 export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor {
   const { root, tenantId } = options;
@@ -39,12 +32,6 @@ export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor
   // The entity being edited, and the slug it has as far as this editor knows.
   let entityId: string | null = null;
   let current: string | null = null;
-
-  function say(line: HTMLElement, text: string, failed = false) {
-    line.textContent = text;
-    line.classList.toggle('error-text', failed);
-    line.hidden = !text;
-  }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -60,7 +47,7 @@ export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor
       say(status, current ? 'Saved.' : 'Cleared.');
       options.onSaved(current);
     } catch (error) {
-      say(status, reason(error), true);
+      say(status, errorMessage(error), true);
     } finally {
       save.disabled = false;
     }
@@ -77,7 +64,7 @@ export function renderSlugEditor(options: SlugEditorOptions): RenderedSlugEditor
         current = (await getEntityDetail(tenantId, id)).slug;
         input.value = current ?? (await suggestSlug(tenantId, title, kind));
       } catch (error) {
-        say(message, `Couldn't load the slug: ${reason(error)}`);
+        say(message, `Couldn't load the slug: ${errorMessage(error)}`);
         return;
       }
 

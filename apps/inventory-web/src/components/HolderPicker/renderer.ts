@@ -1,9 +1,12 @@
 import { beingNamed, unknownSlug } from '../../lib/addresses';
-import { renderBeingSuggestions, searchBeingsAndGroups } from '../../lib/beingPicker';
+import { searchBeingsAndGroups } from '../../lib/beingPicker';
 import { listMyCharacters } from '../../lib/characters';
+import { errorMessage } from '../../lib/errorMessage';
 import { groupsOf } from '../../lib/groups';
 import { defaultHolder, getLastHolder, type Holder, rememberHolder } from '../../lib/lastHolder';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { BeingRef, CharacterSummary } from '../../lib/types';
+import { renderCombobox } from '../Combobox/renderer';
 
 export type HolderPickerOptions = {
   root: HTMLElement;
@@ -31,17 +34,7 @@ type PickerTab = 'characters' | 'browse' | 'unowned';
 
 const TABS: PickerTab[] = ['characters', 'browse', 'unowned'];
 
-const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Holder picker is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Holder picker');
 
 export function renderHolderPicker(options: HolderPickerOptions): RenderedHolderPicker {
   const { root, tenantId } = options;
@@ -57,9 +50,6 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   const error = required<HTMLElement>(root, '[data-error]');
   const strip = required<HTMLUListElement>(root, '[data-holders]');
   const holderTemplate = required<HTMLTemplateElement>(root, '[data-holder-template]');
-  const browseCombobox = required<HTMLElement>(root, '[data-browse-combobox]');
-  const browseSearch = required<HTMLInputElement>(root, '[data-browse-search]');
-  const browseSuggestions = required<HTMLUListElement>(root, '[data-browse-suggestions]');
   const browseRawId = required<HTMLInputElement>(root, '[data-browse-raw-id]');
   const browseRawIdButton = required<HTMLButtonElement>(root, '[data-browse-raw-id-button]');
 
@@ -170,10 +160,9 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
     param: 'character' | 'group',
     select: (link: HTMLAnchorElement, address: boolean) => void,
   ) {
-    const fragment = holderTemplate.content.cloneNode(true) as DocumentFragment;
-    const item = required<HTMLLIElement>(fragment, 'li');
-    const link = required<HTMLAnchorElement>(fragment, '[data-name]');
-    const groupBadge = required<HTMLElement>(fragment, '[data-group]');
+    const item = cloneTemplate<HTMLLIElement>(holderTemplate, 'li');
+    const link = required<HTMLAnchorElement>(item, '[data-name]');
+    const groupBadge = required<HTMLElement>(item, '[data-group]');
 
     const url = new URL(window.location.href);
 
@@ -248,7 +237,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
     } catch (cause) {
       loading.hidden = true;
       error.hidden = false;
-      error.textContent = reason(cause);
+      error.textContent = errorMessage(cause);
     }
   }
 
@@ -281,54 +270,14 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
     { signal },
   );
 
-  let browseDebounce: ReturnType<typeof setTimeout> | undefined;
-
-  browseSearch.addEventListener(
-    'input',
-    () => {
-      clearTimeout(browseDebounce);
-
-      const query = browseSearch.value.trim();
-
-      if (!query) {
-        browseSuggestions.hidden = true;
-        browseSuggestions.replaceChildren();
-        return;
-      }
-
-      browseDebounce = setTimeout(async () => {
-        const { beings, groups } = await searchBeingsAndGroups(tenantId, query);
-
-        renderBeingSuggestions(
-          browseSuggestions,
-          beings,
-          (being) => {
-            browseSearch.value = being.name;
-            browseSuggestions.hidden = true;
-            browseBeing(being);
-          },
-          groups,
-        );
-      }, 200);
+  const browse = renderCombobox<BeingRef>(panels.browse, {
+    search: (query) => searchBeingsAndGroups(tenantId, query),
+    onPick(being) {
+      browse.input.value = being.name;
+      browseBeing(being);
     },
-    { signal },
-  );
-
-  browseSearch.addEventListener(
-    'keydown',
-    (event) => {
-      if (event.key === 'Escape') browseSuggestions.hidden = true;
-    },
-    { signal },
-  );
-
-  document.addEventListener(
-    'click',
-    (event) => {
-      if (!browseCombobox.contains(event.target as Node)) browseSuggestions.hidden = true;
-    },
-    { signal },
-  );
+    signal,
+  });
 
   // An id, or a slug (ADR 0135).
   browseRawIdButton.addEventListener(
@@ -347,7 +296,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
           options.onError(unknownSlug(value));
         }
       } catch (cause) {
-        options.onError(reason(cause));
+        options.onError(errorMessage(cause));
       }
     },
     { signal },
@@ -359,7 +308,6 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
     isMine: (entityId) => holderIds.has(entityId),
 
     destroy() {
-      clearTimeout(browseDebounce);
       controller.abort();
     },
   };

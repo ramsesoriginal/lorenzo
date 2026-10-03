@@ -31,6 +31,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
   <ItemDetail />
 
   <script>
+    import { errorMessage } from '../../lib/errorMessage';
     import { renderCatalog } from '../../components/Catalog/renderer';
     import { renderInstances } from '../../components/Instances/renderer';
     import { renderInstantiateItem } from '../../components/InstantiateItem/renderer';
@@ -60,8 +61,6 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     let renderer: ReturnType<typeof descriptionRenderer>;
     let catalog: ReturnType<typeof renderCatalog>;
     let createForm: ReturnType<typeof renderItemForm> | null = null;
-
-    const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
     function mountCreateItemForm() {
       createForm?.destroy();
@@ -100,10 +99,10 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
                 values.name,
               )
                 .then(() => null)
-                .catch((error: unknown) => `its description (${reason(error)})`),
+                .catch((error: unknown) => `its description (${errorMessage(error)})`),
               saveSlug(tenantId as string, item.entity_id, null, values.slug)
                 .then(() => null)
-                .catch((error: unknown) => `its slug (${reason(error)})`),
+                .catch((error: unknown) => `its slug (${errorMessage(error)})`),
             ])
           ).filter(Boolean);
 
@@ -194,7 +193,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
         await catalog.reload();
       } catch (error) {
         status.hidden = false;
-        status.textContent = reason(error);
+        status.textContent = errorMessage(error);
       }
     }
   </script>

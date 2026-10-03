@@ -1,11 +1,13 @@
 import { type BoardColumn, ownerMark } from '../../lib/boardColumns';
 import { onIntent } from '../../lib/hoverIntent';
+import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ItemInstance } from '../../lib/types';
-import { fromTemplate, required } from './dom';
 import type { DropZones } from './dragDrop';
 import { ensurePlaceholder } from './placeholder';
 import type { Selection } from './selection';
 import type { BoardState } from './state';
+
+const required = requiredIn('Board');
 
 export type ColumnsOptions = {
   root: HTMLElement;

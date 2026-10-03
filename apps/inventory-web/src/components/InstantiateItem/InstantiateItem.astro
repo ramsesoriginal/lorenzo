@@ -1,3 +1,7 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
 <template id="instantiate-item-template">
   <div class="character-picker-panel" data-instantiate-item>
     <div class="field row-tight">
@@ -8,19 +12,7 @@
 
     <div class="field">
       <span class="field-label">Assign to a being</span>
-      <div class="combobox" data-combobox>
-        <input
-          class="text-input"
-          data-search
-          type="text"
-          placeholder="Search beings…"
-          aria-label="Search beings"
-          autocomplete="off"
-          role="combobox"
-          aria-expanded="false"
-        />
-        <ul class="combobox-suggestions" data-suggestions role="listbox" hidden></ul>
-      </div>
+      <Combobox placeholder="Search beings…" label="Search beings" />
     </div>
 
     <div class="row">

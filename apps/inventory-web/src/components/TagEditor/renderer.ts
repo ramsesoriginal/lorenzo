@@ -1,9 +1,13 @@
 // Three-state tag editing on the item page (ADR 0103, 0112): each bool stat in the tenant's
 // `tags` group is inherited, on, or explicitly off.
+
 import { LorenzoApiError } from '../../lib/api';
+import { errorMessage } from '../../lib/errorMessage';
 import { getEntityDetail } from '../../lib/items';
 import { statLabel } from '../../lib/statLabel';
+import { say } from '../../lib/statusLine';
 import { type Definition, STATES, setTag, tagDefinitions, tagState } from '../../lib/tagEditor';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { EntityDetail } from '../../lib/types';
 
 export type TagEditorOptions = {
@@ -17,17 +21,7 @@ export type RenderedTagEditor = {
   load(entityId: string): Promise<void>;
 };
 
-const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Tag editor is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Tag editor');
 
 // `root` is whatever contains <TagEditor />.
 export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
@@ -40,15 +34,6 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
 
   // The line above the tags says what's wrong, or that they're loading; the one below, what a
   // change is doing. Each shows only while it has something to say.
-  function say(line: HTMLElement, text: string, failed = false) {
-    line.textContent = text;
-    line.classList.toggle('error-text', failed);
-    line.hidden = !text;
-  }
-
-  const clone = (template: HTMLTemplateElement, selector: string) =>
-    required<HTMLElement>(template.content.cloneNode(true) as DocumentFragment, selector);
-
   return {
     async load(entityId) {
       tags.replaceChildren();
@@ -73,7 +58,7 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
         say(
           message,
           member
-            ? `Couldn't load tags: ${reason(error)}`
+            ? `Couldn't load tags: ${errorMessage(error)}`
             : 'Only tenant members can see the list of tags.',
         );
 
@@ -93,7 +78,7 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
         tags.replaceChildren(
           ...definitions.map((definition) => {
             const { state, hint } = tagState(stats.get(definition.name));
-            const group = clone(tagTemplate, '[data-tag]');
+            const group = cloneTemplate<HTMLElement>(tagTemplate, '[data-tag]');
             const label = required<HTMLElement>(group, '[data-label]');
             const choices = required<HTMLElement>(group, '[data-choices]');
 
@@ -102,7 +87,7 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
             group.setAttribute('aria-labelledby', label.id);
 
             for (const [value, text] of STATES) {
-              const choice = clone(choiceTemplate, 'label');
+              const choice = cloneTemplate<HTMLLabelElement>(choiceTemplate, 'label');
               const radio = required<HTMLInputElement>(choice, '[data-radio]');
 
               radio.name = `tag-${definition.id}`;
@@ -120,7 +105,7 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
                   say(status, '');
                   options.onChanged();
                 } catch (error) {
-                  say(status, reason(error), true);
+                  say(status, errorMessage(error), true);
                 }
 
                 draw();

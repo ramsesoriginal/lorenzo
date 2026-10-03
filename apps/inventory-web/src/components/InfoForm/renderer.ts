@@ -1,10 +1,13 @@
 // The fields a piece of information is written with (ADR 0112): its title, type, who can read
 // it, and its LorenzoScript text in the editor (ADR 0106), with notes on links readers won't be
 // able to follow, in a form of its own with Save, Cancel and a line saying what happened.
+
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
 import { LorenzoApiError } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
+import { errorMessage } from '../../lib/errorMessage';
 import type { InformationDraft } from '../../lib/information';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 
 export type InfoFormOptions = {
   initial: InformationDraft;
@@ -27,31 +30,20 @@ const STALE =
 
 let visibilityNotes = 0;
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Info form is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Info form');
 
 // What went wrong with a save, as the author should read it.
 export function saveError(error: unknown): string {
   if (error instanceof LorenzoApiError && error.status === 412) return STALE;
 
-  return error instanceof Error ? error.message : String(error);
+  return errorMessage(error);
 }
 
 // `templates` is whatever contains <InfoForm />.
 export function renderInfoForm(templates: ParentNode, options: InfoFormOptions): HTMLFormElement {
   const { initial } = options;
   const template = required<HTMLTemplateElement>(templates, '[data-info-form-template]');
-  const form = required<HTMLFormElement>(
-    template.content.cloneNode(true) as DocumentFragment,
-    'form',
-  );
+  const form = cloneTemplate<HTMLFormElement>(template, 'form');
 
   const title = required<HTMLInputElement>(form, '[data-title]');
   const type = required<HTMLInputElement>(form, '[data-type]');

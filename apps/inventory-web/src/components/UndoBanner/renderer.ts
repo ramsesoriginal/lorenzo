@@ -1,4 +1,5 @@
 import { createUndoController, type UndoPayload } from '../../lib/boardLogic';
+import { errorMessage } from '../../lib/errorMessage';
 import {
   clearContainer,
   mergeItemInstance,
@@ -7,6 +8,7 @@ import {
   splitItemInstance,
   unsetOwner,
 } from '../../lib/items';
+import { requiredIn } from '../../lib/template';
 
 export type UndoBannerOptions = {
   root: HTMLElement;
@@ -27,15 +29,7 @@ export type RenderedUndoBanner = {
   destroy(): void;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Undo banner is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Undo banner');
 
 export function renderUndoBanner(options: UndoBannerOptions): RenderedUndoBanner {
   const { root } = options;
@@ -80,7 +74,7 @@ export function renderUndoBanner(options: UndoBannerOptions): RenderedUndoBanner
         await undo.apply();
         options.onApplied();
       } catch (error) {
-        options.onError(error instanceof Error ? error.message : String(error));
+        options.onError(errorMessage(error));
       }
     },
     { signal },

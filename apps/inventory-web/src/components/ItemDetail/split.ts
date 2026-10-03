@@ -1,6 +1,8 @@
+import { errorMessage } from '../../lib/errorMessage';
 import { splitItemInstance } from '../../lib/items';
+import { say } from '../../lib/statusLine';
 import type { ItemInstance } from '../../lib/types';
-import { type ActionContext, actionPanel, reason, showStatus, statusLine } from './panels';
+import { type ActionContext, actionPanel, statusLine } from './panels';
 
 // Split…: splits part of a stack off into a new sibling with the same owner. Only for a
 // quantity above 1.
@@ -44,10 +46,10 @@ export function splitPanel(ctx: ActionContext, item: ItemInstance): HTMLElement 
         { kind: 'undo-split', splitOffEntityId: splitOff.entity_id, intoEntityId: item.entity_id },
         `Split off ${quantity} ${item.title}.`,
       );
-      showStatus(status, `Split off ${quantity}.`, false);
+      say(status, `Split off ${quantity}.`);
       window.setTimeout(ctx.finish, 1200);
     } catch (error) {
-      showStatus(status, reason(error), true);
+      say(status, errorMessage(error), true);
       submit.disabled = false;
     }
   });

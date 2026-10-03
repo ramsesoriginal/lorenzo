@@ -1,9 +1,11 @@
+import { errorMessage } from '../../lib/errorMessage';
 import { clearContainer, setContainer } from '../../lib/items';
 import { moveAnywayOptions, moveOrAsk } from '../../lib/moveAnyway';
 import { collectMoveTargets } from '../../lib/moveTargets';
 import { splitQuestion } from '../../lib/settingDown';
+import { say } from '../../lib/statusLine';
 import type { ItemInstance } from '../../lib/types';
-import { type ActionContext, actionPanel, note, reason, showStatus, statusLine } from './panels';
+import { type ActionContext, actionPanel, note, statusLine } from './panels';
 
 // Move to…: the way to move a single item without dragging it. The candidates are the
 // containers on the board (lib/moveTargets.ts), as Merge into… finds its own.
@@ -77,7 +79,7 @@ export function movePanel(ctx: ActionContext, item: ItemInstance): HTMLElement {
 
       ctx.finish();
     } catch (error) {
-      showStatus(status, reason(error), true);
+      say(status, errorMessage(error), true);
       setDisabled(false);
     }
   }

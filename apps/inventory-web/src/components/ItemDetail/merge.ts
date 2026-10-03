@@ -1,7 +1,9 @@
 import { findMergeCandidates } from '../../lib/boardLogic';
+import { errorMessage } from '../../lib/errorMessage';
 import { mergeItemInstance } from '../../lib/items';
+import { say } from '../../lib/statusLine';
 import type { ItemInstance } from '../../lib/types';
-import { type ActionContext, actionPanel, note, reason, showStatus, statusLine } from './panels';
+import { type ActionContext, actionPanel, note, statusLine } from './panels';
 
 // Merge into…: the candidates are other stacks of the same item already on the board, found
 // from what the page holds rather than a search. What counts as the same item is
@@ -51,7 +53,7 @@ export function mergePanel(ctx: ActionContext, item: ItemInstance): HTMLElement 
         );
         ctx.finish();
       } catch (error) {
-        showStatus(status, reason(error), true);
+        say(status, errorMessage(error), true);
         setDisabled(false);
       }
     });

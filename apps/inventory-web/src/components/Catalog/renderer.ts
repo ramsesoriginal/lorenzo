@@ -1,4 +1,5 @@
 import type { Renderer } from '../../lib/descriptions';
+import { errorMessage } from '../../lib/errorMessage';
 import { onIntent } from '../../lib/hoverIntent';
 import { getDescription, saveDescription } from '../../lib/information';
 import {
@@ -9,6 +10,7 @@ import {
   updateCatalogItem,
 } from '../../lib/items';
 import { saveSlug, suggestSlug } from '../../lib/slugs';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem, EntitySummary } from '../../lib/types';
 import { renderItemForm } from '../ItemForm/renderer';
 import { createPrototypeFilter } from './filter';
@@ -38,27 +40,7 @@ export type RenderedCatalog = {
   destroy(): void;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Catalog is missing ${selector}.`);
-  }
-
-  return element;
-}
-
-function cloneTemplate<T extends Element>(template: HTMLTemplateElement): T {
-  const element = template.content.firstElementChild;
-
-  if (!element) {
-    throw new Error('Catalog template is empty.');
-  }
-
-  return element.cloneNode(true) as T;
-}
-
-const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const required = requiredIn('Catalog');
 
 export function renderCatalog(options: CatalogOptions): RenderedCatalog {
   const { root } = options;
@@ -124,7 +106,7 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
           await catalogSearch.reload();
         } catch (error) {
           remove.disabled = false;
-          window.alert(reason(error));
+          window.alert(errorMessage(error));
         }
       },
       { signal },
@@ -212,7 +194,7 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
           destroyEditForm = rendered.destroy;
           panel.replaceChildren(rendered.element);
         } catch (error) {
-          panel.textContent = reason(error);
+          panel.textContent = errorMessage(error);
         }
       },
       { signal },
@@ -288,7 +270,7 @@ export function renderCatalog(options: CatalogOptions): RenderedCatalog {
       list.hidden = true;
       empty.hidden = true;
       error.hidden = false;
-      error.textContent = reason(cause);
+      error.textContent = errorMessage(cause);
     },
   });
 

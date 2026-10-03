@@ -1,12 +1,15 @@
 import { type Board, controlledBoard, unownedBoard } from '../../lib/boardColumns';
+import { errorMessage } from '../../lib/errorMessage';
 import { getControlledItemInstances, getUnownedItemInstances } from '../../lib/items';
+import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ControlledByResponse, ItemInstance } from '../../lib/types';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { createColumns, matchesSearch } from './columns';
-import { fromTemplate, required } from './dom';
 import { createDropZones } from './dragDrop';
 import { createSelection } from './selection';
 import { type BoardState, createBoardState } from './state';
+
+const required = requiredIn('Board');
 
 export type BoardOptions = {
   root: HTMLElement;
@@ -31,8 +34,6 @@ export type RenderedBoard = {
   showError(message: string): void;
   destroy(): void;
 };
-
-const reason = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export function renderBoard(options: BoardOptions): RenderedBoard {
   const { root, tenantId } = options;
@@ -149,7 +150,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
       columns.replaceChildren();
       columns.removeAttribute('aria-busy');
       error.hidden = false;
-      error.textContent = reason(cause);
+      error.textContent = errorMessage(cause);
     }
   }
 

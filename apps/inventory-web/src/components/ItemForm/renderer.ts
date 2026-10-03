@@ -1,10 +1,12 @@
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
-
 import type { Renderer } from '../../lib/descriptions';
+import { errorMessage } from '../../lib/errorMessage';
 import { descriptionDraft, type Information, type InformationDraft } from '../../lib/information';
 import { listCatalogItems } from '../../lib/items';
 import { slugProblem, suggestSlug } from '../../lib/slugs';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem } from '../../lib/types';
+import { renderCombobox } from '../Combobox/renderer';
 
 export type ItemFormValues = {
   name: string;
@@ -44,15 +46,7 @@ export type RenderedItemForm = {
 
 let nextFormId = 0;
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Item form is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Item form');
 
 function outerTemplate(): HTMLTemplateElement {
   const template = document.querySelector<HTMLTemplateElement>('#item-form-template');
@@ -62,31 +56,6 @@ function outerTemplate(): HTMLTemplateElement {
   }
 
   return template;
-}
-
-function cloneForm(): HTMLFormElement {
-  const first = outerTemplate().content.firstElementChild;
-
-  if (!(first instanceof HTMLFormElement)) {
-    throw new Error('Item form template does not contain a form.');
-  }
-
-  return first.cloneNode(true) as HTMLFormElement;
-}
-
-function cloneNested<T extends Element>(form: HTMLFormElement, selector: string): T {
-  const template = required<HTMLTemplateElement>(form, selector);
-  const first = template.content.firstElementChild;
-
-  if (!first) {
-    throw new Error(`Item form template ${selector} is empty.`);
-  }
-
-  return first.cloneNode(true) as T;
-}
-
-function errorReason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function checkSlug(value: string): void {
@@ -102,7 +71,7 @@ function checkSlug(value: string): void {
 }
 
 export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
-  const form = cloneForm();
+  const form = cloneTemplate<HTMLFormElement>(outerTemplate(), 'form');
   const controller = new AbortController();
   const { signal } = controller;
 
@@ -116,9 +85,6 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
   const displayNameLabel = required<HTMLLabelElement>(form, '[data-display-name-label]');
   const displayNameInput = required<HTMLInputElement>(form, '[data-display-name]');
   const parentsLabel = required<HTMLLabelElement>(form, '[data-parents-label]');
-  const parentsCombobox = required<HTMLElement>(form, '[data-parents-combobox]');
-  const parentsSearch = required<HTMLInputElement>(form, '[data-parents-search]');
-  const parentSuggestions = required<HTMLUListElement>(form, '[data-parent-suggestions]');
   const parentChips = required<HTMLUListElement>(form, '[data-parent-chips]');
   const publicCatalogInput = required<HTMLInputElement>(form, '[data-public-catalog]');
   const descriptionVisibility = required<HTMLElement>(form, '[data-description-visibility]');
@@ -137,10 +103,6 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
   nameLabel.htmlFor = nameInput.id;
   displayNameInput.id = id('display-name');
   displayNameLabel.htmlFor = displayNameInput.id;
-  parentsSearch.id = id('parents');
-  parentsLabel.htmlFor = parentsSearch.id;
-  parentSuggestions.id = id('parent-suggestions');
-  parentsSearch.setAttribute('aria-controls', parentSuggestions.id);
   slugInput.id = id('slug');
   slugLabel.htmlFor = slugInput.id;
 
@@ -193,16 +155,12 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
 
   const selectedParents = new Map(options.initial.parents);
 
-  function closeParentSuggestions(): void {
-    parentSuggestions.hidden = true;
-    parentSuggestions.replaceChildren();
-    parentsSearch.setAttribute('aria-expanded', 'false');
-  }
-
   function renderParentChips(): void {
     parentChips.replaceChildren(
       ...[...selectedParents].map(([entityId, title]) => {
-        const chip = cloneNested<HTMLLIElement>(form, '[data-parent-chip-template]');
+        const chip = cloneTemplate<HTMLLIElement>(
+          required<HTMLTemplateElement>(form, '[data-parent-chip-template]'),
+        );
         const remove = required<HTMLButtonElement>(chip, '[data-remove]');
 
         required<HTMLElement>(chip, '[data-title]').textContent = title;
@@ -224,87 +182,29 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
 
   renderParentChips();
 
-  let parentSearchDebounce: ReturnType<typeof setTimeout> | undefined;
+  const parents = renderCombobox<CatalogItem>(form, {
+    delayMs: 250,
 
-  parentsSearch.addEventListener(
-    'input',
-    () => {
-      clearTimeout(parentSearchDebounce);
+    async search(query) {
+      const items = await listCatalogItems(options.tenantId, query);
 
-      const query = parentsSearch.value.trim();
-
-      if (!query) {
-        closeParentSuggestions();
-        return;
-      }
-
-      parentSearchDebounce = setTimeout(async () => {
-        try {
-          const items = await listCatalogItems(options.tenantId, query);
-
-          const candidates = items.filter((item) => !selectedParents.has(item.entity_id));
-
-          if (candidates.length === 0) {
-            closeParentSuggestions();
-            return;
-          }
-
-          parentSuggestions.replaceChildren(
-            ...candidates.map((candidate) => {
-              const suggestion = cloneNested<HTMLLIElement>(
-                form,
-                '[data-parent-suggestion-template]',
-              );
-
-              const button = required<HTMLButtonElement>(suggestion, '[data-select]');
-
-              button.textContent = candidate.title;
-
-              button.addEventListener(
-                'click',
-                () => {
-                  selectedParents.set(candidate.entity_id, candidate.title);
-                  renderParentChips();
-                  parentsSearch.value = '';
-                  closeParentSuggestions();
-                  parentsSearch.focus();
-                },
-                { signal },
-              );
-
-              return suggestion;
-            }),
-          );
-
-          parentSuggestions.hidden = false;
-          parentsSearch.setAttribute('aria-expanded', 'true');
-        } catch {
-          closeParentSuggestions();
-        }
-      }, 250);
+      return items
+        .filter((item) => !selectedParents.has(item.entity_id))
+        .map((item) => ({ label: item.title, value: item }));
     },
-    { signal },
-  );
 
-  parentsSearch.addEventListener(
-    'keydown',
-    (event) => {
-      if (event.key === 'Escape') {
-        closeParentSuggestions();
-      }
+    onPick(item) {
+      selectedParents.set(item.entity_id, item.title);
+      renderParentChips();
+      parents.input.value = '';
+      parents.input.focus();
     },
-    { signal },
-  );
 
-  document.addEventListener(
-    'click',
-    (event) => {
-      if (!parentsCombobox.contains(event.target as Node)) {
-        closeParentSuggestions();
-      }
-    },
-    { signal },
-  );
+    signal,
+  });
+
+  parents.input.id = id('parents');
+  parentsLabel.htmlFor = parents.input.id;
 
   if (options.followSlug) {
     let slugEdited = false;
@@ -364,7 +264,9 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
       usedByList.hidden = false;
       usedByList.replaceChildren(
         ...options.initial.usedBy.map((item) => {
-          const chip = cloneNested<HTMLLIElement>(form, '[data-used-by-chip-template]');
+          const chip = cloneTemplate<HTMLLIElement>(
+            required<HTMLTemplateElement>(form, '[data-used-by-chip-template]'),
+          );
 
           required<HTMLElement>(chip, '[data-title]').textContent = item.title;
 
@@ -411,7 +313,7 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
         });
       } catch (error) {
         errorElement.hidden = false;
-        errorElement.textContent = errorReason(error);
+        errorElement.textContent = errorMessage(error);
       } finally {
         submitButton.disabled = false;
       }
@@ -423,7 +325,6 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
     element: form,
 
     destroy() {
-      clearTimeout(parentSearchDebounce);
       controller.abort();
       editor.destroy();
     },

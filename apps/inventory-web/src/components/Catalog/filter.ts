@@ -1,3 +1,4 @@
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem } from '../../lib/types';
 
 type PrototypeNode = {
@@ -23,25 +24,7 @@ export type PrototypeFilterOptions = {
   onChange(): void;
 };
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Catalog filter is missing ${selector}.`);
-  }
-
-  return element;
-}
-
-function cloneTemplate<T extends Element>(template: HTMLTemplateElement): T {
-  const element = template.content.firstElementChild;
-
-  if (!element) {
-    throw new Error('Catalog filter template is empty.');
-  }
-
-  return element.cloneNode(true) as T;
-}
+const required = requiredIn('Catalog filter');
 
 export function createPrototypeFilter(options: PrototypeFilterOptions): PrototypeFilter {
   let graph = new Map<string, PrototypeNode>();

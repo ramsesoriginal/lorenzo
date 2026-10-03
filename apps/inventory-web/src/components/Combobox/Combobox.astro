@@ -1,0 +1,58 @@
+---
+// A text field that offers suggestions as you type. Inline by default; with `template`, an inert
+// <template> a script can copy where it makes the field itself (lib/beingPicker's panels).
+interface Props {
+  placeholder?: string;
+  // The field's name, when no visible label points at it.
+  label?: string;
+  labelledby?: string;
+  id?: string;
+  template?: boolean;
+}
+
+const { placeholder, label, labelledby, id, template = false } = Astro.props;
+---
+
+{
+  template ? (
+    <template data-combobox-template>
+      <div class="combobox" data-combobox>
+        <input
+          type="text"
+          class="text-input"
+          role="combobox"
+          autocomplete="off"
+          aria-expanded="false"
+          data-input
+        />
+        <ul class="combobox-suggestions" role="listbox" hidden data-suggestions />
+        <template data-suggestion-template>
+          <li class="combobox-suggestion" role="option">
+            <button type="button" data-select />
+          </li>
+        </template>
+      </div>
+    </template>
+  ) : (
+    <div class="combobox" data-combobox>
+      <input
+        type="text"
+        class="text-input"
+        role="combobox"
+        autocomplete="off"
+        aria-expanded="false"
+        id={id}
+        placeholder={placeholder}
+        aria-label={label}
+        aria-labelledby={labelledby}
+        data-input
+      />
+      <ul class="combobox-suggestions" role="listbox" hidden data-suggestions />
+      <template data-suggestion-template>
+        <li class="combobox-suggestion" role="option">
+          <button type="button" data-select />
+        </li>
+      </template>
+    </div>
+  )
+}

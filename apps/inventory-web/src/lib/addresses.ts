@@ -1,6 +1,8 @@
 // What an address names (ADR 0135): each of its ids can be a slug instead, a tenant's or an
 // entity's, and this finds the id it stands for.
+
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
+import { errorMessage } from './errorMessage';
 import { resolveSlugs } from './slugs';
 import type { BeingRef, TenantSummary } from './types';
 
@@ -56,7 +58,7 @@ export async function addressedTenant(value: string | null): Promise<AddressedTe
     if (id) return { id, problem: null };
     return { id: null, problem: `There's no library “${value}” you can see.` };
   } catch (e) {
-    return { id: null, problem: e instanceof Error ? e.message : String(e) };
+    return { id: null, problem: errorMessage(e) };
   }
 }
 

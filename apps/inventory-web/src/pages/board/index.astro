@@ -25,6 +25,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
   <ItemDetail />
 
   <script>
+    import { errorMessage } from '../../lib/errorMessage';
     import { renderBoard } from '../../components/Board/renderer';
     import { renderHolderPicker } from '../../components/HolderPicker/renderer';
     import { renderItemDetail } from '../../components/ItemDetail/renderer';
@@ -113,7 +114,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
 
         await picker.load();
       } catch (error) {
-        status.textContent = error instanceof Error ? error.message : String(error);
+        status.textContent = errorMessage(error);
       }
     }
   </script>

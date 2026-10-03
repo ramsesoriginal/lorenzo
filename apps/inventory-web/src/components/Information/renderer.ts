@@ -1,6 +1,7 @@
 // An entity's information (ADR 0112): every piece of it, rendered, with adding, editing and
 // deleting (ADR 0101, 0109). The item page's Information section for GMs is the whole list;
 // Notes (ADR 0113) are the same list narrowed to one type, with their own words.
+
 import { type Renderer, showDescriptions } from '../../lib/descriptions';
 import {
   createInformation,
@@ -12,6 +13,8 @@ import {
   updateInformation,
 } from '../../lib/information';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
+import { say } from '../../lib/statusLine';
+import { cloneTemplate, requiredIn } from '../../lib/template';
 import { renderInfoForm, saveError } from '../InfoForm/renderer';
 
 // What a list shows and how it writes. The GM's whole Information section unless given.
@@ -75,15 +78,7 @@ function needsTitle(draft: InformationDraft) {
   if (!draft.title) throw new Error('Give it a title.');
 }
 
-function required<T extends Element>(root: ParentNode, selector: string): T {
-  const element = root.querySelector<T>(selector);
-
-  if (!element) {
-    throw new Error(`Information is missing ${selector}.`);
-  }
-
-  return element;
-}
+const required = requiredIn('Information');
 
 const keyOf = (entityId: string, types?: string[]) => `${entityId}|${types?.join(',') ?? ''}`;
 
@@ -119,18 +114,12 @@ export function renderInformation(
   let painted: Information[] | null = null;
 
   // The status line and the form's mount only show while they have something in them.
-  function setStatus(message: string, failed = false) {
-    status.textContent = message;
-    status.classList.toggle('error-text', failed);
-    status.hidden = !message;
-  }
-
   function setMount(form: HTMLElement | null) {
     addMount.replaceChildren(...(form ? [form] : []));
     addMount.hidden = !form;
   }
 
-  const fail = (error: unknown) => setStatus(saveError(error), true);
+  const fail = (error: unknown) => say(status, saveError(error), true);
 
   const formOptions = (kind: InformationKind) => ({
     renderer,
@@ -165,17 +154,14 @@ export function renderInformation(
   }
 
   async function afterWrite(shown: NonNullable<typeof session>) {
-    setStatus('');
+    say(status, '');
     await reload(shown);
     options.onChanged?.();
   }
 
   function renderRow(shown: NonNullable<typeof session>, info: Information): HTMLLIElement {
     const { kind } = shown;
-    const row = required<HTMLLIElement>(
-      rowTemplates[kind.rowHeading].content.cloneNode(true) as DocumentFragment,
-      'li',
-    );
+    const row = cloneTemplate<HTMLLIElement>(rowTemplates[kind.rowHeading], 'li');
     const content = textOf(info)?.content;
 
     required<HTMLElement>(row, '[data-heading]').textContent = info.title || '(untitled)';
@@ -287,7 +273,7 @@ export function renderInformation(
       empty.textContent = kind.empty;
       empty.hidden = true;
       setMount(null);
-      setStatus('');
+      say(status, '');
       add.textContent = kind.addLabel;
       add.hidden = !kind.canWrite;
 

@@ -28,12 +28,6 @@ export function statusLine(): HTMLParagraphElement {
   return status;
 }
 
-export function showStatus(status: HTMLElement, message: string, failed: boolean) {
-  status.hidden = false;
-  status.classList.toggle('error-text', failed);
-  status.textContent = message;
-}
-
 export function note(text: string): HTMLParagraphElement {
   const paragraph = document.createElement('p');
 
@@ -41,8 +35,4 @@ export function note(text: string): HTMLParagraphElement {
   paragraph.textContent = text;
 
   return paragraph;
-}
-
-export function reason(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

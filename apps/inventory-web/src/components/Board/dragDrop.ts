@@ -1,4 +1,5 @@
 import { failedEntityIds, mergedAway } from '../../lib/boardLogic';
+import { errorMessage } from '../../lib/errorMessage';
 import {
   bulkMoveItemInstances,
   clearContainer,
@@ -215,7 +216,7 @@ export function createDropZones(options: DropZoneOptions): DropZones {
             for (const c of cardsToMove) sourceList.append(c);
             ensurePlaceholder(list);
           });
-          options.onError(error instanceof Error ? error.message : String(error));
+          options.onError(errorMessage(error));
         });
     });
   }

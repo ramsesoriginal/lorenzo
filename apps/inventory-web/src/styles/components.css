@@ -43,23 +43,6 @@
   background: color-mix(in srgb, var(--action) 10%, var(--surface-default)) !important;
 }
 
-/* @lorenzo/brand's motion.css (linked in Base.astro) provides the generic
-   .skeleton treatment (fill-soft background, reduced-motion-respecting
-   pulse) - these two just override what a skeleton needs to look right on
-   top of this app's own bordered card shapes. */
-.item-card.skeleton {
-  border-color: transparent;
-  /* Over .list > li's own background, which would hide the skeleton's. */
-  background: var(--fill-soft);
-  /* A real card's height comes from its text; a skeleton has none. */
-  height: 38px;
-}
-
-.catalog-row.skeleton {
-  border-color: transparent;
-  height: 44px;
-}
-
 .board-toolbar {
   display: flex;
   align-items: center;
@@ -135,60 +118,6 @@
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 0;
-}
-
-.combobox {
-  position: relative;
-}
-
-.combobox-suggestions {
-  position: absolute;
-  inset-block-start: calc(100% + var(--space-1));
-  inset-inline: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  max-height: 240px;
-  overflow-y: auto;
-  background: var(--surface-default);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-ink) 20%, transparent);
-}
-
-/* Anchor positioning (progressive enhancement): once the browser supports
-   it, the suggestion panel detaches into the top layer's positioning
-   context via its own anchor reference rather than the .combobox wrapper's
-   `position: relative` - same visual result, but no longer clipped by any
-   ancestor's overflow/stacking context (a real fix, not just a flourish,
-   for when this combobox eventually sits inside a scrolling dialog). */
-@supports (anchor-name: --parent-search) {
-  #parent-search {
-    anchor-name: --parent-search;
-  }
-
-  #parent-suggestions {
-    position: fixed;
-    inset-block-start: anchor(--parent-search bottom);
-    inset-inline-start: anchor(--parent-search left);
-    width: anchor-size(--parent-search width);
-    margin-block-start: var(--space-1);
-  }
-}
-
-.combobox-suggestion button {
-  display: block;
-  width: 100%;
-  background: none;
-  color: var(--text-primary);
-  text-align: left;
-  font-size: 14px;
-  border-radius: 0;
-  padding: var(--space-2) var(--space-3);
-}
-
-.combobox-suggestion button:hover {
-  background: var(--fill-soft);
 }
 
 /* Each description is rendered LorenzoScript (ADR 0108), laid out by

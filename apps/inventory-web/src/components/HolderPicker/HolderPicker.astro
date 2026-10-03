@@ -1,3 +1,7 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
 <section class="section stack" data-picker>
   <div class="tabs" role="tablist" aria-label="Whose inventory to view" data-tablist hidden>
     <button
@@ -33,7 +37,7 @@
 
   <div
     id="panel-characters"
-    class="tab-panel stack"
+    class="stack"
     role="tabpanel"
     aria-labelledby="tab-characters"
     data-panel="characters"
@@ -46,7 +50,7 @@
 
   <div
     id="panel-browse"
-    class="tab-panel card card-body"
+    class="card card-body"
     role="tabpanel"
     aria-labelledby="tab-browse"
     data-panel="browse"
@@ -54,28 +58,7 @@
   >
     <div class="field">
       <label class="field-label" id="browse-label" for="browse-search">Search beings</label>
-      <div class="combobox" data-browse-combobox>
-        <input
-          type="text"
-          id="browse-search"
-          class="text-input"
-          placeholder="Search beings…"
-          autocomplete="off"
-          role="combobox"
-          aria-expanded="false"
-          aria-controls="browse-suggestions"
-          aria-labelledby="browse-label"
-          data-browse-search
-        />
-        <ul
-          id="browse-suggestions"
-          class="combobox-suggestions"
-          role="listbox"
-          data-browse-suggestions
-          hidden
-        >
-        </ul>
-      </div>
+      <Combobox id="browse-search" placeholder="Search beings…" labelledby="browse-label" />
     </div>
     <div class="being-id-row">
       <input
@@ -89,14 +72,7 @@
     </div>
   </div>
 
-  <div
-    id="panel-unowned"
-    class="tab-panel"
-    role="tabpanel"
-    aria-labelledby="tab-unowned"
-    data-panel="unowned"
-    hidden
-  >
+  <div id="panel-unowned" role="tabpanel" aria-labelledby="tab-unowned" data-panel="unowned" hidden>
   </div>
 
   <template data-holder-template>

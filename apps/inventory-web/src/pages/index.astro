@@ -18,6 +18,7 @@ import TenantCardTemplate from '../components/TenantCardTemplate.astro';
   <TenantCardTemplate />
 
   <script>
+    import { errorMessage } from '../lib/errorMessage';
     import { isAuthConfigured, isAuthenticated } from '../lib/auth';
     import { rememberTenant } from '../lib/lastTenant';
     import { listTenants, renderTenantCard } from '../lib/tenants';
@@ -53,7 +54,7 @@ import TenantCardTemplate from '../components/TenantCardTemplate.astro';
       } catch (e) {
         tenantsLoading.hidden = true;
         tenantsError.hidden = false;
-        tenantsError.textContent = e instanceof Error ? e.message : String(e);
+        tenantsError.textContent = errorMessage(e);
       }
     }
 
