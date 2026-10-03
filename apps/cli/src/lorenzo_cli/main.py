@@ -228,8 +228,10 @@ def _reporting_errors() -> Iterator[None]:
 
 
 @contextmanager
-def _client(runtime: Runtime) -> Iterator[LorenzoClient]:
-    base_url = runtime.settings.require_api_url()
+def _client(runtime: Runtime, *, writes: bool = False) -> Iterator[LorenzoClient]:
+    """The API client; a command that writes says so when it is the official default (ADR 0164)."""
+    settings = runtime.settings
+    base_url = settings.require_api_url()
     with httpx.Client(transport=runtime.transport, timeout=30.0) as auth_http:
         tokens = resolve_token_source(
             token_stdin=runtime.token_stdin,
@@ -238,6 +240,10 @@ def _client(runtime: Runtime) -> Iterator[LorenzoClient]:
             store=runtime.store,
             http=auth_http,
         )
+        if writes and settings.defaulted:
+            _err.print(
+                f"Using the official Lorenzo at {base_url}.", highlight=False, soft_wrap=True
+            )
         with LorenzoClient(base_url, tokens, transport=runtime.transport) as client:
             yield client
 
@@ -326,7 +332,7 @@ def tenant_create(
     to import into.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         body = TenantCreate(name=name, slug=slug, description=description, kind=kind)
         created = client.call(CREATE_TENANT, body=body).value
     _print_tenant(created, as_json)
@@ -343,9 +349,25 @@ def _require_address(name: str, value: str | None) -> None:
         raise ConfigError(f"{name} “{value}” isn't an address: it should start with https://")
 
 
+def _signing_in(settings: Settings) -> str:
+    """Where `login` is about to sign in and for which API, before anything opens (ADR 0164)."""
+    where = f"Signing in at {settings.issuer}"
+    if settings.api_url:
+        where += f", for the API at {settings.api_url}"
+    return where + (" (the official Lorenzo)." if settings.defaulted else ".")
+
+
 def _remember(runtime: Runtime, settings: Settings) -> None:
     """After a login that worked, keep the three settings it used for the next one (ADR 0157)."""
     if runtime.config is None:
+        return
+    if settings.defaulted:
+        # The official set is never kept: a copy would outlive the defaults it came from.
+        if runtime.config.delete():
+            _out.print(
+                f"Forgot the settings remembered in {runtime.config.path}: "
+                "the official Lorenzo is the default again."
+            )
         return
     used = {
         key: value
@@ -397,6 +419,8 @@ def login(
         settings = runtime.resolve_settings(issuer=issuer, client_id=client_id)
         _require_address("The API URL", settings.api_url)
         _require_address("The issuer", settings.issuer)
+        if settings.issuer:
+            _out.print(_signing_in(settings), highlight=False, soft_wrap=True)
         run_login(
             settings,
             no_browser=no_browser,
@@ -450,7 +474,8 @@ def whoami(
         table.add_row("name", name)
     if me.email:
         table.add_row("email", me.email)
-    table.add_row("api", runtime.settings.api_url or "")
+    settings = runtime.settings
+    table.add_row("api", f"{settings.api_url}{' (the default)' if settings.defaulted else ''}")
     table.add_row("token", origin)
     table.add_row("tenants", str(len(me.memberships)))
     _out.print(table)
@@ -535,7 +560,7 @@ def seed(
     if unknown:
         raise typer.BadParameter(f"{', '.join(unknown)}: choose from {', '.join(LAYERS)}")
     spec = load_builtin()
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
         require_repository(target, allow_play=allow_play_tenant)
         state = read_state(client, target.id, spec)
@@ -818,7 +843,7 @@ def apply(
                 json.dumps(apply_json(plan, report, unresolved), indent=2, ensure_ascii=False)
             )
 
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         result, manifest, taught = _prepare_plan(runtime, client, args)
         if not as_json:
             print_import_plan(_out, result, strict=strict)
@@ -907,7 +932,7 @@ def pack_give(
     everything in one go or nothing at all.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
         given = give_pack(client, target.id, pack, owner, override=override, dry_run=dry_run)
     if as_json:
@@ -970,7 +995,7 @@ def api_request(
     except rawapi.RequestUsageError as exc:
         raise typer.BadParameter(str(exc), param_hint=exc.hint) from exc
 
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=verb != "GET") as client:
         items: list[object] | None = None
         if paginate:
             response, items = rawapi.paginate(client, target, query=pairs)
@@ -1066,7 +1091,7 @@ def repo_publish(ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOpti
     it; publishing again tells each of them it has changed.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="published")
         was_published = repository.published_at is not None
@@ -1091,7 +1116,7 @@ def repo_unpublish(
     What they already copied stays theirs.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="unpublished")
         withdrawn = client.call(UNPUBLISH_REPOSITORY, path={"tenant_id": repository.id}).value
@@ -1116,7 +1141,7 @@ def repo_grant(
     A tenant that isn't yours can only be named by its id, which its members can give you.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="granted")
         subscriber_id = repos.resolve_subscriber_to_grant(client, subscriber)
@@ -1148,7 +1173,7 @@ def repo_revoke(
 ) -> None:
     """Take a tenant's access back. What it already copied stays its own."""
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="revoked")
         held = repos.resolve_subscriber_to_revoke(client, repository.id, subscriber)
@@ -1252,7 +1277,7 @@ def repo_copy(
     one that has none stops it with nothing copied (exit 2). Exit 1 if it is refused.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         explicit = repos.read_choices(choices) if choices else []
         drawing = resolve_tenant(client, tenant)
         repository_id = repos.resolve_repository(client, drawing, repository)
@@ -1337,7 +1362,8 @@ def repo_updates(
         raise typer.BadParameter("--apply and --actions can't be used together.")
     if dry_run and not (apply or actions):
         raise typer.BadParameter("--dry-run is for --apply or --actions.")
-    with _reporting_errors(), _client(runtime) as client:
+    writes = (apply or actions is not None) and not dry_run
+    with _reporting_errors(), _client(runtime, writes=writes) as client:
         explicit = repos.read_actions(actions) if actions else None
         drawing = resolve_tenant(client, tenant)
         repository_id = repos.resolve_repository(client, drawing, repository)
@@ -1436,7 +1462,7 @@ def repo_offer(
     a success. Exit 2 if names need a choice, or with --dry-run if there is something to do.
     """
     runtime: Runtime = ctx.obj
-    with _reporting_errors(), _client(runtime) as client:
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         explicit = repos.read_choices(choices) if choices else []
         repository = resolve_tenant(client, tenant)
         receiving = resolve_tenant(client, subscriber)

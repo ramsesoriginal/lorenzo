@@ -23,6 +23,10 @@ ISSUER = "https://example.authgear.cloud"
 API = "https://api.example"
 
 
+def triple(settings: Settings) -> tuple[str | None, str | None, str | None]:
+    return (settings.api_url, settings.issuer, settings.client_id)
+
+
 def test_the_file_round_trips_and_is_plain_toml(tmp_path: Path) -> None:
     file = SettingsFile(tmp_path / "lorenzo" / "config.toml")
     file.save({"api_url": API, "issuer": ISSUER, "client_id": "abc123"})
@@ -94,14 +98,16 @@ def test_a_flag_beats_the_environment_beats_the_file() -> None:
 
     settings = load_settings(env, api_url="flag", remembered=remembered)
 
-    assert settings == Settings(api_url="flag", issuer="env", client_id="file")
+    assert triple(settings) == ("flag", "env", "file")
+    assert not settings.defaulted
 
 
 def test_empty_values_fall_through_to_the_next_source() -> None:
     settings = load_settings({"LORENZO_API_URL": ""}, api_url="", remembered={"api_url": "file"})
 
     assert settings.api_url == "file"
-    assert load_settings({}).api_url is None
+    # Nothing but empty values is nothing named: the official Lorenzo is the default (ADR 0164).
+    assert load_settings({"LORENZO_AUTHGEAR_ISSUER": ""}, client_id="").defaulted
 
 
 # --- through the commands -------------------------------------------------------------------
@@ -166,7 +172,7 @@ def test_the_next_login_needs_nothing_and_remembers_nothing_new(
     result = runner.invoke(app, ["login"], obj=rt)
 
     assert result.exit_code == 0, result.output
-    assert fake_login.seen == [Settings(API, ISSUER, "abc123")]
+    assert [triple(seen) for seen in fake_login.seen] == [(API, ISSUER, "abc123")]
     assert "Remembered" not in result.output
 
 
@@ -180,7 +186,7 @@ def test_environment_beats_the_file_and_a_flag_beats_both_and_the_change_is_kept
     result = runner.invoke(app, ["login", "--issuer", "https://other.authgear.cloud"], obj=rt)
 
     assert result.exit_code == 0, result.output
-    assert fake_login.seen[0] == Settings(API, "https://other.authgear.cloud", "from-env")
+    assert triple(fake_login.seen[0]) == (API, "https://other.authgear.cloud", "from-env")
     assert rt.config.load() == {
         "api_url": API,
         "issuer": "https://other.authgear.cloud",
@@ -250,12 +256,15 @@ def test_other_commands_read_the_remembered_api_url_and_never_write_it(tmp_path:
 
 
 def test_a_missing_api_url_says_how_to_remember_one(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["tenant", "list"], obj=runtime(tmp_path, LORENZO_TOKEN="tok"))
+    # Naming another issuer turns the official defaults off, so the API URL is missing.
+    rt = runtime(tmp_path, LORENZO_TOKEN="tok", LORENZO_AUTHGEAR_ISSUER=ISSUER)
+    result = runner.invoke(app, ["tenant", "list"], obj=rt)
 
     assert result.exit_code == 1
     said = " ".join(result.output.split())  # the terminal wraps long lines
     assert "LORENZO_API_URL" in said
     assert "lorenzo login --api-url" in said
+    assert "the issuer here names another" in said
 
 
 def test_a_garbled_settings_file_warns_and_the_command_still_runs(tmp_path: Path) -> None:
