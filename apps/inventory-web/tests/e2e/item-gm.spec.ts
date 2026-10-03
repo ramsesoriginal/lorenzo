@@ -66,7 +66,7 @@ test('sets a tag on, off, and back to what it inherits', async ({ world, as }) =
   const magical = page
     .getByRole('region', { name: 'Tags' })
     .getByRole('group', { name: 'Magical' });
-  const chip = page.locator('.item-view').getByRole('listitem').filter({ hasText: 'Magical' });
+  const chip = page.locator('#item-view').getByRole('listitem').filter({ hasText: 'Magical' });
 
   await expect(magical.getByLabel('Inherited (on)')).toBeChecked();
   await expect(chip).toBeVisible();
@@ -79,7 +79,7 @@ test('sets a tag on, off, and back to what it inherits', async ({ world, as }) =
   const cursed = page.getByRole('region', { name: 'Tags' }).getByRole('group', { name: 'Cursed' });
   await cursed.getByLabel('On').check();
   await expect(
-    page.locator('.item-view').getByRole('listitem').filter({ hasText: 'Cursed' }),
+    page.locator('#item-view').getByRole('listitem').filter({ hasText: 'Cursed' }),
   ).toBeVisible();
 });
 

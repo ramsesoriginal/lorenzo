@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('./auth', () => ({ getAccessToken: vi.fn() }));
 vi.mock('./me', () => ({ viewerLocales: async () => ['en-GB'] }));
 
-import { statLabel } from './itemView';
+import { statLabel } from './statLabel';
 import { tagState } from './tagEditor';
 
 describe('statLabel', () => {

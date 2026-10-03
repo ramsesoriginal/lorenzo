@@ -14,7 +14,9 @@ describe('parentsOf', () => {
       nodes({ ornate: ['spellbook'], spellbook: ['book'], book: [] }),
     );
 
-    expect(tree).toEqual([{ name: 'spellbook', parents: [{ name: 'book', parents: [] }] }]);
+    expect(tree).toEqual([
+      { id: 'spellbook', name: 'spellbook', parents: [{ id: 'book', name: 'book', parents: [] }] },
+    ]);
   });
 
   it('shows an item twice when two of its parents share a parent', () => {
@@ -26,7 +28,7 @@ describe('parentsOf', () => {
   it("leaves out a parent that isn't known, and stops at a cycle", () => {
     expect(parentsOf('x', nodes({ x: ['gone'] }))).toEqual([]);
     expect(parentsOf('a', nodes({ a: ['b'], b: ['a'] }))).toEqual([
-      { name: 'b', parents: [{ name: 'a', parents: [] }] },
+      { id: 'b', name: 'b', parents: [{ id: 'a', name: 'a', parents: [] }] },
     ]);
   });
 });

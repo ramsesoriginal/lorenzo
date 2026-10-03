@@ -2,12 +2,12 @@ import { itemPageHref } from '../../lib/addresses';
 import { blobUrl } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/items';
-import { renderItemView } from '../../lib/itemView';
 import { withReflow } from '../../lib/reflow';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
 import { renderAncestryTree } from '../AncestryTree/renderer';
 import type { BoardState } from '../Board/state';
+import { renderItemView } from '../ItemView/renderer';
 import { renderNotes } from '../Notes/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { giveContentsPanel, givePanel } from './give';
@@ -81,7 +81,10 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
   const title = required<HTMLElement>(root, '[data-title]');
   const quantity = required<HTMLElement>(root, '[data-quantity]');
   const bound = required<HTMLElement>(root, '[data-bound]');
-  const view = required<HTMLElement>(root, '[data-view]');
+  const itemView = renderItemView(required<HTMLElement>(root, '[data-view]'), {
+    tenantId,
+    renderer: options.renderer,
+  });
   const ancestryTree = renderAncestryTree({
     root: required<HTMLElement>(root, '[data-ancestry]'),
     tenantId,
@@ -218,7 +221,7 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     quantity.hidden = !stacked;
     quantity.textContent = stacked ? `×${item.quantity}` : '';
 
-    renderItemView(view, item, { tenantId, renderer: options.renderer });
+    itemView.show(item);
 
     // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
     const reader = options.myCharacters().find((c) => c.entity_id === item.owner_entity_id) ?? null;

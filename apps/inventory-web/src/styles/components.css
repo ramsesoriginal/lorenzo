@@ -103,145 +103,6 @@
   color: var(--text-primary);
 }
 
-.item-detail-stats {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-3);
-  margin: var(--space-3) 0;
-}
-
-.item-detail-stats dt {
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
-.item-detail-stats dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-.item-view-group .item-detail-stats {
-  margin: var(--space-1) 0 0;
-}
-
-.item-view-tags {
-  margin: var(--space-3) 0;
-}
-
-.item-view-pictures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-3) 0;
-}
-
-.item-view-pictures figure {
-  margin: 0;
-}
-
-.item-view-pictures img {
-  display: block;
-  max-width: 240px;
-  max-height: 240px;
-  border-radius: var(--radius-control);
-}
-
-.item-view-source {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin: var(--space-3) 0 var(--space-1);
-}
-
-/* Writing information (ADR 0112): its fields, the tag editor, and the
-   item page's Information list. */
-.info-fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.tag-editor {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.tag-editor-tag {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  border: none;
-  margin: 0;
-  padding: 0;
-}
-
-.tag-editor-tag legend {
-  float: left;
-  min-width: 8rem;
-  font-weight: 600;
-}
-
-.information-list {
-  list-style: none;
-  margin: 0 0 var(--space-3);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.item-detail-ancestry ul {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-/* The root <li> is the instance's own direct prototype - set apart from
-   its ancestors, which nest below as their own indented <ul>s. A DAG, not
-   always a clean chain (ADR 0073): an ancestor reachable through two
-   different parents (diamond inheritance) genuinely appears twice, once
-   per real path, rather than being flattened into one misleading line. */
-.item-detail-ancestry > ul > li {
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.item-detail-ancestry ul ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-inline-start: var(--space-4);
-  margin-top: var(--space-1);
-  font-weight: 400;
-}
-
-.item-detail-ancestry ul ul li::before {
-  content: "↳ ";
-  color: var(--text-tertiary);
-}
-
-/* Each description is rendered LorenzoScript (ADR 0108), laid out by
-   @lorenzo/brand's .ls-content; only the tone is this app's. */
-.item-detail-descriptions .ls-content {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-/* The item page's description editor: the editor itself is
-   @lorenzo/brand's .ls-editor, this only spaces the form around it. */
-.description-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.description-notes {
-  margin: 0;
-  padding-inline-start: var(--space-4);
-}
-
 .catalog-toolbar {
   max-width: 360px;
 }
@@ -330,8 +191,10 @@
   background: var(--fill-soft);
 }
 
-.chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+/* Each description is rendered LorenzoScript (ADR 0108), laid out by
+   @lorenzo/brand's .ls-content; only the tone is this app's. */
+.item-detail-descriptions .ls-content {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
 }

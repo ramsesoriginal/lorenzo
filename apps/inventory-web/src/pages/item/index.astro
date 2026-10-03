@@ -3,70 +3,69 @@ import Base from '../../layouts/Base.astro';
 import AncestryTree from '../../components/AncestryTree/AncestryTree.astro';
 import InfoForm from '../../components/InfoForm/InfoForm.astro';
 import Information from '../../components/Information/Information.astro';
+import ItemView from '../../components/ItemView/ItemView.astro';
+import MentionedIn from '../../components/MentionedIn/MentionedIn.astro';
 import Notes from '../../components/Notes/Notes.astro';
+import SlugEditor from '../../components/SlugEditor/SlugEditor.astro';
+import TagEditor from '../../components/TagEditor/TagEditor.astro';
+import UsedBy from '../../components/UsedBy/UsedBy.astro';
 ---
 
 <Base title="Item — Lorenzo">
-  <p><a href="/">&larr; Tenants</a></p>
   <p id="status">
     Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
   </p>
 
   <div id="page" hidden>
-    <div class="item-detail-content">
-      <h1 class="display" id="item-title"></h1>
-      <p id="item-slug" class="item-detail-slug" hidden></p>
-      <p id="item-qty" class="item-detail-qty" hidden></p>
-      <button type="button" id="copy-link-button">Copy link</button>
-
-      <div id="item-view" class="item-view"></div>
-      <button type="button" id="description-edit" class="btn btn-secondary" hidden>
-        Edit description
-      </button>
-      <div id="description-mount"></div>
-
-      <section id="item-notes" class="section" aria-labelledby="item-notes-heading" hidden>
-        <h2 id="item-notes-heading">Notes</h2>
-        <div id="item-notes-list">
-          <Notes />
+    <div class="with-sidebar">
+      <div class="stack">
+        <div class="stack" data-ancestry hidden>
+          <h2>Ancestry</h2>
+          <AncestryTree />
         </div>
-      </section>
-
-      <div id="item-ancestry" class="item-detail-ancestry" hidden>
-        <h2>Ancestry</h2>
-        <AncestryTree />
+        <UsedBy />
+        <MentionedIn />
       </div>
+      <div class="stack">
+        <div class="row">
+          <h1 class="display" id="item-title"></h1>
+          <span id="item-qty" class="badge" hidden></span>
+          <code id="item-slug" hidden></code>
+        </div>
+        <div id="item-view">
+          <ItemView />
+        </div>
+        <div class="row">
+          <button type="button" id="copy-link-button">Copy link</button>
+          <button type="button" id="description-edit" class="btn btn-secondary" hidden>
+            Edit description
+          </button>
+        </div>
+        <div id="description-mount"></div>
 
-      <section
-        id="item-mentioned-in"
-        class="section"
-        aria-labelledby="item-mentioned-in-heading"
-        hidden
-      >
-        <h2 id="item-mentioned-in-heading">Mentioned in</h2>
-        <ul id="item-mentioned-in-list" class="chip-list"></ul>
-      </section>
-
-      <section id="item-used-by" class="section" aria-labelledby="item-used-by-heading" hidden>
-        <h2 id="item-used-by-heading">Used as a prototype by</h2>
-        <ul id="item-used-by-list" class="chip-list"></ul>
-      </section>
-
-      <div id="item-gm" hidden>
-        <section class="section" aria-labelledby="item-slug-heading">
-          <h2 id="item-slug-heading">Slug</h2>
-          <div id="item-slug-editor"></div>
-        </section>
-        <section class="section" aria-labelledby="item-tags-heading">
-          <h2 id="item-tags-heading">Tags</h2>
-          <div id="item-tags"></div>
-        </section>
-        <section class="section" aria-labelledby="item-information-heading">
-          <h2 id="item-information-heading">Information</h2>
-          <div id="item-information">
-            <Information />
+        <section id="item-notes" class="section" aria-labelledby="item-notes-heading" hidden>
+          <h2 id="item-notes-heading">Notes</h2>
+          <div id="item-notes-list">
+            <Notes />
           </div>
         </section>
+
+        <div id="item-gm" class="stack" hidden>
+          <div role="region" aria-labelledby="item-slug-heading">
+            <h2 id="item-slug-heading">Slug</h2>
+            <SlugEditor />
+          </div>
+          <div class="section" role="region" aria-labelledby="item-tags-heading">
+            <h2 id="item-tags-heading">Tags</h2>
+            <TagEditor />
+          </div>
+          <div class="section" role="region" aria-labelledby="item-information-heading">
+            <h2 id="item-information-heading">Information</h2>
+            <div id="item-information">
+              <Information />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -75,50 +74,40 @@ import Notes from '../../components/Notes/Notes.astro';
   <InfoForm />
 
   <script>
-    import { addressedTenant, isId } from '../../lib/addresses';
     import { renderAncestryTree } from '../../components/AncestryTree/renderer';
-    import { LorenzoApiError } from '../../lib/api';
-    import { isAuthenticated } from '../../lib/auth';
-    import { descriptionRenderer, getBacklinks } from '../../lib/descriptions';
-    import { entityHref } from '../../lib/entityLinks';
-    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
     import { renderInfoForm } from '../../components/InfoForm/renderer';
     import { renderInformation } from '../../components/Information/renderer';
+    import { renderItemView } from '../../components/ItemView/renderer';
+    import { renderMentionedIn } from '../../components/MentionedIn/renderer';
     import { type Reader, renderNotes } from '../../components/Notes/renderer';
-    import {
-      getCatalogItem,
-      getEntityDetail,
-      getItemInstance,
-      listItemsUsingPrototype,
-    } from '../../lib/items';
-    import { renderItemView } from '../../lib/itemView';
+    import { renderSlugEditor } from '../../components/SlugEditor/renderer';
+    import { renderTagEditor } from '../../components/TagEditor/renderer';
+    import { renderUsedBy } from '../../components/UsedBy/renderer';
+
+    import { addressedTenant, isId } from '../../lib/addresses';
+    import { isAuthenticated } from '../../lib/auth';
+    import { descriptionRenderer } from '../../lib/descriptions';
+    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
+    import { findItem } from '../../lib/itemLookup';
+    import { getCatalogItem, getEntityDetail, getItemInstance } from '../../lib/items';
     import { listMyCharacters } from '../../lib/characters';
     import { isCampaignGm } from '../../lib/me';
-    import { renderSlugEditor, resolveSlugs } from '../../lib/slugs';
-    import { renderTagEditor } from '../../lib/tagEditor';
     import type { ItemBase, ItemInstance } from '../../lib/types';
 
     const byId = <T extends HTMLElement = HTMLElement>(id: string) =>
       document.getElementById(id) as T;
+    const mount = <T extends HTMLElement = HTMLElement>(selector: string) =>
+      document.querySelector(selector) as T;
     const status = byId('status');
     const page = byId('page');
     const itemTitle = byId('item-title');
     const itemSlug = byId('item-slug');
     const itemQty = byId('item-qty');
     const copyLinkButton = byId<HTMLButtonElement>('copy-link-button');
-    const itemView = byId('item-view');
     const descriptionEdit = byId<HTMLButtonElement>('description-edit');
     const descriptionMount = byId('description-mount');
-    const itemUsedBy = byId('item-used-by');
-    const itemUsedByList = byId<HTMLUListElement>('item-used-by-list');
-    const itemMentionedIn = byId('item-mentioned-in');
-    const itemMentionedInList = byId<HTMLUListElement>('item-mentioned-in-list');
     const itemGm = byId('item-gm');
-    const itemSlugEditor = byId('item-slug-editor');
-    const itemTags = byId('item-tags');
-    const itemInformation = byId('item-information');
     const itemNotes = byId('item-notes');
-    const itemNotesList = byId('item-notes-list');
 
     const params = new URLSearchParams(window.location.search);
     // By id or by slug (ADR 0135).
@@ -128,16 +117,30 @@ import Notes from '../../components/Notes/Notes.astro';
     // ?slug=, or an ?id= that's a slug (ADR 0113, 0135).
     const itemSlugParam = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
     const renderer = descriptionRenderer(tenantId);
-    const ancestryTree = renderAncestryTree({ root: byId('item-ancestry'), tenantId });
+
+    const itemView = renderItemView(byId('item-view'), { tenantId, renderer });
+    const ancestryTree = renderAncestryTree({ root: mount('[data-ancestry]'), tenantId });
+    const usedBy = renderUsedBy({ root: mount('[data-used-by]'), tenantId });
+    const mentionedIn = renderMentionedIn({ root: mount('[data-mentioned-in]'), tenantId });
+    const slugEditor = renderSlugEditor({
+      root: mount('[data-slug-editor]'),
+      tenantId,
+      onSaved: showSlug,
+    });
+    const tagEditor = renderTagEditor({
+      root: mount('[data-tag-editor]'),
+      tenantId,
+      onChanged: () => void refresh(),
+    });
     // An instance's notes, for everyone (ADR 0113). The GM's Information section lists them
     // too, so a change in either shows in the other.
-    const notes = renderNotes(itemNotesList, {
+    const notes = renderNotes(byId('item-notes-list'), {
       tenantId,
       renderer,
       rowHeading: 'h3',
       onChanged: () => viewerIsGm && showInformation(),
     });
-    const information = renderInformation(itemInformation, {
+    const information = renderInformation(byId('item-information'), {
       tenantId,
       renderer,
       onChanged: () => {
@@ -181,7 +184,7 @@ import Notes from '../../components/Notes/Notes.astro';
       const showQty = Boolean(item.quantity && item.quantity > 1);
       itemQty.hidden = !showQty;
       itemQty.textContent = showQty ? `×${item.quantity}` : '';
-      renderItemView(itemView, item, { tenantId, renderer });
+      itemView.show(item);
       const own = item.descriptions.some((description) => !description.from_entity);
       descriptionEdit.textContent = own ? 'Edit description' : 'Write a description';
     }
@@ -207,17 +210,9 @@ import Notes from '../../components/Notes/Notes.astro';
     }
 
     function showGmSections() {
-      const entityId = shown.entity_id;
       itemGm.hidden = false;
-      const onChanged = () => void refresh();
-      void renderSlugEditor(itemSlugEditor, {
-        tenantId,
-        entityId,
-        title: shown.title,
-        kind: isInstance ? 'instance' : 'item',
-        onSaved: showSlug,
-      });
-      void renderTagEditor(itemTags, { tenantId, entityId, onChanged });
+      void slugEditor.load(shown.entity_id, shown.title, isInstance ? 'instance' : 'item');
+      void tagEditor.load(shown.entity_id);
       showInformation();
     }
 
@@ -254,82 +249,6 @@ import Notes from '../../components/Notes/Notes.astro';
       }
     });
 
-    async function loadUsedBy(entityId: string) {
-      itemUsedBy.hidden = false;
-      try {
-        const result = await listItemsUsingPrototype(tenantId, entityId);
-        if (result.length === 0) {
-          itemUsedBy.hidden = true;
-          return;
-        }
-        itemUsedByList.replaceChildren();
-        for (const usedByItem of result) {
-          const li = document.createElement('li');
-          li.className = 'chip';
-          const span = document.createElement('span');
-          span.textContent = usedByItem.title;
-          li.append(span);
-          itemUsedByList.append(li);
-        }
-      } catch {
-        itemUsedBy.hidden = true;
-      }
-    }
-
-    // What links here (ADR 0110): shown only when something does.
-    async function loadMentionedIn(entityId: string) {
-      try {
-        const backlinks = await getBacklinks(tenantId, entityId);
-        itemMentionedInList.replaceChildren(
-          ...backlinks.map((backlink) => {
-            const li = document.createElement('li');
-            li.className = 'chip';
-            const href = entityHref(tenantId, backlink);
-            const label = href
-              ? Object.assign(document.createElement('a'), { href })
-              : document.createElement('span');
-            label.textContent = backlink.name;
-            label.title = backlink.title;
-            li.append(label);
-            return li;
-          }),
-        );
-        itemMentionedIn.hidden = backlinks.length === 0;
-      } catch {
-        itemMentionedIn.hidden = true;
-      }
-    }
-
-    const nowhere = () => new Error("There's no such item here, or it isn't one you can see.");
-
-    /** The catalog item or instance the link names, by slug or by id (ADR 0107, 0116, 0135). */
-    async function load(): Promise<{ item: ItemBase | ItemInstance; instance: boolean }> {
-      if (itemSlugParam) {
-        // Any entity can hold a slug (ADR 0107); what it is says which endpoint shows it.
-        const [found] = await resolveSlugs(tenantId, [itemSlugParam]);
-        if (found?.kinds.includes('item_instance')) {
-          return { item: await getItemInstance(tenantId, found.entity_id), instance: true };
-        }
-        if (found?.kinds.includes('item')) {
-          return { item: await getCatalogItem(tenantId, found.entity_id), instance: false };
-        }
-        throw nowhere();
-      }
-      // An id could be either: the catalog is tried first, and the instances only on a real
-      // 404, so a network or auth error shows as itself.
-      const id = itemId as string;
-      try {
-        return { item: await getCatalogItem(tenantId, id), instance: false };
-      } catch (e) {
-        if (!(e instanceof LorenzoApiError) || e.status !== 404) throw e;
-      }
-      try {
-        return { item: await getItemInstance(tenantId, id), instance: true };
-      } catch (e) {
-        throw e instanceof LorenzoApiError && e.status === 404 ? nowhere() : e;
-      }
-    }
-
     if (!(await isAuthenticated())) {
       status.textContent = "You're not logged in. Log in to continue.";
     } else if (addressed.problem) {
@@ -338,7 +257,7 @@ import Notes from '../../components/Notes/Notes.astro';
       status.textContent = "This link is incomplete — it's missing a tenant or item.";
     } else {
       try {
-        const loaded = await load();
+        const loaded = await findItem(tenantId, { slug: itemSlugParam, id: itemId });
         status.hidden = true;
         page.hidden = false;
 
@@ -347,16 +266,16 @@ import Notes from '../../components/Notes/Notes.astro';
         const entityId = loaded.item.entity_id;
         if (isInstance) {
           const directId = loaded.item.prototype_ids[0];
-          if (directId) void ancestryTree.load(directId);
+          void ancestryTree.load(directId ?? null);
         } else {
           void ancestryTree.load(entityId);
-          void loadUsedBy(entityId);
+          void usedBy.load(entityId);
           void getEntityDetail(tenantId, entityId).then(
             (entity) => showSlug(entity.slug),
             () => {},
           );
         }
-        void loadMentionedIn(entityId);
+        void mentionedIn.load(entityId);
         // GMs write here (ADR 0108, 0112, 0113); a player writes notes on what their character
         // owns. The API still decides.
         const owner = 'owner_entity_id' in loaded.item ? loaded.item.owner_entity_id : null;

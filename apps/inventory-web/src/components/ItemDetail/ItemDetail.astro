@@ -1,5 +1,6 @@
 ---
 import AncestryTree from '../AncestryTree/AncestryTree.astro';
+import ItemView from '../ItemView/ItemView.astro';
 import Notes from '../Notes/Notes.astro';
 ---
 
@@ -16,8 +17,10 @@ import Notes from '../Notes/Notes.astro';
       <span class="badge" data-quantity hidden></span>
       <span class="badge" data-bound hidden>Bound to its owner</span>
     </div>
-    <div class="item-view" data-view></div>
-    <div class="item-detail-ancestry" data-ancestry hidden>
+    <div data-view>
+      <ItemView />
+    </div>
+    <div class="stack" data-ancestry hidden>
       <h3>Ancestry</h3>
       <AncestryTree />
     </div>

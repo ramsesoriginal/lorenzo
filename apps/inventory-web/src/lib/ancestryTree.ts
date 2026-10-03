@@ -1,7 +1,7 @@
 import { getCatalogItem, getItemAncestry } from './items';
 
 // An item and what it inherits from: its direct prototypes, each with theirs.
-export type AncestryNode = { name: string; parents: AncestryNode[] };
+export type AncestryNode = { id: string; name: string; parents: AncestryNode[] };
 
 type Nodes = Map<string, { name: string; parentIds: string[] }>;
 
@@ -24,7 +24,9 @@ export function parentsOf(
   return node.parentIds.flatMap((parentId) => {
     const parent = nodes.get(parentId);
 
-    return parent ? [{ name: parent.name, parents: parentsOf(parentId, nodes, path) }] : [];
+    return parent
+      ? [{ id: parentId, name: parent.name, parents: parentsOf(parentId, nodes, path) }]
+      : [];
   });
 }
 
@@ -44,5 +46,5 @@ export async function fetchAncestry(tenantId: string, itemId: string): Promise<A
     nodes.set(ancestor.entity_id, { name: ancestor.name, parentIds: ancestor.prototype_ids });
   }
 
-  return { name: direct.title, parents: parentsOf(direct.entity_id, nodes) };
+  return { id: direct.entity_id, name: direct.title, parents: parentsOf(direct.entity_id, nodes) };
 }

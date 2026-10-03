@@ -1,3 +1,4 @@
+import { itemPageHref } from '../../lib/addresses';
 import { type AncestryNode, fetchAncestry } from '../../lib/ancestryTree';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 
@@ -40,7 +41,10 @@ export function renderAncestryTree(options: AncestryTreeOptions): RenderedAncest
     const item = clone(nodeTemplate);
     const parents = required<HTMLUListElement>(item, '[data-parents]');
 
-    required<HTMLElement>(item, '[data-name]').textContent = node.name;
+    const link = required<HTMLAnchorElement>(item, '[data-name]');
+
+    link.href = itemPageHref(options.tenantId, { entity_id: node.id });
+    link.textContent = node.name;
 
     if (node.parents.length > 0) {
       parents.replaceChildren(...node.parents.map(renderNode));
