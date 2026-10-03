@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.1.0...account-hub-v1.2.0) (2026-10-03)
+
+
+### Features
+
+* **account-hub:** shared API client and tenant slug editing ([eb3a6e8](https://github.com/ramsesoriginal/lorenzo/commit/eb3a6e8919a19c02fb5abf1365ff363a93541067))
+* **account-hub:** use shared API client and edit tenant slugs ([e68e10b](https://github.com/ramsesoriginal/lorenzo/commit/e68e10b65458d55beca265092c21746d1a5972e1))
+
+
+### Bug Fixes
+
+* **account-hub:** go home after logout instead of staying signed-in ([3770fae](https://github.com/ramsesoriginal/lorenzo/commit/3770fae38d1a0f540eda0036161d9bf31dca7103))
+* **account-hub:** go home after logout instead of staying signed-in ([8952548](https://github.com/ramsesoriginal/lorenzo/commit/8952548e5246ebf40105d25789f3361dfe8ecc64))
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.0.0...account-hub-v1.1.0) (2026-09-23)
 
 

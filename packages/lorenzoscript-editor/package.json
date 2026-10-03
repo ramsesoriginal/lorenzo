@@ -2,7 +2,7 @@
   "name": "@lorenzo/lorenzoscript-editor",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A textarea editor for LorenzoScript: configurable toolbar, keyboard helpers, live preview. See RFC 0027 and ADR 0106.",
   "exports": {
     ".": "./src/index.ts"
