@@ -212,6 +212,13 @@ A pack can be handed out by the API in one request ([ADR 0149](../adr/0149-givin
 - **One call.** It resolves the pack and the owner to ids and makes the request; `--owner` is required, `--into` is gone (a breaking change to a pre-1.0 command), `--dry-run` is `?dry_run=true`, and `--override` is a GM's. What was made is printed as a tree, and the API's refusals are put into words, with a pack's unlinked lines each named.
 - **Every line links.** `"text"` is no longer a `[pack_items]` disposition, so the importer writes lists the API will accept. The CLI's parser is held to the API's examples by a check in the end-to-end suite, which CI runs for an API change.
 
+A GM's view of the beings in no campaign became a tenant setting ([ADR 0152](../adr/0152-a-gm-sees-every-being-in-no-campaign.md), amending [ADR 0151](../adr/0151-a-being-in-no-campaign-and-who-stands-in-for-its-gm.md)):
+
+- **The setting.** `tenant.npcs_shared_with_gms`, on by default, is in `TenantOut` and changed with `PATCH /tenants/{id}` by a tenant administrator, logged as `tenant.updated` with the field's name.
+- **On:** every GM of the tenant sees, and acts for, every being and group in no campaign, and what it holds: GM-only information about them, the item instances they own, and their `held-by` and `controlled-by` boards. **Off:** only a being's author and its co-GMs (those who GM a campaign its author GMs) do, with today's scene reach still opening reading. Tenant administrators are as before.
+- **One rule for reading and acting.** `campaign_access.campaignless_holders_for` is the set, used both as roots of a GM's reach and by `can_manage_owner`, so a GM can't give to what they can't see. A scene gives reading only.
+- Authorship is `entity.created_by`: a deleted account leaves a being unauthored, and a copy or an import credits whoever ran it.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.
