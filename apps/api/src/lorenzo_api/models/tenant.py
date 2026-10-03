@@ -68,6 +68,11 @@ class Tenant(Base):
     # A repository's draft/published state (ADR 0118): null while it's a
     # draft, invisible to every subscriber. Always null for a play tenant.
     published_at: Mapped[datetime | None]
+    # ADR 0152: whether every GM of the tenant sees, and acts for, the beings
+    # in no campaign (on, the default), or only such a being's author and the
+    # GMs who share a campaign with its author. Meaningless for a repository,
+    # which holds no campaigns and so has no GMs.
+    npcs_shared_with_gms: Mapped[bool] = mapped_column(server_default=text("true"))
     # ADR 0029's attribution pair, landing here alongside created_at/
     # updated_at themselves (ADR 0033/RFC 0012) - unlike every other table
     # ADR 0018 covers, `tenant`'s original bootstrap (ADR 0013) predates

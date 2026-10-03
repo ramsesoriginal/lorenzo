@@ -45,7 +45,11 @@ from dataclasses import dataclass
 from sqlalchemy import ColumnElement, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_orga
+from lorenzo_api.campaign_access import (
+    campaignless_holders_for,
+    is_tenant_admin,
+    is_tenant_orga,
+)
 from lorenzo_api.entity_access import (
     containing_ancestors_ids,
     group_ids_for_characters,
@@ -168,7 +172,11 @@ async def resolve_information_visibility(
     - the room a PC is standing in, and so on up the containment chain,
     ADR 0046), then walked once through entity_access.reachable_entity_ids -
     not once per campaign, since that walk's own root set already accepts a
-    union of roots and produces the same result either way. Tenant OWNER is
+    union of roots and produces the same result either way. The roots also
+    include every being and group in no campaign this GM has standing over
+    (campaign_access.campaignless_holders_for, ADR 0152): all of them when the
+    tenant shares them with its GMs, else those authored by the caller or a
+    co-GM. Tenant OWNER is
     still not folded into this GM-reachable set - it does not need to be:
     as of ADR 0096 an OWNER already bypasses everything through is_admin
     (until they opt out, in which case they see what any non-admin sees).
@@ -258,7 +266,7 @@ async def resolve_information_visibility(
             .all()
         )
 
-    gm_reachable_ids: frozenset[uuid.UUID] = frozenset()
+    gm_root_ids: frozenset[uuid.UUID] = frozenset()
     if gm_character_ids:
         # ADR 0046: rooted not just at the campaign's own characters (what
         # they own/carry, downward only) but also at every entity that
@@ -277,6 +285,13 @@ async def resolve_information_visibility(
                 session, character_ids=frozenset(gm_character_ids), tenant_id=tenant_id
             )
         )
+    # ADR 0152: and at every being or group in no campaign this GM has standing
+    # over - all of them when the tenant shares them, else the ones their
+    # co-GMs authored - so they and what they hold are in reach wherever they
+    # stand. Nothing is added for a caller who is not a GM.
+    gm_root_ids |= await campaignless_holders_for(session, user_id=user_id, tenant_id=tenant_id)
+    gm_reachable_ids: frozenset[uuid.UUID] = frozenset()
+    if gm_root_ids:
         gm_reachable_ids = await reachable_entity_ids(
             session, root_entity_ids=gm_root_ids, tenant_id=tenant_id
         )

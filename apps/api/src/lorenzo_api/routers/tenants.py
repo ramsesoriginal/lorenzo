@@ -291,7 +291,7 @@ async def update_tenant(
         await _check_slug_available_for_update(session, tenant_id, update["slug"])
 
     changed_fields: list[str] = []
-    for field in ("name", "slug", "description"):
+    for field in ("name", "slug", "description", "npcs_shared_with_gms"):
         if update.get(field) is not None:
             setattr(tenant, field, update[field])
             changed_fields.append(field)
