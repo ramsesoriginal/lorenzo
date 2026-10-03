@@ -2720,6 +2720,32 @@ export interface paths {
         patch: operations["update_item_instance"];
         trace?: never;
     };
+    "/tenants/{tenant_id}/item-instances/from-pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Item Instances From Pack
+         * @description Hands out what a pack's public description lists, to a being or a
+         *     group, in one transaction (ADR 0149): `POST /item-instances` for a whole
+         *     pack. The caller needs the same standing as for creating an instance
+         *     owned by that owner, checked before anything is read, so someone who may
+         *     not learns nothing of the pack. dry_run does all of it, capacity
+         *     included, and rolls it back (so `200`, not `201`, and ids that name
+         *     nothing).
+         */
+        post: operations["create_item_instances_from_pack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/item-instances/{entity_id}/owner": {
         parameters: {
             query?: never;
@@ -4499,6 +4525,31 @@ export interface components {
             recursive: boolean;
         };
         /**
+         * GivePackRequest
+         * @description POST /item-instances/from-pack (ADR 0149): hands out what a pack's
+         *     public description lists - the pack item itself isn't instantiated. The
+         *     owner is a being (the top-level things are also put into its hands) or
+         *     a group (they are owned and in no container). `override` is a GM's: it
+         *     skips capacity (ADR 0128).
+         */
+        GivePackRequest: {
+            /**
+             * Pack Id
+             * Format: uuid
+             */
+            pack_id: string;
+            /**
+             * Owner Entity Id
+             * Format: uuid
+             */
+            owner_entity_id: string;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+        };
+        /**
          * GmOut
          * @description One row of GET .../campaigns/{id}/gms - campaign_id/tenant_id are
          *     already in the path, no need to repeat them per row. See ADR 0031/RFC
@@ -5463,6 +5514,37 @@ export interface components {
             container: components["schemas"]["EntitySummary"] | null;
             /** Item Instances */
             item_instances: components["schemas"]["ItemInstanceOut"][];
+        };
+        /**
+         * PackGivenOut
+         * @description POST /item-instances/from-pack - what was made, or with `dry_run`
+         *     would have been: the ids name nothing then. `created` is in the order of
+         *     the pack's list, a container once for each of its units.
+         */
+        PackGivenOut: {
+            /**
+             * Pack Id
+             * Format: uuid
+             */
+            pack_id: string;
+            /**
+             * Owner Entity Id
+             * Format: uuid
+             */
+            owner_entity_id: string;
+            /** Dry Run */
+            dry_run: boolean;
+            /** Created */
+            created: components["schemas"]["PackItemOut"][];
+        };
+        /**
+         * PackItemOut
+         * @description One instance a pack made, with what's inside it.
+         */
+        PackItemOut: {
+            item_instance: components["schemas"]["ItemInstanceOut"];
+            /** Children */
+            children: components["schemas"]["PackItemOut"][];
         };
         /** Page[AdminUserOut] */
         Page_AdminUserOut_: {
@@ -16331,6 +16413,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemInstanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_item_instances_from_pack: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GivePackRequest"];
+            };
+        };
+        responses: {
+            /** @description A dry run: what would be made. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackGivenOut"];
+                };
+            };
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackGivenOut"];
                 };
             };
             /** @description Validation Error */

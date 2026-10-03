@@ -1,0 +1,125 @@
+{
+  "about": "Examples of a pack's contents list (RFC 0032, ADR 0145, ADR 0149). `text` is a description; `lines` is [depth, quantity, label, slug-or-null] for each line the grammar reads, in order; `tree` (optional) is what nests from them, as {label, quantity, children}. The API's tests run every case, and so do the CLI's, which read `lines` only.",
+  "cases": [
+    {
+      "name": "a container with what is in it, and a plain line",
+      "text": "This pack contains:\n\n- 1 x [Backpack](basic-gear-backpack)\n  - 5 x [Rations, days of](basic-gear-rations-days-of)\n  - 2 x [Torch](basic-gear-torch)\n- 1 x Alms box",
+      "lines": [
+        [0, 1, "Backpack", "basic-gear-backpack"],
+        [1, 5, "Rations, days of", "basic-gear-rations-days-of"],
+        [1, 2, "Torch", "basic-gear-torch"],
+        [0, 1, "Alms box", null]
+      ],
+      "tree": [
+        {
+          "label": "Backpack",
+          "quantity": 1,
+          "children": [
+            {"label": "Rations, days of", "quantity": 5, "children": []},
+            {"label": "Torch", "quantity": 2, "children": []}
+          ]
+        },
+        {"label": "Alms box", "quantity": 1, "children": []}
+      ]
+    },
+    {
+      "name": "nothing is read from an empty description",
+      "text": "",
+      "lines": [],
+      "tree": []
+    },
+    {
+      "name": "prose around the list is ignored",
+      "text": "A good start for any trip.\n\nThis pack contains:\n\n- 2 x [Torch](basic-gear-torch)\n\nNote: the torches burn for an hour.\n- not a line\n-2 x [Torch](basic-gear-torch)",
+      "lines": [[0, 2, "Torch", "basic-gear-torch"]],
+      "tree": [{"label": "Torch", "quantity": 2, "children": []}]
+    },
+    {
+      "name": "windows line endings",
+      "text": "- 1 x [A](a)\r\n  - 2 x [B](b)\r\n",
+      "lines": [[0, 1, "A", "a"], [1, 2, "B", "b"]],
+      "tree": [
+        {"label": "A", "quantity": 1, "children": [{"label": "B", "quantity": 2, "children": []}]}
+      ]
+    },
+    {
+      "name": "three levels deep are read, a fourth is not",
+      "text": "- 1 x [A](a)\n  - 1 x [B](b)\n    - 1 x [C](c)\n      - 1 x [D](d)",
+      "lines": [[0, 1, "A", "a"], [1, 1, "B", "b"], [2, 1, "C", "c"]],
+      "tree": [
+        {
+          "label": "A",
+          "quantity": 1,
+          "children": [
+            {
+              "label": "B",
+              "quantity": 1,
+              "children": [{"label": "C", "quantity": 1, "children": []}]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "an odd indent is not a line",
+      "text": "- 1 x [A](a)\n   - 1 x [B](b)\n - 1 x [C](c)",
+      "lines": [[0, 1, "A", "a"]],
+      "tree": [{"label": "A", "quantity": 1, "children": []}]
+    },
+    {
+      "name": "a line two levels in at once is read but does not nest",
+      "text": "- 1 x [A](a)\n    - 1 x [B](b)\n  - 1 x [C](c)",
+      "lines": [[0, 1, "A", "a"], [2, 1, "B", "b"], [1, 1, "C", "c"]],
+      "tree": [
+        {"label": "A", "quantity": 1, "children": [{"label": "C", "quantity": 1, "children": []}]}
+      ]
+    },
+    {
+      "name": "an indented first line has nothing to go inside",
+      "text": "  - 1 x [A](a)\n- 1 x [B](b)\n  - 1 x [C](c)",
+      "lines": [[1, 1, "A", "a"], [0, 1, "B", "b"], [1, 1, "C", "c"]],
+      "tree": [
+        {"label": "B", "quantity": 1, "children": [{"label": "C", "quantity": 1, "children": []}]}
+      ]
+    },
+    {
+      "name": "a quantity below one is ignored",
+      "text": "- 0 x [A](a)\n- 1 x [B](b)",
+      "lines": [[0, 1, "B", "b"]],
+      "tree": [{"label": "B", "quantity": 1, "children": []}]
+    },
+    {
+      "name": "a link with a slug that is not one is not a line",
+      "text": "- 1 x [A](not a slug)\n- 1 x [B](-b)\n- 1 x [C](c!)\n- 1 x [D](d)",
+      "lines": [[0, 1, "D", "d"]],
+      "tree": [{"label": "D", "quantity": 1, "children": []}]
+    },
+    {
+      "name": "a slug is 100 characters at most",
+      "text": "- 1 x [Long](a-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-bc)\n- 1 x [Longer](a-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-bcd)",
+      "lines": [[0, 1, "Long", "a-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-b-bc"]],
+      "tree": [{"label": "Long", "quantity": 1, "children": []}]
+    },
+    {
+      "name": "labels can hold brackets and commas, plain lines can hold parentheses",
+      "text": "- 3 x [Rations (1 day), dried](rations)\n- 2 x Flask (empty)\n- 1 x [Potion [red]](potion)",
+      "lines": [[0, 3, "Rations (1 day), dried", "rations"], [0, 2, "Flask (empty)", null]],
+      "tree": [
+        {"label": "Rations (1 day), dried", "quantity": 3, "children": []},
+        {"label": "Flask (empty)", "quantity": 2, "children": []}
+      ]
+    },
+    {
+      "name": "slugs may use capitals, digits, underscores and hyphens",
+      "text": "- 1 x [A](Item_2-b)",
+      "lines": [[0, 1, "A", "Item_2-b"]],
+      "tree": [{"label": "A", "quantity": 1, "children": []}]
+    },
+    {
+      "name": "a plain line may not start with a link or a bracket",
+      "text": "- 1 x [broken\n- 1 x (also broken)\n- 1 x fine",
+      "lines": [[0, 1, "fine", null]],
+      "tree": [{"label": "fine", "quantity": 1, "children": []}]
+    }
+  ]
+}

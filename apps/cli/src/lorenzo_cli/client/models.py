@@ -380,6 +380,12 @@ class GiveContentsRequest(BaseModel):
     recursive: bool | None = Field(True, title="Recursive")
 
 
+class GivePackRequest(BaseModel):
+    pack_id: UUID = Field(..., title="Pack Id")
+    owner_entity_id: UUID = Field(..., title="Owner Entity Id")
+    override: bool | None = Field(False, title="Override")
+
+
 class GmOut(BaseModel):
     user_id: UUID = Field(..., title="User Id")
 
@@ -1297,6 +1303,11 @@ class OwnedGroupOut(BaseModel):
     item_instances: list[ItemInstanceOut] = Field(..., title="Item Instances")
 
 
+class PackItemOut(BaseModel):
+    item_instance: ItemInstanceOut
+    children: list[PackItemOut] = Field(..., title="Children")
+
+
 class Items(RootModel[MembershipRosterEntryOut | PlayerRosterEntryOut | GmRosterEntryOut]):
     root: MembershipRosterEntryOut | PlayerRosterEntryOut | GmRosterEntryOut = Field(
         ..., discriminator="kind"
@@ -1606,6 +1617,13 @@ class OwnedByResponse(BaseModel):
     groups: list[OwnedGroupOut] = Field(..., title="Groups")
 
 
+class PackGivenOut(BaseModel):
+    pack_id: UUID = Field(..., title="Pack Id")
+    owner_entity_id: UUID = Field(..., title="Owner Entity Id")
+    dry_run: bool = Field(..., title="Dry Run")
+    created: list[PackItemOut] = Field(..., title="Created")
+
+
 class PageStatDefinitionOut(BaseModel):
     items: list[StatDefinitionOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1633,3 +1651,6 @@ class HeldByResponse(BaseModel):
 class ControlledByResponse(BaseModel):
     columns: list[ControlledColumnOut] = Field(..., title="Columns")
     owners: list[EntitySummary] = Field(..., title="Owners")
+
+
+PackItemOut.model_rebuild()
