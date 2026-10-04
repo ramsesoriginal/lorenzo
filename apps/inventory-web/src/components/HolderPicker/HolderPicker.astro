@@ -11,8 +11,10 @@ import Combobox from '../Combobox/Combobox.astro';
       role="tab"
       aria-selected="true"
       aria-controls="panel-characters"
-      data-tab="characters">Your characters</button
+      data-tab="characters"
     >
+      Your characters
+    </button>
     <button
       type="button"
       id="tab-browse"
@@ -21,8 +23,10 @@ import Combobox from '../Combobox/Combobox.astro';
       aria-selected="false"
       aria-controls="panel-browse"
       data-tab="browse"
-      hidden>Browse a being</button
+      hidden
     >
+      Browse a being
+    </button>
     <button
       type="button"
       id="tab-unowned"
@@ -31,8 +35,10 @@ import Combobox from '../Combobox/Combobox.astro';
       aria-selected="false"
       aria-controls="panel-unowned"
       data-tab="unowned"
-      hidden>Unowned items</button
+      hidden
     >
+      Unowned items
+    </button>
   </div>
 
   <div
@@ -43,7 +49,9 @@ import Combobox from '../Combobox/Combobox.astro';
     data-panel="characters"
   >
     <p data-loading>Loading characters&hellip;</p>
-    <p data-empty hidden>You don't have a character in this library yet.</p>
+    <p data-empty hidden>
+      You don't have a character in this library yet.
+    </p>
     <p class="error-text" data-error hidden></p>
     <ul class="list" aria-label="Your characters and groups" data-holders></ul>
   </div>
@@ -57,7 +65,9 @@ import Combobox from '../Combobox/Combobox.astro';
     hidden
   >
     <div class="field">
-      <label class="field-label" id="browse-label" for="browse-search">Search beings</label>
+      <label class="field-label" id="browse-label" for="browse-search">
+        Search beings
+      </label>
       <Combobox id="browse-search" placeholder="Search beings…" labelledby="browse-label" />
     </div>
     <div class="being-id-row">
@@ -68,17 +78,28 @@ import Combobox from '../Combobox/Combobox.astro';
         aria-label="Being's id or slug"
         data-browse-raw-id
       />
-      <button type="button" data-browse-raw-id-button>View</button>
+      <button type="button" data-browse-raw-id-button>
+        View
+      </button>
     </div>
   </div>
 
-  <div id="panel-unowned" role="tabpanel" aria-labelledby="tab-unowned" data-panel="unowned" hidden>
-  </div>
+  <div
+    id="panel-unowned"
+    role="tabpanel"
+    aria-labelledby="tab-unowned"
+    data-panel="unowned"
+    hidden
+  ></div>
 
   <template data-holder-template>
     <li>
-      <a class="btn" data-name>Name</a>
-      <span class="badge" hidden data-group>Group</span>
+      <a class="btn" data-name>
+        Name
+      </a>
+      <span class="badge" hidden data-group>
+        Group
+      </span>
     </li>
   </template>
 </section>

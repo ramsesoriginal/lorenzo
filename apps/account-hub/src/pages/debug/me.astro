@@ -6,12 +6,14 @@ import Base from '../../layouts/Base.astro';
   <h1 class="display">
     <code>GET /me</code>
   </h1>
-  <p><a href="/">&larr; Back</a></p>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
   <pre id="result">Loading&hellip;</pre>
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';
-    import { apiFetch } from '../../lib/api';
+    import { getMe } from '../../lib/me';
     import { isAuthenticated } from '../../lib/auth';
 
     const result = document.getElementById('result')!;
@@ -20,7 +22,7 @@ import Base from '../../layouts/Base.astro';
       result.textContent = 'Not logged in. Go back and log in first.';
     } else {
       try {
-        const me = await apiFetch('/me');
+        const me = await getMe();
         result.textContent = JSON.stringify(me, null, 2);
       } catch (e) {
         result.textContent = errorMessage(e);

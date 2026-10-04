@@ -33,7 +33,9 @@ const brandStylesheets = [
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{title}</title>
-    {brandStylesheets.map((file) => <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${file}`} />)}
+    {brandStylesheets.map((file) => (
+      <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${file}`} />
+    ))}
     <script>
       // tokens.css only styles [data-theme="dark"] explicitly (no
       // prefers-color-scheme fallback of its own - see ADR 0098) - this app

@@ -14,14 +14,14 @@
     "generate-schema": "openapi-typescript ../../apps/api/openapi.json -o src/schema.d.ts"
   },
   "dependencies": {
-    "openapi-fetch": "^0.13.4",
-    "zod": "^3.24.1"
+    "openapi-fetch": "^0.17.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
-    "@types/node": "^22.10.5",
+    "@types/node": "^26.0.0",
     "openapi-typescript": "^7.5.2",
-    "typescript": "^5.9.0",
-    "vitest": "^4.1.11"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
   }
 }

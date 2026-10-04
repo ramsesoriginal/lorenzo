@@ -17,9 +17,15 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       />
     </a>
     <nav class="row" aria-label="Subpages">
-      <a href="/" data-path="/">Home</a>
-      <a href="/board/" data-path="/board/" data-needs-tenant hidden>Board</a>
-      <a href="/items/" data-path="/items/" data-needs-tenant hidden>Items</a>
+      <a href="/" data-path="/">
+        Home
+      </a>
+      <a href="/board/" data-path="/board/" data-needs-tenant hidden>
+        Board
+      </a>
+      <a href="/items/" data-path="/items/" data-needs-tenant hidden>
+        Items
+      </a>
     </nav>
   </div>
   <div class="row">
@@ -27,7 +33,11 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <svg class="icon" aria-hidden="true">
         <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
       </svg>
-      <select aria-label="Library" class="text-input" style="width: auto;" data-tenant-switcher
+      <select
+        aria-label="Library"
+        class="text-input"
+        style="width: auto;"
+        data-tenant-switcher
       ></select>
     </div>
 
@@ -43,14 +53,18 @@ import { BRANDING_CSS_URL } from '../../lib/config';
         </button>
       </div>
       <div class="row" data-account-signed-in hidden>
-        <span>Signed in as <strong data-account-email></strong>.</span>
+        <span>
+          Signed in as <strong data-account-email></strong>.
+        </span>
         <button type="button" class="btn btn-secondary row-tight" data-logout>
           <svg class="icon" aria-hidden="true">
             <use href={`${BRANDING_CSS_URL}/icons.svg#icon-logout`}></use>
           </svg>
           Log out
         </button>
-        <a href="/debug/me">Debug: <code>GET /me</code></a>
+        <a href="/debug/me">
+          Debug: <code>GET /me</code>
+        </a>
       </div>
     </div>
 

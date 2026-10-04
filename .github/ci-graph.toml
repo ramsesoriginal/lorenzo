@@ -1,0 +1,68 @@
+# The hand-written part of CI's dependency graph (ADR 0148). .github/scripts/affected.py reads it.
+#
+# Every directory under apps/ or packages/ with a mise.toml is a node. These are derived, so they are
+# NOT listed here: a package.json `workspace:` dependency, and a pyproject.toml uv path source.
+# Write down only what no package manager sees. A node with neither a package.json nor a
+# pyproject.toml (Kotlin, C#, apps/brand's plain CSS) MUST have a [nodes."..."] entry, even an empty
+# one, or the `discover` job fails. Adding an app or a package: docs/guides/adding-an-app.md.
+#
+# Per node:
+#   depends_on     nodes it uses. A change to one runs this node's tests too (never the other way).
+#   generated_from nodes its committed, generated code comes from (a client generated from the
+#                  OpenAPI schema). A change to the source runs this node's `check-schema` task
+#                  (the drift check), but not its tests: they run only if the regenerated code,
+#                  or anything else in the node, changed.
+#   postgres       its `test` leg needs a Postgres container.
+#   shards         split its `test` leg over this many runners (TEST_SHARD=i/n; the node's tests
+#                  have to honour it, as apps/api's conftest.py does). Default 1.
+
+[global]
+# A change to any of these runs every node.
+run_everything = [
+  "mise.toml",
+  "package.json",
+  "pnpm-workspace.yaml",
+  ".tool-versions",
+  ".github/workflows/ci.yml",
+  ".github/ci-graph.toml",
+  ".github/scripts/*",
+]
+# A change to this file runs every node that has a package.json.
+pnpm_lockfile = "pnpm-lock.yaml"
+# The node whose OpenAPI schema `openapi-diff` compares against the PR's base.
+openapi_source = "apps/api"
+
+[nodes."apps/api"]
+postgres = true
+# 1084 tests over two runners, each with its own database (apps/api/tests/conftest.py).
+shards = 2
+
+[nodes."apps/cli"]
+# Its unit tests need neither the API nor a database; the end-to-end tests, which start the real API,
+# are the cli-e2e suite below. Its generated models come from the API's OpenAPI schema.
+generated_from = ["apps/api"]
+
+[nodes."apps/loot-bot"]
+postgres = true
+
+[nodes."apps/brand"]
+# Plain CSS, fonts and icons: nothing to read.
+
+[nodes."packages/brand"]
+# Its build copies the whole apps/brand layout package in (ADR 0098).
+depends_on = ["apps/brand"]
+
+[nodes."packages/api-client"]
+generated_from = ["apps/api"]
+
+# Slow integration suites, each its own job. A suite runs when its node is affected, or anything
+# it runs against is.
+[suites.inventory-web-e2e]
+node = "apps/inventory-web"
+# Playwright against the real API and a fake Authgear (ADR 0114).
+depends_on = ["apps/api"]
+
+[suites.cli-e2e]
+node = "apps/cli"
+# The real API on a fresh database behind a fake Authgear (ADR 0137), split over three runners.
+depends_on = ["apps/api"]

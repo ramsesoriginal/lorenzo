@@ -4,7 +4,9 @@ import Base from '../layouts/Base.astro';
 
 <Base title="Your profile — Lorenzo">
   <h1 class="display">Your profile</h1>
-  <p><a href="/">&larr; Back</a></p>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
@@ -15,7 +17,9 @@ import Base from '../layouts/Base.astro';
       <div>
         <label for="picture-input">Change picture</label>
         <input id="picture-input" type="file" accept="image/*" />
-        <button id="picture-remove" type="button">Remove picture</button>
+        <button id="picture-remove" type="button">
+          Remove picture
+        </button>
       </div>
       <p id="picture-status" role="status"></p>
     </section>
@@ -38,10 +42,14 @@ import Base from '../layouts/Base.astro';
 
       <label for="user_color">Color</label>
       <input id="user_color" name="user_color" type="color" />
-      <button id="color-clear" type="button">Clear color</button>
+      <button id="color-clear" type="button">
+        Clear color
+      </button>
     </section>
 
-    <button id="save-button" type="submit">Save</button>
+    <button id="save-button" type="submit">
+      Save
+    </button>
     <p id="save-status" role="status"></p>
   </form>
 

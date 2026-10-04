@@ -128,10 +128,11 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Project name**: `lorenzo-account-hub`. **Production branch**: `main`.
 4. **Build settings** — this is a pnpm workspace monorepo (root `pnpm-workspace.yaml` lists `apps/*`), but Cloudflare's "Root directory" setting still clones the whole repo and only changes the working directory build commands run from, so `pnpm install` from `apps/account-hub` still finds the true workspace root (pnpm walks up looking for `pnpm-workspace.yaml`) and its `allowBuilds`/`minimumReleaseAgeExclude` config:
    - **Root directory**: `apps/account-hub`
-   - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
+   - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
    - **Build output directory**: `dist`
+   - **Node version**: set the environment variable `NODE_VERSION` to the major in `mise.toml` (26); Pages otherwise builds with its own default. Node 25+ no longer ships corepack, which is why the build command installs it first.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own Pages project (below) can use the exact same variable names for its own, different values with no collision.
-6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/**` (double star, not single — a single `*` doesn't match across `/`, so it would only catch changes to files directly in `apps/account-hub/` and silently never rebuild for anything under `src/`, which is everything that actually matters; confirmed against a real deploy that stopped rebuilding entirely) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
+6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/**`, `packages/api-client/**`, and `packages/brand/**` (ADR 0136; changes to bundled packages must also rebuild the site; double star, not single — a single `*` doesn't match across `/`, so it would only catch changes to files directly in `apps/account-hub/` and silently never rebuild for anything under `src/`, which is everything that actually matters; confirmed against a real deploy that stopped rebuilding entirely) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
 
 ### `apps/account-hub`'s own Authgear application (ADR 0071)
 
@@ -152,8 +153,9 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Project name**: `lorenzo-inventory-web`. **Production branch**: `main`.
 4. **Build settings** — same reasoning as `apps/account-hub`'s own build settings above (Cloudflare's "Root directory" still clones the whole repo, so `pnpm install` from `apps/inventory-web` still finds the true workspace root's `pnpm-workspace.yaml`):
    - **Root directory**: `apps/inventory-web`
-   - **Build command**: `corepack enable && pnpm install --frozen-lockfile && pnpm run build`
+   - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
+   - **Node version**: set the environment variable `NODE_VERSION` to the major in `mise.toml` (26), same as `apps/account-hub`; Pages otherwise builds with its own default.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
 6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/**` plus every workspace package it builds in: `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, and `packages/lorenzoscript-editor/**` (double star, not single — see `apps/account-hub`'s own note above). Pushes touching unrelated apps in this monorepo don't trigger a rebuild; a change to one of those packages does, since the site bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
 
@@ -166,6 +168,30 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Authorized Post-Logout Redirect URIs**: same origins, no path (`https://lorenzo-inventory-web.pages.dev`, `http://127.0.0.1:4321`) — `auth.ts` calls `logout({ redirectURI: window.location.origin })`.
 4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
 5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — by the time this app registers its own client, `apps/api`'s dev-token client, `apps/loot-bot`'s client, and `apps/account-hub`'s client may already be at or past that cap on a strict per-project reading. Confirm directly in the console rather than assuming either way.
+
+## The command line (apps/cli)
+
+`apps/cli` is installed, not deployed ([ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)), so there is no host to set up. It needs one thing from the Authgear project, a client of its own. Its client id, the issuer and the API's address are built into the CLI as the default ([ADR 0164](../adr/0164-the-official-instance-is-the-clis-default.md)), so each person's setup is `lorenzo login`.
+
+### `apps/cli`'s own Authgear application (ADR 0137, 0157)
+
+`lorenzo login` runs the authorization code flow with PKCE itself, with no Authgear SDK, so its client is a **public** one: no secret, since nothing installed on someone's machine can keep one. In the Portal that is a **Single Page Application**:
+
+1. **Authgear Portal → your production project → Applications → New Application → Single Page Application** (under *Website*, "Other SPAs"). The Portal's quickstart list is grouped by framework, not by application type. Of the other choices, "Other OIDC/SAML compatible" is a confidential client with a secret, which the CLI can't hold, and *Machine-to-machine* tokens belong to a client rather than a person, so they carry no user and not the `tenant_creator` role ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)).
+2. **Authorized Redirect URIs**: `http://127.0.0.1:8766/callback`, `http://127.0.0.1:8767/callback` and `http://127.0.0.1:8768/callback`. These are the CLI's own `CALLBACK_PORTS`: it listens on the first that is free, and `login --no-browser` uses the first. Register all three rather than relying on Authgear matching any loopback port. The CLI sends no trailing slash; a registration may include the slash forms and `https` as well, which does no harm.
+3. No post-logout redirect URI is needed: `lorenzo logout` only deletes the local credentials file.
+4. From the application's **Endpoints** section, copy the **issuer** and the application's **Client ID**. Neither is a secret, as with the web apps' clients. For the official project they are already the CLI's default, in `apps/cli/src/lorenzo_cli/defaults.py` together with the API's address, and `lorenzo login` then needs nothing more. For any other project they are given to `login` once, which remembers them ([ADR 0157](../adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)):
+
+   ```bash
+   lorenzo login --api-url <the API's address> --issuer <the issuer> --client-id <the client id>
+   lorenzo whoami
+   ```
+
+5. **It must be in the same project `apps/api` verifies** (`AUTHGEAR_ISSUER`). The API checks a token's issuer and audience, so a client in another project mints tokens it rejects, which `whoami` reports as "The API didn't accept the token".
+
+**If the API's address or the Authgear project moves** (a custom domain for the API, a new Authgear project or a paid plan with its own domain), change the three constants in `defaults.py` and release the CLI; people upgrade with `uv tool upgrade lorenzo-cli`. Someone whose environment or settings file names the old values keeps them, which is the point of naming them ([ADR 0164](../adr/0164-the-official-instance-is-the-clis-default.md)).
+
+`whoami` is the check that all of this agrees. What a first real login still settles, because Authgear's documentation doesn't say: whether this client is given a refresh token for `offline_access`, and for how long. Without one the CLI still works, and asks for a new `login` once the access token expires.
 
 ## Cloudflare Pages (apps/brand)
 

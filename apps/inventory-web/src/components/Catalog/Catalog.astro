@@ -5,7 +5,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 <section class="section-lg" aria-labelledby="catalog-heading" data-catalog>
   <h2 id="catalog-heading">Catalog</h2>
 
-  <p class="field-note" data-intro hidden>Everything your GMs have put in the public catalog.</p>
+  <p class="field-note" data-intro hidden>
+    Everything your GMs have put in the public catalog.
+  </p>
 
   <div class="with-sidebar full-width">
     <div class="stack">
@@ -24,15 +26,16 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       </div>
     </div>
     <div class="stack">
-      <p data-empty hidden>No items match.</p>
+      <p data-empty hidden>
+        No items match.
+      </p>
       <p class="error-text" data-error hidden></p>
       <ul
         class="list stagger vertical-window vertical-mask"
         aria-label="Catalog items"
         data-list
         hidden
-      >
-      </ul>
+      ></ul>
     </div>
   </div>
 
@@ -67,16 +70,26 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <div class="row grow sticky-top">
         <span data-name class="row">
           <strong data-title></strong>
-          <span class="pill pill-success" data-public hidden>Public</span>
+          <span class="pill pill-success" data-public hidden>
+            Public
+          </span>
         </span>
 
         <div data-panel class="grow"></div>
         <div class="row">
-          <button type="button" class="btn-secondary" data-view>View</button>
+          <button type="button" class="btn-secondary" data-view>
+            View
+          </button>
 
-          <button type="button" data-edit>Edit</button>
-          <button type="button" data-instantiate>Create instance</button>
-          <button type="button" class="btn-danger" data-delete>Delete</button>
+          <button type="button" data-edit>
+            Edit
+          </button>
+          <button type="button" data-instantiate>
+            Create instance
+          </button>
+          <button type="button" class="btn-danger" data-delete>
+            Delete
+          </button>
         </div>
       </div>
     </li>

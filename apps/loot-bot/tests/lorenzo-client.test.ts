@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createLorenzoApiClient } from "../src/lorenzo-client.js";
@@ -545,6 +545,7 @@ describe("createItemInstance", () => {
       prototype_id: "prototype-1",
       owner_character_id: CHARACTER_ID,
       override: false,
+      quantity: 1,
     });
     expect(result.owner_entity_id).toBe(CHARACTER_ID);
   });
@@ -574,6 +575,7 @@ describe("createItemInstance", () => {
       prototype_id: "prototype-1",
       owner_character_id: CHARACTER_ID,
       override: false,
+      quantity: 1,
       container_entity_id: "container-1",
     });
   });
@@ -1175,6 +1177,7 @@ describe("createItemInstance with a name", () => {
       prototype_id: "prototype-1",
       owner_character_id: CHARACTER_ID,
       override: false,
+      quantity: 1,
       name: "Camp supplies",
     });
   });

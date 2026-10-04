@@ -1,14 +1,14 @@
-import { apiDelete, apiPatch, apiUpload } from './api';
+import { client, pictureUpload, unwrap } from './api';
 import type { MeOut, ProfileUpdate } from './types';
 
 export async function updateProfile(patch: ProfileUpdate): Promise<MeOut> {
-  return apiPatch<MeOut>('/me', patch);
+  return unwrap(await client.PATCH('/me', { body: patch }));
 }
 
 export async function uploadProfilePicture(file: File): Promise<void> {
-  await apiUpload<void>('/me/picture', 'file', file);
+  await unwrap(await client.PUT('/me/picture', { ...pictureUpload(file) }));
 }
 
 export async function deleteProfilePicture(): Promise<void> {
-  await apiDelete<void>('/me/picture');
+  await unwrap(await client.DELETE('/me/picture'));
 }

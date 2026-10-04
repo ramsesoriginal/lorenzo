@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LorenzoApiError } from "../src/lorenzo-client.js";
 import type { LorenzoApiClient } from "../src/lorenzo-client.js";
+import { LorenzoApiError } from "../src/lorenzo-client.js";
 
 const { getContainerPrototypeId, setContainerPrototypeId } = vi.hoisted(() => ({
   getContainerPrototypeId: vi.fn(),

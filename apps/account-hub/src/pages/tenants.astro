@@ -4,19 +4,24 @@ import Base from '../layouts/Base.astro';
 
 <Base title="Your libraries and campaigns — Lorenzo">
   <h1 class="display">Your libraries and campaigns</h1>
-  <p><a href="/">&larr; Back</a></p>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
 
   <div id="create-tenant-container"></div>
 
-  <p id="empty-state" hidden>You don't belong to any library yet.</p>
+  <p id="empty-state" hidden>
+    You don't belong to any library yet.
+  </p>
 
   <ul id="tenant-list"></ul>
 
   <script>
     import { errorMessage } from '../lib/errorMessage';
+    import { renderTenantSlug } from '../lib/tenantSlugUi';
     import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
     import { renderCampaignRoster } from '../lib/campaignRosterUi';
@@ -191,7 +196,7 @@ import Base from '../layouts/Base.astro';
       roleBadge.className = 'badge';
       roleBadge.textContent = tenant.role;
       heading.append(roleBadge);
-      item.append(heading);
+      item.append(heading, renderTenantSlug(tenant));
 
       const admin = isTenantAdmin(tenant);
       // get_tenant_context (the real gate behind list_tenant_roster/
@@ -273,8 +278,10 @@ import Base from '../layouts/Base.astro';
       const tenantsPage = await listMyTenants();
       if (tenantsPage.items.length === 0) {
         emptyState.hidden = false;
+        tenantList.replaceChildren();
         return;
       }
+      emptyState.hidden = true;
       const withCampaigns = await Promise.all(
         tenantsPage.items.map(async (tenant) => ({
           tenant,

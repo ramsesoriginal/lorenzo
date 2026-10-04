@@ -3,7 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["src/index.ts", "src/migrate.ts", "scripts/register-commands.ts"],
   format: ["esm"],
-  target: "node22",
+  target: "node26",
   platform: "node",
   outDir: "dist",
   clean: true,

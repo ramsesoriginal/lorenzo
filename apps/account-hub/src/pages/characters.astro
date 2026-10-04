@@ -4,11 +4,15 @@ import Base from '../layouts/Base.astro';
 
 <Base title="Your characters — Lorenzo">
   <h1 class="display">Your characters</h1>
-  <p><a href="/">&larr; Back</a></p>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
-  <p id="empty-state" hidden>You don't belong to any library yet.</p>
+  <p id="empty-state" hidden>
+    You don't belong to any library yet.
+  </p>
 
   <div id="tenant-list"></div>
 
@@ -125,7 +129,11 @@ import Base from '../layouts/Base.astro';
 
       section.append(
         renderCreateForm('New character name', 'Create character', (name) =>
-          createCharacter(player.tenant_id, { name, owner_player_id: player.id }).then(onChanged),
+          createCharacter(player.tenant_id, {
+            name,
+            owner_player_id: player.id,
+            player_ids: [],
+          }).then(onChanged),
         ),
       );
 

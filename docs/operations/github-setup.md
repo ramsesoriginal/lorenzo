@@ -8,17 +8,14 @@ Things configured by hand because this machine had no `gh` CLI / API token when 
 
 ## Branch ruleset
 
-Settings → Rules → Rulesets → New ruleset → Import a ruleset → select [.github/rulesets/main.json](../../.github/rulesets/main.json).
+The ruleset is [.github/rulesets/main.json](../../.github/rulesets/main.json). It gives `main`: no force-push or deletion, PRs required, merge commits only (squash/rebase disabled, see [ADR 0005](../adr/0005-git-branching-and-merge-strategy.md)), and three required status checks:
 
-This gives you: no force-push/deletion of `main`, PRs required, merge commits only (squash/rebase disabled — see [ADR 0005](../adr/0005-git-branching-and-merge-strategy.md)), and `ci-summary` as a required status check.
+- **`ci-summary`**, the aggregate job in `ci.yml`. It always runs and waits on every other CI job: skipped counts as fine, failed or cancelled does not. **A job that should gate a merge must be in `ci-summary`'s `needs`**; one left out is never waited for.
+- **`codeql (python)`** and **`codeql (javascript-typescript)`** from `security.yml`, which runs on every PR.
 
-Confirmed via the real check-runs on `main` (`curl https://api.github.com/repos/ramsesoriginal/lorenzo/commits/main/check-runs`): the matrix jobs report as `test (apps/api)` and `codeql (python)`. Both are now in [.github/rulesets/main.json](../../.github/rulesets/main.json) alongside `ci-summary`.
+Individual `test (<node>)` legs are deliberately **not** required: PR CI only runs the nodes a change can affect ([ADR 0148](../adr/0148-dependency-aware-pr-ci.md)), and a required check that is skipped never reports, so it would block the merge forever. Don't add one back. New apps need nothing here; `ci-summary` already covers them.
 
-`test (apps/loot-bot)` and `codeql (javascript-typescript)` are also in that file now that `apps/loot-bot` has real TypeScript source (`ci.yml`'s `test` job matrixes over `matrix.app`; `security.yml`'s `codeql` job matrixes over whichever languages its own `discover` step finds source for — the naming follows the exact same `<job> (<matrix value>)` pattern the two already-confirmed contexts do). Both are now empirically confirmed too — `apps/loot-bot`'s `feat/loot-bot` and many follow-on PRs (e.g. #53, #57, #58, #60-65, #68, #70) have since merged into `main` through the same required-status-check gate.
-
-Re-importing the file doesn't happen automatically, though — the live ruleset (Settings → Rules → Rulesets → **main**) needs the same contexts added by hand under "Require status checks to pass," or it'll keep enforcing only whatever list it already has.
-
-`apps/account-hub` and `apps/inventory-web` now also have their own `mise.toml` with `lint`/`test` tasks, so `ci.yml`'s `discover` job (which matrixes over every `apps/*/mise.toml` automatically) now also produces `test (apps/account-hub)` and `test (apps/inventory-web)` contexts — but neither [.github/rulesets/main.json](../../.github/rulesets/main.json) nor the live ruleset requires them yet. Same manual step as above: add both contexts by hand once they've run at least once on `main`.
+Applying it the first time: Settings → Rules → Rulesets → New ruleset → Import a ruleset → select the file. Changing it later is not automatic: the file and the live ruleset are separate, so edit the file and apply the same change to the live ruleset, then confirm with `gh api repos/ramsesoriginal/lorenzo/rulesets/<id>`. A blanket `PUT` from the file is safe only if the file lists every field the live ruleset has, which it does since 2026-09-30; fetch the live one first and compare.
 
 ## Actions: allow workflows to open pull requests
 

@@ -1,8 +1,12 @@
 version: 2
 
+# Every ecosystem splits its updates into two groups: minor + patch bumps in one PR, major bumps in
+# another. A major that breaks something (a new TypeScript, a new test runner) then can't hold up
+# the routine bumps behind it, and majors that belong together (vitest and its coverage plugin) still
+# arrive together. Dependencies that match no group would each get their own PR.
+#
+# Add an entry per app/package once it exists: docs/guides/adding-an-app.md.
 updates:
-  # Add a package-ecosystem entry per app/package once it exists — see
-  # docs/guides/adding-an-app.md.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -10,10 +14,14 @@ updates:
     commit-message:
       prefix: "chore(ci)"
     groups:
-      github-actions:
-        patterns:
-          - "*"
+      actions-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      actions-major:
+        update-types: ["major"]
+        patterns: ["*"]
 
+  # Each Python app is its own uv project with its own lockfile, so each has its own entry.
   - package-ecosystem: "uv"
     directory: "/apps/api"
     schedule:
@@ -21,9 +29,26 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
-      uv:
-        patterns:
-          - "*"
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      uv-major:
+        update-types: ["major"]
+        patterns: ["*"]
+
+  - package-ecosystem: "uv"
+    directory: "/apps/cli"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      uv-major:
+        update-types: ["major"]
+        patterns: ["*"]
 
   - package-ecosystem: "docker"
     directory: "/apps/api"
@@ -32,42 +57,12 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
-      docker:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "npm"
-    directory: "/apps/account-hub"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      npm:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "npm"
-    directory: "/apps/inventory-web"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      npm:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "npm"
-    directory: "/apps/loot-bot"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      npm:
-        patterns:
-          - "*"
+      docker-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      docker-major:
+        update-types: ["major"]
+        patterns: ["*"]
 
   - package-ecosystem: "docker"
     directory: "/apps/loot-bot"
@@ -76,28 +71,46 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
-      docker:
-        patterns:
-          - "*"
+      docker-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      docker-major:
+        update-types: ["major"]
+        patterns: ["*"]
 
+  # One entry for the whole pnpm workspace. The lockfile (pnpm-lock.yaml) lives at the root and is
+  # shared by every member. Entries that pointed Dependabot at one member alone bumped that member's
+  # package.json and never touched the lockfile (PRs changed only a package.json), and `pnpm install
+  # --frozen-lockfile` then failed. The root is listed so the workspace is updated as a whole, with
+  # its lockfile; the members so their own manifests are read. Every JS app or package goes in this
+  # list (docs/guides/adding-an-app.md, docs/guides/adding-a-package.md); one that is missing is
+  # never updated.
   - package-ecosystem: "npm"
-    directory: "/packages/api-client"
+    directories:
+      - "/"
+      - "/apps/account-hub"
+      - "/apps/inventory-web"
+      - "/apps/loot-bot"
+      - "/packages/api-client"
+      - "/packages/brand"
+      - "/packages/lorenzoscript"
+      - "/packages/lorenzoscript-editor"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "chore(deps)"
+    # TypeScript 7 is not usable here yet: `astro check` refuses it ("install TypeScript 6
+    # instead") in account-hub and inventory-web, and openapi-typescript crashes on it in
+    # packages/api-client (`createKeywordTypeNode`), so every PR carrying it fails. Lift this once
+    # both support it: bump `typescript` by hand to 7, run `mise run check`, then delete the entry.
+    # TypeScript 6 is not ignored.
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7"]
     groups:
-      npm:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "npm"
-    directory: "/packages/brand"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "chore(deps)"
-    groups:
-      npm:
-        patterns:
-          - "*"
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      npm-major:
+        update-types: ["major"]
+        patterns: ["*"]

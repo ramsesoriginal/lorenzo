@@ -1,31 +1,31 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
-  type LootClaim,
   deleteLootClaim,
   deleteLootClaimsForDrop,
   getLootClaim,
   getLootDrop,
   insertLootDrop,
+  type LootClaim,
   listLootClaims,
   markLootDropApplied,
   setLootDropMessageId,
   upsertLootClaim,
 } from "../db.js";
 import {
-  type ClaimOutcome,
   availableDropItems,
   buildApplySummaryEmbed,
   buildDropComponents,
   buildDropEmbed,
   buildQuantityModal,
+  type ClaimOutcome,
   parseClaimType,
 } from "../format-drop.js";
 import {
   type BulkAssignItem,
+  createLorenzoApiClient,
   type ItemInstanceOut,
   type LorenzoApiClient,
   LorenzoApiError,
-  createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { resolveCurrentCharacter } from "../preferences.js";
 import { getValidAccessToken } from "../token-provider.js";
@@ -222,7 +222,7 @@ export const dropCommand: Command = {
     }
 
     const claims = await listLootClaims(dropId);
-    const outcomes = await applyAllClaims(client, tenantId, claims, accessToken, ctx);
+    const outcomes = await applyAllClaims(client, tenantId, claims, accessToken);
 
     await markLootDropApplied(dropId);
     await deleteLootClaimsForDrop(dropId);
@@ -464,7 +464,6 @@ async function applyAllClaims(
   tenantId: string,
   claimsInCreatedOrder: readonly LootClaim[],
   accessToken: string,
-  ctx: CommandContext,
 ): Promise<ClaimOutcome[]> {
   // Array.prototype.sort is stable (ES2019+), so claims already ordered by
   // createdAt (listLootClaims) stay oldest-first within each tier after

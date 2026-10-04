@@ -72,6 +72,9 @@ class TenantUpdate(BaseModel):
     name: str | None = None
     slug: Annotated[str | None, Field(pattern=_SLUG_PATTERN)] = None
     description: str | None = None
+    # ADR 0152: false hides the beings in no campaign from every GM but their
+    # author and its co-GMs (and, to read, a scene a player character is in).
+    npcs_shared_with_gms: bool | None = None
 
 
 class TenantSummaryOut(BaseModel):
@@ -114,6 +117,8 @@ class TenantOut(BaseModel):
     # repository's draft/published state, always null for a play tenant.
     kind: TenantKind
     published_at: datetime | None
+    # ADR 0152: whether every GM sees the beings in no campaign (the default).
+    npcs_shared_with_gms: bool
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 

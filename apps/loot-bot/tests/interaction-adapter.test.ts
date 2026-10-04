@@ -45,7 +45,7 @@ describe("buildAdapterInteraction - chat input (type 2)", () => {
       ]),
     );
     const interaction = built?.interaction;
-    if (!interaction || !interaction.isChatInputCommand()) throw new Error("expected chat input");
+    if (!interaction?.isChatInputCommand()) throw new Error("expected chat input");
 
     expect(interaction.options.getString("item", true)).toBe("sword");
     expect(interaction.options.getString("missing")).toBeNull();
@@ -63,7 +63,7 @@ describe("buildAdapterInteraction - chat input (type 2)", () => {
       ]),
     );
     const interaction = built?.interaction;
-    if (!interaction || !interaction.isChatInputCommand()) throw new Error("expected chat input");
+    if (!interaction?.isChatInputCommand()) throw new Error("expected chat input");
 
     expect(interaction.options.getBoolean("history")).toBe(true);
     expect(interaction.options.getBoolean("off")).toBe(false);
@@ -289,7 +289,7 @@ describe("buildAdapterInteraction - modal submit (type 5)", () => {
   it("reads a text input value out of the nested action-row components", () => {
     const built = buildAdapterInteraction(modalPayload(false));
     const interaction = built?.interaction;
-    if (!interaction || !interaction.isModalSubmit()) throw new Error("expected modal submit");
+    if (!interaction?.isModalSubmit()) throw new Error("expected modal submit");
 
     expect(interaction.fields.getTextInputValue("quantity")).toBe("2");
     expect(() => interaction.fields.getTextInputValue("missing")).toThrow();
@@ -298,7 +298,7 @@ describe("buildAdapterInteraction - modal submit (type 5)", () => {
   it("isFromMessage() is false, and update/deferUpdate aren't present, without a `message` field", () => {
     const built = buildAdapterInteraction(modalPayload(false));
     const interaction = built?.interaction;
-    if (!interaction || !interaction.isModalSubmit()) throw new Error("expected modal submit");
+    if (!interaction?.isModalSubmit()) throw new Error("expected modal submit");
 
     expect(interaction.isFromMessage()).toBe(false);
     expect("update" in interaction).toBe(false);

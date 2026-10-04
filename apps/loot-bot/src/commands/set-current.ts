@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { getPreference, setPreference } from "../db.js";
-import { type LorenzoApiClient, createLorenzoApiClient } from "../lorenzo-client.js";
+import { createLorenzoApiClient, type LorenzoApiClient } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { filterChoices, formatItemChoiceName } from "./autocomplete.js";
 import type { Command } from "./types.js";

@@ -79,3 +79,12 @@ Corrected procedure, replacing decision 2's operational detail (the *why* - stru
 - Milestone/Issue creation stays not-forced-1:1, as decision 1 already said - this addendum doesn't change that part.
 
 [AGENTS.md](../../AGENTS.md)'s Planning section has been updated to state this unambiguously rather than leaving it to be inferred.
+
+## Addendum (2026-09-30): the label set grew, and metadata is set when an item is opened
+
+Decision 1 kept the label set "deliberately small" (`app:*`, `tracking`, `status:blocked`, `triage`, `chore`). Two things made that list obsolete:
+
+- The repo grew more apps and packages (`apps/cli`, `apps/brand`, `packages/*`), and a bare `app:*` axis no longer said where a change landed. Type labels (`ci`, `test`, `breaking-change`, `infra`, `release`, `rfc`, `adr`) and `pkg:*` scope labels were added, and `Docs only` was merged into `documentation`.
+- Labels, assignees, and milestones had been applied unevenly, so on 2026-09-29 every existing issue and PR was normalized in one pass, and historical milestones were created for the work that predates this ADR.
+
+The current label set, the milestone rules, and the requirement to set labels, assignee, milestone, and `Closes #N` links **when an issue or PR is opened** (not in a later cleanup) live in [docs/guides/labels-milestones-and-metadata.md](../guides/labels-milestones-and-metadata.md). The decision itself (Milestones and Issues alongside RFC/ADR, one milestone per ADR or RFC, `Closes #N` in the PR body) is unchanged.

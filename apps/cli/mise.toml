@@ -1,0 +1,48 @@
+[tasks.dev]
+description = "Run the CLI (pass arguments after --, e.g. mise run dev -- --help)"
+run = "uv run lorenzo"
+
+[tasks.lint]
+description = "Lockfile freshness + ruff check + format check + mypy"
+run = ["uv lock --check", "uv run ruff check .", "uv run ruff format --check .", "uv run mypy src"]
+
+[tasks.format]
+description = "Ruff autoformat"
+run = "uv run ruff format ."
+
+[tasks.test]
+description = "Run the unit tests with coverage (the end-to-end tests are test-e2e)"
+run = "uv run pytest --cov --ignore=tests/e2e"
+
+# Not part of `test`: it starts the real API on a Postgres (infra/docker-compose.yml locally, a service
+# in CI) and takes minutes. CI runs it as the sharded `cli-e2e` job, with TEST_SHARD=2/3 selecting
+# one third of the test files (tests/e2e/conftest.py, ADR 0148).
+[tasks.test-e2e]
+description = "Run the end-to-end tests against the real API (ADR 0137)"
+run = "uv run pytest tests/e2e --no-cov"
+
+[tasks.build]
+description = "Build the wheel and sdist"
+run = "uv build"
+
+[tasks.lock]
+description = "Regenerate uv.lock (e.g. after release-please bumps pyproject.toml's version)"
+run = "uv lock"
+
+[tasks.generate-schema]
+description = "Regenerate src/lorenzo_cli/client/models.py from apps/api's OpenAPI schema (dumps it first)"
+run = [
+  "mise run //apps/api:openapi-schema",
+  "uv run datamodel-codegen --input ../api/openapi.json --input-file-type openapi --output src/lorenzo_cli/client/models.py --output-model-type pydantic_v2.BaseModel --target-python-version 3.14 --use-standard-collections --use-union-operator --disable-timestamp --formatters ruff-format ruff-check",
+]
+
+[tasks.check-schema]
+description = "Fail if the generated models are stale against apps/api's current OpenAPI schema"
+# apps/api/openapi.json is gitignored, so generate-schema dumps a fresh one first. `git diff` is
+# the comparison, as in packages/api-client: any byte of difference means apps/api's routes or
+# schemas changed without regenerating.
+run = [
+  "mise run generate-schema",
+  "LORENZO_REQUIRE_SCHEMA=1 uv run pytest tests/test_ops_schema.py --no-cov -q",
+  "git diff --exit-code --stat -- src/lorenzo_cli/client/models.py || { echo 'The generated models are stale - run `mise run //apps/cli:generate-schema` and commit the result.'; exit 1; }",
+]

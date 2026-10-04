@@ -11,7 +11,7 @@ import {
   setPreference,
   upsertLinkedAccount,
 } from "../src/db.js";
-import { type HttpServer, type RouteHandler, createHttpServer } from "../src/http-server.js";
+import { createHttpServer, type HttpServer, type RouteHandler } from "../src/http-server.js";
 import { logger } from "../src/logger.js";
 import { clearPendingLinksForTests, storePendingLink } from "../src/pending-links.js";
 import { type FakeAuthgearServer, startFakeAuthgearServer } from "./fake-authgear-server.js";

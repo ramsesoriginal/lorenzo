@@ -9,11 +9,15 @@ import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
 
     <div class="grid">
       <div class="field row-tight">
-        <label class="field-label" data-name-label>Name</label>
+        <label class="field-label" data-name-label>
+          Name
+        </label>
         <input class="text-input" data-name type="text" required />
       </div>
       <div class="field row-tight">
-        <label class="field-label" data-display-name-label>Display name</label>
+        <label class="field-label" data-display-name-label>
+          Display name
+        </label>
         <input class="text-input" data-display-name type="text" />
       </div>
     </div>
@@ -21,7 +25,9 @@ import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
     <div class="grid">
       <div class="stack">
         <div class="field">
-          <label class="field-label" data-parents-label>Parents</label>
+          <label class="field-label" data-parents-label>
+            Parents
+          </label>
           <Combobox placeholder="Search items to inherit from…" />
         </div>
         <ul class="row" data-parent-chips></ul>
@@ -40,7 +46,9 @@ import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
           </label>
         </div>
         <div class="field row-tight">
-          <label class="field-label" data-slug-label>Slug</label>
+          <label class="field-label" data-slug-label>
+            Slug
+          </label>
           <input class="text-input" data-slug type="text" spellcheck="false" />
           <p class="field-note">How links name it, as in [text](slug). Empty for none.</p>
         </div>
@@ -52,7 +60,9 @@ import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
     <!-- Edit form only -->
     <div class="field" data-used-by hidden>
       <span class="field-label">Used as a prototype by</span>
-      <p class="field-note" data-used-by-empty>Nothing yet.</p>
+      <p class="field-note" data-used-by-empty>
+        Nothing yet.
+      </p>
       <ul class="row" data-used-by-list hidden></ul>
     </div>
 
@@ -65,7 +75,9 @@ import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
     <template data-parent-chip-template>
       <li class="chip">
         <span data-title></span>
-        <button class="chip-remove" data-remove type="button" aria-label="Remove">×</button>
+        <button class="chip-remove" data-remove type="button" aria-label="Remove">
+          ×
+        </button>
       </li>
     </template>
 

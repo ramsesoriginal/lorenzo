@@ -1,0 +1,1 @@
+WeaponsList["never"] = { name : "Never" ;

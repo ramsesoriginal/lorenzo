@@ -1,26 +1,26 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
+  buildGiveConfirmComponents,
+  formatGivePrompt,
+  GIVE_CANCEL_CUSTOM_ID,
+  type GiveIntent,
+  type GiveWithContentsIntent,
+  parseGiveConfirmCustomId,
+  parseGiveWithContentsCustomId,
+} from "../format-give.js";
+import {
   formatGivenWithContents,
   formatWithContentsNote,
   givenCount,
 } from "../format-give-contents.js";
 import {
-  GIVE_CANCEL_CUSTOM_ID,
-  type GiveIntent,
-  type GiveWithContentsIntent,
-  buildGiveConfirmComponents,
-  formatGivePrompt,
-  parseGiveConfirmCustomId,
-  parseGiveWithContentsCustomId,
-} from "../format-give.js";
-import {
   type BulkAssignItem,
   type BulkAssignResultItem,
   type ContentsResultItem,
   type ControlledCharacter,
+  createLorenzoApiClient,
   type LorenzoApiClient,
   LorenzoApiError,
-  createLorenzoApiClient,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { recordUndo } from "../undo-actions.js";
@@ -397,9 +397,7 @@ export async function findGiveTargets(
       campaignIds.map((campaignId) => client.getCampaignPlayers(tenantId, campaignId, accessToken)),
     ),
     // A group can own things too (ADR 0124) - offered after the characters.
-    client
-      .listGroups(tenantId, accessToken)
-      .catch(() => []),
+    client.listGroups(tenantId, accessToken).catch(() => []),
   ]);
   const byId = new Map(rosters.flat().map((character) => [character.entityId, character]));
   return [

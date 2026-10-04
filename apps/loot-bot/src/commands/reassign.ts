@@ -1,8 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import {
   type ControlledCharacter,
-  LorenzoApiError,
   createLorenzoApiClient,
+  LorenzoApiError,
 } from "../lorenzo-client.js";
 import { getValidAccessToken } from "../token-provider.js";
 import { recordUndo } from "../undo-actions.js";

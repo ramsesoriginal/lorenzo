@@ -1,0 +1,65 @@
+{
+  "ok": true,
+  "restarts": 0,
+  "files": [
+    [
+      "syntax_error.js",
+      "content",
+      "error"
+    ],
+    [
+      "runtime_error.js",
+      "content",
+      "error"
+    ],
+    [
+      "fine.js",
+      "content",
+      "ok"
+    ]
+  ],
+  "lists": {
+    "WeaponsList": {
+      "before the throw": {
+        "name": "Before the throw",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Simple",
+        "list": "melee"
+      },
+      "fine": {
+        "name": "Fine",
+        "source": [
+          "HB",
+          0
+        ],
+        "type": "Simple",
+        "list": "melee",
+        "weight": 1
+      }
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "origins": {
+    "WeaponsList": {
+      "before the throw": "runtime_error.js",
+      "fine": "fine.js"
+    },
+    "ArmourList": {},
+    "GearList": {},
+    "PacksList": {},
+    "ToolsList": {},
+    "AmmoList": {},
+    "SourceList": {}
+  },
+  "overrides": [],
+  "stubs": [],
+  "stubs_in_data": []
+}

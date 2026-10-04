@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBootstrapSql,
   InvalidDatabaseUrlError,
   LOOT_BOT_SCHEMA,
-  buildBootstrapSql,
   parseRoleCredentials,
 } from "../src/bootstrap-sql.js";
 

@@ -9,20 +9,28 @@ import Base from '../layouts/Base.astro';
     <p id="account-loading">Checking your session&hellip;</p>
     <p id="account-error" class="error-text" hidden></p>
     <div id="account-signed-out" hidden>
-      <button id="login-button" type="button">Log in</button>
+      <button id="login-button" type="button">
+        Log in
+      </button>
     </div>
     <div id="account-signed-in" hidden>
-      <p>Signed in as <strong id="account-email"></strong>.</p>
-      <button id="logout-button" type="button">Log out</button>
+      <p>
+        Signed in as <strong id="account-email"></strong>.
+      </p>
+      <button id="logout-button" type="button">
+        Log out
+      </button>
       <a href="/profile">Your profile</a>
-      <a href="/notifications"
-        >Notifications<span id="unread-badge" class="canonical-marker" hidden></span></a
-      >
+      <a href="/notifications">
+        Notifications<span id="unread-badge" class="canonical-marker" hidden></span>
+      </a>
       <a href="/tenants">Your libraries and campaigns</a>
       <a href="/characters">Your characters</a>
       <a href="/beings">Beings</a>
       <a href="/overview">Your access, everywhere</a>
-      <a href="/debug/me">Debug: <code>GET /me</code></a>
+      <a href="/debug/me">
+        Debug: <code>GET /me</code>
+      </a>
     </div>
   </section>
 

@@ -1,10 +1,10 @@
 monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/account-hub", "apps/api", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/api-client", "packages/brand", "packages/lorenzoscript", "packages/lorenzoscript-editor"]
+config_roots = ["apps/account-hub", "apps/api", "apps/cli", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/api-client", "packages/brand", "packages/lorenzoscript", "packages/lorenzoscript-editor"]
 
 [tools]
-node = "22"
+node = "26"
 uv = "0.12.3"
 
 # Python itself is deliberately not listed here - it's controlled by uv

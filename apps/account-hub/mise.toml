@@ -40,3 +40,9 @@ hide = true
 description = "Build the static site to dist/"
 depends = ["install", "//packages/brand:build"]
 run = "pnpm run build"
+
+[tasks.test-real-api]
+description = "Browser tests against the real API and fake Authgear (ADR 0136)"
+depends = ["install"]
+run = "pnpm run test:real-api"
+hide = true

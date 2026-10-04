@@ -1,4 +1,4 @@
-import { apiFetch, apiPatch, apiPost, apiPut } from './api';
+import { client, unwrap } from './api';
 import type {
   BeingSummaryOut,
   CharacterCreate,
@@ -14,16 +14,23 @@ const PAGE_SIZE = 50;
 // 0078/0079. Replaces an earlier list-characters-and-filter workaround
 // from before this endpoint existed.
 export async function listBeings(tenantId: string, q?: string): Promise<Page<BeingSummaryOut>> {
-  const params = new URLSearchParams({ page: '1', size: String(PAGE_SIZE) });
-  if (q) params.set('q', q);
-  return apiFetch<Page<BeingSummaryOut>>(`/tenants/${tenantId}/beings?${params.toString()}`);
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/beings', {
+      params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE, q } },
+    }),
+  );
 }
 
 export async function createCharacter(
   tenantId: string,
   body: CharacterCreate,
 ): Promise<CharacterOut> {
-  return apiPost<CharacterOut>(`/tenants/${tenantId}/characters`, body);
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/characters', {
+      params: { path: { tenant_id: tenantId } },
+      body: body,
+    }),
+  );
 }
 
 export async function updateCharacter(
@@ -31,7 +38,12 @@ export async function updateCharacter(
   characterId: string,
   body: CharacterUpdate,
 ): Promise<CharacterOut> {
-  return apiPatch<CharacterOut>(`/tenants/${tenantId}/characters/${characterId}`, body);
+  return unwrap(
+    await client.PATCH('/tenants/{tenant_id}/characters/{character_id}', {
+      params: { path: { tenant_id: tenantId, character_id: characterId } },
+      body: body,
+    }),
+  );
 }
 
 // Roster-link a character to an additional player row - idempotent (ADR
@@ -43,8 +55,9 @@ export async function linkCharacterToPlayer(
   characterId: string,
   playerId: string,
 ): Promise<CharacterOut> {
-  return apiPut<CharacterOut>(
-    `/tenants/${tenantId}/characters/${characterId}/players/${playerId}`,
-    undefined,
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/characters/{character_id}/players/{player_id}', {
+      params: { path: { tenant_id: tenantId, character_id: characterId, player_id: playerId } },
+    }),
   );
 }

@@ -1,8 +1,8 @@
 import {
-  LorenzoApiError,
   type components,
   createLorenzoClient,
   etagOf,
+  LorenzoApiError,
   toLorenzoApiError,
 } from "@lorenzo/api-client";
 
@@ -770,6 +770,7 @@ export function createLorenzoApiClient(baseUrl: string) {
           prototype_id: prototypeId,
           owner_character_id: ownerCharacterId,
           override: false,
+          quantity: 1,
           ...(containerEntityId !== undefined ? { container_entity_id: containerEntityId } : {}),
           ...(name !== undefined ? { name } : {}),
         },

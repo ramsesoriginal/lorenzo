@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { type HttpServer, createHttpServer, livezRoute } from "../src/http-server.js";
+import { createHttpServer, type HttpServer, livezRoute } from "../src/http-server.js";
 import { logger } from "../src/logger.js";
 
 describe("createHttpServer", () => {

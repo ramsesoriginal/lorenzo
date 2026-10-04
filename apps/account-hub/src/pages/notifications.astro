@@ -4,22 +4,34 @@ import Base from '../layouts/Base.astro';
 
 <Base title="Notifications — Lorenzo">
   <h1 class="display">Notifications</h1>
-  <p><a href="/">&larr; Back</a></p>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
 
   <div id="notifications-view" hidden>
     <p id="unread-summary" role="status"></p>
-    <label><input id="unread-only" type="checkbox" /> Unread only</label>
-    <button id="refresh-button" type="button">Refresh</button>
+    <label>
+      <input id="unread-only" type="checkbox" /> Unread only
+    </label>
+    <button id="refresh-button" type="button">
+      Refresh
+    </button>
 
-    <p id="empty-state" hidden>No notifications.</p>
+    <p id="empty-state" hidden>
+      No notifications.
+    </p>
     <ul id="notifications-list"></ul>
 
-    <button id="show-sent-button" type="button">Show notifications I've sent</button>
+    <button id="show-sent-button" type="button">
+      Show notifications I've sent
+    </button>
     <div id="sent-view" hidden>
-      <p id="sent-empty-state" hidden>You haven't sent any notifications.</p>
+      <p id="sent-empty-state" hidden>
+        You haven't sent any notifications.
+      </p>
       <ul id="sent-list"></ul>
     </div>
   </div>
