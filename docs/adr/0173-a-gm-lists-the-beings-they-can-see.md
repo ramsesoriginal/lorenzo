@@ -63,3 +63,7 @@ Unchanged: `BeingSummaryOut` (`entity_id`, `name`, `is_pc`), `?q=` over `Entity.
 - **ADR 0078's "at least as strict" is amended, not dropped:** the list is exactly as open as reach, no more, and an ordinary participant is told what they were told before.
 - **A GM pays what any GM read pays.** The reach is rebuilt on each call by a GM, with `Being.entity_id` in a SQL `IN`: fine at a campaign's expected size, and the same cost ADR 0152 named for `visible_information_clause`. An administrator pays nothing new.
 - **Built in one slice:** the route's gate and filter in `routers/beings.py`, tests for each caller and for the setting on and off, regenerated clients, and a real-browser check of account-hub's `/beings` for a GM with no membership.
+
+## Erratum (2026-10-04): `GET .../characters` already admits a GM
+
+The "Not in scope" note above says `GET .../characters` "keeps its membership gate", so that a GM with no membership "finds a character at `/beings` but not at `/characters`". That is mistaken. The route is gated by `require_tenant_participant` (a membership, a `Player` row or a `CampaignGm` row), which admits a GM who holds only a campaign grant. What such a GM cannot read is the players' names; [ADR 0176](0176-a-campaigns-people-come-with-their-names.md) adds them to the campaign-level lists.

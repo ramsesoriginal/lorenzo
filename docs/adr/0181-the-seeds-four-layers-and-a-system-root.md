@@ -1,6 +1,8 @@
-# 0175 - The seed's four layers and a system root
+# 0181 - The seed's four layers and a system root
 
 Status: accepted
+
+Numbered 0175 originally; renumbered to 0181 on merging `main`, which had independently claimed 0175-0180 for account-hub's ADRs in the meantime (the same collision as ADR 0068 and 0069).
 
 The second slice of [RFC 0033](../rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) (its sections 5, 6 and 9), decided with the maintainer on 2026-10-04. It amends [ADR 0143](0143-lorenzo-seed-taxonomy-and-stats.md) (the seed and its layers) and [ADR 0162](0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md) (`dnd5e` as its own repository), and uses the attachments of [ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md). `seed`, `unseed`, `seed --list` and `repo contents` ([ADR 0166](0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md), [0168](0168-lorenzo-unseed.md), [0169](0169-seed-list-and-repo-contents.md)) already work over a list of layers, so they follow.
 
