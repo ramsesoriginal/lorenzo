@@ -23,3 +23,5 @@ Four tables, all tenant-scoped (`tenant_id` + `ENABLE`/`FORCE ROW LEVEL SECURITY
 - **Known, unsolved gap**: nothing enforces that an `entity_stat_group`/`entity_stat` row's own `tenant_id` actually matches its `entity`'s and `stat_group`'s/`stat_definition`'s `tenant_id`. A row linking mismatched tenants wouldn't leak data — RLS still filters each side independently, so the join would just silently fail to resolve — but it would be a real data-integrity bug. Not solved here.
 - No resolution algorithm yet: "what's this entity's effective weight, inherited or not" isn't answerable until `entity_prototype` exists and something walks it. This sub-slice only proves an entity can acquire stat groups and hold direct values.
 - Same RLS caveat as ADR 0012: policies are real and tested, but currently unenforced in practice until the app's DB role stops being a superuser.
+
+*Addendum, 2026-10-04: [ADR 0167](0167-the-api-deletes-an-unused-stat-definition-or-stat-group.md) adds `DELETE` for a stat definition and a stat group, refused with a `409` while either is in use. Nothing else here changes: neither can be renamed, retyped or moved.*
