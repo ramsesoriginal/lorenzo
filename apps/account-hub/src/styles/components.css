@@ -41,3 +41,11 @@
 .tenant-slug-hint {
   flex-basis: 100%;
 }
+
+/* The one section of /profile that can't be undone (ADR 0170): set apart from
+   the editable profile above it, and clear of it, not styled as a card. */
+.danger-zone {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--danger);
+}

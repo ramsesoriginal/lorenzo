@@ -27,6 +27,7 @@ import Base from '../layouts/Base.astro';
     import { renderCampaignRoster } from '../lib/campaignRosterUi';
     import { createStatusSpan } from '../lib/dom';
     import { campaignRoleFor, type CampaignRole } from '../lib/format';
+    import { renderLeaveLibrary, renderStepDownAsGm } from '../lib/exitsUi';
     import { renderGmManagement, renderInvitePlayer } from '../lib/gmAndPlayerUi';
     import { getMe } from '../lib/me';
     import { renderMembershipAdmin } from '../lib/membershipAdminUi';
@@ -180,6 +181,12 @@ import Base from '../layouts/Base.astro';
         );
       }
 
+      // Wherever the caller is a GM, administrator or not (ADR 0170): the
+      // API lets anyone revoke their own grant.
+      if (role === 'gm') {
+        item.append(renderStepDownAsGm(tenant, campaign, me.id, onChanged));
+      }
+
       return item;
     }
 
@@ -268,6 +275,13 @@ import Base from '../layouts/Base.astro';
         item.append(
           renderNotificationComposer((body) => createTenantNotification(tenant.id, body)),
         );
+      }
+
+      // A Membership, which is what owner and orga mean, is what there is to
+      // leave (ADR 0170). A participant-only library has none: their way out
+      // is "Leave this campaign" on /characters.
+      if (tenant.role === 'owner' || tenant.role === 'orga') {
+        item.append(renderLeaveLibrary(tenant, me.id, onChanged));
       }
 
       return item;
