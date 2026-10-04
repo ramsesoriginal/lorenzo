@@ -260,6 +260,7 @@ def test_whoami_marks_the_default(tmp_path: Path) -> None:
         "memberships": [],
         "players": [],
         "campaign_gm_grants": [],
+        "capabilities": {"create_tenant": False},
     }
     transport = httpx.MockTransport(lambda request: httpx.Response(200, json=me))
     by_default = runtime(tmp_path)
