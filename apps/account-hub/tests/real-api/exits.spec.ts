@@ -1,37 +1,6 @@
-import { type Browser, expect, type Page, test } from '@playwright/test';
-import { type Api, apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
-import { signIn } from './support';
-
-// Opens a signed-in page for `subject` and answers every window.confirm with
-// "OK", keeping what it asked.
-async function signedInPage(browser: Browser, subject: string) {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  const confirmations: string[] = [];
-  page.on('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.accept();
-  });
-  await signIn(page, context, subject);
-  return { context, page, confirmations };
-}
-
-async function newUser(prefix: string) {
-  const subject = `hub-${prefix}-${crypto.randomUUID()}`;
-  const api = await apiAs(subject);
-  const me = await ok(api.GET('/me'));
-  return { subject, api, me };
-}
-
-async function newLibrary(owner: Api, name = `Library ${crypto.randomUUID()}`) {
-  return ok(owner.POST('/tenants', { body: { name } }));
-}
-
-function card(page: Page, name: string) {
-  return page
-    .locator('#tenant-list > li')
-    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${name}`) }) });
-}
+import { expect, test } from '@playwright/test';
+import { apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
+import { libraryCard as card, newLibrary, newUser, signedInPage } from './support';
 
 test('an organizer leaves a library; the only owner is told to hand it over first', async ({
   browser,

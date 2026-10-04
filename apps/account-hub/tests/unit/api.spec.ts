@@ -5,11 +5,13 @@ vi.mock('../../src/lib/auth', () => ({
 }));
 
 import { getAccessToken } from '../../src/lib/auth';
+import { unlinkCharacterFromPlayer } from '../../src/lib/characters';
 import { getMe } from '../../src/lib/me';
 import { deleteProfilePicture, uploadProfilePicture } from '../../src/lib/profile';
 import {
   getTenant,
-  updateTenantSlug,
+  removePlayer,
+  updateTenant,
   uploadCampaignPicture,
   uploadTenantPicture,
 } from '../../src/lib/tenants';
@@ -61,7 +63,9 @@ it('uses the version read before editing and sends only the slug', async () => {
   );
   const { tenant, etag } = await getTenant('tenant');
   fetchMock.mockResolvedValueOnce(Response.json({ detail: 'Changed meanwhile' }, { status: 412 }));
-  await expect(updateTenantSlug(tenant.id, 'new', etag)).rejects.toMatchObject({ status: 412 });
+  await expect(updateTenant(tenant.id, { slug: 'new' }, etag)).rejects.toMatchObject({
+    status: 412,
+  });
   const request = fetchMock.mock.calls[1][0] as Request;
   expect(request.headers.get('If-Match')).toBe('version-1');
   expect(await request.json()).toEqual({ slug: 'new' });
@@ -70,4 +74,29 @@ it('uses the version read before editing and sends only the slug', async () => {
 it('refuses to open an editor without a version', async () => {
   fetchMock.mockResolvedValueOnce(Response.json({ id: 'tenant' }));
   await expect(getTenant('tenant')).rejects.toThrow('Tenant editing is temporarily unavailable');
+});
+
+it('sends only the fields that changed when a library is edited', async () => {
+  fetchMock.mockResolvedValueOnce(Response.json({ id: 'tenant', name: 'New name' }));
+  await updateTenant('tenant', { name: 'New name', description: '' }, 'version-2');
+  const request = fetchMock.mock.calls[0][0] as Request;
+  expect(request.method).toBe('PATCH');
+  expect(request.headers.get('If-Match')).toBe('version-2');
+  expect(await request.json()).toEqual({ name: 'New name', description: '' });
+});
+
+it('removes a player, and unlinks a character from one, with one DELETE each', async () => {
+  fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  await removePlayer('t', 'c', 'p');
+  fetchMock.mockResolvedValueOnce(Response.json({ entity_id: 'e', name: 'Cael', players: [] }));
+  await unlinkCharacterFromPlayer('t', 'e', 'p');
+  const [first, second] = fetchMock.mock.calls.map(([request]) => request as Request);
+  expect([first.method, new URL(first.url).pathname]).toEqual([
+    'DELETE',
+    '/tenants/t/campaigns/c/players/p',
+  ]);
+  expect([second.method, new URL(second.url).pathname]).toEqual([
+    'DELETE',
+    '/tenants/t/characters/e/players/p',
+  ]);
 });

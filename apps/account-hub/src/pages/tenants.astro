@@ -21,7 +21,7 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { showError } from '../lib/errorUi';
-    import { renderTenantSlug } from '../lib/tenantSlugUi';
+    import { renderTenantEdit } from '../lib/tenantEditUi';
     import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
     import { renderCampaignRoster } from '../lib/campaignRosterUi';
@@ -33,6 +33,7 @@ import Base from '../layouts/Base.astro';
     import { renderMembershipAdmin } from '../lib/membershipAdminUi';
     import { renderNotificationComposer } from '../lib/notificationComposerUi';
     import { renderPictureUpload } from '../lib/pictureUi';
+    import { rosterFromPlayers } from '../lib/roster';
     import {
       campaignPictureUrl,
       createCampaignNotification,
@@ -41,6 +42,7 @@ import Base from '../layouts/Base.astro';
       deleteCampaignPicture,
       deleteTenantPicture,
       listCampaignGms,
+      listCampaignPlayers,
       listMyTenants,
       listTenantCampaigns,
       listTenantRoster,
@@ -52,6 +54,7 @@ import Base from '../layouts/Base.astro';
       CampaignSummaryOut,
       MeOut,
       MembershipRosterEntryOut,
+      PlayerSummaryOut,
       RosterEntry,
       TenantSummaryOut,
     } from '../lib/types';
@@ -127,6 +130,7 @@ import Base from '../layouts/Base.astro';
       me: MeOut,
       roster: RosterEntry[] | null,
       gmsByCampaign: Map<string, string[]>,
+      playersByCampaign: Map<string, PlayerSummaryOut[]>,
       onChanged: () => void,
     ): HTMLLIElement {
       const item = document.createElement('li');
@@ -139,15 +143,28 @@ import Base from '../layouts/Base.astro';
       item.append(name, meta);
 
       const admin = isTenantAdmin(tenant);
+      // can_manage_campaign's real two-way gate: a tenant admin, or this
+      // specific campaign's own GM (RFC 0014) - not just one branch of it.
+      const canManage = admin || role === 'gm';
       // RFC 0017 (a)'s own "any tenant-wide member" is, by construction,
       // exactly admin (owner/orga) - MembershipRole has no plain-member
       // role, so get_tenant_context's gate on the underlying roster fetch
       // already excludes anyone else. roster is null (not fetched at all)
       // for a non-admin tenant - a participant-only caller (Player/
       // CampaignGm standing, no Membership row) got an uncaught 404 here
-      // before this fix, breaking this whole page for them.
-      if (roster) {
-        item.append(renderCampaignRoster(campaign, roster));
+      // before this fix, breaking this whole page for them. A GM with no
+      // Membership still manages the campaign (ADR 0170), and gets its
+      // players from GET .../players instead, by user id: no names there.
+      const players = canManage ? (playersByCampaign.get(campaign.id) ?? []) : null;
+      const shownRoster = roster ?? (players ? rosterFromPlayers(campaign.id, players) : null);
+      if (shownRoster) {
+        item.append(
+          renderCampaignRoster(
+            campaign,
+            shownRoster,
+            players ? { tenant, players, onChanged } : undefined,
+          ),
+        );
       }
 
       if (admin) {
@@ -162,10 +179,9 @@ import Base from '../layouts/Base.astro';
           ),
         );
       }
-      // can_manage_campaign's real two-way gate: a tenant admin, or this
-      // specific campaign's own GM (RFC 0014) - not just one branch of it;
-      // matches upload_campaign_picture's own gate too (ADR 0085).
-      if (admin || role === 'gm') {
+      // The same gate as the roster's controls above; matches
+      // upload_campaign_picture's own gate too (ADR 0085).
+      if (canManage) {
         item.append(
           renderPictureUpload(
             campaignPictureUrl(tenant.id, campaign.id),
@@ -198,12 +214,19 @@ import Base from '../layouts/Base.astro';
     ): Promise<HTMLLIElement> {
       const item = document.createElement('li');
       const heading = document.createElement('h2');
-      heading.textContent = `${tenant.name} `;
+      const nameEl = document.createElement('span');
+      nameEl.textContent = tenant.name;
       const roleBadge = document.createElement('span');
       roleBadge.className = 'badge';
       roleBadge.textContent = tenant.role;
-      heading.append(roleBadge);
-      item.append(heading, renderTenantSlug(tenant));
+      heading.append(nameEl, ' ', roleBadge);
+      // A saved name shows here without reloading every library on the page.
+      item.append(
+        heading,
+        renderTenantEdit(tenant, (updated) => {
+          nameEl.textContent = updated.name;
+        }),
+      );
 
       const admin = isTenantAdmin(tenant);
       // get_tenant_context (the real gate behind list_tenant_roster/
@@ -238,12 +261,29 @@ import Base from '../layouts/Base.astro';
         const gmsByCampaign = new Map(
           campaigns.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)]),
         );
+        // The players of every campaign the caller manages: where a player's
+        // own id comes from (ADR 0170).
+        const managed = campaigns.filter((c) => admin || campaignRoleFor(c.id, me) === 'gm');
+        const playerPages = await Promise.all(
+          managed.map((c) => listCampaignPlayers(tenant.id, c.id)),
+        );
+        const playersByCampaign = new Map(
+          managed.map((c, i) => [c.id, playerPages[i]?.items ?? []]),
+        );
 
         const list = document.createElement('ul');
         list.className = 'list';
         for (const campaign of campaigns) {
           list.append(
-            renderCampaign(tenant, campaign, me, roster?.items ?? null, gmsByCampaign, onChanged),
+            renderCampaign(
+              tenant,
+              campaign,
+              me,
+              roster?.items ?? null,
+              gmsByCampaign,
+              playersByCampaign,
+              onChanged,
+            ),
           );
         }
         item.append(list);

@@ -19,7 +19,7 @@ test('owner edits a slug, cancels, sees collision and invalid input, and cannot 
   const card = page
     .locator('#tenant-list > li')
     .filter({ has: page.getByRole('heading', { name: `${tenant.name} owner`, exact: true }) });
-  await card.getByRole('button', { name: 'Edit slug' }).click();
+  await card.getByRole('button', { name: 'Edit library' }).click();
   const input = card.getByLabel('Library slug');
   await expect(input).toHaveValue(tenant.slug);
   await input.fill('changed-but-cancelled');
@@ -29,25 +29,25 @@ test('owner edits a slug, cancels, sees collision and invalid input, and cannot 
       .slug,
   ).toBe(tenant.slug);
 
-  await card.getByRole('button', { name: 'Edit slug' }).click();
+  await card.getByRole('button', { name: 'Edit library' }).click();
   await input.fill('INVALID SLUG');
   await card.getByRole('button', { name: 'Save', exact: true }).click();
   expect(await input.evaluate((el: HTMLInputElement) => el.checkValidity())).toBe(false);
   await input.fill(taken.slug);
   await card.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(card.locator('.tenant-slug')).toContainText('already in use');
+  await expect(card.locator('.tenant-details')).toContainText('already in use');
   const slug = `renamed-${crypto.randomUUID()}`;
   await input.fill(slug);
   await card.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(card.locator('.tenant-slug-value')).toHaveText(`Slug: ${slug}`);
-  await expect(card.locator('.tenant-slug')).toContainText('Slug saved.');
+  await expect(card.locator('.tenant-details-value')).toHaveText(`Slug: ${slug}`);
+  await expect(card.locator('.tenant-details')).toContainText('Saved.');
   const renamed = await ok(
     api.GET('/tenants/{tenant_id}', { params: { path: { tenant_id: tenant.id } } }),
   );
   expect(renamed.name).toBe(tenant.name);
   expect(renamed.slug).toBe(slug);
 
-  await card.getByRole('button', { name: 'Edit slug' }).click();
+  await card.getByRole('button', { name: 'Edit library' }).click();
   await expect(input).toHaveValue(slug);
   await ok(
     api.PATCH('/tenants/{tenant_id}', {
@@ -57,7 +57,7 @@ test('owner edits a slug, cancels, sees collision and invalid input, and cannot 
   );
   await input.fill(`stale-${crypto.randomUUID()}`);
   await card.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(card.locator('.tenant-slug')).toContainText('changed while you were editing');
+  await expect(card.locator('.tenant-details')).toContainText('changed while you were editing');
   await expect(card.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
   expect(
     (await ok(api.GET('/tenants/{tenant_id}', { params: { path: { tenant_id: tenant.id } } })))
@@ -112,13 +112,13 @@ test('organizers can edit, campaign participants cannot', async ({ browser }) =>
       await page.goto('/tenants');
       await expect(page.locator('#tenant-list')).toContainText(tenant.name);
       if (role === 'orga') {
-        await page.getByRole('button', { name: 'Edit slug' }).click();
+        await page.getByRole('button', { name: 'Edit library' }).click();
         const slug = `orga-${crypto.randomUUID()}`;
         await page.getByLabel('Library slug').fill(slug);
         await page.getByRole('button', { name: 'Save', exact: true }).click();
-        await expect(page.locator('.tenant-slug-value')).toHaveText(`Slug: ${slug}`);
+        await expect(page.locator('.tenant-details-value')).toHaveText(`Slug: ${slug}`);
       } else {
-        await expect(page.getByRole('button', { name: 'Edit slug' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Edit library' })).toHaveCount(0);
         const refused = await api.PATCH('/tenants/{tenant_id}', {
           params: { path: { tenant_id: tenant.id } },
           body: { slug: 'forbidden' },

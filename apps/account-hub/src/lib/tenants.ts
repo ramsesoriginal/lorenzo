@@ -20,6 +20,7 @@ import type {
   TenantCreate,
   TenantOut,
   TenantSummaryOut,
+  TenantUpdate,
 } from './types';
 
 // No pager UI yet (matches notifications.ts's own precedent) - a client
@@ -185,10 +186,11 @@ export async function listCampaignPlayers(
   );
 }
 
-// RFC 0017 (c) - self-service leave. Removes this specific player row
-// (and every character link it grants) - other players' own roster-reuse
-// links are unaffected.
-export async function leaveCampaign(
+// DELETE .../players/{player_id}: the one request behind both leaving a
+// campaign yourself (RFC 0017 (c)) and a campaign's manager removing a player
+// (ADR 0170). It removes that Player row and every character link the row
+// grants - other players' own links are unaffected.
+export async function removePlayer(
   tenantId: string,
   campaignId: string,
   playerId: string,
@@ -198,6 +200,15 @@ export async function leaveCampaign(
       params: { path: { tenant_id: tenantId, campaign_id: campaignId, player_id: playerId } },
     }),
   );
+}
+
+// Self-service leave: the caller's own player id.
+export function leaveCampaign(
+  tenantId: string,
+  campaignId: string,
+  playerId: string,
+): Promise<void> {
+  return removePlayer(tenantId, campaignId, playerId);
 }
 
 // RFC 0017 (d) - gated server-side by a platform-level Authgear role with
@@ -314,15 +325,18 @@ export async function getTenant(tenantId: string): Promise<{ tenant: TenantOut; 
   return { tenant, etag };
 }
 
-export async function updateTenantSlug(
+// Only what is given changes (PATCH, `exclude_unset`); `etag` is the version
+// the editor was opened on, so a change made meanwhile answers 412 rather than
+// being overwritten (ADR 0136).
+export async function updateTenant(
   tenantId: string,
-  slug: string,
+  patch: TenantUpdate,
   etag: string,
 ): Promise<TenantOut> {
   return unwrap(
     await client.PATCH('/tenants/{tenant_id}', {
       params: { path: { tenant_id: tenantId }, header: { 'if-match': etag } },
-      body: { slug },
+      body: patch,
     }),
   );
 }

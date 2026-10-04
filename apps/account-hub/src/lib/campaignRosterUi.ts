@@ -1,13 +1,99 @@
-// Campaign roster view - RFC 0017 (a). Read-only: who's playing (with
-// their characters) and who's GMing this specific campaign, resolved to
-// real display names from the tenant's own roster fetch.
+// Campaign roster view - RFC 0017 (a). Who's playing (with their characters)
+// and who's GMing this specific campaign, resolved to real display names from
+// the tenant's own roster fetch. For whoever can manage the campaign it also
+// carries "Remove" on each player and "Unlink" on each of their characters
+// (ADR 0170).
 
+import { removePlayerConfirmation } from './adminCopy';
+import { createStatusSpan } from './dom';
+import { showError } from './errorUi';
 import { displayNameFor } from './format';
-import type { CampaignSummaryOut, RosterEntry } from './types';
+import { playerIdForUser } from './roster';
+import { renderUnlinkCharacter } from './rosterLinkUi';
+import { removePlayer } from './tenants';
+import type {
+  CampaignSummaryOut,
+  PlayerRosterEntryOut,
+  PlayerSummaryOut,
+  RosterEntry,
+  TenantSummaryOut,
+} from './types';
+
+// Given for a caller who passes can_manage_campaign: a library administrator or
+// the campaign's own GM. `players` is GET .../players, the only place a
+// player's own id is given.
+export interface RosterManagement {
+  tenant: TenantSummaryOut;
+  players: PlayerSummaryOut[];
+  onChanged: () => void;
+}
+
+function renderPlayerControls(
+  campaign: CampaignSummaryOut,
+  entry: PlayerRosterEntryOut,
+  playerId: string,
+  management: RosterManagement,
+): HTMLElement {
+  const controls = document.createElement('span');
+  const name = displayNameFor(entry);
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.textContent = 'Remove';
+  const status = createStatusSpan();
+  removeButton.addEventListener('click', async () => {
+    if (!window.confirm(removePlayerConfirmation(name, campaign.name))) return;
+    removeButton.disabled = true;
+    status.textContent = 'Removing…';
+    try {
+      await removePlayer(management.tenant.id, campaign.id, playerId);
+      management.onChanged();
+    } catch (e) {
+      removeButton.disabled = false;
+      showError(status, e);
+    }
+  });
+  controls.append(removeButton, status);
+  return controls;
+}
+
+function renderPlayerCharacters(
+  campaign: CampaignSummaryOut,
+  entry: PlayerRosterEntryOut,
+  playerId: string | null,
+  management: RosterManagement | undefined,
+): HTMLElement {
+  const characters = document.createElement('span');
+  characters.className = 'campaign-meta';
+  if (!management || playerId === null) {
+    characters.textContent = entry.characters.map((c) => c.name).join(', ');
+    return characters;
+  }
+  entry.characters.forEach((character, index) => {
+    const label = document.createElement('span');
+    label.textContent = index === 0 ? character.name : `, ${character.name}`;
+    characters.append(
+      label,
+      ' ',
+      renderUnlinkCharacter(
+        {
+          tenantId: management.tenant.id,
+          characterId: character.entity_id,
+          characterName: character.name,
+          playerId,
+          campaignName: campaign.name,
+          playerName: displayNameFor(entry),
+        },
+        management.onChanged,
+      ),
+    );
+  });
+  return characters;
+}
 
 export function renderCampaignRoster(
   campaign: CampaignSummaryOut,
   roster: RosterEntry[],
+  management?: RosterManagement,
 ): HTMLElement {
   const section = document.createElement('div');
   section.className = 'panel';
@@ -40,11 +126,14 @@ export function renderCampaignRoster(
     roleBadge.textContent = entry.kind;
     item.append(roleBadge);
 
-    if (entry.kind === 'player' && entry.characters.length > 0) {
-      const characters = document.createElement('span');
-      characters.className = 'campaign-meta';
-      characters.textContent = entry.characters.map((c) => c.name).join(', ');
-      item.append(characters);
+    if (entry.kind === 'player') {
+      const playerId = management ? playerIdForUser(management.players, entry.user_id) : null;
+      if (management && playerId !== null) {
+        item.append(renderPlayerControls(campaign, entry, playerId, management));
+      }
+      if (entry.characters.length > 0) {
+        item.append(renderPlayerCharacters(campaign, entry, playerId, management));
+      }
     }
 
     list.append(item);
