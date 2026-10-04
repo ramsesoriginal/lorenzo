@@ -1487,8 +1487,8 @@ def repo_updates(
         bool,
         typer.Option(
             "--apply",
-            help="Take what needs no decision: changes that don't touch your own edits, and "
-            "additions that collide with nothing.",
+            help="Take what needs no decision: changes that don't touch your own edits, "
+            "additions that collide with nothing, and the attachments that can be applied.",
         ),
     ] = False,
     actions: Annotated[
@@ -1498,7 +1498,8 @@ def repo_updates(
             exists=True,
             dir_okay=False,
             help="A JSON file of the API's own actions (apply with keep_local and take_upstream, "
-            "add with a resolution, detach), to decide row by row.",
+            "add with a resolution, detach), to decide row by row; or "
+            '{"actions": [...], "attachments": [...]} to name attachments to add or detach too.',
         ),
     ] = None,
     dry_run: Annotated[
@@ -1521,7 +1522,7 @@ def repo_updates(
         raise typer.BadParameter("--dry-run is for --apply or --actions.")
     writes = (apply or actions is not None) and not dry_run
     with _reporting_errors(), _client(runtime, writes=writes) as client:
-        explicit = repos.read_actions(actions) if actions else None
+        explicit = repos.read_decisions(actions) if actions else None
         drawing = resolve_tenant(client, tenant)
         repository_id = repos.resolve_repository(client, drawing, repository)
         updates = client.call(
@@ -1541,8 +1542,12 @@ def repo_updates(
                     )
             raise typer.Exit(2 if repos.updates_waiting(updates) else 0)
         chosen = repos.clean_updates(updates)
-        wanted = explicit if explicit is not None else chosen.actions
-        if not wanted:
+        wanted = (
+            explicit
+            if explicit is not None
+            else repos.Decisions(chosen.actions, chosen.attachments)
+        )
+        if not wanted.count:
             result = None
         else:
             if not dry_run and not yes:
@@ -1553,9 +1558,16 @@ def repo_updates(
                     runtime,
                     yes=yes,
                     as_json=as_json,
-                    prompt=f"Take {len(wanted)} update(s) into {drawing.slug}?",
+                    prompt=f"Take {wanted.count} update(s) into {drawing.slug}?",
                 )
-            result = repos.apply_updates(client, drawing.id, repository_id, wanted, dry_run=dry_run)
+            result = repos.apply_updates(
+                client,
+                drawing.id,
+                repository_id,
+                wanted.actions,
+                dry_run=dry_run,
+                attachments=wanted.attachments,
+            )
     left = chosen.left and explicit is None
     if as_json:
         _echo_json(
@@ -1571,6 +1583,15 @@ def repo_updates(
                         for a in chosen.collisions
                     ],
                     "removed": chosen.removed,
+                    "attachments_waiting": [
+                        {
+                            "child_source_id": str(a.child_source_id),
+                            "parent_source_id": str(a.parent_source_id),
+                            "reason": a.reason,
+                        }
+                        for a in chosen.attachments_waiting
+                    ],
+                    "attachments_removed": chosen.attachments_removed,
                 }
                 if explicit is None
                 else None,
@@ -1684,7 +1705,7 @@ def _offer_dry_run(
             LIST_REPOSITORY_UPDATES,
             path={"tenant_id": state.subscriber.id, "repository_id": state.repository.id},
         ).value
-    takes = repos.clean_updates(updates).actions if updates is not None else []
+    takes = repos.clean_updates(updates).takes if updates is not None else 0
     something = bool(state.steps or takes)
     if as_json:
         _echo_json(
@@ -1706,7 +1727,7 @@ def _offer_dry_run(
                 "granted": state.granted,
                 "copied": state.copied,
                 "collisions": [c.model_dump(mode="json") for c in plan.collisions] if plan else [],
-                "clean_updates": len(takes),
+                "clean_updates": takes,
             }
         )
     else:
@@ -1716,6 +1737,6 @@ def _offer_dry_run(
         elif not state.granted:
             _out.print("  (The copy can only be planned once the tenant is granted it.)")
         if updates is not None:
-            _out.print(f"  updates: {len(takes)} take(s) need no decision.")
+            _out.print(f"  updates: {takes} take(s) need no decision.")
         _out.print("Dry run: nothing was written." if something else "Nothing to do.")
     raise typer.Exit(2 if something else 0)
