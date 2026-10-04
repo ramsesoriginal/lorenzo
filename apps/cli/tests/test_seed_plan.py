@@ -283,3 +283,64 @@ def test_only_the_layers_asked_for_are_retitled() -> None:
     plan = make_plan(SPEC, state, TENANT, ("core",))
 
     assert [(a.kind, a.name) for a in plan.actions] == [("retitle", "crossbow")]
+
+
+# --- a bare seed and the layers a tenant holds (ADR 0166) -------------------------------------
+
+
+def layers_held(state: TenantState, *layers: str) -> TenantState:
+    """Only what the given layers hold of a fully seeded tenant."""
+    nodes = {n.slug for n in SPEC.nodes if n.layer in layers}
+    definitions = {d.name for d in SPEC.definitions if d.layer in layers}
+    return TenantState(
+        {name: g for name, g in state.groups.items() if name in {g.name for g in SPEC.groups}},
+        {name: d for name, d in state.definitions.items() if name in definitions},
+        {slug: n for slug, n in state.nodes.items() if slug in nodes},
+        {slug: i for slug, i in state.items.items() if slug in nodes},
+        {key: r for key, r in state.recipes.items() if key[0] in nodes},
+    )
+
+
+def test_a_bare_seed_of_a_tenant_that_holds_one_layer_is_a_problem_naming_both() -> None:
+    state = layers_held(fully_seeded(), "core")
+
+    plan = make_plan(SPEC, state, TENANT, ALL, explicit=False)
+
+    assert plan.actions == []
+    [problem] = plan.problems
+    assert "holds the core layer and none of dnd5e" in problem
+    assert "`--layer core`" in problem and "`--layer dnd5e`" in problem
+
+
+def test_a_bare_seed_of_the_other_layer_alone_is_refused_the_same_way() -> None:
+    state = layers_held(fully_seeded(), "dnd5e")
+
+    [problem] = make_plan(SPEC, state, TENANT, ALL, explicit=False).problems
+
+    assert "holds the dnd5e layer and none of core" in problem
+
+
+def test_a_bare_seed_of_an_empty_tenant_seeds_every_layer() -> None:
+    plan = make_plan(SPEC, TenantState(), TENANT, ALL, explicit=False)
+
+    assert plan.problems == []
+    assert {a.layer for a in plan.actions} == set(ALL)
+
+
+def test_a_bare_seed_of_a_tenant_that_holds_both_layers_completes_them() -> None:
+    state = fully_seeded()
+    del state.nodes["dnd5e-heavy"], state.items["dnd5e-heavy"]
+
+    plan = make_plan(SPEC, state, TENANT, ALL, explicit=False)
+
+    assert plan.problems == []
+    assert [(a.kind, a.name) for a in plan.actions][:1] == [("node", "dnd5e-heavy")]
+
+
+def test_naming_the_layer_is_never_refused() -> None:
+    state = layers_held(fully_seeded(), "core")
+
+    plan = make_plan(SPEC, state, TENANT, ("dnd5e",), explicit=True)
+
+    assert plan.problems == []
+    assert {a.layer for a in plan.actions} == {"dnd5e"}

@@ -3042,7 +3042,14 @@ export interface paths {
         get: operations["get_stat_group"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Stat Group
+         * @description Deletes an unused group - ADR 0167. 409 while it holds any stat
+         *     definition or any entity has acquired it: the database would cascade to
+         *     both, and through the definitions to every value held for them, so
+         *     nothing is deleted behind the caller's back. No `?force`.
+         */
+        delete: operations["delete_stat_group"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3088,7 +3095,15 @@ export interface paths {
         get: operations["get_stat_definition"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Stat Definition
+         * @description Deletes an unused definition - ADR 0167. 409 while an entity holds a
+         *     value for it, has a formula for it, or has a formula that reads it as a
+         *     source (the database refuses the last, and would cascade the first two).
+         *     Its enum values go with it. No `?force`: a caller removes the values or
+         *     formulas first.
+         */
+        delete: operations["delete_stat_definition"];
         options?: never;
         head?: never;
         patch?: never;
@@ -17458,6 +17473,70 @@ export interface operations {
             };
         };
     };
+    delete_stat_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_stat_definitions: {
         parameters: {
             query?: {
@@ -17615,6 +17694,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StatDefinitionOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_stat_definition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -192,7 +192,7 @@ def test_a_stat_of_the_wrong_type_stops_the_seed_before_it_writes_anything(
         )
         assert made.status_code == 201
 
-    result = seed(stack, token, tmp_path, tenant, "--yes")
+    result = seed(stack, token, tmp_path, tenant, "--layer", "core", "--yes")
 
     assert result.exit_code == 1
     assert "weight" in result.output

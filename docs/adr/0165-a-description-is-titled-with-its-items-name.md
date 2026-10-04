@@ -32,6 +32,6 @@ This is the one change `seed` and `apply` make to something that exists without 
 
 ## Consequences
 
-- After upgrading, run `seed` in each repository and in each tenant that copied one, naming each layer it holds with `--layer` (a bare `seed` also adds any layer the tenant is missing), and `apply` (the same files and map) in the repository the items were imported into. A repository copied after the fix needs nothing.
+- After upgrading, run `seed` in each repository and in each tenant that copied one, naming each layer it holds with `--layer` (a bare `seed` adds any layer the tenant is missing, which [ADR 0166](0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md) now refuses on a tenant that holds another), and `apply` (the same files and map) in the repository the items were imported into. A repository copied after the fix needs nothing.
 - `plan --json` gains the item status `retitle` and a count of the same name, `apply --json`'s `applied` gains `retitled`, and `seed --dry-run`'s actions gain the kind `retitle`.
 - `lorenzo_cli`'s operation table gains `GET` and `PATCH` for an information row, and is checked against the API's schema like the others.
