@@ -176,6 +176,46 @@ async def test_a_definition_with_a_formula_for_it_or_one_that_reads_it_is_refuse
     await delete_tenant(tenant_id)
 
 
+async def test_a_definition_read_by_a_comparison_sum_or_contents_formula_is_refused(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    group = await _group(client, tenant_id)
+    left = await _definition(client, tenant_id, group, "left")
+    right = await _definition(client, tenant_id, group, "right")
+    heavy = await _definition(client, tenant_id, group, "heavy", "bool")
+    term = await _definition(client, tenant_id, group, "term")
+    total = await _definition(client, tenant_id, group, "total")
+    inside = await _definition(client, tenant_id, group, "inside")
+    carried = await _definition(client, tenant_id, group, "carried")
+    hero = await _entity(tenant_id, "Hero")
+    formulas = f"/tenants/{tenant_id}/entities/{hero}/computed-stats"
+    bodies = {
+        heavy: {
+            "kind": "comparison",
+            "left_stat_definition_id": left,
+            "comparator": "gt",
+            "right_stat_definition_id": right,
+        },
+        total: {"kind": "sum", "terms": [{"stat_definition_id": term}]},
+        carried: {"kind": "contents", "source_stat_definition_id": inside},
+    }
+    for target, body in bodies.items():
+        made = await client.put(f"{formulas}/{target}", json=body)
+        assert made.status_code == 200, made.text
+    base = f"/tenants/{tenant_id}/stat-definitions"
+
+    for read in (left, right, term, inside):
+        refused = await client.delete(f"{base}/{read}")
+        assert refused.status_code == 409, refused.text
+        assert "1 formula(s) reading it" in refused.json()["detail"]
+    for target in bodies:
+        assert (await client.delete(f"{formulas}/{target}")).status_code == 204
+    for read in (left, right, term, inside):
+        assert (await client.delete(f"{base}/{read}")).status_code == 204
+    await delete_tenant(tenant_id)
+
+
 # --- stat groups -----------------------------------------------------------------------------
 
 
