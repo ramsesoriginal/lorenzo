@@ -17,7 +17,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from sqlalchemy import delete, exists, func, insert, or_, select
+from sqlalchemy import delete, exists, func, insert, or_, select, tuple_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
@@ -58,6 +60,7 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     RepositoryCopy,
+    RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
@@ -72,6 +75,7 @@ from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
     Links,
+    attachments_of,
     entity_snapshot,
     index_entities,
     load_content,
@@ -138,7 +142,26 @@ class Step:
     stat_groups: int = 0
     stat_definitions: int = 0
     information: int = 0
+    # The attachment edges the step writes (ADR 0172).
+    attachments: int = 0
     dropped: list[Dropped] = field(default_factory=list)
+
+
+LOOP_REASON = "it would make a prototype loop here"
+
+
+@dataclass
+class PlannedAttachment:
+    """A parent a repository added to one of its copies, with its two ends found
+    in the copying tenant (ADR 0172). `edge` is false where the tenant already has
+    the parent, so only the link is recorded."""
+
+    step: Step
+    child: uuid.UUID
+    parent: uuid.UUID
+    child_source_id: uuid.UUID
+    parent_source_id: uuid.UUID
+    edge: bool
 
 
 @dataclass
@@ -147,6 +170,7 @@ class Plan:
     steps: list[Step]
     collisions: list[Collision] = field(default_factory=list)
     rows: dict[str, list[dict[str, Any]]] = field(default_factory=lambda: defaultdict(list))
+    attachments: list[PlannedAttachment] = field(default_factory=list)
 
     @property
     def missing(self) -> list[Step]:
@@ -266,6 +290,10 @@ class _Planner:
         # this tenant (ADR 0120: the tenant's rows are then the origins).
         self.existing: dict[str, set[uuid.UUID]] = {}
         self.enum_additions: dict[uuid.UUID, set[str]] = defaultdict(set)
+        # The tenant's prototype edges as (entity, prototype), then every one
+        # this plan writes: what an attachment finds already there (ADR 0172).
+        self.edges: set[tuple[uuid.UUID, uuid.UUID]] = set()
+        self.attachments: list[PlannedAttachment] = []
 
     async def load_local_names(self, session: AsyncSession) -> None:
         t = self.tenant_id
@@ -289,6 +317,14 @@ class _Planner:
         self.slugs = set(
             await session.scalars(select(EntitySlug.slug).where(EntitySlug.tenant_id == t))
         )
+        self.edges = {
+            (entity_id, prototype_id)
+            for entity_id, prototype_id in await session.execute(
+                select(EntityPrototype.entity_id, EntityPrototype.prototype_id).where(
+                    EntityPrototype.tenant_id == t
+                )
+            )
+        }
         self.existing = {
             "entity": set(await session.scalars(select(Entity.id).where(Entity.tenant_id == t))),
             "stat_group": set(self.group_names.values()),
@@ -521,6 +557,7 @@ class _Planner:
                 if target is None:
                     drop("entity_prototype", e, "its prototype wasn't copied")
                     continue
+                self.edges.add((self.local["entity"][e], target))
                 self.rows["entity_prototype"].append(
                     {
                         "entity_id": self.local["entity"][e],
@@ -722,6 +759,9 @@ class _Planner:
                 {"tenant_id": tenant_id, "knower_entity_id": target, "information_id": known}
             )
 
+        if only is None:
+            self._plan_attachments(step)
+
         if record_copy:
             self.rows["repository_copy"].append(
                 {
@@ -731,6 +771,34 @@ class _Planner:
                     "copied_by": user_id,
                 }
             )
+
+    def _plan_attachments(self, step: Step) -> None:
+        """Plans the parents the repository added to its copies of other rows
+        (ADR 0172), after its own rows, so a parent that is the repository's own
+        entity is found among the ones this step copies. Each end is found through
+        the origin it shares with the tenant's own copy, and one that isn't here is
+        dropped and reported, as any row whose target is missing is."""
+        c = step.content
+        assert c is not None
+        for a in attachments_of(c):
+            child = self._local(c, "entity", a.child)
+            if child is None:
+                step.dropped.append(
+                    Dropped("attachment", a.child_source_id, "the item it attaches to isn't here")
+                )
+                continue
+            parent = self._local(c, "entity", a.parent)
+            if parent is None:
+                step.dropped.append(
+                    Dropped("attachment", a.child_source_id, "the prototype it attaches isn't here")
+                )
+                continue
+            edge = (child, parent) not in self.edges
+            self.edges.add((child, parent))
+            self.attachments.append(
+                PlannedAttachment(step, child, parent, a.child_source_id, a.parent_source_id, edge)
+            )
+            step.attachments += edge
 
     def _link(
         self,
@@ -794,6 +862,7 @@ async def plan_copy(
         planner.plan_step(step)
     plan.collisions = planner.collisions
     plan.rows = planner.rows
+    plan.attachments = planner.attachments
     for definition_id, values in planner.enum_additions.items():
         for value in sorted(values):
             plan.rows["stat_definition_enum_value"].append(
@@ -855,6 +924,48 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
                 insert(model),
                 [{local if k == "local_id" else k: v for k, v in r.items()} for r in rows[key]],
             )
+
+
+async def write_attachments(
+    session: AsyncSession, tenant_id: uuid.UUID, attachments: list[PlannedAttachment]
+) -> list[PlannedAttachment]:
+    """Writes attachment edges, one at a time and each in a savepoint, because
+    `entity_prototype`'s trigger refuses a loop (ADR 0015) with a prototype the
+    tenant has of its own. Records a link for every attachment taken, the edge
+    written here or already there (ADR 0172). Returns the ones refused, which have
+    neither."""
+    refused: list[PlannedAttachment] = []
+    refused_pairs: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    links: list[dict[str, Any]] = []
+    for a in attachments:
+        if (a.child, a.parent) in refused_pairs:
+            refused.append(a)
+            continue
+        if a.edge:
+            try:
+                async with session.begin_nested():
+                    await session.execute(
+                        insert(EntityPrototype).values(
+                            entity_id=a.child, prototype_id=a.parent, tenant_id=tenant_id
+                        )
+                    )
+            except DBAPIError:
+                refused.append(a)
+                refused_pairs.add((a.child, a.parent))
+                continue
+        links.append(
+            {
+                "tenant_id": tenant_id,
+                "source_tenant_id": a.step.repository_id,
+                "child_source_id": a.child_source_id,
+                "parent_source_id": a.parent_source_id,
+            }
+        )
+    if links:
+        await session.execute(
+            pg_insert(RepositoryCopyLinkAttachment).on_conflict_do_nothing(), links
+        )
+    return refused
 
 
 async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> None:
@@ -933,6 +1044,9 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
             collisions=[c.as_json() for c in plan.collisions],
         )
     await write_rows(session, plan.rows)
+    for a in await write_attachments(session, plan.tenant_id, plan.attachments):
+        a.step.attachments -= a.edge
+        a.step.dropped.append(Dropped("attachment", a.child_source_id, LOOP_REASON))
     await check_formula_cycles(session, plan.tenant_id)
     for step in plan.to_copy:
         await record_activity(
@@ -945,7 +1059,7 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
             detail=(
                 f"entities={step.entities},stat_groups={step.stat_groups},"
                 f"stat_definitions={step.stat_definitions},information={step.information},"
-                f"dropped={len(step.dropped)}"
+                f"attachments={step.attachments},dropped={len(step.dropped)}"
             ),
         )
 
@@ -980,7 +1094,9 @@ async def forget_copy(
     """Drops the tenant's copy record and links for a repository, so it can
     be copied afresh. With `purge`, first deletes the rows the copy
     created - entities, and groups and definitions linked as `copied` -
-    and counts what of the tenant's own goes with them. Doesn't commit."""
+    and counts what of the tenant's own goes with them, the parents the
+    repository's attachments gave to other rows included (ADR 0172). Doesn't
+    commit."""
     t = tenant_id
 
     async def local_ids(model: Any, column: Any, copied_only: bool) -> set[uuid.UUID]:
@@ -999,8 +1115,35 @@ async def forget_copy(
         RepositoryCopyLinkStatDefinition, RepositoryCopyLinkStatDefinition.stat_definition_id, True
     )
     previous = Previous("purge" if purge else "keep", len(entities), len(groups), len(definitions))
+    links = await load_links(session, t)
+    pairs = sorted(links.attachments.get(repository_id, ()))
 
     if purge:
+        # The edges the attachments recorded that no deleted row takes with it. One
+        # whose parent a purge deletes goes with that entity, and is counted below
+        # as it always was. A parent that isn't a copy is the tenant's own row, which
+        # the repository copied from it (ADR 0120): its origin is its id.
+        local_entities = links.local_of("entity")
+        recorded = [
+            (local_entities.get(child, child), local_entities.get(parent, parent))
+            for child, parent in pairs
+        ]
+        attached_edges = (
+            [
+                (child, parent)
+                for child, parent in await session.execute(
+                    select(EntityPrototype.entity_id, EntityPrototype.prototype_id).where(
+                        EntityPrototype.tenant_id == t,
+                        tuple_(EntityPrototype.entity_id, EntityPrototype.prototype_id).in_(
+                            recorded
+                        ),
+                    )
+                )
+                if child not in entities and parent not in entities
+            ]
+            if recorded
+            else []
+        )
         # The tenant's own definitions inside a purged group go with it.
         own_definitions = set(
             await session.scalars(
@@ -1063,6 +1206,7 @@ async def forget_copy(
                 EntityPrototype.prototype_id.in_(entities),
                 EntityPrototype.entity_id.not_in(entities),
             ),
+            "attachment": len(attached_edges),
             "containment": await _count(
                 session,
                 Containment,
@@ -1101,6 +1245,27 @@ async def forget_copy(
         # formulas reading a purged definition go first; everything else
         # cascades from the rows themselves.
         await session.execute(delete(ComputedStat).where(own_formulas, uses_definition))
+        if attached_edges:
+            await session.execute(
+                delete(EntityPrototype).where(
+                    EntityPrototype.tenant_id == t,
+                    tuple_(EntityPrototype.entity_id, EntityPrototype.prototype_id).in_(
+                        attached_edges
+                    ),
+                )
+            )
+        if pairs:
+            # Another repository that attached the same parent has lost it too,
+            # and its next update offers it again (ADR 0172).
+            await session.execute(
+                delete(RepositoryCopyLinkAttachment).where(
+                    RepositoryCopyLinkAttachment.tenant_id == t,
+                    tuple_(
+                        RepositoryCopyLinkAttachment.child_source_id,
+                        RepositoryCopyLinkAttachment.parent_source_id,
+                    ).in_(pairs),
+                )
+            )
         await session.execute(delete(Entity).where(Entity.tenant_id == t, Entity.id.in_(entities)))
         await session.execute(
             delete(StatDefinition).where(
@@ -1115,6 +1280,7 @@ async def forget_copy(
         RepositoryCopyLinkEntity,
         RepositoryCopyLinkStatGroup,
         RepositoryCopyLinkStatDefinition,
+        RepositoryCopyLinkAttachment,
     ):
         await session.execute(
             delete(model).where(model.tenant_id == t, model.source_tenant_id == repository_id)

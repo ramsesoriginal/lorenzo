@@ -43,6 +43,7 @@ from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
 from lorenzo_api.models.repository_copy import (
     RepositoryCopy,
+    RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
@@ -106,6 +107,7 @@ __all__ = [
     "Player",
     "ProfilePicture",
     "RepositoryCopy",
+    "RepositoryCopyLinkAttachment",
     "RepositoryCopyLinkEntity",
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",

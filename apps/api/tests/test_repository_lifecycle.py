@@ -103,6 +103,7 @@ async def test_authoring_contributions_and_dry_runs(
             "stat_groups_merged": 0,
             "stat_definitions_copied": 1,
             "stat_definitions_merged": 0,
+            "attachments": 0,
         }
         rows = (await gm.get(f"{url}/contributions", params={"kind": "entity"})).json()["items"]
         assert sorted(r["name"] for r in rows) == ["Elminster", "Harpers", "Longsword", "Sword"]

@@ -1,4 +1,5 @@
-"""Repository updates and re-sync - ADR 0121.
+"""Repository updates and re-sync - ADR 0121, and the parents a repository added to
+its copies, which travel the same way (ADR 0172).
 
 Every copy link holds a snapshot of what was copied, in origin ids (ADR
 0119). An update compares three versions of each copied row: that
@@ -42,6 +43,7 @@ from lorenzo_api.models import (
     EntityStatGroup,
     Item,
     RepositoryCopy,
+    RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
@@ -55,6 +57,7 @@ from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
     Namer,
+    attachments_of,
     entity_snapshot,
     index_entities,
     load_content,
@@ -63,11 +66,14 @@ from lorenzo_api.repository_content import (
     stat_group_snapshot,
 )
 from lorenzo_api.repository_copying import (
+    LOOP_REASON,
     Collision,
+    PlannedAttachment,
     Resolution,
     Step,
     _Planner,
     check_formula_cycles,
+    write_attachments,
     write_rows,
 )
 
@@ -141,12 +147,38 @@ class Added:
 
 
 @dataclass
+class AttachmentRef:
+    """A parent the repository added to one of its copies (ADR 0172), with both
+    ends named by origin and by this tenant's own row for them. `reason` is why an
+    added one can't be taken yet."""
+
+    child_source_id: uuid.UUID
+    child_local_id: uuid.UUID | None
+    child_name: str
+    parent_source_id: uuid.UUID
+    parent_local_id: uuid.UUID | None
+    parent_name: str
+    reason: str | None = None
+
+    @property
+    def applicable(self) -> bool:
+        return self.reason is None
+
+    @property
+    def pair(self) -> tuple[uuid.UUID, uuid.UUID]:
+        return (self.child_source_id, self.parent_source_id)
+
+
+@dataclass
 class Updates:
     repository_id: uuid.UUID
     changed: list[RowChange] = field(default_factory=list)
     removed: list[RowRef] = field(default_factory=list)
     deleted_locally: list[RowRef] = field(default_factory=list)
     added: list[Added] = field(default_factory=list)
+    attachments_added: list[AttachmentRef] = field(default_factory=list)
+    attachments_removed: list[AttachmentRef] = field(default_factory=list)
+    attachments_deleted_locally: list[AttachmentRef] = field(default_factory=list)
     upstream: Content | None = None
     local: Content | None = None
 
@@ -321,7 +353,76 @@ async def compute_updates(
                     repository_id, "slug", row_id, upstream.slugs[row_id], None, ["rename", "skip"]
                 )
             updates.added.append(Added(kind, row_id, name, collision))
+    _find_attachment_updates(updates, tenant_id=tenant_id)
     return updates
+
+
+def _local_entity(
+    upstream: Content, local: Content, tenant_id: uuid.UUID, origin: uuid.UUID
+) -> uuid.UUID | None:
+    """The tenant's own row for an entity named by origin: its copy, or the
+    tenant's own row that the repository copied from it (ADR 0120)."""
+    row = local.links.local_of("entity").get(origin)
+    if row is None and upstream.links.origin_tenant.get(origin) == tenant_id:
+        return origin if origin in local.entities else None
+    return row
+
+
+def _find_attachment_updates(updates: Updates, *, tenant_id: uuid.UUID) -> None:
+    """The attachments the repository has now against the ones this tenant took
+    (ADR 0172). Added: it has one the tenant took no record of, which includes one
+    a copy dropped for want of an end. Removed: the tenant took one it no longer
+    has. Deleted locally: the tenant took one, and removed its edge, both rows
+    still here. A removed one that is also gone from the tenant is only removed."""
+    upstream, local = updates.upstream, updates.local
+    assert upstream is not None and local is not None
+    theirs = {a.pair: a for a in attachments_of(upstream)}
+    taken = local.links.attachments.get(updates.repository_id, set())
+    edges = set(local.prototypes)
+    known = {upstream.origin("entity", e): name for e, name in upstream.entities.items()}
+
+    def name(origin: uuid.UUID, row: uuid.UUID | None) -> str:
+        if row is not None:
+            return local.entities[row]
+        snapshot = local.links.snapshots.get(origin)
+        return str(snapshot.get("name", "")) if snapshot else known.get(origin, "")
+
+    def ref(pair: tuple[uuid.UUID, uuid.UUID]) -> AttachmentRef:
+        child_source, parent_source = pair
+        child = _local_entity(upstream, local, tenant_id, child_source)
+        parent = _local_entity(upstream, local, tenant_id, parent_source)
+        return AttachmentRef(
+            child_source,
+            child,
+            name(child_source, child),
+            parent_source,
+            parent,
+            name(parent_source, parent),
+        )
+
+    def order(refs: list[AttachmentRef]) -> list[AttachmentRef]:
+        return sorted(refs, key=lambda r: (r.child_name, r.parent_name, str(r.pair)))
+
+    for pair in theirs.keys() - taken:
+        added = ref(pair)
+        if added.child_local_id is None:
+            added.reason = "the item it attaches to isn't here"
+        elif added.parent_local_id is None:
+            added.reason = "the prototype it attaches isn't here"
+        updates.attachments_added.append(added)
+    for pair in taken - theirs.keys():
+        updates.attachments_removed.append(ref(pair))
+    for pair in taken & theirs.keys():
+        both = ref(pair)
+        if (
+            both.child_local_id is not None
+            and both.parent_local_id is not None
+            and (both.child_local_id, both.parent_local_id) not in edges
+        ):
+            updates.attachments_deleted_locally.append(both)
+    updates.attachments_added = order(updates.attachments_added)
+    updates.attachments_removed = order(updates.attachments_removed)
+    updates.attachments_deleted_locally = order(updates.attachments_deleted_locally)
 
 
 # --- Applying ----------------------------------------------------------------------
@@ -346,10 +447,23 @@ class NotApplied:
 
 
 @dataclass
+class AttachmentAction:
+    child_source_id: uuid.UUID
+    parent_source_id: uuid.UUID
+    action: Literal["add", "detach"]
+
+    @property
+    def pair(self) -> tuple[uuid.UUID, uuid.UUID]:
+        return (self.child_source_id, self.parent_source_id)
+
+
+@dataclass
 class ApplyResult:
     applied: int = 0
     added: int = 0
     detached: int = 0
+    attachments_added: int = 0
+    attachments_detached: int = 0
     not_applied: list[NotApplied] = field(default_factory=list)
 
 
@@ -703,13 +817,24 @@ async def apply_updates(
     repository_id: uuid.UUID,
     user_id: uuid.UUID,
     actions: list[UpdateAction],
+    attachments: list[AttachmentAction] | None = None,
 ) -> ApplyResult:
-    """Applies the listed actions in one transaction (doesn't commit)."""
+    """Applies the listed actions in one transaction (doesn't commit), then the
+    listed attachments (ADR 0172), which can point at a row an action added."""
     updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
     assert updates.local is not None and updates.upstream is not None
     changed = {(c.kind, c.source_id): c for c in updates.changed}
     removed = {(r.kind, r.source_id): r for r in updates.removed}
     added = {(a.kind, a.source_id): a for a in updates.added}
+    attachments = attachments or []
+    attaching = {a.pair: a for a in updates.attachments_added}
+    detaching = {a.pair: a for a in updates.attachments_removed}
+    for attachment in attachments:
+        if attachment.pair not in (attaching if attachment.action == "add" else detaching):
+            raise InvalidRepositoryUpdateError(
+                detail=f"The attachment of {attachment.parent_source_id} to "
+                f"{attachment.child_source_id} has nothing to {attachment.action}"
+            )
 
     unnamed: list[dict[str, Any]] = []
     for action in actions:
@@ -773,6 +898,8 @@ async def apply_updates(
             )
             result.applied += 1
 
+    await _attach(session, updates, tenant_id, local, attachments, result)
+
     await session.execute(
         update(RepositoryCopy)
         .where(
@@ -794,10 +921,79 @@ async def apply_updates(
         target_id=repository_id,
         detail=(
             f"applied={result.applied},added={result.added},detached={result.detached},"
+            f"attachments_added={result.attachments_added},"
+            f"attachments_detached={result.attachments_detached},"
             f"not_applied={len(result.not_applied)}"
         ),
     )
     return result
+
+
+async def _attach(
+    session: AsyncSession,
+    updates: Updates,
+    tenant_id: uuid.UUID,
+    local: Content,
+    attachments: list[AttachmentAction],
+    result: ApplyResult,
+) -> None:
+    """Takes and detaches the listed attachments (ADR 0172). `local` is the
+    tenant's content with the rows this call added in it. An attachment whose end
+    isn't here, or that would make a prototype loop, is `not_applied` and keeps
+    being offered."""
+    assert updates.upstream is not None
+    step = Step(
+        repository_id=updates.repository_id,
+        name="",
+        granted=True,
+        published=True,
+        already_copied=True,
+    )
+    planned: list[PlannedAttachment] = []
+    for attachment in attachments:
+        child_source, parent_source = attachment.pair
+        if attachment.action == "detach":
+            await session.execute(
+                delete(RepositoryCopyLinkAttachment).where(
+                    RepositoryCopyLinkAttachment.tenant_id == tenant_id,
+                    RepositoryCopyLinkAttachment.source_tenant_id == updates.repository_id,
+                    RepositoryCopyLinkAttachment.child_source_id == child_source,
+                    RepositoryCopyLinkAttachment.parent_source_id == parent_source,
+                )
+            )
+            result.attachments_detached += 1
+            continue
+        child = _local_entity(updates.upstream, local, tenant_id, child_source)
+        parent = _local_entity(updates.upstream, local, tenant_id, parent_source)
+        if child is None or parent is None:
+            reason = (
+                "the item it attaches to isn't here"
+                if child is None
+                else "the prototype it attaches isn't here"
+            )
+            result.not_applied.append(NotApplied("attachment", child_source, "prototypes", reason))
+            continue
+        edge = not await session.scalar(
+            select(func.count())
+            .select_from(EntityPrototype)
+            .where(
+                EntityPrototype.tenant_id == tenant_id,
+                EntityPrototype.entity_id == child,
+                EntityPrototype.prototype_id == parent,
+            )
+        )
+        planned.append(PlannedAttachment(step, child, parent, child_source, parent_source, edge))
+    refused = {
+        (a.child_source_id, a.parent_source_id)
+        for a in await write_attachments(session, tenant_id, planned)
+    }
+    for a in planned:
+        if (a.child_source_id, a.parent_source_id) in refused:
+            result.not_applied.append(
+                NotApplied("attachment", a.child_source_id, "prototypes", LOOP_REASON)
+            )
+        else:
+            result.attachments_added += 1
 
 
 async def _add(

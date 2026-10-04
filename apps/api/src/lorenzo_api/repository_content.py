@@ -47,6 +47,7 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     RepositoryCopy,
+    RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
@@ -126,6 +127,11 @@ class Links:
     deleted: dict[str, set[uuid.UUID]] = field(default_factory=lambda: defaultdict(set))
     snapshots: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     copies: set[uuid.UUID] = field(default_factory=set)
+    # The attachments taken from each repository (ADR 0172), as (child origin
+    # id, parent origin id) pairs, by the repository's tenant id.
+    attachments: dict[uuid.UUID, set[tuple[uuid.UUID, uuid.UUID]]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
 
     def local_of(self, kind: str) -> dict[uuid.UUID, uuid.UUID]:
         """Origin id -> local id, for one kind."""
@@ -198,6 +204,14 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
             select(RepositoryCopy.repository_tenant_id).where(RepositoryCopy.tenant_id == tenant_id)
         )
     )
+    for source_tenant, child, parent in await session.execute(
+        select(
+            RepositoryCopyLinkAttachment.source_tenant_id,
+            RepositoryCopyLinkAttachment.child_source_id,
+            RepositoryCopyLinkAttachment.parent_source_id,
+        ).where(RepositoryCopyLinkAttachment.tenant_id == tenant_id)
+    ):
+        links.attachments[source_tenant].add((child, parent))
     return links
 
 
@@ -423,6 +437,45 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     ]
     c.links = await load_links(session, t)
     return c
+
+
+# --- Attachments (ADR 0172) --------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Attachment:
+    """A parent a repository added to an entity it holds a copy of. `child` and
+    `parent` are the repository's own ids for the two entities; the `_source_id`s
+    are their origins, which is how any tenant that copies the repository finds its
+    own rows for them (ADR 0120)."""
+
+    child: uuid.UUID
+    parent: uuid.UUID
+    child_source_id: uuid.UUID
+    parent_source_id: uuid.UUID
+
+    @property
+    def pair(self) -> tuple[uuid.UUID, uuid.UUID]:
+        return (self.child_source_id, self.parent_source_id)
+
+
+def attachments_of(content: Content) -> list[Attachment]:
+    """The attachments of a tenant that holds copies: every parent one of its
+    copied entities has now that the copy link's snapshot, taken when it was
+    copied or last synced, does not list. The snapshot names parents by origin, so
+    whose edge it is needs no guessing: what arrived with the copy is in it, and
+    what is beyond it was added here. A parent removed from a copy is no
+    attachment, and an entity of the tenant's own has parents, not attachments."""
+    found: list[Attachment] = []
+    for child, parent in content.prototypes:
+        if content.own("entity", child):
+            continue
+        child_source = content.origin("entity", child)
+        parent_source = content.origin("entity", parent)
+        listed = content.links.snapshots.get(child_source, {}).get("prototypes", [])
+        if str(parent_source) not in listed:
+            found.append(Attachment(child, parent, child_source, parent_source))
+    return sorted(found, key=lambda a: (str(a.child_source_id), str(a.parent_source_id)))
 
 
 # --- Snapshots ---------------------------------------------------------------

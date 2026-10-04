@@ -35,6 +35,31 @@ class AdminUserOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class AttachmentActionName(StrEnum):
+    add = "add"
+    detach = "detach"
+
+
+class AttachmentAddedOut(BaseModel):
+    child_source_id: UUID = Field(..., title="Child Source Id")
+    child_local_id: UUID | None = Field(..., title="Child Local Id")
+    child_name: str = Field(..., title="Child Name")
+    parent_source_id: UUID = Field(..., title="Parent Source Id")
+    parent_local_id: UUID | None = Field(..., title="Parent Local Id")
+    parent_name: str = Field(..., title="Parent Name")
+    applicable: bool = Field(..., title="Applicable")
+    reason: str | None = Field(..., title="Reason")
+
+
+class AttachmentRefOut(BaseModel):
+    child_source_id: UUID = Field(..., title="Child Source Id")
+    child_local_id: UUID | None = Field(..., title="Child Local Id")
+    child_name: str = Field(..., title="Child Name")
+    parent_source_id: UUID = Field(..., title="Parent Source Id")
+    parent_local_id: UUID | None = Field(..., title="Parent Local Id")
+    parent_name: str = Field(..., title="Parent Name")
+
+
 class AuditLogEntryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     actor_id: UUID | None = Field(..., title="Actor Id")
@@ -276,6 +301,7 @@ class ContributionCountsOut(BaseModel):
     stat_groups_merged: int = Field(..., title="Stat Groups Merged")
     stat_definitions_copied: int = Field(..., title="Stat Definitions Copied")
     stat_definitions_merged: int = Field(..., title="Stat Definitions Merged")
+    attachments: int = Field(..., title="Attachments")
 
 
 class Kind4(StrEnum):
@@ -1095,7 +1121,15 @@ class ApplyUpdatesOut(BaseModel):
     applied: int = Field(..., title="Applied")
     added: int = Field(..., title="Added")
     detached: int = Field(..., title="Detached")
+    attachments_added: int = Field(..., title="Attachments Added")
+    attachments_detached: int = Field(..., title="Attachments Detached")
     not_applied: list[NotAppliedOut] = Field(..., title="Not Applied")
+
+
+class AttachmentActionIn(BaseModel):
+    child_source_id: UUID = Field(..., title="Child Source Id")
+    parent_source_id: UUID = Field(..., title="Parent Source Id")
+    action: AttachmentActionName
 
 
 class BulkMembershipResultItem(BaseModel):
@@ -1155,6 +1189,7 @@ class CopyStepOut(BaseModel):
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
     information: int = Field(..., title="Information")
+    attachments: int = Field(..., title="Attachments")
     dropped: list[DroppedOut] = Field(..., title="Dropped")
 
 
@@ -1482,10 +1517,16 @@ class UpdatesOut(BaseModel):
     removed: list[RowRefOut] = Field(..., title="Removed")
     deleted_locally: list[RowRefOut] = Field(..., title="Deleted Locally")
     added: list[AddedOut] = Field(..., title="Added")
+    attachments_added: list[AttachmentAddedOut] = Field(..., title="Attachments Added")
+    attachments_removed: list[AttachmentRefOut] = Field(..., title="Attachments Removed")
+    attachments_deleted_locally: list[AttachmentRefOut] = Field(
+        ..., title="Attachments Deleted Locally"
+    )
 
 
 class ApplyUpdatesRequest(BaseModel):
     actions: list[UpdateActionIn] = Field(..., title="Actions")
+    attachments: list[AttachmentActionIn] | None = Field(None, title="Attachments")
     dry_run: bool | None = Field(None, title="Dry Run")
 
 

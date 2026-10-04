@@ -99,3 +99,14 @@ At the API, with a real Postgres, in the style of the existing repository tests:
 - **A bridge's author has a new power over subscribers' items**, to add a parent to an item the subscriber copied from somebody else. It is bounded the way any bridge row is: it arrives by copy or by an update the tenant applies, it is shown first in a plan or a diff, and it adds a prototype and nothing else.
 - **A parent the dependency later adds on its own** turns a bridge's attachment into a no-op that is offered as `removed`, to be detached. That is accurate and a little noisy.
 - **ADR 0119, 0120 and 0121 and RFC 0024 A8 carry addenda** pointing here.
+
+## Addendum: as built
+
+What the implementation settled where the text above left room, recorded the way the earlier repository ADRs record theirs:
+
+- **A loop is found when the edge is written**, so `copy-plan` counts an attachment that would loop as planned, and a dry run, which writes and rolls back, shows it dropped. The savepoints above are the only check.
+- **`ApplyUpdatesRequest.attachments` is optional** and applied after `actions`, so one can point at a row an action added. One with nothing to add or detach is refused with `422`, like any action. Its `action` is a named type, `AttachmentActionName`, so the generated clients keep naming the other actions as they did.
+- **An `added` attachment lists whether it can be applied now.** One whose end is a row not taken yet is `applicable: false` with its reason, and is applied together with that row in one call.
+- **A purge also forgets other repositories' links for the same pair**, which is what makes "the other's next update offers it again" so: with the edge gone and their link kept, they would have shown it as deleted locally instead. `also_removed["attachment"]` counts only the edges that no deleted row takes with it; one whose parent the purge deletes is counted as `entity_prototype`, as before.
+- **The attachment table is read like the other copy-link tables when loading a tenant's links**, and no repository's own rows are ever read from it: it has no gated-read policy, which the classification test checks.
+- **A parent the dependency adds that the bridge had already attached** is not a change to take: ADR 0121 shows nothing for a set whose change the local copy already has, so the copy link's snapshot is not refreshed and the pair stays the bridge's attachment, rather than becoming a removed one to detach as "A parent the dependency adds later" above has it. A table gets one edge and a record for each, so nothing doubles; the noise is one attachment that stays offered.
