@@ -14,7 +14,7 @@ The last is not only a display. What a repository attaches is what its own copy 
 
 ### The API: a repository's own attachments
 
-```
+```text
 GET /tenants/{tenant_id}/attachments
 ```
 
