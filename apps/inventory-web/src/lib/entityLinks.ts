@@ -10,7 +10,21 @@ export type EntityReference = Extract<Reference, EntityRef>;
 type Kind = ResolvedSlug['kinds'][number];
 
 type View = { kind: Kind; page: string; href: (tenantId: string, entityId: string) => string };
-const itemPage: View['href'] = (t, id) => `/item/?tenant=${t}&id=${id}`;
+
+/**
+ * The standalone page of an item or instance in `tenant` (an id or a slug), named by its slug
+ * when it has one, else by its id.
+ */
+export function itemPageHref(
+  tenant: string,
+  item: { entity_id: string; slug?: string | null },
+): string {
+  const named = item.slug ? `slug=${encodeURIComponent(item.slug)}` : `id=${item.entity_id}`;
+
+  return `/item/?tenant=${encodeURIComponent(tenant)}&${named}`;
+}
+
+const itemPage: View['href'] = (t, id) => itemPageHref(t, { entity_id: id });
 const board: View['href'] = (t, id) => `/board/?tenant=${t}&character=${id}`;
 
 // The pages an entity can open in, in the order a link without a usable

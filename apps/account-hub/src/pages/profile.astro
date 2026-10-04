@@ -54,6 +54,7 @@ import Base from '../layouts/Base.astro';
   </form>
 
   <script>
+    import { errorMessage } from '../lib/errorMessage';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
     import { localesToText, textOrNull, textToLocales } from '../lib/format';
@@ -108,7 +109,7 @@ import Base from '../layouts/Base.astro';
         populate(me);
         pictureStatus.textContent = 'Removed.';
       } catch (e) {
-        pictureStatus.textContent = e instanceof Error ? e.message : String(e);
+        pictureStatus.textContent = errorMessage(e);
       }
     });
 
@@ -123,7 +124,7 @@ import Base from '../layouts/Base.astro';
         populate(me);
         pictureStatus.textContent = 'Updated.';
       } catch (e) {
-        pictureStatus.textContent = e instanceof Error ? e.message : String(e);
+        pictureStatus.textContent = errorMessage(e);
       } finally {
         pictureInput.value = '';
       }
@@ -168,7 +169,7 @@ import Base from '../layouts/Base.astro';
         populate(me);
         saveStatus.textContent = 'Saved.';
       } catch (e) {
-        saveStatus.textContent = e instanceof Error ? e.message : String(e);
+        saveStatus.textContent = errorMessage(e);
       }
     });
 
@@ -186,7 +187,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
   </script>

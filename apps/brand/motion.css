@@ -61,6 +61,14 @@
   }
 }
 
+/* A skeleton standing in for a .list row: no border, and the height its text would give a real
+   one. The background is repeated because .list > li's own would otherwise win. */
+.list > li.skeleton {
+  border-color: transparent;
+  background: var(--fill-soft);
+  height: 40px;
+}
+
 @keyframes brand-skeleton-pulse {
   0%,
   100% {

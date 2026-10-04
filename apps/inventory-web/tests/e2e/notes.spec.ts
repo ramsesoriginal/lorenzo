@@ -71,6 +71,30 @@ test("a player's note is private: her character's players and the GMs read it", 
   await expect(information.getByText('note · Private')).toBeVisible();
 });
 
+test("fetches a card's notes once the pointer rests on it, and not again on the click", async ({
+  world,
+  as,
+}) => {
+  const { spellbook } = await packed(world, world.pia);
+  const pia = await as(world.pia);
+  const asked: string[] = [];
+  pia.on('request', (request) => {
+    if (request.url().includes(`/entities/${spellbook}/information`)) asked.push(request.url());
+  });
+  await pia.goto(`/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`);
+  const card = pia
+    .getByRole('region', { name: 'Backpack' })
+    .getByRole('button', { name: 'Ornate Spellbook' });
+
+  await card.hover();
+  await expect.poll(() => asked.length).toBeGreaterThan(0);
+  const before = asked.length;
+
+  await card.click();
+  await expect(notes(pia).getByText('No notes yet.')).toBeVisible();
+  expect(asked).toHaveLength(before);
+});
+
 test('a note everyone can read', async ({ world, as }) => {
   const { spellbook } = await packed(world, world.pia);
   const pia = await as(world.pia);

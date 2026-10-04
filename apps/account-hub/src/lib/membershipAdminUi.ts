@@ -1,3 +1,5 @@
+import { createStatusSpan } from './dom';
+import { errorMessage } from './errorMessage';
 // Tenant-level membership management + bulk invite - RFC 0017 (e).
 // Distinct from campaignAdminUi.ts/gmAndPlayerUi.ts's campaign-scoped GM/
 // player management: this is tenant-wide owner/orga role administration.
@@ -37,9 +39,7 @@ function renderMembershipList(
     item.append(nameEl);
 
     const roleSelect = renderRoleSelect(membership.role as 'owner' | 'orga');
-    const status = document.createElement('span');
-    status.className = 'status-text';
-    status.setAttribute('role', 'status');
+    const status = createStatusSpan();
     roleSelect.addEventListener('change', async () => {
       status.textContent = 'Saving…';
       try {
@@ -48,7 +48,7 @@ function renderMembershipList(
         });
         onChanged();
       } catch (e) {
-        status.textContent = e instanceof Error ? e.message : String(e);
+        status.textContent = errorMessage(e);
       }
     });
     item.append(roleSelect);
@@ -62,7 +62,7 @@ function renderMembershipList(
         await deleteMembership(tenant.id, membership.user_id);
         onChanged();
       } catch (e) {
-        status.textContent = e instanceof Error ? e.message : String(e);
+        status.textContent = errorMessage(e);
       }
     });
     item.append(removeButton, status);
@@ -75,15 +75,13 @@ function renderMembershipList(
 function renderInviteForm(tenant: TenantSummaryOut, onChanged: () => void): HTMLElement {
   const container = document.createElement('div');
   const label = document.createElement('p');
-  label.textContent = 'Invite a tenant admin:';
+  label.textContent = 'Invite a library admin:';
   container.append(label);
 
   const roleSelect = renderRoleSelect('orga');
   container.append(roleSelect);
 
-  const status = document.createElement('span');
-  status.className = 'status-text';
-  status.setAttribute('role', 'status');
+  const status = createStatusSpan();
   container.append(status);
 
   mountUserPicker(container, async (user) => {
@@ -96,7 +94,7 @@ function renderInviteForm(tenant: TenantSummaryOut, onChanged: () => void): HTML
       status.textContent = '';
       onChanged();
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
 
@@ -119,9 +117,7 @@ function renderBulkInviteForm(tenant: TenantSummaryOut, onChanged: () => void): 
     row.className = 'inline-form';
     const roleSelect = renderRoleSelect('orga');
     row.append(roleSelect);
-    const rowStatus = document.createElement('span');
-    rowStatus.className = 'status-text';
-    rowStatus.setAttribute('role', 'status');
+    const rowStatus = createStatusSpan();
     row.append(rowStatus);
 
     mountUserPicker(row, (user) => {
@@ -178,7 +174,7 @@ export function renderMembershipAdmin(
   const section = document.createElement('div');
   section.className = 'panel';
   const heading = document.createElement('h3');
-  heading.textContent = 'Tenant admins';
+  heading.textContent = 'Library admins';
   section.append(heading);
   section.append(renderMembershipList(tenant, memberships, onChanged));
   section.append(renderInviteForm(tenant, onChanged));

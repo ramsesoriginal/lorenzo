@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — scrolling</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html">Full width</a>
+          <a href="scrolling.html" aria-current="page">Scrolling</a>
+          <a href="item.html">Item</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Scrolling</h1>
+        <p class="lede">
+          Two small helpers for a flex <code>.row</code> that holds a growing
+          panel, and a pair that lets a long list scroll inside the page instead
+          of making it longer.
+        </p>
+
+        <section class="section">
+          <h2>Grow</h2>
+          <p>
+            <code>.grow</code> takes whatever space is left in a
+            <code>.row</code>, so a label and its actions stay at the ends and
+            the middle stretches.
+          </p>
+          <ul class="list">
+            <li>
+              <div class="row grow">
+                <strong>Longsword</strong>
+                <span class="grow"></span>
+                <a class="btn btn-secondary" href="#">View</a>
+                <button type="button">Edit</button>
+              </div>
+            </li>
+            <li>
+              <div class="row grow">
+                <strong>Brass astrolabe</strong>
+                <span class="pill pill-success">Public</span>
+                <span class="grow"></span>
+                <a class="btn btn-secondary" href="#">View</a>
+                <button type="button">Edit</button>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <section class="section-lg">
+          <h2>Sticky top</h2>
+          <p>
+            A <code>.row</code> centers its items, so when one of them grows
+            taller - an edit panel opening beside the title - the others drift
+            down to the middle. <code>.row.sticky-top</code> keeps them at the
+            top. Without it:
+          </p>
+          <ul class="list">
+            <li>
+              <div class="row grow">
+                <strong>Chain shirt</strong>
+                <div class="grow">
+                  <div class="card card-body stack">
+                    <label class="field">
+                      <span class="field-label">Name</span>
+                      <input
+                        class="text-input"
+                        type="text"
+                        value="Chain shirt"
+                      />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Slug</span>
+                      <input
+                        class="text-input"
+                        type="text"
+                        value="chain-shirt"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <button type="button" class="btn-secondary">Cancel</button>
+              </div>
+            </li>
+          </ul>
+          <p>With it:</p>
+          <ul class="list">
+            <li>
+              <div class="row grow sticky-top">
+                <strong>Chain shirt</strong>
+                <div class="grow">
+                  <div class="card card-body stack">
+                    <label class="field">
+                      <span class="field-label">Name</span>
+                      <input
+                        class="text-input"
+                        type="text"
+                        value="Chain shirt"
+                      />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Slug</span>
+                      <input
+                        class="text-input"
+                        type="text"
+                        value="chain-shirt"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <button type="button" class="btn-secondary">Cancel</button>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <section class="section-lg">
+          <h2>Vertical window and mask</h2>
+          <p>
+            <code>.vertical-window</code> caps a list at 70% of the viewport
+            height and scrolls it. <code>.vertical-mask</code> fades the top
+            edge once something has scrolled out above it, and the bottom edge
+            while more is still below. Browsers without scroll-driven animations
+            show the window, unfaded.
+          </p>
+          <div class="grid" style="--grid-min: 280px">
+            <div class="stack">
+              <h3>Window</h3>
+              <ul class="list vertical-window" style="max-height: 240px">
+                <li>Longsword</li>
+                <li>Chain shirt</li>
+                <li>Potion of healing <span class="badge">×3</span></li>
+                <li>Waterskin</li>
+                <li>Backpack</li>
+                <li>Belt pouch</li>
+                <li>Bedroll</li>
+                <li>Rations <span class="badge">×5</span></li>
+                <li>Hempen rope, 50 ft</li>
+                <li>Gold pieces <span class="badge">×37</span></li>
+                <li>Brass astrolabe</li>
+                <li>Shortbow</li>
+                <li>Arrows <span class="badge">×20</span></li>
+              </ul>
+            </div>
+            <div class="stack">
+              <h3>Window and mask</h3>
+              <ul
+                class="list vertical-window vertical-mask"
+                style="max-height: 240px"
+              >
+                <li>Longsword</li>
+                <li>Chain shirt</li>
+                <li>Potion of healing <span class="badge">×3</span></li>
+                <li>Waterskin</li>
+                <li>Backpack</li>
+                <li>Belt pouch</li>
+                <li>Bedroll</li>
+                <li>Rations <span class="badge">×5</span></li>
+                <li>Hempen rope, 50 ft</li>
+                <li>Gold pieces <span class="badge">×37</span></li>
+                <li>Brass astrolabe</li>
+                <li>Shortbow</li>
+                <li>Arrows <span class="badge">×20</span></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <div class="row" style="padding-inline: var(--space-4)">
+          <span>
+            Part of <code>apps/brand</code> — see
+            <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+          </span>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

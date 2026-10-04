@@ -53,7 +53,7 @@ export function formatWhoamiEmbed(profile: MyProfile): EmbedBuilder {
     name: "Tenant role",
     value: profile.membershipRole
       ? (ROLE_LABELS[profile.membershipRole] ?? profile.membershipRole)
-      : "Player (no tenant-wide admin role)",
+      : "Player (no library-wide admin role)",
   });
 
   embed.addFields({
@@ -67,7 +67,7 @@ export function formatWhoamiEmbed(profile: MyProfile): EmbedBuilder {
   if (profile.gmCampaignCount > 0) {
     embed.addFields({
       name: "GM",
-      value: `GM for ${profile.gmCampaignCount} campaign${profile.gmCampaignCount === 1 ? "" : "s"} (may include campaigns outside this server's own tenant).`,
+      value: `GM for ${profile.gmCampaignCount} campaign${profile.gmCampaignCount === 1 ? "" : "s"} (may include campaigns outside this server's own library).`,
     });
   }
 

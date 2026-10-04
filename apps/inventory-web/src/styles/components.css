@@ -38,33 +38,10 @@
   }
 }
 
-/* Bound to its owner (ADR 0129) - on a card, that's its [data-bound] badge. */
-.item-detail-bound {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.item-card--selected {
-  border-color: var(--action) !important;
-  background: color-mix(in srgb, var(--action) 10%, var(--surface-default)) !important;
-}
-
-/* @lorenzo/brand's motion.css (linked in Base.astro) provides the generic
-   .skeleton treatment (fill-soft background, reduced-motion-respecting
-   pulse) - these two just override what a skeleton needs to look right on
-   top of this app's own bordered card shapes. */
-.item-card.skeleton {
-  border-color: transparent;
-  /* Over .list > li's own background, which would hide the skeleton's. */
-  background: var(--fill-soft);
-  /* A real card's height comes from its text; a skeleton has none. */
-  height: 38px;
-}
-
-.catalog-row.skeleton {
-  border-color: transparent;
-  height: 44px;
+/* Over .list > li's own border and background. */
+.list > .item-card--selected {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 10%, var(--surface-default));
 }
 
 .board-toolbar {
@@ -83,25 +60,10 @@
   color: var(--text-secondary);
 }
 
-.item-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
 .merge-candidates {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-
-/* A bare <dialog> already gets @lorenzo/brand's border/radius/padding/
-   background/shadow/::backdrop defaults - this app's own item-detail
-   dialog only needs to fill that default max-width rather than shrink to
-   its content. */
-.item-detail {
-  width: 100%;
 }
 
 .item-detail-content {
@@ -125,179 +87,6 @@
   color: var(--text-primary);
 }
 
-.item-detail-qty {
-  font-family: var(--font-mono);
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
-.item-detail-stats {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-3);
-  margin: var(--space-3) 0;
-}
-
-.item-detail-stats dt {
-  color: var(--text-tertiary);
-  font-size: 13px;
-}
-
-.item-detail-stats dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-
-/* The item view (ADR 0112), shared by the board's panel and the item page:
-   stat groups, tags, pictures, and descriptions, inherited ones labelled. */
-.item-view {
-  margin: var(--space-3) 0;
-}
-
-.item-view-group {
-  margin: 0;
-}
-
-.item-view-group h3 {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: var(--space-3) 0 0;
-}
-
-.item-view-group .item-detail-stats {
-  margin: var(--space-1) 0 0;
-}
-
-.item-view-tags {
-  margin: var(--space-3) 0;
-}
-
-.item-view-pictures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: var(--space-3) 0;
-}
-
-.item-view-pictures figure {
-  margin: 0;
-}
-
-.item-view-pictures img {
-  display: block;
-  max-width: 240px;
-  max-height: 240px;
-  border-radius: var(--radius-control);
-}
-
-.item-view-source {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin: var(--space-3) 0 var(--space-1);
-}
-
-/* Writing information (ADR 0112): its fields, the tag editor, and the
-   item page's Information list. */
-.info-fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.tag-editor {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.tag-editor-tag {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  border: none;
-  margin: 0;
-  padding: 0;
-}
-
-.tag-editor-tag legend {
-  float: left;
-  min-width: 8rem;
-  font-weight: 600;
-}
-
-.information-list {
-  list-style: none;
-  margin: 0 0 var(--space-3);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.information-row h3 {
-  margin: 0;
-}
-
-.item-detail-ancestry h3 {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: var(--space-3) 0 var(--space-1);
-}
-
-.item-detail-ancestry ul {
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-/* The root <li> is the instance's own direct prototype - set apart from
-   its ancestors, which nest below as their own indented <ul>s. A DAG, not
-   always a clean chain (ADR 0073): an ancestor reachable through two
-   different parents (diamond inheritance) genuinely appears twice, once
-   per real path, rather than being flattened into one misleading line. */
-.item-detail-ancestry > ul > li {
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.item-detail-ancestry ul ul {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-inline-start: var(--space-4);
-  margin-top: var(--space-1);
-  font-weight: 400;
-}
-
-.item-detail-ancestry ul ul li::before {
-  content: "↳ ";
-  color: var(--text-tertiary);
-}
-
-/* Each description is rendered LorenzoScript (ADR 0108), laid out by
-   @lorenzo/brand's .ls-content; only the tone is this app's. */
-.item-detail-descriptions .ls-content {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-/* The item page's description editor: the editor itself is
-   @lorenzo/brand's .ls-editor, this only spaces the form around it. */
-.description-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.description-notes {
-  margin: 0;
-  padding-inline-start: var(--space-4);
-}
-
 .catalog-toolbar {
   max-width: 360px;
 }
@@ -306,48 +95,7 @@
   max-width: 280px;
 }
 
-.catalog-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-3);
-}
-
-.catalog-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface-default);
-}
-
-.catalog-row-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.catalog-row-title {
-  font-size: 15px;
-}
-
-.catalog-row-slug {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.catalog-row-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.character-picker-panel,
-.edit-item-panel {
+.character-picker-panel {
   max-width: 320px;
 }
 
@@ -373,70 +121,10 @@
   margin: 0;
 }
 
-.item-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-width: 480px;
-  margin-top: var(--space-3);
-}
-
-.combobox {
-  position: relative;
-}
-
-.combobox-suggestions {
-  position: absolute;
-  inset-block-start: calc(100% + var(--space-1));
-  inset-inline: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  max-height: 240px;
-  overflow-y: auto;
-  background: var(--surface-default);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-ink) 20%, transparent);
-}
-
-/* Anchor positioning (progressive enhancement): once the browser supports
-   it, the suggestion panel detaches into the top layer's positioning
-   context via its own anchor reference rather than the .combobox wrapper's
-   `position: relative` - same visual result, but no longer clipped by any
-   ancestor's overflow/stacking context (a real fix, not just a flourish,
-   for when this combobox eventually sits inside a scrolling dialog). */
-@supports (anchor-name: --parent-search) {
-  #parent-search {
-    anchor-name: --parent-search;
-  }
-
-  #parent-suggestions {
-    position: fixed;
-    inset-block-start: anchor(--parent-search bottom);
-    inset-inline-start: anchor(--parent-search left);
-    width: anchor-size(--parent-search width);
-    margin-block-start: var(--space-1);
-  }
-}
-
-.combobox-suggestion button {
-  display: block;
-  width: 100%;
-  background: none;
-  color: var(--text-primary);
-  text-align: left;
+/* Each description is rendered LorenzoScript (ADR 0108), laid out by
+   @lorenzo/brand's .ls-content; only the tone is this app's. */
+.item-detail-descriptions .ls-content {
+  color: var(--text-secondary);
   font-size: 14px;
-  border-radius: 0;
-  padding: var(--space-2) var(--space-3);
-}
-
-.combobox-suggestion button:hover {
-  background: var(--fill-soft);
-}
-
-.chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  line-height: 1.6;
 }

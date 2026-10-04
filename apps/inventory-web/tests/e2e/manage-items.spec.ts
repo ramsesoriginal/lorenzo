@@ -15,7 +15,7 @@ const row = (list: Locator, name: string) =>
   list.getByRole('listitem').filter({ has: list.page().getByText(name, { exact: true }) });
 
 const catalogList = (page: Page) =>
-  page.getByRole('region', { name: 'Catalog' }).getByRole('list').first();
+  page.getByRole('region', { name: 'Catalog' }).getByRole('list', { name: 'Catalog items' });
 
 async function entity(world: World, id: string) {
   return ok(
@@ -46,18 +46,62 @@ test('a player gets the public catalog, to look items up, and nothing to change'
   await expect(row(catalogList(page), 'Crown of Ash')).toBeHidden();
   await expect(page.getByRole('region', { name: 'New item' })).toBeHidden();
   await expect(page.getByRole('region', { name: 'Instances' })).toBeHidden();
-  await expect(row(catalogList(page), 'Robe').getByRole('button')).toHaveCount(0);
+  await expect(row(catalogList(page), 'Robe').getByRole('button')).toHaveText(['View']);
 
   await page.getByRole('searchbox', { name: 'Search the item catalog' }).fill('back');
   await expect(row(catalogList(page), 'Robe')).toBeHidden();
-  await row(catalogList(page), 'Backpack').getByRole('link', { name: 'View' }).click();
+  await row(catalogList(page), 'Backpack').getByRole('button', { name: 'View' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Backpack' })).toBeVisible();
+  // A catalog item has no board to act on.
+  await expect(dialog.getByRole('button', { name: 'Give to…' })).toBeHidden();
+  await dialog.getByRole('link', { name: 'View standalone page' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Backpack' })).toBeVisible();
+});
+
+test('opens an item or an instance in the dialog, linking to its page by slug', async ({
+  world,
+  as,
+}) => {
+  const { items, spellbook } = await packed(world, world.pia);
+  await world.slug(items.book, 'book');
+  await world.slug(spellbook, 'ornate-spellbook');
+  const page = await manageItems(as, world);
+  const dialog = page.getByRole('dialog');
+  const link = dialog.getByRole('link', { name: 'View standalone page' });
+
+  await row(catalogList(page), 'Book').getByRole('button', { name: 'View' }).click();
+  // A catalog item's title is marked, an instance's isn't.
+  await expect(dialog.getByRole('heading', { name: 'Book' })).toHaveClass(/canonical-marker/);
+  await expect(link).toHaveAttribute('href', `/item/?tenant=${world.tenantSlug}&slug=book`);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+
+  const instances = page.getByRole('region', { name: 'Instances' });
+  await page.getByRole('combobox', { name: "View a being's inventory" }).fill('Ashf');
+  await instances.getByRole('option').getByRole('button', { name: 'Ashfang' }).click();
+  // Its slug is shown beside its title, so the title alone isn't the row's whole text.
+  await instances
+    .getByRole('listitem')
+    .filter({ hasText: 'Ornate Spellbook' })
+    .getByRole('button', { name: 'View' })
+    .click();
+  await expect(link).toHaveAttribute(
+    'href',
+    `/item/?tenant=${world.tenantSlug}&slug=ornate-spellbook`,
+  );
+  await expect(dialog.getByRole('heading', { name: 'Ornate Spellbook' })).not.toHaveClass(
+    /canonical-marker/,
+  );
+  const ancestry = dialog.getByRole('heading', { name: 'Ancestry' }).locator('..');
+  await expect(ancestry.getByText('Spellbook', { exact: true })).toBeVisible();
+  await expect(ancestry.getByText('Book', { exact: true })).toBeVisible();
 });
 
 test('a GM puts an item in the public catalog, and takes it out again', async ({ world, as }) => {
   const page = await manageItems(as, world);
   const form = page.getByRole('region', { name: 'New item' });
-  await form.getByLabel('Name').fill('Robe');
+  await form.getByLabel('Name', { exact: true }).fill('Robe');
   await form.getByLabel('In the public catalog').check();
   await form.getByRole('button', { name: 'Create item' }).click();
 
@@ -76,7 +120,7 @@ test('a GM puts an item in the public catalog, and takes it out again', async ({
   await expect(robeRow.getByLabel('In the public catalog')).toBeChecked();
   await robeRow.getByLabel('In the public catalog').uncheck();
   await robeRow.getByRole('button', { name: 'Save' }).click();
-  await expect(robeRow.getByLabel('Name')).toBeHidden();
+  await expect(robeRow.getByLabel('Name', { exact: true })).toBeHidden();
   await expect(row(catalogList(page), 'Robe').getByText('Public', { exact: true })).toBeHidden();
   expect((await entity(world, robe?.entity_id as string)).name).toBe('Robe');
   const pia = await as(world.pia);
@@ -89,18 +133,18 @@ test('creates an item with parents, a description, and a display title', async (
   const page = await manageItems(as, world);
   const form = page.getByRole('region', { name: 'New item' });
 
-  await form.getByLabel('Name').fill('Grimoire');
+  await form.getByLabel('Name', { exact: true }).fill('Grimoire');
   // The display title follows the name until it's edited.
-  await expect(form.getByLabel('Display title')).toHaveValue('Grimoire');
-  await form.getByLabel('Search items to inherit from').fill('Spellb');
+  await expect(form.getByLabel('Display name')).toHaveValue('Grimoire');
+  await form.getByLabel('Parents').fill('Spellb');
   await form.getByRole('option').getByRole('button', { name: 'Spellbook', exact: true }).click();
   await expect(form.getByRole('listitem').filter({ hasText: 'Spellbook' })).toBeVisible();
-  await form.getByLabel('Display title').fill('Grimoire of Ash');
+  await form.getByLabel('Display name').fill('Grimoire of Ash');
   await form.getByRole('textbox', { name: 'Description' }).fill('Bound in ash-grey hide.');
   await form.getByRole('button', { name: 'Create item' }).click();
 
   await expect(row(catalogList(page), 'Grimoire of Ash')).toBeVisible();
-  await expect(form.getByLabel('Name')).toHaveValue('');
+  await expect(form.getByLabel('Name', { exact: true })).toHaveValue('');
   const items = await ok(
     world.gm.api.GET('/tenants/{tenant_id}/items', {
       params: { path: { tenant_id: world.tenantId }, query: { q: 'Grimoire' } },
@@ -121,14 +165,14 @@ test('edits an item: the name field holds its name, not its display title', asyn
 
   const lanternRow = row(catalogList(page), 'Hooded Lantern');
   await lanternRow.getByRole('button', { name: 'Edit' }).click();
-  await expect(lanternRow.getByLabel('Name')).toHaveValue('Lantern');
-  await expect(lanternRow.getByLabel('Display title')).toHaveValue('Hooded Lantern');
-  await lanternRow.getByLabel('Name').fill('Storm Lantern');
+  await expect(lanternRow.getByLabel('Name', { exact: true })).toHaveValue('Lantern');
+  await expect(lanternRow.getByLabel('Display name')).toHaveValue('Hooded Lantern');
+  await lanternRow.getByLabel('Name', { exact: true }).fill('Storm Lantern');
   await lanternRow.getByRole('textbox', { name: 'Description' }).fill('Shuttered, and oiled.');
   await lanternRow.getByRole('button', { name: 'Save' }).click();
 
   // Saving closes the panel; the row still shows the display title.
-  await expect(lanternRow.getByLabel('Name')).toBeHidden();
+  await expect(lanternRow.getByLabel('Name', { exact: true })).toBeHidden();
   await expect(row(catalogList(page), 'Hooded Lantern')).toBeVisible();
   const saved = await entity(world, lantern);
   expect(saved.name).toBe('Storm Lantern');

@@ -2,8 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 import { API_URL, AUTHGEAR_URL, SITE_URL } from './tests/e2e/support/env.ts';
 
 // End-to-end tests (ADR 0114): the built site, the real apps/api on a fresh database, and a
-// fake Authgear, all started here. Locally, servers already running are reused.
+// fake Authgear, all started here. Servers already running are an error, not reused: a stale one
+// serves an old build and fails tests that have nothing wrong. E2E_REUSE_SERVERS=1 opts into
+// reusing them, which speeds up a second run.
 const CI = Boolean(process.env.CI);
+const REUSE = !CI && Boolean(process.env.E2E_REUSE_SERVERS);
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -27,18 +30,18 @@ export default defineConfig({
     {
       command: 'node tests/e2e/support/fake-authgear.ts',
       url: `${AUTHGEAR_URL}/.well-known/openid-configuration`,
-      reuseExistingServer: !CI,
+      reuseExistingServer: REUSE,
     },
     {
       command: 'node tests/e2e/support/api-server.ts',
       url: `${API_URL}/healthz`,
-      reuseExistingServer: !CI,
+      reuseExistingServer: REUSE,
       timeout: 300_000,
     },
     {
       command: 'node tests/e2e/support/site-server.ts',
       url: SITE_URL,
-      reuseExistingServer: !CI,
+      reuseExistingServer: REUSE,
       timeout: 300_000,
     },
   ],

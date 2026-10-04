@@ -170,6 +170,17 @@ body:has(.full-width) {
   gap: var(--space-1);
 }
 
+/* Takes the free space left in a flex .row. */
+.grow {
+  flex: 1;
+}
+
+/* A .row whose items align to the top instead of centering - for when one
+   of them (an opened panel, say) grows taller than the rest. */
+.row.sticky-top {
+  align-items: start;
+}
+
 /* A vertical stack of elements with consistent spacing between them - the
    vertical counterpart to .row, so stacked pieces never need their own
    one-off margin. */
@@ -177,6 +188,13 @@ body:has(.full-width) {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* .stack at a tighter rhythm - the fields of one form, a list of options. */
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* A simple responsive grid - override the card width via
@@ -235,4 +253,11 @@ body:has(.full-width) {
   background: var(--fill-soft);
   color: var(--text-primary);
   font-weight: 600;
+}
+
+/* A list or column that scrolls inside the page instead of growing it.
+   Pair with .vertical-mask (components.css) to fade the cut-off edges. */
+.vertical-window {
+  max-height: 70vh;
+  overflow-y: auto;
 }

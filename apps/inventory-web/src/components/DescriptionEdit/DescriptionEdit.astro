@@ -1,0 +1,15 @@
+---
+import InfoForm from '../InfoForm/InfoForm.astro';
+---
+
+<!-- The item's own description, written in a form of its own. The slot is for buttons beside Edit. -->
+<div class="stack" data-description-edit>
+  <div class="row">
+    <slot />
+    <button type="button" class="btn btn-secondary" data-edit hidden>
+      Edit description
+    </button>
+  </div>
+  <div data-mount></div>
+  <InfoForm />
+</div>

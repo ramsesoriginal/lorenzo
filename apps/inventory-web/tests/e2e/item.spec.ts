@@ -66,7 +66,7 @@ test('lists the descriptions that link to it, and the link leads here', async ({
   const mentions = page.getByRole('region', { name: 'Mentioned in' });
   await mentions.getByRole('link', { name: 'Backpack' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Backpack' })).toBeVisible();
-  await page.locator('#item-view').getByRole('link', { name: 'Belt Pouch' }).click();
+  await page.locator('[data-item-view]').getByRole('link', { name: 'Belt Pouch' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Belt Pouch' })).toBeVisible();
 });
 
@@ -74,7 +74,7 @@ test('says so when its link is incomplete, or leads nowhere', async ({ world, as
   const page = await as(world.pia);
   await page.goto(`/item/?tenant=${world.tenantId}`);
   await expect(
-    page.getByText("This link is incomplete — it's missing a tenant or item."),
+    page.getByText("This link is incomplete — it's missing a library or item."),
   ).toBeVisible();
 
   const nowhere = "There's no such item here, or it isn't one you can see.";

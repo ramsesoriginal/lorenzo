@@ -2,8 +2,8 @@
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="Your tenants and campaigns — Lorenzo">
-  <h1 class="display">Your tenants and campaigns</h1>
+<Base title="Your libraries and campaigns — Lorenzo">
+  <h1 class="display">Your libraries and campaigns</h1>
   <p>
     <a href="/">&larr; Back</a>
   </p>
@@ -14,12 +14,13 @@ import Base from '../layouts/Base.astro';
   <div id="create-tenant-container"></div>
 
   <p id="empty-state" hidden>
-    You don't belong to any tenant yet.
+    You don't belong to any library yet.
   </p>
 
   <ul id="tenant-list"></ul>
 
   <script>
+    import { errorMessage } from '../lib/errorMessage';
     import { renderTenantSlug } from '../lib/tenantSlugUi';
     import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
@@ -84,7 +85,7 @@ import Base from '../layouts/Base.astro';
     function renderCreateTenantForm(onCreated: () => void): HTMLElement {
       const form = document.createElement('form');
       const heading = document.createElement('h2');
-      heading.textContent = 'Create a tenant';
+      heading.textContent = 'Create a library';
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.placeholder = 'Name';
@@ -96,7 +97,7 @@ import Base from '../layouts/Base.astro';
       descriptionInput.placeholder = 'Description (optional)';
       const button = document.createElement('button');
       button.type = 'submit';
-      button.textContent = 'Create tenant';
+      button.textContent = 'Create library';
       const status = createStatusSpan();
 
       form.append(heading, nameInput, slugInput, descriptionInput, button, status);
@@ -113,7 +114,7 @@ import Base from '../layouts/Base.astro';
           status.textContent = '';
           onCreated();
         } catch (e) {
-          status.textContent = e instanceof Error ? e.message : String(e);
+          status.textContent = errorMessage(e);
         }
       });
       return form;
@@ -307,7 +308,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
   </script>

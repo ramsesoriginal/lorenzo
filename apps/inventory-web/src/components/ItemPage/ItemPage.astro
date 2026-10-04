@@ -1,0 +1,63 @@
+---
+import AncestryTree from '../AncestryTree/AncestryTree.astro';
+import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
+import Information from '../Information/Information.astro';
+import ItemView from '../ItemView/ItemView.astro';
+import MentionedIn from '../MentionedIn/MentionedIn.astro';
+import Notes from '../Notes/Notes.astro';
+import SlugEditor from '../SlugEditor/SlugEditor.astro';
+import TagEditor from '../TagEditor/TagEditor.astro';
+import UsedBy from '../UsedBy/UsedBy.astro';
+---
+
+<div data-item-page hidden>
+  <div class="with-sidebar">
+    <div class="stack">
+      <div class="stack" data-ancestry hidden>
+        <h2>Ancestry</h2>
+        <AncestryTree />
+      </div>
+      <UsedBy />
+      <MentionedIn />
+    </div>
+    <div class="stack">
+      <div class="row">
+        <h1 class="display" data-title></h1>
+        <span class="badge" data-quantity hidden></span>
+        <code data-slug hidden></code>
+      </div>
+      <div data-view>
+        <ItemView />
+      </div>
+      <DescriptionEdit>
+        <button type="button" data-copy-link>
+          Copy link
+        </button>
+      </DescriptionEdit>
+
+      <section class="section" aria-labelledby="item-notes-heading" data-notes-section hidden>
+        <h2 id="item-notes-heading">Notes</h2>
+        <div data-notes-list>
+          <Notes />
+        </div>
+      </section>
+
+      <div class="stack" data-gm hidden>
+        <div role="region" aria-labelledby="item-slug-heading">
+          <h2 id="item-slug-heading">Slug</h2>
+          <SlugEditor />
+        </div>
+        <div class="section" role="region" aria-labelledby="item-tags-heading">
+          <h2 id="item-tags-heading">Tags</h2>
+          <TagEditor />
+        </div>
+        <div class="section" role="region" aria-labelledby="item-information-heading">
+          <h2 id="item-information-heading">Information</h2>
+          <div data-information>
+            <Information />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -62,6 +62,24 @@ test("opens an item's page by the slug in its id", async ({ world, as }) => {
   await expect(page).toHaveURL(address);
 });
 
+test("links an item's dialog to its page by the slugs it has", async ({ world, as }) => {
+  const { spellbook, pouch } = await packed(world, world.pia);
+  await world.slug(spellbook, 'ornate-spellbook');
+  const page = await as(world.pia);
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  const link = page.getByRole('link', { name: 'View standalone page' });
+
+  await card(page, 'Backpack', 'Ornate Spellbook').click();
+  await expect(link).toHaveAttribute(
+    'href',
+    `/item/?tenant=${world.tenantSlug}&slug=ornate-spellbook`,
+  );
+  await page.keyboard.press('Escape');
+
+  await card(page, 'Equipped', 'Belt Pouch').click();
+  await expect(link).toHaveAttribute('href', `/item/?tenant=${world.tenantSlug}&id=${pouch}`);
+});
+
 test('says so when a slug names nothing, or a library that is not hers', async ({ world, as }) => {
   const hilde = await person('Hilde', ['tenant_creator']);
   const elsewhere = await hilde.api.POST('/tenants', {

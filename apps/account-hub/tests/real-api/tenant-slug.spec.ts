@@ -20,7 +20,7 @@ test('owner edits a slug, cancels, sees collision and invalid input, and cannot 
     .locator('#tenant-list > li')
     .filter({ has: page.getByRole('heading', { name: `${tenant.name} owner`, exact: true }) });
   await card.getByRole('button', { name: 'Edit slug' }).click();
-  const input = card.getByLabel('Tenant slug');
+  const input = card.getByLabel('Library slug');
   await expect(input).toHaveValue(tenant.slug);
   await input.fill('changed-but-cancelled');
   await card.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -114,7 +114,7 @@ test('organizers can edit, campaign participants cannot', async ({ browser }) =>
       if (role === 'orga') {
         await page.getByRole('button', { name: 'Edit slug' }).click();
         const slug = `orga-${crypto.randomUUID()}`;
-        await page.getByLabel('Tenant slug').fill(slug);
+        await page.getByLabel('Library slug').fill(slug);
         await page.getByRole('button', { name: 'Save', exact: true }).click();
         await expect(page.locator('.tenant-slug-value')).toHaveText(`Slug: ${slug}`);
       } else {
