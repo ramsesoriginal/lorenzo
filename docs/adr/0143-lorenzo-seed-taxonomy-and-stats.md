@@ -25,7 +25,7 @@ Two properties make this the part to get right first. Stat groups and definition
 
 ### The command
 
-`lorenzo seed --tenant <id|slug> [--layer core|dnd5e ...] [--dry-run] [--yes] [--allow-play-tenant] [--json]`.
+`lorenzo seed --tenant <id|slug> [--layer core|dnd5e ...] [--dry-run] [--yes] [--allow-play-tenant] [--json]`. *(Addendum, 2026-10-04: without `--layer`, a tenant that holds one layer and none of another is refused, [ADR 0166](0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md); [ADR 0168](0168-lorenzo-unseed.md) takes a layer out.)*
 
 - **It reads, then plans, then writes.** It lists the tenant's groups and definitions, resolves the seed's slugs in one batch, and reads the existing nodes and recipes. Everything is find-or-create by name or slug; nothing is ever changed or removed, so it is safe to run again, and to run over a tenant that already has some of it. *(Addendum, 2026-10-04: one exception, [ADR 0165](0165-a-description-is-titled-with-its-items-name.md): a description the seed titled "Description" is retitled with its node's name, as a `retitle` action in the plan.)*
 - **A problem stops it before it writes anything,** and exits 1: a definition that already exists with another type or in another group (a stat can't be retyped or moved, so the person fixes that by hand), a slug held by something that isn't an item, or something a selected layer needs from a layer the tenant doesn't have (D&D's dice need core's `damaging` group, so `--layer dnd5e` on an empty tenant says to seed core first).
