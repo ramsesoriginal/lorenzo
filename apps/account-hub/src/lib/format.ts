@@ -2,7 +2,7 @@
 // import chain, which pulls in @authgear/web's browser-only side effects
 // on import and would break these under a plain Vitest/Node environment
 // for no real reason.
-import type { CharacterSummaryOut, MeOut, Notification, RosterEntry } from './types';
+import type { CharacterSummaryOut, MeOut, Notification, RosterEntry, TenantRole } from './types';
 
 export function localesToText(locales: string[]): string {
   return locales.join(', ');
@@ -45,6 +45,14 @@ export function displayNameFor(entry: {
 export function resolveDisplayName(roster: RosterEntry[], userId: string): string {
   const entry = roster.find((r) => r.user_id === userId);
   return entry ? displayNameFor(entry) : userId;
+}
+
+// owner or orga: the two MembershipRoles, so the only callers the tenant's
+// admin-only reads (the roster, the activity log, ...) answer to. A
+// 'participant' reaches a tenant through a campaign seat or a GM grant with no
+// Membership row at all, and gets a 404 from those routes (ADR 0035).
+export function isTenantAdmin(tenant: { role: TenantRole }): boolean {
+  return tenant.role === 'owner' || tenant.role === 'orga';
 }
 
 export type CampaignRole = 'gm' | 'player' | 'visible';
