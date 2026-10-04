@@ -10,7 +10,12 @@ import { showError } from './errorUi';
 
 import { displayNameFor } from './format';
 import { bulkInviteMembers, createMembership, deleteMembership, updateMembership } from './tenants';
-import type { MembershipRosterEntryOut, TenantSummaryOut, UserRefOut } from './types';
+import type {
+  BulkMembershipResultItem,
+  MembershipRosterEntryOut,
+  TenantSummaryOut,
+  UserRefOut,
+} from './types';
 import { mountUserPicker } from './userPicker';
 
 function renderRoleSelect(initial: 'owner' | 'orga'): HTMLSelectElement {
@@ -140,15 +145,26 @@ function renderBulkInviteForm(tenant: TenantSummaryOut, onChanged: () => void): 
   submitButton.textContent = 'Send invites';
   const resultsEl = document.createElement('ul');
   resultsEl.className = 'list';
+  const submitStatus = createStatusSpan();
   submitButton.addEventListener('click', async () => {
     if (pending.length === 0) return;
-    const results = await bulkInviteMembers(
-      tenant.id,
-      pending.map(({ user, roleSelect }) => ({
-        user_id: user.id,
-        role: roleSelect.value as 'owner' | 'orga',
-      })),
-    );
+    submitStatus.textContent = 'Sending…';
+    let results: BulkMembershipResultItem[];
+    try {
+      results = await bulkInviteMembers(
+        tenant.id,
+        pending.map(({ user, roleSelect }) => ({
+          user_id: user.id,
+          role: roleSelect.value as 'owner' | 'orga',
+        })),
+      );
+    } catch (e) {
+      // The whole call failed (not one invite in it): there are no per-person
+      // results to show, so say why.
+      showError(submitStatus, e);
+      return;
+    }
+    submitStatus.textContent = '';
     resultsEl.replaceChildren(
       ...results.map((result) => {
         const item = document.createElement('li');
@@ -161,7 +177,7 @@ function renderBulkInviteForm(tenant: TenantSummaryOut, onChanged: () => void): 
     );
     onChanged();
   });
-  container.append(submitButton, resultsEl);
+  container.append(submitButton, submitStatus, resultsEl);
 
   return container;
 }

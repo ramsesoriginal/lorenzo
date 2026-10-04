@@ -27,12 +27,24 @@ Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
 [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsaccount-hub)
 for the one-time setup.
 
-## API client and tenant slugs
+## API client and errors
 
 All requests use `@lorenzo/api-client` and its generated schema (ADR 0122/0136).
-Owners and organizers can edit a tenant's slug on the tenants page. The editor
-checks for concurrent edits; changing a slug leaves its name unchanged and stops
-links using the previous slug from resolving.
+A failure reaches a page as one `ApiError` (status plus the problem body), and
+`describeError` turns it into a sentence for a person: the API's own text, a
+`422` as the fields at fault, an ended session with a "Log in" button that
+returns to the same page, and "Lorenzo couldn't be reached" for a network
+failure. Pages show errors through `showError`/`errorLine` (ADR 0170).
+
+## Libraries, exits and admin basics
+
+Owners and organizers can edit a library's name, slug and description on the
+libraries page. The editor checks for concurrent edits; changing a slug leaves
+its name unchanged and stops links using the previous slug from resolving.
+Anyone with a membership can leave a library, any GM can step down, and
+`/profile` can delete the account (it doesn't delete the Authgear login). A
+campaign's manager can remove a player and undo a character's roster link (never
+its owner's). All of it is asked first with `window.confirm` (ADR 0170).
 
 ## Real API browser tests
 
