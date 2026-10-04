@@ -1,6 +1,7 @@
 import { ApiError } from './apiError';
 import { createStatusSpan } from './dom';
 import { showError } from './errorUi';
+import { kindNoun, kindNounCapitalized } from './tenantKind';
 import { getTenant, updateTenant } from './tenants';
 import type { TenantOut, TenantSummaryOut, TenantUpdate } from './types';
 
@@ -14,7 +15,8 @@ function field(
   return label;
 }
 
-// Editing a library's name, slug and description - ADR 0136 for the slug and
+// Editing a library's or repository's name, slug and description (ADR 0178 for
+// the repository wording) - ADR 0136 for the slug and
 // its stale-edit protection, ADR 0170 for the rest. Tenant administration uses
 // OWNER/ORGA, as the existing PATCH route does. `onSaved` gets the saved
 // library, so the page can show a new name without reloading.
@@ -22,6 +24,8 @@ export function renderTenantEdit(
   tenant: TenantSummaryOut,
   onSaved: (tenant: TenantOut) => void,
 ): HTMLElement {
+  const noun = kindNoun(tenant.kind);
+  const Noun = kindNounCapitalized(tenant.kind);
   const section = document.createElement('div');
   section.className = 'tenant-details';
   const value = document.createElement('p');
@@ -32,7 +36,7 @@ export function renderTenantEdit(
 
   const edit = document.createElement('button');
   edit.type = 'button';
-  edit.textContent = 'Edit library';
+  edit.textContent = `Edit ${noun}`;
   const status = createStatusSpan();
   section.append(edit, status);
   edit.addEventListener('click', async () => {
@@ -83,8 +87,8 @@ export function renderTenantEdit(
       };
       cancel.addEventListener('click', close);
       form.append(
-        field('Library name', nameInput),
-        field('Library slug', slugInput),
+        field(`${Noun} name`, nameInput),
+        field(`${Noun} slug`, slugInput),
         hint,
         field('Description', descriptionInput),
         save,
@@ -127,8 +131,7 @@ export function renderTenantEdit(
         } catch (error) {
           stale = error instanceof ApiError && error.status === 412;
           if (stale) {
-            status.textContent =
-              'This library changed while you were editing. Cancel and reopen the editor to use its latest version.';
+            status.textContent = `This ${noun} changed while you were editing. Cancel and reopen the editor to use its latest version.`;
           } else {
             showError(status, error);
           }

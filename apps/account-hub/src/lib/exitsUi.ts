@@ -9,11 +9,12 @@ import { showError } from './errorUi';
 import {
   deleteAccountConfirmation,
   type Exit,
-  leaveLibraryConfirmation,
+  leaveTenantConfirmation,
   soleOwnerMessage,
   stepDownConfirmation,
 } from './exits';
 import { deleteMyAccount } from './me';
+import { kindNoun } from './tenantKind';
 import { deleteMembership, listMyTenants, revokeCampaignGm } from './tenants';
 import type { CampaignSummaryOut, TenantSummaryOut } from './types';
 
@@ -38,22 +39,23 @@ function showExitError(
   else status.textContent = soleOwner;
 }
 
-// Shown on every library where the caller has a Membership (owner or orga):
+// Shown on every library or repository where the caller has a Membership (owner or orga):
 // DELETE .../memberships/{me} is open to the member themselves, whatever their
 // role. A person who only plays or GMs there has nothing to leave here; their
-// way out is "Leave this campaign" on /characters.
-export function renderLeaveLibrary(
+// way out is "Leave this campaign" on /characters. A repository says so in its
+// own word (ADR 0178).
+export function renderLeaveTenant(
   tenant: TenantSummaryOut,
   userId: string,
   onLeft: () => void,
 ): HTMLElement {
   const container = document.createElement('div');
   container.className = 'panel';
-  const button = exitButton('Leave this library');
+  const button = exitButton(`Leave this ${kindNoun(tenant.kind)}`);
   const status = createStatusSpan();
   container.append(button, status);
   button.addEventListener('click', async () => {
-    if (!window.confirm(leaveLibraryConfirmation(tenant.name))) return;
+    if (!window.confirm(leaveTenantConfirmation(tenant.name, tenant.kind))) return;
     button.disabled = true;
     status.textContent = 'Leaving…';
     try {

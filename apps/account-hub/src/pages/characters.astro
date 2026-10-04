@@ -248,7 +248,7 @@ import Base from '../layouts/Base.astro';
 
     async function load() {
       const me = await getMe();
-      const tenantsPage = await listMyTenants();
+      const tenantsPage = await listMyTenants('play');
       if (tenantsPage.items.length === 0) {
         emptyState.hidden = false;
         tenantList.replaceChildren();

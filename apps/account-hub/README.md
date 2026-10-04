@@ -46,6 +46,17 @@ Anyone with a membership can leave a library, any GM can step down, and
 campaign's manager can remove a player and undo a character's roster link (never
 its owner's). All of it is asked first with `window.confirm` (ADR 0170).
 
+## Repositories
+
+A repository (a tenant of kind `repository`, ADR 0178) is its own noun, not a
+library. `/tenants` lists libraries as before and gives repositories a section
+of their own: rename and edit, their people and invitations, and whether they
+are a draft or published (read-only: publishing stays on the CLI). They have no
+campaigns, invite links or characters. `/overview` and `/characters` ask the API
+for libraries only; `/beings` lists a repository's beings for reading, without
+the hand-off. "Create a library" and "Create a repository" are shown only when
+`GET /me` says `capabilities.create_tenant` (ADR 0175).
+
 ## Real API browser tests
 
 Run `mise run //apps/account-hub:test-real-api` with the local Postgres from
