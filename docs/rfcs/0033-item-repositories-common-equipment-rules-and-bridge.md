@@ -1,6 +1,6 @@
 # RFC: Item repositories — a shared vocabulary, common equipment, a rules repository, and a bridge that attaches the rules to the equipment
 
-Status: proposed. The maintainer decided its shape on 2026-10-04 ([Decided](#decided-with-the-maintainer-2026-10-04)); two questions the maintainer's example raised remain ([Open](#open-questions)). Written at the maintainer's request after the first real import. It would amend [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), and it needs one change to the repository API ([§3](#3-attachments-the-api-change)). It is meant to be accepted before anything is published or granted.
+Status: proposed. The maintainer decided its shape on 2026-10-04 ([Decided](#decided-with-the-maintainer-2026-10-04)); one question remains ([Open](#open-questions)). Written at the maintainer's request after the first real import. It would amend [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), and it needs one change to the repository API ([§3](#3-attachments-the-api-change)). It is meant to be accepted before anything is published or granted.
 
 ## Context
 
@@ -13,7 +13,7 @@ Status: proposed. The maintainer decided its shape on 2026-10-04 ([Decided](#dec
 
 It named a third option and left it out: "a third repository, for items only", out of scope because it cost three grants instead of two. That reason is weaker since [`repo offer`](../adr/0163-lorenzo-repo-offer-offers-what-a-bridge-builds-on.md) grants and copies a whole stack.
 
-What the maintainer wants is this. The common equipment is written once, with its descriptions. A rules system adds its stats and prototypes **to those same items**, without redefining them. A tenant that subscribes to the equipment has everything usable, and later subscribing to a system pulls in its rules and adds them to the items the tenant already has. Another system (Pathfinder, Shadowrun, Vampire: the Masquerade) does the same without touching the first. A repository that extends D&D attaches to D&D's prototypes without knowing the repository that joins D&D to the equipment.
+What the maintainer wants is this. The common equipment is written once, with its descriptions. A rules system adds its stats and prototypes **to those same items**, without redefining them. A tenant that subscribes to the equipment has everything usable, and later subscribing to a system pulls in its rules and adds them to the items the tenant already has. Another system (Pathfinder, Shadowrun, Vampire: the Masquerade) does the same without touching the first. A repository that extends D&D attaches to D&D's prototypes without knowing the repository that joins D&D to the equipment. Tenants can be multi-system and campaigns are not: a tenant holds several systems' prototypes side by side, and a campaign uses the one its game system names ([§9](#9-systems-side-by-side)).
 
 ### What this builds on
 
@@ -55,7 +55,7 @@ The maintainer's names and slugs; "depends on" means holds a copy of. The conten
 | --- | --- | --- | --- |
 | **A0, Core** (`core`) | nothing | The root prototype, Physical Object, which carries the weight recipe; the stat groups `physical` and `sourcebook`, and `tags` for the container, consumable, magical and material tags; and the ten neutral stat definitions of section 5. | What can be said of a thing, anywhere? |
 | **A1, Common Fantasy Equipment** (`common-fantasy-eq`) | A0 | The **forms and the items**, each with a description: Weapon, Melee Weapon, Blade, Longsword, the gear kinds, and the items under them, packs included. The items are public and usable on their own; the forms are not public, as in the seed today. | What is this thing, anywhere? |
-| **B, Dungeons and Dragons 5e** (`dnd5e`) | A0 | The `economic` stat group with `price`, the `damaging` group with the damage stats, the `is_versatile` tag and the other D&D flags; and the prototypes that use them: Weapon Class (damaging), Martial Weapon under it, Weapon Property, Versatile under that (setting `is_versatile`), Economic Object (adding the economic group). Rules text on the prototypes that have it. | How does D&D 5e treat things? |
+| **B, Dungeons and Dragons 5e** (`dnd5e`) | A0 | The `economic` stat group with `price`, the `damaging` group with the damage stats, the `is_versatile` tag and the other D&D flags; and the prototypes that use them: Weapon Class (damaging), Martial Weapon under it, Weapon Property, Versatile under that (setting `is_versatile`), Economic Object (adding the economic group), all under a **system root prototype**, "D&D 5e" ([§9](#9-systems-side-by-side)). Rules text on the prototypes that have it. | How does D&D 5e treat things? |
 | **C, Common D&D5e Equipment** (`dnd5e-common-eq`) | A1 and B | **No vocabulary, no forms and no second set of items.** Its own D&D prototypes, such as Longsword 5e under Martial Weapon and Versatile, with the values of the damaging and economic stats; and the **attachments** that join the equipment to the rules: Economic Object as a parent of Weapon, Longsword 5e as a parent of Longsword. | What is this thing in D&D 5e? |
 
 A1 and B both build on A0, so C's dependencies form a diamond; "What was tried" shows ADR 0120's manifest handles it.
@@ -68,7 +68,8 @@ common-fantasy-eq    Weapon            parent: Physical Object
                      Melee Weapon      parent: Weapon
                      Blade             parent: Weapon
                      Longsword         parents: Blade, Melee Weapon            own_weight 3
-dnd5e                Weapon Class      (damaging group)
+dnd5e                D&D 5e            (system root: Weapon Class, Weapon Property and Economic Object descend from it)
+                     Weapon Class      (damaging group)
                      Martial Weapon    parent: Weapon Class
                      Weapon Property   ->  Versatile  (sets is_versatile)
                      Economic Object   (adds the economic group, with price)
@@ -105,9 +106,9 @@ A table that holds only A1 has a Longsword with a weight and a description. When
 
 **What does not change.** Edits to copies other than these edges still don't travel: a stat value, a name or a description written onto a copy stays in the bridge, so a bridge still can't change a dependency's item. Nothing flows live: the attachments reach a tenant by copy or by `repo updates`, when the tenant chooses, so RFC 0024's "curated, reviewed composition over live pass-through" holds. The change is to ADR 0119, 0120 and 0121 and to RFC 0024 A8's list of what a bridge carries.
 
-**What it limits.** A value on the item itself beats an inherited one, so a D&D prototype cannot override a stat that A1's item sets directly. The ten stats in A0 are the neutral ones, and every D&D stat is defined in B, so only a case where D&D wants a different weight for an item runs into it. **Two systems on one item** both give it values for stats of the same name; between equally near ancestors ADR 0037 breaks the tie on group priority and then arbitrarily, so one system per table is what this supports.
+**What it limits.** A value on the item itself beats an inherited one, so a D&D prototype cannot override a stat that A1's item sets directly. The ten stats in A0 are the neutral ones, and every D&D stat is defined in B, so only a case where D&D wants a different weight for an item runs into it. **Two systems on one item** both give it values for stats of the same name, and today resolution takes every ancestor: between equally near ones ADR 0037 breaks the tie on group priority and then arbitrarily. Until resolution is system-aware ([§9](#9-systems-side-by-side)), one system per tenant is what this supports.
 
-**A small gap beside it.** A stat group is acquired by an entity only by setting a stat or a tag in it, so a prototype that "adds the economic group" and sets no value has no route today. The graph in "What was tried" gave Economic Object a default price of 0 to acquire the group, and every weapon then inherited a price of 0 until a prototype set one. A route to acquire a group on its own would let the prototype say it without a value. It is not needed for attachments, and it is a candidate for its own small ADR.
+**Adding a group.** A stat group is acquired by an entity only by setting a stat or a tag in it, so a prototype that adds the economic group does it by carrying a default for a stat in it. Economic Object has a price of 0 in the graph of "What was tried", and every weapon inherits that default until a more specific prototype sets one. The maintainer prefers this to a route that acquires a group with no value: a default is chosen deliberately, per prototype, as part of authoring it.
 
 ### 4. Authoring rules
 
@@ -125,7 +126,7 @@ Today all eighteen definitions of the core layer would go to A0. With D&D pulled
 | **A0** (ten) | `own_weight`, `weight`, `contents_weight`, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine`, `sourcebook` |
 | **B** (thirty) | the twenty-two of the D&D layer, and `price`, `armor`, `armor_formula`, `strength_required`, `stealth_disadvantage`, `adds_modifier`, `range_normal`, `range_long` |
 
-In the maintainer's example B defines the `economic` and `damaging` groups itself, and A0 holds `physical`, `sourcebook` and `tags`; B's tags go into A0's `tags` group. A second system that defines a group or definition of the same name (a `price`, an `economic` group) merges with B's on its first copy by one choice, which ADR 0119 allows when the types match, and the table's `price` is then one stat ([open question 2](#open-questions)). Moving a definition is a change to the seed's layer tags (the seed's `layer` key exists for this) and a new seed version. Nothing is published, so it costs nothing now; after a publish a definition can't be moved, only added.
+In the maintainer's example B defines the `economic` and `damaging` groups itself, and A0 holds `physical`, `sourcebook` and `tags`; B's tags go into A0's `tags` group. A second system that defines a group or definition of the same name (a `price`, an `economic` group) merges with B's on its first copy by one choice, which ADR 0119 allows when the types match, and the table's `price` is then one stat. Moving a definition is a change to the seed's layer tags (the seed's `layer` key exists for this) and a new seed version. Nothing is published, so it costs nothing now; after a publish a definition can't be moved, only added.
 
 ### 6. The importer and the seed write two halves
 
@@ -136,7 +137,7 @@ An MPMB sheet is D&D data. The importer has to split what it reads into what is 
 
 Identity stays the slug, so a second run finds what the first made and attaches nothing twice. The built-in map's rows gain a `part` (neutral or system). That is a slice of its own, with its own ADR.
 
-The seed follows the same split. Today `core` holds 33 categories and the D&D layer 28. In the maintainer's example A0 keeps only Physical Object and the stat vocabulary, the forms tree (Weapon, Melee Weapon, Blade and the rest) is A1's, and the category-level attachments (Economic Object on Weapon) are C's. That is a seed layer for each of the four repositories, `core`, an equipment layer, `dnd5e` and a layer for C, chosen with `--layer` ([ADR 0143](../adr/0143-lorenzo-seed-taxonomy-and-stats.md), [0166](../adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). The layer names are provisional ([open question 1](#open-questions)).
+The seed follows the same split. Today `core` holds 33 categories and the D&D layer 28. In the maintainer's example A0 keeps only Physical Object and the stat vocabulary, the forms tree (Weapon, Melee Weapon, Blade and the rest) is A1's, and the category-level attachments (Economic Object on Weapon) are C's. That is a seed layer for each of the four repositories, `core`, an equipment layer, `dnd5e` and a layer for C, chosen with `--layer` ([ADR 0143](../adr/0143-lorenzo-seed-taxonomy-and-stats.md), [0166](../adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). The layer names are provisional.
 
 ### 7. Setting it up, and what a table does
 
@@ -179,6 +180,16 @@ Eighteen commands to build the four repositories, then one to use the equipment 
 
 A table takes each repository's updates from that repository, as [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md)'s four steps already assume. A correction to A1's item is published once and a table takes it from A1. A new attachment in C reaches a table as an added row. A1's, B's and C's authors re-sync their dependencies to keep their own copies current. Whether a bridge must also publish again for a table to see anything is the part of ADR 0162's steps that more levels would test, and it hasn't been tried.
 
+### 9. Systems side by side
+
+Tenants can be multi-system and campaigns are not. With the rules as prototypes, a tenant can hold Pathfinder's, Shadowrun's and D&D's prototypes attached to the same items, and a campaign should resolve an item through the one prototype tree its game system names.
+
+This is already the direction of the codebase. RFC 0001's open question 3 proposes that "which system is this for" be a property of which prototype an entity inherits from, not a column. `campaign.game_system` exists, as a plain string, and the docstring of the campaign update says that changing it "changes which prototype variants every entity in the campaign resolves through on next read". Nothing implements that last part: effective stats walk every ancestor ([ADR 0037](../adr/0037-effective-stat-resolution.md)) and inherited descriptions take every ancestor ([ADR 0111](../adr/0111-inherited-descriptions-and-stat-value-sources.md)).
+
+What this RFC does for it is only to make the data available. **Each system's repository gives its prototypes one common ancestor, a system root** (`D&D 5e` in B), so that belonging to a system is ancestry and needs no new kind of tag. A prototype is a system's if it has that root among its ancestors and neutral if it has none. Attachments connect neutral entities to system prototypes, so the neutral item stays neutral and a system's facts reach it through the attached prototype's ancestry.
+
+Resolution that uses it is a follow-up RFC, with questions of its own: how a campaign's `game_system` names a root; what an item shows in a tenant's catalog, which has no campaign, and how an instance, which belongs to one, differs; and which reads take the system (stats, descriptions, tags and the named columns).
+
 ## What it costs
 
 - **An API change**, in the copy planner, the updates diff and apply, purge, one new table and its migration, the plan and copy response fields, and the tests that go with them. It is bounded: one kind of row, one rule for whose it is, and the existing machinery for re-targeting, dropping and updating.
@@ -186,7 +197,7 @@ A table takes each repository's updates from that repository, as [ADR 0162](../a
 - **The importer becomes two passes and the seed four layers**, and the map gains a notion of which half a value belongs to.
 - **Pre-1.0 churn in the seed.** Moving definitions and categories between layers changes `builtin.toml`, its version, and the README's counts.
 - **No way to take D&D back off**, the same as any copy today ("what they already copied stays theirs"). A tenant that wants to undo C removes the attachments itself. A command for it is a later question.
-- **One system per table**, where two would share items and break ties arbitrarily (section 3).
+- **One system per tenant until resolution knows about systems** (section 9): two would share items and break ties arbitrarily.
 
 What it buys: one item per thing in a table, usable from A1 alone and enriched by C when the tenant wants it; a second system takes A0 and A1 and brings its own B and C, each attaching its own prototypes to the same items, with no item defined twice; a repository that extends a system attaches to that system's prototypes without knowing the one that joins it to the equipment; the rules and the items can be published, owned and licensed on their own; and the neutral facts of a thing are written once.
 
@@ -210,23 +221,24 @@ What it buys: one item per thing in a table, usable from A1 alone and enriched b
 - **Packs are A1's items**, and get C's prototype like any other.
 - **An attachment's parent may be another repository's copy**, not only the bridge's own entity.
 - **The shape of the contents**, as in the Longsword example of section 2.
+- **The forms tree lives in A1.** A0 keeps Physical Object and the stat vocabulary.
+- **B defines the `economic` and `damaging` groups.** A second system's same-named groups and definitions merge with them on its first copy.
+- **A prototype adds a stat group by carrying defaults** for stats in it, so no route to acquire a group alone is needed.
+- **Tenants are multi-system and campaigns are not.** Several systems' prototypes are attached tenant-wide, and a campaign resolves through the one its game system names. That resolution is a follow-up RFC.
 
 ## Open questions
 
-The maintainer's example differs from the earlier text of this RFC in two places. This version follows the example; both need confirming.
-
-1. **Where does the forms tree live?** The example puts Weapon, Melee Weapon and Blade, with descriptions, in A1, and only Physical Object and the stat vocabulary in A0. The earlier text had the whole category tree in A0, with A1 holding items only. Following the example moves the forms, all of today's 33 `core` categories but Physical Object on this reading, to a new seed layer for A1. Recommended: as in the example, since the forms carry descriptions and say what a thing is, as the items do.
-2. **Which repository defines the conventional stat groups?** The example has B define `economic` and `damaging`. RFC 0025 R9 had the core layer create all five groups, empty, so two systems would never collide on creating one. As in the example, a second system's `economic` group and `price` merge with B's on its first copy by one choice each. Recommended: as in the example. `damaging` is a combat idea that belongs to a system, and a merge is a single, visible decision.
+1. **Do the systems' prototypes get a system root now?** Section 9 proposes that each system's repository gives its prototypes a common ancestor, so that a system's membership is ancestry and the follow-up needs no new tag. The cost is one more prototype per system, `D&D 5e` in B and its seed layer, and the top-level prototypes naming it as a parent. Nothing is published, so adding it now costs nothing and adding it later is a change to a published repository. Recommended: yes.
 
 ## Slices, if accepted
 
 Each its own ADR, in this order:
 
 1. **Attachments in copy and updates** (section 3): the rule, the copy-link table and migration, the planner, `repo updates`, purge, the response fields, and an end-to-end test of the stack tried here with a table that takes A1 first and C later, including an attachment whose parent is another repository's copy. It amends ADR 0119, 0120, 0121 and RFC 0024 A8.
-2. **The seed's layers.** Sort the stat definitions and the categories into the four repositories (sections 5 and 6), bump the seed version, and extend `tests/e2e/test_split.py` to the four-repository stack.
+2. **The seed's layers.** Sort the stat definitions and the categories into the four repositories (sections 5 and 6), add the system root (section 9) if it is wanted, bump the seed version, and extend `tests/e2e/test_split.py` to the four-repository stack.
 3. **The importer's two passes** and the `part` in its map, and `repo contents` counting a repository's attachments.
 4. **Rebuilding the local tenants**, and the setup walkthrough in the README.
-5. **Later:** a route to acquire a stat group on its own, a single setup command, a command that takes an attached repository back off a tenant, and showing on a table's item which repository each part of it came from.
+5. **Later:** a single setup command, a command that takes an attached repository back off a tenant, showing on a table's item which repository each part of it came from, and **system-aware resolution** (section 9, its own RFC).
 
 ## Not in scope
 
@@ -234,5 +246,5 @@ Each its own ADR, in this order:
 - **Settings.** A setting such as Faerûn is the same pattern on another axis (RFC 0024's own example) and isn't touched.
 - **Live reads of a dependency.** Attachments travel by copy and by updates, never live.
 - **Carrying stat values, names or descriptions written onto a copy.** Only the added parents travel.
-- **Two systems on one table's items.** Supported only as far as ADR 0037's tie-break goes.
+- **System-aware resolution**: a campaign choosing among the systems a tenant holds. A follow-up RFC; section 9 only makes the data available.
 - **What the SRD's licence allows** for text in a published repository. It is worth checking before anything is published, and it isn't decided here.
