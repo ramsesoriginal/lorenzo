@@ -1,0 +1,37 @@
+---
+import DescriptionEditor from '../DescriptionEditor/DescriptionEditor.astro';
+---
+
+<template data-info-form-template>
+  <form class="stack-tight">
+    <div class="stack-tight">
+      <label class="field">
+        <span class="field-label" data-title-label>
+          Title
+        </span>
+        <input class="text-input" type="text" data-title />
+      </label>
+      <label class="field" data-type-field>
+        <span class="field-label">Type</span>
+        <input class="text-input" type="text" data-type />
+      </label>
+      <DescriptionEditor />
+      <div data-visibility>
+        <label class="field-row">
+          <input type="checkbox" data-public />
+          <span data-visibility-label>Players can read this</span>
+        </label>
+        <p class="status-text" data-visibility-note hidden></p>
+      </div>
+    </div>
+    <div class="field-row">
+      <button type="submit" data-save>
+        Save
+      </button>
+      <button type="button" class="btn btn-secondary" data-cancel>
+        Cancel
+      </button>
+    </div>
+    <p class="status-text" role="status" data-status></p>
+  </form>
+</template>

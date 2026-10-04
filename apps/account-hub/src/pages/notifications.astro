@@ -42,6 +42,7 @@ import Base from '../layouts/Base.astro';
       listSentNotifications,
       markNotificationRead,
     } from '../lib/notifications';
+    import { errorMessage } from '../lib/errorMessage';
     import { countUnread } from '../lib/format';
     import type { Notification } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
@@ -92,7 +93,7 @@ import Base from '../layouts/Base.astro';
             await refresh();
           } catch (e) {
             button.disabled = false;
-            button.textContent = e instanceof Error ? e.message : String(e);
+            button.textContent = errorMessage(e);
           }
         });
         item.append(button);
@@ -112,7 +113,7 @@ import Base from '../layouts/Base.astro';
           : `${unread} unread of ${page.items.length} shown`;
       } catch (e) {
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
 
@@ -181,7 +182,7 @@ import Base from '../layouts/Base.astro';
         showSentButton.textContent = 'Hide sent notifications';
       } catch (e) {
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       } finally {
         showSentButton.disabled = false;
       }
@@ -218,7 +219,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
   </script>

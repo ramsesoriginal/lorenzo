@@ -1,3 +1,4 @@
+import { errorMessage } from './errorMessage';
 // A tenant's or a campaign's own picture widget (ADR 0085) - reused as-is
 // for both call sites, the way userPicker.ts (ADR 0074) is reused across
 // pages. Unlike /me/picture (MeOut.picture_url, always resolvable via a
@@ -49,7 +50,7 @@ export function renderPictureUpload(
       img.src = url;
       status.textContent = '';
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     } finally {
       fileInput.value = '';
     }
@@ -62,7 +63,7 @@ export function renderPictureUpload(
       img.hidden = true;
       status.textContent = '';
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
 

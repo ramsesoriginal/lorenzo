@@ -1,0 +1,55 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
+<section
+  id="instances"
+  class="section-lg"
+  aria-labelledby="instances-heading"
+  data-instances
+  hidden
+>
+  <h2 id="instances-heading">Instances</h2>
+
+  <div class="field">
+    <span class="field-label" id="instances-browse-label">
+      View a being's inventory
+    </span>
+    <Combobox placeholder="Search beings…" labelledby="instances-browse-label" />
+  </div>
+
+  <p data-viewing hidden></p>
+  <p data-empty hidden></p>
+  <p class="error-text" data-error hidden></p>
+  <div data-groups></div>
+
+  <template data-group-template>
+    <div class="section">
+      <h3 data-heading></h3>
+      <ul class="list" data-list></ul>
+    </div>
+  </template>
+
+  <template data-row-template>
+    <li>
+      <div class="row grow sticky-top">
+        <span data-title></span>
+        <div class="grow" data-panel></div>
+        <div class="row">
+          <button type="button" class="btn-secondary" data-view>
+            View
+          </button>
+          <button type="button" data-reassign>
+            Reassign
+          </button>
+          <button type="button" data-unassign>
+            Unassign
+          </button>
+          <button type="button" class="btn-danger" data-delete>
+            Delete
+          </button>
+        </div>
+      </div>
+    </li>
+  </template>
+</section>

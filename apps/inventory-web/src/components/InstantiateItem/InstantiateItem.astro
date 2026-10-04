@@ -1,0 +1,28 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
+<template id="instantiate-item-template">
+  <div class="character-picker-panel" data-instantiate-item>
+    <div class="field row-tight">
+      <label class="field-label" data-slug-label>
+        Slug
+      </label>
+      <input class="text-input" data-slug type="text" spellcheck="false" />
+      <p class="field-note">Optional. Empty leaves the instance without a slug.</p>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Assign to a being</span>
+      <Combobox placeholder="Search beings…" label="Search beings" />
+    </div>
+
+    <div class="row">
+      <button type="button" data-no-owner>
+        Create without assigning
+      </button>
+    </div>
+
+    <p class="picker-status" data-status role="status" hidden></p>
+  </div>
+</template>

@@ -12,10 +12,13 @@ import Base from '../../layouts/Base.astro';
   <pre id="result">Loading&hellip;</pre>
 
   <script>
+    import { errorMessage } from '../../lib/errorMessage';
+    import { requiredIn } from '../../lib/template';
     import { client, unwrap } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
 
-    const result = document.getElementById('result')!;
+    const required = requiredIn('Debug page');
+    const result = required<HTMLElement>(document, '#result');
 
     if (!(await isAuthenticated())) {
       result.textContent = "You're not logged in. Log in to continue.";
@@ -24,7 +27,7 @@ import Base from '../../layouts/Base.astro';
         const me = await unwrap(await client.GET('/me'));
         result.textContent = JSON.stringify(me, null, 2);
       } catch (e) {
-        result.textContent = e instanceof Error ? e.message : String(e);
+        result.textContent = errorMessage(e);
       }
     }
   </script>

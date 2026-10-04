@@ -1,6 +1,8 @@
 // What an address names (ADR 0135): each of its ids can be a slug instead, a tenant's or an
 // entity's, and this finds the id it stands for.
+
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
+import { errorMessage } from './errorMessage';
 import { resolveSlugs } from './slugs';
 import type { BeingRef, TenantSummary } from './types';
 
@@ -37,6 +39,15 @@ export function tenantIdFor(value: string): Promise<string | null> {
   return finding;
 }
 
+/**
+ * What to call `tenant` in an address: its slug if one of the viewer's own libraries has it
+ * (a slug is only looked up among those), else its id.
+ */
+export async function tenantAddress(tenant: { id: string; slug: string }): Promise<string> {
+  const found = await tenantIdFor(tenant.slug).catch(() => null);
+  return found === tenant.id ? tenant.slug : tenant.id;
+}
+
 /** What a page's `?tenant=` names: its id, or null and why (nothing, if there's no `?tenant=`). */
 export type AddressedTenant = { id: string; problem: null } | { id: null; problem: string | null };
 
@@ -47,7 +58,7 @@ export async function addressedTenant(value: string | null): Promise<AddressedTe
     if (id) return { id, problem: null };
     return { id: null, problem: `There's no library “${value}” you can see.` };
   } catch (e) {
-    return { id: null, problem: e instanceof Error ? e.message : String(e) };
+    return { id: null, problem: errorMessage(e) };
   }
 }
 

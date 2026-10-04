@@ -35,6 +35,8 @@
           <a href="trees.html">Trees</a>
           <a href="editors.html">Editor</a>
           <a href="full-width.html">Full width</a>
+          <a href="scrolling.html">Scrolling</a>
+          <a href="item.html">Item</a>
           <a href="content/">Content</a>
         </nav>
       </div>
@@ -275,7 +277,36 @@
                 placeholder="Ashfang"
               />
             </div>
-            <div class="tabs">
+            <div class="field">
+              <label class="field-label" for="demo-combobox"
+                >Assign to a being</label
+              >
+              <div class="combobox">
+                <input
+                  class="text-input"
+                  id="demo-combobox"
+                  type="text"
+                  role="combobox"
+                  aria-expanded="true"
+                  aria-controls="demo-suggestions"
+                  autocomplete="off"
+                  value="Ash"
+                />
+                <ul
+                  class="combobox-suggestions"
+                  id="demo-suggestions"
+                  role="listbox"
+                >
+                  <li class="combobox-suggestion" role="option">
+                    <button type="button">Ashfang</button>
+                  </li>
+                  <li class="combobox-suggestion" role="option">
+                    <button type="button">Ashgrove (NPC)</button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div class="tabs" style="margin-top: 5.5rem">
               <button class="tab" type="button" aria-selected="true">
                 Inventory
               </button>

@@ -2,7 +2,6 @@
 // instance, checking it, saving it, and finding what holds one.
 import { slugify } from '@lorenzo/lorenzoscript';
 import { client, type components, LorenzoApiError, unwrap } from './api';
-import { getEntityDetail } from './items';
 
 export type ResolvedSlug = components['schemas']['ResolvedSlugOut'];
 
@@ -83,105 +82,4 @@ export async function saveSlug(
     }
     throw e;
   }
-}
-
-export type SlugField = { element: HTMLElement; input: HTMLInputElement };
-
-const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text = '') =>
-  Object.assign(document.createElement(tag), { className, textContent: text });
-
-let fields = 0;
-
-/**
- * The Slug field, holding `initial`. With `follow`, it keeps a suggestion for whatever
- * `follow.title()` reads, updated as any of `follow.inputs` changes, until the GM edits it.
- */
-export function slugField(
-  initial: string,
-  follow?: {
-    inputs: HTMLInputElement[];
-    title: () => string;
-    suggest: (title: string) => Promise<string>;
-  },
-): SlugField {
-  const input = Object.assign(make('input', 'text-input'), { type: 'text', value: initial });
-  input.spellcheck = false;
-  const label = make('label', 'field');
-  label.append(make('span', 'field-label', 'Slug'), input);
-  // Outside the label, so it describes the field rather than being part of its name.
-  const note = make('p', 'field-note', 'How links name it, as in [text](slug). Empty for none.');
-  note.id = `slug-note-${++fields}`;
-  input.setAttribute('aria-describedby', note.id);
-  const field = make('div', 'slug-field');
-  field.append(label, note);
-  if (follow) {
-    let edited = false;
-    let asked = 0;
-    let debounce: ReturnType<typeof setTimeout> | undefined;
-    input.addEventListener('input', () => {
-      edited = true;
-    });
-    const update = () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(async () => {
-        const turn = ++asked;
-        const suggestion = await follow.suggest(follow.title()).catch(() => '');
-        if (!edited && turn === asked) input.value = suggestion;
-      }, 250);
-    };
-    for (const source of follow.inputs) source.addEventListener('input', update);
-  }
-  return { element: field, input };
-}
-
-/**
- * The item page's slug editor for GMs (ADR 0113): the field, holding the entity's slug or a
- * suggestion, and Save. `onSaved` gets the slug it has now, or null.
- */
-export async function renderSlugEditor(
-  container: HTMLElement,
-  options: {
-    tenantId: string;
-    entityId: string;
-    title: string;
-    kind: SlugKind;
-    onSaved: (slug: string | null) => void;
-  },
-): Promise<void> {
-  const { tenantId, entityId } = options;
-  container.replaceChildren(make('p', 'status-text', 'Loading the slug…'));
-  let current: string | null;
-  let initial: string;
-  try {
-    current = (await getEntityDetail(tenantId, entityId)).slug;
-    initial = current ?? (await suggestSlug(tenantId, options.title, options.kind));
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e);
-    container.replaceChildren(make('p', 'status-text', `Couldn't load the slug: ${reason}`));
-    return;
-  }
-  const { element, input } = slugField(initial);
-  const save = Object.assign(make('button', '', 'Save slug'), { type: 'submit' });
-  const status = make('p', 'status-text');
-  status.setAttribute('role', 'status');
-  const form = make('form', 'slug-form');
-  form.append(element, save, status);
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    save.disabled = true;
-    status.classList.remove('error-text');
-    status.textContent = 'Saving…';
-    try {
-      await saveSlug(tenantId, entityId, current, input.value);
-      current = input.value.trim() || null;
-      status.textContent = current ? 'Saved.' : 'Cleared.';
-      options.onSaved(current);
-    } catch (e) {
-      status.classList.add('error-text');
-      status.textContent = e instanceof Error ? e.message : String(e);
-    } finally {
-      save.disabled = false;
-    }
-  });
-  container.replaceChildren(form);
 }

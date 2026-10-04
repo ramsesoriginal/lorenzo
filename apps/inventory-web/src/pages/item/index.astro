@@ -1,391 +1,57 @@
 ---
 import Base from '../../layouts/Base.astro';
+import ItemPage from '../../components/ItemPage/ItemPage.astro';
 ---
 
 <Base title="Item — Lorenzo">
-  <p>
-    <a href="/">&larr; Tenants</a>
+  <p id="status">
+    Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
   </p>
-  <p id="status">Loading&hellip;</p>
 
-  <div id="page" hidden>
-    <div class="item-detail-content">
-      <h1 class="display" id="item-title"></h1>
-      <p id="item-slug" class="item-detail-slug" hidden></p>
-      <p id="item-qty" class="item-detail-qty" hidden></p>
-      <button type="button" id="copy-link-button">
-        Copy link
-      </button>
-
-      <div id="item-view" class="item-view"></div>
-      <button type="button" id="description-edit" class="btn btn-secondary" hidden>
-        Edit description
-      </button>
-      <div id="description-mount"></div>
-
-      <section id="item-notes" class="section" aria-labelledby="item-notes-heading" hidden>
-        <h2 id="item-notes-heading">Notes</h2>
-        <div id="item-notes-list"></div>
-      </section>
-
-      <div id="item-ancestry" class="item-detail-ancestry" hidden>
-        <h2>Ancestry</h2>
-        <ul id="item-ancestry-list"></ul>
-      </div>
-
-      <section
-        id="item-mentioned-in"
-        class="section"
-        aria-labelledby="item-mentioned-in-heading"
-        hidden
-      >
-        <h2 id="item-mentioned-in-heading">Mentioned in</h2>
-        <ul id="item-mentioned-in-list" class="chip-list"></ul>
-      </section>
-
-      <section id="item-used-by" class="section" aria-labelledby="item-used-by-heading" hidden>
-        <h2 id="item-used-by-heading">Used as a prototype by</h2>
-        <ul id="item-used-by-list" class="chip-list"></ul>
-      </section>
-
-      <div id="item-gm" hidden>
-        <section class="section" aria-labelledby="item-slug-heading">
-          <h2 id="item-slug-heading">Slug</h2>
-          <div id="item-slug-editor"></div>
-        </section>
-        <section class="section" aria-labelledby="item-tags-heading">
-          <h2 id="item-tags-heading">Tags</h2>
-          <div id="item-tags"></div>
-        </section>
-        <section class="section" aria-labelledby="item-information-heading">
-          <h2 id="item-information-heading">Information</h2>
-          <div id="item-information"></div>
-        </section>
-      </div>
-    </div>
-  </div>
+  <ItemPage />
 
   <script>
+    import { renderItemPage } from '../../components/ItemPage/renderer';
     import { addressedTenant, isId } from '../../lib/addresses';
-    import { fetchAncestryTree } from '../../lib/ancestryTree';
-    import { LorenzoApiError } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
-    import { descriptionRenderer, getBacklinks } from '../../lib/descriptions';
-    import { entityHref } from '../../lib/entityLinks';
-    import { infoForm } from '../../lib/infoForm';
-    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
-    import { renderInformationManager } from '../../lib/informationManager';
-    import {
-      getCatalogItem,
-      getEntityDetail,
-      getItemInstance,
-      listItemsUsingPrototype,
-    } from '../../lib/items';
-    import { renderItemView } from '../../lib/itemView';
-    import { listMyCharacters } from '../../lib/characters';
-    import { isCampaignGm } from '../../lib/me';
-    import { type Reader, renderNotes } from '../../lib/notes';
-    import { renderSlugEditor, resolveSlugs } from '../../lib/slugs';
-    import { renderTagEditor } from '../../lib/tagEditor';
-    import type { ItemBase, ItemInstance } from '../../lib/types';
+    import { descriptionRenderer } from '../../lib/descriptions';
+    import { errorMessage } from '../../lib/errorMessage';
+    import { findItem } from '../../lib/itemLookup';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
 
-    const byId = <T extends HTMLElement = HTMLElement>(id: string) =>
-      document.getElementById(id) as T;
-    const status = byId('status');
-    const page = byId('page');
-    const itemTitle = byId('item-title');
-    const itemSlug = byId('item-slug');
-    const itemQty = byId('item-qty');
-    const copyLinkButton = byId<HTMLButtonElement>('copy-link-button');
-    const itemView = byId('item-view');
-    const descriptionEdit = byId<HTMLButtonElement>('description-edit');
-    const descriptionMount = byId('description-mount');
-    const itemAncestry = byId('item-ancestry');
-    const itemAncestryList = byId<HTMLUListElement>('item-ancestry-list');
-    const itemUsedBy = byId('item-used-by');
-    const itemUsedByList = byId<HTMLUListElement>('item-used-by-list');
-    const itemMentionedIn = byId('item-mentioned-in');
-    const itemMentionedInList = byId<HTMLUListElement>('item-mentioned-in-list');
-    const itemGm = byId('item-gm');
-    const itemSlugEditor = byId('item-slug-editor');
-    const itemTags = byId('item-tags');
-    const itemInformation = byId('item-information');
-    const itemNotes = byId('item-notes');
-    const itemNotesList = byId('item-notes-list');
+    const required = requiredIn('Item page');
+    const status = required<HTMLElement>(document, '#status');
+    const page = required<HTMLElement>(document, '[data-item-page]');
 
     const params = new URLSearchParams(window.location.search);
     // By id or by slug (ADR 0135).
     const addressed = await addressedTenant(params.get('tenant'));
-    const tenantId = addressed.id as string;
     const itemId = params.get('id');
     // ?slug=, or an ?id= that's a slug (ADR 0113, 0135).
-    const itemSlugParam = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
-    const renderer = descriptionRenderer(tenantId);
-
-    // The shown item (set by show() before anything reads it), and which endpoint
-    // reads it again after a change.
-    let shown!: ItemBase;
-    let isInstance = false;
-    // Who writes here, and the character that reads a private note (ADR 0113).
-    let viewerIsGm = false;
-    let reader: Reader | null = null;
-
-    copyLinkButton.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        copyLinkButton.textContent = 'Copied!';
-      } catch {
-        copyLinkButton.textContent = "Couldn't copy";
-      } finally {
-        window.setTimeout(() => {
-          copyLinkButton.textContent = 'Copy link';
-        }, 1500);
-      }
-    });
-
-    function showSlug(slug: string | null) {
-      itemSlug.hidden = !slug;
-      itemSlug.textContent = slug ?? '';
-    }
-
-    function show(item: ItemBase | ItemInstance) {
-      shown = item;
-      document.title = `${item.title} — Lorenzo`;
-      itemTitle.textContent = item.title;
-      // An instance carries its slug; a catalog item's is read from its entity (ADR 0113).
-      if ('slug' in item) showSlug(item.slug);
-      const showQty = Boolean(item.quantity && item.quantity > 1);
-      itemQty.hidden = !showQty;
-      itemQty.textContent = showQty ? `×${item.quantity}` : '';
-      renderItemView(itemView, item, { tenantId, renderer });
-      const own = item.descriptions.some((description) => !description.from_entity);
-      descriptionEdit.textContent = own ? 'Edit description' : 'Write a description';
-    }
-
-    /** Reads the item again after a change and shows it, with the GM sections. */
-    async function refresh() {
-      const entityId = shown.entity_id;
-      show(
-        isInstance
-          ? await getItemInstance(tenantId, entityId)
-          : await getCatalogItem(tenantId, entityId),
-      );
-    }
-
-    // An instance's notes, for everyone (ADR 0113). The GM's Information section lists them
-    // too, so a change in either shows in the other.
-    function showNotes() {
-      if (!isInstance) return;
-      itemNotes.hidden = false;
-      void renderNotes(itemNotesList, {
-        tenantId,
-        entityId: shown.entity_id,
-        renderer,
-        canWrite: viewerIsGm || reader !== null,
-        reader,
-        rowHeading: 'h3',
-        onChanged: () => viewerIsGm && showInformation(),
-      });
-    }
-
-    function showInformation() {
-      const onChanged = () => {
-        void refresh();
-        showNotes();
-      };
-      void renderInformationManager(itemInformation, {
-        tenantId,
-        entityId: shown.entity_id,
-        renderer,
-        onChanged,
-      });
-    }
-
-    function showGmSections() {
-      const entityId = shown.entity_id;
-      itemGm.hidden = false;
-      const onChanged = () => void refresh();
-      void renderSlugEditor(itemSlugEditor, {
-        tenantId,
-        entityId,
-        title: shown.title,
-        kind: isInstance ? 'instance' : 'item',
-        onSaved: showSlug,
-      });
-      void renderTagEditor(itemTags, { tenantId, entityId, onChanged });
-      showInformation();
-    }
-
-    // The description, with its display title: the item's shown name (ADR 0019, 0112).
-    descriptionEdit.addEventListener('click', async () => {
-      descriptionEdit.disabled = true;
-      const entityId = shown.entity_id;
-      try {
-        const info = await getDescription(tenantId, entityId);
-        let saved = false;
-        descriptionEdit.hidden = true;
-        descriptionMount.replaceChildren(
-          infoForm({
-            initial: descriptionDraft(info, shown.title),
-            renderer,
-            titleLabel: 'Display title',
-            textLabel: 'Description',
-            showVisibility: info === null,
-            onSubmit: async (draft) => {
-              await saveDescription(tenantId, entityId, info, draft, shown.title);
-              saved = true;
-            },
-            onClose: () => {
-              descriptionMount.replaceChildren();
-              descriptionEdit.hidden = false;
-              if (saved) void refresh().then(showGmSections);
-            },
-          }),
-        );
-      } catch (e) {
-        window.alert(e instanceof Error ? e.message : String(e));
-      } finally {
-        descriptionEdit.disabled = false;
-      }
-    });
-
-    async function loadAncestry(directPrototypeId: string) {
-      itemAncestry.hidden = false;
-      const loading = document.createElement('li');
-      loading.textContent = 'Loading…';
-      itemAncestryList.replaceChildren(loading);
-      try {
-        const rootLi = await fetchAncestryTree(tenantId, directPrototypeId);
-        itemAncestryList.replaceChildren(rootLi);
-      } catch {
-        itemAncestry.hidden = true;
-      }
-    }
-
-    async function loadUsedBy(entityId: string) {
-      itemUsedBy.hidden = false;
-      try {
-        const result = await listItemsUsingPrototype(tenantId, entityId);
-        if (result.length === 0) {
-          itemUsedBy.hidden = true;
-          return;
-        }
-        itemUsedByList.replaceChildren();
-        for (const usedByItem of result) {
-          const li = document.createElement('li');
-          li.className = 'chip';
-          const span = document.createElement('span');
-          span.textContent = usedByItem.title;
-          li.append(span);
-          itemUsedByList.append(li);
-        }
-      } catch {
-        itemUsedBy.hidden = true;
-      }
-    }
-
-    // What links here (ADR 0110): shown only when something does.
-    async function loadMentionedIn(entityId: string) {
-      try {
-        const backlinks = await getBacklinks(tenantId, entityId);
-        itemMentionedInList.replaceChildren(
-          ...backlinks.map((backlink) => {
-            const li = document.createElement('li');
-            li.className = 'chip';
-            const href = entityHref(tenantId, backlink);
-            const label = href
-              ? Object.assign(document.createElement('a'), { href })
-              : document.createElement('span');
-            label.textContent = backlink.name;
-            label.title = backlink.title;
-            li.append(label);
-            return li;
-          }),
-        );
-        itemMentionedIn.hidden = backlinks.length === 0;
-      } catch {
-        itemMentionedIn.hidden = true;
-      }
-    }
-
-    const nowhere = () => new Error("There's no such item here, or it isn't one you can see.");
-
-    /** The catalog item or instance the link names, by slug or by id (ADR 0107, 0116, 0135). */
-    async function load(): Promise<{ item: ItemBase | ItemInstance; instance: boolean }> {
-      if (itemSlugParam) {
-        // Any entity can hold a slug (ADR 0107); what it is says which endpoint shows it.
-        const [found] = await resolveSlugs(tenantId, [itemSlugParam]);
-        if (found?.kinds.includes('item_instance')) {
-          return { item: await getItemInstance(tenantId, found.entity_id), instance: true };
-        }
-        if (found?.kinds.includes('item')) {
-          return { item: await getCatalogItem(tenantId, found.entity_id), instance: false };
-        }
-        throw nowhere();
-      }
-      // An id could be either: the catalog is tried first, and the instances only on a real
-      // 404, so a network or auth error shows as itself.
-      const id = itemId as string;
-      try {
-        return { item: await getCatalogItem(tenantId, id), instance: false };
-      } catch (e) {
-        if (!(e instanceof LorenzoApiError) || e.status !== 404) throw e;
-      }
-      try {
-        return { item: await getItemInstance(tenantId, id), instance: true };
-      } catch (e) {
-        throw e instanceof LorenzoApiError && e.status === 404 ? nowhere() : e;
-      }
-    }
+    const itemSlug = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
 
     if (!(await isAuthenticated())) {
-      status.textContent = "You're not logged in. Log in to continue.";
+      say(status, "You're not logged in. Log in to continue.");
     } else if (addressed.problem) {
-      status.textContent = addressed.problem;
-    } else if (!tenantId || !(itemId || itemSlugParam)) {
-      status.textContent = "This link is incomplete — it's missing a tenant or item.";
+      say(status, addressed.problem);
+    } else if (!addressed.id || !(itemId || itemSlug)) {
+      say(status, "This link is incomplete — it's missing a library or item.");
     } else {
-      try {
-        const loaded = await load();
-        status.hidden = true;
-        page.hidden = false;
+      const tenantId = addressed.id;
 
-        isInstance = loaded.instance;
-        show(loaded.item);
-        const entityId = loaded.item.entity_id;
-        if (isInstance) {
-          const directId = loaded.item.prototype_ids[0];
-          if (directId) void loadAncestry(directId);
-        } else {
-          void loadAncestry(entityId);
-          void loadUsedBy(entityId);
-          void getEntityDetail(tenantId, entityId).then(
-            (entity) => showSlug(entity.slug),
-            () => {},
-          );
-        }
-        void loadMentionedIn(entityId);
-        // GMs write here (ADR 0108, 0112, 0113); a player writes notes on what their character
-        // owns. The API still decides.
-        const owner = 'owner_entity_id' in loaded.item ? loaded.item.owner_entity_id : null;
-        const [gm, mine] = await Promise.all([
-          isCampaignGm(tenantId).catch(() => false),
-          owner
-            ? listMyCharacters(tenantId).then(
-                (own) => own.items,
-                () => [],
-              )
-            : [],
-        ]);
-        viewerIsGm = gm;
-        reader = mine.find((character) => character.entity_id === owner) ?? null;
-        showNotes();
-        descriptionEdit.hidden = !gm;
-        if (gm) showGmSections();
-      } catch (e) {
-        status.hidden = false;
+      try {
+        const found = await findItem(tenantId, { slug: itemSlug, id: itemId });
+
+        say(status, '');
+        await renderItemPage({
+          root: page,
+          tenantId,
+          renderer: descriptionRenderer(tenantId),
+        }).show(found);
+      } catch (error) {
+        say(status, errorMessage(error), true);
         page.hidden = true;
-        status.textContent = e instanceof Error ? e.message : String(e);
       }
     }
   </script>

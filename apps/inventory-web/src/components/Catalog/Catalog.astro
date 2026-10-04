@@ -1,0 +1,101 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<section class="section-lg" aria-labelledby="catalog-heading" data-catalog>
+  <h2 id="catalog-heading">Catalog</h2>
+
+  <p class="field-note" data-intro hidden>
+    Everything your GMs have put in the public catalog.
+  </p>
+
+  <div class="with-sidebar full-width">
+    <div class="stack">
+      <div class="catalog-toolbar">
+        <input
+          type="search"
+          class="text-input"
+          data-search
+          placeholder="Search the item catalog…"
+          aria-label="Search the item catalog"
+        />
+      </div>
+      <div class="stack">
+        <strong>Filter:</strong>
+        <ul class="tree stagger" aria-label="Filter by prototype" data-filter></ul>
+      </div>
+    </div>
+    <div class="stack">
+      <p data-empty hidden>
+        No items match.
+      </p>
+      <p class="error-text" data-error hidden></p>
+      <ul
+        class="list stagger vertical-window vertical-mask"
+        aria-label="Catalog items"
+        data-list
+        hidden
+      ></ul>
+    </div>
+  </div>
+
+  <template data-filter-branch-template>
+    <li>
+      <details>
+        <summary>
+          <label class="row-tight">
+            <input type="checkbox" data-filter-checkbox />
+            <span data-filter-title></span>
+          </label>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+        </summary>
+        <ul data-filter-children></ul>
+      </details>
+    </li>
+  </template>
+
+  <template data-filter-leaf-template>
+    <li>
+      <label class="row-tight">
+        <input type="checkbox" data-filter-checkbox />
+        <span data-filter-title></span>
+      </label>
+    </li>
+  </template>
+
+  <template data-row-template>
+    <li>
+      <div class="row grow sticky-top">
+        <span data-name class="row">
+          <strong data-title></strong>
+          <span class="pill pill-success" data-public hidden>
+            Public
+          </span>
+        </span>
+
+        <div data-panel class="grow"></div>
+        <div class="row">
+          <button type="button" class="btn-secondary" data-view>
+            View
+          </button>
+
+          <button type="button" data-edit>
+            Edit
+          </button>
+          <button type="button" data-instantiate>
+            Create instance
+          </button>
+          <button type="button" class="btn-danger" data-delete>
+            Delete
+          </button>
+        </div>
+      </div>
+    </li>
+  </template>
+
+  <template data-skeleton-template>
+    <li class="skeleton"></li>
+  </template>
+</section>

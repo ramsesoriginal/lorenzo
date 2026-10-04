@@ -1,0 +1,24 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
+<!-- A panel that finds a being to act on, copied by renderBeingPicker. -->
+<template data-being-picker-template>
+  <div class="character-picker-panel">
+    <div data-extra></div>
+    <Combobox label="Search beings" placeholder="Search beings…" />
+    <div class="being-id-row">
+      <input
+        type="text"
+        class="text-input"
+        placeholder="or a being's id or slug…"
+        aria-label="Being's id or slug"
+        data-raw-id
+      />
+      <button type="button" data-raw-id-button>
+        Use ID
+      </button>
+    </div>
+    <p class="picker-status" data-status hidden></p>
+  </div>
+</template>

@@ -1,67 +1,27 @@
 ---
 import Base from '../layouts/Base.astro';
-import TenantCardTemplate from '../components/TenantCardTemplate.astro';
+import LibraryList from '../components/LibraryList/LibraryList.astro';
 ---
 
 <Base>
   <h1 class="display">Inventory</h1>
   <p>Choose a library to see your characters and their belongings.</p>
 
-  <section id="tenants" class="section-lg" hidden>
-    <h2>Your libraries</h2>
-    <p id="tenants-loading">Loading libraries&hellip;</p>
-    <p id="tenants-empty" hidden>
-      You don't have access to a library yet.
-    </p>
-    <p id="tenants-error" class="error-text" hidden></p>
-    <ul id="tenants-list" class="list"></ul>
-  </section>
-
-  <TenantCardTemplate />
+  <LibraryList />
 
   <script>
+    import { renderLibraryList } from '../components/LibraryList/renderer';
     import { isAuthConfigured, isAuthenticated } from '../lib/auth';
-    import { rememberTenant } from '../lib/lastTenant';
-    import { listTenants, renderTenantCard } from '../lib/tenants';
+    import { requiredIn } from '../lib/template';
 
-    // Signing in and out lives in the header (layouts/Base.astro) - this page
-    // only lists a signed-in user's tenants.
-    const tenantsSection = document.getElementById('tenants')!;
-    const tenantsLoading = document.getElementById('tenants-loading')!;
-    const tenantsEmpty = document.getElementById('tenants-empty')!;
-    const tenantsError = document.getElementById('tenants-error')!;
-    const tenantsList = document.getElementById('tenants-list')!;
+    const libraries = renderLibraryList(
+      requiredIn('Home')<HTMLElement>(document, '[data-library-list]'),
+    );
 
-    async function loadTenants() {
-      tenantsSection.hidden = false;
-      try {
-        const page = await listTenants();
-        tenantsLoading.hidden = true;
-        if (page.items.length === 0) {
-          tenantsEmpty.hidden = false;
-          return;
-        }
-        // Only one place to go - remember it, so the header links there already.
-        if (page.items.length === 1) {
-          const tenant = page.items[0];
-
-          rememberTenant(tenant.id);
-          window.location.href = `/board/?tenant=${tenant.id}`;
-          return;
-        }
-        for (const tenant of page.items) {
-          tenantsList.append(renderTenantCard(tenant));
-        }
-      } catch (e) {
-        tenantsLoading.hidden = true;
-        tenantsError.hidden = false;
-        tenantsError.textContent = e instanceof Error ? e.message : String(e);
-      }
-    }
-
-    // A failure here is the header's to show.
+    // Signing in and out lives in the header: this page only lists a signed-in user's libraries.
+    // A failure there is the header's to show.
     if (isAuthConfigured() && (await isAuthenticated().catch(() => false))) {
-      await loadTenants();
+      await libraries.load();
     }
   </script>
 </Base>

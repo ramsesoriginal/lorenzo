@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — item</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html">Full width</a>
+          <a href="scrolling.html">Scrolling</a>
+          <a href="item.html" aria-current="page">Item</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Item</h1>
+        <p class="lede">
+          The small pieces an item's page is made of: a lineage, its stats,
+          pictures and where they come from, and groups of options.
+        </p>
+
+        <section class="section">
+          <h2>Lineage</h2>
+          <p>
+            <code>.lineage</code> shows what something inherits from, nearest
+            first. Each level indents under the one it comes from; the first is
+            set apart.
+          </p>
+          <ul class="lineage">
+            <li>
+              Ornate Spellbook
+              <ul>
+                <li>
+                  Spellbook
+                  <ul>
+                    <li>Book</li>
+                  </ul>
+                </li>
+                <li>Magical</li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+
+        <section class="section-lg">
+          <h2>Key values</h2>
+          <p>
+            <code>.key-values</code> puts names and values in two aligned
+            columns.
+          </p>
+          <dl class="key-values">
+            <dt>Price</dt>
+            <dd>250</dd>
+            <dt>Weight</dt>
+            <dd>1.5</dd>
+            <dt>Max HP</dt>
+            <dd>12</dd>
+          </dl>
+        </section>
+
+        <section class="section-lg">
+          <h2>Gallery and caption</h2>
+          <p>
+            <code>.gallery</code> wraps pictures in a row, each at most 240px.
+            <code>.caption</code> is small print about where one comes from.
+          </p>
+          <div class="gallery">
+            <figure>
+              <img
+                alt="A placeholder"
+                src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27320%27 height=%27200%27%3E%3Crect width=%27320%27 height=%27200%27 fill=%27%23b88a3b%27 fill-opacity=%270.25%27/%3E%3C/svg%3E"
+              />
+              <figcaption class="caption">
+                From <a href="#">Spellbook</a>
+              </figcaption>
+            </figure>
+            <figure>
+              <img
+                alt="A second placeholder"
+                src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27320%27 height=%27200%27%3E%3Crect width=%27320%27 height=%27200%27 fill=%27%23b88a3b%27 fill-opacity=%270.25%27/%3E%3C/svg%3E"
+              />
+              <figcaption class="caption">From <a href="#">Book</a></figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="section-lg">
+          <h2>Option groups</h2>
+          <p>
+            <code>.option-group</code> is a labelled row of choices; the label
+            gives every group the same width, so the choices line up.
+            <code>.stack-tight</code>
+            keeps a list of them close together.
+          </p>
+          <div class="stack-tight">
+            <div
+              class="option-group"
+              role="group"
+              aria-labelledby="group-magical"
+            >
+              <span class="option-group-label" id="group-magical">Magical</span>
+              <label class="field-row"
+                ><input type="radio" name="magical" checked />Inherited
+                (on)</label
+              >
+              <label class="field-row"
+                ><input type="radio" name="magical" />On</label
+              >
+              <label class="field-row"
+                ><input type="radio" name="magical" />Off</label
+              >
+            </div>
+            <div
+              class="option-group"
+              role="group"
+              aria-labelledby="group-cursed"
+            >
+              <span class="option-group-label" id="group-cursed">Cursed</span>
+              <label class="field-row"
+                ><input type="radio" name="cursed" checked />Inherited (not
+                set)</label
+              >
+              <label class="field-row"
+                ><input type="radio" name="cursed" />On</label
+              >
+              <label class="field-row"
+                ><input type="radio" name="cursed" />Off</label
+              >
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <footer>
+      <div class="wrap">
+        <div class="row" style="padding-inline: var(--space-4)">
+          <span>
+            Part of <code>apps/brand</code> — see
+            <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+          </span>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

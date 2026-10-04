@@ -180,7 +180,7 @@ export const containerNewCommand: Command = {
 };
 
 const NEEDS_CATALOG_ACCESS_MESSAGE =
-  'This server doesn\'t have a sack set up yet, and only someone with tenant access can add one. Ask a GM or admin to run `/container-new` once (or to add an item called "Sack" to the catalog), then try again.';
+  'This server doesn\'t have a sack set up yet, and only someone with library access can add one. Ask a GM or admin to run `/container-new` once (or to add an item called "Sack" to the catalog), then try again.';
 
 async function fillSack(
   interaction: StringSelectMenuInteraction,

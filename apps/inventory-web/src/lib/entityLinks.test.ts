@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entityHref, linkNote, type ResolvedSlug } from './entityLinks';
+import { entityHref, itemPageHref, linkNote, type ResolvedSlug } from './entityLinks';
 
 const entity = (kinds: ResolvedSlug['kinds'], name = 'Ashfang'): ResolvedSlug => ({
   slug: 'ashfang',
@@ -82,5 +82,18 @@ describe('linkNote', () => {
     expect(linkNote(image, entity(['item']), false)).toBe(
       'Ashfang has no picture, so readers see the alt text.',
     );
+  });
+});
+
+describe('itemPageHref', () => {
+  it('names an item by its slug when it has one', () => {
+    expect(itemPageHref('sunken-vale', { entity_id: 'e1', slug: 'belt-pouch' })).toBe(
+      '/item/?tenant=sunken-vale&slug=belt-pouch',
+    );
+  });
+
+  it('falls back to its id when it has none', () => {
+    expect(itemPageHref('t1', { entity_id: 'e1', slug: null })).toBe('/item/?tenant=t1&id=e1');
+    expect(itemPageHref('t1', { entity_id: 'e1' })).toBe('/item/?tenant=t1&id=e1');
   });
 });

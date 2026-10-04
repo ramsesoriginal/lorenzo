@@ -1,5 +1,6 @@
 import { ApiError } from './apiError';
 import { createStatusSpan } from './dom';
+import { errorMessage } from './errorMessage';
 import { getTenant, updateTenantSlug } from './tenants';
 import type { TenantSummaryOut } from './types';
 
@@ -27,7 +28,7 @@ export function renderTenantSlug(tenant: TenantSummaryOut): HTMLElement {
       const form = document.createElement('form');
       form.className = 'tenant-slug-form';
       const label = document.createElement('label');
-      label.textContent = 'Tenant slug';
+      label.textContent = 'Library slug';
       const input = document.createElement('input');
       input.type = 'text';
       input.value = current.slug;
@@ -80,7 +81,7 @@ export function renderTenantSlug(tenant: TenantSummaryOut): HTMLElement {
         } catch (error) {
           stale = error instanceof ApiError && error.status === 412;
           status.textContent = stale
-            ? 'This tenant changed while you were editing. Cancel and reopen the editor to use its latest version.'
+            ? 'This library changed while you were editing. Cancel and reopen the editor to use its latest version.'
             : error instanceof Error
               ? error.message
               : String(error);
@@ -91,7 +92,7 @@ export function renderTenantSlug(tenant: TenantSummaryOut): HTMLElement {
         }
       });
     } catch (error) {
-      status.textContent = error instanceof Error ? error.message : String(error);
+      status.textContent = errorMessage(error);
       edit.disabled = false;
     }
   });

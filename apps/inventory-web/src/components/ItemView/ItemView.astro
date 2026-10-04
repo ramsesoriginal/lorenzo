@@ -1,0 +1,37 @@
+<div class="stack" data-item-view>
+  <div class="stack" data-groups></div>
+  <ul class="row" data-tags hidden></ul>
+  <div class="gallery" data-pictures hidden></div>
+  <div class="stack item-detail-descriptions" data-descriptions></div>
+
+  <template data-group-template>
+    <section class="stack">
+      <h3 data-heading></h3>
+      <dl class="key-values" data-stats></dl>
+    </section>
+  </template>
+
+  <template data-stat-template>
+    <dt data-name></dt>
+    <dd data-value></dd>
+  </template>
+
+  <template data-tag-template>
+    <li class="chip" data-label></li>
+  </template>
+
+  <template data-picture-template>
+    <figure>
+      <img data-image />
+      <figcaption class="caption" data-caption hidden>
+        From <a data-link></a>
+      </figcaption>
+    </figure>
+  </template>
+
+  <template data-source-template>
+    <p class="caption">
+      From <a data-link></a>
+    </p>
+  </template>
+</div>

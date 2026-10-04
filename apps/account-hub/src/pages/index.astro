@@ -24,7 +24,7 @@ import Base from '../layouts/Base.astro';
       <a href="/notifications">
         Notifications<span id="unread-badge" class="canonical-marker" hidden></span>
       </a>
-      <a href="/tenants">Your tenants and campaigns</a>
+      <a href="/tenants">Your libraries and campaigns</a>
       <a href="/characters">Your characters</a>
       <a href="/beings">Beings</a>
       <a href="/overview">Your access, everywhere</a>
@@ -35,6 +35,7 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
+    import { errorMessage } from '../lib/errorMessage';
     import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
     import { getUnreadCount } from '../lib/notifications';
 
@@ -110,7 +111,7 @@ import Base from '../layouts/Base.astro';
           signedOut.hidden = false;
         }
       } catch (e) {
-        showError(e instanceof Error ? e.message : String(e));
+        showError(errorMessage(e));
       }
     }
   </script>

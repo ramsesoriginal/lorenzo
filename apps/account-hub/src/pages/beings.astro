@@ -27,6 +27,7 @@ import Base from '../layouts/Base.astro';
       listBeings,
       updateCharacter,
     } from '../lib/characters';
+    import { errorMessage } from '../lib/errorMessage';
     import { renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { campaignRoleFor, resolveDisplayName } from '../lib/format';
     import { getMe } from '../lib/me';
@@ -84,7 +85,7 @@ import Base from '../layouts/Base.astro';
         } catch (e) {
           playersArea.append(
             Object.assign(document.createElement('p'), {
-              textContent: e instanceof Error ? e.message : String(e),
+              textContent: errorMessage(e),
             }),
           );
         }
@@ -129,7 +130,7 @@ import Base from '../layouts/Base.astro';
             } catch (e) {
               inviteContainer.append(
                 Object.assign(document.createElement('p'), {
-                  textContent: e instanceof Error ? e.message : String(e),
+                  textContent: errorMessage(e),
                 }),
               );
             }
@@ -139,7 +140,7 @@ import Base from '../layouts/Base.astro';
         } catch (e) {
           playersArea.replaceChildren(
             Object.assign(document.createElement('p'), {
-              textContent: e instanceof Error ? e.message : String(e),
+              textContent: errorMessage(e),
             }),
           );
         }
@@ -267,7 +268,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
   </script>

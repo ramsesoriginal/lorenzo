@@ -27,6 +27,11 @@ export type MoveAnywayOptions = Readonly<{
   ask: (question: string) => boolean;
 }>;
 
+/** The options on a page: a GM is asked with window.confirm. */
+export function moveAnywayOptions(canOverride: boolean): MoveAnywayOptions {
+  return { canOverride, ask: (question) => window.confirm(question) };
+}
+
 /**
  * Runs `write`; if it's refused as overridable and the viewer may override, asks, and
  * on a yes runs it again with override - asking first, for a binding, whether to lift
