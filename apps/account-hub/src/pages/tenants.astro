@@ -18,6 +18,9 @@ import Base from '../layouts/Base.astro';
 
   <p id="empty-state" hidden>
     You don't belong to any library yet.
+    <a id="setup-link" href="/setup" hidden>
+      Set up a table
+    </a>
   </p>
 
   <ul id="tenant-list"></ul>
@@ -79,6 +82,7 @@ import Base from '../layouts/Base.astro';
     const repositoriesSection = document.getElementById('repositories-section')!;
     const repositoryList = document.getElementById('repository-list')!;
     const emptyState = document.getElementById('empty-state')!;
+    const setupLink = document.getElementById('setup-link')!;
     const tenantList = document.getElementById('tenant-list')!;
 
     function roleLabel(role: CampaignRole): string {
@@ -307,6 +311,7 @@ import Base from '../layouts/Base.astro';
     async function load() {
       const me = await getMe();
       const mayCreate = canCreateTenants(me);
+      setupLink.hidden = !mayCreate;
       if (!createFormsBuilt) {
         createFormsBuilt = true;
         createUnavailable.hidden = mayCreate;

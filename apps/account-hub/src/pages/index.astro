@@ -26,6 +26,9 @@ import Base from '../layouts/Base.astro';
       </a>
       <a href="/tenants">Your libraries and campaigns</a>
       <a href="/campaigns">Your campaigns</a>
+      <a id="setup-link" href="/setup" hidden>
+        Set up a table
+      </a>
       <a href="/beings">Beings</a>
       <a href="/debug/me">
         Debug: <code>GET /me</code>
@@ -36,7 +39,9 @@ import Base from '../layouts/Base.astro';
   <script>
     import { showError } from '../lib/errorUi';
     import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
+    import { getMe } from '../lib/me';
     import { getUnreadCount } from '../lib/notifications';
+    import { canCreateTenants } from '../lib/tenantKind';
 
     // Matches notifications.astro's own polling cadence and visibility
     // pause (ADR 0085) - this page owns its own independent poll loop,
@@ -49,6 +54,17 @@ import Base from '../layouts/Base.astro';
     const signedIn = document.getElementById('account-signed-in')!;
     const emailEl = document.getElementById('account-email')!;
     const unreadBadge = document.getElementById('unread-badge')!;
+    const setupLink = document.getElementById('setup-link')!;
+
+    // Offered only to an account that may create a library (ADR 0175); a
+    // convenience, so a failure to ask is no failure of the page.
+    async function showSetupLink() {
+      try {
+        setupLink.hidden = !canCreateTenants(await getMe());
+      } catch {
+        // No link, rather than a link that may not work.
+      }
+    }
 
     document.getElementById('login-button')?.addEventListener('click', () => {
       void login();
@@ -106,6 +122,7 @@ import Base from '../layouts/Base.astro';
           const info = await getUserInfo();
           emailEl.textContent = info.email ?? info.sub;
           signedIn.hidden = false;
+          void showSetupLink();
           await refreshUnreadBadge();
           startPolling();
         } else {

@@ -12,6 +12,9 @@ import Base from '../layouts/Base.astro';
   <p id="load-error" class="error-text" hidden></p>
   <p id="empty-state" hidden>
     You don't play in or run any campaign yet.
+    <a id="setup-link" href="/setup" hidden>
+      Set up a table
+    </a>
   </p>
 
   <section id="play-section" class="section" hidden>
@@ -30,12 +33,14 @@ import Base from '../layouts/Base.astro';
     import { getManaged, getMe } from '../lib/me';
     import { renderRunCampaign } from '../lib/runUi';
     import { loadSeatOwners, renderSeat } from '../lib/seatUi';
+    import { canCreateTenants } from '../lib/tenantKind';
     import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
     import { isAuthenticated } from '../lib/auth';
 
     const loading = document.getElementById('loading')!;
     const loadError = document.getElementById('load-error')!;
     const emptyState = document.getElementById('empty-state')!;
+    const setupLink = document.getElementById('setup-link')!;
     const playSection = document.getElementById('play-section')!;
     const playList = document.getElementById('play-list')!;
     const runSection = document.getElementById('run-section')!;
@@ -95,6 +100,8 @@ import Base from '../layouts/Base.astro';
       runSection.hidden = runItems.length === 0;
       runList.replaceChildren(...runItems);
 
+      // Nothing yet: an account that may create is pointed at /setup (ADR 0180).
+      setupLink.hidden = !canCreateTenants(me);
       emptyState.hidden = seatSections.length + runItems.length > 0;
     }
 

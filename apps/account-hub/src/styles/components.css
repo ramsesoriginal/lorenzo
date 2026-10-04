@@ -48,7 +48,8 @@
 }
 .create-tenant-form > h2,
 .create-tenant-form > h3,
-.create-tenant-form > p {
+.create-tenant-form > p,
+.create-tenant-form > fieldset {
   flex-basis: 100%;
   margin: 0;
 }
@@ -93,4 +94,18 @@
 .run-campaign > a {
   display: inline-block;
   margin-top: var(--space-2);
+}
+
+/* /setup (ADR 0180): the steps as they run, and the links of the result. */
+.setup-steps > li[data-state="failed"] {
+  color: var(--danger);
+}
+.setup-link {
+  margin-block: var(--space-3);
+}
+/* A choice among radio buttons sits in a row with its words, not above them. */
+.create-tenant-form fieldset label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }

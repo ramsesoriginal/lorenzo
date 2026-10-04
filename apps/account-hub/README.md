@@ -46,6 +46,22 @@ Anyone with a membership can leave a library, any GM can step down, and
 campaign's manager can remove a player and undo a character's roster link (never
 its owner's). All of it is asked first with `window.confirm` (ADR 0170).
 
+## Setting up a table, and GM links
+
+`/setup` (ADR 0180) is the quick way to start: one short form (library name,
+campaign name, game system, who runs it) makes the library, the campaign, the
+GM and a link for your players, and ends on the links, each shown once. "Who
+runs it" is you, someone you find by email or nickname, or a **single-use GM
+link** (ADR 0177) for someone who has an account or doesn't. The chain is the
+calls `/tenants` already makes; a step that fails stops there, says why, and
+"Try again" goes on from it without making anything twice. It is offered only
+to an account whose `GET /me` says `capabilities.create_tenant`, from the home
+page and the empty states of `/tenants` and `/campaigns`.
+
+A campaign's invite panel also offers "Invite a GM" (one person, one use, at
+most a week), and `/join/` says whether a link offers a seat as a player or as
+a GM before asking anyone to log in.
+
 ## Your campaigns
 
 `/campaigns` (ADR 0179) replaces `/overview` and `/characters`, which forward to
