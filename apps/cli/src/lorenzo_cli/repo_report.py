@@ -18,7 +18,13 @@ from lorenzo_cli.client.models import (
     SubscriptionOut,
     UpdatesOut,
 )
-from lorenzo_cli.repos import CleanUpdates, OfferResult, OfferState, has_published_since
+from lorenzo_cli.repos import (
+    CleanUpdates,
+    OfferResult,
+    OfferState,
+    has_published_since,
+    updates_waiting,
+)
 from lorenzo_cli.seed.contents import Contents, Part
 
 
@@ -74,6 +80,9 @@ def _step_line(step: CopyStepOut, *, verb: str | None = None) -> str:
         f"{step.entities} entities, {step.stat_groups} stat groups, "
         f"{step.stat_definitions} stat definitions, {step.information} pieces of information"
     )
+    if step.attachments:
+        # The parents it adds to items copied from elsewhere (ADR 0172): said only when there are.
+        counts += f", {step.attachments} attachment{'' if step.attachments == 1 else 's'}"
     if verb is not None:
         return f"{verb} {step.name}: {counts}."
     flags = [
@@ -123,8 +132,7 @@ def print_copy_result(console: Console, out: CopyOut) -> None:
 
 
 def print_updates(console: Console, name: str, updates: UpdatesOut) -> None:
-    waiting = bool(updates.changed or updates.added or updates.removed)
-    if not waiting:
+    if not updates_waiting(updates):
         console.print(f"{name}: nothing new since this tenant copied or last synced it.")
     else:
         console.print(f"{name} has changed since this tenant copied or last synced it:")
@@ -144,8 +152,24 @@ def print_updates(console: Console, name: str, updates: UpdatesOut) -> None:
         console.print(f"  added {added.kind.value} “{added.name}”{note}", highlight=False)
     for removed in updates.removed:
         console.print(f"  gone upstream: {removed.kind.value} “{removed.name}”", highlight=False)
+    for attachment in updates.attachments_added:
+        note = f", but it waits: {attachment.reason}" if not attachment.applicable else ""
+        console.print(
+            f"  added attachment “{attachment.parent_name}” on “{attachment.child_name}”{note}",
+            highlight=False,
+        )
+    for gone in updates.attachments_removed:
+        console.print(
+            f"  gone upstream: attachment “{gone.parent_name}” on “{gone.child_name}”",
+            highlight=False,
+        )
     if updates.deleted_locally:
         console.print(f"  {len(updates.deleted_locally)} you deleted here (nothing to do).")
+    if updates.attachments_deleted_locally:
+        console.print(
+            f"  {len(updates.attachments_deleted_locally)} attachment(s) you removed here "
+            "(nothing to do)."
+        )
 
 
 def print_left_for_a_decision(console: Console, chosen: CleanUpdates) -> None:
@@ -165,15 +189,33 @@ def print_left_for_a_decision(console: Console, chosen: CleanUpdates) -> None:
         )
     if chosen.removed:
         console.print(f"  {chosen.removed} gone upstream (detach is a decision)")
+    for attachment in chosen.attachments_waiting:
+        console.print(
+            f"  attachment “{attachment.parent_name}” on “{attachment.child_name}” waits: "
+            f"{attachment.reason}",
+            highlight=False,
+        )
+    if chosen.attachments_removed:
+        console.print(
+            f"  {chosen.attachments_removed} attachment(s) gone upstream (detach is a decision)"
+        )
 
 
 def print_applied(console: Console, out: ApplyUpdatesOut) -> None:
     verb = "Would take" if out.dry_run else "Took"
     console.print(f"{verb} {out.applied} changed, {out.added} added, {out.detached} detached.")
-    for item in out.not_applied:
+    if out.attachments_added or out.attachments_detached:
         console.print(
-            f"[yellow]Couldn't apply {item.field} of {item.kind} {item.source_id}: "
-            f"{item.reason}. It stays on offer.[/yellow]",
+            f"Attachments: {out.attachments_added} added, {out.attachments_detached} detached."
+        )
+    for item in out.not_applied:
+        what = (
+            f"an attachment on {item.source_id}"
+            if item.kind == "attachment"
+            else f"{item.field} of {item.kind} {item.source_id}"
+        )
+        console.print(
+            f"[yellow]Couldn't apply {what}: {item.reason}. It stays on offer.[/yellow]",
             highlight=False,
         )
 
@@ -265,6 +307,7 @@ def contents_json(contents: Contents) -> dict[str, object]:
             "stat_groups": contents.stat_groups,
             "stat_definitions": contents.stat_definitions,
             "items": contents.items,
+            "attachments": contents.attachments,
         },
         "seed": {
             "version": contents.seed_version,
@@ -320,6 +363,12 @@ def print_contents(console: Console, contents: Contents) -> None:
         f"and {contents.items} items (categories included).",
         highlight=False,
     )
+    if contents.attachments:
+        console.print(
+            f"Attaches {contents.attachments} parent(s) to items it copied, which a tenant copying "
+            "it takes along.",
+            highlight=False,
+        )
     table = Table(
         "layer",
         "holds",

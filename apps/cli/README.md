@@ -168,7 +168,9 @@ lorenzo repo updates my-homebrew --tenant table-one --apply     # take what need
 lorenzo repo updates my-homebrew --tenant table-one --actions mine.json   # decide row by row
 ```
 
-`--apply` takes the changes that don't touch anything the tenant also changed, and additions that collide with nothing. A conflict is never taken without being named: put the field in `take_upstream` (or `keep_local`) in an `--actions` file, the API's own action list ([ADR 0121](../../docs/adr/0121-repository-updates-and-re-sync.md)). `--dry-run` applies it all and rolls it back.
+`--apply` takes the changes that don't touch anything the tenant also changed, additions that collide with nothing, and the attachments that can be applied (below). A conflict is never taken without being named: put the field in `take_upstream` (or `keep_local`) in an `--actions` file, the API's own action list ([ADR 0121](../../docs/adr/0121-repository-updates-and-re-sync.md)). `--dry-run` applies it all and rolls it back.
+
+**Attachments.** A parent a repository adds to an entity it holds a copy of (a rules repository's prototype on an item it copied from an equipment repository) travels with a copy of the repository and with its updates ([ADR 0172](../../docs/adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md)), so the rules are added to the items a tenant already has. `copy-plan` and `copy` count them on a step's line ("3 attachments") and list the ones they leave out, with the reason: the item or the prototype isn't there, or it would make a prototype loop. `repo updates` lists the attachments added since, the ones gone upstream and the ones removed here. `--apply` takes an added attachment when both its ends are in the tenant, or the end it lacks is a row the same call adds; a removed one is left, and is detached by naming it in an `--actions` file, which can be the list of actions or `{"actions": [...], "attachments": [{"child_source_id", "parent_source_id", "action": "add" | "detach"}]}`. Detaching drops the record and leaves the parent where it is: updating never takes a parent off an item ([ADR 0174](../../docs/adr/0174-the-cli-shows-attachments.md)).
 
 ### What a repository holds
 
@@ -176,7 +178,7 @@ lorenzo repo updates my-homebrew --tenant table-one --actions mine.json   # deci
 lorenzo repo contents --tenant core
 ```
 
-It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; how many stat groups, stat definitions and items it holds (categories included); and, for each layer of the seed, whether it is *complete*, *partly* there or *not there*, found by slug and name as `seed` finds things. What the seed doesn't name is counted as *beyond the seed*. `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)).
+It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; how many stat groups, stat definitions and items it holds (categories included) and how many parents it attaches to items it copied (attachments, said only when there are some; `holds.attachments` in `--json`); and, for each layer of the seed, whether it is *complete*, *partly* there or *not there*, found by slug and name as `seed` finds things. What the seed doesn't name is counted as *beyond the seed*. `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)).
 
 ### Core and D&D 5e are two repositories
 
@@ -197,7 +199,7 @@ lorenzo repo publish --tenant dnd5e
 lorenzo repo offer table-one --tenant dnd5e       # grants core too, then dnd5e, and copies both
 ```
 
-A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes both, for whoever owns them all, and a single copy brings core in first. Someone who owns the bridge but not core is told which command to ask core's owners for. **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel (to change how a core entity behaves under D&D, author one that inherits from it).
+A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes both, for whoever owns them all, and a single copy brings core in first. Someone who owns the bridge but not core is told which command to ask core's owners for. **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
 
 `lorenzo seed` without `--layer` still seeds both layers into an empty repository, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published. It refuses a tenant that already holds one layer and not the other, so name the layer there ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)).
 
