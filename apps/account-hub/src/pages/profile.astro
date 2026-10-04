@@ -101,7 +101,7 @@ import Base from '../layouts/Base.astro';
     });
 
     document.getElementById('picture-remove')?.addEventListener('click', async () => {
-      pictureStatus.textContent = 'Removing&hellip;';
+      pictureStatus.textContent = 'Removing…';
       try {
         await deleteProfilePicture();
         const me = await getMe();
@@ -116,7 +116,7 @@ import Base from '../layouts/Base.astro';
     pictureInput.addEventListener('change', async () => {
       const file = pictureInput.files?.[0];
       if (!file) return;
-      pictureStatus.textContent = 'Uploading&hellip;';
+      pictureStatus.textContent = 'Uploading…';
       try {
         await uploadProfilePicture(file);
         const me = await getMe();
@@ -161,7 +161,7 @@ import Base from '../layouts/Base.astro';
         return;
       }
 
-      saveStatus.textContent = 'Saving&hellip;';
+      saveStatus.textContent = 'Saving…';
       try {
         const me = await updateProfile(patch);
         initial = me;

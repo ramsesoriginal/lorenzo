@@ -46,7 +46,7 @@ export function mountUserPicker(
     event.preventDefault();
     const value = input.value.trim();
     if (value === '') return;
-    status.textContent = 'Looking up&hellip;';
+    status.textContent = 'Looking up…';
     try {
       const user = nicknameRadio.checked
         ? await findUserByNickname(value)
