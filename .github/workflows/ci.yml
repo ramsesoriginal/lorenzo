@@ -9,6 +9,16 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# mise itself is pinned, not "latest". Left floating, the action picks the newest release older than
+# minimum_release_age, finds the restored cache holds an older mise, and runs `mise self-update`, which
+# asks api.github.com without a token and gets HTTP 403 (rate limited) before a single test runs. The
+# cache is only saved on a miss, so it never refreshes itself, and every new mise release broke every
+# job again. A pinned version needs no lookup and no update, and the cache key follows it. To bump:
+# change MISE_VERSION to a release at least 7 days old, in every workflow that has it (grep for it);
+# the next run fills a fresh cache.
+env:
+  MISE_VERSION: "2026.9.15"
+
 jobs:
   # Decides what this change can affect (ADR 0148). Every apps/*/mise.toml and packages/*/mise.toml is a
   # node (docs/adr/0007-apps-layout-and-multiplicity.md; packages since ADR 0100); a change reaches its
@@ -68,6 +78,8 @@ jobs:
           timeout 60 sh -c 'until docker exec postgres pg_isready -U lorenzo; do sleep 1; done'
       - uses: jdx/mise-action@v4
         with:
+          version: ${{ env.MISE_VERSION }}
+          cache_key_prefix: mise-${{ env.MISE_VERSION }}
           # v2026.9.2 doesn't exist as a real mise release (confirmed via the
           # GitHub API) but the action's default "latest" detection grabbed
           # it anyway and 404'd - this is exactly what minimum_release_age
@@ -138,6 +150,8 @@ jobs:
           path: base
       - uses: jdx/mise-action@v4
         with:
+          version: ${{ env.MISE_VERSION }}
+          cache_key_prefix: mise-${{ env.MISE_VERSION }}
           minimum_release_age: 7d
       - run: mise run openapi-schema
         working-directory: revision/apps/api
@@ -177,6 +191,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
+          version: ${{ env.MISE_VERSION }}
+          cache_key_prefix: mise-${{ env.MISE_VERSION }}
           minimum_release_age: 7d
       - run: npm install --global corepack@latest && corepack enable
       - run: mise run check-schema
@@ -214,6 +230,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
+          version: ${{ env.MISE_VERSION }}
+          cache_key_prefix: mise-${{ env.MISE_VERSION }}
           minimum_release_age: 7d
       - run: npm install --global corepack@latest && corepack enable
       - run: pnpm install --frozen-lockfile
@@ -257,6 +275,8 @@ jobs:
           timeout 60 sh -c 'until docker exec postgres pg_isready -U lorenzo; do sleep 1; done'
       - uses: jdx/mise-action@v4
         with:
+          version: ${{ env.MISE_VERSION }}
+          cache_key_prefix: mise-${{ env.MISE_VERSION }}
           minimum_release_age: 7d
       - run: mise run test-e2e
         working-directory: apps/cli
