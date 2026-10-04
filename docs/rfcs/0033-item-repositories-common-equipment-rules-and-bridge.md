@@ -1,6 +1,6 @@
 # RFC: Item repositories — a shared vocabulary, common equipment, a rules repository, and a bridge that attaches the rules to the equipment
 
-Status: proposed. The maintainer decided its shape on 2026-10-04 ([Decided](#decided-with-the-maintainer-2026-10-04)); one question remains ([Open](#open-questions)). Written at the maintainer's request after the first real import. It would amend [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), and it needs one change to the repository API ([§3](#3-attachments-the-api-change)). It is meant to be accepted before anything is published or granted.
+Status: proposed. The maintainer decided its shape on 2026-10-04 ([Decided](#decided-with-the-maintainer-2026-10-04)); no question remains. Written at the maintainer's request after the first real import. It would amend [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), and it needs one change to the repository API ([§3](#3-attachments-the-api-change)). It is meant to be accepted before anything is published or granted.
 
 ## Context
 
@@ -186,7 +186,7 @@ Tenants can be multi-system and campaigns are not. With the rules as prototypes,
 
 This is already the direction of the codebase. RFC 0001's open question 3 proposes that "which system is this for" be a property of which prototype an entity inherits from, not a column. `campaign.game_system` exists, as a plain string, and the docstring of the campaign update says that changing it "changes which prototype variants every entity in the campaign resolves through on next read". Nothing implements that last part: effective stats walk every ancestor ([ADR 0037](../adr/0037-effective-stat-resolution.md)) and inherited descriptions take every ancestor ([ADR 0111](../adr/0111-inherited-descriptions-and-stat-value-sources.md)).
 
-What this RFC does for it is only to make the data available. **Each system's repository gives its prototypes one common ancestor, a system root** (`D&D 5e` in B), so that belonging to a system is ancestry and needs no new kind of tag. A prototype is a system's if it has that root among its ancestors and neutral if it has none. Attachments connect neutral entities to system prototypes, so the neutral item stays neutral and a system's facts reach it through the attached prototype's ancestry.
+What this RFC does for it is only to make the data available, and the maintainer has decided it goes into the seed. **Each system's repository gives its prototypes one common ancestor, a system root** (`D&D 5e` in B), so that belonging to a system is ancestry and needs no new kind of tag. A prototype is a system's if it has that root among its ancestors and neutral if it has none. Attachments connect neutral entities to system prototypes, so the neutral item stays neutral and a system's facts reach it through the attached prototype's ancestry.
 
 Resolution that uses it is a follow-up RFC, with questions of its own: how a campaign's `game_system` names a root; what an item shows in a tenant's catalog, which has no campaign, and how an instance, which belongs to one, differs; and which reads take the system (stats, descriptions, tags and the named columns).
 
@@ -225,17 +225,18 @@ What it buys: one item per thing in a table, usable from A1 alone and enriched b
 - **B defines the `economic` and `damaging` groups.** A second system's same-named groups and definitions merge with them on its first copy.
 - **A prototype adds a stat group by carrying defaults** for stats in it, so no route to acquire a group alone is needed.
 - **Tenants are multi-system and campaigns are not.** Several systems' prototypes are attached tenant-wide, and a campaign resolves through the one its game system names. That resolution is a follow-up RFC.
+- **Each system's seed layer has a system root prototype**, such as `D&D 5e` in B's, which the layer's top-level prototypes (Weapon Class, Weapon Property, Economic Object) name as a parent. A node in a system's layer keeps the layer's slug prefix.
 
 ## Open questions
 
-1. **Do the systems' prototypes get a system root now?** Section 9 proposes that each system's repository gives its prototypes a common ancestor, so that a system's membership is ancestry and the follow-up needs no new tag. The cost is one more prototype per system, `D&D 5e` in B and its seed layer, and the top-level prototypes naming it as a parent. Nothing is published, so adding it now costs nothing and adding it later is a change to a published repository. Recommended: yes.
+None. The last one, whether the systems' prototypes get a system root now, was decided on 2026-10-04: yes, in the seed.
 
 ## Slices, if accepted
 
 Each its own ADR, in this order:
 
 1. **Attachments in copy and updates** (section 3): the rule, the copy-link table and migration, the planner, `repo updates`, purge, the response fields, and an end-to-end test of the stack tried here with a table that takes A1 first and C later, including an attachment whose parent is another repository's copy. It amends ADR 0119, 0120, 0121 and RFC 0024 A8.
-2. **The seed's layers.** Sort the stat definitions and the categories into the four repositories (sections 5 and 6), add the system root (section 9) if it is wanted, bump the seed version, and extend `tests/e2e/test_split.py` to the four-repository stack.
+2. **The seed's layers.** Sort the stat definitions and the categories into the four repositories (sections 5 and 6), add the system root (section 9), bump the seed version, and extend `tests/e2e/test_split.py` to the four-repository stack.
 3. **The importer's two passes** and the `part` in its map, and `repo contents` counting a repository's attachments.
 4. **Rebuilding the local tenants**, and the setup walkthrough in the README.
 5. **Later:** a single setup command, a command that takes an attached repository back off a tenant, showing on a table's item which repository each part of it came from, and **system-aware resolution** (section 9, its own RFC).
