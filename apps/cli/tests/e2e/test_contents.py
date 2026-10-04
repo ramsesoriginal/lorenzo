@@ -42,7 +42,12 @@ def test_a_core_repository_holds_core_and_nothing_beyond_it(stack: Stack, tmp_pa
 
     assert document["tenant"]["slug"] == tenant and document["tenant"]["published_at"] is None
     assert document["granted_to"] == 0 and document["built_on"] == []
-    assert document["holds"] == {"stat_groups": 6, "stat_definitions": 18, "items": 33}
+    assert document["holds"] == {
+        "stat_groups": 6,
+        "stat_definitions": 18,
+        "items": 33,
+        "attachments": 0,
+    }
     layers = document["seed"]["layers"]
     assert layers["core"]["holds"] == "complete"
     assert layers["dnd5e"]["holds"] == "not there"
@@ -89,6 +94,8 @@ def test_a_bridge_is_built_on_core_holds_both_layers_and_the_items_beyond_the_se
     layers = document["seed"]["layers"]
     assert layers["core"]["holds"] == layers["dnd5e"]["holds"] == "complete"
     assert document["holds"]["items"] == total
+    # What the bridge authored is its own rows: no parent was added to a copy.
+    assert document["holds"]["attachments"] == 0
     assert document["beyond_seed"]["items"] == total - SEED_CATEGORIES > 0
     assert document["beyond_seed"]["stat_groups"] == 0
 

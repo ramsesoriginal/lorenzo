@@ -33,6 +33,7 @@ from lorenzo_cli.client.models import (
     LinearFormulaBodyInput,
     MeOut,
     PackGivenOut,
+    PageAttachmentRefOut,
     PageItemOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
@@ -224,6 +225,9 @@ REVOKE_REPOSITORY: Op[None] = Op(
 LIST_REPOSITORIES: Op[PageSubscriptionOut] = Op(
     "list_repositories", "GET", f"{_TENANT}/repositories", response_type=PageSubscriptionOut
 )
+LIST_ATTACHMENTS: Op[PageAttachmentRefOut] = Op(
+    "list_attachments", "GET", f"{_TENANT}/attachments", response_type=PageAttachmentRefOut
+)
 PLAN_REPOSITORY_COPY: Op[CopyPlanOut] = Op(
     "plan_repository_copy", "GET", f"{_REPOSITORY}/copy-plan", response_type=CopyPlanOut
 )
@@ -278,6 +282,7 @@ ALL_OPS: tuple[Op[Any], ...] = (
     GRANT_REPOSITORY,
     REVOKE_REPOSITORY,
     LIST_REPOSITORIES,
+    LIST_ATTACHMENTS,
     PLAN_REPOSITORY_COPY,
     COPY_REPOSITORY,
     LIST_REPOSITORY_UPDATES,
