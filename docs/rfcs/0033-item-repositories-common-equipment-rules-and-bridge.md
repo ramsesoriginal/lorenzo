@@ -1,6 +1,6 @@
 # RFC: Item repositories — common equipment, a rules repository, and the bridge between them
 
-Status: proposed, Decision open. Written on 2026-10-04 at the maintainer's request, after the first real import. It would amend [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md) if accepted, and it is meant to be decided before anything is published or granted.
+Status: proposed. The maintainer answered three of its questions on 2026-10-04 ([Decided](#decided-with-the-maintainer-2026-10-04)); the [open ones](#open-questions) remain. Written at the maintainer's request after the first real import. It would amend [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md) if accepted, and it is meant to be decided before anything is published or granted.
 
 ## Context
 
@@ -49,9 +49,9 @@ Not tried: corrections travelling through three levels, `repo offer` over a thre
 
 | Repository | Holds | Its authors answer |
 | --- | --- | --- |
-| **A, common equipment** | The vocabulary seeded today as `core` (the category tree, the physical and tag stats, the weight recipe). The **neutral items**: name, aliases, weight, the forms and materials they are, whether they hold things, and system-free text where there is any. | What is this thing, anywhere? |
-| **B, D&D 5e** | A bridge over A: it copies A, then the D&D layer on top. The mechanical stats (dice, damage type, attack ability, the property flags), the proficiency, tier and property categories with their rules text, and the economy (the price stat, in copper). | How does D&D 5e treat things? |
-| **C, common items in D&D 5e** | A bridge over B (and so A). **No vocabulary of its own.** One entity per D&D item: parents are A's item and B's categories, and it carries the D&D values (price, dice, armour, strength required), the sheet's rules text, and the sourcebook citation. Packs. | What is this thing in D&D 5e? |
+| **A, common equipment** | The vocabulary seeded today as `core` (the category tree, the physical and tag stats, the weight recipe). The **neutral items**: name, aliases, weight, the forms and materials they are, whether they hold things, the sourcebook citation, and every description that isn't tied to a mechanic. | What is this thing, anywhere? |
+| **B, D&D 5e** | A bridge over A: it copies A, then the D&D layer on top. Every stat of the D&D layer (dice, damage type, attack ability, the property flags) and the other D&D stats listed in section 4 (price in copper, armour, strength required, ranges), and the proficiency, tier and property categories with their rules text. | How does D&D 5e treat things? |
+| **C, common items in D&D 5e** | A bridge over B (and so A). **No vocabulary of its own.** One entity per D&D item: parents are A's item and B's categories, and it carries the D&D values (price, dice, armour, strength required) and the sheet's rules text. Packs. | What is this thing in D&D 5e? |
 
 B is a bridge over A because the D&D stats go into groups (`damaging`, `tags`) that A creates, as `dnd5e` over `core` does today ([RFC 0025](0025-lorenzo-cli-mpmb-item-importer.md) R9 has A create all five conventional groups, so two systems never collide on creating one). B could instead copy nothing and define its own groups, leaving C to merge the same-named ones when it copies both ([ADR 0119](../adr/0119-copying-a-repository-into-a-tenant.md) allows a merge). That hasn't been tried, and it makes the merge a decision at every copy.
 
@@ -72,21 +72,20 @@ C's entity never edits A's. A table sees the D&D item with A's weight and text a
 - **A's items are prototypes.** They are authored with `in_public_catalog` false, which is what the importer does unless it is told `--public-catalog`, and C's import is told. A player lists only public items ([ADR 0116](../adr/0116-players-read-catalog-items-and-a-public-catalog.md)) and a copy keeps the flag as its author set it (RFC 0024), so a table's players see the D&D items and not the neutral ones. A GM lists the whole catalog and sees both, and can narrow it with the existing `prototype_id` filter ([ADR 0073](../adr/0073-item-prototype-graph-inspection-and-bulk-editing.md)): "everything built on Martial weapon" is C's.
 - **A's items and C's are told apart by name and slug.** Slugs are already `<namespace>-<list>-<key>`; A and C take different namespaces (`basic-` and a D&D one), so a slug names which repository's entity it is. The name needs a rule: see the first open question.
 
-### 4. The stat vocabulary has to be sorted before anything is published
+### 4. The stat vocabulary
 
-Today all eighteen definitions of the core layer would go to A. With D&D pulled out into B, some of them are D&D's. A first pass, which the maintainer should overrule where they disagree:
+Decided with the maintainer on 2026-10-04. Today all eighteen definitions of the core layer would go to A. With D&D pulled out into B, eight of them are D&D's, and so are the twenty-two the D&D layer already has:
 
 | Where | Definitions |
 | --- | --- |
-| **Stay in A** | `own_weight`, `weight`, `contents_weight`, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine` |
-| **Move to B** | `price` (every system has its own currency; the copper convention is D&D's), `armor_formula`, `strength_required`, `stealth_disadvantage`, `adds_modifier` |
-| **Judgement calls** | `armor` (the idea is general, the scale is D&D's, and the API reads it as a named column), `range_normal` and `range_long` (a 5e range band, in feet), `sourcebook` (a citation of where the item came from; A's items would cite what they were drawn from) |
+| **A** (ten) | `own_weight`, `weight`, `contents_weight`, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine`, `sourcebook` |
+| **B** (thirty) | the twenty-two of the D&D layer, and `price`, `armor`, `armor_formula`, `strength_required`, `stealth_disadvantage`, `adds_modifier`, `range_normal`, `range_long` |
 
-Moving a definition is a change to the seed's layer tags (the seed's `layer` key exists for this) and a new seed version. It is only free while nothing has been published: after that a definition can't be moved, only added.
+A still creates all five conventional stat groups, so `economic`, `destroyable` and `damaging` exist in A with no definitions of their own, and B's go into them ([RFC 0025](0025-lorenzo-cli-mpmb-item-importer.md) R9). Moving a definition is a change to the seed's layer tags (the seed's `layer` key exists for this) and a new seed version. Nothing is published, so it costs nothing now; after a publish a definition can't be moved, only added.
 
 ### 5. The importer writes two halves
 
-An MPMB sheet is D&D data. The importer has to split what it reads into what is true anywhere (name, aliases, weight, forms, materials, whether it contains things) and what is D&D's (price, dice, armour numbers, proficiency, properties, the rules text, the citation). It does this as **two passes over the same files**, so each repository's content is a function of the source and a map, and either can be re-run:
+An MPMB sheet is D&D data. The importer has to split what it reads into what is true anywhere (name, aliases, weight, forms, materials, whether it contains things, the sourcebook citation, descriptive text) and what is D&D's (price, dice, armour and range numbers, proficiency, properties, rules text). In the sheet's own fields that is: `nameAlt` and `alternatives` (aliases), prose descriptions of gear, and `sourcebook` for A; a weapon's `description`, which lists its properties and gives the versatile die, its `tooltip` of special rules, and the numbers, for C. It does this as **two passes over the same files**, so each repository's content is a function of the source and a map, and either can be re-run:
 
 - a neutral pass into A, creating the item under its forms;
 - a D&D pass into C, which finds A's item by its slug **in C's own copy of A** (as it finds a core category in the bridge today), creates the D&D entity beside it, and parents it in both.
@@ -138,15 +137,30 @@ What it buys: a second system takes A and brings its own B and C, without D&D's 
 - **Keep ADR 0162's two repositories.** Nothing to build. Neutral and D&D facts stay mixed in every item, and a second system re-imports its own items.
 - **Three repositories, items stay D&D's.** Core as vocabulary, a rules repository (B), and a bridge (C) whose items are complete D&D items with parents in both layers. No neutral items, so no second entity per item and one importer pass. It separates the rules from the items, which move at different speeds. It gives up reuse of items across systems. It is the cheapest first step, and it can grow into the proposal later by adding A's items and re-parenting C's onto them, but every subscriber then takes that as an update, which is the cost [RFC 0025](0025-lorenzo-cli-mpmb-item-importer.md) R8 named for splitting late.
 
+## Decided with the maintainer (2026-10-04)
+
+- **What text lives in A:** every description that isn't tied to a mechanic. The sheet has little of it for weapons, whose `description` is a property list and whose `tooltip` is special rules (both C's), so most of A's descriptive text will be written rather than imported. Gear text and aliases are A's.
+- **Which stat definitions are D&D's:** section 4. `sourcebook` is common.
+- **Nothing is published or granted.** There is only local test data, so nothing has to be migrated. The local `core` and `dnd5e` tenants can be rebuilt, and no order of work has to protect a subscriber.
+
 ## Open questions
 
-1. **What does C's entity call itself?** The same name as A's, which the API allows and which a list can't tell apart, or a suffix ("Longsword (D&D 5e)"), which reads clearly to a GM and is shown to players.
-2. **What text lives in A?** The sheet's `description` is rules text for weapons (it lists the properties) and prose only for some gear. If A's items have no text, the inherited descriptions on a table's item are B's rules text and C's own.
-3. **Which stat definitions are D&D's?** The table in section 4 is a first pass; `price` and the armour group are the ones that matter most, since they can't be moved once published.
-4. **Is A one repository, or two?** The vocabulary (today's `core`) and the neutral items could be separate repositories as well, so a repository of items need not carry the vocabulary. This RFC keeps them together; a Warhammer repository that wants the vocabulary but not these items argues for splitting.
-5. **Which items do packs link to?** A pack is D&D (an Explorer's Pack has D&D contents and `pack give` makes the table's items), so it lives in C and links C's entities. Confirm.
-6. **Has anything been published or granted yet?** If not, nothing has to be migrated, and what exists (the `core` tenant, and `dnd5e` with its imported items) is reshaped rather than abandoned: tenants are permanent, so `core` would become A and `dnd5e` B, with its imported items deleted and re-imported into a new C (the details are slice 3). If something has been published, the decisions above are harder to change.
-7. **Names.** The three repositories' names and slugs are the maintainer's.
+1. **What does C's entity call itself?** A GM searching a table's catalog for "Longsword" finds two items, because the neutral one and the D&D one are both in the table:
+
+   ```text
+   Longsword   weight 3                                (A's: no price, no damage)
+   Longsword   weight 3, price 1500, damage 1d8        (C's: the D&D item)
+   ```
+
+   Handing the wrong one to a player gives a sword with no price and no damage, and the D&D item's page says "From Longsword" under a title that is also "Longsword". Players only list C's, since A's items aren't public, so the choice is about GMs and about what players see in their inventories. Three ways:
+   - **Same name.** What the importer does today, with no work. The two can't be told apart by name, only by slug.
+   - **A suffix on C's** ("Longsword (D&D 5e)"). Clear to a GM; players see the suffix everywhere.
+   - **A suffix on A's** ("Longsword (common)"). Players see the plain name, a GM sees which is the prototype, and the label reads "From Longsword (common)". The neutral pass has to add the suffix.
+
+   An item's title is its own description's title or its name, so whichever is chosen is what a table shows.
+2. **Is A one repository, or two?** Two would be the vocabulary (categories, stat groups and definitions, the weight recipe) as one repository, and the neutral items as a second that is a bridge over it: A0, "Common vocabulary", and A1, "Common Fantasy Equipment". B would copy A0 only, and C would copy A1 and B, so a table would take four grants (A0, A1, B, C) instead of three. What it buys is a system that wants the shared vocabulary but not these items, a Warhammer repository with its own items, say, without carrying them. What it costs is another repository and another grant, and nothing today needs it, since A's items are non-public prototypes that a system can ignore. This RFC keeps one.
+3. **Which items do packs link to?** A pack is D&D (an Explorer's Pack has D&D contents, and `pack give` makes the table's items), so it lives in C and links C's entities. Confirm.
+4. **Names.** The three repositories' names and slugs are the maintainer's.
 
 ## Slices, if accepted
 
@@ -154,7 +168,7 @@ Each its own ADR, in this order:
 
 1. **The seed's layers.** Sort the stat definitions (section 4), decide where each category and definition lives, bump the seed version, and extend `tests/e2e/test_split.py` to the three-repository stack that was tried here.
 2. **The importer's two passes** and the `part` in its map.
-3. **Reshaping the existing tenants**, and the setup walkthrough in the README.
+3. **Rebuilding the local tenants**, and the setup walkthrough in the README.
 4. **Later:** a single setup command, and showing on a table's item which repository each part of it came from.
 
 ## Not in scope
