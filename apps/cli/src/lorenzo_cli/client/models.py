@@ -414,6 +414,9 @@ class GivePackRequest(BaseModel):
 
 class GmOut(BaseModel):
     user_id: UUID = Field(..., title="User Id")
+    nickname: str | None = Field(..., title="Nickname")
+    display_name: str | None = Field(..., title="Display Name")
+    user_color: str | None = Field(..., title="User Color")
 
 
 class GmRosterEntryOut(BaseModel):
@@ -789,6 +792,9 @@ class PlayerCreate(BaseModel):
 class PlayerOut(BaseModel):
     id: UUID = Field(..., title="Id")
     user_id: UUID = Field(..., title="User Id")
+    nickname: str | None = Field(..., title="Nickname")
+    display_name: str | None = Field(..., title="Display Name")
+    user_color: str | None = Field(..., title="User Color")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
@@ -809,6 +815,9 @@ class PlayerRosterEntryOut(BaseModel):
 class PlayerSummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     user_id: UUID = Field(..., title="User Id")
+    nickname: str | None = Field(..., title="Nickname")
+    display_name: str | None = Field(..., title="Display Name")
+    user_color: str | None = Field(..., title="User Color")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")

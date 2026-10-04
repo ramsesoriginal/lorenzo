@@ -136,7 +136,10 @@ async def test_list_gms_is_unpaginated(client: AsyncClient, test_user_id: uuid.U
     assert response.status_code == 200
     body = response.json()
     assert isinstance(body, list)
-    assert body == [{"user_id": str(gm_user_id)}]
+    # The GM carries their names too (ADR 0176), here none set.
+    assert body == [
+        {"user_id": str(gm_user_id), "nickname": None, "display_name": None, "user_color": None}
+    ]
 
     await delete_tenant(tenant_id)
     async with admin_session_factory() as session:
