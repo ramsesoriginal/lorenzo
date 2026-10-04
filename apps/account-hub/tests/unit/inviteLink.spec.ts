@@ -203,14 +203,36 @@ describe('what is said', () => {
 
 // ADR 0092 requirement 7, in the file Cloudflare Pages reads: the landing path
 // must send Referrer-Policy: no-referrer, with and without the trailing slash.
+// A path line starts in column 0 and its headers are the indented lines below.
+function headerRules(text: string): Map<string, string[]> {
+  const rules = new Map<string, string[]>();
+  let current: string[] | undefined;
+  for (const line of text.split('\n')) {
+    if (line.trim() === '' || line.startsWith('#')) continue;
+    if (/^\s/.test(line)) {
+      current?.push(line.trim());
+    } else {
+      current = [];
+      rules.set(line.trim(), current);
+    }
+  }
+  return rules;
+}
+
 describe('public/_headers', () => {
-  const headers = readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8');
+  const rules = headerRules(
+    readFileSync(new URL('../../public/_headers', import.meta.url), 'utf8'),
+  );
 
   it.each(['/join', '/join/*'])('sets Referrer-Policy: no-referrer for %s', (path) => {
-    const rule = new RegExp(
-      `^${path.replace('*', '\\*')}\\n\\s+Referrer-Policy: no-referrer$`,
-      'm',
-    );
-    expect(headers).toMatch(rule);
+    expect(rules.get(path)).toContain('Referrer-Policy: no-referrer');
+  });
+
+  it('has no rule that weakens it', () => {
+    for (const headers of rules.values()) {
+      expect(headers.filter((h) => h.startsWith('Referrer-Policy:'))).toEqual([
+        'Referrer-Policy: no-referrer',
+      ]);
+    }
   });
 });
