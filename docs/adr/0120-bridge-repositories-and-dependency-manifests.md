@@ -42,6 +42,8 @@ A stat group or definition a repository merged into one of its own (ADR 0119's `
 - **Its edits to its copies of its dependencies.** If `dnd_faerun` renamed its copy of Waterdeep, or gave it a stat value, that stays in `dnd_faerun`. Subscribers get Waterdeep from `Faerûn` directly. To make an upstream entity behave differently under a system, the bridge authors a new entity that inherits from it.
 - **Rows between two copied entities.** A containment or ownership between two of the bridge's copies isn't the bridge's own, for the same reason.
 
+*(Addendum, 2026-10-04: [ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) amends both bullets for one kind of row. A parent the bridge adds to an entity it holds a copy of, an **attachment**, does travel, whether the parent is the bridge's own entity or another copy. Containment, ownership and every other edit still stay in the bridge.)*
+
 ## Consequences
 
 - One copy brings in a whole stack, in the right order, and it's repeatable: adding a second bridge onto the same dependencies costs only the bridge's own rows.
