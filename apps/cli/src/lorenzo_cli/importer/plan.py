@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
 
+from lorenzo_cli import descriptions
 from lorenzo_cli.client.models import ResolvedSlugOut, StatDefinitionOut, TenantOut
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.evalworker import EvalResult
@@ -31,7 +32,7 @@ from lorenzo_cli.importer.packs import (
 from lorenzo_cli.importer.slugs import LIST_TOKENS, assign_slugs
 from lorenzo_cli.seed import SeedSpec
 
-Status = Literal["create", "complete", "exists", "held", "skipped", "moved"]
+Status = Literal["create", "complete", "retitle", "exists", "held", "skipped", "moved"]
 # Written last: an existing item without it is one an earlier run stopped part-way through.
 MARKER_STAT = "sourcebook"
 SEED_LIST = {token: name for name, token in LIST_TOKENS.items()}
@@ -51,6 +52,9 @@ class PlannedItem:
     has_description: bool = False
     # The types of information entries it already has (other names, notes...).
     have_information: frozenset[str] = frozenset()
+    # Its description, titled with the placeholder the CLI used to give every one: the row, and
+    # the name it should be titled with (ADR 0165).
+    retitle: tuple[UUID, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -82,6 +86,10 @@ class ImportPlan:
         return [i for i in self.items if i.status in ("held", "moved")]
 
     @property
+    def retitle_count(self) -> int:
+        return sum(1 for i in self.items if i.retitle is not None)
+
+    @property
     def reparent_count(self) -> int:
         return sum(1 for i in self.items if i.reparent)
 
@@ -104,7 +112,7 @@ class ImportPlan:
 
     @property
     def pending(self) -> bool:
-        return any(i.status in ("create", "complete") for i in self.items)
+        return any(i.status in ("create", "complete", "retitle") for i in self.items)
 
 
 @dataclass(frozen=True)
@@ -284,7 +292,10 @@ def _decide(
     incomplete = (MARKER_STAT in draft.stats and MARKER_STAT not in item.have_stats) or (
         bool(draft.pack_lines) and not item.has_description
     )
-    item.status = "complete" if incomplete else "exists"
+    stale = descriptions.placeholder_description(detail)
+    if stale is not None:
+        item.retitle = (stale.id, detail.name)
+    item.status = "complete" if incomplete else ("retitle" if stale is not None else "exists")
 
 
 def _resolve_packs(
