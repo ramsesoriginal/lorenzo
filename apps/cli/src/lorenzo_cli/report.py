@@ -12,7 +12,6 @@ from lorenzo_cli.evalworker import STANDARD_LISTS, EvalResult
 from lorenzo_cli.importer.plan import ImportPlan
 from lorenzo_cli.seed import SeedPlan, SeedSpec, UnseedPlan, UnseedResult
 from lorenzo_cli.seed.spec import NodeSpec, RecipeSpec
-from lorenzo_cli.seed.unseed import TargetKind
 
 
 def print_evaluation(console: Console, result: EvalResult) -> None:
@@ -122,17 +121,15 @@ def unseed_result_json(result: UnseedResult) -> dict[str, object]:
     }
 
 
-_KIND_LABEL: dict[TargetKind, str] = {
-    "node": "categories",
-    "definition": "stat definitions",
-    "group": "stat groups",
-}
-
-
 def unseed_counts(plan: UnseedPlan) -> str:
-    """ "28 categories, 22 stat definitions and 0 stat groups"."""
-    parts = [f"{len(plan.of(kind))} {label}" for kind, label in _KIND_LABEL.items()]
-    return f"{parts[0]}, {parts[1]} and {parts[2]}"
+    """ "28 categories, 22 stat definitions and 0 stat groups", with "6 attachments, " in front
+    where the plan takes some out."""
+    counts = (
+        f"{len(plan.of('node'))} categories, {len(plan.of('definition'))} stat definitions and "
+        f"{len(plan.of('group'))} stat groups"
+    )
+    attachments = plan.of("attachment")
+    return f"{len(attachments)} attachments, {counts}" if attachments else counts
 
 
 def print_unseed_plan(console: Console, plan: UnseedPlan) -> None:
@@ -258,10 +255,16 @@ def seed_list_json(spec: SeedSpec, layers: tuple[str, ...]) -> dict[str, object]
                         "name": n.name,
                         "parents": n.parents,
                         "tags": n.tags,
+                        "stats": n.stats,
                         "description": n.description,
                     }
                     for n in spec.nodes
                     if n.layer == layer
+                ],
+                "attachments": [
+                    {"child": a.child, "parent": a.parent}
+                    for a in spec.attachments
+                    if a.layer == layer
                 ],
                 "recipes": [
                     {"node": r.node, "stat": r.stat, "kind": r.kind, "of": _recipe_of(r)}
@@ -304,8 +307,9 @@ def _category_line(depth: int, node: NodeSpec) -> str:
     others = [p for p in node.parents if p != shown]
     if others:
         line += f"  [dim]under {', '.join(others)}[/dim]"
-    if node.tags:
-        line += f"  [dim]sets {', '.join(node.tags)}[/dim]"
+    sets = [*node.tags, *(f"{stat} {value}" for stat, value in node.stats.items())]
+    if sets:
+        line += f"  [dim]sets {escape(', '.join(sets))}[/dim]"
     return line
 
 
@@ -315,12 +319,13 @@ def print_seed_list(console: Console, spec: SeedSpec, layers: tuple[str, ...]) -
         groups = [g for g in spec.groups if g.layer == layer]
         definitions = [d for d in spec.definitions if d.layer == layer]
         nodes = [n for n in spec.nodes if n.layer == layer]
+        attachments = [a for a in spec.attachments if a.layer == layer]
         recipes = [r for r in spec.recipes if r.layer == layer]
         described = sum(1 for n in nodes if n.description)
         console.print(
             f"\n[bold]{layer}[/bold]: {len(groups)} stat groups, {len(definitions)} stat "
             f"definitions, {len(nodes)} categories ({described} with a description), "
-            f"{len(recipes)} recipes"
+            f"{len(attachments)} attachments, {len(recipes)} recipes"
         )
         if groups:
             console.print("Stat groups: " + ", ".join(g.name for g in groups), highlight=False)
@@ -333,6 +338,11 @@ def print_seed_list(console: Console, spec: SeedSpec, layers: tuple[str, ...]) -
             console.print("Categories:")
             for depth, node in _category_tree(nodes):
                 console.print(_category_line(depth, node), highlight=False, soft_wrap=True)
+        if attachments:
+            table = Table("category", "gets the parent", title="Attachments", title_justify="left")
+            for a in attachments:
+                table.add_row(a.child, a.parent)
+            console.print(table)
         if recipes:
             table = Table("on", "stat", "computed as", title="Recipes", title_justify="left")
             for r in recipes:
