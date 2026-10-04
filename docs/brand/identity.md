@@ -1272,9 +1272,9 @@ Do not swap terminology for flavor from screen to screen.
 **Library** is the user-facing name for Lorenzo's top-level organizational and
 access boundary.
 
-A library contains the campaigns, characters, repositories, and other material
-that a group of people works with in Lorenzo. A person may have access to one
-or more libraries.
+A library contains the campaigns, characters, and other material that a group
+of people works with in Lorenzo. A person may have access to one or more
+libraries. A library may take copies of a repository's content (below).
 
 **Tenant** is the corresponding technical term used by Lorenzo's architecture,
 database, authorization model, and implementation.
@@ -1311,19 +1311,28 @@ database field, or implementation uses that term.
 
 Examples:
 
-| Technical / internal | User-facing                           |
-| -------------------- | ------------------------------------- |
-| tenant               | library                               |
-| tenants              | libraries                             |
-| tenant membership    | library access / people               |
-| tenant settings      | library settings                      |
-| select tenant        | choose a library                      |
-| tenant not found     | library not found                     |
-| no tenant membership | you don't have access to this library |
+| Technical / internal    | User-facing                           |
+| ----------------------- | ------------------------------------- |
+| tenant                  | library                               |
+| tenant, kind repository | repository                            |
+| tenants                 | libraries                             |
+| tenant membership       | library access / people               |
+| tenant settings         | library settings                      |
+| select tenant           | choose a library                      |
+| tenant not found        | library not found                     |
+| no tenant membership    | you don't have access to this library |
 
-`Library` does not mean `world`, `universe`, `campaign`, or `repository`.
-Those remain separate domain concepts. A library may contain or give access
-to several of them.
+`Library` does not mean `world`, `universe`, or `campaign`. Those remain
+separate domain concepts. A library may contain or give access to several of
+them.
+
+A **repository** is the user-facing name for a tenant of kind `repository`. It
+is not a library and not part of one: it is a separate top-level space whose
+content libraries copy from and take updates from. Nobody plays in a repository
+and it holds no campaigns. Say "repository" for it everywhere in product copy
+(its heading, its badge, "Create a repository", "Leave this repository"), and
+never "library". The `tenant` rows above read "library" only for a tenant that
+is one.
 
 ---
 

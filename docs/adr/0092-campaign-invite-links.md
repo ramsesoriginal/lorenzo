@@ -65,3 +65,7 @@ An approval queue; tenant-level (membership) invite links, a different and highe
 ## Addendum (2026-10-04): the edge rule is deferred to go-live
 
 The consequence above, "this feature is not safe to expose publicly until [the edge rule] is in place", is relaxed for the pre-production phase by the maintainer: the rule needs a domain and hosting the project doesn't have yet, so it is owed before going live, not before testing. See the addendum to [ADR 0171](0171-account-hub-campaign-invite-links.md#addendum-2026-10-04-the-edge-rule-is-deferred-to-go-live) for what that leaves in place and what it costs.
+
+## Addendum (2026-10-04): a GM link
+
+The rule above that a link "grants the **player** role in that one campaign only. Never GM" holds for every link except one narrow kind, decided with the maintainer: a **single-use, short-lived GM link**, minted by whoever may grant GM directly. Everything else here (the hash, the shown-once token, the dead-link indistinguishability, the redaction, the edge rule) applies to it unchanged. See [ADR 0177](0177-gm-invite-links.md), which also records what a leaked unredeemed one costs.
