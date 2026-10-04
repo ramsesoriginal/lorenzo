@@ -1,0 +1,7 @@
+# Cloudflare Pages response headers. Anything under /join carries an invite
+# token in its address for a moment, so it never sends a Referer on to another
+# site (ADR 0092 requirement 7, ADR 0171). The page also says so in a meta tag.
+/join
+  Referrer-Policy: no-referrer
+/join/*
+  Referrer-Policy: no-referrer
