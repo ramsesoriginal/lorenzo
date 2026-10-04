@@ -56,4 +56,4 @@ More than a player link: a stranger who redeems an unspent one becomes a GM of t
 
 - **One migration** (`campaign_invite.role`, default `player`, existing rows unchanged), the create and redeem routes, the schemas above, tests (the single-use race, the 7-day limit, an existing GM, a player who becomes a GM too, the dead-link indistinguishability for a GM link, the token-redaction test unchanged), and regenerated clients.
 - account-hub's invite panel offers "Invite a GM" next to the player link, its `/join/` page says which it is, and `/setup` offers it ([ADR 0180](0180-account-hub-one-click-setup.md)).
-- The OpenAPI diff reports `player_id` becoming nullable; the pull request carries the `breaking-change` label if the job calls it one.
+- The OpenAPI diff reports `player_id` becoming nullable (`response-property-list-of-types-widened`). It is recorded in `apps/api/openapi-breaking-accepted.txt` with this ADR, as [ADR 0119](0119-copying-a-repository-into-a-tenant.md)'s was, and the commit carries a `BREAKING CHANGE` footer so release-please versions it.
