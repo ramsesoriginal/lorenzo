@@ -99,7 +99,7 @@ test('a player undoes a reused character; an owner link is never offered', async
   );
 
   const session = await signedInPage(browser, player.subject);
-  await session.page.goto('/characters');
+  await session.page.goto('/campaigns');
   const zorro = session.page.locator('section.campaign-subsection').filter({ hasText: 'Zorro' });
   const hood = session.page.locator('section.campaign-subsection').filter({ hasText: 'Hood' });
   await expect(zorro).toContainText('Cael');

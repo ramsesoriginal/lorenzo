@@ -1,4 +1,4 @@
-"""Reading what a tenant already has and working out what `seed` would create (ADR 0143).
+"""Reading what a tenant already has and working out what `seed` would create (ADR 0143, 0181).
 
 Everything here is find-or-create by name or slug: nothing is ever changed or removed, so a seed
 is safe to run again and to run over a tenant that already has some of it.
@@ -29,16 +29,18 @@ from lorenzo_cli.client.ops import (
 )
 from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
-from lorenzo_cli.seed.spec import SeedSpec
+from lorenzo_cli.seed.spec import AttachmentSpec, NodeSpec, SeedSpec, StatValue
 
-ActionKind = Literal["group", "definition", "node", "description", "retitle", "tag", "recipe"]
+ActionKind = Literal[
+    "group", "definition", "node", "description", "retitle", "tag", "stat", "attach", "recipe"
+]
 _RESOLVE_BATCH = 100  # GET .../entities/resolve takes at most this many slugs (ADR 0107)
 
 
 @dataclass(frozen=True)
 class Action:
     kind: ActionKind
-    # A group or definition name, a node slug, or "<slug>: <tag or stat>".
+    # A group or definition name, a node slug, or "<slug>: <tag, stat or parent>".
     name: str
     layer: str
     detail: str = ""
@@ -57,6 +59,8 @@ class TenantState:
     # node slug -> (its description, the node's name) where the description still has the
     # placeholder title the seed used to give every one (ADR 0165).
     retitles: dict[str, tuple[UUID, str]] = field(default_factory=dict)
+    # (node slug, stat name) -> the value the node holds itself, for the stats the seed sets.
+    own_stats: dict[tuple[str, str], StatValue] = field(default_factory=dict)
 
 
 @dataclass
@@ -107,6 +111,14 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
                 if stale is not None:
                     retitles[slug] = (stale.id, detail.name)
 
+    own_stats: dict[tuple[str, str], StatValue] = {}
+    for node in spec.nodes:
+        if node.stats and node.slug in items:
+            held = client.call(GET_ENTITY, path={**path, "entity_id": nodes[node.slug].entity_id})
+            own_stats.update(
+                {(node.slug, stat.name): stat.value for stat in held.value.stats if stat.own}
+            )
+
     definition_names = {d.id: d.name for d in definitions.values()}
     recipes: dict[tuple[str, str], ComputedStatOut] = {}
     for node_slug in {recipe.node for recipe in spec.recipes} & items.keys():
@@ -117,17 +129,27 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
             name = definition_names.get(stat.stat_definition_id)
             if name is not None:
                 recipes[(node_slug, name)] = stat
-    return TenantState(groups, definitions, nodes, items, recipes, retitles)
+    return TenantState(groups, definitions, nodes, items, recipes, retitles, own_stats)
 
 
 def _layer_flags(layers: list[str]) -> str:
     return " ".join(f"`--layer {layer}`" for layer in layers)
 
 
+def is_attached(state: TenantState, attachment: AttachmentSpec) -> bool:
+    """Whether the child has the parent among its parents in the tenant."""
+    child = state.items.get(attachment.child)
+    parent = state.nodes.get(attachment.parent)
+    return child is not None and parent is not None and parent.entity_id in child.prototype_ids
+
+
 def holds_layer(spec: SeedSpec, state: TenantState, layer: str) -> bool:
-    """Whether the tenant has at least one of the layer's categories or stat definitions."""
-    return any(n.slug in state.nodes for n in spec.nodes if n.layer == layer) or any(
-        d.name in state.definitions for d in spec.definitions if d.layer == layer
+    """Whether the tenant has at least one of the layer's categories or stat definitions, or, for
+    a layer made of attachments, one of them."""
+    return (
+        any(n.slug in state.nodes for n in spec.nodes if n.layer == layer)
+        or any(d.name in state.definitions for d in spec.definitions if d.layer == layer)
+        or any(is_attached(state, a) for a in spec.attachments if a.layer == layer)
     )
 
 
@@ -171,6 +193,11 @@ def make_plan(
             have_groups.add(group.name)
 
     groups_by_name = {g.name: g for g in spec.groups}
+    definitions_by_name = {d.name: d for d in spec.definitions}
+
+    def label_of(node: NodeSpec) -> str:
+        return f"The node {node.slug!r}"
+
     for definition in (d for d in spec.definitions if d.layer in layers):
         present = state.definitions.get(definition.name)
         if present is not None:
@@ -219,7 +246,16 @@ def make_plan(
                 )
                 continue
             expected = {state.nodes[p].entity_id for p in node.parents if p in state.nodes}
-            if expected != set(item.prototype_ids) and len(expected) == len(node.parents):
+            # What the seed's attachments add to it (ADR 0181) is a parent it may have too.
+            attached = {
+                state.nodes[a.parent].entity_id
+                for a in spec.attachments
+                if a.child == node.slug and a.parent in state.nodes
+            }
+            actual = set(item.prototype_ids)
+            if (expected - actual or actual - expected - attached) and len(expected) == len(
+                node.parents
+            ):
                 plan.warnings.append(
                     f"{node.slug!r} exists but is not under {', '.join(node.parents) or 'nothing'} "
                     f"as the seed has it. It is left as it is."
@@ -240,13 +276,55 @@ def make_plan(
             )
         for tag in node.tags:
             if tag not in have_definitions:
-                missing("the definition", tag, "core", f"The node {node.slug!r}")
+                missing("the definition", tag, definitions_by_name[tag].layer, label_of(node))
                 continue
             already = exists and any(
                 t.name == tag and t.value is True for t in state.items[node.slug].tags
             )
             if not already:
                 plan.actions.append(Action("tag", f"{node.slug}: {tag}", node.layer))
+        for stat, value in node.stats.items():
+            if stat not in have_definitions:
+                missing("the definition", stat, definitions_by_name[stat].layer, label_of(node))
+                continue
+            own = state.own_stats.get((node.slug, stat)) if exists else None
+            if own is None:
+                plan.actions.append(Action("stat", f"{node.slug}: {stat}", node.layer, str(value)))
+            elif own != value:
+                plan.warnings.append(
+                    f"{node.slug!r} has {stat} {own}, not the seed's {value}. It is left as it is."
+                )
+
+    # What the attachments need that the tenant lacks, by the layer that makes them and the layer
+    # it is in: a problem each, not one per attachment.
+    lacking: dict[str, dict[str, list[str]]] = {}
+    for attachment in (a for a in spec.attachments if a.layer in layers):
+        label = f"{attachment.child}: {attachment.parent}"
+        absent_ends = [e for e in (attachment.child, attachment.parent) if e not in have_nodes]
+        for end in absent_ends:
+            slugs = lacking.setdefault(attachment.layer, {}).setdefault(spec.node(end).layer, [])
+            if end not in slugs:
+                slugs.append(end)
+        if absent_ends:
+            continue
+        if attachment.child in state.nodes and attachment.child not in state.items:
+            plan.problems.append(
+                f"The slug {attachment.child!r} belongs to something that isn't an item in this "
+                f"tenant, and the attachment {label!r} needs it."
+            )
+        elif is_attached(state, attachment):
+            plan.existing += 1
+        else:
+            plan.actions.append(Action("attach", label, attachment.layer))
+    for attaching, by_layer in lacking.items():
+        what = "; ".join(
+            f"{', '.join(slugs[:3])}{' ...' if len(slugs) > 3 else ''} (layer {layer})"
+            for layer, slugs in by_layer.items()
+        )
+        plan.problems.append(
+            f"The attachments of the {attaching} layer need categories this tenant doesn't have: "
+            f"{what}. Seed {' and '.join(by_layer)} first."
+        )
 
     for recipe in (r for r in spec.recipes if r.layer in layers):
         label = f"{recipe.node}: {recipe.stat}"
@@ -256,7 +334,12 @@ def make_plan(
         needed = [recipe.stat, *([recipe.source] if recipe.source else recipe.terms)]
         absent = [name for name in needed if name not in have_definitions]
         if absent:
-            missing("the definition", absent[0], "core", f"The recipe {label!r}")
+            missing(
+                "the definition",
+                absent[0],
+                definitions_by_name[absent[0]].layer,
+                f"The recipe {label!r}",
+            )
             continue
         present_recipe = state.recipes.get((recipe.node, recipe.stat))
         if present_recipe is None:

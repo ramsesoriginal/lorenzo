@@ -84,10 +84,24 @@ class GmOut(BaseModel):
     already in the path, no need to repeat them per row. See ADR 0031/RFC
     0004; fits here rather than a one-class module of its own, alongside
     campaign-roster concerns generally.
+
+    Carries the GM's `nickname`/`display_name`/`user_color` (ADR 0176), the
+    same three the tenant roster shows and never the email - a GM who joined
+    by link (ADR 0177) holds no tenant-wide membership to be named through.
+    Requires `campaign_gm.user` eager-loaded first (`lazy="raise_on_sql"`,
+    ADR 0018).
     """
 
     user_id: uuid.UUID
+    nickname: str | None
+    display_name: str | None
+    user_color: str | None
 
     @classmethod
     def from_campaign_gm(cls, campaign_gm: CampaignGm) -> Self:
-        return cls(user_id=campaign_gm.user_id)
+        return cls(
+            user_id=campaign_gm.user_id,
+            nickname=campaign_gm.user.nickname,
+            display_name=campaign_gm.user.display_name,
+            user_color=campaign_gm.user.user_color,
+        )

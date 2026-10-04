@@ -8,14 +8,14 @@ import Base from '../layouts/Base.astro';
     <a href="/">&larr; Back</a>
   </p>
   <p>
-    NPCs and other non-player entities. A being belongs to the tenant (the shared world), not to one
-    specific campaign - see RFC 0013.
+    NPCs and other non-player entities. A being belongs to the library (the shared world), not to
+    one specific campaign - see RFC 0013. A repository's beings are listed too, for reading.
   </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
   <p id="empty-state" hidden>
-    You don't GM any campaigns yet.
+    You don't GM any campaigns yet, and you don't own a repository.
   </p>
 
   <div id="tenant-list"></div>
@@ -31,6 +31,7 @@ import Base from '../layouts/Base.astro';
     import { renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { campaignRoleFor, isTenantAdmin, resolveDisplayName } from '../lib/format';
     import { getMe } from '../lib/me';
+    import { isRepository } from '../lib/tenantKind';
     import {
       invitePlayer,
       listCampaignPlayers,
@@ -179,6 +180,16 @@ import Base from '../layouts/Base.astro';
       section.className = 'section';
       const heading = document.createElement('h2');
       heading.textContent = tenant.name;
+      // A repository's beings are content its owners author: listed for
+      // reading, with no hand-off (nobody plays there) and nothing to rename or
+      // create from this page (ADR 0178).
+      const readOnly = isRepository(tenant);
+      if (readOnly) {
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = 'Repository';
+        heading.append(' ', badge);
+      }
       section.append(heading);
 
       const searchInput = document.createElement('input');
@@ -202,9 +213,15 @@ import Base from '../layouts/Base.astro';
         const list = document.createElement('ul');
         list.className = 'list';
         for (const being of beingsPage.items) {
-          list.append(
-            renderBeingItem(being, tenant.id, gmCampaigns, isTenantAdmin(tenant), onChanged),
-          );
+          if (readOnly) {
+            const item = document.createElement('li');
+            item.textContent = being.name;
+            list.append(item);
+          } else {
+            list.append(
+              renderBeingItem(being, tenant.id, gmCampaigns, isTenantAdmin(tenant), onChanged),
+            );
+          }
         }
         results.replaceChildren(list);
       }
@@ -220,13 +237,15 @@ import Base from '../layouts/Base.astro';
 
       await renderResults();
 
-      section.append(
-        renderCreateForm('New being name', 'Create being', (name) =>
-          // No owner_player_id - that's exactly what makes this a being
-          // (is_pc: false) rather than a player character.
-          createCharacter(tenant.id, { name, player_ids: [] }).then(onChanged),
-        ),
-      );
+      if (!readOnly) {
+        section.append(
+          renderCreateForm('New being name', 'Create being', (name) =>
+            // No owner_player_id - that's exactly what makes this a being
+            // (is_pc: false) rather than a player character.
+            createCharacter(tenant.id, { name, player_ids: [] }).then(onChanged),
+          ),
+        );
+      }
       return section;
     }
 
@@ -235,12 +254,17 @@ import Base from '../layouts/Base.astro';
       const tenantsPage = await listMyTenants();
       const withGmCampaigns = await Promise.all(
         tenantsPage.items.map(async (tenant) => {
+          // A repository holds no campaigns, and the API says so with an error
+          // if asked: it is listed for reading below, whoever owns it.
+          if (isRepository(tenant)) return { tenant, gmCampaigns: [] };
           const campaigns = await listTenantCampaigns(tenant.id);
           const gmCampaigns = campaigns.items.filter((c) => campaignRoleFor(c.id, me) === 'gm');
           return { tenant, gmCampaigns };
         }),
       );
-      const eligible = withGmCampaigns.filter(({ gmCampaigns }) => gmCampaigns.length > 0);
+      const eligible = withGmCampaigns.filter(
+        ({ tenant, gmCampaigns }) => gmCampaigns.length > 0 || isRepository(tenant),
+      );
       if (eligible.length === 0) {
         emptyState.hidden = false;
         tenantList.replaceChildren();

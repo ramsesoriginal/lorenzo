@@ -96,8 +96,8 @@ import Base from '../layouts/Base.astro';
               joined.already_joined,
             );
             const next = document.createElement('a');
-            next.href = '/characters';
-            next.textContent = 'Your characters';
+            next.href = '/campaigns';
+            next.textContent = 'Your campaigns';
             actions.replaceChildren(next);
           } catch (e) {
             if (isDead(e)) {

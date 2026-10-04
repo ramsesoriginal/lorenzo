@@ -46,6 +46,28 @@ Anyone with a membership can leave a library, any GM can step down, and
 campaign's manager can remove a player and undo a character's roster link (never
 its owner's). All of it is asked first with `window.confirm` (ADR 0170).
 
+## Your campaigns
+
+`/campaigns` (ADR 0179) replaces `/overview` and `/characters`, which forward to
+it. **Where you play** lists the campaigns where you hold a seat, with your
+characters there and the actions a seat has: create, rename, use one of your
+characters from another campaign of the library, stop using a linked one, leave.
+**Where you run** lists the campaigns you GM and every campaign of a library you
+administer (marked GM or Admin), with its players by name and what each plays,
+and its GMs; the names come with the campaign's own lists (ADR 0176), so a GM
+who holds no library membership sees them too. It reads `GET /me` and
+`GET /me/managed`, for libraries only.
+
+## Repositories
+
+A repository (a tenant of kind `repository`, ADR 0178) is its own noun, not a
+library. `/tenants` lists libraries as before and gives repositories a section
+of their own: rename and edit, their people and invitations, and whether they
+are a draft or published (read-only: publishing stays on the CLI). They have no
+campaigns, invite links or characters. `/campaigns` lists libraries only;
+`/beings` lists a repository's beings for reading, without the hand-off. "Create a library" and "Create a repository" are shown only when
+`GET /me` says `capabilities.create_tenant` (ADR 0175).
+
 ## Real API browser tests
 
 Run `mise run //apps/account-hub:test-real-api` with the local Postgres from

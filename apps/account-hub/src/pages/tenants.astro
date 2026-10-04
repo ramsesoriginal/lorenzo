@@ -12,6 +12,9 @@ import Base from '../layouts/Base.astro';
   <p id="load-error" class="error-text" hidden></p>
 
   <div id="create-tenant-container"></div>
+  <p id="create-unavailable" hidden>
+    Creating a library or a repository isn't open to your account yet.
+  </p>
 
   <p id="empty-state" hidden>
     You don't belong to any library yet.
@@ -19,26 +22,33 @@ import Base from '../layouts/Base.astro';
 
   <ul id="tenant-list"></ul>
 
+  <section id="repositories-section" class="section" hidden>
+    <h2>Your repositories</h2>
+    <div id="create-repository-container"></div>
+    <ul id="repository-list" class="list"></ul>
+  </section>
+
   <script>
     import { showError } from '../lib/errorUi';
     import { renderTenantEdit } from '../lib/tenantEditUi';
     import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
     import { renderCampaignRoster } from '../lib/campaignRosterUi';
-    import { createStatusSpan } from '../lib/dom';
+    import { renderCreateTenantForm } from '../lib/createTenantUi';
     import { campaignRoleFor, type CampaignRole } from '../lib/format';
-    import { renderLeaveLibrary, renderStepDownAsGm } from '../lib/exitsUi';
+    import { renderLeaveTenant, renderStepDownAsGm } from '../lib/exitsUi';
     import { renderGmManagement, renderInvitePlayer } from '../lib/gmAndPlayerUi';
     import { getMe } from '../lib/me';
     import { renderInviteLinks } from '../lib/inviteLinksUi';
     import { renderMembershipAdmin } from '../lib/membershipAdminUi';
     import { renderNotificationComposer } from '../lib/notificationComposerUi';
     import { renderPictureUpload } from '../lib/pictureUi';
+    import { renderRepository } from '../lib/repositoryUi';
     import { rosterFromPlayers } from '../lib/roster';
+    import { canCreateTenants, splitByKind } from '../lib/tenantKind';
     import {
       campaignPictureUrl,
       createCampaignNotification,
-      createTenant,
       createTenantNotification,
       deleteCampaignPicture,
       deleteTenantPicture,
@@ -64,6 +74,10 @@ import Base from '../layouts/Base.astro';
     const loading = document.getElementById('loading')!;
     const loadError = document.getElementById('load-error')!;
     const createTenantContainer = document.getElementById('create-tenant-container')!;
+    const createRepositoryContainer = document.getElementById('create-repository-container')!;
+    const createUnavailable = document.getElementById('create-unavailable')!;
+    const repositoriesSection = document.getElementById('repositories-section')!;
+    const repositoryList = document.getElementById('repository-list')!;
     const emptyState = document.getElementById('empty-state')!;
     const tenantList = document.getElementById('tenant-list')!;
 
@@ -80,49 +94,6 @@ import Base from '../layouts/Base.astro';
 
     function isTenantAdmin(tenant: TenantSummaryOut): boolean {
       return tenant.role === 'owner' || tenant.role === 'orga';
-    }
-
-    // RFC 0017 (d) - require_tenant_creator_role is a platform-level
-    // Authgear role with no client-visible signal anywhere in MeOut - this
-    // form is always shown, and a 403 is surfaced like any other
-    // authorization failure, rather than trying to approximate a check
-    // that has no data to approximate it with.
-    function renderCreateTenantForm(onCreated: () => void): HTMLElement {
-      const form = document.createElement('form');
-      const heading = document.createElement('h2');
-      heading.textContent = 'Create a library';
-      const nameInput = document.createElement('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Name';
-      nameInput.required = true;
-      const slugInput = document.createElement('input');
-      slugInput.type = 'text';
-      slugInput.placeholder = 'Slug (optional, derived from name)';
-      const descriptionInput = document.createElement('textarea');
-      descriptionInput.placeholder = 'Description (optional)';
-      const button = document.createElement('button');
-      button.type = 'submit';
-      button.textContent = 'Create library';
-      const status = createStatusSpan();
-
-      form.append(heading, nameInput, slugInput, descriptionInput, button, status);
-      form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        status.textContent = 'Creating…';
-        try {
-          await createTenant({
-            name: nameInput.value.trim(),
-            slug: slugInput.value.trim() || null,
-            description: descriptionInput.value.trim() || null,
-          });
-          form.reset();
-          status.textContent = '';
-          onCreated();
-        } catch (e) {
-          showError(status, e);
-        }
-      });
-      return form;
     }
 
     function renderCampaign(
@@ -321,25 +292,36 @@ import Base from '../layouts/Base.astro';
 
       // A Membership, which is what owner and orga mean, is what there is to
       // leave (ADR 0170). A participant-only library has none: their way out
-      // is "Leave this campaign" on /characters.
+      // is "Leave this campaign" on /campaigns.
       if (tenant.role === 'owner' || tenant.role === 'orga') {
-        item.append(renderLeaveLibrary(tenant, me.id, onChanged));
+        item.append(renderLeaveTenant(tenant, me.id, onChanged));
       }
 
       return item;
     }
 
+    // The create forms are built once, from the first `GET /me`: a reload after
+    // creating something must not wipe what is half-typed in the other one.
+    let createFormsBuilt = false;
+
     async function load() {
       const me = await getMe();
-      const tenantsPage = await listMyTenants();
-      if (tenantsPage.items.length === 0) {
-        emptyState.hidden = false;
-        tenantList.replaceChildren();
-        return;
+      const mayCreate = canCreateTenants(me);
+      if (!createFormsBuilt) {
+        createFormsBuilt = true;
+        createUnavailable.hidden = mayCreate;
+        if (mayCreate) {
+          createTenantContainer.append(renderCreateTenantForm('play', () => void load()));
+          createRepositoryContainer.append(renderCreateTenantForm('repository', () => void load()));
+        }
       }
-      emptyState.hidden = true;
+
+      const { libraries, repositories } = splitByKind((await listMyTenants()).items);
+
+      // Libraries: as before. A person with only repositories has none.
+      emptyState.hidden = libraries.length > 0;
       const withCampaigns = await Promise.all(
-        tenantsPage.items.map(async (tenant) => ({
+        libraries.map(async (tenant) => ({
           tenant,
           campaigns: (await listTenantCampaigns(tenant.id)).items,
         })),
@@ -350,6 +332,15 @@ import Base from '../layouts/Base.astro';
         ),
       );
       tenantList.replaceChildren(...sections);
+
+      // Repositories (ADR 0178): a section of their own, with the create form
+      // even before there is one, for an account that may create.
+      repositoriesSection.hidden = repositories.length === 0 && !mayCreate;
+      repositoryList.replaceChildren(
+        ...(await Promise.all(
+          repositories.map((tenant) => renderRepository(tenant, me.id, () => void load())),
+        )),
+      );
     }
 
     if (!(await isAuthenticated())) {
@@ -358,7 +349,6 @@ import Base from '../layouts/Base.astro';
       loadError.textContent = 'Not logged in. Go back and log in first.';
     } else {
       try {
-        createTenantContainer.append(renderCreateTenantForm(() => void load()));
         await load();
         loading.hidden = true;
       } catch (e) {

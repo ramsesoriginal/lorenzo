@@ -4711,6 +4711,12 @@ export interface components {
          *     already in the path, no need to repeat them per row. See ADR 0031/RFC
          *     0004; fits here rather than a one-class module of its own, alongside
          *     campaign-roster concerns generally.
+         *
+         *     Carries the GM's `nickname`/`display_name`/`user_color` (ADR 0176), the
+         *     same three the tenant roster shows and never the email - a GM who joined
+         *     by link (ADR 0177) holds no tenant-wide membership to be named through.
+         *     Requires `campaign_gm.user` eager-loaded first (`lazy="raise_on_sql"`,
+         *     ADR 0018).
          */
         GmOut: {
             /**
@@ -4718,6 +4724,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
         };
         /**
          * GmRosterEntryOut
@@ -5454,13 +5466,25 @@ export interface components {
             campaigns: components["schemas"]["ManagedCampaignOut"][];
         };
         /**
+         * MeCapabilitiesOut
+         * @description What the caller may do on the platform, as opposed to inside one
+         *     tenant (ADR 0175). An object so a later capability is one more key; a
+         *     client treats a missing key as false. A convenience for rendering, not
+         *     authorization - the route that does the thing still answers `403`.
+         */
+        MeCapabilitiesOut: {
+            /** Create Tenant */
+            create_tenant: boolean;
+        };
+        /**
          * MeOut
          * @description The caller's own identity, tenant-wide memberships, campaign
          *     memberships, and GM grants - see ADR 0023/0031. `players`/
          *     `campaign_gm_grants` (ADR 0031/RFC 0004) are the concrete answer to
          *     "user -> owner|orga|member of tenant -> [player(campaign) ->
          *     character | GM(campaign)]" for the caller's own identity - the single
-         *     place a client reads "everything I am, everywhere."
+         *     place a client reads "everything I am, everywhere." `capabilities`
+         *     (ADR 0175) is the one platform-wide part: what the caller may create.
          */
         MeOut: {
             /**
@@ -5492,6 +5516,7 @@ export interface components {
             players: components["schemas"]["PlayerContextOut"][];
             /** Campaign Gm Grants */
             campaign_gm_grants: components["schemas"]["CampaignSummaryOut"][];
+            capabilities: components["schemas"]["MeCapabilitiesOut"];
         };
         /**
          * MembershipCreate
@@ -6243,6 +6268,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Created By */
@@ -6297,6 +6328,12 @@ export interface components {
          *     Now carries `created_by`/`updated_by` (ADR 0029) - `player`'s
          *     attribution pair lands with user/player/character CRUD (ADR 0036/RFC
          *     0007), which is what actually writes to this table.
+         *
+         *     Carries the player's `nickname`/`display_name`/`user_color` (ADR 0176),
+         *     the same three the tenant roster shows and never the email, so a GM
+         *     holding no tenant-wide membership can still name the people at their
+         *     table. Requires `player.user` eager-loaded first (`lazy="raise_on_sql"`,
+         *     ADR 0018).
          */
         PlayerSummaryOut: {
             /**
@@ -6309,6 +6346,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Created By */
