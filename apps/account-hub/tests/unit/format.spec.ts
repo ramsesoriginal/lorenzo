@@ -3,6 +3,7 @@ import {
   campaignRoleFor,
   countUnread,
   displayNameFor,
+  isTenantAdmin,
   localesToText,
   resolveDisplayName,
   reusableCharactersFor,
@@ -240,5 +241,17 @@ describe('resolveDisplayName', () => {
   it('falls back to the raw user_id when no roster entry matches', () => {
     const userId = crypto.randomUUID();
     expect(resolveDisplayName([], userId)).toEqual(userId);
+  });
+});
+
+describe('isTenantAdmin', () => {
+  it.each([
+    ['owner', true],
+    ['orga', true],
+    // A campaign seat or GM grant with no Membership row: the roster, the
+    // activity log and the beings list all answer such a caller with a 404.
+    ['participant', false],
+  ] as const)('%s -> %s', (role, expected) => {
+    expect(isTenantAdmin({ role })).toBe(expected);
   });
 });
