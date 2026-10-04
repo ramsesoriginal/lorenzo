@@ -56,8 +56,6 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
-          cache_key_prefix: mise-${{ env.MISE_VERSION }}
-          minimum_release_age: 7d
       - name: Regenerate uv.lock if the version bump left it stale
         working-directory: apps/api
         # actions/checkout leaves a ref-by-branch-name checkout in

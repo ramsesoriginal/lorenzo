@@ -13,9 +13,10 @@ concurrency:
 # minimum_release_age, finds the restored cache holds an older mise, and runs `mise self-update`, which
 # asks api.github.com without a token and gets HTTP 403 (rate limited) before a single test runs. The
 # cache is only saved on a miss, so it never refreshes itself, and every new mise release broke every
-# job again. A pinned version needs no lookup and no update, and the cache key follows it. To bump:
-# change MISE_VERSION to a release at least 7 days old, in every workflow that has it (grep for it);
-# the next run fills a fresh cache.
+# job again. With a version given, the action downloads that release from its release URL (no API
+# call, no self-update, minimum_release_age is ignored) and puts the version in the cache key, so a
+# bump gets a fresh cache. To bump: change MISE_VERSION, in every workflow that has it (grep for it),
+# to a release at least a week old.
 env:
   MISE_VERSION: "2026.9.15"
 
@@ -79,12 +80,6 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
-          cache_key_prefix: mise-${{ env.MISE_VERSION }}
-          # v2026.9.2 doesn't exist as a real mise release (confirmed via the
-          # GitHub API) but the action's default "latest" detection grabbed
-          # it anyway and 404'd - this is exactly what minimum_release_age
-          # exists to prevent, per the action's own README.
-          minimum_release_age: 7d
       # pnpm itself ships via corepack, not as a mise [tools] entry (ADR
       # 0003) - needed job-wide once any app is a pnpm workspace member
       # (apps/loot-bot, ADR 0029); a no-op for apps/api's own matrix entry.
@@ -151,8 +146,6 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
-          cache_key_prefix: mise-${{ env.MISE_VERSION }}
-          minimum_release_age: 7d
       - run: mise run openapi-schema
         working-directory: revision/apps/api
       - run: mise run openapi-schema
@@ -192,8 +185,6 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
-          cache_key_prefix: mise-${{ env.MISE_VERSION }}
-          minimum_release_age: 7d
       - run: npm install --global corepack@latest && corepack enable
       - run: mise run check-schema
         working-directory: ${{ matrix.app }}
@@ -231,8 +222,6 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
-          cache_key_prefix: mise-${{ env.MISE_VERSION }}
-          minimum_release_age: 7d
       - run: npm install --global corepack@latest && corepack enable
       - run: pnpm install --frozen-lockfile
         working-directory: apps/inventory-web
@@ -276,8 +265,6 @@ jobs:
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
-          cache_key_prefix: mise-${{ env.MISE_VERSION }}
-          minimum_release_age: 7d
       - run: mise run test-e2e
         working-directory: apps/cli
         env:
