@@ -68,6 +68,7 @@ def step(
         "stat_groups": 2,
         "stat_definitions": 5,
         "information": 7,
+        "attachments": 0,
         "dropped": [],
     }
 
@@ -344,7 +345,16 @@ class World:
         if path == f"{copy_base}/copy" and method == "POST":
             return self._copy(json.loads(request.content or b"{}"))
         if path == f"{copy_base}/updates" and method == "GET":
-            return httpx.Response(200, json={"repository_id": str(REPO_ID), **self.updates})
+            # The parents a repository added to its copies (ADR 0172): empty unless a test
+            # says otherwise, as for a repository that attached nothing.
+            nothing = {
+                "attachments_added": [],
+                "attachments_removed": [],
+                "attachments_deleted_locally": [],
+            }
+            return httpx.Response(
+                200, json={"repository_id": str(REPO_ID), **nothing, **self.updates}
+            )
         if path == f"{copy_base}/updates" and method == "POST":
             body = json.loads(request.content)
             kinds = [a["action"] for a in body["actions"]]
@@ -355,6 +365,8 @@ class World:
                     "applied": kinds.count("apply"),
                     "added": kinds.count("add"),
                     "detached": kinds.count("detach"),
+                    "attachments_added": 0,
+                    "attachments_detached": 0,
                     "not_applied": [],
                 },
             )

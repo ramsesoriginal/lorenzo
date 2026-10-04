@@ -922,9 +922,10 @@ export interface paths {
         /**
          * List Repository Updates
          * @description What a copied repository changed since this tenant copied or last
-         *     synced it, row by row, beside this tenant's own copy (ADR 0121).
-         *     Reads the repository through the gated read, so it must still be
-         *     granted and published.
+         *     synced it, row by row, beside this tenant's own copy (ADR 0121), and
+         *     the parents it added to or took off its copies (ADR 0172). Reads the
+         *     repository through the gated read, so it must still be granted and
+         *     published.
          */
         get: operations["list_repository_updates"];
         put?: never;
@@ -932,8 +933,10 @@ export interface paths {
          * Apply Repository Updates
          * @description Applies the listed updates, row by row, in one transaction (ADR
          *     0121). Anything not listed stays as it is. `409` while a conflict is
-         *     named in neither `keep_local` nor `take_upstream`. `dry_run` applies
-         *     everything and rolls it back.
+         *     named in neither `keep_local` nor `take_upstream`. The `attachments`
+         *     (ADR 0172) are applied after the actions, so one can point at a row an
+         *     action adds; `422` for one that has nothing to add or detach.
+         *     `dry_run` applies everything and rolls it back.
          */
         post: operations["apply_repository_updates"];
         delete?: never;
@@ -3265,7 +3268,12 @@ export interface components {
              */
             created_at: string;
         };
-        /** ApplyUpdatesOut */
+        /**
+         * ApplyUpdatesOut
+         * @description An attachment that couldn't be added is a `not_applied` entry of kind
+         *     `attachment`, its `source_id` the child's origin and its `field`
+         *     `prototypes`.
+         */
         ApplyUpdatesOut: {
             /** Dry Run */
             dry_run: boolean;
@@ -3275,18 +3283,110 @@ export interface components {
             added: number;
             /** Detached */
             detached: number;
+            /** Attachments Added */
+            attachments_added: number;
+            /** Attachments Detached */
+            attachments_detached: number;
             /** Not Applied */
             not_applied: components["schemas"]["NotAppliedOut"][];
         };
         /**
          * ApplyUpdatesRequest
-         * @description `dry_run` applies everything and rolls it back (ADR 0121).
+         * @description `dry_run` applies everything and rolls it back (ADR 0121). The
+         *     `attachments` are applied after the `actions`, so one can point at a row
+         *     those add.
          */
         ApplyUpdatesRequest: {
             /** Actions */
             actions: components["schemas"]["UpdateActionIn"][];
+            /** Attachments */
+            attachments?: components["schemas"]["AttachmentActionIn"][] | null;
             /** Dry Run */
             dry_run?: boolean | null;
+        };
+        /**
+         * AttachmentActionIn
+         * @description One attachment's update (ADR 0172), named by its two origin ids. `add`
+         *     takes an added attachment: the edge, if this tenant hasn't it, and the record
+         *     of having taken it. `detach` drops a removed attachment's record and leaves the
+         *     parent where it is.
+         */
+        AttachmentActionIn: {
+            /**
+             * Child Source Id
+             * Format: uuid
+             */
+            child_source_id: string;
+            /**
+             * Parent Source Id
+             * Format: uuid
+             */
+            parent_source_id: string;
+            action: components["schemas"]["AttachmentActionName"];
+        };
+        /**
+         * AttachmentActionName
+         * @description A named type rather than an inline `Literal`, so the generated clients keep
+         *     naming the other actions the way they did.
+         * @enum {string}
+         */
+        AttachmentActionName: "add" | "detach";
+        /**
+         * AttachmentAddedOut
+         * @description An attachment this tenant has no record of taking. `applicable`: both
+         *     ends are here, so it can be taken now; otherwise `reason` says which isn't.
+         *     It becomes applicable once the end is here, whether an update brings it or
+         *     this call adds it.
+         */
+        AttachmentAddedOut: {
+            /**
+             * Child Source Id
+             * Format: uuid
+             */
+            child_source_id: string;
+            /** Child Local Id */
+            child_local_id: string | null;
+            /** Child Name */
+            child_name: string;
+            /**
+             * Parent Source Id
+             * Format: uuid
+             */
+            parent_source_id: string;
+            /** Parent Local Id */
+            parent_local_id: string | null;
+            /** Parent Name */
+            parent_name: string;
+            /** Applicable */
+            applicable: boolean;
+            /** Reason */
+            reason: string | null;
+        };
+        /**
+         * AttachmentRefOut
+         * @description A parent the repository added to an entity it holds a copy of - ADR
+         *     0172. Both ends are named by their origin id, `*_source_id`; the `*_local_id`
+         *     is this tenant's own row for it, null where it has none.
+         */
+        AttachmentRefOut: {
+            /**
+             * Child Source Id
+             * Format: uuid
+             */
+            child_source_id: string;
+            /** Child Local Id */
+            child_local_id: string | null;
+            /** Child Name */
+            child_name: string;
+            /**
+             * Parent Source Id
+             * Format: uuid
+             */
+            parent_source_id: string;
+            /** Parent Local Id */
+            parent_local_id: string | null;
+            /** Parent Name */
+            parent_name: string;
         };
         /**
          * AuditLogEntryOut
@@ -4112,6 +4212,8 @@ export interface components {
             stat_definitions_copied: number;
             /** Stat Definitions Merged */
             stat_definitions_merged: number;
+            /** Attachments */
+            attachments: number;
         };
         /**
          * ContributionOut
@@ -4309,6 +4411,8 @@ export interface components {
             stat_definitions: number;
             /** Information */
             information: number;
+            /** Attachments */
+            attachments: number;
             /** Dropped */
             dropped: components["schemas"]["DroppedOut"][];
         };
@@ -6939,7 +7043,11 @@ export interface components {
          * UpdatesOut
          * @description `GET .../repositories/{id}/updates` - ADR 0121. `removed` rows are
          *     gone upstream and only ever detached, never deleted here;
-         *     `deleted_locally` rows are ones this tenant deleted itself.
+         *     `deleted_locally` rows are ones this tenant deleted itself. The
+         *     `attachments_*` lists are the same for the parents the repository added to
+         *     its copies (ADR 0172): `attachments_removed` are ones it no longer has, which
+         *     are only detached, and `attachments_deleted_locally` are ones whose edge this
+         *     tenant removed.
          */
         UpdatesOut: {
             /**
@@ -6955,6 +7063,12 @@ export interface components {
             deleted_locally: components["schemas"]["RowRefOut"][];
             /** Added */
             added: components["schemas"]["AddedOut"][];
+            /** Attachments Added */
+            attachments_added: components["schemas"]["AttachmentAddedOut"][];
+            /** Attachments Removed */
+            attachments_removed: components["schemas"]["AttachmentRefOut"][];
+            /** Attachments Deleted Locally */
+            attachments_deleted_locally: components["schemas"]["AttachmentRefOut"][];
         };
         /**
          * UserRefOut

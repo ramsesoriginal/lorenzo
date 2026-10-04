@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -7,6 +8,10 @@ from pydantic import BaseModel
 from lorenzo_api.models import StatValueType
 
 __all__ = [
+    "AttachmentActionIn",
+    "AttachmentActionName",
+    "AttachmentAddedOut",
+    "AttachmentRefOut",
     "ContributionCountsOut",
     "ContributionOut",
     "PreviousCopyOut",
@@ -66,6 +71,8 @@ class ContributionCountsOut(BaseModel):
     stat_groups_merged: int
     stat_definitions_copied: int
     stat_definitions_merged: int
+    # The parents it added to rows copied from elsewhere, taken with it (ADR 0172).
+    attachments: int
 
 
 class SubscriptionOut(BaseModel):
@@ -182,6 +189,8 @@ class CopyStepOut(BaseModel):
     stat_groups: int
     stat_definitions: int
     information: int
+    # Parents added to entities copied elsewhere, that this step writes (ADR 0172).
+    attachments: int
     dropped: list[DroppedOut]
 
 
@@ -261,16 +270,46 @@ class AddedOut(BaseModel):
     collision: CollisionOut | None
 
 
+class AttachmentRefOut(BaseModel):
+    """A parent the repository added to an entity it holds a copy of - ADR
+    0172. Both ends are named by their origin id, `*_source_id`; the `*_local_id`
+    is this tenant's own row for it, null where it has none."""
+
+    child_source_id: uuid.UUID
+    child_local_id: uuid.UUID | None
+    child_name: str
+    parent_source_id: uuid.UUID
+    parent_local_id: uuid.UUID | None
+    parent_name: str
+
+
+class AttachmentAddedOut(AttachmentRefOut):
+    """An attachment this tenant has no record of taking. `applicable`: both
+    ends are here, so it can be taken now; otherwise `reason` says which isn't.
+    It becomes applicable once the end is here, whether an update brings it or
+    this call adds it."""
+
+    applicable: bool
+    reason: str | None
+
+
 class UpdatesOut(BaseModel):
     """`GET .../repositories/{id}/updates` - ADR 0121. `removed` rows are
     gone upstream and only ever detached, never deleted here;
-    `deleted_locally` rows are ones this tenant deleted itself."""
+    `deleted_locally` rows are ones this tenant deleted itself. The
+    `attachments_*` lists are the same for the parents the repository added to
+    its copies (ADR 0172): `attachments_removed` are ones it no longer has, which
+    are only detached, and `attachments_deleted_locally` are ones whose edge this
+    tenant removed."""
 
     repository_id: uuid.UUID
     changed: list[RowChangeOut]
     removed: list[RowRefOut]
     deleted_locally: list[RowRefOut]
     added: list[AddedOut]
+    attachments_added: list[AttachmentAddedOut]
+    attachments_removed: list[AttachmentRefOut]
+    attachments_deleted_locally: list[AttachmentRefOut]
 
 
 class UpdateResolutionIn(BaseModel):
@@ -293,10 +332,32 @@ class UpdateActionIn(BaseModel):
     resolution: UpdateResolutionIn | None = None
 
 
+class AttachmentActionName(StrEnum):
+    """A named type rather than an inline `Literal`, so the generated clients keep
+    naming the other actions the way they did."""
+
+    ADD = "add"
+    DETACH = "detach"
+
+
+class AttachmentActionIn(BaseModel):
+    """One attachment's update (ADR 0172), named by its two origin ids. `add`
+    takes an added attachment: the edge, if this tenant hasn't it, and the record
+    of having taken it. `detach` drops a removed attachment's record and leaves the
+    parent where it is."""
+
+    child_source_id: uuid.UUID
+    parent_source_id: uuid.UUID
+    action: AttachmentActionName
+
+
 class ApplyUpdatesRequest(BaseModel):
-    """`dry_run` applies everything and rolls it back (ADR 0121)."""
+    """`dry_run` applies everything and rolls it back (ADR 0121). The
+    `attachments` are applied after the `actions`, so one can point at a row
+    those add."""
 
     actions: list[UpdateActionIn]
+    attachments: list[AttachmentActionIn] | None = None
     dry_run: bool | None = None
 
 
@@ -310,8 +371,14 @@ class NotAppliedOut(BaseModel):
 
 
 class ApplyUpdatesOut(BaseModel):
+    """An attachment that couldn't be added is a `not_applied` entry of kind
+    `attachment`, its `source_id` the child's origin and its `field`
+    `prototypes`."""
+
     dry_run: bool
     applied: int
     added: int
     detached: int
+    attachments_added: int
+    attachments_detached: int
     not_applied: list[NotAppliedOut]

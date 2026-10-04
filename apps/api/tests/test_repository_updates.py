@@ -219,6 +219,8 @@ async def test_finding_and_applying_updates(
             "applied": 5,
             "added": 1,
             "detached": 1,
+            "attachments_added": 0,
+            "attachments_detached": 0,
             "not_applied": [],
         }
 

@@ -46,6 +46,7 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     RepositoryCopy,
+    RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
@@ -67,6 +68,8 @@ from lorenzo_api.repository_copying import (
 )
 from lorenzo_api.repository_updates import (
     COLLISION_KIND,
+    AttachmentAction,
+    AttachmentRef,
     UpdateAction,
     apply_updates,
     compute_updates,
@@ -75,6 +78,8 @@ from lorenzo_api.schemas.repositories import (
     AddedOut,
     ApplyUpdatesOut,
     ApplyUpdatesRequest,
+    AttachmentAddedOut,
+    AttachmentRefOut,
     CollisionOut,
     ContributionCountsOut,
     ContributionOut,
@@ -381,6 +386,12 @@ async def _contribution_counts(
             .group_by(model.source_tenant_id, model.mode)
         ):
             bump(repository, f"{name}_{mode}", n)
+    for repository, n in await session.execute(
+        select(RepositoryCopyLinkAttachment.source_tenant_id, func.count())
+        .where(RepositoryCopyLinkAttachment.tenant_id == tenant_id)
+        .group_by(RepositoryCopyLinkAttachment.source_tenant_id)
+    ):
+        bump(repository, "attachments", n)
     return {
         repository: ContributionCountsOut(
             entities=c.get("entities", 0),
@@ -388,6 +399,7 @@ async def _contribution_counts(
             stat_groups_merged=c.get("stat_groups_merged", 0),
             stat_definitions_copied=c.get("stat_definitions_copied", 0),
             stat_definitions_merged=c.get("stat_definitions_merged", 0),
+            attachments=c.get("attachments", 0),
         )
         for repository, c in counts.items()
     }
@@ -449,6 +461,7 @@ async def list_repositories(
                             stat_groups_merged=0,
                             stat_definitions_copied=0,
                             stat_definitions_merged=0,
+                            attachments=0,
                         ),
                     )
                     if copy
@@ -668,6 +681,7 @@ def _step_out(step: Step) -> CopyStepOut:
         stat_groups=step.stat_groups,
         stat_definitions=step.stat_definitions,
         information=step.information,
+        attachments=step.attachments,
         dropped=[
             DroppedOut(kind=d.kind, source_id=d.source_id, reason=d.reason) for d in step.dropped
         ],
@@ -787,6 +801,17 @@ def _collision_out(c: Any) -> CollisionOut | None:
     )
 
 
+def _attachment_ref_out(a: AttachmentRef) -> AttachmentRefOut:
+    return AttachmentRefOut(
+        child_source_id=a.child_source_id,
+        child_local_id=a.child_local_id,
+        child_name=a.child_name,
+        parent_source_id=a.parent_source_id,
+        parent_local_id=a.parent_local_id,
+        parent_name=a.parent_name,
+    )
+
+
 @router.get("/repositories/{repository_id}/updates")
 async def list_repository_updates(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -794,9 +819,10 @@ async def list_repository_updates(
     session: SessionDep,
 ) -> UpdatesOut:
     """What a copied repository changed since this tenant copied or last
-    synced it, row by row, beside this tenant's own copy (ADR 0121).
-    Reads the repository through the gated read, so it must still be
-    granted and published."""
+    synced it, row by row, beside this tenant's own copy (ADR 0121), and
+    the parents it added to or took off its copies (ADR 0172). Reads the
+    repository through the gated read, so it must still be granted and
+    published."""
     updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
     return UpdatesOut(
         repository_id=repository_id,
@@ -839,6 +865,16 @@ async def list_repository_updates(
             )
             for a in updates.added
         ],
+        attachments_added=[
+            AttachmentAddedOut(
+                **_attachment_ref_out(a).model_dump(), applicable=a.applicable, reason=a.reason
+            )
+            for a in updates.attachments_added
+        ],
+        attachments_removed=[_attachment_ref_out(a) for a in updates.attachments_removed],
+        attachments_deleted_locally=[
+            _attachment_ref_out(a) for a in updates.attachments_deleted_locally
+        ],
     )
 
 
@@ -852,8 +888,10 @@ async def apply_repository_updates(
 ) -> ApplyUpdatesOut:
     """Applies the listed updates, row by row, in one transaction (ADR
     0121). Anything not listed stays as it is. `409` while a conflict is
-    named in neither `keep_local` nor `take_upstream`. `dry_run` applies
-    everything and rolls it back."""
+    named in neither `keep_local` nor `take_upstream`. The `attachments`
+    (ADR 0172) are applied after the actions, so one can point at a row an
+    action adds; `422` for one that has nothing to add or detach.
+    `dry_run` applies everything and rolls it back."""
     actions = [
         UpdateAction(
             kind=a.kind,
@@ -880,6 +918,14 @@ async def apply_repository_updates(
         repository_id=repository_id,
         user_id=user.id,
         actions=actions,
+        attachments=[
+            AttachmentAction(
+                child_source_id=a.child_source_id,
+                parent_source_id=a.parent_source_id,
+                action=a.action.value,
+            )
+            for a in body.attachments or []
+        ],
     )
     if body.dry_run:
         await session.rollback()
@@ -890,6 +936,8 @@ async def apply_repository_updates(
         applied=result.applied,
         added=result.added,
         detached=result.detached,
+        attachments_added=result.attachments_added,
+        attachments_detached=result.attachments_detached,
         not_applied=[
             NotAppliedOut(kind=n.kind, source_id=n.source_id, field=n.field, reason=n.reason)
             for n in result.not_applied

@@ -65,8 +65,8 @@ REPOSITORY_CONTENT_TABLES = frozenset(
 )
 
 # Every other tenant table: relative to a player, a campaign, or tenant
-# administration, none of which a repository has (RFC 0024 §4). A test
-# fails if a tenant table is in neither set.
+# administration, none of which a repository has (RFC 0024 §4), or the copying
+# tenant's own bookkeeping. A test fails if a tenant table is in neither set.
 REPOSITORY_EXCLUDED_TABLES = frozenset(
     {
         "audit_log",
@@ -79,6 +79,9 @@ REPOSITORY_EXCLUDED_TABLES = frozenset(
         "membership",
         "notification",
         "player",
+        # Copy bookkeeping of the tenant that copied (ADR 0172), not content a
+        # repository holds: what a bridge attached is read from its entities.
+        "repository_copy_link_attachment",
         "tenant_admin_campaign_opt_out",
         "tenant_profile_picture",
     }

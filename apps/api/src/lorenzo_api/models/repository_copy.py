@@ -119,3 +119,19 @@ class RepositoryCopyLinkStatDefinition(_CopyLink, Base):
 
     stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
     mode: Mapped[str]
+
+
+class RepositoryCopyLinkAttachment(Base):
+    """A parent a repository added to one of its copies, that a tenant took with
+    its copy of the repository - ADR 0172. The pair is origin ids, plain ids with no
+    key to a row: they are other tenants' rows, and may go. One row is kept for each
+    attachment the tenant took, whether the copy wrote the edge or it was already
+    there; copy bookkeeping, so not part of what a repository holds."""
+
+    __tablename__ = "repository_copy_link_attachment"
+
+    tenant_id: Mapped[uuid.UUID] = _tenant_pk()
+    source_tenant_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    child_source_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    parent_source_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    copied_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
