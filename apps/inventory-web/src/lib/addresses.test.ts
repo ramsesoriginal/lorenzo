@@ -12,7 +12,6 @@ import {
   addressedTenant,
   beingNamed,
   isId,
-  itemPageHref,
   tenantAddress,
   tenantIdFor,
   tenantNamed,
@@ -137,20 +136,5 @@ describe('beingNamed', () => {
   it('resolves a slug to what holds it, and is null for one nothing holds', async () => {
     expect(await beingNamed(VALE, 'ashfang')).toEqual({ entity_id: ASHFANG, name: 'Ashfang' });
     expect(await beingNamed(VALE, 'brisk')).toBeNull();
-  });
-});
-
-describe('itemPageHref', () => {
-  it('names an item by its slug when it has one', () => {
-    expect(itemPageHref('sunken-vale', { entity_id: ASHFANG, slug: 'belt-pouch' })).toBe(
-      '/item/?tenant=sunken-vale&slug=belt-pouch',
-    );
-  });
-
-  it('falls back to its id when it has none', () => {
-    expect(itemPageHref(VALE, { entity_id: ASHFANG, slug: null })).toBe(
-      `/item/?tenant=${VALE}&id=${ASHFANG}`,
-    );
-    expect(itemPageHref(VALE, { entity_id: ASHFANG })).toBe(`/item/?tenant=${VALE}&id=${ASHFANG}`);
   });
 });

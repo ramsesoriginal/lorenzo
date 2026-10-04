@@ -26,6 +26,8 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
     import { renderBoard } from '../../components/Board/renderer';
     import { renderHolderPicker } from '../../components/HolderPicker/renderer';
     import { renderItemDetail } from '../../components/ItemDetail/renderer';
@@ -37,9 +39,11 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
     import { isCampaignGm } from '../../lib/me';
     import { getTenant } from '../../lib/tenants';
 
-    const status = document.getElementById('status')!;
-    const page = document.getElementById('page')!;
-    const tenantName = document.getElementById('tenant-name')!;
+    const required = requiredIn('Board page');
+
+    const status = required<HTMLElement>(document, '#status');
+    const page = required<HTMLElement>(document, '#page');
+    const tenantName = required<HTMLElement>(document, '#tenant-name');
 
     // By id or by slug (ADR 0135).
     const addressed = await addressedTenant(
@@ -47,20 +51,10 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
     );
     const tenantId = addressed.id;
 
-    function mount<T extends HTMLElement>(selector: string): T {
-      const element = document.querySelector<T>(selector);
-
-      if (!element) {
-        throw new Error(`Board page is missing ${selector}.`);
-      }
-
-      return element;
-    }
-
     if (!(await isAuthenticated())) {
-      status.textContent = "You're not logged in. Log in to continue.";
+      say(status, "You're not logged in. Log in to continue.");
     } else if (!tenantId) {
-      status.textContent = addressed.problem ?? 'No tenant selected. Pick one to continue.';
+      say(status, addressed.problem ?? 'No library selected. Pick one to continue.');
     } else {
       try {
         const [tenant, viewerIsGm] = await Promise.all([
@@ -72,7 +66,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         // and offers the Undo, which needs to know the viewer's characters. Each reaches the
         // others only through these callbacks, when something happens.
         const undo = renderUndoBanner({
-          root: mount('[data-undo-banner]'),
+          root: required(document, '[data-undo-banner]'),
           tenantId,
           mayUndoGiveTo: (recipientId) => viewerIsGm || picker.isMine(recipientId),
           onApplied: () => board.reload(),
@@ -80,7 +74,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         });
 
         const board = renderBoard({
-          root: mount('[data-board]'),
+          root: required(document, '[data-board]'),
           tenantId,
           viewerIsGm,
           undo,
@@ -89,7 +83,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         });
 
         const detail = renderItemDetail({
-          root: mount<HTMLDialogElement>('[data-item-detail]'),
+          root: required<HTMLDialogElement>(document, '[data-item-detail]'),
           tenantId,
           tenantSlug: tenant.slug,
           viewerIsGm,
@@ -99,7 +93,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
         });
 
         const picker = renderHolderPicker({
-          root: mount('[data-picker]'),
+          root: required(document, '[data-picker]'),
           tenantId,
           viewerIsGm,
           onViewHolder: (entityId, viewing) => void board.load(entityId, viewing),
@@ -108,13 +102,13 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
           onError: (message) => board.showError(message),
         });
 
-        status.hidden = true;
+        say(status, '');
         tenantName.textContent = tenant.name;
         page.hidden = false;
 
         await picker.load();
       } catch (error) {
-        status.textContent = errorMessage(error);
+        say(status, errorMessage(error), true);
       }
     }
   </script>

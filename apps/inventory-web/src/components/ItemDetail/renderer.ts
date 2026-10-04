@@ -1,6 +1,6 @@
-import { itemPageHref } from '../../lib/addresses';
 import { blobUrl } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
+import { itemPageHref } from '../../lib/entityLinks';
 import { getEntityDetail } from '../../lib/items';
 import { withReflow } from '../../lib/reflow';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';

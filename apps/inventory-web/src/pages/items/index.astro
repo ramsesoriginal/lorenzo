@@ -32,6 +32,8 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
     import { renderCatalog } from '../../components/Catalog/renderer';
     import { renderInstances } from '../../components/Instances/renderer';
     import { renderInstantiateItem } from '../../components/InstantiateItem/renderer';
@@ -47,10 +49,12 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     import { saveSlug } from '../../lib/slugs';
     import { getTenant } from '../../lib/tenants';
 
-    const status = document.getElementById('status')!;
-    const page = document.getElementById('page')!;
-    const tenantName = document.getElementById('tenant-name')!;
-    const createItemMount = document.getElementById('create-item-mount')!;
+    const required = requiredIn('Items page');
+
+    const status = required<HTMLElement>(document, '#status');
+    const page = required<HTMLElement>(document, '#page');
+    const tenantName = required<HTMLElement>(document, '#tenant-name');
+    const createItemMount = required<HTMLElement>(document, '#create-item-mount');
 
     // By id or by slug (ADR 0135).
     const addressed = await addressedTenant(
@@ -123,9 +127,9 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
     }
 
     if (!(await isAuthenticated())) {
-      status.textContent = "You're not logged in. Log in to continue.";
+      say(status, "You're not logged in. Log in to continue.");
     } else if (!tenantId) {
-      status.textContent = addressed.problem ?? 'No tenant selected. Pick one to continue.';
+      say(status, addressed.problem ?? 'No library selected. Pick one to continue.');
     } else {
       try {
         renderer = descriptionRenderer(tenantId);
@@ -140,13 +144,9 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
         tenantName.textContent = tenant.name;
         document.title = viewerIsGm ? 'Manage items — Lorenzo' : 'Catalog — Lorenzo';
 
-        const catalogRoot = document.querySelector<HTMLElement>('[data-catalog]');
-        const instancesRoot = document.querySelector<HTMLElement>('[data-instances]');
-        const detailRoot = document.querySelector<HTMLDialogElement>('[data-item-detail]');
-
-        if (!catalogRoot || !instancesRoot || !detailRoot) {
-          throw new Error('Catalog, Instances or Item detail component not found.');
-        }
+        const catalogRoot = required<HTMLElement>(document, '[data-catalog]');
+        const instancesRoot = required<HTMLElement>(document, '[data-instances]');
+        const detailRoot = required<HTMLDialogElement>(document, '[data-item-detail]');
 
         // Items and instances open in the dialog the board uses, without the board's actions.
         const detail = renderItemDetail({
@@ -178,7 +178,7 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
           onPrefetch: (instance) => detail.prefetch(instance),
         });
 
-        document.getElementById('new-item')!.hidden = !viewerIsGm;
+        required<HTMLElement>(document, '#new-item').hidden = !viewerIsGm;
 
         if (viewerIsGm) {
           mountCreateItemForm();
@@ -188,12 +188,11 @@ import ItemForm from '../../components/ItemForm/ItemForm.astro';
         }
 
         page.hidden = false;
-        status.hidden = true;
+        say(status, '');
 
         await catalog.reload();
       } catch (error) {
-        status.hidden = false;
-        status.textContent = errorMessage(error);
+        say(status, errorMessage(error), true);
       }
     }
   </script>

@@ -132,8 +132,9 @@ Environment variables, all optional:
   instead of Playwright's own download (`pnpm exec playwright install
   chromium`).
 
-Servers that are already running are reused, which speeds up a second run.
-Stop them to pick up a changed build. CI runs these tests in its `e2e` job.
+Servers that are already running are an error rather than reused, since a stale one
+serves an old build. `E2E_REUSE_SERVERS=1` reuses them anyway, which speeds up a second
+run; stop them to pick up a changed build. CI runs these tests in its `e2e` job.
 
 ## Deploy
 

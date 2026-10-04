@@ -8,11 +8,12 @@ import Base from '../layouts/Base.astro';
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
-  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
+  <p id="empty-state" hidden>You don't belong to any library yet.</p>
 
   <ul id="tenant-list"></ul>
 
   <script>
+    import { errorMessage } from '../lib/errorMessage';
     import { campaignRoleFor, type CampaignRole } from '../lib/format';
     import { getMe } from '../lib/me';
     import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
@@ -105,7 +106,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
   </script>

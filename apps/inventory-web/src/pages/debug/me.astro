@@ -11,10 +11,12 @@ import Base from '../../layouts/Base.astro';
 
   <script>
     import { errorMessage } from '../../lib/errorMessage';
+    import { requiredIn } from '../../lib/template';
     import { client, unwrap } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
 
-    const result = document.getElementById('result')!;
+    const required = requiredIn('Debug page');
+    const result = required<HTMLElement>(document, '#result');
 
     if (!(await isAuthenticated())) {
       result.textContent = "You're not logged in. Log in to continue.";

@@ -1,4 +1,4 @@
-import { itemPageHref } from '../../lib/addresses';
+import { itemPageHref } from '../../lib/entityLinks';
 import { listItemsUsingPrototype } from '../../lib/items';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 

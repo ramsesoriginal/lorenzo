@@ -1,3 +1,4 @@
+import { errorMessage } from './errorMessage';
 import type { UserRefOut } from './types';
 import { findUserByEmail, findUserByNickname } from './users';
 
@@ -57,7 +58,7 @@ export function mountUserPicker(
       status.textContent = `Found: ${user.display_name ?? user.nickname ?? user.id}`;
       onResolved(user);
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
 }

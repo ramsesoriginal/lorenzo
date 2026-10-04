@@ -1,3 +1,5 @@
+import { createStatusSpan } from './dom';
+import { errorMessage } from './errorMessage';
 // Campaign create/edit panels, split out of tenants.astro - see ADR 0080.
 // Like userPicker.ts (ADR 0074), this is a lib/*.ts module that builds and
 // returns DOM, not just an API wrapper.
@@ -36,9 +38,7 @@ function renderEditCampaignForm(
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
   cancelButton.textContent = 'Cancel';
-  const status = document.createElement('span');
-  status.className = 'status-text';
-  status.setAttribute('role', 'status');
+  const status = createStatusSpan();
 
   form.append(
     nameInput,
@@ -75,7 +75,7 @@ function renderEditCampaignForm(
       await updateCampaign(tenant.id, campaign.id, patch);
       onDone();
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
 
@@ -91,9 +91,7 @@ export function renderEditToggle(
   const editButton = document.createElement('button');
   editButton.type = 'button';
   editButton.textContent = 'Edit';
-  const status = document.createElement('span');
-  status.className = 'status-text';
-  status.setAttribute('role', 'status');
+  const status = createStatusSpan();
   container.append(editButton, status);
 
   editButton.addEventListener('click', async () => {
@@ -105,7 +103,7 @@ export function renderEditToggle(
       container.replaceChildren(renderEditCampaignForm(tenant, full, onChanged));
     } catch (e) {
       editButton.disabled = false;
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
 
@@ -141,9 +139,7 @@ export function renderCreateCampaignForm(
   const button = document.createElement('button');
   button.type = 'submit';
   button.textContent = 'Create campaign';
-  const status = document.createElement('span');
-  status.className = 'status-text';
-  status.setAttribute('role', 'status');
+  const status = createStatusSpan();
 
   form.append(
     heading,
@@ -170,7 +166,7 @@ export function renderCreateCampaignForm(
       status.textContent = '';
       onCreated();
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
   return form;

@@ -3,6 +3,8 @@
 // pure helpers) there's no import-chain purity to protect here; they
 // simply live alongside the other lib/*.ts modules.
 
+import { errorMessage } from './errorMessage';
+
 export function createStatusSpan(): HTMLSpanElement {
   const span = document.createElement('span');
   span.className = 'status-text';
@@ -59,7 +61,7 @@ export function renderRenameableItem(
         // Caller's onRename triggers a full refresh (the established
         // pattern throughout this app) - no local state to reset here.
       } catch (e) {
-        status.textContent = e instanceof Error ? e.message : String(e);
+        status.textContent = errorMessage(e);
       }
     });
   });
@@ -97,7 +99,7 @@ export function renderCreateForm(
       input.value = '';
       status.textContent = '';
     } catch (e) {
-      status.textContent = e instanceof Error ? e.message : String(e);
+      status.textContent = errorMessage(e);
     }
   });
   return form;

@@ -38,9 +38,10 @@
   }
 }
 
-.item-card--selected {
-  border-color: var(--action) !important;
-  background: color-mix(in srgb, var(--action) 10%, var(--surface-default)) !important;
+/* Over .list > li's own border and background. */
+.list > .item-card--selected {
+  border-color: var(--action);
+  background: color-mix(in srgb, var(--action) 10%, var(--surface-default));
 }
 
 .board-toolbar {

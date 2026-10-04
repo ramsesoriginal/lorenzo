@@ -8,11 +8,12 @@ import Base from '../layouts/Base.astro';
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
-  <p id="empty-state" hidden>You don't belong to any tenant yet.</p>
+  <p id="empty-state" hidden>You don't belong to any library yet.</p>
 
   <div id="tenant-list"></div>
 
   <script>
+    import { errorMessage } from '../lib/errorMessage';
     import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../lib/characters';
     import { createStatusSpan, renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { reusableCharactersFor } from '../lib/format';
@@ -51,7 +52,7 @@ import Base from '../layouts/Base.astro';
     ): HTMLElement {
       const container = document.createElement('div');
       const label = document.createElement('p');
-      label.textContent = 'Or use one of your existing characters in this tenant:';
+      label.textContent = 'Or use one of your existing characters in this library:';
       container.append(label);
 
       const list = document.createElement('ul');
@@ -70,7 +71,7 @@ import Base from '../layouts/Base.astro';
             await linkCharacterToPlayer(player.tenant_id, character.entity_id, player.id);
             onLinked();
           } catch (e) {
-            status.textContent = e instanceof Error ? e.message : String(e);
+            status.textContent = errorMessage(e);
           }
         });
         item.append(nameEl, useButton, status);
@@ -163,7 +164,7 @@ import Base from '../layouts/Base.astro';
           await leaveCampaign(player.tenant_id, campaign.id, player.id);
           onLeft();
         } catch (e) {
-          status.textContent = e instanceof Error ? e.message : String(e);
+          status.textContent = errorMessage(e);
         }
       });
       container.append(button, status);
@@ -215,7 +216,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = e instanceof Error ? e.message : String(e);
+        loadError.textContent = errorMessage(e);
       }
     }
   </script>

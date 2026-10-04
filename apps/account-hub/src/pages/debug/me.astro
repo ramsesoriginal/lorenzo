@@ -10,6 +10,7 @@ import Base from '../../layouts/Base.astro';
   <pre id="result">Loading&hellip;</pre>
 
   <script>
+    import { errorMessage } from '../../lib/errorMessage';
     import { apiFetch } from '../../lib/api';
     import { isAuthenticated } from '../../lib/auth';
 
@@ -22,7 +23,7 @@ import Base from '../../layouts/Base.astro';
         const me = await apiFetch('/me');
         result.textContent = JSON.stringify(me, null, 2);
       } catch (e) {
-        result.textContent = e instanceof Error ? e.message : String(e);
+        result.textContent = errorMessage(e);
       }
     }
   </script>

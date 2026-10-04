@@ -1,14 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import AncestryTree from '../../components/AncestryTree/AncestryTree.astro';
-import InfoForm from '../../components/InfoForm/InfoForm.astro';
-import Information from '../../components/Information/Information.astro';
-import ItemView from '../../components/ItemView/ItemView.astro';
-import MentionedIn from '../../components/MentionedIn/MentionedIn.astro';
-import Notes from '../../components/Notes/Notes.astro';
-import SlugEditor from '../../components/SlugEditor/SlugEditor.astro';
-import TagEditor from '../../components/TagEditor/TagEditor.astro';
-import UsedBy from '../../components/UsedBy/UsedBy.astro';
+import ItemPage from '../../components/ItemPage/ItemPage.astro';
 ---
 
 <Base title="Item — Lorenzo">
@@ -16,288 +8,50 @@ import UsedBy from '../../components/UsedBy/UsedBy.astro';
     Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
   </p>
 
-  <div id="page" hidden>
-    <div class="with-sidebar">
-      <div class="stack">
-        <div class="stack" data-ancestry hidden>
-          <h2>Ancestry</h2>
-          <AncestryTree />
-        </div>
-        <UsedBy />
-        <MentionedIn />
-      </div>
-      <div class="stack">
-        <div class="row">
-          <h1 class="display" id="item-title"></h1>
-          <span id="item-qty" class="badge" hidden></span>
-          <code id="item-slug" hidden></code>
-        </div>
-        <div id="item-view">
-          <ItemView />
-        </div>
-        <div class="row">
-          <button type="button" id="copy-link-button">Copy link</button>
-          <button type="button" id="description-edit" class="btn btn-secondary" hidden>
-            Edit description
-          </button>
-        </div>
-        <div id="description-mount"></div>
-
-        <section id="item-notes" class="section" aria-labelledby="item-notes-heading" hidden>
-          <h2 id="item-notes-heading">Notes</h2>
-          <div id="item-notes-list">
-            <Notes />
-          </div>
-        </section>
-
-        <div id="item-gm" class="stack" hidden>
-          <div role="region" aria-labelledby="item-slug-heading">
-            <h2 id="item-slug-heading">Slug</h2>
-            <SlugEditor />
-          </div>
-          <div class="section" role="region" aria-labelledby="item-tags-heading">
-            <h2 id="item-tags-heading">Tags</h2>
-            <TagEditor />
-          </div>
-          <div class="section" role="region" aria-labelledby="item-information-heading">
-            <h2 id="item-information-heading">Information</h2>
-            <div id="item-information">
-              <Information />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Inert template for the description editor. -->
-  <InfoForm />
+  <ItemPage />
 
   <script>
-    import { errorMessage } from '../../lib/errorMessage';
-    import { renderAncestryTree } from '../../components/AncestryTree/renderer';
-    import { renderInfoForm } from '../../components/InfoForm/renderer';
-    import { renderInformation } from '../../components/Information/renderer';
-    import { renderItemView } from '../../components/ItemView/renderer';
-    import { renderMentionedIn } from '../../components/MentionedIn/renderer';
-    import { type Reader, renderNotes } from '../../components/Notes/renderer';
-    import { renderSlugEditor } from '../../components/SlugEditor/renderer';
-    import { renderTagEditor } from '../../components/TagEditor/renderer';
-    import { renderUsedBy } from '../../components/UsedBy/renderer';
-
+    import { renderItemPage } from '../../components/ItemPage/renderer';
     import { addressedTenant, isId } from '../../lib/addresses';
     import { isAuthenticated } from '../../lib/auth';
     import { descriptionRenderer } from '../../lib/descriptions';
-    import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
+    import { errorMessage } from '../../lib/errorMessage';
     import { findItem } from '../../lib/itemLookup';
-    import { getCatalogItem, getEntityDetail, getItemInstance } from '../../lib/items';
-    import { listMyCharacters } from '../../lib/characters';
-    import { isCampaignGm } from '../../lib/me';
-    import type { ItemBase, ItemInstance } from '../../lib/types';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
 
-    const byId = <T extends HTMLElement = HTMLElement>(id: string) =>
-      document.getElementById(id) as T;
-    const mount = <T extends HTMLElement = HTMLElement>(selector: string) =>
-      document.querySelector(selector) as T;
-    const status = byId('status');
-    const page = byId('page');
-    const itemTitle = byId('item-title');
-    const itemSlug = byId('item-slug');
-    const itemQty = byId('item-qty');
-    const copyLinkButton = byId<HTMLButtonElement>('copy-link-button');
-    const descriptionEdit = byId<HTMLButtonElement>('description-edit');
-    const descriptionMount = byId('description-mount');
-    const itemGm = byId('item-gm');
-    const itemNotes = byId('item-notes');
+    const required = requiredIn('Item page');
+    const status = required<HTMLElement>(document, '#status');
+    const page = required<HTMLElement>(document, '[data-item-page]');
 
     const params = new URLSearchParams(window.location.search);
     // By id or by slug (ADR 0135).
     const addressed = await addressedTenant(params.get('tenant'));
-    const tenantId = addressed.id as string;
     const itemId = params.get('id');
     // ?slug=, or an ?id= that's a slug (ADR 0113, 0135).
-    const itemSlugParam = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
-    const renderer = descriptionRenderer(tenantId);
-
-    const itemView = renderItemView(byId('item-view'), { tenantId, renderer });
-    const ancestryTree = renderAncestryTree({ root: mount('[data-ancestry]'), tenantId });
-    const usedBy = renderUsedBy({ root: mount('[data-used-by]'), tenantId });
-    const mentionedIn = renderMentionedIn({ root: mount('[data-mentioned-in]'), tenantId });
-    const slugEditor = renderSlugEditor({
-      root: mount('[data-slug-editor]'),
-      tenantId,
-      onSaved: showSlug,
-    });
-    const tagEditor = renderTagEditor({
-      root: mount('[data-tag-editor]'),
-      tenantId,
-      onChanged: () => void refresh(),
-    });
-    // An instance's notes, for everyone (ADR 0113). The GM's Information section lists them
-    // too, so a change in either shows in the other.
-    const notes = renderNotes(byId('item-notes-list'), {
-      tenantId,
-      renderer,
-      rowHeading: 'h3',
-      onChanged: () => viewerIsGm && showInformation(),
-    });
-    const information = renderInformation(byId('item-information'), {
-      tenantId,
-      renderer,
-      onChanged: () => {
-        void refresh();
-        showNotes();
-      },
-    });
-
-    // The shown item (set by show() before anything reads it), and which endpoint
-    // reads it again after a change.
-    let shown!: ItemBase;
-    let isInstance = false;
-    // Who writes here, and the character that reads a private note (ADR 0113).
-    let viewerIsGm = false;
-    let reader: Reader | null = null;
-
-    copyLinkButton.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        copyLinkButton.textContent = 'Copied!';
-      } catch {
-        copyLinkButton.textContent = "Couldn't copy";
-      } finally {
-        window.setTimeout(() => {
-          copyLinkButton.textContent = 'Copy link';
-        }, 1500);
-      }
-    });
-
-    function showSlug(slug: string | null) {
-      itemSlug.hidden = !slug;
-      itemSlug.textContent = slug ?? '';
-    }
-
-    function show(item: ItemBase | ItemInstance) {
-      shown = item;
-      document.title = `${item.title} — Lorenzo`;
-      itemTitle.textContent = item.title;
-      // An instance carries its slug; a catalog item's is read from its entity (ADR 0113).
-      if ('slug' in item) showSlug(item.slug);
-      const showQty = Boolean(item.quantity && item.quantity > 1);
-      itemQty.hidden = !showQty;
-      itemQty.textContent = showQty ? `×${item.quantity}` : '';
-      itemView.show(item);
-      const own = item.descriptions.some((description) => !description.from_entity);
-      descriptionEdit.textContent = own ? 'Edit description' : 'Write a description';
-    }
-
-    /** Reads the item again after a change and shows it, with the GM sections. */
-    async function refresh() {
-      const entityId = shown.entity_id;
-      show(
-        isInstance
-          ? await getItemInstance(tenantId, entityId)
-          : await getCatalogItem(tenantId, entityId),
-      );
-    }
-
-    function showNotes() {
-      if (!isInstance) return;
-      itemNotes.hidden = false;
-      void notes.load(shown.entity_id, { canWrite: viewerIsGm || reader !== null, reader });
-    }
-
-    function showInformation() {
-      void information.load(shown.entity_id);
-    }
-
-    function showGmSections() {
-      itemGm.hidden = false;
-      void slugEditor.load(shown.entity_id, shown.title, isInstance ? 'instance' : 'item');
-      void tagEditor.load(shown.entity_id);
-      showInformation();
-    }
-
-    // The description, with its display title: the item's shown name (ADR 0019, 0112).
-    descriptionEdit.addEventListener('click', async () => {
-      descriptionEdit.disabled = true;
-      const entityId = shown.entity_id;
-      try {
-        const info = await getDescription(tenantId, entityId);
-        let saved = false;
-        descriptionEdit.hidden = true;
-        descriptionMount.replaceChildren(
-          renderInfoForm(document, {
-            initial: descriptionDraft(info, shown.title),
-            renderer,
-            titleLabel: 'Display title',
-            textLabel: 'Description',
-            showVisibility: info === null,
-            onSubmit: async (draft) => {
-              await saveDescription(tenantId, entityId, info, draft, shown.title);
-              saved = true;
-            },
-            onClose: () => {
-              descriptionMount.replaceChildren();
-              descriptionEdit.hidden = false;
-              if (saved) void refresh().then(showGmSections);
-            },
-          }),
-        );
-      } catch (e) {
-        window.alert(errorMessage(e));
-      } finally {
-        descriptionEdit.disabled = false;
-      }
-    });
+    const itemSlug = params.get('slug') ?? (itemId && !isId(itemId) ? itemId : null);
 
     if (!(await isAuthenticated())) {
-      status.textContent = "You're not logged in. Log in to continue.";
+      say(status, "You're not logged in. Log in to continue.");
     } else if (addressed.problem) {
-      status.textContent = addressed.problem;
-    } else if (!tenantId || !(itemId || itemSlugParam)) {
-      status.textContent = "This link is incomplete — it's missing a tenant or item.";
+      say(status, addressed.problem);
+    } else if (!addressed.id || !(itemId || itemSlug)) {
+      say(status, "This link is incomplete — it's missing a library or item.");
     } else {
-      try {
-        const loaded = await findItem(tenantId, { slug: itemSlugParam, id: itemId });
-        status.hidden = true;
-        page.hidden = false;
+      const tenantId = addressed.id;
 
-        isInstance = loaded.instance;
-        show(loaded.item);
-        const entityId = loaded.item.entity_id;
-        if (isInstance) {
-          const directId = loaded.item.prototype_ids[0];
-          void ancestryTree.load(directId ?? null);
-        } else {
-          void ancestryTree.load(entityId);
-          void usedBy.load(entityId);
-          void getEntityDetail(tenantId, entityId).then(
-            (entity) => showSlug(entity.slug),
-            () => {},
-          );
-        }
-        void mentionedIn.load(entityId);
-        // GMs write here (ADR 0108, 0112, 0113); a player writes notes on what their character
-        // owns. The API still decides.
-        const owner = 'owner_entity_id' in loaded.item ? loaded.item.owner_entity_id : null;
-        const [gm, mine] = await Promise.all([
-          isCampaignGm(tenantId).catch(() => false),
-          owner
-            ? listMyCharacters(tenantId).then(
-                (own) => own.items,
-                () => [],
-              )
-            : [],
-        ]);
-        viewerIsGm = gm;
-        reader = mine.find((character) => character.entity_id === owner) ?? null;
-        showNotes();
-        descriptionEdit.hidden = !gm;
-        if (gm) showGmSections();
-      } catch (e) {
-        status.hidden = false;
+      try {
+        const found = await findItem(tenantId, { slug: itemSlug, id: itemId });
+
+        say(status, '');
+        await renderItemPage({
+          root: page,
+          tenantId,
+          renderer: descriptionRenderer(tenantId),
+        }).show(found);
+      } catch (error) {
+        say(status, errorMessage(error), true);
         page.hidden = true;
-        status.textContent = errorMessage(e);
       }
     }
   </script>

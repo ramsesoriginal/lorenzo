@@ -2,6 +2,7 @@ import { searchBeings } from '../../lib/beingPicker';
 import { errorMessage } from '../../lib/errorMessage';
 import { createItemInstance } from '../../lib/items';
 import { slugProblem, suggestSlug } from '../../lib/slugs';
+import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { BeingRef, CatalogItem } from '../../lib/types';
 import { renderCombobox } from '../Combobox/renderer';
@@ -81,19 +82,15 @@ export function renderInstantiateItem(options: InstantiateItemOptions): Rendered
     slugInput.disabled = true;
     noOwnerButton.disabled = true;
     beings.close();
-    status.hidden = true;
-    status.classList.remove('error-text');
+    say(status, '');
 
     try {
       const message = await action();
 
-      status.hidden = false;
-      status.textContent = message;
+      say(status, message);
       window.setTimeout(options.onDone, 1200);
     } catch (error) {
-      status.hidden = false;
-      status.classList.add('error-text');
-      status.textContent = errorMessage(error);
+      say(status, errorMessage(error), true);
       search.disabled = false;
       slugInput.disabled = false;
       noOwnerButton.disabled = false;

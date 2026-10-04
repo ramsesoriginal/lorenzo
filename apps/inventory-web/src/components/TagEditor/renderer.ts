@@ -59,14 +59,14 @@ export function renderTagEditor(options: TagEditorOptions): RenderedTagEditor {
           message,
           member
             ? `Couldn't load tags: ${errorMessage(error)}`
-            : 'Only tenant members can see the list of tags.',
+            : 'Only library members can see the list of tags.',
         );
 
         return;
       }
 
       if (definitions.length === 0) {
-        say(message, 'This tenant has no tags yet.');
+        say(message, 'This library has no tags yet.');
         return;
       }
 

@@ -3,6 +3,7 @@
 
 import { blobUrl, type components } from '../../lib/api';
 import { type Renderer, showDescriptions } from '../../lib/descriptions';
+import { itemPageHref } from '../../lib/entityLinks';
 import { statLabel } from '../../lib/statLabel';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ItemBase } from '../../lib/types';
@@ -37,7 +38,7 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
   function fillSource(label: HTMLElement, source: NonNullable<Source>) {
     const link = required<HTMLAnchorElement>(label, '[data-link]');
 
-    link.href = `/item/?tenant=${options.tenantId}&id=${source.id}`;
+    link.href = itemPageHref(options.tenantId, { entity_id: source.id });
     link.textContent = source.name;
   }
 

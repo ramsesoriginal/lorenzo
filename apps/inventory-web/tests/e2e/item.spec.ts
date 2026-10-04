@@ -74,7 +74,7 @@ test('says so when its link is incomplete, or leads nowhere', async ({ world, as
   const page = await as(world.pia);
   await page.goto(`/item/?tenant=${world.tenantId}`);
   await expect(
-    page.getByText("This link is incomplete — it's missing a tenant or item."),
+    page.getByText("This link is incomplete — it's missing a library or item."),
   ).toBeVisible();
 
   const nowhere = "There's no such item here, or it isn't one you can see.";

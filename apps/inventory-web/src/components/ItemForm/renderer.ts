@@ -3,6 +3,7 @@ import { errorMessage } from '../../lib/errorMessage';
 import { descriptionDraft, type Information, type InformationDraft } from '../../lib/information';
 import { listCatalogItems } from '../../lib/items';
 import { slugProblem, suggestSlug } from '../../lib/slugs';
+import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem } from '../../lib/types';
 import { renderCombobox } from '../Combobox/renderer';
@@ -266,8 +267,7 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
     async (event) => {
       event.preventDefault();
 
-      errorElement.hidden = true;
-      errorElement.textContent = '';
+      say(errorElement, '');
       submitButton.disabled = true;
 
       try {
@@ -297,8 +297,7 @@ export function renderItemForm(options: ItemFormOptions): RenderedItemForm {
           inPublicCatalog: publicCatalogInput.checked,
         });
       } catch (error) {
-        errorElement.hidden = false;
-        errorElement.textContent = errorMessage(error);
+        say(errorElement, errorMessage(error), true);
       } finally {
         submitButton.disabled = false;
       }

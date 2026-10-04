@@ -72,16 +72,4 @@ export async function beingNamed(tenantId: string, value: string): Promise<Being
   return found ? { entity_id: found.entity_id, name: found.name } : null;
 }
 
-/**
- * The standalone page of an item or instance in `tenant` (an id or a slug), named by its slug
- * when it has one, else by its id.
- */
-export function itemPageHref(
-  tenant: string,
-  item: { entity_id: string; slug?: string | null },
-): string {
-  const named = item.slug ? `slug=${encodeURIComponent(item.slug)}` : `id=${item.entity_id}`;
-  return `/item/?tenant=${encodeURIComponent(tenant)}&${named}`;
-}
-
 export const unknownSlug = (value: string) => `Nothing here has the slug “${value}”.`;

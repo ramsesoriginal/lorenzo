@@ -6,6 +6,7 @@ import { LorenzoApiError } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import type { InformationDraft } from '../../lib/information';
+import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import { renderDescriptionEditor } from '../DescriptionEditor/renderer';
 
@@ -102,15 +103,13 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     save.disabled = true;
-    status.classList.remove('error-text');
-    status.textContent = 'Saving…';
+    say(status, 'Saving…');
 
     try {
       await options.onSubmit(read());
       close();
     } catch (error) {
-      status.classList.add('error-text');
-      status.textContent = saveError(error);
+      say(status, saveError(error), true);
     } finally {
       save.disabled = false;
     }

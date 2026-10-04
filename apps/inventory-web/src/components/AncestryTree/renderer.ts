@@ -1,5 +1,5 @@
-import { itemPageHref } from '../../lib/addresses';
 import { type AncestryNode, fetchAncestry } from '../../lib/ancestryTree';
+import { itemPageHref } from '../../lib/entityLinks';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 

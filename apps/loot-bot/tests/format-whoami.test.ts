@@ -99,7 +99,7 @@ describe("formatWhoamiEmbed", () => {
   it("explains a null membershipRole as the normal player case, not an error", () => {
     const embed = formatWhoamiEmbed(profile()).toJSON();
     expect(embed.fields?.find((f) => f.name === "Tenant role")?.value).toBe(
-      "Player (no tenant-wide admin role)",
+      "Player (no library-wide admin role)",
     );
   });
 
