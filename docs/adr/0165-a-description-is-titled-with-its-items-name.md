@@ -27,11 +27,11 @@ This is the one change `seed` and `apply` make to something that exists without 
 
 - **The API.** That a description's title is the item's name is the model's rule ([ADR 0019](0019-item-and-v-item.md)); this ADR doesn't change it, or how `title` falls back.
 - **A command or flag of its own** for retitling, or for retitling anything other than the one exact title.
-- **Tenants that copied a repository.** Their copies change the way any later change to a repository reaches them: the repository publishes again and they take it with `lorenzo repo updates` ([ADR 0121](0121-repository-updates-and-re-sync.md)).
+- **Carrying the fix to copies.** Information is copied once and isn't compared by `repo updates` ([ADR 0121](0121-repository-updates-and-re-sync.md)), so publishing a repository again does not retitle what a tenant already copied. Each tenant is put right where the commands are run: a repository, a bridge that copied core, or a table's own tenant (with `--allow-play-tenant`, as `seed` and `apply` already need there).
 - **A rename.** Only the description's title changes; the entity's name and slug are never touched.
 
 ## Consequences
 
-- After upgrading, run each repository once through `seed` (every layer) and `apply` (the same files and map), publish it again, and let the tenants that copied it take the update.
+- After upgrading, run `seed` (every layer) in each repository and in each tenant that copied one, and `apply` (the same files and map) in the repository the items were imported into. A repository copied after the fix needs nothing.
 - `plan`'s `complete` count includes the retitles, and `seed --dry-run`'s actions gain the kind `retitle`.
 - `lorenzo_cli`'s operation table gains `GET` and `PATCH` for an information row, and is checked against the API's schema like the others.
