@@ -28,10 +28,19 @@ class PlayerSummaryOut(BaseModel):
     Now carries `created_by`/`updated_by` (ADR 0029) - `player`'s
     attribution pair lands with user/player/character CRUD (ADR 0036/RFC
     0007), which is what actually writes to this table.
+
+    Carries the player's `nickname`/`display_name`/`user_color` (ADR 0176),
+    the same three the tenant roster shows and never the email, so a GM
+    holding no tenant-wide membership can still name the people at their
+    table. Requires `player.user` eager-loaded first (`lazy="raise_on_sql"`,
+    ADR 0018).
     """
 
     id: uuid.UUID
     user_id: uuid.UUID
+    nickname: str | None
+    display_name: str | None
+    user_color: str | None
     characters: list[CharacterSummaryOut]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
@@ -41,6 +50,9 @@ class PlayerSummaryOut(BaseModel):
         return cls(
             id=player.id,
             user_id=player.user_id,
+            nickname=player.user.nickname,
+            display_name=player.user.display_name,
+            user_color=player.user.user_color,
             characters=[
                 CharacterSummaryOut.from_character(link.character)
                 for link in player.character_links
