@@ -35,3 +35,7 @@ Authorization: `get_tenant_context` (a full tenant-wide `Membership` row require
 - New `routers/beings.py` (registered in `main.py`), `schemas/beings.py` (`BeingSummaryOut`).
 - No migration - `being`/`character`/`entity` already exist; this is a pure read addition.
 - Closes [issue #94](https://github.com/ramsesoriginal/lorenzo/issues/94).
+
+## Addendum (2026-10-04): the gate is amended by ADR 0173
+
+The membership-only gate above left a GM with no library membership unable to look up the NPC [ADR 0151](0151-a-being-in-no-campaign-and-who-stands-in-for-its-gm.md) and [0152](0152-a-gm-sees-every-being-in-no-campaign.md) let them act on, and made account-hub's `/beings` fail for the whole page. [ADR 0173](0173-a-gm-lists-the-beings-they-can-see.md) amends it: a tenant administrator still lists every being, a GM lists the beings in their reach, and anyone else gets the same `404`.

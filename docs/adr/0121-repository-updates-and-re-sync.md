@@ -38,7 +38,7 @@ Rows copied with `mode = merged` are the subscriber's own rows, so they are neve
 | stat definition | name, group, enum values, value type |
 
 - **Scalars** (a name, a value, a formula) are compared three ways, as above. A stat value or formula is its own field, `stats:<origin id>` or `formulas:<origin id>`, labelled with the stat's name.
-- **Sets** (prototypes, stat groups, enum values) are merged element by element, so they never conflict. Whatever upstream added is added, whatever upstream removed is removed, and whatever the subscriber added stays.
+- **Sets** (prototypes, stat groups, enum values) are merged element by element, so they never conflict. Whatever upstream added is added, whatever upstream removed is removed, and whatever the subscriber added stays. *(Addendum, 2026-10-04: [ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) adds a repository's attachments to updates as lists of their own, added, removed and deleted locally, with `add` and `detach` actions.)*
 - **A changed value type** is shown but can't be applied, since the subscriber's values would have to be converted. It has to be changed by hand.
 
 Information, payloads, containment, ownership, group membership, and knowledge are copied once and aren't compared, as RFC 0024 §6 already scoped.

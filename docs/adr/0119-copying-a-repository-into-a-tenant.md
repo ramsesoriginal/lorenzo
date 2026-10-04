@@ -53,6 +53,8 @@ The repository's **own** rows: every entity, stat group, and stat definition tha
 | `information`, its `payload`s and their four kinds, and its `knowledge` | entity |
 | `stat_definition_enum_value` | definition |
 
+*(Addendum, 2026-10-04: [ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) adds one more thing a step carries: the parents the repository added to entities it holds as copies, its attachments, written between the subscriber's own copies of the child and the parent, and dropped and reported when either is missing.)*
+
 Every row gets a fresh id and the subscriber's `tenant_id`. Every reference is re-targeted onto the subscriber's own copy. A reference whose target wasn't copied, because the subscriber chose to skip it, drops that one row. The response lists what was dropped, by kind and source id. Nothing is left pointing across tenants: [ADR 0117](0117-same-tenant-references-by-composite-foreign-keys.md)'s keys would refuse it anyway.
 
 A few columns aren't copied as they stand:
