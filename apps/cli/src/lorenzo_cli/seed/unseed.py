@@ -1,8 +1,10 @@
-"""Taking a layer of the seed out of a tenant again (ADR 0168).
+"""Taking a layer of the seed out of a tenant again (ADR 0168, 0181).
 
 It finds what the seed made the way `seed` does, by slug and name, so it can only ever touch what
-the built-in seed names. Categories go first, then stat definitions, then stat groups. A category
-that something outside the layer inherits from stops it before anything is deleted; whether a
+the built-in seed names. A layer's attachments go first (the parent is dropped from the child's
+parents and nothing else of the child is touched), then categories, then stat definitions, then
+stat groups. A category that something outside the layer inherits from stops it before anything is
+deleted, unless the thing is the child of an attachment that is going in the same call; whether a
 stat definition is used is only known to the API, so each one is tried and a refusal is kept.
 """
 
@@ -16,6 +18,7 @@ from lorenzo_cli.client.errors import LorenzoApiError
 from lorenzo_cli.client.models import (
     EntitySummary,
     ResolvedSlugOut,
+    SetPrototypesRequest,
     StatDefinitionOut,
     StatGroupOut,
     TenantOut,
@@ -28,6 +31,7 @@ from lorenzo_cli.client.ops import (
     GET_ITEM,
     LIST_STAT_DEFINITIONS,
     LIST_STAT_GROUPS,
+    REPLACE_ITEM_PROTOTYPES,
     Op,
 )
 from lorenzo_cli.client.paging import all_items
@@ -35,18 +39,21 @@ from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.seed.plan import resolve_nodes
 from lorenzo_cli.seed.spec import SeedSpec
 
-TargetKind = Literal["node", "definition", "group"]
+TargetKind = Literal["attachment", "node", "definition", "group"]
 
 
 @dataclass(frozen=True)
 class Target:
     kind: TargetKind
-    # A node's slug, a definition's or a group's name.
+    # A node's slug, a definition's or a group's name, an attachment's "<child>: <parent>".
     name: str
     layer: str
+    # An attachment's is its child's.
     id: UUID
     # A node's own name.
     detail: str = ""
+    # An attachment's parent.
+    parent_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +72,10 @@ class UnseedState:
     inheritors: dict[str, list[EntitySummary]] = field(default_factory=dict)
     definitions: dict[str, StatDefinitionOut] = field(default_factory=dict)
     groups: dict[str, StatGroupOut] = field(default_factory=dict)
+    # The slugs an attachment's child and parent have, of the attachments that matter here.
+    attachments: dict[str, ResolvedSlugOut] = field(default_factory=dict)
+    # The (child slug, parent slug) of those attachments that the tenant has.
+    attached: set[tuple[str, str]] = field(default_factory=set)
 
 
 @dataclass
@@ -94,6 +105,23 @@ def read_unseed_state(
     for slug, found in state.nodes.items():
         detail = client.call(GET_ENTITY, path={**path, "entity_id": found.entity_id}).value
         state.inheritors[slug] = detail.instances
+    # An attachment's two ends are mostly in other layers, so they are looked up by themselves: the
+    # layers' own attachments, and the others' that point at a category going out with the layers.
+    going = {n.slug for n in spec.nodes if n.layer in layers}
+    relevant = [a for a in spec.attachments if a.layer in layers or a.parent in going]
+    ends = sorted({end for a in relevant for end in (a.child, a.parent)})
+    state.attachments = resolve_nodes(client, tenant_id, ends)
+    for child in {a.child for a in relevant if a.child in state.attachments}:
+        found = state.attachments[child]
+        detail = client.call(GET_ENTITY, path={**path, "entity_id": found.entity_id}).value
+        has = {p.id for p in detail.prototypes}
+        state.attached |= {
+            (a.child, a.parent)
+            for a in relevant
+            if a.child == child
+            and a.parent in state.attachments
+            and state.attachments[a.parent].entity_id in has
+        }
     state.definitions = {
         d.name: d for d in all_items(client, LIST_STAT_DEFINITIONS, path=path, of=StatDefinitionOut)
     }
@@ -109,10 +137,23 @@ def make_unseed_plan(
     plan = UnseedPlan(tenant=tenant, layers=layers, spec_version=spec.version)
     nodes = [n for n in spec.nodes if n.layer in layers and n.slug in state.nodes]
     going = {state.nodes[n.slug].entity_id for n in nodes}
+    attachments = [a for a in spec.attachments if (a.child, a.parent) in state.attached]
+    # What an attachment of the layers gives a child is taken from it first, so the child doesn't
+    # hold the parent's category here any more.
+    detaching = {
+        (state.attachments[a.child].entity_id, state.attachments[a.parent].entity_id)
+        for a in attachments
+        if a.layer in layers
+    }
 
     held: dict[str, list[str]] = {}
     for node in nodes:
-        outside = [e.name for e in state.inheritors.get(node.slug, []) if e.id not in going]
+        node_id = state.nodes[node.slug].entity_id
+        outside = [
+            e.name
+            for e in state.inheritors.get(node.slug, [])
+            if e.id not in going and (e.id, node_id) not in detaching
+        ]
         if outside:
             held[node.slug] = outside
     if held:
@@ -125,8 +166,29 @@ def make_unseed_plan(
             f"{sample}. Taking the categories out would take their parent away: remove or "
             "re-parent them first."
         )
+        # The seed's own attachments are the easy case: they go with the layer that makes them.
+        makers = sorted(
+            {a.layer for a in attachments if a.parent in held and a.layer not in layers}
+        )
+        if makers:
+            flags = " ".join(f"--layer {layer}" for layer in (*layers, *makers))
+            plan.problems.append(
+                f"Some of them are the seed's own attachments, which the {' and '.join(makers)} "
+                f"layer makes: take that layer out in the same call ({flags})."
+            )
         return plan
 
+    for attachment in attachments:
+        if attachment.layer in layers:
+            plan.targets.append(
+                Target(
+                    "attachment",
+                    f"{attachment.child}: {attachment.parent}",
+                    attachment.layer,
+                    state.attachments[attachment.child].entity_id,
+                    parent_id=state.attachments[attachment.parent].entity_id,
+                )
+            )
     for node in nodes:
         plan.targets.append(
             Target("node", node.slug, node.layer, state.nodes[node.slug].entity_id, node.name)
@@ -150,9 +212,27 @@ def make_unseed_plan(
 
 
 def apply_unseed(client: LorenzoClient, plan: UnseedPlan) -> UnseedResult:
-    """Categories, then definitions, then groups. A refusal is kept and the rest goes on."""
+    """Attachments, then categories, then definitions, then groups. A refusal is kept and the rest
+    goes on."""
     tenant = {"tenant_id": plan.tenant.id}
     result = UnseedResult()
+    for target in plan.of("attachment"):
+        path = {**tenant, "entity_id": target.id}
+        try:
+            current = client.call(GET_ITEM, path=path)
+            keep = [p for p in current.value.prototype_ids if p != target.parent_id]
+            if len(keep) != len(current.value.prototype_ids):
+                client.call(
+                    REPLACE_ITEM_PROTOTYPES,
+                    path=path,
+                    body=SetPrototypesRequest(prototype_ids=keep),
+                    if_match=current.etag,
+                )
+        except LorenzoApiError as exc:
+            if exc.status != 404:  # already gone is as good as detached
+                result.kept.append(Kept("attachment", target.name, str(exc)))
+                continue
+        result.deleted.append(target)
     for target in plan.of("node"):
         path = {**tenant, "entity_id": target.id}
         try:
