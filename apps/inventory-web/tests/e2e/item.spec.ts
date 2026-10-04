@@ -66,7 +66,7 @@ test('lists the descriptions that link to it, and the link leads here', async ({
   const mentions = page.getByRole('region', { name: 'Mentioned in' });
   await mentions.getByRole('link', { name: 'Backpack' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Backpack' })).toBeVisible();
-  await page.locator('#item-view').getByRole('link', { name: 'Belt Pouch' }).click();
+  await page.locator('[data-item-view]').getByRole('link', { name: 'Belt Pouch' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Belt Pouch' })).toBeVisible();
 });
 

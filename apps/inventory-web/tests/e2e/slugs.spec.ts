@@ -46,7 +46,7 @@ test('a new item gets the slug its wikilinks look for', async ({ world, as }) =>
   expect(await slugOf(world, pouch?.entity_id as string)).toBe('belt-pouch');
   // The Backpack's [[Belt Pouch]] is a link now.
   await page.goto(`/item/?tenant=${world.tenantId}&id=${backpack}`);
-  await page.locator('#item-view').getByRole('link', { name: 'Belt Pouch' }).click();
+  await page.locator('[data-item-view]').getByRole('link', { name: 'Belt Pouch' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Belt Pouch' })).toBeVisible();
   await expect(page.getByText('belt-pouch', { exact: true })).toBeVisible();
 });
