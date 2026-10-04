@@ -1,6 +1,6 @@
 # RFC: Item repositories — a shared vocabulary, common equipment, a rules repository, and a bridge that attaches the rules to the equipment
 
-Status: accepted, decided with the maintainer on 2026-10-04, with nothing published or granted yet. Built in the slices of [Slices](#slices-if-accepted), each recorded as its own ADR; the first is [ADR 0172](../adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md), the CLI's view of it [ADR 0174](../adr/0174-the-cli-shows-attachments.md), and the seed's four layers [ADR 0175](../adr/0175-the-seeds-four-layers-and-a-system-root.md). It amends [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md) and needs one change to the repository API ([§3](#3-attachments-the-api-change)). Written at the maintainer's request after the first real import.
+Status: accepted, decided with the maintainer on 2026-10-04, with nothing published or granted yet. Built in the slices of [Slices](#slices-if-accepted), each recorded as its own ADR; the first is [ADR 0172](../adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md), the CLI's view of it [ADR 0174](../adr/0174-the-cli-shows-attachments.md), and the seed's four layers [ADR 0181](../adr/0181-the-seeds-four-layers-and-a-system-root.md). It amends [ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md) and needs one change to the repository API ([§3](#3-attachments-the-api-change)). Written at the maintainer's request after the first real import.
 
 ## Context
 
