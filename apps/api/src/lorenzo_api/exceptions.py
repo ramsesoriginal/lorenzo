@@ -433,6 +433,22 @@ class StatEnumValueInUseError(ConflictProblem):
     title = "This value is still in use"
 
 
+class StatDefinitionInUseError(ConflictProblem):
+    """DELETE /stat-definitions/{id} while a value, a formula or a formula
+    that reads it uses it - deleting it would take those with it (ADR 0167).
+    """
+
+    title = "This stat definition is still in use"
+
+
+class StatGroupInUseError(ConflictProblem):
+    """DELETE /stat-groups/{id} while it holds a stat definition or an
+    entity has acquired it - deleting it would take those with it (ADR 0167).
+    """
+
+    title = "This stat group is still in use"
+
+
 class StatEnumValueNotFoundError(NotFoundProblem):
     """DELETE .../stat-definitions/{id}/enum-values/{id} - no such value on
     that definition in this tenant (ADR 0103).

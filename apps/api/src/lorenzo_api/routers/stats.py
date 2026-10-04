@@ -19,14 +19,22 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     InvalidStatEnumValuesError,
     InvalidStatGroupError,
+    StatDefinitionInUseError,
     StatDefinitionNotFoundError,
     StatEnumValueAlreadyExistsError,
     StatEnumValueInUseError,
     StatEnumValueNotFoundError,
+    StatGroupInUseError,
     StatGroupNotFoundError,
 )
 from lorenzo_api.models import (
+    ComputedStat,
+    ComputedStatComparison,
+    ComputedStatContents,
+    ComputedStatLinear,
+    ComputedStatSumTerm,
     EntityStat,
+    EntityStatGroup,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -121,6 +129,47 @@ async def create_stat_group(
         request.url_for("get_stat_group", tenant_id=tenant_id, stat_group_id=stat_group.id)
     )
     return StatGroupOut.model_validate(stat_group)
+
+
+@router.delete("/stat-groups/{stat_group_id}", status_code=204)
+async def delete_stat_group(
+    tenant_id: uuid.UUID,
+    stat_group_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Deletes an unused group - ADR 0167. 409 while it holds any stat
+    definition or any entity has acquired it: the database would cascade to
+    both, and through the definitions to every value held for them, so
+    nothing is deleted behind the caller's back. No `?force`.
+    """
+    stat_group = await _get_stat_group_or_404(tenant_id, stat_group_id, session)
+    definitions = await session.scalar(
+        select(func.count())
+        .select_from(StatDefinition)
+        .where(StatDefinition.stat_group_id == stat_group_id)
+    )
+    acquired = await session.scalar(
+        select(func.count())
+        .select_from(EntityStatGroup)
+        .where(EntityStatGroup.stat_group_id == stat_group_id)
+    )
+    in_use = _in_use_parts(
+        (definitions, "stat definition(s) in it"), (acquired, "entity(ies) that acquired it")
+    )
+    if in_use:
+        raise StatGroupInUseError(detail=f"Stat group {stat_group_id} is still in use: {in_use}")
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="stat_group.deleted",
+        target_type="stat_group",
+        target_id=stat_group_id,
+        detail=f"priority={stat_group.priority}",
+    )
+    await session.delete(stat_group)
+    await session.commit()
 
 
 @router.get("/stat-groups")
@@ -248,6 +297,72 @@ async def get_stat_definition(
 ) -> StatDefinitionOut:
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
     return StatDefinitionOut.from_definition(stat_definition)
+
+
+def _in_use_parts(*counted: tuple[int | None, str]) -> str:
+    """ "2 values held, 1 formula" - the nonzero counts of what uses something."""
+    return ", ".join(f"{count} {what}" for count, what in counted if count)
+
+
+@router.delete("/stat-definitions/{stat_definition_id}", status_code=204)
+async def delete_stat_definition(
+    tenant_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Deletes an unused definition - ADR 0167. 409 while an entity holds a
+    value for it, has a formula for it, or has a formula that reads it as a
+    source (the database refuses the last, and would cascade the first two).
+    Its enum values go with it. No `?force`: a caller removes the values or
+    formulas first.
+    """
+    stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+
+    async def count(model: type, *conditions: object) -> int:
+        stmt = select(func.count()).select_from(model).where(*conditions)  # type: ignore[arg-type]
+        return await session.scalar(stmt) or 0
+
+    values = await count(EntityStat, EntityStat.stat_definition_id == stat_definition_id)
+    formulas = await count(ComputedStat, ComputedStat.stat_definition_id == stat_definition_id)
+    reads = (
+        await count(
+            ComputedStatLinear, ComputedStatLinear.source_stat_definition_id == stat_definition_id
+        )
+        + await count(
+            ComputedStatComparison,
+            (ComputedStatComparison.left_stat_definition_id == stat_definition_id)
+            | (ComputedStatComparison.right_stat_definition_id == stat_definition_id),
+        )
+        + await count(
+            ComputedStatSumTerm, ComputedStatSumTerm.source_stat_definition_id == stat_definition_id
+        )
+        + await count(
+            ComputedStatContents,
+            ComputedStatContents.source_stat_definition_id == stat_definition_id,
+        )
+    )
+    in_use = _in_use_parts(
+        (values, "value(s) held"), (formulas, "formula(s) for it"), (reads, "formula(s) reading it")
+    )
+    if in_use:
+        raise StatDefinitionInUseError(
+            detail=f"Stat definition {stat_definition_id} is still in use: {in_use}"
+        )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="stat_definition.deleted",
+        target_type="stat_definition",
+        target_id=stat_definition_id,
+        detail=(
+            f"stat_group={stat_definition.stat_group_id}, "
+            f"value_type={stat_definition.value_type.value}"
+        ),
+    )
+    await session.delete(stat_definition)
+    await session.commit()
 
 
 @router.post("/stat-definitions/{stat_definition_id}/enum-values", status_code=201)
