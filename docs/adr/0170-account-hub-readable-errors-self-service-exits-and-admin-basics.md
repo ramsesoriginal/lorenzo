@@ -28,7 +28,7 @@ Checked against the source as it is now, not against the task description, which
 | Error | Message |
 | --- | --- |
 | `ApiError`, status `401`; or an Authgear `invalid_grant` (a revoked or used-up refresh token, which the SDK throws after clearing the session) | "Your session has expired. Log in again." |
-| `ApiError`, status `422` with an `errors` list | "Check what you entered: " and up to three `field (message)` entries joined by `; `, then `; and N more`. The field is the last name in `loc` (the `body`/`query` marker and list positions dropped, underscores as spaces); the message is the API's own, with its "Value error, " prefix and final full stop dropped and its first letter lower-cased. Entries it cannot read are skipped, and with none left the title is shown. |
+| `ApiError`, status `422` with an `errors` list | "Check what you entered: " and up to three `field (message)` entries joined by semicolons, then "and N more". The field is the last name in `loc` (the `body`/`query` marker and list positions dropped, underscores as spaces); the message is the API's own, with its "Value error, " prefix and final full stop dropped and its first letter lower-cased. Entries it cannot read are skipped, and with none left the title is shown. |
 | `ApiError` with a problem `detail`, else `title` | That text, as the API wrote it. |
 | Network failure (`TypeError` whose message is a browser's fetch failure) | "Lorenzo couldn't be reached. Check your connection and try again." |
 | Another `Error` or a string that does not look like JSON | Its own text: this app throws a few plain sentences on purpose ("Tenant editing is temporarily unavailable..."). |
