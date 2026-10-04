@@ -261,3 +261,25 @@ def test_a_node_without_its_description_gets_one_written() -> None:
     plan = make_plan(SPEC, state, TENANT, ALL)
 
     assert [(a.kind, a.name) for a in plan.actions] == [("description", "dnd5e-heavy")]
+
+
+def test_a_description_with_the_placeholder_title_is_retitled_with_its_nodes_name() -> None:
+    state = fully_seeded()
+    information_id = uuid.uuid4()
+    state.retitles["dnd5e-heavy"] = (information_id, "Heavy (D&D 5e)")
+
+    plan = make_plan(SPEC, state, TENANT, ALL)
+
+    assert [(a.kind, a.name, a.detail) for a in plan.actions] == [
+        ("retitle", "dnd5e-heavy", "Heavy (D&D 5e)")
+    ]
+
+
+def test_only_the_layers_asked_for_are_retitled() -> None:
+    state = fully_seeded()
+    state.retitles["dnd5e-heavy"] = (uuid.uuid4(), "Heavy (D&D 5e)")
+    state.retitles["crossbow"] = (uuid.uuid4(), "Crossbow")
+
+    plan = make_plan(SPEC, state, TENANT, ("core",))
+
+    assert [(a.kind, a.name) for a in plan.actions] == [("retitle", "crossbow")]

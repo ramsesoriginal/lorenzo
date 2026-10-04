@@ -25,6 +25,7 @@ from lorenzo_cli.client.models import (
     GivePackRequest,
     InformationCreate,
     InformationOut,
+    InformationUpdate,
     ItemCreate,
     ItemInstanceCreate,
     ItemInstanceOut,
@@ -155,6 +156,19 @@ CREATE_INFORMATION: Op[InformationOut] = Op(
     request_type=InformationCreate,
     response_type=InformationOut,
 )
+GET_INFORMATION: Op[InformationOut] = Op(
+    "get_information",
+    "GET",
+    f"{_TENANT}/information/{{information_id}}",
+    response_type=InformationOut,
+)
+UPDATE_INFORMATION: Op[InformationOut] = Op(
+    "update_information",
+    "PATCH",
+    f"{_TENANT}/information/{{information_id}}",
+    request_type=InformationUpdate,
+    response_type=InformationOut,
+)
 CREATE_ITEM_INSTANCE: Op[ItemInstanceOut] = Op(
     "create_item_instance",
     "POST",
@@ -240,6 +254,8 @@ ALL_OPS: tuple[Op[Any], ...] = (
     GET_ENTITY,
     SET_ENTITY_STAT,
     CREATE_INFORMATION,
+    GET_INFORMATION,
+    UPDATE_INFORMATION,
     REPLACE_ITEM_PROTOTYPES,
     CREATE_ITEM_INSTANCE,
     CREATE_ITEM_INSTANCES_FROM_PACK,
