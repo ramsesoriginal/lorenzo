@@ -27,9 +27,9 @@ import Base from '../layouts/Base.astro';
       listBeings,
       updateCharacter,
     } from '../lib/characters';
-    import { errorMessage } from '../lib/errorMessage';
+    import { errorLine, showError } from '../lib/errorUi';
     import { renderCreateForm, renderRenameableItem } from '../lib/dom';
-    import { campaignRoleFor, resolveDisplayName } from '../lib/format';
+    import { campaignRoleFor, isTenantAdmin, resolveDisplayName } from '../lib/format';
     import { getMe } from '../lib/me';
     import {
       invitePlayer,
@@ -55,6 +55,7 @@ import Base from '../layouts/Base.astro';
       being: BeingSummaryOut,
       tenantId: string,
       gmCampaigns: CampaignSummaryOut[],
+      canReadRoster: boolean,
       onDone: () => void,
     ): HTMLElement {
       const container = document.createElement('div');
@@ -83,11 +84,7 @@ import Base from '../layouts/Base.astro';
           await updateCharacter(tenantId, being.entity_id, { owner_player_id: playerId });
           onDone();
         } catch (e) {
-          playersArea.append(
-            Object.assign(document.createElement('p'), {
-              textContent: errorMessage(e),
-            }),
-          );
+          playersArea.append(errorLine(e));
         }
       }
 
@@ -101,16 +98,20 @@ import Base from '../layouts/Base.astro';
           Object.assign(document.createElement('p'), { textContent: 'Loading players…' }),
         );
         try {
+          // The roster is a library admins' read: a campaign GM with no
+          // membership gets a 404 for it, and that is a normal GM (ADR 0035).
+          // Without it a player is named by their user id, as
+          // resolveDisplayName does for any miss.
           const [existing, roster] = await Promise.all([
             listCampaignPlayers(tenantId, campaignId),
-            listTenantRoster(tenantId),
+            canReadRoster ? listTenantRoster(tenantId) : Promise.resolve(null),
           ]);
           const list = document.createElement('ul');
           list.className = 'list';
           for (const player of existing.items) {
             const item = document.createElement('li');
             const idEl = document.createElement('span');
-            idEl.textContent = resolveDisplayName(roster.items, player.user_id);
+            idEl.textContent = resolveDisplayName(roster?.items ?? [], player.user_id);
             const useButton = document.createElement('button');
             useButton.type = 'button';
             useButton.textContent = 'Use this player';
@@ -128,21 +129,13 @@ import Base from '../layouts/Base.astro';
               const newPlayer = await invitePlayer(tenantId, campaignId, { user_id: user.id });
               await handOffTo(newPlayer.id);
             } catch (e) {
-              inviteContainer.append(
-                Object.assign(document.createElement('p'), {
-                  textContent: errorMessage(e),
-                }),
-              );
+              inviteContainer.append(errorLine(e));
             }
           });
 
           playersArea.replaceChildren(list, inviteContainer);
         } catch (e) {
-          playersArea.replaceChildren(
-            Object.assign(document.createElement('p'), {
-              textContent: errorMessage(e),
-            }),
-          );
+          playersArea.replaceChildren(errorLine(e));
         }
       });
 
@@ -153,6 +146,7 @@ import Base from '../layouts/Base.astro';
       being: BeingSummaryOut,
       tenantId: string,
       gmCampaigns: CampaignSummaryOut[],
+      canReadRoster: boolean,
       onChanged: () => void,
     ): HTMLLIElement {
       const item = renderRenameableItem(being.name, (newName) =>
@@ -163,7 +157,9 @@ import Base from '../layouts/Base.astro';
       handoffButton.type = 'button';
       handoffButton.textContent = 'Use as a played character';
       handoffButton.addEventListener('click', () => {
-        handoffButton.replaceWith(renderHandoffPanel(being, tenantId, gmCampaigns, onChanged));
+        handoffButton.replaceWith(
+          renderHandoffPanel(being, tenantId, gmCampaigns, canReadRoster, onChanged),
+        );
       });
       item.append(handoffButton);
 
@@ -206,7 +202,9 @@ import Base from '../layouts/Base.astro';
         const list = document.createElement('ul');
         list.className = 'list';
         for (const being of beingsPage.items) {
-          list.append(renderBeingItem(being, tenant.id, gmCampaigns, onChanged));
+          list.append(
+            renderBeingItem(being, tenant.id, gmCampaigns, isTenantAdmin(tenant), onChanged),
+          );
         }
         results.replaceChildren(list);
       }
@@ -268,7 +266,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

@@ -35,7 +35,7 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <script>
-    import { errorMessage } from '../lib/errorMessage';
+    import { showError } from '../lib/errorUi';
     import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../lib/auth';
     import { getUnreadCount } from '../lib/notifications';
 
@@ -58,10 +58,10 @@ import Base from '../layouts/Base.astro';
       void logout();
     });
 
-    function showError(message: string) {
+    function showFailure(show: (target: HTMLElement) => void) {
       loading.hidden = true;
       errorEl.hidden = false;
-      errorEl.textContent = message;
+      show(errorEl);
     }
 
     let pollHandle: ReturnType<typeof setInterval> | undefined;
@@ -96,7 +96,9 @@ import Base from '../layouts/Base.astro';
     });
 
     if (!isAuthConfigured()) {
-      showError('Authgear is not configured for this app yet.');
+      showFailure((target) => {
+        target.textContent = 'Authgear is not configured for this app yet.';
+      });
     } else {
       try {
         const authed = await isAuthenticated();
@@ -111,7 +113,7 @@ import Base from '../layouts/Base.astro';
           signedOut.hidden = false;
         }
       } catch (e) {
-        showError(errorMessage(e));
+        showFailure((target) => showError(target, e));
       }
     }
   </script>

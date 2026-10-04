@@ -53,8 +53,18 @@ import Base from '../layouts/Base.astro';
     <p id="save-status" role="status"></p>
   </form>
 
+  <section id="danger-zone" class="section danger-zone" hidden>
+    <h2>Delete your account</h2>
+    <p>
+      This removes your Lorenzo account and ends every library membership, campaign seat and GM role
+      you hold. It doesn't delete your Authgear login.
+    </p>
+    <div id="delete-account"></div>
+  </section>
+
   <script>
-    import { errorMessage } from '../lib/errorMessage';
+    import { showError } from '../lib/errorUi';
+    import { renderDeleteAccount } from '../lib/exitsUi';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
     import { localesToText, textOrNull, textToLocales } from '../lib/format';
@@ -68,6 +78,8 @@ import Base from '../layouts/Base.astro';
     const picturePreview = document.getElementById('picture-preview') as HTMLImageElement;
     const pictureInput = document.getElementById('picture-input') as HTMLInputElement;
     const pictureStatus = document.getElementById('picture-status')!;
+    const dangerZone = document.getElementById('danger-zone')!;
+    const deleteAccountContainer = document.getElementById('delete-account')!;
 
     const nicknameEl = document.getElementById('nickname') as HTMLInputElement;
     const displayNameEl = document.getElementById('display_name') as HTMLInputElement;
@@ -101,7 +113,7 @@ import Base from '../layouts/Base.astro';
     });
 
     document.getElementById('picture-remove')?.addEventListener('click', async () => {
-      pictureStatus.textContent = 'Removing&hellip;';
+      pictureStatus.textContent = 'Removing…';
       try {
         await deleteProfilePicture();
         const me = await getMe();
@@ -109,14 +121,14 @@ import Base from '../layouts/Base.astro';
         populate(me);
         pictureStatus.textContent = 'Removed.';
       } catch (e) {
-        pictureStatus.textContent = errorMessage(e);
+        showError(pictureStatus, e);
       }
     });
 
     pictureInput.addEventListener('change', async () => {
       const file = pictureInput.files?.[0];
       if (!file) return;
-      pictureStatus.textContent = 'Uploading&hellip;';
+      pictureStatus.textContent = 'Uploading…';
       try {
         await uploadProfilePicture(file);
         const me = await getMe();
@@ -124,7 +136,7 @@ import Base from '../layouts/Base.astro';
         populate(me);
         pictureStatus.textContent = 'Updated.';
       } catch (e) {
-        pictureStatus.textContent = errorMessage(e);
+        showError(pictureStatus, e);
       } finally {
         pictureInput.value = '';
       }
@@ -161,7 +173,7 @@ import Base from '../layouts/Base.astro';
         return;
       }
 
-      saveStatus.textContent = 'Saving&hellip;';
+      saveStatus.textContent = 'Saving…';
       try {
         const me = await updateProfile(patch);
         initial = me;
@@ -169,7 +181,7 @@ import Base from '../layouts/Base.astro';
         populate(me);
         saveStatus.textContent = 'Saved.';
       } catch (e) {
-        saveStatus.textContent = errorMessage(e);
+        showError(saveStatus, e);
       }
     });
 
@@ -184,10 +196,12 @@ import Base from '../layouts/Base.astro';
         populate(me);
         loading.hidden = true;
         form.hidden = false;
+        deleteAccountContainer.replaceChildren(renderDeleteAccount());
+        dangerZone.hidden = false;
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

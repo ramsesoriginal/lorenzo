@@ -42,7 +42,8 @@ import Base from '../layouts/Base.astro';
       listSentNotifications,
       markNotificationRead,
     } from '../lib/notifications';
-    import { errorMessage } from '../lib/errorMessage';
+    import { createStatusSpan } from '../lib/dom';
+    import { showError } from '../lib/errorUi';
     import { countUnread } from '../lib/format';
     import type { Notification } from '../lib/types';
     import { isAuthenticated } from '../lib/auth';
@@ -86,6 +87,7 @@ import Base from '../layouts/Base.astro';
         const button = document.createElement('button');
         button.type = 'button';
         button.textContent = 'Mark read';
+        const status = createStatusSpan();
         button.addEventListener('click', async () => {
           button.disabled = true;
           try {
@@ -93,10 +95,10 @@ import Base from '../layouts/Base.astro';
             await refresh();
           } catch (e) {
             button.disabled = false;
-            button.textContent = errorMessage(e);
+            showError(status, e);
           }
         });
-        item.append(button);
+        item.append(button, status);
       }
 
       return item;
@@ -113,7 +115,7 @@ import Base from '../layouts/Base.astro';
           : `${unread} unread of ${page.items.length} shown`;
       } catch (e) {
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
 
@@ -182,7 +184,7 @@ import Base from '../layouts/Base.astro';
         showSentButton.textContent = 'Hide sent notifications';
       } catch (e) {
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       } finally {
         showSentButton.disabled = false;
       }
@@ -219,7 +221,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

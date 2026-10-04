@@ -1,5 +1,5 @@
 import { createStatusSpan } from './dom';
-import { errorMessage } from './errorMessage';
+import { errorLine, showError } from './errorUi';
 // GM management + invite-player panels, split out of tenants.astro - see
 // ADR 0080. Like userPicker.ts (ADR 0074), this is a lib/*.ts module that
 // builds and returns DOM, not just an API wrapper.
@@ -40,7 +40,7 @@ export function renderGmManagement(
         await revokeCampaignGm(tenant.id, campaign.id, userId);
         onChanged();
       } catch (e) {
-        status.textContent = errorMessage(e);
+        showError(status, e);
       }
     });
     item.append(idEl, revokeButton, status);
@@ -57,11 +57,7 @@ export function renderGmManagement(
       await grantCampaignGm(tenant.id, campaign.id, user.id);
       onChanged();
     } catch (e) {
-      pickerContainer.append(
-        Object.assign(document.createElement('p'), {
-          textContent: errorMessage(e),
-        }),
-      );
+      pickerContainer.append(errorLine(e));
     }
   });
   section.append(pickerContainer);
@@ -81,11 +77,7 @@ export function renderInvitePlayer(
     try {
       await invitePlayer(tenant.id, campaign.id, { user_id: user.id });
     } catch (e) {
-      section.append(
-        Object.assign(document.createElement('p'), {
-          textContent: errorMessage(e),
-        }),
-      );
+      section.append(errorLine(e));
     }
   });
   return section;

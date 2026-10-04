@@ -21,23 +21,31 @@
   color: var(--text-tertiary);
 }
 
-/* Tenant slug editor (ADR 0136). */
-.tenant-slug {
+/* Library editor: name, slug and description (ADR 0136, ADR 0170). */
+.tenant-details {
   margin-block: 1rem;
 }
-.tenant-slug-value {
+.tenant-details-value {
   overflow-wrap: anywhere;
 }
-.tenant-slug-form {
+.tenant-details-form {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: end;
 }
-.tenant-slug-form label {
+.tenant-details-form label {
   display: grid;
   gap: 0.25rem;
 }
-.tenant-slug-hint {
+.tenant-details-hint {
   flex-basis: 100%;
+}
+
+/* The one section of /profile that can't be undone (ADR 0170): set apart from
+   the editable profile above it, and clear of it, not styled as a card. */
+.danger-zone {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--danger);
 }

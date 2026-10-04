@@ -3,7 +3,7 @@
 // pure helpers) there's no import-chain purity to protect here; they
 // simply live alongside the other lib/*.ts modules.
 
-import { errorMessage } from './errorMessage';
+import { showError } from './errorUi';
 
 export function createStatusSpan(): HTMLSpanElement {
   const span = document.createElement('span');
@@ -18,10 +18,13 @@ export function createStatusSpan(): HTMLSpanElement {
 // what's semantically a PC vs a being. Returns the <li> with
 // name/rename-button/status already attached; callers append anything
 // extra (the being handoff button, for instance) rather than this helper
-// needing to know about every page's own additional actions.
+// needing to know about every page's own additional actions. `extras` are
+// shown beside the name and come back after Cancel; elements appended to the
+// <li> by hand are lost when it swaps to the edit form.
 export function renderRenameableItem(
   name: string,
   onRename: (newName: string) => Promise<void>,
+  extras: HTMLElement[] = [],
 ): HTMLLIElement {
   const item = document.createElement('li');
   const nameEl = document.createElement('span');
@@ -47,12 +50,12 @@ export function renderRenameableItem(
     item.replaceChildren(input, saveButton, cancelButton, status);
 
     cancelButton.addEventListener('click', () => {
-      item.replaceChildren(nameEl, renameButton, status);
+      item.replaceChildren(nameEl, renameButton, status, ...extras);
     });
     saveButton.addEventListener('click', async () => {
       const newName = input.value.trim();
       if (newName === '' || newName === name) {
-        item.replaceChildren(nameEl, renameButton, status);
+        item.replaceChildren(nameEl, renameButton, status, ...extras);
         return;
       }
       status.textContent = 'Saving…';
@@ -61,12 +64,12 @@ export function renderRenameableItem(
         // Caller's onRename triggers a full refresh (the established
         // pattern throughout this app) - no local state to reset here.
       } catch (e) {
-        status.textContent = errorMessage(e);
+        showError(status, e);
       }
     });
   });
 
-  item.append(nameEl, renameButton, status);
+  item.append(nameEl, renameButton, status, ...extras);
   return item;
 }
 
@@ -99,7 +102,7 @@ export function renderCreateForm(
       input.value = '';
       status.textContent = '';
     } catch (e) {
-      status.textContent = errorMessage(e);
+      showError(status, e);
     }
   });
   return form;

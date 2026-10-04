@@ -1,5 +1,5 @@
 import { createStatusSpan } from './dom';
-import { errorMessage } from './errorMessage';
+import { showError } from './errorUi';
 // Campaign create/edit panels, split out of tenants.astro - see ADR 0080.
 // Like userPicker.ts (ADR 0074), this is a lib/*.ts module that builds and
 // returns DOM, not just an API wrapper.
@@ -75,7 +75,7 @@ function renderEditCampaignForm(
       await updateCampaign(tenant.id, campaign.id, patch);
       onDone();
     } catch (e) {
-      status.textContent = errorMessage(e);
+      showError(status, e);
     }
   });
 
@@ -103,7 +103,7 @@ export function renderEditToggle(
       container.replaceChildren(renderEditCampaignForm(tenant, full, onChanged));
     } catch (e) {
       editButton.disabled = false;
-      status.textContent = errorMessage(e);
+      showError(status, e);
     }
   });
 
@@ -166,7 +166,7 @@ export function renderCreateCampaignForm(
       status.textContent = '';
       onCreated();
     } catch (e) {
-      status.textContent = errorMessage(e);
+      showError(status, e);
     }
   });
   return form;

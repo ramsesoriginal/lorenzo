@@ -61,3 +61,28 @@ export async function linkCharacterToPlayer(
     }),
   );
 }
+
+// Readable by any tenant participant, a player included, and the only place a
+// character's owner_player_id is given.
+export async function getCharacter(tenantId: string, characterId: string): Promise<CharacterOut> {
+  return unwrap(
+    await client.GET('/tenants/{tenant_id}/characters/{character_id}', {
+      params: { path: { tenant_id: tenantId, character_id: characterId } },
+    }),
+  );
+}
+
+// The reverse of linkCharacterToPlayer (ADR 0079): removes one roster link and
+// leaves the character, and every other link, alone. Who may: the player whose
+// row it is, or whoever can manage that player's campaign.
+export async function unlinkCharacterFromPlayer(
+  tenantId: string,
+  characterId: string,
+  playerId: string,
+): Promise<CharacterOut> {
+  return unwrap(
+    await client.DELETE('/tenants/{tenant_id}/characters/{character_id}/players/{player_id}', {
+      params: { path: { tenant_id: tenantId, character_id: characterId, player_id: playerId } },
+    }),
+  );
+}
