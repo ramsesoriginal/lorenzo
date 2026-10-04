@@ -9,7 +9,8 @@ from rich.table import Table
 
 from lorenzo_cli.evalworker import STANDARD_LISTS, EvalResult
 from lorenzo_cli.importer.plan import ImportPlan
-from lorenzo_cli.seed import SeedPlan
+from lorenzo_cli.seed import SeedPlan, UnseedPlan, UnseedResult
+from lorenzo_cli.seed.unseed import TargetKind
 
 
 def print_evaluation(console: Console, result: EvalResult) -> None:
@@ -92,6 +93,70 @@ def print_seed_plan(console: Console, plan: SeedPlan, *, applied: bool = False) 
         console.print(f"[yellow]{warning}[/yellow]")
     for problem in plan.problems:
         console.print(f"[red]{problem}[/red]")
+
+
+def unseed_plan_json(plan: UnseedPlan) -> dict[str, object]:
+    return {
+        "tenant": {
+            "id": str(plan.tenant.id),
+            "slug": plan.tenant.slug,
+            "kind": plan.tenant.kind.value,
+            "published": plan.tenant.published_at is not None,
+        },
+        "seed_version": plan.spec_version,
+        "layers": list(plan.layers),
+        "targets": [
+            {"kind": t.kind, "name": t.name, "layer": t.layer, "detail": t.detail}
+            for t in plan.targets
+        ],
+        "problems": plan.problems,
+    }
+
+
+def unseed_result_json(result: UnseedResult) -> dict[str, object]:
+    return {
+        "deleted": [{"kind": t.kind, "name": t.name, "layer": t.layer} for t in result.deleted],
+        "kept": [{"kind": k.kind, "name": k.name, "reason": k.reason} for k in result.kept],
+    }
+
+
+_KIND_LABEL: dict[TargetKind, str] = {
+    "node": "categories",
+    "definition": "stat definitions",
+    "group": "stat groups",
+}
+
+
+def unseed_counts(plan: UnseedPlan) -> str:
+    """ "28 categories, 22 stat definitions and 0 stat groups"."""
+    parts = [f"{len(plan.of(kind))} {label}" for kind, label in _KIND_LABEL.items()]
+    return f"{parts[0]}, {parts[1]} and {parts[2]}"
+
+
+def print_unseed_plan(console: Console, plan: UnseedPlan) -> None:
+    tenant = plan.tenant
+    published = " (published: subscribers will see these changes)" if tenant.published_at else ""
+    console.print(
+        f"Tenant [bold]{tenant.slug}[/bold], a {tenant.kind.value} tenant{published}. "
+        f"Layers: {', '.join(plan.layers)}. Seed version {plan.spec_version}."
+    )
+    if plan.targets:
+        table = Table("what", "name", "layer", "", title="To remove", title_justify="left")
+        for target in plan.targets:
+            table.add_row(target.kind, target.name, target.layer, target.detail)
+        console.print(table)
+    console.print(f"To remove: {unseed_counts(plan)}.")
+    for problem in plan.problems:
+        console.print(f"[red]{problem}[/red]")
+
+
+def print_unseed_result(console: Console, result: UnseedResult) -> None:
+    console.print(
+        f"Removed {len(result.deleted)}"
+        + (f"; kept {len(result.kept)}." if result.kept else ". Run it again to check.")
+    )
+    for kept in result.kept:
+        console.print(f"[red]Kept {kept.kind} {kept.name}: {kept.reason}[/red]")
 
 
 def import_exit_code(plan: ImportPlan, *, strict: bool, reconcile: bool) -> int:

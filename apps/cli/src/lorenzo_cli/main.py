@@ -75,10 +75,26 @@ from lorenzo_cli.report import (
     print_evaluation,
     print_import_plan,
     print_seed_plan,
+    print_unseed_plan,
+    print_unseed_result,
     seed_plan_json,
+    unseed_counts,
+    unseed_plan_json,
+    unseed_result_json,
 )
 from lorenzo_cli.repos import RepoError
-from lorenzo_cli.seed import LAYERS, apply_plan, load_builtin, make_plan, read_state
+from lorenzo_cli.seed import (
+    LAYERS,
+    UnseedPlan,
+    UnseedResult,
+    apply_plan,
+    apply_unseed,
+    load_builtin,
+    make_plan,
+    make_unseed_plan,
+    read_state,
+    read_unseed_state,
+)
 from lorenzo_cli.tenants import (
     TenantNotFoundError,
     WrongTenantKindError,
@@ -530,7 +546,11 @@ def seed(
     ],
     layers: Annotated[
         list[str] | None,
-        typer.Option("--layer", help=f"Only these layers of the seed ({', '.join(LAYERS)})."),
+        typer.Option(
+            "--layer",
+            help=f"Only these layers of the seed ({', '.join(LAYERS)}). Without it, every layer "
+            "is seeded, unless the tenant holds one and not another (name the layers then).",
+        ),
     ] = None,
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Show what would be created; exit 2 if anything.")
@@ -546,8 +566,9 @@ def seed(
 ) -> None:
     """Create the item taxonomy and the stat definitions in a tenant; safe to run again.
 
-    Finds or creates by name and slug, and never changes or removes anything. Exit codes: 0 done
-    or nothing to do, 2 with --dry-run when there is something to create, 1 on a problem.
+    Finds or creates by name and slug, and never changes or removes anything (`unseed` takes a
+    layer out). Exit codes: 0 done or nothing to do, 2 with --dry-run when there is something to
+    create, 1 on a problem.
     """
     runtime: Runtime = ctx.obj
     chosen = tuple(layers) if layers else LAYERS
@@ -559,7 +580,7 @@ def seed(
         target = resolve_tenant(client, tenant)
         require_repository(target, allow_play=allow_play_tenant)
         state = read_state(client, target.id, spec)
-        plan = make_plan(spec, state, target, chosen)
+        plan = make_plan(spec, state, target, chosen, explicit=layers is not None)
         if as_json:
             typer.echo(json.dumps(seed_plan_json(plan), indent=2))
         else:
@@ -587,6 +608,94 @@ def seed(
         _out.print(
             f"Created {len(plan.actions)}. Run it again to check: it should find nothing to do."
         )
+
+
+@app.command()
+def unseed(
+    ctx: typer.Context,
+    tenant: TenantOption,
+    layers: Annotated[
+        list[str],
+        typer.Option(
+            "--layer",
+            help=f"A layer of the seed to take out ({', '.join(LAYERS)}). Required; repeat for "
+            "more.",
+        ),
+    ],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would be removed; exit 2 if anything.")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before deleting.")] = False,
+    allow_play_tenant: Annotated[
+        bool,
+        typer.Option("--allow-play-tenant", help="Work on a play tenant, as seed does there."),
+    ] = False,
+    as_json: Annotated[
+        bool,
+        typer.Option("--json", help="Print the plan and what was removed as JSON. Needs --yes."),
+    ] = False,
+) -> None:
+    """Take a layer of the seed out of a tenant.
+
+    Removes its categories, stat definitions and stat groups, and only those
+    the built-in seed names. It asks first.
+
+    A category that something outside the layer inherits from stops it, with
+    nothing deleted. A stat definition that is in use is kept and listed.
+
+    Exit codes: 0 done or nothing to remove, 2 with --dry-run when there is
+    something to remove, 1 on a problem, when something was kept, or when you
+    said no.
+    """
+    runtime: Runtime = ctx.obj
+    unknown = [layer for layer in layers if layer not in LAYERS]
+    if unknown:
+        raise typer.BadParameter(f"{', '.join(unknown)}: choose from {', '.join(LAYERS)}")
+    chosen = tuple(dict.fromkeys(layers))
+    spec = load_builtin()
+
+    def emit(plan: UnseedPlan, result: UnseedResult | None) -> None:
+        if as_json:
+            document = {
+                "plan": unseed_plan_json(plan),
+                "result": None if result is None else unseed_result_json(result),
+            }
+            typer.echo(json.dumps(document, indent=2))
+
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
+        target = resolve_tenant(client, tenant)
+        require_repository(target, allow_play=allow_play_tenant)
+        plan = make_unseed_plan(
+            spec, read_unseed_state(client, target.id, spec, chosen), target, chosen
+        )
+        if not as_json:
+            print_unseed_plan(_out, plan)
+        if plan.problems:
+            emit(plan, None)
+            raise typer.Exit(1)
+        if not plan.targets:
+            emit(plan, None)
+            return
+        if dry_run:
+            emit(plan, None)
+            raise typer.Exit(2)
+        if not yes:
+            if as_json or not runtime.interactive:
+                _err.print("[red]Not asking anything here: run again with --yes to delete.[/red]")
+                raise typer.Exit(1)
+            question = (
+                f"Delete {unseed_counts(plan)} of the {' and '.join(chosen)} layer from "
+                f"{target.slug}? The stat definitions can't be restored."
+            )
+            if not typer.confirm(question, default=False):
+                _err.print("Nothing was deleted.")
+                raise typer.Exit(1)
+        result = apply_unseed(client, plan)
+    emit(plan, result)
+    if not as_json:
+        print_unseed_result(_out, result)
+    if result.kept:
+        raise typer.Exit(1)
 
 
 TenantOption = Annotated[

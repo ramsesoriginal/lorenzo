@@ -116,6 +116,13 @@ RESOLVE_SLUGS: Op[list[ResolvedSlugOut]] = Op(
 GET_ITEM: Op[ItemOut] = Op(
     "get_item", "GET", f"{_TENANT}/items/{{entity_id}}", response_type=ItemOut
 )
+DELETE_ITEM: Op[None] = Op("delete_item", "DELETE", f"{_TENANT}/items/{{entity_id}}")
+DELETE_STAT_DEFINITION: Op[None] = Op(
+    "delete_stat_definition", "DELETE", f"{_TENANT}/stat-definitions/{{stat_definition_id}}"
+)
+DELETE_STAT_GROUP: Op[None] = Op(
+    "delete_stat_group", "DELETE", f"{_TENANT}/stat-groups/{{stat_group_id}}"
+)
 CREATE_ITEM: Op[ItemOut] = Op(
     "create_item", "POST", f"{_TENANT}/items", request_type=ItemCreate, response_type=ItemOut
 )
@@ -247,6 +254,9 @@ ALL_OPS: tuple[Op[Any], ...] = (
     CREATE_STAT_DEFINITION,
     RESOLVE_SLUGS,
     GET_ITEM,
+    DELETE_ITEM,
+    DELETE_STAT_DEFINITION,
+    DELETE_STAT_GROUP,
     CREATE_ITEM,
     SET_ENTITY_TAG,
     LIST_ENTITY_COMPUTED_STATS,

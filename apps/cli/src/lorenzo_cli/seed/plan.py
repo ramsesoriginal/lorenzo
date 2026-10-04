@@ -72,6 +72,20 @@ class SeedPlan:
     warnings: list[str] = field(default_factory=list)
 
 
+def resolve_nodes(
+    client: LorenzoClient, tenant_id: UUID, slugs: list[str]
+) -> dict[str, ResolvedSlugOut]:
+    """The slugs the tenant has, in as few requests as the API allows."""
+    found: dict[str, ResolvedSlugOut] = {}
+    for start in range(0, len(slugs), _RESOLVE_BATCH):
+        batch = slugs[start : start + _RESOLVE_BATCH]
+        for hit in client.call(
+            RESOLVE_SLUGS, path={"tenant_id": tenant_id}, query={"slug": batch}
+        ).value:
+            found[hit.slug] = hit
+    return found
+
+
 def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> TenantState:
     path = {"tenant_id": tenant_id}
     groups = {g.name: g for g in all_items(client, LIST_STAT_GROUPS, path=path, of=StatGroupOut)}
@@ -79,12 +93,7 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
         d.name: d for d in all_items(client, LIST_STAT_DEFINITIONS, path=path, of=StatDefinitionOut)
     }
 
-    slugs = [node.slug for node in spec.nodes]
-    nodes: dict[str, ResolvedSlugOut] = {}
-    for start in range(0, len(slugs), _RESOLVE_BATCH):
-        batch = slugs[start : start + _RESOLVE_BATCH]
-        for found in client.call(RESOLVE_SLUGS, path=path, query={"slug": batch}).value:
-            nodes[found.slug] = found
+    nodes = resolve_nodes(client, tenant_id, [node.slug for node in spec.nodes])
 
     items: dict[str, ItemOut] = {}
     retitles: dict[str, tuple[UUID, str]] = {}
@@ -111,10 +120,39 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
     return TenantState(groups, definitions, nodes, items, recipes, retitles)
 
 
+def _layer_flags(layers: list[str]) -> str:
+    return " ".join(f"`--layer {layer}`" for layer in layers)
+
+
+def holds_layer(spec: SeedSpec, state: TenantState, layer: str) -> bool:
+    """Whether the tenant has at least one of the layer's categories or stat definitions."""
+    return any(n.slug in state.nodes for n in spec.nodes if n.layer == layer) or any(
+        d.name in state.definitions for d in spec.definitions if d.layer == layer
+    )
+
+
 def make_plan(
-    spec: SeedSpec, state: TenantState, tenant: TenantOut, layers: tuple[str, ...]
+    spec: SeedSpec,
+    state: TenantState,
+    tenant: TenantOut,
+    layers: tuple[str, ...],
+    *,
+    explicit: bool = True,
 ) -> SeedPlan:
+    """`explicit` says the layers were named (`--layer`). A bare seed of a tenant that holds one
+    layer and none of another is a problem, not a quiet addition of the other (ADR 0166)."""
     plan = SeedPlan(tenant=tenant, layers=layers, spec_version=spec.version)
+    if not explicit:
+        held = [layer for layer in layers if holds_layer(spec, state, layer)]
+        absent = [layer for layer in layers if layer not in held]
+        if held and absent:
+            plan.problems.append(
+                f"This tenant holds the {' and '.join(held)} layer and none of "
+                f"{' and '.join(absent)}. A bare seed would add {' and '.join(absent)}. Name "
+                f"the layers you mean: {_layer_flags(held)} to check or complete what it holds, "
+                f"or {_layer_flags(absent)} to add that layer."
+            )
+            return plan
     have_groups = set(state.groups)
     have_definitions = set(state.definitions)
     have_nodes = set(state.nodes)
