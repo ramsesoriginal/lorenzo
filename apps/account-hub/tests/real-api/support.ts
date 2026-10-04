@@ -75,3 +75,22 @@ export function repositoryCard(page: Page, name: string) {
 export async function newRepository(owner: Api, name = `Repository ${crypto.randomUUID()}`) {
   return ok(owner.POST('/tenants', { body: { name, kind: 'repository' } }));
 }
+
+/** A player seat for `userId` in a campaign, added by someone who manages it. */
+export async function addPlayer(owner: Api, tenantId: string, campaignId: string, userId: string) {
+  return ok(
+    owner.POST('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
+      params: { path: { tenant_id: tenantId, campaign_id: campaignId } },
+      body: { user_id: userId },
+    }),
+  );
+}
+
+/** A GM grant for `userId` in a campaign, made by someone who manages it. */
+export async function makeGm(owner: Api, tenantId: string, campaignId: string, userId: string) {
+  return ok(
+    owner.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
+      params: { path: { tenant_id: tenantId, campaign_id: campaignId, user_id: userId } },
+    }),
+  );
+}

@@ -9,6 +9,7 @@ export type BeingSummaryOut = Schema<'BeingSummaryOut'>;
 export type CampaignSummaryOut = Schema<'CampaignSummaryOut'>;
 export type TenantSummaryOut = Schema<'TenantSummaryOut'>;
 export type MeOut = Schema<'MeOut'>;
+export type ManagedScopeOut = Schema<'ManagedScopeOut'>;
 export type ProfileUpdate = Schema<'ProfileUpdate'>;
 export type Notification = Schema<'NotificationOut'>;
 export type CampaignOut = Schema<'CampaignOut'>;

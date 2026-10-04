@@ -123,7 +123,7 @@ test('the pages about playing leave repositories out, and /beings keeps them for
   const { page, context } = await signedInPage(browser, owner.subject);
 
   // Nobody plays in a repository: it is on neither of these.
-  for (const path of ['/overview', '/characters']) {
+  for (const path of ['/campaigns']) {
     await page.goto(path);
     await expect(page.locator('#loading')).toBeHidden();
     await expect(page.locator('main')).toContainText(library.name);
