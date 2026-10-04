@@ -91,6 +91,17 @@ async def is_tenant_participant(
     return (await session.execute(gm_stmt)).first() is not None
 
 
+async def is_tenant_gm(session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Whether a user holds a CampaignGm row anywhere in the tenant: what makes
+    someone a GM for the reads that are open to GMs with no membership (ADR
+    0152, ADR 0173), whatever else they are.
+    """
+    gm_stmt = select(CampaignGm.campaign_id).where(
+        CampaignGm.user_id == user_id, CampaignGm.tenant_id == tenant_id
+    )
+    return (await session.execute(gm_stmt.limit(1))).first() is not None
+
+
 async def can_access_campaign(
     session: AsyncSession, *, user_id: uuid.UUID, campaign_id: uuid.UUID, tenant_id: uuid.UUID
 ) -> bool:
