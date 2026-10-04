@@ -34,9 +34,27 @@
   gap: 0.5rem;
   align-items: end;
 }
-.tenant-details-form label {
+.tenant-details-form label,
+.create-tenant-form label {
   display: grid;
   gap: 0.25rem;
+}
+/* The create forms (ADR 0178) lay their fields out like the editor does. */
+.create-tenant-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+}
+.create-tenant-form > h2,
+.create-tenant-form > h3,
+.create-tenant-form > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+/* A repository's draft or published state (ADR 0178). */
+.repository-status {
+  margin: 0;
 }
 .tenant-details-hint {
   flex-basis: 100%;

@@ -63,3 +63,15 @@ export function libraryCard(page: Page, name: string) {
     .locator('#tenant-list > li')
     .filter({ has: page.getByRole('heading', { name: new RegExp(`^${name}`) }) });
 }
+
+/** A repository's card in "Your repositories" on /tenants, found by the name its heading starts with. */
+export function repositoryCard(page: Page, name: string) {
+  return page
+    .locator('#repository-list > li')
+    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${name}`) }) });
+}
+
+/** A repository, made through the API by an account holding the tenant-creator role. */
+export async function newRepository(owner: Api, name = `Repository ${crypto.randomUUID()}`) {
+  return ok(owner.POST('/tenants', { body: { name, kind: 'repository' } }));
+}

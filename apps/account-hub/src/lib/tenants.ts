@@ -27,8 +27,17 @@ import type {
 // with over 50 tenants/campaigns is a later slice's problem.
 const PAGE_SIZE = 50;
 
-export async function listMyTenants(): Promise<Page<TenantSummaryOut>> {
-  return unwrap(await client.GET('/tenants', { params: { query: { page: 1, size: PAGE_SIZE } } }));
+// `kind` asks the API for one sort only (it already filters on it, ADR 0118):
+// the pages about playing ask for `play`, so a repository never shows up where
+// nobody plays (ADR 0178). Left out, every tenant the caller belongs to.
+export async function listMyTenants(
+  kind?: TenantSummaryOut['kind'],
+): Promise<Page<TenantSummaryOut>> {
+  return unwrap(
+    await client.GET('/tenants', {
+      params: { query: { page: 1, size: PAGE_SIZE, ...(kind ? { kind } : {}) } },
+    }),
+  );
 }
 
 // ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike
@@ -211,9 +220,9 @@ export function leaveCampaign(
   return removePlayer(tenantId, campaignId, playerId);
 }
 
-// RFC 0017 (d) - gated server-side by a platform-level Authgear role with
-// no client-visible signal; always shown, 403 surfaced like any other
-// authorization failure.
+// Gated server-side by a platform-level Authgear role, which `GET /me` now
+// says (`capabilities.create_tenant`, ADR 0175): the forms are only shown to
+// accounts that have it, and a 403 is still surfaced like any other refusal.
 export async function createTenant(body: TenantCreate): Promise<TenantOut> {
   return unwrap(await client.POST('/tenants', { body: body }));
 }

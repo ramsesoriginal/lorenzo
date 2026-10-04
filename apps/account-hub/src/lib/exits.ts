@@ -2,6 +2,7 @@
 // (ADR 0170). Pure and dependency-free like format.ts: the sentences live here
 // so a test can hold them to what the API actually does.
 import { ApiError } from './apiError';
+import type { TenantKind } from './tenantKind';
 
 // apps/api's LastOwnerError names the tenant in its detail: "User <id> is the
 // sole OWNER of tenant <id>" (DELETE /me and DELETE .../memberships/{me}).
@@ -29,7 +30,7 @@ export function soleOwnerMessage(
   const id = soleOwnerLibraryId(error);
   if (id === null) return null;
   const name = libraryNames.get(id);
-  const library = name === undefined ? 'one of your libraries' : `"${name}"`;
+  const library = name === undefined ? 'one of your libraries or repositories' : `"${name}"`;
   const blocked =
     exit === 'leave-library' ? "you can't leave it yet" : "your account can't be deleted yet";
   return `You're the only owner of ${library}, so ${blocked}. Make someone else an owner first, then try again.`;
@@ -39,6 +40,17 @@ export function soleOwnerMessage(
 // nothing else: nothing they made is deleted and campaign seats stay.
 export function leaveLibraryConfirmation(libraryName: string): string {
   return `Leave "${libraryName}"? Your membership ends, so you won't be able to administer it any more. Nothing you made there is deleted, and any campaign seat or GM role you hold in it stays as it is. You'll get a notification confirming it.`;
+}
+
+// The same for a repository (ADR 0178): its owners are its authors, so what
+// ends is the right to author and administer it. Nothing they made is deleted.
+export function leaveRepositoryConfirmation(repositoryName: string): string {
+  return `Leave "${repositoryName}"? Your membership ends, so you won't be able to author or administer this repository any more. Nothing you made there is deleted. You'll get a notification confirming it.`;
+}
+
+// Whichever of the two the tenant is.
+export function leaveTenantConfirmation(name: string, kind: TenantKind): string {
+  return kind === 'repository' ? leaveRepositoryConfirmation(name) : leaveLibraryConfirmation(name);
 }
 
 // Revoking your own GM grant (ADR 0034). A library administrator keeps the
