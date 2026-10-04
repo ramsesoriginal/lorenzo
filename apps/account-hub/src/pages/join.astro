@@ -16,7 +16,7 @@ import Base from '../layouts/Base.astro';
   <section id="invite" class="section" hidden>
     <img id="invite-picture" alt="" width="96" height="96" hidden />
     <h2 id="invite-campaign"></h2>
-    <p>You've been invited to join this campaign as a player.</p>
+    <p id="invite-offer">You've been invited to join this campaign as a player.</p>
     <div id="invite-actions"></div>
     <p id="invite-status" role="status"></p>
   </section>
@@ -29,6 +29,8 @@ import Base from '../layouts/Base.astro';
     import {
       DEAD_LINK_MESSAGE,
       forgetInviteToken,
+      type InviteRole,
+      inviteOffer,
       joinedMessage,
       readInviteToken,
       rememberInviteToken,
@@ -43,6 +45,7 @@ import Base from '../layouts/Base.astro';
     const invite = document.getElementById('invite')!;
     const picture = document.getElementById('invite-picture') as HTMLImageElement;
     const campaignName = document.getElementById('invite-campaign')!;
+    const offer = document.getElementById('invite-offer')!;
     const actions = document.getElementById('invite-actions')!;
     const status = document.getElementById('invite-status')!;
 
@@ -76,7 +79,7 @@ import Base from '../layouts/Base.astro';
       return error instanceof ApiError && error.status === 404;
     }
 
-    async function showActions(currentToken: string) {
+    async function showActions(currentToken: string, role: InviteRole) {
       if (!isAuthConfigured()) {
         status.textContent = 'Authgear is not configured for this app yet.';
         return;
@@ -84,7 +87,7 @@ import Base from '../layouts/Base.astro';
       if (await isAuthenticated()) {
         const join = document.createElement('button');
         join.type = 'button';
-        join.textContent = 'Join';
+        join.textContent = inviteOffer(role).joinLabel;
         join.addEventListener('click', async () => {
           join.disabled = true;
           status.textContent = 'Joining…';
@@ -94,6 +97,7 @@ import Base from '../layouts/Base.astro';
             status.textContent = joinedMessage(
               campaignName.textContent ?? 'the campaign',
               joined.already_joined,
+              joined.role,
             );
             const next = document.createElement('a');
             next.href = '/campaigns';
@@ -131,6 +135,8 @@ import Base from '../layouts/Base.astro';
       try {
         const preview = await previewInvite(token);
         campaignName.textContent = preview.campaign_name;
+        // A GM link says so before anyone is asked to log in (ADR 0177).
+        offer.textContent = inviteOffer(preview.role).sentence;
         if (preview.picture_url) {
           picture.src = preview.picture_url;
           picture.referrerPolicy = 'no-referrer';
@@ -140,7 +146,7 @@ import Base from '../layouts/Base.astro';
         }
         loading.hidden = true;
         invite.hidden = false;
-        await showActions(token);
+        await showActions(token, preview.role);
       } catch (e) {
         if (isDead(e)) {
           showDeadLink();
