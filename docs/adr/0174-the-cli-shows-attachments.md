@@ -37,7 +37,7 @@ An additive change for `oasdiff` and the generated clients, which are regenerate
 
 Alone it shows, and says what it would take:
 
-- **Added:** `attachment: “Economic Object” on “Weapon”`, and for one that can't be taken yet, why ("waits: the prototype it attaches isn't here").
+- **Added:** `added attachment “Economic Object” on “Weapon”`, and for one that can't be taken yet, why: `..., but it waits: the prototype it attaches isn't here`.
 - **Gone upstream:** `gone upstream: attachment “Longsword 5e” on “Longsword”`, which can only be detached.
 - **Deleted here:** counted, "N attachment(s) you removed here (nothing to do)", like the rows deleted here.
 - **Exit code:** 2 when anything on the first two lists is there, the same rule as for rows, so a script that waits for "nothing new" waits for attachments too.
@@ -56,7 +56,7 @@ Its updates step uses the same choice: `--apply-updates` takes the applicable at
 
 ### `lorenzo repo contents`
 
-Adds the attachments the repository holds, from the route above: "Attaches N parents to items it copied" in the text, left off when there are none, and `holds.attachments` in `--json`, always, so a script has a number. It counts and doesn't list; the route does.
+Adds the attachments the repository holds, from the route above: "Attaches N parent(s) to items it copied" in the text, left off when there are none, and `holds.attachments` in `--json`, always, so a script has a number. It counts and doesn't list; the route does.
 
 ### Tests
 
