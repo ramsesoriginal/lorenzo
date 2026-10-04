@@ -1499,6 +1499,15 @@ export interface paths {
          *     already targets any entity generically; this is the missing "pick a
          *     being" discovery step for a GM assigning loot to an NPC that was never
          *     promoted into a tracked Character.
+         *
+         *     Who asks decides which (ADR 0173, amending ADR 0078's membership-only
+         *     gate): a tenant administrator (OWNER or ORGA) lists every being, as
+         *     before; a GM with no membership lists the beings in their reach
+         *     (`gm_reachable_entity_ids`, ADR 0035/0046/0124/0152: their campaigns'
+         *     characters, the scenes those stand in, and the beings in no campaign the
+         *     tenant's `npcs_shared_with_gms` setting gives them), so another table's
+         *     player characters stay private; anyone else - a player, a participant with
+         *     no GM role - gets the same 404 a non-member always did.
          */
         get: operations["list_beings"];
         put?: never;
