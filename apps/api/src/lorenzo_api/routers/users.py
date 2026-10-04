@@ -12,7 +12,13 @@ from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.change_feed import RETENTION_DAYS
-from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, set_tenant_rls_context
+from lorenzo_api.dependencies import (
+    CurrentUser,
+    ParamsDep,
+    SessionDep,
+    can_create_tenant,
+    set_tenant_rls_context,
+)
 from lorenzo_api.exceptions import (
     LastOwnerError,
     NicknameConflictError,
@@ -53,9 +59,11 @@ _character_eager_load = (
 )
 
 
-async def _me_out(user_id: uuid.UUID, request: Request, session: SessionDep) -> MeOut:
+async def _me_out(user: User, request: Request, session: SessionDep) -> MeOut:
     """Shared by GET /me and PATCH /me (ADR 0054) - the caller's own
-    identity, tenant-wide memberships, campaign memberships, and GM grants.
+    identity, tenant-wide memberships, campaign memberships, and GM grants,
+    plus what the caller may create (ADR 0175, read off the token's roles
+    already on `user`).
 
     Re-fetched with memberships eager-loaded rather than reusing whatever
     `User` instance the caller already had - that one only ever needs
@@ -78,6 +86,7 @@ async def _me_out(user_id: uuid.UUID, request: Request, session: SessionDep) -> 
     just happen to have a `user_id`-based escape hatch, and nothing past
     them does.
     """
+    user_id = user.id
     stmt = select(User).where(User.id == user_id).options(selectinload(User.memberships))
     full_user = (await session.execute(stmt)).scalar_one()
 
@@ -110,7 +119,14 @@ async def _me_out(user_id: uuid.UUID, request: Request, session: SessionDep) -> 
         )
         campaign_gms.extend(tenant_gms.scalars().all())
 
-    return MeOut.from_user(full_user, request=request, players=players, campaign_gms=campaign_gms)
+    return MeOut.from_user(
+        full_user,
+        request=request,
+        players=players,
+        campaign_gms=campaign_gms,
+        # The roles ride on the request's user, not on the re-fetched row.
+        can_create_tenant=can_create_tenant(user),
+    )
 
 
 @router.get("/me")
@@ -120,7 +136,7 @@ async def get_me(user: CurrentUser, request: Request, session: SessionDep) -> Me
     is about the caller's own identity across every tenant they belong to,
     not scoped to one.
     """
-    return await _me_out(user.id, request, session)
+    return await _me_out(user, request, session)
 
 
 @router.get("/me/managed")
@@ -238,7 +254,7 @@ async def update_me(
     if "locales" in update:
         db_user.locales = update["locales"] or []
     await session.commit()
-    return await _me_out(user.id, request, session)
+    return await _me_out(user, request, session)
 
 
 @router.put("/me/picture", status_code=204)

@@ -22,13 +22,26 @@ class MembershipOut(BaseModel):
         return cls(tenant_id=membership.tenant_id, role=membership.role.value)
 
 
+class MeCapabilitiesOut(BaseModel):
+    """What the caller may do on the platform, as opposed to inside one
+    tenant (ADR 0175). An object so a later capability is one more key; a
+    client treats a missing key as false. A convenience for rendering, not
+    authorization - the route that does the thing still answers `403`.
+    """
+
+    # True when the token carries the tenant-creator role - the same check
+    # as POST /tenants' gate, for both kinds of tenant (ADR 0033, RFC 0024).
+    create_tenant: bool
+
+
 class MeOut(BaseModel):
     """The caller's own identity, tenant-wide memberships, campaign
     memberships, and GM grants - see ADR 0023/0031. `players`/
     `campaign_gm_grants` (ADR 0031/RFC 0004) are the concrete answer to
     "user -> owner|orga|member of tenant -> [player(campaign) ->
     character | GM(campaign)]" for the caller's own identity - the single
-    place a client reads "everything I am, everywhere."
+    place a client reads "everything I am, everywhere." `capabilities`
+    (ADR 0175) is the one platform-wide part: what the caller may create.
     """
 
     id: uuid.UUID
@@ -50,6 +63,7 @@ class MeOut(BaseModel):
     memberships: list[MembershipOut]
     players: list[PlayerContextOut]
     campaign_gm_grants: list[CampaignSummaryOut]
+    capabilities: MeCapabilitiesOut
 
     @classmethod
     def from_user(
@@ -59,6 +73,7 @@ class MeOut(BaseModel):
         request: Request,
         players: list[Player],
         campaign_gms: list[CampaignGm],
+        can_create_tenant: bool,
     ) -> Self:
         """`players`/`campaign_gms` are passed in explicitly rather than
         read off `user.players`/`user.campaign_gms` - resolving them needs
@@ -83,6 +98,7 @@ class MeOut(BaseModel):
             campaign_gm_grants=[
                 CampaignSummaryOut.model_validate(gm.campaign) for gm in campaign_gms
             ],
+            capabilities=MeCapabilitiesOut(create_tenant=can_create_tenant),
         )
 
 
