@@ -61,6 +61,7 @@ A tenant that hasn't been seeded is a *problem* (`lorenzo seed` first), listed o
 - **What needs a decision** goes to `review-queue.json` (value, reach, price, name, move, and unmapped attribute, each with a ready-to-paste row), and the rows to `proposed.map.toml`. Nothing unresolved is guessed and the map file is never edited.
 - **`--teach`,** at a terminal, asks about each unknown value once (attach, map, create a category, skip, fail, or leave), uses the answer in the same run, keeps the rows, and after a successful import offers to append them to the map. It appends only if the result is still valid TOML, and otherwise says where to paste.
 - **`--reconcile`** counts, and applies, changed parents (`PUT …/prototypes` with `If-Match`); by default a changed map only reports "N items would change parents".
+  - *Addendum, 2026-10-04: one change needs no flag, [ADR 0165](0165-a-description-is-titled-with-its-items-name.md): a description the importer titled "Description" is retitled with its item's name, as a `complete` item in the plan.*
 - **`--public-catalog`** lets players list the imported items; by default they are not.
 
 ### Writing
