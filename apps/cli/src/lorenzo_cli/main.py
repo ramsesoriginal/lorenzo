@@ -74,9 +74,11 @@ from lorenzo_cli.report import (
     import_exit_code,
     print_evaluation,
     print_import_plan,
+    print_seed_list,
     print_seed_plan,
     print_unseed_plan,
     print_unseed_result,
+    seed_list_json,
     seed_plan_json,
     unseed_counts,
     unseed_plan_json,
@@ -92,6 +94,7 @@ from lorenzo_cli.seed import (
     load_builtin,
     make_plan,
     make_unseed_plan,
+    read_contents,
     read_state,
     read_unseed_state,
 )
@@ -539,11 +542,11 @@ def inspect_files(
 def seed(
     ctx: typer.Context,
     tenant: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--tenant", "-t", envvar="LORENZO_TENANT", help="The repository tenant's id or slug."
         ),
-    ],
+    ] = None,
     layers: Annotated[
         list[str] | None,
         typer.Option(
@@ -552,6 +555,13 @@ def seed(
             "is seeded, unless the tenant holds one and not another (name the layers then).",
         ),
     ] = None,
+    list_seed: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="Only list what the seed makes, per layer. Needs no login and no tenant.",
+        ),
+    ] = False,
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Show what would be created; exit 2 if anything.")
     ] = False,
@@ -567,8 +577,8 @@ def seed(
     """Create the item taxonomy and the stat definitions in a tenant; safe to run again.
 
     Finds or creates by name and slug, and never changes or removes anything (`unseed` takes a
-    layer out). Exit codes: 0 done or nothing to do, 2 with --dry-run when there is something to
-    create, 1 on a problem.
+    layer out). `--list` only prints what the seed makes. Exit codes: 0 done or nothing to do, 2
+    with --dry-run when there is something to create, 1 on a problem.
     """
     runtime: Runtime = ctx.obj
     chosen = tuple(layers) if layers else LAYERS
@@ -576,6 +586,27 @@ def seed(
     if unknown:
         raise typer.BadParameter(f"{', '.join(unknown)}: choose from {', '.join(LAYERS)}")
     spec = load_builtin()
+    if list_seed:
+        writing = [
+            flag
+            for flag, given in (
+                ("--dry-run", dry_run),
+                ("--yes", yes),
+                ("--allow-play-tenant", allow_play_tenant),
+            )
+            if given
+        ]
+        if writing:
+            raise typer.BadParameter(
+                f"--list only reads the seed, so it can't go with {', '.join(writing)}."
+            )
+        if as_json:
+            typer.echo(json.dumps(seed_list_json(spec, chosen), indent=2))
+        else:
+            print_seed_list(_out, spec, chosen)
+        return
+    if tenant is None:
+        raise typer.BadParameter("Name the repository with --tenant (or LORENZO_TENANT).")
     with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
         target = resolve_tenant(client, tenant)
         require_repository(target, allow_play=allow_play_tenant)
@@ -1306,6 +1337,27 @@ def repo_subscribers(
         _echo_json([row.model_dump(mode="json") for row in rows])
         return
     repo_report.print_subscribers(_out, rows)
+
+
+@repo_app.command("contents")
+def repo_contents(
+    ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
+) -> None:
+    """Show what a repository holds and how much of each seed layer it has.
+
+    Whether it is published and who it is granted to, which repositories it is built on, how many
+    stat groups, stat definitions and items it holds, how much of the core and dnd5e layers of the
+    seed are in it, and what the seed doesn't name.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="inspected")
+        contents = read_contents(client, repository, load_builtin())
+    if as_json:
+        _echo_json(repo_report.contents_json(contents))
+        return
+    repo_report.print_contents(_out, contents)
 
 
 @repo_app.command("list")
