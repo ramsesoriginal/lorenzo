@@ -17,7 +17,7 @@ import Base from '../layouts/Base.astro';
   <div id="tenant-list"></div>
 
   <script>
-    import { errorMessage } from '../lib/errorMessage';
+    import { showError } from '../lib/errorUi';
     import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../lib/characters';
     import { createStatusSpan, renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { reusableCharactersFor } from '../lib/format';
@@ -75,7 +75,7 @@ import Base from '../layouts/Base.astro';
             await linkCharacterToPlayer(player.tenant_id, character.entity_id, player.id);
             onLinked();
           } catch (e) {
-            status.textContent = errorMessage(e);
+            showError(status, e);
           }
         });
         item.append(nameEl, useButton, status);
@@ -172,7 +172,7 @@ import Base from '../layouts/Base.astro';
           await leaveCampaign(player.tenant_id, campaign.id, player.id);
           onLeft();
         } catch (e) {
-          status.textContent = errorMessage(e);
+          showError(status, e);
         }
       });
       container.append(button, status);
@@ -224,7 +224,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

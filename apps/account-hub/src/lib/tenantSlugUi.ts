@@ -1,6 +1,6 @@
 import { ApiError } from './apiError';
 import { createStatusSpan } from './dom';
-import { errorMessage } from './errorMessage';
+import { showError } from './errorUi';
 import { getTenant, updateTenantSlug } from './tenants';
 import type { TenantSummaryOut } from './types';
 
@@ -80,11 +80,12 @@ export function renderTenantSlug(tenant: TenantSummaryOut): HTMLElement {
           status.textContent = 'Slug saved.';
         } catch (error) {
           stale = error instanceof ApiError && error.status === 412;
-          status.textContent = stale
-            ? 'This library changed while you were editing. Cancel and reopen the editor to use its latest version.'
-            : error instanceof Error
-              ? error.message
-              : String(error);
+          if (stale) {
+            status.textContent =
+              'This library changed while you were editing. Cancel and reopen the editor to use its latest version.';
+          } else {
+            showError(status, error);
+          }
         } finally {
           save.disabled = stale;
           cancel.disabled = false;
@@ -92,7 +93,7 @@ export function renderTenantSlug(tenant: TenantSummaryOut): HTMLElement {
         }
       });
     } catch (error) {
-      status.textContent = errorMessage(error);
+      showError(status, error);
       edit.disabled = false;
     }
   });

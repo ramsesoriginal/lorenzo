@@ -1,5 +1,5 @@
 import { createStatusSpan } from './dom';
-import { errorMessage } from './errorMessage';
+import { showError } from './errorUi';
 // Tenant-level membership management + bulk invite - RFC 0017 (e).
 // Distinct from campaignAdminUi.ts/gmAndPlayerUi.ts's campaign-scoped GM/
 // player management: this is tenant-wide owner/orga role administration.
@@ -48,7 +48,7 @@ function renderMembershipList(
         });
         onChanged();
       } catch (e) {
-        status.textContent = errorMessage(e);
+        showError(status, e);
       }
     });
     item.append(roleSelect);
@@ -62,7 +62,7 @@ function renderMembershipList(
         await deleteMembership(tenant.id, membership.user_id);
         onChanged();
       } catch (e) {
-        status.textContent = errorMessage(e);
+        showError(status, e);
       }
     });
     item.append(removeButton, status);
@@ -94,7 +94,7 @@ function renderInviteForm(tenant: TenantSummaryOut, onChanged: () => void): HTML
       status.textContent = '';
       onChanged();
     } catch (e) {
-      status.textContent = errorMessage(e);
+      showError(status, e);
     }
   });
 

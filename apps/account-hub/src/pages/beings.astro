@@ -27,7 +27,7 @@ import Base from '../layouts/Base.astro';
       listBeings,
       updateCharacter,
     } from '../lib/characters';
-    import { errorMessage } from '../lib/errorMessage';
+    import { errorLine, showError } from '../lib/errorUi';
     import { renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { campaignRoleFor, resolveDisplayName } from '../lib/format';
     import { getMe } from '../lib/me';
@@ -83,11 +83,7 @@ import Base from '../layouts/Base.astro';
           await updateCharacter(tenantId, being.entity_id, { owner_player_id: playerId });
           onDone();
         } catch (e) {
-          playersArea.append(
-            Object.assign(document.createElement('p'), {
-              textContent: errorMessage(e),
-            }),
-          );
+          playersArea.append(errorLine(e));
         }
       }
 
@@ -128,21 +124,13 @@ import Base from '../layouts/Base.astro';
               const newPlayer = await invitePlayer(tenantId, campaignId, { user_id: user.id });
               await handOffTo(newPlayer.id);
             } catch (e) {
-              inviteContainer.append(
-                Object.assign(document.createElement('p'), {
-                  textContent: errorMessage(e),
-                }),
-              );
+              inviteContainer.append(errorLine(e));
             }
           });
 
           playersArea.replaceChildren(list, inviteContainer);
         } catch (e) {
-          playersArea.replaceChildren(
-            Object.assign(document.createElement('p'), {
-              textContent: errorMessage(e),
-            }),
-          );
+          playersArea.replaceChildren(errorLine(e));
         }
       });
 
@@ -268,7 +256,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

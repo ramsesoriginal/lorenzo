@@ -3,7 +3,7 @@
 // pure helpers) there's no import-chain purity to protect here; they
 // simply live alongside the other lib/*.ts modules.
 
-import { errorMessage } from './errorMessage';
+import { showError } from './errorUi';
 
 export function createStatusSpan(): HTMLSpanElement {
   const span = document.createElement('span');
@@ -61,7 +61,7 @@ export function renderRenameableItem(
         // Caller's onRename triggers a full refresh (the established
         // pattern throughout this app) - no local state to reset here.
       } catch (e) {
-        status.textContent = errorMessage(e);
+        showError(status, e);
       }
     });
   });
@@ -99,7 +99,7 @@ export function renderCreateForm(
       input.value = '';
       status.textContent = '';
     } catch (e) {
-      status.textContent = errorMessage(e);
+      showError(status, e);
     }
   });
   return form;

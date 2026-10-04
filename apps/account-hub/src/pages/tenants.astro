@@ -20,7 +20,7 @@ import Base from '../layouts/Base.astro';
   <ul id="tenant-list"></ul>
 
   <script>
-    import { errorMessage } from '../lib/errorMessage';
+    import { showError } from '../lib/errorUi';
     import { renderTenantSlug } from '../lib/tenantSlugUi';
     import { renderActivityLog } from '../lib/activityLogUi';
     import { renderCreateCampaignForm, renderEditToggle } from '../lib/campaignAdminUi';
@@ -114,7 +114,7 @@ import Base from '../layouts/Base.astro';
           status.textContent = '';
           onCreated();
         } catch (e) {
-          status.textContent = errorMessage(e);
+          showError(status, e);
         }
       });
       return form;
@@ -308,7 +308,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

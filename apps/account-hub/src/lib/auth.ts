@@ -1,5 +1,6 @@
 import authgear, { SessionState } from '@authgear/web';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
+import { browserSessionStorage, rememberReturnPath } from './returnPath';
 
 // Trailing slash is deliberate, not cosmetic: Cloudflare Pages 308-redirects
 // any extensionless path to add one (confirmed - this happens regardless of
@@ -40,6 +41,12 @@ export function isAuthConfigured(): boolean {
 
 export async function login(): Promise<void> {
   await ensureConfigured();
+  // Back to this page afterwards, not always home (ADR 0170): a person whose
+  // session expired mid-task lands where they were.
+  rememberReturnPath(
+    browserSessionStorage(),
+    `${window.location.pathname}${window.location.search}`,
+  );
   // No `prompt` - let Authgear silently continue an existing SSO session
   // rather than forcing re-authentication every time.
   await authgear.startAuthentication({
