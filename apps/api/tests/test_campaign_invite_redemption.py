@@ -121,7 +121,11 @@ async def test_preview_is_unauthenticated_and_shows_only_the_campaign(
     response = await raw_client.get(f"/invites/{token}")  # no Authorization header at all
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"campaign_name": "The Open Table", "picture_url": None}
+    assert response.json() == {
+        "campaign_name": "The Open Table",
+        "picture_url": None,
+        "role": "player",
+    }
 
 
 async def test_every_dead_link_gets_the_identical_response(

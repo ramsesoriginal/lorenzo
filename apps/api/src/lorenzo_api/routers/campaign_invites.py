@@ -21,8 +21,13 @@ from lorenzo_api.exceptions import (
     InvalidInviteExpiryError,
     InviteNotFoundError,
 )
-from lorenzo_api.invites import MAX_INVITE_LIFETIME, generate_token, hash_token
-from lorenzo_api.models import Campaign, CampaignInvite
+from lorenzo_api.invites import (
+    MAX_GM_INVITE_LIFETIME,
+    MAX_INVITE_LIFETIME,
+    generate_token,
+    hash_token,
+)
+from lorenzo_api.models import Campaign, CampaignInvite, InviteRole
 from lorenzo_api.schemas.invites import InviteCreate, InviteCreatedOut, InviteOut
 
 # get_tenant_or_404, not get_tenant_context: a campaign's GM may hold no
@@ -69,6 +74,7 @@ def _invite_out(invite: CampaignInvite, *, now: datetime) -> InviteOut:
     return InviteOut(
         id=invite.id,
         campaign_id=invite.campaign_id,
+        role=invite.role,
         created_by=invite.created_by,
         created_at=invite.created_at,
         expires_at=invite.expires_at,
@@ -89,17 +95,23 @@ async def create_invite(
 ) -> InviteCreatedOut:
     """The only response that ever contains the token - shown once, and
     unrecoverable afterwards, since only its hash is stored (ADR 0092).
-    `expires_at` must be in the future and at most 30 days out.
+    `expires_at` must be in the future and at most 30 days out - 7 for a GM
+    link, which is also single use whatever `max_uses` said (ADR 0177). Who
+    may create one is who may grant GM directly (`can_manage_campaign`): a
+    link is a new way to hand over a privilege the creator already has.
     """
     await _require_manageable_campaign(
         session, tenant_id=tenant_id, campaign_id=campaign_id, user=user
     )
     now = datetime.now(tz=UTC)
+    is_gm = body.role is InviteRole.GM
+    lifetime = MAX_GM_INVITE_LIFETIME if is_gm else MAX_INVITE_LIFETIME
+    max_uses = 1 if is_gm else body.max_uses
     if body.expires_at <= now:
         raise InvalidInviteExpiryError(detail="expires_at must be in the future")
-    if body.expires_at > now + MAX_INVITE_LIFETIME:
+    if body.expires_at > now + lifetime:
         raise InvalidInviteExpiryError(
-            detail=f"expires_at must be within {MAX_INVITE_LIFETIME.days} days from now"
+            detail=f"expires_at must be within {lifetime.days} days from now"
         )
 
     token = generate_token()
@@ -107,9 +119,10 @@ async def create_invite(
         tenant_id=tenant_id,
         campaign_id=campaign_id,
         token_hash=hash_token(token),
+        role=body.role,
         created_by=user.id,
         expires_at=body.expires_at,
-        max_uses=body.max_uses,
+        max_uses=max_uses,
     )
     session.add(invite)
     await session.flush()
@@ -123,8 +136,11 @@ async def create_invite(
         target_type="campaign_invite",
         target_id=invite_id,
         detail=(
-            f"campaign={campaign_id}, expires_at={body.expires_at.isoformat()}, "
-            f"max_uses={body.max_uses if body.max_uses is not None else 'unlimited'}"
+            f"campaign={campaign_id}, "
+            # Only a GM link says its role: a player link's entry stays as it was.
+            f"{'role=gm, ' if is_gm else ''}"
+            f"expires_at={body.expires_at.isoformat()}, "
+            f"max_uses={max_uses if max_uses is not None else 'unlimited'}"
         ),
     )
     await session.commit()
