@@ -1,5 +1,5 @@
-"""Carrying out a seed plan (ADR 0143), in dependency order: groups, definitions, nodes (parents
-first), tags, recipes.
+"""Carrying out a seed plan (ADR 0143, 0175), in dependency order: groups, definitions, nodes
+(parents first) with their tags and values, attachments, recipes.
 
 Nothing is undone on failure. Every step is find-or-create, and a node is created and named in
 one request (ADR 0139), so running the seed again picks up exactly where it stopped.
@@ -14,6 +14,8 @@ from lorenzo_cli.client.models import (
     ContentsFormulaBody,
     InformationCreate,
     ItemCreate,
+    SetEntityStatRequest,
+    SetPrototypesRequest,
     StatDefinitionCreate,
     StatGroupCreate,
     StatValueType,
@@ -25,7 +27,10 @@ from lorenzo_cli.client.ops import (
     CREATE_ITEM,
     CREATE_STAT_DEFINITION,
     CREATE_STAT_GROUP,
+    GET_ITEM,
+    REPLACE_ITEM_PROTOTYPES,
     SET_COMPUTED_STAT,
+    SET_ENTITY_STAT,
     SET_ENTITY_TAG,
 )
 from lorenzo_cli.client.transport import LorenzoClient
@@ -97,6 +102,28 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
                 SET_ENTITY_TAG,
                 path={**tenant, "entity_id": nodes[slug], "stat_definition_id": definitions[tag]},
             )
+        elif action.kind == "stat":
+            slug, stat = action.name.split(": ")
+            # The stat's group is acquired with the value: a prototype adds a group to everything
+            # under it by carrying a value in it (RFC 0033, section 3).
+            client.call(
+                SET_ENTITY_STAT,
+                path={**tenant, "entity_id": nodes[slug], "stat_definition_id": definitions[stat]},
+                body=SetEntityStatRequest(value=spec.node(slug).stats[stat], acquire_group=True),
+            )
+        elif action.kind == "attach":
+            child, parent = action.name.split(": ")
+            item = client.call(GET_ITEM, path={**tenant, "entity_id": nodes[child]})
+            if nodes[parent] not in item.value.prototype_ids:
+                # The prototypes are replaced as a set, so the ones it has are kept (ADR 0175).
+                client.call(
+                    REPLACE_ITEM_PROTOTYPES,
+                    path={**tenant, "entity_id": nodes[child]},
+                    body=SetPrototypesRequest(
+                        prototype_ids=[*item.value.prototype_ids, nodes[parent]]
+                    ),
+                    if_match=item.etag,
+                )
         else:
             recipe = next(r for r in spec.recipes if f"{r.node}: {r.stat}" == action.name)
             # `kind` is set explicitly: a defaulted field isn't sent, and the API needs it.

@@ -1,38 +1,37 @@
-# The built-in seed (RFC 0025 R8 and R9, ADR 0143 and 0146): the item taxonomy, the stat groups and
-# definitions, and the weight recipe that `lorenzo seed` finds-or-creates in a tenant.
+# The built-in seed (RFC 0025 R8 and R9, ADR 0143, 0146 and 0175): the item taxonomy, the stat groups
+# and definitions, and the weight recipe that `lorenzo seed` finds-or-creates in a tenant.
 #
-# Every group, definition and node carries a `layer`:
-#   core   - nothing specific to one game system. Bare slugs.
-#   dnd5e  - D&D 5e's own categories, properties and dice. Slugs prefixed `dnd5e-`.
-# so the dnd5e layer can later become a repository of its own as a filter, not a rewrite.
+# Every group, definition, node, recipe and attachment carries a `layer`, and each layer is one
+# repository of RFC 0033 (ADR 0175):
+#   core            - what can be said of a thing in any system: the root category, its weight
+#                     recipe, and the ten neutral stats. Bare slugs.
+#   equipment       - the forms (weapon, armor, the kinds of gear) and the materials. Built on core.
+#                     Bare slugs.
+#   dnd5e           - D&D 5e's rules: its stat groups and definitions, its categories and properties,
+#                     under one system root. Built on core. Slugs prefixed `dnd5e-`.
+#   dnd5e-equipment - what joins the equipment to D&D's rules: attachments of D&D's prototypes to
+#                     the equipment's forms. Built on equipment and dnd5e. Slugs prefixed `dnd5e-`.
+# An entry may name entries of its own layer or of a layer it is built on, never of a sibling's.
 #
 # Stat definitions and groups can't be renamed, retyped or removed once a tenant has them (no
 # PATCH or DELETE, ADR 0014), and are frozen in every copy of a repository (ADR 0119, 0121):
 # what is written here is chosen once. Changing a `value_type` later cannot be applied.
 #
-# A category is a prototype, so an item that has it inherits it: its tags (`is_finesse`), and its
-# description, which the item's view shows. "Every heavy weapon" is the backlinks of `dnd5e-heavy`.
+# A category is a prototype, so an item that has it inherits it: its tags (`is_finesse`), its
+# stat values (`stats`, such as the price of 0 an economic object carries) and its description, which
+# the item's view shows. "Every heavy weapon" is the backlinks of `dnd5e-heavy`.
+#
+# An `[[attachment]]` adds a parent to a category of another layer, which is what a repository that
+# holds copies of both does (ADR 0172): it is a parent, in the layer that makes it.
 
 schema = 1
-version = "1"
+version = "2"
 
-# ---- stat groups: the five conventional ones exist in every tenant that is seeded, empty or
-# not, so two system layers never collide on creating the same group ---------------------------
+# ---- stat groups: `physical`, `sourcebook` and `tags` are core's, which every layer builds on;
+# `economic`, `damaging` and `destroyable` are D&D's, since every stat in them is -------------------
 
 [[group]]
 name = "physical"
-layer = "core"
-
-[[group]]
-name = "economic"
-layer = "core"
-
-[[group]]
-name = "destroyable"
-layer = "core"
-
-[[group]]
-name = "damaging"
 layer = "core"
 
 [[group]]
@@ -43,7 +42,19 @@ layer = "core"
 name = "sourcebook"
 layer = "core"
 
-# ---- stat definitions: physical ---------------------------------------------------------------------
+[[group]]
+name = "economic"
+layer = "dnd5e"
+
+[[group]]
+name = "destroyable"
+layer = "dnd5e"
+
+[[group]]
+name = "damaging"
+layer = "dnd5e"
+
+# ---- stat definitions: physical (the lengths in feet and the price below are D&D's) ---------------------------------------------------------------------
 
 # MPMB's `weight` is written to `own_weight`, never to `weight`: `weight` is the recipe below
 # (own weight plus what is inside), and a direct value would beat it and stop a container
@@ -70,13 +81,13 @@ layer = "core"
 name = "range_normal"
 group = "physical"
 value_type = "int"
-layer = "core"
+layer = "dnd5e"
 
 [[definition]]
 name = "range_long"
 group = "physical"
 value_type = "int"
-layer = "core"
+layer = "dnd5e"
 
 # How many of a thing one entry is: a bundle of 20 arrows, 50 feet of rope. The weight above
 # already counts them all.
@@ -93,7 +104,7 @@ layer = "core"
 name = "price"
 group = "economic"
 value_type = "int"
-layer = "core"
+layer = "dnd5e"
 
 # ---- destroyable: what armour does and asks ---------------------------------------------------------
 
@@ -101,33 +112,33 @@ layer = "core"
 name = "armor"
 group = "destroyable"
 value_type = "int"
-layer = "core"
+layer = "dnd5e"
 
 # An armour class that is a formula ("10+Wis") has no honest number; the text is kept as written.
 [[definition]]
 name = "armor_formula"
 group = "destroyable"
 value_type = "text"
-layer = "core"
+layer = "dnd5e"
 
 [[definition]]
 name = "strength_required"
 group = "destroyable"
 value_type = "int"
-layer = "core"
+layer = "dnd5e"
 
 [[definition]]
 name = "stealth_disadvantage"
 group = "destroyable"
 value_type = "bool"
-layer = "core"
+layer = "dnd5e"
 
 # The wearer's ability modifier is added to the armour class.
 [[definition]]
 name = "adds_modifier"
 group = "destroyable"
 value_type = "bool"
-layer = "core"
+layer = "dnd5e"
 
 # ---- tags: bool stats that things are marked with (and categories carry, for everything under
 # them to inherit) ---------------------------------------------------------------------------------------------
@@ -171,8 +182,7 @@ layer = "core"
 
 # ---- the dnd5e layer: damage and weapon properties --------------------------------------------------
 
-# Dice are D&D's: the group is core, the definitions belong to the layer, because a definition
-# can't be moved later.
+# Dice are D&D's, as the group is.
 [[definition]]
 name = "damage_dice_count"
 group = "damaging"
@@ -310,124 +320,126 @@ group = "tags"
 value_type = "bool"
 layer = "dnd5e"
 
-# ---- the core taxonomy: forms ---------------------------------------------------------------------
+# ---- core: the root category; the forms below it are the equipment layer's ------------------------
 
 [[node]]
 slug = "physical-object"
 name = "Physical object"
 layer = "core"
 
+# ---- equipment: the forms ---------------------------------------------------------------------------
+
 [[node]]
 slug = "weapon"
 name = "Weapon"
-layer = "core"
+layer = "equipment"
 parents = ["physical-object"]
 
 [[node]]
 slug = "melee-weapon"
 name = "Melee weapon"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 [[node]]
 slug = "ranged-weapon"
 name = "Ranged weapon"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 # Kinds of weapon, by what they are made like. A longsword is a blade; a battleaxe an axe.
 [[node]]
 slug = "blade"
 name = "Blade"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 [[node]]
 slug = "axe"
 name = "Axe"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 [[node]]
 slug = "hammer"
 name = "Hammer"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 [[node]]
 slug = "bludgeon"
 name = "Bludgeon"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 description = "A club, mace, flail or staff: a weapon that hits with weight rather than an edge."
 
 [[node]]
 slug = "spear"
 name = "Spear"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 [[node]]
 slug = "polearm"
 name = "Polearm"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 description = "A long shaft with a head at the end: a glaive, halberd, pike or lance."
 
 [[node]]
 slug = "whip"
 name = "Whip"
-layer = "core"
+layer = "equipment"
 parents = ["weapon"]
 
 # Ranged weapons, and what they shoot.
 [[node]]
 slug = "bow"
 name = "Bow"
-layer = "core"
+layer = "equipment"
 parents = ["ranged-weapon"]
 
 [[node]]
 slug = "crossbow"
 name = "Crossbow"
-layer = "core"
+layer = "equipment"
 parents = ["ranged-weapon"]
 
 [[node]]
 slug = "sling"
 name = "Sling"
-layer = "core"
+layer = "equipment"
 parents = ["ranged-weapon"]
 
 [[node]]
 slug = "firearm"
 name = "Firearm"
-layer = "core"
+layer = "equipment"
 parents = ["ranged-weapon"]
 description = "A ranged weapon that fires its ammunition with gunpowder."
 
 [[node]]
 slug = "armor"
 name = "Armor"
-layer = "core"
+layer = "equipment"
 parents = ["physical-object"]
 
 [[node]]
 slug = "shield"
 name = "Shield"
-layer = "core"
+layer = "equipment"
 parents = ["armor"]
 
 [[node]]
 slug = "tool"
 name = "Tool"
-layer = "core"
+layer = "equipment"
 parents = ["physical-object"]
 
 [[node]]
 slug = "container"
 name = "Container"
-layer = "core"
+layer = "equipment"
 parents = ["physical-object"]
 # `is_container` is a tag, so it is inherited by everything under this node.
 tags = ["is_container"]
@@ -436,7 +448,7 @@ tags = ["is_container"]
 [[node]]
 slug = "consumable"
 name = "Consumable"
-layer = "core"
+layer = "equipment"
 parents = ["physical-object"]
 tags = ["is_consumable"]
 description = "Used up by using it: a potion, a day's rations, a flask of oil, an arrow."
@@ -444,74 +456,74 @@ description = "Used up by using it: a potion, a day's rations, a flask of oil, a
 [[node]]
 slug = "ammunition"
 name = "Ammunition"
-layer = "core"
+layer = "equipment"
 parents = ["consumable"]
 
 [[node]]
 slug = "gear"
 name = "Gear"
-layer = "core"
+layer = "equipment"
 parents = ["physical-object"]
 
 # Kinds of gear.
 [[node]]
 slug = "clothing"
 name = "Clothing"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "climbing"
 name = "Climbing gear"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "nautical"
 name = "Nautical gear"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "lighting"
 name = "Lighting"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "writing"
 name = "Writing and reading"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "camping"
 name = "Camping gear"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "tack"
 name = "Tack and riding gear"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 [[node]]
 slug = "medicine"
 name = "Medicine"
-layer = "core"
+layer = "equipment"
 parents = ["gear"]
 
 # What a thing is made of. Not a form: a silvered dagger is still a dagger.
 [[node]]
 slug = "material"
 name = "Material"
-layer = "core"
+layer = "equipment"
 
 [[node]]
 slug = "silvered"
 name = "Silvered"
-layer = "core"
+layer = "equipment"
 parents = ["material"]
 tags = ["is_silvered"]
 description = "Coated or edged in silver, so that it harms creatures that ordinary weapons hurt little or not at all, such as werewolves."
@@ -519,17 +531,37 @@ description = "Coated or edged in silver, so that it harms creatures that ordina
 [[node]]
 slug = "adamantine"
 name = "Adamantine"
-layer = "core"
+layer = "equipment"
 parents = ["material"]
 tags = ["is_adamantine"]
 description = "Made of adamantine, an extremely hard metal. Weapons of it are especially good at breaking objects."
 
-# ---- the dnd5e layer: parentless mixins under one abstract root per axis -------------------------------
+# ---- the dnd5e layer: one abstract root per axis, all under the system root ----------------------------
+
+# Belonging to a system is ancestry (RFC 0033 section 9): a category is D&D 5e's when it has this
+# among its ancestors, and neutral when it has no system root among them.
+[[node]]
+slug = "dnd5e-system"
+name = "D&D 5e"
+layer = "dnd5e"
+description = "Everything that belongs to the D&D 5e rules: its proficiencies, tiers, properties, foci and economics descend from this, so a thing is a D&D 5e thing exactly when it has this among its ancestors."
+
+# What D&D gives a price: a price in copper pieces, 0 until a more specific category or the item sets
+# one. It adds the `economic` group to everything that has it by carrying a default for a stat in it
+# (ADR 0175); the dnd5e-equipment layer attaches it to the equipment's forms.
+[[node]]
+slug = "dnd5e-economic-object"
+name = "Economic object (D&D 5e)"
+layer = "dnd5e"
+parents = ["dnd5e-system"]
+stats = { price = 0 }
+description = "Something D&D 5e gives a price: it is in copper pieces, and 0 until a more specific category or the item itself sets one."
 
 [[node]]
 slug = "dnd5e-weapon-proficiency"
 name = "Weapon proficiency (D&D 5e)"
 layer = "dnd5e"
+parents = ["dnd5e-system"]
 
 [[node]]
 slug = "dnd5e-simple"
@@ -561,6 +593,7 @@ parents = ["dnd5e-weapon-proficiency"]
 slug = "dnd5e-armor-tier"
 name = "Armor tier (D&D 5e)"
 layer = "dnd5e"
+parents = ["dnd5e-system"]
 
 [[node]]
 slug = "dnd5e-light-armor"
@@ -584,6 +617,7 @@ parents = ["dnd5e-armor-tier"]
 slug = "dnd5e-tool-proficiency"
 name = "Tool proficiency (D&D 5e)"
 layer = "dnd5e"
+parents = ["dnd5e-system"]
 
 [[node]]
 slug = "dnd5e-artisans-tools"
@@ -609,6 +643,7 @@ parents = ["dnd5e-tool-proficiency"]
 slug = "dnd5e-weapon-property"
 name = "Weapon property (D&D 5e)"
 layer = "dnd5e"
+parents = ["dnd5e-system"]
 
 [[node]]
 slug = "dnd5e-finesse"
@@ -695,6 +730,7 @@ description = "You need ammunition to make a ranged attack with this weapon. Eac
 slug = "dnd5e-spellcasting-focus"
 name = "Spellcasting focus (D&D 5e)"
 layer = "dnd5e"
+parents = ["dnd5e-system"]
 description = "An object a spellcaster can hold in place of the material components of a spell that need none with a cost."
 
 [[node]]
@@ -714,6 +750,41 @@ slug = "dnd5e-holy-symbol"
 name = "Holy symbol"
 layer = "dnd5e"
 parents = ["dnd5e-spellcasting-focus"]
+
+# ---- the dnd5e-equipment layer: what joins the equipment to D&D's rules ------------------------------
+
+# The economic object on each top-level form of the equipment, so that every weapon, armour, tool,
+# container, consumable and piece of gear is something D&D gives a price (RFC 0033, section 2; ADR 0175).
+# Not on `physical-object`, which is also a mountain.
+[[attachment]]
+child = "weapon"
+parent = "dnd5e-economic-object"
+layer = "dnd5e-equipment"
+
+[[attachment]]
+child = "armor"
+parent = "dnd5e-economic-object"
+layer = "dnd5e-equipment"
+
+[[attachment]]
+child = "tool"
+parent = "dnd5e-economic-object"
+layer = "dnd5e-equipment"
+
+[[attachment]]
+child = "container"
+parent = "dnd5e-economic-object"
+layer = "dnd5e-equipment"
+
+[[attachment]]
+child = "consumable"
+parent = "dnd5e-economic-object"
+layer = "dnd5e-equipment"
+
+[[attachment]]
+child = "gear"
+parent = "dnd5e-economic-object"
+layer = "dnd5e-equipment"
 
 # ---- the weight recipe, on the base of the form tree (docs/reference/well-known-stats.md) ---------------
 

@@ -326,6 +326,10 @@ def contents_json(contents: Contents) -> dict[str, object]:
                         "present": holding.categories.present,
                         "in_seed": holding.categories.in_seed,
                     },
+                    "attachments": {
+                        "present": holding.attachments.present,
+                        "in_seed": holding.attachments.in_seed,
+                    },
                 }
                 for holding in contents.layers
             },
@@ -370,14 +374,14 @@ def print_contents(console: Console, contents: Contents) -> None:
             highlight=False,
         )
     table = Table(
-        "layer",
-        "holds",
-        "stat groups",
-        "stat definitions",
-        "categories",
         title=f"The seed (version {contents.seed_version})",
         title_justify="left",
     )
+    # A layer's name is never cut short, whatever the terminal's width: the numbers wrap instead.
+    table.add_column("layer", no_wrap=True)
+    table.add_column("holds", no_wrap=True)
+    for heading in ("stat groups", "stat definitions", "categories", "attachments"):
+        table.add_column(heading)
     for holding in contents.layers:
         style = _HOLDS_STYLE[holding.holds]
         table.add_row(
@@ -386,6 +390,7 @@ def print_contents(console: Console, contents: Contents) -> None:
             _of(holding.groups),
             _of(holding.definitions),
             _of(holding.categories),
+            _of(holding.attachments),
         )
     console.print(table)
     console.print(

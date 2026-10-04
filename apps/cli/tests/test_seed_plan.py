@@ -1,4 +1,4 @@
-"""What `seed` decides from what a tenant already has (ADR 0143), without a network."""
+"""What `seed` decides from what a tenant already has (ADR 0143, 0175), without a network."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from lorenzo_cli.client.models import (
     StatGroupOut,
     TenantOut,
 )
-from lorenzo_cli.seed import load_builtin, make_plan
+from lorenzo_cli.seed import LAYERS, load_builtin, make_plan
 from lorenzo_cli.seed.plan import TenantState
 
 SPEC = load_builtin()
@@ -32,7 +32,7 @@ TENANT = TenantOut.model_validate(
         "updated_by": None,
     }
 )
-ALL = ("core", "dnd5e")
+ALL = LAYERS
 
 
 def group(name: str) -> StatGroupOut:
@@ -69,7 +69,9 @@ def item(
     )
 
 
-def fully_seeded() -> TenantState:
+def fully_seeded(*, attached: bool = True) -> TenantState:
+    """A tenant with the whole seed. Without `attached`, the equipment's forms don't have the
+    parents the dnd5e-equipment layer adds."""
     groups = {g.name: group(g.name) for g in SPEC.groups}
     definitions = {
         d.name: definition(d.name, groups[d.group], d.value_type) for d in SPEC.definitions
@@ -78,10 +80,11 @@ def fully_seeded() -> TenantState:
     items = {}
     for spec_node in SPEC.nodes:
         tags = [{"name": t, "value": True} for t in spec_node.tags]
+        added = [a.parent for a in SPEC.attachments if a.child == spec_node.slug and attached]
         items[spec_node.slug] = ItemOut.model_construct(
             entity_id=nodes[spec_node.slug].entity_id,
             descriptions=[object()] if spec_node.description else [],
-            prototype_ids=[nodes[p].entity_id for p in spec_node.parents],
+            prototype_ids=[nodes[p].entity_id for p in [*spec_node.parents, *added]],
             tags=[type("Tag", (), t)() for t in tags],
         )
     recipes = {}
@@ -91,7 +94,8 @@ def fully_seeded() -> TenantState:
             stat_definition_id=definitions[recipe.stat].id,
             formula=type("F", (), {"kind": recipe.kind})(),
         )
-    return TenantState(groups, definitions, nodes, items, recipes)
+    own_stats = {(n.slug, stat): value for n in SPEC.nodes for stat, value in n.stats.items()}
+    return TenantState(groups, definitions, nodes, items, recipes, own_stats=own_stats)
 
 
 def test_an_empty_tenant_gets_everything_in_dependency_order() -> None:
@@ -100,23 +104,39 @@ def test_an_empty_tenant_gets_everything_in_dependency_order() -> None:
     kinds = [a.kind for a in plan.actions]
     assert plan.problems == [] and plan.warnings == [] and plan.existing == 0
     # Everything an action needs is planned before it: groups, then definitions, then nodes
-    # (parents first, a tag right after its node), and the recipes last.
+    # (parents first, a tag right after its node), the attachments, and the recipes last.
     order = {(a.kind, a.name): i for i, a in enumerate(plan.actions)}
     last = {kind: max(i for (k, _), i in order.items() if k == kind) for kind in set(kinds)}
     first = {kind: min(i for (k, _), i in order.items() if k == kind) for kind in set(kinds)}
     assert last["group"] < first["definition"] < first["node"]
-    assert last["node"] < first["recipe"]
+    assert last["node"] < first["attach"] <= last["attach"] < first["recipe"]
     assert order[("node", "container")] < order[("tag", "container: is_container")]
     assert order[("definition", "is_container")] < order[("tag", "container: is_container")]
     assert order[("node", "consumable")] < order[("node", "ammunition")]
+    # A value is set once its node and its definition exist.
+    assert (
+        order[("node", "dnd5e-economic-object")] < order[("stat", "dnd5e-economic-object: price")]
+    )
+    assert order[("definition", "price")] < order[("stat", "dnd5e-economic-object: price")]
+    # An attachment is made once both categories exist, in the layer that makes it.
+    assert (
+        order[("node", "dnd5e-economic-object")]
+        < order[("attach", "weapon: dnd5e-economic-object")]
+    )
+    assert order[("node", "weapon")] < order[("attach", "weapon: dnd5e-economic-object")]
     # A description is written once its node exists.
     assert order[("node", "dnd5e-finesse")] < order[("description", "dnd5e-finesse")]
     assert kinds.count("group") == 6
     assert kinds.count("definition") == len(SPEC.definitions) == 40
-    assert kinds.count("node") == len(SPEC.nodes) == 61
+    assert kinds.count("node") == len(SPEC.nodes) == 63
     assert kinds.count("tag") == sum(len(n.tags) for n in SPEC.nodes) == 14
-    assert kinds.count("description") == sum(1 for n in SPEC.nodes if n.description) == 18
+    assert kinds.count("description") == sum(1 for n in SPEC.nodes if n.description) == 20
+    assert kinds.count("stat") == sum(len(n.stats) for n in SPEC.nodes) == 1
+    assert kinds.count("attach") == len(SPEC.attachments) == 6
     assert kinds.count("recipe") == 2
+    assert [(a.kind, a.layer) for a in plan.actions if a.kind == "attach"] == [
+        ("attach", "dnd5e-equipment")
+    ] * 6
     names = [a.name for a in plan.actions if a.kind == "node"]
     assert names.index("physical-object") < names.index("weapon") < names.index("melee-weapon")
 
@@ -127,8 +147,8 @@ def test_a_seeded_tenant_needs_nothing() -> None:
     assert plan.actions == []
     assert plan.problems == [] and plan.warnings == []
     assert (
-        plan.existing == 6 + len(SPEC.definitions) + len(SPEC.nodes) + 2
-    )  # tags and descriptions are not counted twice
+        plan.existing == 6 + len(SPEC.definitions) + len(SPEC.nodes) + 6 + 2
+    )  # tags, values and descriptions are not counted twice
 
 
 def test_only_what_is_missing_is_planned() -> None:
@@ -166,15 +186,11 @@ def test_the_dnd5e_layer_alone_needs_core_first() -> None:
     plan = make_plan(SPEC, TenantState(), TENANT, ("dnd5e",))
 
     assert {a.layer for a in plan.actions} == {"dnd5e"}  # what it can create, it plans
-    assert any("the group 'damaging'" in p and "Seed that layer first" in p for p in plan.problems)
+    assert any("the group 'tags'" in p and "Seed that layer first" in p for p in plan.problems)
 
 
 def test_the_dnd5e_layer_alone_works_once_core_is_there() -> None:
-    state = fully_seeded()
-    for slug in [n.slug for n in SPEC.nodes if n.layer == "dnd5e"]:
-        del state.nodes[slug], state.items[slug]
-    for definition_ in [d for d in SPEC.definitions if d.layer == "dnd5e"]:
-        del state.definitions[definition_.name]
+    state = layers_held(fully_seeded(), "core")
 
     plan = make_plan(SPEC, state, TENANT, ("dnd5e",))
 
@@ -182,12 +198,15 @@ def test_the_dnd5e_layer_alone_works_once_core_is_there() -> None:
     assert {a.layer for a in plan.actions} == {"dnd5e"}
     layer_nodes = [n for n in SPEC.nodes if n.layer == "dnd5e"]
     expected = (
-        len([d for d in SPEC.definitions if d.layer == "dnd5e"])
+        len([g for g in SPEC.groups if g.layer == "dnd5e"])
+        + len([d for d in SPEC.definitions if d.layer == "dnd5e"])
         + len(layer_nodes)
         + sum(len(n.tags) for n in layer_nodes)
+        + sum(len(n.stats) for n in layer_nodes)
         + sum(1 for n in layer_nodes if n.description)
     )
-    assert len(plan.actions) == expected == 22 + 28 + 10 + 12
+    # Groups, definitions, categories, tags, values, descriptions.
+    assert len(plan.actions) == expected == 3 + 30 + 30 + 10 + 1 + 14
 
 
 def test_a_slug_held_by_something_else_is_a_problem() -> None:
@@ -280,24 +299,39 @@ def test_only_the_layers_asked_for_are_retitled() -> None:
     state.retitles["dnd5e-heavy"] = (uuid.uuid4(), "Heavy (D&D 5e)")
     state.retitles["crossbow"] = (uuid.uuid4(), "Crossbow")
 
-    plan = make_plan(SPEC, state, TENANT, ("core",))
+    plan = make_plan(SPEC, state, TENANT, ("equipment",))
 
     assert [(a.kind, a.name) for a in plan.actions] == [("retitle", "crossbow")]
+    assert make_plan(SPEC, state, TENANT, ("core",)).actions == []
 
 
 # --- a bare seed and the layers a tenant holds (ADR 0166) -------------------------------------
 
 
 def layers_held(state: TenantState, *layers: str) -> TenantState:
-    """Only what the given layers hold of a fully seeded tenant."""
+    """Only what the given layers hold of a fully seeded tenant. The equipment's forms have the
+    parents the dnd5e-equipment layer adds only when that layer is one of them."""
     nodes = {n.slug for n in SPEC.nodes if n.layer in layers}
     definitions = {d.name for d in SPEC.definitions if d.layer in layers}
+    groups = {g.name for g in SPEC.groups if g.layer in layers}
+    items = {}
+    for slug, held in state.items.items():
+        if slug in nodes:
+            drop = {state.nodes[a.parent].entity_id for a in SPEC.attachments if a.child == slug}
+            keep = [p for p in held.prototype_ids if p not in drop or "dnd5e-equipment" in layers]
+            items[slug] = ItemOut.model_construct(
+                entity_id=held.entity_id,
+                prototype_ids=keep,
+                tags=held.tags,
+                descriptions=held.descriptions,
+            )
     return TenantState(
-        {name: g for name, g in state.groups.items() if name in {g.name for g in SPEC.groups}},
+        {name: g for name, g in state.groups.items() if name in groups},
         {name: d for name, d in state.definitions.items() if name in definitions},
         {slug: n for slug, n in state.nodes.items() if slug in nodes},
-        {slug: i for slug, i in state.items.items() if slug in nodes},
+        items,
         {key: r for key, r in state.recipes.items() if key[0] in nodes},
+        own_stats={key: v for key, v in state.own_stats.items() if key[0] in nodes},
     )
 
 
@@ -308,7 +342,7 @@ def test_a_bare_seed_of_a_tenant_that_holds_one_layer_is_a_problem_naming_both()
 
     assert plan.actions == []
     [problem] = plan.problems
-    assert "holds the core layer and none of dnd5e" in problem
+    assert "holds the core layer and none of equipment and dnd5e and dnd5e-equipment" in problem
     assert "`--layer core`" in problem and "`--layer dnd5e`" in problem
 
 
@@ -317,7 +351,15 @@ def test_a_bare_seed_of_the_other_layer_alone_is_refused_the_same_way() -> None:
 
     [problem] = make_plan(SPEC, state, TENANT, ALL, explicit=False).problems
 
-    assert "holds the dnd5e layer and none of core" in problem
+    assert "holds the dnd5e layer and none of core and equipment and dnd5e-equipment" in problem
+
+
+def test_a_bare_seed_of_a_tenant_without_the_attachments_is_refused_too() -> None:
+    state = layers_held(fully_seeded(), "core", "equipment", "dnd5e")
+
+    [problem] = make_plan(SPEC, state, TENANT, ALL, explicit=False).problems
+
+    assert "holds the core and equipment and dnd5e layer and none of dnd5e-equipment" in problem
 
 
 def test_a_bare_seed_of_an_empty_tenant_seeds_every_layer() -> None:
@@ -327,7 +369,7 @@ def test_a_bare_seed_of_an_empty_tenant_seeds_every_layer() -> None:
     assert {a.layer for a in plan.actions} == set(ALL)
 
 
-def test_a_bare_seed_of_a_tenant_that_holds_both_layers_completes_them() -> None:
+def test_a_bare_seed_of_a_tenant_that_holds_every_layer_completes_them() -> None:
     state = fully_seeded()
     del state.nodes["dnd5e-heavy"], state.items["dnd5e-heavy"]
 
@@ -344,3 +386,128 @@ def test_naming_the_layer_is_never_refused() -> None:
 
     assert plan.problems == []
     assert {a.layer for a in plan.actions} == {"dnd5e"}
+
+
+# --- values and attachments (ADR 0175) ---------------------------------------------------------
+
+
+def test_a_value_the_node_lacks_is_planned_and_the_one_it_has_is_left_alone() -> None:
+    state = fully_seeded()
+    del state.own_stats[("dnd5e-economic-object", "price")]
+
+    plan = make_plan(SPEC, state, TENANT, ALL)
+
+    assert [(a.kind, a.name, a.detail) for a in plan.actions] == [
+        ("stat", "dnd5e-economic-object: price", "0")
+    ]
+
+    state.own_stats[("dnd5e-economic-object", "price")] = 5
+    plan = make_plan(SPEC, state, TENANT, ALL)
+
+    assert plan.actions == []
+    assert any("has price 5, not the seed's 0" in w for w in plan.warnings)
+
+
+def test_a_value_waits_for_its_definition() -> None:
+    plan = make_plan(SPEC, layers_held(fully_seeded(), "core"), TENANT, ("dnd5e",))
+
+    order = [(a.kind, a.name) for a in plan.actions]
+    assert order.index(("definition", "price")) < order.index(
+        ("stat", "dnd5e-economic-object: price")
+    )
+
+
+def test_the_attachments_alone_need_the_categories_they_join() -> None:
+    plan = make_plan(SPEC, TenantState(), TENANT, ("dnd5e-equipment",))
+
+    assert plan.actions == []
+    [problem] = plan.problems
+    assert "The attachments of the dnd5e-equipment layer need categories" in problem
+    assert "weapon, armor, tool ... (layer equipment)" in problem
+    assert "dnd5e-economic-object (layer dnd5e)" in problem
+    assert "Seed equipment and dnd5e first." in problem
+
+
+def test_the_attachments_are_planned_once_both_layers_are_there() -> None:
+    state = layers_held(fully_seeded(), "core", "equipment", "dnd5e")
+
+    plan = make_plan(SPEC, state, TENANT, ("dnd5e-equipment",))
+
+    assert plan.problems == [] and plan.warnings == []
+    assert [(a.kind, a.name, a.layer) for a in plan.actions] == [
+        ("attach", f"{form}: dnd5e-economic-object", "dnd5e-equipment")
+        for form in ("weapon", "armor", "tool", "container", "consumable", "gear")
+    ]
+
+
+def test_an_attachment_already_there_is_counted_and_not_planned() -> None:
+    state = fully_seeded()
+
+    plan = make_plan(SPEC, state, TENANT, ("dnd5e-equipment",))
+
+    assert plan.actions == [] and plan.existing == 6
+
+
+def test_an_ordinary_edge_counts_as_much_as_an_attachment() -> None:
+    # Seeded into one tenant with every layer, the same edges are ordinary ones (ADR 0175).
+    state = layers_held(fully_seeded(), "core", "equipment", "dnd5e")
+    weapon = state.items["weapon"]
+    state.items["weapon"] = ItemOut.model_construct(
+        entity_id=weapon.entity_id,
+        prototype_ids=[*weapon.prototype_ids, state.nodes["dnd5e-economic-object"].entity_id],
+        tags=weapon.tags,
+        descriptions=weapon.descriptions,
+    )
+
+    plan = make_plan(SPEC, state, TENANT, ("dnd5e-equipment",))
+
+    assert plan.existing == 1
+    assert [a.name for a in plan.actions][:1] == ["armor: dnd5e-economic-object"]
+    assert len(plan.actions) == 5
+
+
+def test_a_form_with_the_parents_the_attachments_add_is_not_under_the_wrong_parent() -> None:
+    plan = make_plan(SPEC, fully_seeded(), TENANT, ("equipment",))
+
+    assert plan.actions == [] and plan.warnings == []
+
+
+def test_a_form_with_a_parent_the_seed_does_not_have_still_gets_the_warning() -> None:
+    state = fully_seeded()
+    weapon = state.items["weapon"]
+    state.items["weapon"] = ItemOut.model_construct(
+        entity_id=weapon.entity_id,
+        prototype_ids=[*weapon.prototype_ids, uuid.uuid4()],
+        tags=weapon.tags,
+        descriptions=weapon.descriptions,
+    )
+
+    plan = make_plan(SPEC, state, TENANT, ("equipment",))
+
+    assert any("'weapon' exists but is not under physical-object" in w for w in plan.warnings)
+
+
+def test_a_parentless_axis_root_from_an_older_seed_is_left_with_a_warning() -> None:
+    # A tenant seeded by version 1 has the axis roots under nothing (ADR 0175).
+    state = fully_seeded()
+    root = state.items["dnd5e-armor-tier"]
+    state.items["dnd5e-armor-tier"] = ItemOut.model_construct(
+        entity_id=root.entity_id, prototype_ids=[], tags=[], descriptions=root.descriptions
+    )
+
+    plan = make_plan(SPEC, state, TENANT, ("dnd5e",))
+
+    assert plan.actions == []
+    assert any(
+        "'dnd5e-armor-tier' exists but is not under dnd5e-system" in w for w in plan.warnings
+    )
+
+
+def test_an_attachment_to_something_that_is_not_an_item_is_a_problem() -> None:
+    state = fully_seeded()
+    state.nodes["weapon"] = node("weapon", kinds=("character",))
+    del state.items["weapon"]
+
+    plan = make_plan(SPEC, state, TENANT, ("dnd5e-equipment",))
+
+    assert any("'weapon' belongs to something that isn't an item" in p for p in plan.problems)

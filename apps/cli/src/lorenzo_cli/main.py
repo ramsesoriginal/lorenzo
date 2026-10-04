@@ -577,8 +577,9 @@ def seed(
     """Create the item taxonomy and the stat definitions in a tenant; safe to run again.
 
     Finds or creates by name and slug, and never changes or removes anything (`unseed` takes a
-    layer out). `--list` only prints what the seed makes. Exit codes: 0 done or nothing to do, 2
-    with --dry-run when there is something to create, 1 on a problem.
+    layer out). The dnd5e-equipment layer is made of attachments: parents it adds to categories of
+    the equipment layer. `--list` only prints what the seed makes. Exit codes: 0 done or nothing to
+    do, 2 with --dry-run when there is something to create, 1 on a problem.
     """
     runtime: Runtime = ctx.obj
     chosen = tuple(layers) if layers else LAYERS
@@ -618,9 +619,9 @@ def seed(
             print_seed_plan(_out, plan)
             if layers is None and any(a.kind != "retitle" for a in plan.actions):
                 _err.print(
-                    "[dim]Both layers are going into this one repository, which is fine for your "
-                    "own use. To publish core and D&D 5e as separate repositories, seed --layer "
-                    "core and --layer dnd5e into separate ones (README, ADR 0162).[/dim]"
+                    "[dim]Every layer is going into this one repository, which is fine for your "
+                    "own use. To publish them as separate repositories, seed each layer into its "
+                    "own with --layer (README, ADR 0162, 0175).[/dim]"
                 )
         if plan.problems:
             raise typer.Exit(1)
@@ -668,11 +669,15 @@ def unseed(
 ) -> None:
     """Take a layer of the seed out of a tenant.
 
-    Removes its categories, stat definitions and stat groups, and only those
-    the built-in seed names. It asks first.
+    Removes its attachments (the parent a layer adds to a category of another
+    layer, which leaves the category itself alone), categories, stat
+    definitions and stat groups, and only those the built-in seed names. It
+    asks first.
 
     A category that something outside the layer inherits from stops it, with
-    nothing deleted. A stat definition that is in use is kept and listed.
+    nothing deleted: that includes a category the dnd5e-equipment layer
+    attaches, unless you take that layer out in the same call. A stat
+    definition that is in use is kept and listed.
 
     Exit codes: 0 done or nothing to remove, 2 with --dry-run when there is
     something to remove, 1 on a problem, when something was kept, or when you
@@ -1346,8 +1351,8 @@ def repo_contents(
     """Show what a repository holds and how much of each seed layer it has.
 
     Whether it is published and who it is granted to, which repositories it is built on, how many
-    stat groups, stat definitions and items it holds, how much of the core and dnd5e layers of the
-    seed are in it, and what the seed doesn't name.
+    stat groups, stat definitions and items it holds, how much of each layer of the seed is in it
+    (its categories and the attachments it has), and what the seed doesn't name.
     """
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:

@@ -1,4 +1,4 @@
-"""`lorenzo seed` against the real API (ADR 0143)."""
+"""`lorenzo seed` against the real API (ADR 0143, 0175)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from plain import plain
 from typer.testing import CliRunner
 
 from e2e.stack import Stack
@@ -26,8 +27,11 @@ EVERYTHING = (
     + len(SPEC.nodes)
     + sum(len(n.tags) for n in SPEC.nodes)
     + sum(1 for n in SPEC.nodes if n.description)
+    + sum(len(n.stats) for n in SPEC.nodes)
+    + len(SPEC.attachments)
     + len(SPEC.recipes)
 )
+LAYER_ORDER = ("core", "equipment", "dnd5e", "dnd5e-equipment")
 
 
 def make_tenant(stack: Stack, token: str, kind: str = "repository") -> str:
@@ -90,6 +94,61 @@ def test_a_fresh_repository_tenant_is_seeded_and_a_second_run_finds_nothing(
         }
 
 
+def entity(api: httpx.Client, tid: str, slug: str) -> dict[str, Any]:
+    found = api.get(f"/tenants/{tid}/entities/resolve", params={"slug": [slug]}).json()
+    assert len(found) == 1, slug
+    return api.get(f"/tenants/{tid}/entities/{found[0]['entity_id']}").json()
+
+
+def test_the_system_root_the_price_it_carries_and_the_attachments_are_in_the_tenant(
+    stack: Stack, tmp_path: Path
+) -> None:
+    token = stack.creator_token()
+    tenant = make_tenant(stack, token)
+    assert seed(stack, token, tmp_path, tenant, "--yes").exit_code == 0
+
+    with stack.api(token) as api:
+        tid = tenant_id(api, tenant)
+        economic = entity(api, tid, "dnd5e-economic-object")
+        assert [p["name"] for p in economic["prototypes"]] == ["D&D 5e"]
+        price = next(s for s in economic["stats"] if s["name"] == "price")
+        assert price["value"] == 0 and price["own"] is True
+        assert "economic" in {g["name"] for g in economic["stat_groups"]}
+        # Every axis root is under the system root, and the root is under nothing.
+        assert entity(api, tid, "dnd5e-system")["prototypes"] == []
+        for slug in ("dnd5e-weapon-proficiency", "dnd5e-armor-tier", "dnd5e-weapon-property"):
+            assert [p["name"] for p in entity(api, tid, slug)["prototypes"]] == ["D&D 5e"]
+        # The six forms have the economic object as a second parent, and keep their first.
+        weapon = entity(api, tid, "weapon")
+        assert {p["name"] for p in weapon["prototypes"]} == {
+            "Physical object",
+            "Economic object (D&D 5e)",
+        }
+        for spec in SPEC.attachments:
+            parents = {p["id"] for p in entity(api, tid, spec.child)["prototypes"]}
+            assert economic["id"] in parents, spec.child
+        # What a weapon has from it, it has in turn: a price of 0 it doesn't hold itself.
+        inherited = next(s for s in weapon["stats"] if s["name"] == "price")
+        assert inherited["value"] == 0 and inherited["own"] is False
+        # Not on `physical-object`, which is also a mountain.
+        assert "price" not in {s["name"] for s in entity(api, tid, "physical-object")["stats"]}
+
+
+def test_seeding_again_finds_the_forms_with_their_attached_parents_in_place(
+    stack: Stack, tmp_path: Path
+) -> None:
+    token = stack.creator_token()
+    tenant = make_tenant(stack, token)
+    assert seed(stack, token, tmp_path, tenant, "--yes").exit_code == 0
+
+    for layer in LAYER_ORDER:
+        again = seed(stack, token, tmp_path, tenant, "--layer", layer, "--dry-run", "--json")
+        assert again.exit_code == 0, (layer, again.output)
+        plan = json.loads(again.output)
+        # The forms have a parent the equipment layer doesn't name, and that is no warning.
+        assert plan["actions"] == [] and plan["warnings"] == [], layer
+
+
 def test_the_seeded_taxonomy_works_a_backpack_weighs_what_is_in_it(
     stack: Stack, tmp_path: Path
 ) -> None:
@@ -143,6 +202,7 @@ def test_the_seeded_taxonomy_works_a_backpack_weighs_what_is_in_it(
         # 2.0 of its own, plus two lengths of 1.5 inside it.
         assert weighed["weight"] == 5.0
         assert weighed["is_container"] is True  # the tag is inherited from the `container` node
+        assert weighed["price"] == 0  # and the price from the economic object attached to it
         assert {"physical"} <= {
             g["name"] for g in api.get(f"{base}/entities/{backpack_item}").json()["stat_groups"]
         }
@@ -162,20 +222,55 @@ def test_a_play_tenant_is_refused_unless_asked(stack: Stack, tmp_path: Path) -> 
     assert allowed.exit_code == 2
 
 
-def test_layers_can_be_seeded_apart_but_dnd5e_needs_core(stack: Stack, tmp_path: Path) -> None:
+def test_layers_can_be_seeded_apart_in_dependency_order(stack: Stack, tmp_path: Path) -> None:
     token = stack.creator_token()
     tenant = make_tenant(stack, token)
 
     too_early = seed(stack, token, tmp_path, tenant, "--layer", "dnd5e", "--yes")
-    core = seed(stack, token, tmp_path, tenant, "--layer", "core", "--yes")
-    then_dnd5e = seed(stack, token, tmp_path, tenant, "--layer", "dnd5e", "--yes")
+    attachments_too_early = seed(
+        stack, token, tmp_path, tenant, "--layer", "dnd5e-equipment", "--yes"
+    )
+    done = {
+        layer: seed(stack, token, tmp_path, tenant, "--layer", layer, "--yes")
+        for layer in LAYER_ORDER
+    }
     complete = seed(stack, token, tmp_path, tenant, "--dry-run")
 
     assert too_early.exit_code == 1  # its definitions need core's group, and nothing was written
     assert "Seed that layer first" in too_early.output.replace("\n", " ")
-    assert core.exit_code == 0, core.output
-    assert then_dnd5e.exit_code == 0, then_dnd5e.output
-    assert complete.exit_code == 0  # nothing left: the two layers made the whole seed
+    assert attachments_too_early.exit_code == 1
+    assert "The attachments of the dnd5e-equipment layer need categories" in (
+        attachments_too_early.output.replace("\n", " ")
+    )
+    assert {layer: run.exit_code for layer, run in done.items()} == dict.fromkeys(LAYER_ORDER, 0)
+    assert complete.exit_code == 0  # nothing left: the four layers made the whole seed
+
+
+def test_the_attachments_keep_the_parents_a_form_already_has(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token()
+    tenant = make_tenant(stack, token)
+    for layer in LAYER_ORDER[:3]:
+        assert seed(stack, token, tmp_path, tenant, "--layer", layer, "--yes").exit_code == 0
+
+    with stack.api(token) as api:
+        tid = tenant_id(api, tenant)
+        base = f"/tenants/{tid}"
+        armor = entity(api, tid, "armor")
+        house = api.post(f"{base}/items", json={"name": "House rule"}).json()["entity_id"]
+        current = api.get(f"{base}/items/{armor['id']}")
+        put = api.put(
+            f"{base}/items/{armor['id']}/prototypes",
+            json={"prototype_ids": [p["id"] for p in armor["prototypes"]] + [house]},
+            headers={"If-Match": current.headers["ETag"]},
+        )
+        assert put.status_code == 200, put.text
+
+    attached = seed(stack, token, tmp_path, tenant, "--layer", "dnd5e-equipment", "--yes")
+
+    assert attached.exit_code == 0, attached.output
+    with stack.api(token) as api:
+        names = {p["name"] for p in entity(api, tid, "armor")["prototypes"]}
+    assert names == {"Physical object", "House rule", "Economic object (D&D 5e)"}
 
 
 def test_a_stat_of_the_wrong_type_stops_the_seed_before_it_writes_anything(
@@ -245,4 +340,4 @@ def test_an_unknown_layer_is_a_usage_error(stack: Stack, tmp_path: Path) -> None
     result = seed(stack, token, tmp_path, tenant, "--layer", "pathfinder")
 
     assert result.exit_code == 2
-    assert "core, dnd5e" in result.output.replace("\n", " ")
+    assert "core, equipment, dnd5e, dnd5e-equipment" in plain(result.output)

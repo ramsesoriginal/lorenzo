@@ -12,7 +12,7 @@ from plain import plain
 from e2e.helpers import FIXTURES, by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
 
-SEED_CATEGORIES = 61  # 33 in core and 28 in dnd5e
+SEED_CATEGORIES = 63  # 1 in core, 32 in equipment and 30 in dnd5e
 
 
 def said(result: Any) -> str:
@@ -43,26 +43,32 @@ def test_a_core_repository_holds_core_and_nothing_beyond_it(stack: Stack, tmp_pa
     assert document["tenant"]["slug"] == tenant and document["tenant"]["published_at"] is None
     assert document["granted_to"] == 0 and document["built_on"] == []
     assert document["holds"] == {
-        "stat_groups": 6,
-        "stat_definitions": 18,
-        "items": 33,
+        "stat_groups": 3,
+        "stat_definitions": 10,
+        "items": 1,
         "attachments": 0,
     }
     layers = document["seed"]["layers"]
     assert layers["core"]["holds"] == "complete"
-    assert layers["dnd5e"]["holds"] == "not there"
-    assert layers["dnd5e"]["stat_definitions"] == {"present": 0, "in_seed": 22}
+    assert [name for name, layer in layers.items() if layer["holds"] == "not there"] == [
+        "equipment",
+        "dnd5e",
+        "dnd5e-equipment",
+    ]
+    assert layers["dnd5e"]["stat_definitions"] == {"present": 0, "in_seed": 30}
+    assert layers["dnd5e-equipment"]["attachments"] == {"present": 0, "in_seed": 6}
     assert document["beyond_seed"] == {"stat_groups": 0, "stat_definitions": 0, "items": 0}
 
     human = run_cli(stack, token, tmp_path, "repo", "contents", "--tenant", tenant)
     assert human.exit_code == 0, human.output
     text = said(human)
     assert "is a repository, a draft, granted to 0 tenant(s)." in text
-    assert "core complete 6 of 6 18 of 18 33 of 33" in text
-    assert "dnd5e not there - 0 of 22 0 of 28" in text
+    assert "core complete 3 of 3 10 of 10 1 of 1 -" in text
+    assert "dnd5e not there 0 of 3 0 of 30 0 of 30 -" in text
+    assert "dnd5e-equipment not there - - - 0 of 6" in text
 
 
-def test_a_bridge_is_built_on_core_holds_both_layers_and_the_items_beyond_the_seed(
+def test_a_bridge_is_built_on_core_holds_its_layers_and_the_items_beyond_the_seed(
     stack: Stack, tmp_path: Path
 ) -> None:
     token = stack.creator_token()
@@ -73,7 +79,7 @@ def test_a_bridge_is_built_on_core_holds_both_layers_and_the_items_beyond_the_se
         ["repo", "publish", "--tenant", core],
         ["repo", "grant", bridge, "--tenant", core],
         ["repo", "copy", core, "--tenant", bridge, "--yes"],
-        ["seed", "--tenant", bridge, "--layer", "dnd5e", "--yes"],
+        ["seed", "--tenant", bridge, "--layer", "equipment", "--layer", "dnd5e", "--yes"],
     ):
         done = run_cli(stack, token, tmp_path, *args)
         assert done.exit_code == 0, f"{' '.join(args)}\n{done.output}"
@@ -92,7 +98,12 @@ def test_a_bridge_is_built_on_core_holds_both_layers_and_the_items_beyond_the_se
     assert [row["slug"] for row in document["built_on"]] == [core]
     assert document["built_on"][0]["updated_since"] is False
     layers = document["seed"]["layers"]
-    assert layers["core"]["holds"] == layers["dnd5e"]["holds"] == "complete"
+    assert {name: layer["holds"] for name, layer in layers.items()} == {
+        "core": "complete",
+        "equipment": "complete",
+        "dnd5e": "complete",
+        "dnd5e-equipment": "not there",  # nothing joined the two yet
+    }
     assert document["holds"]["items"] == total
     # What the bridge authored is its own rows: no parent was added to a copy.
     assert document["holds"]["attachments"] == 0
@@ -122,8 +133,13 @@ def test_a_layer_with_a_category_gone_is_partly_there(stack: Stack, tmp_path: Pa
     layers = document["seed"]["layers"]
     assert layers["core"]["holds"] == "complete"
     assert layers["dnd5e"]["holds"] == "partly"
-    assert layers["dnd5e"]["categories"] == {"present": 26, "in_seed": 28}
-    assert layers["dnd5e"]["stat_definitions"] == {"present": 22, "in_seed": 22}
+    assert layers["dnd5e"]["categories"] == {"present": 28, "in_seed": 30}
+    assert layers["dnd5e"]["stat_definitions"] == {"present": 30, "in_seed": 30}
+    # A bare seed of one tenant makes the attachments ordinary parents, which are counted all the
+    # same, and none of them is an attachment in the sense of a bridge's copy.
+    assert layers["dnd5e-equipment"]["holds"] == "complete"
+    assert layers["dnd5e-equipment"]["attachments"] == {"present": 6, "in_seed": 6}
+    assert document["holds"]["attachments"] == 0
     assert document["beyond_seed"]["items"] == 0
 
 
