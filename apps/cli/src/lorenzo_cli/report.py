@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections import Counter
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from lorenzo_cli.evalworker import STANDARD_LISTS, EvalResult
 from lorenzo_cli.importer.plan import ImportPlan
-from lorenzo_cli.seed import SeedPlan, UnseedPlan, UnseedResult
+from lorenzo_cli.seed import SeedPlan, SeedSpec, UnseedPlan, UnseedResult
+from lorenzo_cli.seed.spec import NodeSpec, RecipeSpec
 from lorenzo_cli.seed.unseed import TargetKind
 
 
@@ -226,3 +228,113 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
                 held[held_key] = held.get(held_key, 0) + 1
     for (list_name, attribute, reason), count in sorted(held.items()):
         console.print(f"[red]{count} x {list_name}.{attribute}: {reason}[/red]")
+
+
+def _recipe_text(recipe: RecipeSpec) -> str:
+    inside = recipe.source if recipe.kind == "contents" else ", ".join(recipe.terms)
+    return f"{recipe.kind}({inside})"
+
+
+def seed_list_json(spec: SeedSpec, layers: tuple[str, ...]) -> dict[str, object]:
+    """The built-in seed as plain data for `--json`, the layers asked for."""
+    groups = {g.name: g for g in spec.groups}
+    return {
+        "seed_version": spec.version,
+        "layers": {
+            layer: {
+                "stat_groups": [g.name for g in spec.groups if g.layer == layer],
+                "stat_definitions": [
+                    {
+                        "name": d.name,
+                        "stat_group": groups[d.group].name,
+                        "value_type": d.value_type,
+                    }
+                    for d in spec.definitions
+                    if d.layer == layer
+                ],
+                "categories": [
+                    {
+                        "slug": n.slug,
+                        "name": n.name,
+                        "parents": n.parents,
+                        "tags": n.tags,
+                        "description": n.description,
+                    }
+                    for n in spec.nodes
+                    if n.layer == layer
+                ],
+                "recipes": [
+                    {"node": r.node, "stat": r.stat, "kind": r.kind, "of": _recipe_of(r)}
+                    for r in spec.recipes
+                    if r.layer == layer
+                ],
+            }
+            for layer in layers
+        },
+    }
+
+
+def _recipe_of(recipe: RecipeSpec) -> list[str]:
+    return [recipe.source] if recipe.source else list(recipe.terms)
+
+
+def _category_tree(nodes: list[NodeSpec]) -> list[tuple[int, NodeSpec]]:
+    """The layer's categories, each right after the first parent it has in the same layer, with its
+    depth. A category's other parents are shown on its line."""
+    slugs = {n.slug for n in nodes}
+    children: dict[str | None, list[NodeSpec]] = {}
+    for node in nodes:
+        first = next((p for p in node.parents if p in slugs), None)
+        children.setdefault(first, []).append(node)
+    ordered: list[tuple[int, NodeSpec]] = []
+
+    def walk(parent: str | None, depth: int) -> None:
+        for child in children.get(parent, []):
+            ordered.append((depth, child))
+            walk(child.slug, depth + 1)
+
+    walk(None, 0)
+    return ordered
+
+
+def _category_line(depth: int, node: NodeSpec) -> str:
+    # Where the tree already shows the first same-layer parent, name only the rest.
+    line = f"{'  ' * (depth + 1)}{node.slug}  {escape(node.name)}"
+    shown = node.parents[0] if depth else None
+    others = [p for p in node.parents if p != shown]
+    if others:
+        line += f"  [dim]under {', '.join(others)}[/dim]"
+    if node.tags:
+        line += f"  [dim]sets {', '.join(node.tags)}[/dim]"
+    return line
+
+
+def print_seed_list(console: Console, spec: SeedSpec, layers: tuple[str, ...]) -> None:
+    console.print(f"The built-in seed, version {spec.version}.")
+    for layer in layers:
+        groups = [g for g in spec.groups if g.layer == layer]
+        definitions = [d for d in spec.definitions if d.layer == layer]
+        nodes = [n for n in spec.nodes if n.layer == layer]
+        recipes = [r for r in spec.recipes if r.layer == layer]
+        described = sum(1 for n in nodes if n.description)
+        console.print(
+            f"\n[bold]{layer}[/bold]: {len(groups)} stat groups, {len(definitions)} stat "
+            f"definitions, {len(nodes)} categories ({described} with a description), "
+            f"{len(recipes)} recipes"
+        )
+        if groups:
+            console.print("Stat groups: " + ", ".join(g.name for g in groups), highlight=False)
+        if definitions:
+            table = Table("name", "group", "type", title="Stat definitions", title_justify="left")
+            for d in definitions:
+                table.add_row(d.name, d.group, d.value_type)
+            console.print(table)
+        if nodes:
+            console.print("Categories:")
+            for depth, node in _category_tree(nodes):
+                console.print(_category_line(depth, node), highlight=False, soft_wrap=True)
+        if recipes:
+            table = Table("on", "stat", "computed as", title="Recipes", title_justify="left")
+            for r in recipes:
+                table.add_row(r.node, r.stat, _recipe_text(r))
+            console.print(table)

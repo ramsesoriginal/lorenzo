@@ -19,6 +19,7 @@ from lorenzo_cli.client.models import (
     UpdatesOut,
 )
 from lorenzo_cli.repos import CleanUpdates, OfferResult, OfferState, has_published_since
+from lorenzo_cli.seed.contents import Contents, Part
 
 
 def when(value: datetime | None) -> str:
@@ -230,3 +231,116 @@ def print_offer_result(console: Console, state: OfferState, result: OfferResult)
             f"{result.updates_waiting} update(s) wait for a decision: "
             f"lorenzo repo updates {repo} --tenant {tenant}"
         )
+
+
+def _of(part: Part) -> str:
+    return "-" if part.in_seed == 0 else f"{part.present} of {part.in_seed}"
+
+
+_HOLDS_STYLE = {"complete": "green", "partly": "yellow", "not there": "dim"}
+
+
+def contents_json(contents: Contents) -> dict[str, object]:
+    """What a repository holds as plain data for `--json`."""
+    tenant = contents.tenant
+    return {
+        "tenant": {
+            "id": str(tenant.id),
+            "slug": tenant.slug,
+            "name": tenant.name,
+            "kind": tenant.kind.value,
+            "published_at": tenant.published_at.isoformat() if tenant.published_at else None,
+        },
+        "granted_to": contents.granted_to,
+        "built_on": [
+            {
+                "slug": row.repository.slug,
+                "name": row.repository.name,
+                "copied_at": row.copied_at.isoformat() if row.copied_at else None,
+                "updated_since": has_published_since(row),
+            }
+            for row in contents.built_on
+        ],
+        "holds": {
+            "stat_groups": contents.stat_groups,
+            "stat_definitions": contents.stat_definitions,
+            "items": contents.items,
+        },
+        "seed": {
+            "version": contents.seed_version,
+            "layers": {
+                holding.layer: {
+                    "holds": holding.holds,
+                    "stat_groups": {
+                        "present": holding.groups.present,
+                        "in_seed": holding.groups.in_seed,
+                    },
+                    "stat_definitions": {
+                        "present": holding.definitions.present,
+                        "in_seed": holding.definitions.in_seed,
+                    },
+                    "categories": {
+                        "present": holding.categories.present,
+                        "in_seed": holding.categories.in_seed,
+                    },
+                }
+                for holding in contents.layers
+            },
+        },
+        "beyond_seed": {
+            "stat_groups": contents.other_stat_groups,
+            "stat_definitions": contents.other_stat_definitions,
+            "items": contents.other_items,
+        },
+    }
+
+
+def print_contents(console: Console, contents: Contents) -> None:
+    tenant = contents.tenant
+    state = f"published {when(tenant.published_at)}" if tenant.published_at else "a draft"
+    console.print(
+        f"[bold]{tenant.slug}[/bold] ({tenant.name}) is a repository, {state}, granted to "
+        f"{contents.granted_to} tenant(s).",
+        highlight=False,
+    )
+    if contents.built_on:
+        for row in contents.built_on:
+            changed = (
+                " [yellow]and has published since[/yellow]" if has_published_since(row) else ""
+            )
+            console.print(
+                f"Built on {row.repository.slug or '(deleted)'}, copied {when(row.copied_at)}"
+                f"{changed}.",
+                highlight=False,
+            )
+    else:
+        console.print("Built on nothing: it has copied no repository.")
+    console.print(
+        f"Holds {contents.stat_groups} stat groups, {contents.stat_definitions} stat definitions "
+        f"and {contents.items} items (categories included).",
+        highlight=False,
+    )
+    table = Table(
+        "layer",
+        "holds",
+        "stat groups",
+        "stat definitions",
+        "categories",
+        title=f"The seed (version {contents.seed_version})",
+        title_justify="left",
+    )
+    for holding in contents.layers:
+        style = _HOLDS_STYLE[holding.holds]
+        table.add_row(
+            holding.layer,
+            f"[{style}]{holding.holds}[/{style}]",
+            _of(holding.groups),
+            _of(holding.definitions),
+            _of(holding.categories),
+        )
+    console.print(table)
+    console.print(
+        f"Beyond the seed: {contents.other_stat_groups} stat groups, "
+        f"{contents.other_stat_definitions} stat definitions and {contents.other_items} items.",
+        highlight=False,
+    )

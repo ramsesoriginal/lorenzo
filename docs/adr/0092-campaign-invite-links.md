@@ -61,3 +61,7 @@ An approval queue; tenant-level (membership) invite links, a different and highe
 - **Unlimited uses are the weakest link.** With no cap, a leaked link admits accounts freely until it expires (at most 30 days), is revoked, or is throttled. Expiry, instant revoke, player-only scope, the edge rule and the backstop are the whole of the containment. `max_uses` remains an optional knob a GM can set. Every redemption also notifies the GMs, which on a busy open link will be noisy; deduplicating those is a reasonable follow-up, not built here.
 - The edge rule is a real deployment step outside `apps/api`; this feature is not safe to expose publicly until it is in place.
 - No client offers "share this campaign" until account-hub adds the management UI and a landing page - later slices against this API.
+
+## Addendum (2026-10-04): the edge rule is deferred to go-live
+
+The consequence above, "this feature is not safe to expose publicly until [the edge rule] is in place", is relaxed for the pre-production phase by the maintainer: the rule needs a domain and hosting the project doesn't have yet, so it is owed before going live, not before testing. See the addendum to [ADR 0171](0171-account-hub-campaign-invite-links.md#addendum-2026-10-04-the-edge-rule-is-deferred-to-go-live) for what that leaves in place and what it costs.
