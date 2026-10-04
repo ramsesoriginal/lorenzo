@@ -4,8 +4,8 @@ import type { PlayerRosterEntryOut, PlayerSummaryOut } from './types';
 
 // A campaign's players as roster entries, for a GM with no library membership:
 // the roster itself is a library admins' read, but GET .../players is open to
-// whoever can reach the campaign. It carries a user id and no names, so those
-// players are shown by user id (resolveDisplayName's own fallback).
+// whoever can reach the campaign, and carries each player's names since ADR 0176
+// (null when they set none, which resolveDisplayName then shows as the user id).
 export function rosterFromPlayers(
   campaignId: string,
   players: PlayerSummaryOut[],
@@ -13,9 +13,9 @@ export function rosterFromPlayers(
   return players.map((player) => ({
     kind: 'player',
     user_id: player.user_id,
-    nickname: null,
-    display_name: null,
-    user_color: null,
+    nickname: player.nickname,
+    display_name: player.display_name,
+    user_color: player.user_color,
     campaign_id: campaignId,
     characters: player.characters,
     created_by: player.created_by,

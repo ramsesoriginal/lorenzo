@@ -1,0 +1,116 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Your campaigns — Lorenzo">
+  <h1 class="display">Your campaigns</h1>
+  <p>
+    <a href="/">&larr; Back</a>
+  </p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+  <p id="empty-state" hidden>
+    You don't play in or run any campaign yet.
+  </p>
+
+  <section id="play-section" class="section" hidden>
+    <h2>Where you play</h2>
+    <div id="play-list"></div>
+  </section>
+
+  <section id="run-section" class="section" hidden>
+    <h2>Where you run</h2>
+    <ul id="run-list" class="list"></ul>
+  </section>
+
+  <script>
+    import { runRows, seatsIn } from '../lib/campaigns';
+    import { showError } from '../lib/errorUi';
+    import { getManaged, getMe } from '../lib/me';
+    import { renderRunCampaign } from '../lib/runUi';
+    import { loadSeatOwners, renderSeat } from '../lib/seatUi';
+    import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
+    import { isAuthenticated } from '../lib/auth';
+
+    const loading = document.getElementById('loading')!;
+    const loadError = document.getElementById('load-error')!;
+    const emptyState = document.getElementById('empty-state')!;
+    const playSection = document.getElementById('play-section')!;
+    const playList = document.getElementById('play-list')!;
+    const runSection = document.getElementById('run-section')!;
+    const runList = document.getElementById('run-list')!;
+
+    function byName(a: string, b: string): number {
+      return a.localeCompare(b, 'en', { sensitivity: 'base' });
+    }
+
+    // ADR 0179: two sections over what GET /me and GET /me/managed already say,
+    // for libraries only. A campaign you both play and run is in both.
+    async function load() {
+      const me = await getMe();
+      const [tenants, managed] = await Promise.all([listMyTenants('play'), getManaged()]);
+      const libraryNames = new Map(tenants.items.map((tenant) => [tenant.id, tenant.name]));
+
+      // Where you play: your own seats, with the campaign's name and the one
+      // fact "Stop using here" needs (who owns each of your characters).
+      const seats = seatsIn(me, new Set(libraryNames.keys()));
+      const tenantIds = [...new Set(seats.map((seat) => seat.tenant_id))];
+      const campaignsByTenant = new Map(
+        await Promise.all(
+          tenantIds.map(async (id) => [id, (await listTenantCampaigns(id)).items] as const),
+        ),
+      );
+      const ownersByTenant = new Map(
+        await Promise.all(tenantIds.map(async (id) => [id, await loadSeatOwners(id, me)] as const)),
+      );
+      const seatRows = seats.flatMap((seat) => {
+        const campaign = campaignsByTenant
+          .get(seat.tenant_id)
+          ?.find((c) => c.id === seat.campaign_id);
+        const libraryName = libraryNames.get(seat.tenant_id);
+        return campaign && libraryName ? [{ seat, campaign, libraryName }] : [];
+      });
+      seatRows.sort(
+        (a, b) => byName(a.libraryName, b.libraryName) || byName(a.campaign.name, b.campaign.name),
+      );
+      const seatSections = seatRows.map(({ seat, campaign, libraryName }) =>
+        renderSeat(
+          campaign,
+          libraryName,
+          seat,
+          me,
+          ownersByTenant.get(seat.tenant_id) ?? new Map(),
+          () => void load(),
+        ),
+      );
+      playSection.hidden = seatSections.length === 0;
+      playList.replaceChildren(...seatSections);
+
+      // Where you run: the campaigns you GM, and every campaign of a library
+      // you administer, with who is at each table.
+      const runItems = await Promise.all(
+        runRows(managed).map((row) => renderRunCampaign(row, me.id)),
+      );
+      runSection.hidden = runItems.length === 0;
+      runList.replaceChildren(...runItems);
+
+      emptyState.hidden = seatSections.length + runItems.length > 0;
+    }
+
+    if (!(await isAuthenticated())) {
+      loading.hidden = true;
+      loadError.hidden = false;
+      loadError.textContent = 'Not logged in. Go back and log in first.';
+    } else {
+      try {
+        await load();
+        loading.hidden = true;
+      } catch (e) {
+        loading.hidden = true;
+        loadError.hidden = false;
+        showError(loadError, e);
+      }
+    }
+  </script>
+</Base>

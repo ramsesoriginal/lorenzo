@@ -80,3 +80,17 @@
   width: min(100%, 36rem);
   font-family: var(--font-mono);
 }
+
+/* One campaign on /campaigns's "Where you run" (ADR 0179): its name, then
+   Players and GMs one under the other, not in the row the brand's .list gives
+   a single-line item. */
+.list > .run-campaign {
+  display: block;
+}
+.run-campaign h4 {
+  margin: var(--space-3) 0 var(--space-1);
+}
+.run-campaign > a {
+  display: inline-block;
+  margin-top: var(--space-2);
+}

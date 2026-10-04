@@ -292,7 +292,7 @@ import Base from '../layouts/Base.astro';
 
       // A Membership, which is what owner and orga mean, is what there is to
       // leave (ADR 0170). A participant-only library has none: their way out
-      // is "Leave this campaign" on /characters.
+      // is "Leave this campaign" on /campaigns.
       if (tenant.role === 'owner' || tenant.role === 'orga') {
         item.append(renderLeaveTenant(tenant, me.id, onChanged));
       }

@@ -42,7 +42,7 @@ function showExitError(
 // Shown on every library or repository where the caller has a Membership (owner or orga):
 // DELETE .../memberships/{me} is open to the member themselves, whatever their
 // role. A person who only plays or GMs there has nothing to leave here; their
-// way out is "Leave this campaign" on /characters. A repository says so in its
+// way out is "Leave this campaign" on /campaigns. A repository says so in its
 // own word (ADR 0178).
 export function renderLeaveTenant(
   tenant: TenantSummaryOut,
