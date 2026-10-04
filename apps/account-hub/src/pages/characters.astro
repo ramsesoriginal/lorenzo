@@ -17,10 +17,16 @@ import Base from '../layouts/Base.astro';
   <div id="tenant-list"></div>
 
   <script>
-    import { errorMessage } from '../lib/errorMessage';
-    import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../lib/characters';
+    import { showError } from '../lib/errorUi';
+    import {
+      createCharacter,
+      getCharacter,
+      linkCharacterToPlayer,
+      updateCharacter,
+    } from '../lib/characters';
     import { createStatusSpan, renderCreateForm, renderRenameableItem } from '../lib/dom';
     import { reusableCharactersFor } from '../lib/format';
+    import { renderUnlinkCharacter } from '../lib/rosterLinkUi';
     import { getMe } from '../lib/me';
     import { leaveCampaign, listMyTenants, listTenantCampaigns } from '../lib/tenants';
     import type {
@@ -75,7 +81,7 @@ import Base from '../layouts/Base.astro';
             await linkCharacterToPlayer(player.tenant_id, character.entity_id, player.id);
             onLinked();
           } catch (e) {
-            status.textContent = errorMessage(e);
+            showError(status, e);
           }
         });
         item.append(nameEl, useButton, status);
@@ -93,6 +99,7 @@ import Base from '../layouts/Base.astro';
       campaign: CampaignSummaryOut,
       player: PlayerContextOut | undefined,
       me: MeOut,
+      owners: Map<string, string | null>,
       onChanged: () => void,
     ): HTMLElement {
       const section = document.createElement('section');
@@ -116,11 +123,35 @@ import Base from '../layouts/Base.astro';
         const list = document.createElement('ul');
         list.className = 'list';
         for (const character of player.characters) {
+          // "Stop using here" is the reverse of reusing a character from
+          // another campaign (ADR 0170), so it is only offered for a link that
+          // isn't the character's own owner's: control comes from the links,
+          // and an owner who unlinked themselves would lose their character.
+          // An owner that couldn't be read leaves the button out.
+          const owner = owners.get(character.entity_id);
+          const extras =
+            owner !== undefined && owner !== player.id
+              ? [
+                  renderUnlinkCharacter(
+                    {
+                      tenantId: player.tenant_id,
+                      characterId: character.entity_id,
+                      characterName: character.name,
+                      playerId: player.id,
+                      campaignName: campaign.name,
+                    },
+                    onChanged,
+                  ),
+                ]
+              : [];
           list.append(
-            renderRenameableItem(character.name, (newName) =>
-              updateCharacter(player.tenant_id, character.entity_id, { name: newName }).then(
-                onChanged,
-              ),
+            renderRenameableItem(
+              character.name,
+              (newName) =>
+                updateCharacter(player.tenant_id, character.entity_id, { name: newName }).then(
+                  onChanged,
+                ),
+              extras,
             ),
           );
         }
@@ -172,7 +203,7 @@ import Base from '../layouts/Base.astro';
           await leaveCampaign(player.tenant_id, campaign.id, player.id);
           onLeft();
         } catch (e) {
-          status.textContent = errorMessage(e);
+          showError(status, e);
         }
       });
       container.append(button, status);
@@ -191,9 +222,26 @@ import Base from '../layouts/Base.astro';
       section.append(heading);
 
       const campaigns = await listTenantCampaigns(tenant.id);
+      // Who owns each character on the caller's seats here: the one fact
+      // "Stop using here" needs, and only a character read gives.
+      const owners = new Map<string, string | null>();
+      const characterIds = new Set(
+        me.players
+          .filter((p) => p.tenant_id === tenant.id)
+          .flatMap((p) => p.characters.map((c) => c.entity_id)),
+      );
+      await Promise.all(
+        [...characterIds].map(async (characterId) => {
+          try {
+            owners.set(characterId, (await getCharacter(tenant.id, characterId)).owner_player_id);
+          } catch {
+            // Unknown: no button for it, rather than a guess.
+          }
+        }),
+      );
       for (const campaign of campaigns.items) {
         const player = findPlayerFor(me, tenant.id, campaign.id);
-        section.append(renderCampaignSection(campaign, player, me, onChanged));
+        section.append(renderCampaignSection(campaign, player, me, owners, onChanged));
       }
       return section;
     }
@@ -224,7 +272,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

@@ -6,8 +6,10 @@ import Base from '../../layouts/Base.astro';
   <p>Signing you in&hellip;</p>
   <script>
     import { completeLogin } from '../../lib/auth';
+    import { browserSessionStorage, takeReturnPath } from '../../lib/returnPath';
 
     await completeLogin();
-    window.location.replace('/');
+    // The page "Log in" was pressed on (a path on this origin, else home).
+    window.location.replace(takeReturnPath(browserSessionStorage()));
   </script>
 </Base>

@@ -1,4 +1,4 @@
-import { errorMessage } from './errorMessage';
+import { showError } from './errorUi';
 // Notification composer, shared by tenant-scope and campaign-scope
 // sending (RFC 0017 (g)). The ADR 0074 picker is an *optional* recipient
 // resolver here - leaving it empty broadcasts to the scope's whole
@@ -95,7 +95,7 @@ export function renderNotificationComposer(
       form.reset();
       showBroadcastState();
     } catch (e) {
-      recipientStatus.textContent = errorMessage(e);
+      showError(recipientStatus, e);
     }
   });
 

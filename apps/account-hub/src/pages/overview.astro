@@ -17,7 +17,7 @@ import Base from '../layouts/Base.astro';
   <ul id="tenant-list"></ul>
 
   <script>
-    import { errorMessage } from '../lib/errorMessage';
+    import { showError } from '../lib/errorUi';
     import { campaignRoleFor, type CampaignRole } from '../lib/format';
     import { getMe } from '../lib/me';
     import { listMyTenants, listTenantCampaigns } from '../lib/tenants';
@@ -110,7 +110,7 @@ import Base from '../layouts/Base.astro';
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
-        loadError.textContent = errorMessage(e);
+        showError(loadError, e);
       }
     }
   </script>

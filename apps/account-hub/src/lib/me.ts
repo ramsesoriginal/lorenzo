@@ -7,3 +7,10 @@ import type { MeOut } from './types';
 export async function getMe(): Promise<MeOut> {
   return unwrap(await client.GET('/me'));
 }
+
+// DELETE /me (ADR 0036): removes the caller's own app_user row, and with it
+// every membership, player seat, GM grant and opt-out they hold. It leaves the
+// Authgear login alone.
+export async function deleteMyAccount(): Promise<void> {
+  await unwrap(await client.DELETE('/me'));
+}
