@@ -727,6 +727,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Attachments
+         * @description The parents this repository added to entities it holds copies of, which a
+         *     tenant that copies it takes along (ADR 0172, 0174): what its authors can't see
+         *     in its own rows, since a parent that arrived with a copy looks the same. Both
+         *     ends are the repository's own rows, named by their origin too. For any of its
+         *     members; `409` for a play tenant.
+         */
+        get: operations["list_attachments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}": {
         parameters: {
             query?: never;
@@ -5700,6 +5724,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[AttachmentRefOut] */
+        Page_AttachmentRefOut_: {
+            /** Items */
+            items: components["schemas"]["AttachmentRefOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[AuditLogEntryOut] */
         Page_AuditLogEntryOut_: {
             /** Items */
@@ -9409,6 +9446,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_SubscriberOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_attachments: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AttachmentRefOut_"];
                 };
             };
             /** @description Validation Error */

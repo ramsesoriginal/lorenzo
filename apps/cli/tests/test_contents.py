@@ -82,6 +82,7 @@ class Shelf:
         other_items: int = 0,
         subscribers: int = 0,
         built_on: list[dict[str, Any]] | None = None,
+        attachments: int = 0,
     ) -> None:
         group_id = uuid.UUID(int=100)
         self.tenant = tenant(REPO if kind == "repository" else PLAY, slug, kind, published)
@@ -95,6 +96,7 @@ class Shelf:
         self.items = len(self.nodes) + other_items
         self.subscribers = subscribers
         self.built_on = built_on or []
+        self.attachments = attachments
         self.group_id = group_id
         self.requests: list[httpx.Request] = []
 
@@ -143,6 +145,9 @@ class Shelf:
             return httpx.Response(200, json=found)
         if path == f"/tenants/{tid}/items":
             return httpx.Response(200, json=page([], total=self.items))
+        if path == f"/tenants/{tid}/attachments":
+            # Only the total is read (ADR 0174), as for the items.
+            return httpx.Response(200, json=page([], total=self.attachments))
         if path == f"/tenants/{tid}/subscribers":
             rows = [
                 {
@@ -303,12 +308,31 @@ def test_json_has_the_same_facts(tmp_path: Path) -> None:
     assert data["tenant"]["slug"] == "core" and data["tenant"]["kind"] == "repository"
     assert data["tenant"]["published_at"].startswith("2026-10-03")
     assert data["granted_to"] == 1 and data["built_on"] == []
-    assert data["holds"] == {"stat_groups": 6, "stat_definitions": 18, "items": 35}
+    assert data["holds"] == {
+        "stat_groups": 6,
+        "stat_definitions": 18,
+        "items": 35,
+        "attachments": 0,
+    }
     assert data["seed"]["version"] == SPEC.version
     assert data["seed"]["layers"]["core"]["holds"] == "complete"
     assert data["seed"]["layers"]["core"]["categories"] == {"present": 33, "in_seed": 33}
     assert data["seed"]["layers"]["dnd5e"]["holds"] == "not there"
     assert data["beyond_seed"] == {"stat_groups": 0, "stat_definitions": 0, "items": 2}
+
+
+def test_the_parents_a_repository_attaches_to_what_it_copied_are_counted(tmp_path: Path) -> None:
+    attaching = Shelf(slug="dnd5e-common-eq", layers=("core",), attachments=3)
+    plain_one = Shelf()
+
+    text = plain(contents(tmp_path, attaching).output)
+    data = json.loads(contents(tmp_path, attaching, "--json").output)
+
+    assert "Attaches 3 parent(s) to items it copied, which a tenant copying it takes along." in text
+    assert data["holds"]["attachments"] == 3
+    # A repository that attaches nothing reads as before, and says 0 to a script.
+    assert "Attaches" not in plain(contents(tmp_path, plain_one).output)
+    assert json.loads(contents(tmp_path, plain_one, "--json").output)["holds"]["attachments"] == 0
 
 
 def test_a_play_tenant_is_refused(tmp_path: Path) -> None:

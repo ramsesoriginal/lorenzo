@@ -133,6 +133,45 @@ def removed(n: int, name: str) -> dict[str, Any]:
     }
 
 
+def attachment(
+    n: int,
+    child: str,
+    parent: str,
+    *,
+    parent_source: uuid.UUID | None = None,
+    child_here: bool = True,
+    parent_here: bool = True,
+) -> dict[str, Any]:
+    """An attachment the repository has and the tenant took no record of (ADR 0172). An end that
+    isn't here has no local id, and the reason the API gives for it."""
+    reason = (
+        None
+        if child_here and parent_here
+        else "the item it attaches to isn't here"
+        if not child_here
+        else "the prototype it attaches isn't here"
+    )
+    return {
+        "child_source_id": str(uuid.UUID(int=600 + n)),
+        "child_local_id": str(uuid.UUID(int=800 + n)) if child_here else None,
+        "child_name": child,
+        "parent_source_id": str(parent_source or uuid.UUID(int=700 + n)),
+        "parent_local_id": str(uuid.UUID(int=900 + n)) if parent_here else None,
+        "parent_name": parent,
+        "applicable": reason is None,
+        "reason": reason,
+    }
+
+
+def attachment_ref(n: int, child: str, parent: str) -> dict[str, Any]:
+    """An attachment the tenant took, as the lists of gone and deleted ones show it."""
+    return {
+        key: value
+        for key, value in attachment(n, child, parent).items()
+        if key not in ("applicable", "reason")
+    }
+
+
 @dataclass
 class World:
     """The repository `sunken-vale`, the tenant `table-one` that draws on it, and what happens."""
@@ -158,6 +197,11 @@ class World:
     # Whether the caller owns `core`, and so can grant it and see who it is granted to.
     core_owned: bool = True
     log: list[httpx.Request] = field(default_factory=list)
+    # What a copy of the repository does with the parents it adds to items copied from elsewhere:
+    # how many edges it writes, what it leaves out, and what an update couldn't apply (ADR 0172).
+    step_attachments: int = 0
+    step_dropped: list[dict[str, Any]] = field(default_factory=list)
+    not_applied: list[dict[str, Any]] = field(default_factory=list)
 
     # -- the routes ------------------------------------------------------------------------------
 
@@ -331,7 +375,7 @@ class World:
             )
         copy_base = f"{target}/repositories/{REPO_ID}"
         if path == f"{copy_base}/copy-plan":
-            steps = [step(granted=self.granted, copied=self.copied)]
+            steps = [self._repository_step(granted=self.granted, copied=self.copied)]
             if self.bridge:
                 steps.insert(
                     0,
@@ -358,6 +402,7 @@ class World:
         if path == f"{copy_base}/updates" and method == "POST":
             body = json.loads(request.content)
             kinds = [a["action"] for a in body["actions"]]
+            attached = [a["action"] for a in body.get("attachments", [])]
             return httpx.Response(
                 200,
                 json={
@@ -365,12 +410,19 @@ class World:
                     "applied": kinds.count("apply"),
                     "added": kinds.count("add"),
                     "detached": kinds.count("detach"),
-                    "attachments_added": 0,
-                    "attachments_detached": 0,
-                    "not_applied": [],
+                    "attachments_added": attached.count("add"),
+                    "attachments_detached": attached.count("detach"),
+                    "not_applied": self.not_applied,
                 },
             )
         return problem(404, "not-found", f"No route {method} {path} in the test world.")
+
+    def _repository_step(self, *, granted: bool, copied: bool) -> dict[str, Any]:
+        return {
+            **step(granted=granted, copied=copied),
+            "attachments": self.step_attachments,
+            "dropped": self.step_dropped,
+        }
 
     def _copy(self, body: dict[str, Any]) -> httpx.Response:
         if self.copy_answer is not None:
@@ -416,7 +468,11 @@ class World:
             self.core_copied = self.core_copied or self.bridge
         return httpx.Response(
             200 if dry else 201,
-            json={"steps": [step()], "dry_run": dry, "previous": self.previous},
+            json={
+                "steps": [self._repository_step(granted=True, copied=False)],
+                "dry_run": dry,
+                "previous": self.previous,
+            },
         )
 
 

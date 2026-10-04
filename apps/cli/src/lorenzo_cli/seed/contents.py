@@ -19,7 +19,12 @@ from lorenzo_cli.client.models import (
     SubscriptionOut,
     TenantOut,
 )
-from lorenzo_cli.client.ops import LIST_ITEMS, LIST_STAT_DEFINITIONS, LIST_STAT_GROUPS
+from lorenzo_cli.client.ops import (
+    LIST_ATTACHMENTS,
+    LIST_ITEMS,
+    LIST_STAT_DEFINITIONS,
+    LIST_STAT_GROUPS,
+)
 from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.seed.plan import resolve_nodes
@@ -63,6 +68,8 @@ class Contents:
     stat_definitions: int
     # Every item, the categories the seed made included.
     items: int
+    # The parents it adds to items copied from elsewhere (ADR 0172, 0174).
+    attachments: int
     seed_version: str
     layers: list[LayerHolding]
     # What the seed doesn't name.
@@ -110,6 +117,8 @@ def read_contents(client: LorenzoClient, repository: TenantOut, spec: SeedSpec) 
     seed_items = sum("item" in {kind.value for kind in found.kinds} for found in nodes.values())
     # One request for the total, however many items there are.
     page: PageItemOut = client.call(LIST_ITEMS, path=path, query={"page": 1, "size": 1}).value
+    # One request for the total here too.
+    attached = client.call(LIST_ATTACHMENTS, path=path, query={"page": 1, "size": 1}).value
     subscribers = repos.list_subscribers(client, repository.id)
     built_on = [row for row in repos.list_repositories(client, repository.id) if row.copied_at]
     return Contents(
@@ -119,6 +128,7 @@ def read_contents(client: LorenzoClient, repository: TenantOut, spec: SeedSpec) 
         stat_groups=len(groups),
         stat_definitions=len(definitions),
         items=page.total,
+        attachments=attached.total,
         seed_version=spec.version,
         layers=holdings(spec, groups=groups, definitions=definitions, categories=nodes.keys()),
         other_stat_groups=len(groups - {g.name for g in spec.groups}),
