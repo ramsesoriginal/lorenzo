@@ -290,6 +290,15 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+def can_create_tenant(user: User) -> bool:
+    """Whether the caller's token carries the tenant-creator role: the one
+    check behind both POST /tenants' gate below and GET /me's
+    `capabilities.create_tenant` (ADR 0175), so what a client is told and
+    what the gate does cannot drift.
+    """
+    return get_settings().tenant_creator_role_key in user.authgear_roles
+
+
 async def require_tenant_creator_role(user: CurrentUser) -> None:
     """Gates POST /tenants (ADR 0033/RFC 0012) - a platform-level check,
     independent of any tenant, since none exists yet for a tenant-scoped
@@ -304,7 +313,7 @@ async def require_tenant_creator_role(user: CurrentUser) -> None:
     a specific, nameable platform privilege, same reasoning RFC 0005
     already established for "can read, can't write."
     """
-    if get_settings().tenant_creator_role_key not in user.authgear_roles:
+    if not can_create_tenant(user):
         raise TenantCreationForbiddenError(detail="Missing the platform's tenant-creator role")
 
 
