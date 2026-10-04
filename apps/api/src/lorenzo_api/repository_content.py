@@ -478,6 +478,24 @@ def attachments_of(content: Content) -> list[Attachment]:
     return sorted(found, key=lambda a: (str(a.child_source_id), str(a.parent_source_id)))
 
 
+async def load_attachment_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
+    """The part of a tenant's content `attachments_of` reads - entity names, prototype
+    edges and copy links - without the stats and payloads `load_content` would bring."""
+    c = Content(tenant_id=tenant_id)
+    for entity_id, name in await session.execute(
+        select(Entity.id, Entity.name).where(Entity.tenant_id == tenant_id)
+    ):
+        c.entities[entity_id] = name
+    for entity_id, prototype_id in await session.execute(
+        select(EntityPrototype.entity_id, EntityPrototype.prototype_id).where(
+            EntityPrototype.tenant_id == tenant_id
+        )
+    ):
+        c.prototypes.append((entity_id, prototype_id))
+    c.links = await load_links(session, tenant_id)
+    return c
+
+
 # --- Snapshots ---------------------------------------------------------------
 
 # Maps one of a tenant's ids to how a snapshot names it: its origin id, or
