@@ -22,6 +22,8 @@ from lorenzo_cli.client.models import (
     AddedOut,
     ApplyUpdatesOut,
     ApplyUpdatesRequest,
+    AttachmentActionIn,
+    AttachmentAddedOut,
     CollisionOut,
     CopyOut,
     CopyPlanOut,
@@ -276,10 +278,25 @@ class CleanUpdates:
     conflicts: list[RowChangeOut] = field(default_factory=list)
     collisions: list[AddedOut] = field(default_factory=list)
     removed: int = 0
+    # The parents the repository added to its copies (ADR 0172, 0174): the ones to add, the ones
+    # that can't be taken yet, and how many are gone upstream.
+    attachments: list[AttachmentActionIn] = field(default_factory=list)
+    attachments_waiting: list[AttachmentAddedOut] = field(default_factory=list)
+    attachments_removed: int = 0
 
     @property
     def left(self) -> bool:
-        return bool(self.conflicts or self.collisions or self.removed)
+        return bool(
+            self.conflicts
+            or self.collisions
+            or self.removed
+            or self.attachments_waiting
+            or self.attachments_removed
+        )
+
+    @property
+    def takes(self) -> int:
+        return len(self.actions) + len(self.attachments)
 
 
 def clean_updates(updates: UpdatesOut) -> CleanUpdates:
@@ -288,36 +305,91 @@ def clean_updates(updates: UpdatesOut) -> CleanUpdates:
     A changed row with only clean fields is applied; one with a conflict is left, since the
     tenant's own edit is never overwritten without being named. An added row with no collision is
     copied. A row gone upstream is left: detaching it is a decision about a row that may be in
-    play.
+    play. An added attachment is taken when both its ends are here or are rows this call adds
+    (ADR 0174); a removed one is left, for the reason a removed row is.
     """
-    chosen = CleanUpdates(removed=len(updates.removed))
+    chosen = CleanUpdates(
+        removed=len(updates.removed), attachments_removed=len(updates.attachments_removed)
+    )
     for row in updates.changed:
         states = {f.state.value for f in row.fields}
         if "conflict" in states:
             chosen.conflicts.append(row)
         elif "clean" in states:
             chosen.actions.append(_action(row.kind.value, row.source_id, "apply"))
+    arriving: set[UUID] = set()
     for added in updates.added:
         if added.collision is not None:
             chosen.collisions.append(added)
         else:
             chosen.actions.append(_action(added.kind.value, added.source_id, "add"))
+            if added.kind.value == "entity":
+                arriving.add(added.source_id)
+    for attachment in updates.attachments_added:
+        if attachment.applicable or _ends_arrive(attachment, arriving):
+            chosen.attachments.append(_attachment_action(attachment, "add"))
+        else:
+            chosen.attachments_waiting.append(attachment)
     return chosen
+
+
+def _ends_arrive(attachment: AttachmentAddedOut, arriving: set[UUID]) -> bool:
+    """Whether the end an attachment lacks is a row this same call adds, so that taking the row
+    and not the attachment would leave one more round to run (ADR 0174)."""
+    missing = [
+        source
+        for source, local in (
+            (attachment.child_source_id, attachment.child_local_id),
+            (attachment.parent_source_id, attachment.parent_local_id),
+        )
+        if local is None
+    ]
+    return bool(missing) and all(source in arriving for source in missing)
+
+
+def _attachment_action(attachment: AttachmentAddedOut, action: str) -> AttachmentActionIn:
+    return AttachmentActionIn.model_validate(
+        {
+            "child_source_id": attachment.child_source_id,
+            "parent_source_id": attachment.parent_source_id,
+            "action": action,
+        }
+    )
 
 
 def _action(kind: str, source_id: UUID, action: str) -> UpdateActionIn:
     return UpdateActionIn.model_validate({"kind": kind, "source_id": source_id, "action": action})
 
 
-def read_actions(path: Path) -> list[UpdateActionIn]:
-    """A file of the API's own actions, as a list or under `actions`."""
+@dataclass
+class Decisions:
+    """What a file given to `repo updates --actions` decides: row actions, and attachments."""
+
+    actions: list[UpdateActionIn] = field(default_factory=list)
+    attachments: list[AttachmentActionIn] = field(default_factory=list)
+
+    @property
+    def count(self) -> int:
+        return len(self.actions) + len(self.attachments)
+
+
+def read_decisions(path: Path) -> Decisions:
+    """A file of the API's own actions: a list of them, or `{"actions": [...], "attachments":
+    [...]}` (ADR 0174)."""
     data = read_json_file(path, "a list of actions")
+    attachments: Any = []
     if isinstance(data, dict):
+        attachments = data.get("attachments") or []
         data = data.get("actions")
-    if not isinstance(data, list):
-        raise RepoError(f'{path} should hold a list of actions, or {{"actions": [...]}}.')
+    if not isinstance(data, list) or not isinstance(attachments, list):
+        raise RepoError(
+            f'{path} should hold a list of actions, or {{"actions": [...], "attachments": [...]}}.'
+        )
     try:
-        return [UpdateActionIn.model_validate(entry) for entry in data]
+        return Decisions(
+            [UpdateActionIn.model_validate(entry) for entry in data],
+            [AttachmentActionIn.model_validate(entry) for entry in attachments],
+        )
     except ValidationError as exc:
         raise RepoError(f"An action in {path} isn't right: {_first_problem(exc)}") from exc
 
@@ -329,10 +401,13 @@ def apply_updates(
     actions: Sequence[UpdateActionIn],
     *,
     dry_run: bool,
+    attachments: Sequence[AttachmentActionIn] = (),
 ) -> ApplyUpdatesOut:
     request: dict[str, Any] = {
         "actions": [a.model_dump(mode="json", exclude_none=True) for a in actions]
     }
+    if attachments:
+        request["attachments"] = [a.model_dump(mode="json") for a in attachments]
     if dry_run:
         request["dry_run"] = True
     body = ApplyUpdatesRequest.model_validate(request)
@@ -345,7 +420,13 @@ def apply_updates(
 
 def updates_waiting(updates: UpdatesOut) -> bool:
     """Whether there is anything to take, leave or detach (what was deleted here is not)."""
-    return bool(updates.changed or updates.added or updates.removed)
+    return bool(
+        updates.changed
+        or updates.added
+        or updates.removed
+        or updates.attachments_added
+        or updates.attachments_removed
+    )
 
 
 # --- the plan's verdict ------------------------------------------------------------------------
@@ -545,14 +626,31 @@ def perform_offer(
     ).value
     chosen = clean_updates(updates)
     if not apply_clean_updates:
-        result.updates_waiting = len(updates.changed) + len(updates.added) + len(updates.removed)
+        result.updates_waiting = (
+            len(updates.changed)
+            + len(updates.added)
+            + len(updates.removed)
+            + len(updates.attachments_added)
+            + len(updates.attachments_removed)
+        )
         return result
-    if chosen.actions:
+    if chosen.takes:
         result.updates_applied = apply_updates(
-            client, subscriber_id, repository_id, chosen.actions, dry_run=False
+            client,
+            subscriber_id,
+            repository_id,
+            chosen.actions,
+            dry_run=False,
+            attachments=chosen.attachments,
         )
     # What is left is what needed a decision, whether or not anything was taken.
-    result.updates_waiting = len(chosen.conflicts) + len(chosen.collisions) + chosen.removed
+    result.updates_waiting = (
+        len(chosen.conflicts)
+        + len(chosen.collisions)
+        + chosen.removed
+        + len(chosen.attachments_waiting)
+        + chosen.attachments_removed
+    )
     return result
 
 

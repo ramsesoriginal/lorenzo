@@ -628,6 +628,14 @@ class PageAdminUserOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageAttachmentRefOut(BaseModel):
+    items: list[AttachmentRefOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageAuditLogEntryOut(BaseModel):
     items: list[AuditLogEntryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")

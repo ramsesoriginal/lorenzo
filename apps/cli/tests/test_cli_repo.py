@@ -20,6 +20,8 @@ from repo_world import (
     TARGET_ID,
     World,
     added,
+    attachment,
+    attachment_ref,
     collision,
     field_change,
     problem,
@@ -779,3 +781,253 @@ def test_every_request_carries_the_token(tmp_path: Path) -> None:
 def test_the_stranger_tenant_does_not_exist_in_the_world() -> None:
     assert STRANGER_ID != TARGET_ID != REPO_ID
     assert DEFINITION_ID not in (GROUP_ID, SLUG_ID)
+
+
+# --- attachments (ADR 0172, 0174) ----------------------------------------------------
+
+
+def test_a_plan_counts_a_steps_attachments_and_lists_the_ones_it_leaves_out(
+    tmp_path: Path,
+) -> None:
+    world = World(granted=True)
+    world.step_attachments = 3
+    world.step_dropped = [
+        {
+            "kind": "attachment",
+            "source_id": str(uuid.UUID(int=600)),
+            "reason": "the item it attaches to isn't here",
+        }
+    ]
+    result = run(tmp_path, world, "copy-plan", "sunken-vale", "-t", "table-one")
+
+    text = said(result)
+    assert "7 pieces of information, 3 attachments (granted, published)." in text
+    assert f"leaves out attachment {uuid.UUID(int=600)}: the item it attaches to isn't here" in text
+
+
+def test_a_step_with_one_attachment_says_so_and_one_with_none_says_nothing(
+    tmp_path: Path,
+) -> None:
+    one = World(granted=True)
+    one.step_attachments = 1
+    none = World(granted=True)
+
+    assert "7 pieces of information, 1 attachment (" in said(
+        run(tmp_path, one, "copy-plan", "sunken-vale", "-t", "table-one")
+    )
+    assert "attachment" not in said(
+        run(tmp_path, none, "copy-plan", "sunken-vale", "-t", "table-one")
+    )
+
+
+def test_a_copy_says_how_many_attachments_it_wrote_and_what_it_left_out(tmp_path: Path) -> None:
+    world = World(granted=True)
+    world.step_attachments = 2
+    world.step_dropped = [
+        {
+            "kind": "attachment",
+            "source_id": str(uuid.UUID(int=601)),
+            "reason": "it would make a prototype loop here",
+        }
+    ]
+    result = run(tmp_path, world, "copy", "sunken-vale", "-t", "table-one", "--yes")
+
+    assert result.exit_code == 0, result.output
+    text = said(result)
+    assert (
+        "Copied Sunken Vale: 12 entities" in text
+        and "7 pieces of information, 2 attachments." in text
+    )
+    assert f"left out attachment {uuid.UUID(int=601)}: it would make a prototype loop here" in text
+
+
+def test_updates_lists_the_attachments_added_gone_and_removed_here(tmp_path: Path) -> None:
+    world = world_with(
+        {
+            "attachments_added": [
+                attachment(1, "Weapon", "Economic Object"),
+                attachment(2, "Longsword", "Longsword 5e", parent_here=False),
+            ],
+            "attachments_removed": [attachment_ref(3, "Dagger", "Dagger 5e")],
+            "attachments_deleted_locally": [attachment_ref(4, "Axe", "Axe 5e")],
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
+
+    assert result.exit_code == 2
+    text = said(result)
+    assert "added attachment “Economic Object” on “Weapon”" in text
+    assert (
+        "added attachment “Longsword 5e” on “Longsword”, but it waits: "
+        "the prototype it attaches isn't here" in text
+    )
+    assert "gone upstream: attachment “Dagger 5e” on “Dagger”" in text
+    assert "1 attachment(s) you removed here (nothing to do)." in text
+    assert world.writes() == []
+
+
+def test_only_attachments_deleted_here_is_nothing_new(tmp_path: Path) -> None:
+    world = world_with({"attachments_deleted_locally": [attachment_ref(4, "Axe", "Axe 5e")]})
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
+
+    assert result.exit_code == 0
+    assert "nothing new" in said(result)
+    assert "1 attachment(s) you removed here" in said(result)
+
+
+def test_an_attachment_alone_is_something_to_take(tmp_path: Path) -> None:
+    world = world_with({"attachments_added": [attachment(1, "Weapon", "Economic Object")]})
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--json")
+
+    assert result.exit_code == 2
+    assert json.loads(result.stdout)["attachments_added"][0]["parent_name"] == "Economic Object"
+
+
+def test_apply_takes_the_attachments_that_can_be_applied_and_those_whose_row_comes_with_it(
+    tmp_path: Path,
+) -> None:
+    world = world_with(
+        {
+            "added": [added(1, "Greatsword 5e")],
+            "attachments_added": [
+                attachment(1, "Weapon", "Economic Object"),
+                # Its parent is the entity this same call adds.
+                attachment(
+                    2,
+                    "Longsword",
+                    "Greatsword 5e",
+                    parent_source=uuid.UUID(int=301),
+                    parent_here=False,
+                ),
+                # Its end is neither here nor coming.
+                attachment(3, "Dagger", "Dagger 5e", parent_here=False),
+            ],
+            "attachments_removed": [attachment_ref(4, "Axe", "Axe 5e")],
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
+
+    (sent,) = world.bodies("POST", "/updates")
+    assert [a["action"] for a in sent["actions"]] == ["add"]
+    assert sent["attachments"] == [
+        {
+            "child_source_id": str(uuid.UUID(int=601)),
+            "parent_source_id": str(uuid.UUID(int=701)),
+            "action": "add",
+        },
+        {
+            "child_source_id": str(uuid.UUID(int=602)),
+            "parent_source_id": str(uuid.UUID(int=301)),
+            "action": "add",
+        },
+    ]
+    assert result.exit_code == 2  # one waits and one is gone upstream
+    text = said(result)
+    assert "Took 0 changed, 1 added, 0 detached." in text
+    assert "Attachments: 2 added, 0 detached." in text
+    assert "attachment “Dagger 5e” on “Dagger” waits: the prototype it attaches isn't here" in text
+    assert "1 attachment(s) gone upstream (detach is a decision)" in text
+
+
+def test_apply_with_only_attachments_to_take_exits_zero_and_asks_once(tmp_path: Path) -> None:
+    world = world_with({"attachments_added": [attachment(1, "Weapon", "Economic Object")]})
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
+
+    assert result.exit_code == 0, result.output
+    assert [a["action"] for a in world.bodies("POST", "/updates")[0]["attachments"]] == ["add"]
+    assert world.bodies("POST", "/updates")[0]["actions"] == []
+
+
+def test_apply_json_says_what_it_left_among_the_attachments(tmp_path: Path) -> None:
+    world = world_with(
+        {
+            "attachments_added": [attachment(3, "Dagger", "Dagger 5e", parent_here=False)],
+            "attachments_removed": [attachment_ref(4, "Axe", "Axe 5e")],
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--json")
+
+    assert result.exit_code == 2
+    left = json.loads(result.stdout)["left"]
+    assert left["attachments_waiting"] == [
+        {
+            "child_source_id": str(uuid.UUID(int=603)),
+            "parent_source_id": str(uuid.UUID(int=703)),
+            "reason": "the prototype it attaches isn't here",
+        }
+    ]
+    assert left["attachments_removed"] == 1
+
+
+def test_a_file_can_name_attachments_to_add_and_to_detach(tmp_path: Path) -> None:
+    world = world_with({})
+    decisions = tmp_path / "decisions.json"
+    decisions.write_text(
+        json.dumps(
+            {
+                "actions": [],
+                "attachments": [
+                    {
+                        "child_source_id": str(uuid.UUID(int=604)),
+                        "parent_source_id": str(uuid.UUID(int=704)),
+                        "action": "detach",
+                    }
+                ],
+            }
+        )
+    )
+    result = run(
+        tmp_path,
+        world,
+        "updates",
+        "sunken-vale",
+        "-t",
+        "table-one",
+        "--actions",
+        str(decisions),
+        "--yes",
+    )
+
+    assert result.exit_code == 0, result.output
+    (sent,) = world.bodies("POST", "/updates")
+    assert sent["attachments"][0]["action"] == "detach"
+    assert "Attachments: 0 added, 1 detached." in said(result)
+
+
+def test_a_file_whose_attachments_are_not_a_list_is_refused(tmp_path: Path) -> None:
+    decisions = tmp_path / "decisions.json"
+    decisions.write_text(json.dumps({"actions": [], "attachments": "all of them"}))
+    result = run(
+        tmp_path,
+        world_with({}),
+        "updates",
+        "sunken-vale",
+        "-t",
+        "table-one",
+        "--actions",
+        str(decisions),
+        "--yes",
+    )
+
+    assert result.exit_code == 1
+    assert '"attachments": [...]' in said(result)
+
+
+def test_an_attachment_that_could_not_be_applied_is_said_and_stays_on_offer(
+    tmp_path: Path,
+) -> None:
+    world = world_with({"attachments_added": [attachment(1, "Weapon", "Economic Object")]})
+    world.not_applied = [
+        {
+            "kind": "attachment",
+            "source_id": str(uuid.UUID(int=601)),
+            "field": "prototypes",
+            "reason": "it would make a prototype loop here",
+        }
+    ]
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
+
+    assert (
+        f"Couldn't apply an attachment on {uuid.UUID(int=601)}: "
+        "it would make a prototype loop here. It stays on offer." in said(result)
+    )
