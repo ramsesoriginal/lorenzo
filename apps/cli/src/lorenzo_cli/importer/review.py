@@ -52,6 +52,7 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
             "counts": {
                 "create": plan.count("create"),
                 "complete": plan.count("complete"),
+                "retitle": plan.count("retitle"),
                 "exists": plan.count("exists"),
                 "held": plan.count("held"),
                 "moved": plan.count("moved"),
@@ -124,6 +125,7 @@ def apply_json(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -
         else {
             "created": report.created,
             "completed": report.completed,
+            "retitled": report.retitled,
             "reparented": report.reparented,
             "categories": report.categories,
             "definitions": report.definitions,
