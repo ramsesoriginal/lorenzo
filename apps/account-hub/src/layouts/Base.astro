@@ -33,6 +33,7 @@ const brandStylesheets = [
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{title}</title>
+    <slot name="head" />
     {brandStylesheets.map((file) => (
       <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${file}`} />
     ))}

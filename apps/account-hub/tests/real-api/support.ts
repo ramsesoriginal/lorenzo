@@ -14,8 +14,12 @@ export async function signIn(page: Page, context: BrowserContext, subject: strin
  * A new browser context signed in as `subject`, answering every window.confirm with "OK" and
  * keeping what each one asked.
  */
-export async function signedInPage(browser: Browser, subject: string) {
-  const context = await browser.newContext();
+export async function signedInPage(
+  browser: Browser,
+  subject: string,
+  options: Parameters<Browser['newContext']>[0] = {},
+) {
+  const context = await browser.newContext(options);
   const page = await context.newPage();
   const confirmations: string[] = [];
   page.on('dialog', (dialog) => {

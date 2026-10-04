@@ -30,6 +30,7 @@ import Base from '../layouts/Base.astro';
     import { renderLeaveLibrary, renderStepDownAsGm } from '../lib/exitsUi';
     import { renderGmManagement, renderInvitePlayer } from '../lib/gmAndPlayerUi';
     import { getMe } from '../lib/me';
+    import { renderInviteLinks } from '../lib/inviteLinksUi';
     import { renderMembershipAdmin } from '../lib/membershipAdminUi';
     import { renderNotificationComposer } from '../lib/notificationComposerUi';
     import { renderPictureUpload } from '../lib/pictureUi';
@@ -190,6 +191,7 @@ import Base from '../layouts/Base.astro';
           ),
         );
         item.append(renderInvitePlayer(tenant, campaign));
+        item.append(renderInviteLinks(tenant, campaign));
         item.append(
           renderNotificationComposer((body) =>
             createCampaignNotification(tenant.id, campaign.id, body),
