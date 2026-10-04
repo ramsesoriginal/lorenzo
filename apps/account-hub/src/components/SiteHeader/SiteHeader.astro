@@ -1,0 +1,88 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<header class="site-header" data-site-header>
+  <div class="row">
+    <a class="brand display" href="/" aria-label="Lorenzo">
+      <img
+        class="brand-mark brand-mark--light"
+        src="/brand/lorenzo_horizontal_lockup_light_bg.svg"
+        alt="Lorenzo"
+      />
+      <img
+        class="brand-mark brand-mark--dark"
+        src="/brand/lorenzo_horizontal_lockup_dark_bg.svg"
+        alt="Lorenzo"
+      />
+    </a>
+    <nav class="row" aria-label="Subpages">
+      <a href="/" data-path="/">
+        Home
+      </a>
+      <a href="/profile/" data-path="/profile/" data-requires="signed-in" hidden>
+        Profile
+      </a>
+      <a href="/tenants/" data-path="/tenants/" data-requires="signed-in" hidden>
+        Libraries
+      </a>
+      <a href="/campaigns/" data-path="/campaigns/" data-requires="signed-in" hidden>
+        Campaigns
+      </a>
+      <a href="/setup/" data-path="/setup/" data-requires="create-tenant" hidden>
+        Set Up a table
+      </a>
+      <a href="/beings/" data-path="/beings/" data-requires="beings" hidden>
+        Beings
+      </a>
+      <a href="/notifications/" data-path="/notifications/" data-requires="signed-in" class="row-tight"hidden>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-notifications`}></use>
+        </svg>
+        Notifications
+        <span class="canonical-marker" data-unread hidden></span>
+      </a>
+    </nav>
+  </div>
+
+  <div class="row">
+    <div class="row-tight">
+      <span data-account-loading>Checking your session&hellip;</span>
+      <span class="error-text" data-account-error hidden></span>
+      <div class="row" data-account-signed-out hidden>
+        <button type="button" class="btn row-tight" data-login>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-login`}></use>
+          </svg>
+          Log in
+        </button>
+      </div>
+      <div class="row" data-account-signed-in hidden>
+        <span>
+          Signed in as <strong data-account-email></strong>.
+        </span>
+        <button type="button" class="btn btn-secondary row-tight" data-logout>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-logout`}></use>
+          </svg>
+          Log out
+        </button>
+        <a href="/debug/me">
+          Debug: <code>GET /me</code>
+        </a>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-secondary" aria-pressed="false" data-theme-toggle>
+      ☾ dark
+    </button>
+  </div>
+</header>
+
+<script>
+  import { renderSiteHeader } from './renderer';
+
+  const header = document.querySelector<HTMLElement>('[data-site-header]');
+
+  if (header) await renderSiteHeader(header);
+</script>

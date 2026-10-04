@@ -26,12 +26,22 @@ export async function getUnreadCount(): Promise<number> {
   return page.total;
 }
 
+// Dispatched on `window` when the unread count has changed under the page, so the header's
+// count can ask again at once instead of at its next poll.
+export const NOTIFICATIONS_CHANGED_EVENT = 'lorenzo:notifications-changed';
+
 export async function markNotificationRead(id: string): Promise<Notification> {
-  return unwrap(
+  const notification = await unwrap(
     await client.POST('/me/notifications/{notification_id}/read', {
       params: { path: { notification_id: id } },
     }),
   );
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+  }
+
+  return notification;
 }
 
 // RFC 0017 (h) - the sender's side of read receipts (ADR 0061). Optional

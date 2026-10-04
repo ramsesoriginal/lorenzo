@@ -14,4 +14,10 @@ export default defineConfig({
   // Fixed, non-default port: apps/inventory-web already owns Astro's
   // default 4321, and both apps need to run concurrently in local dev.
   server: { port: 4322 },
+  vite: {
+    server: {
+      // WSL2 on a /mnt/ drive doesn't deliver file-change events - poll instead.
+      watch: process.cwd().startsWith('/mnt/') ? { usePolling: true, interval: 300 } : undefined,
+    },
+  },
 });
