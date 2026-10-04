@@ -62,7 +62,7 @@ Adds the attachments the repository holds, from the route above: "Attaches N par
 
 - Unit tests of each command's output and of the choice of what `--apply` takes, over the same mock transport as the others, including an attachment whose end is added in the same call and one whose end is not coming.
 - An end-to-end test against the real API on the stack of RFC 0033: `copy-plan`, `copy`, `updates` and `updates --apply` with attachments, a detach through `--actions`, and `repo contents` of the bridge.
-- At the API, with Postgres: the route lists a bridge's three attachments, refuses a play tenant, is isolated between tenants, and counts what `purge` removed and what an edge the tenant deleted no longer shows.
+- At the API, with Postgres: the route lists a bridge's three attachments with both ends' names and ids, lists none for what arrived with a copy, drops one whose edge the author removed, and refuses a play tenant and anyone who isn't a member.
 
 ## Not in this ADR
 
