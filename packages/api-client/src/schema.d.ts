@@ -5408,13 +5408,25 @@ export interface components {
             campaigns: components["schemas"]["ManagedCampaignOut"][];
         };
         /**
+         * MeCapabilitiesOut
+         * @description What the caller may do on the platform, as opposed to inside one
+         *     tenant (ADR 0175). An object so a later capability is one more key; a
+         *     client treats a missing key as false. A convenience for rendering, not
+         *     authorization - the route that does the thing still answers `403`.
+         */
+        MeCapabilitiesOut: {
+            /** Create Tenant */
+            create_tenant: boolean;
+        };
+        /**
          * MeOut
          * @description The caller's own identity, tenant-wide memberships, campaign
          *     memberships, and GM grants - see ADR 0023/0031. `players`/
          *     `campaign_gm_grants` (ADR 0031/RFC 0004) are the concrete answer to
          *     "user -> owner|orga|member of tenant -> [player(campaign) ->
          *     character | GM(campaign)]" for the caller's own identity - the single
-         *     place a client reads "everything I am, everywhere."
+         *     place a client reads "everything I am, everywhere." `capabilities`
+         *     (ADR 0175) is the one platform-wide part: what the caller may create.
          */
         MeOut: {
             /**
@@ -5446,6 +5458,7 @@ export interface components {
             players: components["schemas"]["PlayerContextOut"][];
             /** Campaign Gm Grants */
             campaign_gm_grants: components["schemas"]["CampaignSummaryOut"][];
+            capabilities: components["schemas"]["MeCapabilitiesOut"];
         };
         /**
          * MembershipCreate

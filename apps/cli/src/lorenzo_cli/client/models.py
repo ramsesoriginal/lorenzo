@@ -560,6 +560,10 @@ class Role(StrEnum):
     orga = "orga"
 
 
+class MeCapabilitiesOut(BaseModel):
+    create_tenant: bool = Field(..., title="Create Tenant")
+
+
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     role: Role = Field(..., title="Role")
@@ -1333,6 +1337,7 @@ class MeOut(BaseModel):
     memberships: list[MembershipOut] = Field(..., title="Memberships")
     players: list[PlayerContextOut] = Field(..., title="Players")
     campaign_gm_grants: list[CampaignSummaryOut] = Field(..., title="Campaign Gm Grants")
+    capabilities: MeCapabilitiesOut
 
 
 class OwnedGroupOut(BaseModel):
