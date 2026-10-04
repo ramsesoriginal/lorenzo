@@ -49,3 +49,16 @@
   padding-top: var(--space-4);
   border-top: 1px solid var(--danger);
 }
+
+/* A freshly made invite link, shown once (ADR 0171): set apart from the list
+   below it, since it is the only chance to copy it. */
+.invite-link-once {
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+.invite-link-input {
+  width: min(100%, 36rem);
+  font-family: var(--font-mono);
+}

@@ -2,7 +2,7 @@
 
 [ADR 0092](../adr/0092-campaign-invite-links.md) adds two routes that anyone on the internet can call: `GET /invites/{token}` (a public preview) and `POST /invites/{token}/redeem`. This project has no rate limiter of its own to lean on ([ADR 0008](../adr/0008-deferred-taskiq-and-fastapi-limiter.md) deferred one because it needs Redis), so the protection is two layers, and **only one of them is real**.
 
-> **The invite-link feature must not be exposed publicly until the edge rule below is in place.** The in-process backstop alone is not enough: every Cloud Run instance keeps its own buckets, so it only limits each instance separately, and a determined caller simply gets spread across instances.
+> **Status (2026-10-04): the edge rule is deferred until the project goes live.** It needs a domain of the project's own to proxy through Cloudflare, or a load balancer in front of Cloud Run for Cloud Armor, and both are a purchase; the project is pre-production and being tested. Until then the invite-link feature runs on the in-process backstop alone, which is accepted for testing. **The rule must be in place before the API gets a public production address.** The backstop alone is not enough for that: every Cloud Run instance keeps its own buckets, so it only limits each instance separately, and a determined caller simply gets spread across instances. See the addendum to [ADR 0171](../adr/0171-account-hub-campaign-invite-links.md#addendum-2026-10-04-the-edge-rule-is-deferred-to-go-live).
 
 ## The two layers
 
@@ -13,7 +13,7 @@
 
 Tokens themselves are 256 random bits, so guessing one is infeasible whatever the limits are; the limits exist for flooding and for spotting probes, not for making guessing hard.
 
-## 1. The edge rule (do this before exposing the feature)
+## 1. The edge rule (do this before going live)
 
 Pick whichever fits how the API is actually reached. **I have not been able to run either of these against a real account**, so treat the exact flags and field names as a starting point to check against the current vendor documentation, and verify the result with the test at the end.
 
