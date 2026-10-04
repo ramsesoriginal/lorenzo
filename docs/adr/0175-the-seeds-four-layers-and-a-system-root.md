@@ -56,7 +56,7 @@ The seed file is checked when it is loaded, so a mistake is a test failure and n
 
 - A definition's group, a category's parents and tags, a recipe's node and definitions, and an attachment's two categories are in the entry's own layer or one it is built on, never in a sibling's. An entry of `dnd5e` can't name one of `dnd5e-equipment`, nor one of `equipment`.
 - Slugs follow their layer's prefix, and a stat value's name is a definition of its layer or one below, of the type its value has.
-- File order is still a valid creation order: layers in dependency order (`core`, `equipment`, `dnd5e`, `dnd5e-equipment`), and within a layer a parent before its children.
+- File order is still a valid creation order: the categories are listed in layer dependency order (`core`, `equipment`, `dnd5e`, `dnd5e-equipment`), and within a layer a parent before its children. Groups and definitions are made all together before any category, so their order doesn't matter.
 
 ### The commands
 
