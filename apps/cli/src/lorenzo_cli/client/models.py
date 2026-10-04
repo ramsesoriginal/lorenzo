@@ -458,46 +458,9 @@ class InformationUpdate(BaseModel):
     order: int | None = Field(None, title="Order")
 
 
-class InviteCreate(BaseModel):
-    expires_at: AwareDatetime = Field(..., title="Expires At")
-    max_uses: conint(ge=1) | None = Field(None, title="Max Uses")
-
-
-class InviteCreatedOut(BaseModel):
-    id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    created_by: UUID | None = Field(..., title="Created By")
-    created_at: AwareDatetime = Field(..., title="Created At")
-    expires_at: AwareDatetime = Field(..., title="Expires At")
-    max_uses: int | None = Field(..., title="Max Uses")
-    use_count: int = Field(..., title="Use Count")
-    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
-    is_active: bool = Field(..., title="Is Active")
-    token: str = Field(..., title="Token")
-
-
-class InviteOut(BaseModel):
-    id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    created_by: UUID | None = Field(..., title="Created By")
-    created_at: AwareDatetime = Field(..., title="Created At")
-    expires_at: AwareDatetime = Field(..., title="Expires At")
-    max_uses: int | None = Field(..., title="Max Uses")
-    use_count: int = Field(..., title="Use Count")
-    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
-    is_active: bool = Field(..., title="Is Active")
-
-
-class InvitePreviewOut(BaseModel):
-    campaign_name: str = Field(..., title="Campaign Name")
-    picture_url: str | None = Field(..., title="Picture Url")
-
-
-class InviteRedeemOut(BaseModel):
-    tenant_id: UUID = Field(..., title="Tenant Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    player_id: UUID = Field(..., title="Player Id")
-    already_joined: bool = Field(..., title="Already Joined")
+class InviteRole(StrEnum):
+    player = "player"
+    gm = "gm"
 
 
 class ItemCreate(BaseModel):
@@ -698,14 +661,6 @@ class PageEntityChangeOut(BaseModel):
 
 class PageEntitySummary(BaseModel):
     items: list[EntitySummary] = Field(..., title="Items")
-    total: conint(ge=0) = Field(..., title="Total")
-    page: conint(ge=1) = Field(..., title="Page")
-    size: conint(ge=1) = Field(..., title="Size")
-    pages: conint(ge=0) = Field(..., title="Pages")
-
-
-class PageInviteOut(BaseModel):
-    items: list[InviteOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -1251,6 +1206,53 @@ class InformationOut(BaseModel):
     payloads: list[Payloads] = Field(..., title="Payloads")
 
 
+class InviteCreate(BaseModel):
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+    max_uses: conint(ge=1) | None = Field(None, title="Max Uses")
+    role: InviteRole | None = "player"
+
+
+class InviteCreatedOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    role: InviteRole
+    created_by: UUID | None = Field(..., title="Created By")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+    max_uses: int | None = Field(..., title="Max Uses")
+    use_count: int = Field(..., title="Use Count")
+    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
+    is_active: bool = Field(..., title="Is Active")
+    token: str = Field(..., title="Token")
+
+
+class InviteOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    role: InviteRole
+    created_by: UUID | None = Field(..., title="Created By")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+    max_uses: int | None = Field(..., title="Max Uses")
+    use_count: int = Field(..., title="Use Count")
+    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
+    is_active: bool = Field(..., title="Is Active")
+
+
+class InvitePreviewOut(BaseModel):
+    campaign_name: str = Field(..., title="Campaign Name")
+    picture_url: str | None = Field(..., title="Picture Url")
+    role: InviteRole
+
+
+class InviteRedeemOut(BaseModel):
+    tenant_id: UUID = Field(..., title="Tenant Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    role: InviteRole
+    player_id: UUID | None = Field(..., title="Player Id")
+    already_joined: bool = Field(..., title="Already Joined")
+
+
 class ItemInstanceOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     title: str = Field(..., title="Title")
@@ -1385,6 +1387,14 @@ class PageAnnotatedUnionMembershipRosterEntryOutPlayerRosterEntryOutGmRosterEntr
 
 class PageInformationOut(BaseModel):
     items: list[InformationOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageInviteOut(BaseModel):
+    items: list[InviteOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")

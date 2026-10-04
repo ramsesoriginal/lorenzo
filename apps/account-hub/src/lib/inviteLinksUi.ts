@@ -177,6 +177,9 @@ export function renderInviteLinks(
     try {
       const invite = await createInvite(tenant.id, campaign.id, {
         expires_at: expiresAtFor(expiry.value as ExpiryPresetId, new Date()),
+        // The generated type wants a role whatever the server's default (ADR 0177);
+        // this panel makes the player links of ADR 0171.
+        role: 'player',
         ...(parsed.maxUses === null ? {} : { max_uses: parsed.maxUses }),
       });
       formStatus.textContent = '';
