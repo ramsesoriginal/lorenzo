@@ -1,4 +1,4 @@
-"""What a repository tenant holds, and how much of each seed layer it has (ADR 0169, 0175).
+"""What a repository tenant holds, and how much of each seed layer it has (ADR 0169, 0181).
 
 The seed layers are found the way `seed` and `unseed` find them, by slug and name, so what this
 reports agrees with what `seed --dry-run` would do. Only what the seed names is matched; the rest
@@ -50,7 +50,7 @@ class LayerHolding:
     groups: Part
     definitions: Part
     categories: Part
-    # The parents the seed adds to categories of other layers (ADR 0175), counted by looking at
+    # The parents the seed adds to categories of other layers (ADR 0181), counted by looking at
     # the child's parents: an ordinary edge counts as much as an attachment does.
     attachments: Part
 

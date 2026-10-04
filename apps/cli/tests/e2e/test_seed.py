@@ -1,4 +1,4 @@
-"""`lorenzo seed` against the real API (ADR 0143, 0175)."""
+"""`lorenzo seed` against the real API (ADR 0143, 0181)."""
 
 from __future__ import annotations
 

@@ -621,7 +621,7 @@ def seed(
                 _err.print(
                     "[dim]Every layer is going into this one repository, which is fine for your "
                     "own use. To publish them as separate repositories, seed each layer into its "
-                    "own with --layer (README, ADR 0162, 0175).[/dim]"
+                    "own with --layer (README, ADR 0162, 0181).[/dim]"
                 )
         if plan.problems:
             raise typer.Exit(1)

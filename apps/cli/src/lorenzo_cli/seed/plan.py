@@ -1,4 +1,4 @@
-"""Reading what a tenant already has and working out what `seed` would create (ADR 0143, 0175).
+"""Reading what a tenant already has and working out what `seed` would create (ADR 0143, 0181).
 
 Everything here is find-or-create by name or slug: nothing is ever changed or removed, so a seed
 is safe to run again and to run over a tenant that already has some of it.
@@ -246,7 +246,7 @@ def make_plan(
                 )
                 continue
             expected = {state.nodes[p].entity_id for p in node.parents if p in state.nodes}
-            # What the seed's attachments add to it (ADR 0175) is a parent it may have too.
+            # What the seed's attachments add to it (ADR 0181) is a parent it may have too.
             attached = {
                 state.nodes[a.parent].entity_id
                 for a in spec.attachments

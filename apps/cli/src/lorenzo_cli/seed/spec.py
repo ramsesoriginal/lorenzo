@@ -1,4 +1,4 @@
-"""The built-in seed as data (ADR 0143, 0175): groups, stat definitions, taxonomy nodes, the
+"""The built-in seed as data (ADR 0143, 0181): groups, stat definitions, taxonomy nodes, the
 attachments between layers and the weight recipe, each with a layer. Loaded from `builtin.toml` and
 validated, so a typo in the seed is a test failure and never a half-seeded tenant."""
 
@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Layer = Literal["core", "equipment", "dnd5e", "dnd5e-equipment"]
 # In dependency order: a layer comes after every layer it is built on.
 LAYERS: tuple[Layer, ...] = ("core", "equipment", "dnd5e", "dnd5e-equipment")
-# What a layer is built on, directly (ADR 0175). An entry may name its own layer's entries and
+# What a layer is built on, directly (ADR 0181). An entry may name its own layer's entries and
 # those of the layers it is built on, through the layers they are built on in turn.
 BUILT_ON: dict[Layer, tuple[Layer, ...]] = {
     "core": (),
@@ -74,7 +74,7 @@ class RecipeSpec(_Strict):
 
 class AttachmentSpec(_Strict):
     """A parent added to a category of another layer: what a repository that holds copies of both
-    does (ADR 0172, 0175). `layer` is the layer that makes it, built on both categories'."""
+    does (ADR 0172, 0181). `layer` is the layer that makes it, built on both categories'."""
 
     child: str
     parent: str

@@ -1,5 +1,5 @@
 """The seed as four repositories, a bridge over them, and the tables that take them (ADR 0162,
-0163, 0175; RFC 0033).
+0163, 0181; RFC 0033).
 
 Core is the neutral vocabulary (A0). The equipment (A1) and the D&D 5e rules (B) are each a copy of
 it with a layer seeded on top. The bridge (C) copied both, attached the rules' Economic object to
@@ -274,7 +274,7 @@ def test_seeding_every_layer_into_one_repository_still_works_and_says_the_split_
 
     assert plain.exit_code == 2 and core.exit_code == 2
     assert "Every layer is going into this one repository" in said(plain)
-    assert "ADR 0162, 0175" in said(plain)
+    assert "ADR 0162, 0181" in said(plain)
     assert "Every layer" not in said(core)
     json.loads(as_json.stdout)  # the advice never reaches a script's document
     assert "Every layer" not in as_json.stdout

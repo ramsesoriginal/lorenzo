@@ -35,7 +35,7 @@ EQUIPMENT = [
     "container", "consumable", "ammunition", "gear", "clothing", "climbing", "nautical",
     "lighting", "writing", "camping", "tack", "medicine", "material", "silvered", "adamantine",
 ]  # fmt: skip
-# What RFC 0033 moved from core to D&D 5e: their meanings are D&D's (ADR 0175).
+# What RFC 0033 moved from core to D&D 5e: their meanings are D&D's (ADR 0181).
 THE_EIGHT = {
     "price", "armor", "armor_formula", "strength_required", "stealth_disadvantage", "adds_modifier",
     "range_normal", "range_long",
@@ -290,7 +290,7 @@ def test_a_broken_seed_is_refused_with_a_reason(change: dict[str, Any], message:
 
 
 def layered_data(**overrides: Any) -> dict[str, Any]:
-    """A small seed with all four layers, to break one thing at a time (ADR 0175)."""
+    """A small seed with all four layers, to break one thing at a time (ADR 0181)."""
     data: dict[str, Any] = {
         "schema": 1,
         "version": "t",

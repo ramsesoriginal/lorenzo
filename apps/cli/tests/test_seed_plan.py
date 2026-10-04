@@ -1,4 +1,4 @@
-"""What `seed` decides from what a tenant already has (ADR 0143, 0175), without a network."""
+"""What `seed` decides from what a tenant already has (ADR 0143, 0181), without a network."""
 
 from __future__ import annotations
 
@@ -388,7 +388,7 @@ def test_naming_the_layer_is_never_refused() -> None:
     assert {a.layer for a in plan.actions} == {"dnd5e"}
 
 
-# --- values and attachments (ADR 0175) ---------------------------------------------------------
+# --- values and attachments (ADR 0181) ---------------------------------------------------------
 
 
 def test_a_value_the_node_lacks_is_planned_and_the_one_it_has_is_left_alone() -> None:
@@ -449,7 +449,7 @@ def test_an_attachment_already_there_is_counted_and_not_planned() -> None:
 
 
 def test_an_ordinary_edge_counts_as_much_as_an_attachment() -> None:
-    # Seeded into one tenant with every layer, the same edges are ordinary ones (ADR 0175).
+    # Seeded into one tenant with every layer, the same edges are ordinary ones (ADR 0181).
     state = layers_held(fully_seeded(), "core", "equipment", "dnd5e")
     weapon = state.items["weapon"]
     state.items["weapon"] = ItemOut.model_construct(
@@ -488,7 +488,7 @@ def test_a_form_with_a_parent_the_seed_does_not_have_still_gets_the_warning() ->
 
 
 def test_a_parentless_axis_root_from_an_older_seed_is_left_with_a_warning() -> None:
-    # A tenant seeded by version 1 has the axis roots under nothing (ADR 0175).
+    # A tenant seeded by version 1 has the axis roots under nothing (ADR 0181).
     state = fully_seeded()
     root = state.items["dnd5e-armor-tier"]
     state.items["dnd5e-armor-tier"] = ItemOut.model_construct(

@@ -1,8 +1,8 @@
-# The built-in seed (RFC 0025 R8 and R9, ADR 0143, 0146 and 0175): the item taxonomy, the stat groups
+# The built-in seed (RFC 0025 R8 and R9, ADR 0143, 0146 and 0181): the item taxonomy, the stat groups
 # and definitions, and the weight recipe that `lorenzo seed` finds-or-creates in a tenant.
 #
 # Every group, definition, node, recipe and attachment carries a `layer`, and each layer is one
-# repository of RFC 0033 (ADR 0175):
+# repository of RFC 0033 (ADR 0181):
 #   core            - what can be said of a thing in any system: the root category, its weight
 #                     recipe, and the ten neutral stats. Bare slugs.
 #   equipment       - the forms (weapon, armor, the kinds of gear) and the materials. Built on core.
@@ -548,7 +548,7 @@ description = "Everything that belongs to the D&D 5e rules: its proficiencies, t
 
 # What D&D gives a price: a price in copper pieces, 0 until a more specific category or the item sets
 # one. It adds the `economic` group to everything that has it by carrying a default for a stat in it
-# (ADR 0175); the dnd5e-equipment layer attaches it to the equipment's forms.
+# (ADR 0181); the dnd5e-equipment layer attaches it to the equipment's forms.
 [[node]]
 slug = "dnd5e-economic-object"
 name = "Economic object (D&D 5e)"
@@ -754,7 +754,7 @@ parents = ["dnd5e-spellcasting-focus"]
 # ---- the dnd5e-equipment layer: what joins the equipment to D&D's rules ------------------------------
 
 # The economic object on each top-level form of the equipment, so that every weapon, armour, tool,
-# container, consumable and piece of gear is something D&D gives a price (RFC 0033, section 2; ADR 0175).
+# container, consumable and piece of gear is something D&D gives a price (RFC 0033, section 2; ADR 0181).
 # Not on `physical-object`, which is also a mountain.
 [[attachment]]
 child = "weapon"

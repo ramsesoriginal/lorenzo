@@ -1,4 +1,4 @@
-"""Taking a layer of the seed out of a tenant again (ADR 0168, 0175).
+"""Taking a layer of the seed out of a tenant again (ADR 0168, 0181).
 
 It finds what the seed made the way `seed` does, by slug and name, so it can only ever touch what
 the built-in seed names. A layer's attachments go first (the parent is dropped from the child's

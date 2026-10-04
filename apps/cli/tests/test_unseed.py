@@ -172,7 +172,7 @@ def test_categories_of_the_layer_under_one_another_do_not_count() -> None:
     assert plan.problems == [] and counts(plan) == (30, 30, 3)
 
 
-# --- attachments (ADR 0175) ----------------------------------------------------------------------
+# --- attachments (ADR 0181) ----------------------------------------------------------------------
 
 
 def test_the_attachments_layer_takes_its_parents_out_and_nothing_else() -> None:

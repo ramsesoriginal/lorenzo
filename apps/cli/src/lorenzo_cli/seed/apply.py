@@ -1,4 +1,4 @@
-"""Carrying out a seed plan (ADR 0143, 0175), in dependency order: groups, definitions, nodes
+"""Carrying out a seed plan (ADR 0143, 0181), in dependency order: groups, definitions, nodes
 (parents first) with their tags and values, attachments, recipes.
 
 Nothing is undone on failure. Every step is find-or-create, and a node is created and named in
@@ -115,7 +115,7 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
             child, parent = action.name.split(": ")
             item = client.call(GET_ITEM, path={**tenant, "entity_id": nodes[child]})
             if nodes[parent] not in item.value.prototype_ids:
-                # The prototypes are replaced as a set, so the ones it has are kept (ADR 0175).
+                # The prototypes are replaced as a set, so the ones it has are kept (ADR 0181).
                 client.call(
                     REPLACE_ITEM_PROTOTYPES,
                     path={**tenant, "entity_id": nodes[child]},
