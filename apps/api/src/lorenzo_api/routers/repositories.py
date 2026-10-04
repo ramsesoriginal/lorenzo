@@ -58,6 +58,7 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.notifications import create_tenant_members_notification
 from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
     Plan,
     Resolution,
@@ -260,6 +261,34 @@ async def list_subscribers(
         Page[SubscriberOut],
         await apaginate(session, stmt, params, transformer=_rows_out, unique=False),
     )
+
+
+@router.get("/attachments")
+async def list_attachments(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    params: ParamsDep,
+) -> Page[AttachmentRefOut]:
+    """The parents this repository added to entities it holds copies of, which a
+    tenant that copies it takes along (ADR 0172, 0174): what its authors can't see
+    in its own rows, since a parent that arrived with a copy looks the same. Both
+    ends are the repository's own rows, named by their origin too. For any of its
+    members; `409` for a play tenant."""
+    await _require_repository(session, tenant_id)
+    content = await load_attachment_content(session, tenant_id)
+    rows = [
+        AttachmentRefOut(
+            child_source_id=a.child_source_id,
+            child_local_id=a.child,
+            child_name=content.entities[a.child],
+            parent_source_id=a.parent_source_id,
+            parent_local_id=a.parent,
+            parent_name=content.entities[a.parent],
+        )
+        for a in attachments_of(content)
+    ]
+    rows.sort(key=lambda r: (r.child_name, r.parent_name, str(r.child_source_id)))
+    return cast(Page[AttachmentRefOut], paginate(rows, params))
 
 
 @router.put("/subscribers/{subscriber_tenant_id}")

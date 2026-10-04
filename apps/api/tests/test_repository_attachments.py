@@ -1000,3 +1000,86 @@ async def test_a_parent_the_dependency_adds_to_what_the_bridge_attached_changes_
         assert [s["attachments"] for s in copied.json()["steps"]] == [0, 0, 0, 2]
     finally:
         await cleanup(levels.tenants, levels.actors)
+
+
+# --- GET /tenants/{id}/attachments: what a repository's authors can't see otherwise (ADR 0174) ---
+
+
+async def test_a_repositorys_authors_list_the_parents_it_attaches(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    stack = await _stack(raw_client, fake_jwks_server)
+    try:
+        copies = await _by_name(stack.bridge)
+        listed = await stack.author.get(f"/tenants/{stack.bridge}/attachments")
+        assert listed.status_code == 200, listed.text
+        assert listed.json()["items"] == [
+            {
+                "child_source_id": str(stack.ids["Longsword"]),
+                "child_local_id": str(copies["Longsword"]),
+                "child_name": "Longsword",
+                "parent_source_id": str(stack.ids["Longsword 5e"]),
+                "parent_local_id": str(copies["Longsword 5e"]),
+                "parent_name": "Longsword 5e",
+            },
+            {
+                "child_source_id": str(stack.ids["Weapon"]),
+                "child_local_id": str(copies["Weapon"]),
+                "child_name": "Weapon",
+                "parent_source_id": str(stack.ids["D&D 5e"]),
+                "parent_local_id": str(copies["D&D 5e"]),
+                "parent_name": "D&D 5e",
+            },
+            {
+                "child_source_id": str(stack.ids["Weapon"]),
+                "child_local_id": str(copies["Weapon"]),
+                "child_name": "Weapon",
+                "parent_source_id": str(stack.ids["Economic Object"]),
+                "parent_local_id": str(copies["Economic Object"]),
+                "parent_name": "Economic Object",
+            },
+        ]
+        # What arrived with a copy is not one, and a repository with none lists none.
+        assert (await stack.author.get(f"/tenants/{stack.equipment}/attachments")).json()[
+            "items"
+        ] == []
+
+        # An edge the author removes is gone from it.
+        async with admin_session_factory() as session:
+            await session.execute(
+                delete(EntityPrototype).where(
+                    EntityPrototype.entity_id == copies["Weapon"],
+                    EntityPrototype.prototype_id == copies["Economic Object"],
+                )
+            )
+            await session.commit()
+        after = (await stack.author.get(f"/tenants/{stack.bridge}/attachments")).json()
+        assert [(i["child_name"], i["parent_name"]) for i in after["items"]] == [
+            ("Longsword", "Longsword 5e"),
+            ("Weapon", "D&D 5e"),
+        ]
+        assert after["total"] == 2
+    finally:
+        await cleanup(stack.tenants, stack.actors)
+
+
+async def test_the_attachments_of_a_play_tenant_or_a_stranger_are_refused(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    stack = await _stack(raw_client, fake_jwks_server)
+    gm, table = await _table(raw_client, fake_jwks_server, stack, "gm")
+    stranger = await make_actor(raw_client, fake_jwks_server, "stranger")
+    stack.actors.append(stranger)
+    try:
+        play = await gm.get(f"/tenants/{table}/attachments")
+        assert play.status_code == 409
+        assert play.json()["type"] == "not-a-repository"
+        # Nobody but a member reads a repository's own attachments, a table that
+        # copied it included.
+        assert (await stranger.get(f"/tenants/{stack.bridge}/attachments")).status_code in (
+            403,
+            404,
+        )
+        assert (await gm.get(f"/tenants/{stack.bridge}/attachments")).status_code in (403, 404)
+    finally:
+        await cleanup(stack.tenants, stack.actors)
