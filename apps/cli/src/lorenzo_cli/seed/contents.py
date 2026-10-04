@@ -1,4 +1,4 @@
-"""What a repository tenant holds, and how much of each seed layer it has (ADR 0169).
+"""What a repository tenant holds, and how much of each seed layer it has (ADR 0169, 0181).
 
 The seed layers are found the way `seed` and `unseed` find them, by slug and name, so what this
 reports agrees with what `seed --dry-run` would do. Only what the seed names is matched; the rest
@@ -10,16 +10,19 @@ from __future__ import annotations
 from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Literal
+from uuid import UUID
 
 from lorenzo_cli import repos
 from lorenzo_cli.client.models import (
     PageItemOut,
+    ResolvedSlugOut,
     StatDefinitionOut,
     StatGroupOut,
     SubscriptionOut,
     TenantOut,
 )
 from lorenzo_cli.client.ops import (
+    GET_ENTITY,
     LIST_ATTACHMENTS,
     LIST_ITEMS,
     LIST_STAT_DEFINITIONS,
@@ -47,10 +50,13 @@ class LayerHolding:
     groups: Part
     definitions: Part
     categories: Part
+    # The parents the seed adds to categories of other layers (ADR 0181), counted by looking at
+    # the child's parents: an ordinary edge counts as much as an attachment does.
+    attachments: Part
 
     @property
     def holds(self) -> Holds:
-        parts = (self.groups, self.definitions, self.categories)
+        parts = (self.groups, self.definitions, self.categories, self.attachments)
         if sum(p.present for p in parts) == 0:
             return "not there"
         if all(p.present == p.in_seed for p in parts):
@@ -84,9 +90,10 @@ def holdings(
     groups: Collection[str],
     definitions: Collection[str],
     categories: Collection[str],
+    attached: Collection[tuple[str, str]] = (),
 ) -> list[LayerHolding]:
     """Each seed layer against the stat group names, stat definition names and category slugs a
-    tenant has."""
+    tenant has, and the (child slug, parent slug) pairs it has as a parent."""
     return [
         LayerHolding(
             layer=layer,
@@ -102,9 +109,31 @@ def holdings(
                 sum(n.slug in categories for n in spec.nodes if n.layer == layer),
                 sum(n.layer == layer for n in spec.nodes),
             ),
+            attachments=Part(
+                sum((a.child, a.parent) in attached for a in spec.attachments if a.layer == layer),
+                sum(a.layer == layer for a in spec.attachments),
+            ),
         )
         for layer in LAYERS
     ]
+
+
+def _attached(
+    client: LorenzoClient, tenant_id: UUID, spec: SeedSpec, nodes: dict[str, ResolvedSlugOut]
+) -> set[tuple[str, str]]:
+    """The seed's (child, parent) pairs that the tenant has as a parent, whichever way it got it."""
+    found: set[tuple[str, str]] = set()
+    for child in {a.child for a in spec.attachments if a.child in nodes}:
+        detail = client.call(
+            GET_ENTITY, path={"tenant_id": tenant_id, "entity_id": nodes[child].entity_id}
+        ).value
+        has = {parent.id for parent in detail.prototypes}
+        found |= {
+            (a.child, a.parent)
+            for a in spec.attachments
+            if a.child == child and a.parent in nodes and nodes[a.parent].entity_id in has
+        }
+    return found
 
 
 def read_contents(client: LorenzoClient, repository: TenantOut, spec: SeedSpec) -> Contents:
@@ -130,7 +159,13 @@ def read_contents(client: LorenzoClient, repository: TenantOut, spec: SeedSpec) 
         items=page.total,
         attachments=attached.total,
         seed_version=spec.version,
-        layers=holdings(spec, groups=groups, definitions=definitions, categories=nodes.keys()),
+        layers=holdings(
+            spec,
+            groups=groups,
+            definitions=definitions,
+            categories=nodes.keys(),
+            attached=_attached(client, repository.id, spec, nodes),
+        ),
         other_stat_groups=len(groups - {g.name for g in spec.groups}),
         other_stat_definitions=len(definitions - {d.name for d in spec.definitions}),
         other_items=max(0, page.total - seed_items),
