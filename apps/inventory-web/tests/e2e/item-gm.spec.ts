@@ -29,7 +29,9 @@ test('writes a description with a display title, keeping the name', async ({ wor
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Hooded Lantern' })).toBeVisible();
-  await expect(page.locator('[data-item-view]').getByText('Shutters on three sides.')).toBeVisible();
+  await expect(
+    page.locator('[data-item-view]').getByText('Shutters on three sides.'),
+  ).toBeVisible();
   expect(await nameOf(world, lantern)).toBe('Lantern');
 
   await page.getByRole('button', { name: 'Edit description' }).click();
@@ -51,7 +53,9 @@ test('a description only its GMs may read stays hidden from players', async ({ w
   await page.getByRole('textbox', { name: 'Description' }).fill('Its flame is a bound spirit.');
   await page.getByLabel('Players can read this').uncheck();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.locator('[data-item-view]').getByText('Its flame is a bound spirit.')).toBeVisible();
+  await expect(
+    page.locator('[data-item-view]').getByText('Its flame is a bound spirit.'),
+  ).toBeVisible();
 
   const pia = await as(world.pia);
   await pia.goto(`/item/?tenant=${world.tenantId}&id=${mine}`);
@@ -66,7 +70,10 @@ test('sets a tag on, off, and back to what it inherits', async ({ world, as }) =
   const magical = page
     .getByRole('region', { name: 'Tags' })
     .getByRole('group', { name: 'Magical' });
-  const chip = page.locator('[data-item-view]').getByRole('listitem').filter({ hasText: 'Magical' });
+  const chip = page
+    .locator('[data-item-view]')
+    .getByRole('listitem')
+    .filter({ hasText: 'Magical' });
 
   await expect(magical.getByLabel('Inherited (on)')).toBeChecked();
   await expect(chip).toBeVisible();
