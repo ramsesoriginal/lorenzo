@@ -564,7 +564,7 @@ def seed(
             typer.echo(json.dumps(seed_plan_json(plan), indent=2))
         else:
             print_seed_plan(_out, plan)
-            if layers is None and plan.actions:
+            if layers is None and any(a.kind != "retitle" for a in plan.actions):
                 _err.print(
                     "[dim]Both layers are going into this one repository, which is fine for your "
                     "own use. To publish core and D&D 5e as separate repositories, seed --layer "
@@ -872,7 +872,8 @@ def apply(
             _err.print(f"[red]{failure}[/red]")
         raise typer.Exit(1 if failed else 0)
     _out.print(
-        f"Created {report.created}, finished {report.completed}, re-parented {report.reparented}; "
+        f"Created {report.created}, finished {report.completed}, retitled {report.retitled}, "
+        f"re-parented {report.reparented}; "
         f"{report.categories} new categories, {report.definitions} new stat definitions."
     )
     for failure in report.failures:

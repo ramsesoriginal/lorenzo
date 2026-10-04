@@ -116,6 +116,7 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
     for label, count in (
         ("to create", plan.count("create")),
         ("to finish (created, not complete)", plan.count("complete")),
+        ("to retitle (description titled “Description”)", plan.retitle_count),
         ("already there", plan.count("exists")),
         ("held for review", plan.count("held")),
         ("moved to another namespace", plan.count("moved")),

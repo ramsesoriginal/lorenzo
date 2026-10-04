@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
 
+from lorenzo_cli import descriptions
 from lorenzo_cli.client.models import (
     ComputedStatOut,
     ItemOut,
@@ -19,6 +20,7 @@ from lorenzo_cli.client.models import (
     TenantOut,
 )
 from lorenzo_cli.client.ops import (
+    GET_ENTITY,
     GET_ITEM,
     LIST_ENTITY_COMPUTED_STATS,
     LIST_STAT_DEFINITIONS,
@@ -29,7 +31,7 @@ from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.seed.spec import SeedSpec
 
-ActionKind = Literal["group", "definition", "node", "description", "tag", "recipe"]
+ActionKind = Literal["group", "definition", "node", "description", "retitle", "tag", "recipe"]
 _RESOLVE_BATCH = 100  # GET .../entities/resolve takes at most this many slugs (ADR 0107)
 
 
@@ -52,6 +54,9 @@ class TenantState:
     items: dict[str, ItemOut] = field(default_factory=dict)
     # (node slug, stat name) -> its computed stat.
     recipes: dict[tuple[str, str], ComputedStatOut] = field(default_factory=dict)
+    # node slug -> (its description, the node's name) where the description still has the
+    # placeholder title the seed used to give every one (ADR 0165).
+    retitles: dict[str, tuple[UUID, str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -82,9 +87,16 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
             nodes[found.slug] = found
 
     items: dict[str, ItemOut] = {}
+    retitles: dict[str, tuple[UUID, str]] = {}
     for slug, found in nodes.items():
         if "item" in {kind.value for kind in found.kinds}:
             items[slug] = client.call(GET_ITEM, path={**path, "entity_id": found.entity_id}).value
+            if items[slug].title == descriptions.PLACEHOLDER_TITLE:
+                # Its title is the description's, so the row may be the placeholder: look.
+                detail = client.call(GET_ENTITY, path={**path, "entity_id": found.entity_id}).value
+                stale = descriptions.placeholder_description(detail)
+                if stale is not None:
+                    retitles[slug] = (stale.id, detail.name)
 
     definition_names = {d.id: d.name for d in definitions.values()}
     recipes: dict[tuple[str, str], ComputedStatOut] = {}
@@ -96,7 +108,7 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
             name = definition_names.get(stat.stat_definition_id)
             if name is not None:
                 recipes[(node_slug, name)] = stat
-    return TenantState(groups, definitions, nodes, items, recipes)
+    return TenantState(groups, definitions, nodes, items, recipes, retitles)
 
 
 def make_plan(
@@ -184,6 +196,10 @@ def make_plan(
             written = exists and bool(state.items[node.slug].descriptions)
             if not written:
                 plan.actions.append(Action("description", node.slug, node.layer))
+        if node.slug in state.retitles:
+            plan.actions.append(
+                Action("retitle", node.slug, node.layer, state.retitles[node.slug][1])
+            )
         for tag in node.tags:
             if tag not in have_definitions:
                 missing("the definition", tag, "core", f"The node {node.slug!r}")

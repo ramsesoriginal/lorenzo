@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from lorenzo_cli import descriptions
 from lorenzo_cli.client.models import (
     ContentsFormulaBody,
     InformationCreate,
@@ -78,13 +79,18 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
                 CREATE_INFORMATION,
                 path={**tenant, "entity_id": nodes[node.slug]},
                 body=InformationCreate(
-                    title="Description",
+                    title=node.name,
                     type="description",
                     is_public=True,
                     content=node.description,
                     locale="en-US",
                 ),
             )
+        elif action.kind == "retitle":
+            # A 412 (it changed since it was read) stops the run, as any API error does; the
+            # next run finds what is left.
+            information_id, title = state.retitles[action.name]
+            descriptions.retitle(client, plan.tenant.id, information_id, title)
         elif action.kind == "tag":
             slug, tag = action.name.split(": ")
             client.call(

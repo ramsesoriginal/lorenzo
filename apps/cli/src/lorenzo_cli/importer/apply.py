@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from uuid import UUID
 
+from lorenzo_cli import descriptions
 from lorenzo_cli.client.errors import LorenzoApiError, StaleResourceError
 from lorenzo_cli.client.models import (
     InformationCreate,
@@ -51,6 +52,7 @@ class ApplyOptions:
 class ApplyReport:
     created: int = 0
     completed: int = 0
+    retitled: int = 0
     reparented: int = 0
     categories: int = 0
     definitions: int = 0
@@ -92,7 +94,7 @@ def apply_import(
 
     # Packs last: their contents name items, and are written once those items exist (ADR 0145).
     todo = sorted(
-        (i for i in plan.items if i.status in ("create", "complete")),
+        (i for i in plan.items if i.status in ("create", "complete", "retitle")),
         key=lambda i: i.draft.list_name == "packs",
     )
     for number, item in enumerate(todo, start=1):
@@ -172,7 +174,12 @@ def _write_item(
     options: ApplyOptions,
     report: ApplyReport,
 ) -> None:
+    if item.status == "retitle":
+        # Only the title: whatever else the item lacks is not this status's business.
+        _retitle(client, plan.tenant.id, item, report)
+        return
     draft = item.draft
+    name = draft.name or item.slug
     tenant = {"tenant_id": plan.tenant.id}
     entity_id = item.entity_id
     have_stats, has_description = item.have_stats, item.has_description
@@ -183,7 +190,7 @@ def _write_item(
                 CREATE_ITEM,
                 path=tenant,
                 body=ItemCreate(
-                    name=draft.name or item.slug,
+                    name=name,
                     slug=item.slug,
                     prototype_ids=[parent_ids[p] for p in draft.parents],
                     in_public_catalog=options.public_catalog,
@@ -202,6 +209,8 @@ def _write_item(
             have_stats = frozenset(s.name for s in detail.stats if s.own)
             has_description = any(i.type == "description" for i in detail.information)
             have_information = frozenset(i.type for i in detail.information)
+            stale = descriptions.placeholder_description(detail)
+            item.retitle = (stale.id, detail.name) if stale is not None else None
             report.completed += 1
     else:
         report.completed += 1
@@ -226,7 +235,7 @@ def _write_item(
             CREATE_INFORMATION,
             path={**tenant, "entity_id": entity_id},
             body=InformationCreate(
-                title="Description",
+                title=name,
                 type="description",
                 is_public=True,
                 content=draft.description,
@@ -246,8 +255,25 @@ def _write_item(
                     locale="en-US",
                 ),
             )
+    if item.retitle is not None:
+        _retitle(client, plan.tenant.id, item, report)
     if MARKER_STAT in draft.stats:
         write(MARKER_STAT)  # last: its presence says the item is finished
+
+
+def _retitle(
+    client: LorenzoClient, tenant_id: UUID, item: PlannedItem, report: ApplyReport
+) -> None:
+    """Give a description that has the old placeholder title its item's name (ADR 0165)."""
+    assert item.retitle is not None
+    information_id, title = item.retitle
+    try:
+        descriptions.retitle(client, tenant_id, information_id, title)
+        report.retitled += 1
+    except StaleResourceError:
+        report.failures.append(
+            f"{item.slug}: its description changed while retitling; run it again"
+        )
 
 
 def _reparent(
