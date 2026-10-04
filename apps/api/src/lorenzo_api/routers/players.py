@@ -46,6 +46,9 @@ _character_eager_load = (
     .selectinload(Character.being)
     .selectinload(Being.entity)
 )
+# What PlayerSummaryOut reads: the characters, and the player's own name
+# fields (ADR 0176) - one extra query per page, not one per row.
+_player_eager_load = (_character_eager_load, selectinload(Player.user))
 
 
 @router.get("/players")
@@ -55,7 +58,7 @@ async def list_players(
     stmt = (
         select(Player)
         .where(Player.campaign_id == campaign_id, Player.tenant_id == tenant_id)
-        .options(_character_eager_load)
+        .options(*_player_eager_load)
         .order_by(Player.id)
     )
 
@@ -84,7 +87,7 @@ async def get_player(
             Player.campaign_id == campaign_id,
             Player.tenant_id == tenant_id,
         )
-        .options(_character_eager_load)
+        .options(*_player_eager_load)
     )
     player = (await session.execute(stmt)).scalar_one_or_none()
     if player is None:
@@ -103,6 +106,7 @@ async def list_gms(
     stmt = (
         select(CampaignGm)
         .where(CampaignGm.campaign_id == campaign_id, CampaignGm.tenant_id == tenant_id)
+        .options(selectinload(CampaignGm.user))
         .order_by(CampaignGm.user_id)
     )
     gms = (await session.execute(stmt)).scalars().all()
@@ -122,7 +126,7 @@ async def _get_player_or_404(
             Player.campaign_id == campaign_id,
             Player.tenant_id == tenant_id,
         )
-        .options(_character_eager_load)
+        .options(*_player_eager_load)
     )
     player = (await session.execute(stmt)).scalar_one_or_none()
     if player is None:
