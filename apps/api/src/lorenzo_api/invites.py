@@ -24,6 +24,10 @@ from lorenzo_api.models import CampaignInvite
 # question - a constant, trivial to change.
 MAX_INVITE_LIFETIME = timedelta(days=30)
 
+# A GM link is single use and shorter-lived than a player link (ADR 0177):
+# an unredeemed one is the exposure, so it ends within a week.
+MAX_GM_INVITE_LIFETIME = timedelta(days=7)
+
 
 def generate_token() -> str:
     return secrets.token_urlsafe(32)

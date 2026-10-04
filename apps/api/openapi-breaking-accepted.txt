@@ -328,3 +328,6 @@ PUT /tenants/{tenant_id}/items/{entity_id}/prototypes response property `physica
 PUT /tenants/{tenant_id}/items/{entity_id}/prototypes response property `price` list-of-types was widened by adding types `number` to media type `application/json` of response `200`
 PUT /tenants/{tenant_id}/items/{entity_id}/prototypes response property `rarity` list-of-types was widened by adding types `number` to media type `application/json` of response `200`
 PUT /tenants/{tenant_id}/items/{entity_id}/prototypes response property `weight` list-of-types was widened by adding types `number` to media type `application/json` of response `200`
+
+# ADR 0177: a GM invite link has no player row, so redeeming it returns no player_id.
+POST /invites/{token}/redeem response property `player_id` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
