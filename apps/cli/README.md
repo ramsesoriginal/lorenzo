@@ -84,8 +84,8 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
 | `lorenzo inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
-| `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
-| `lorenzo unseed --tenant <tenant> --layer <layer>` | Takes a layer of the seed out again: its categories, then stat definitions, then stat groups. Asks first; `--dry-run` shows what it would remove. See [Taking a layer out](#taking-a-layer-out) |
+| `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. The seed has four layers, `core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer` ([ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md)). A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
+| `lorenzo unseed --tenant <tenant> --layer <layer>` | Takes a layer of the seed out again: its attachments, then categories, stat definitions and stat groups. Asks first; `--dry-run` shows what it would remove. See [Taking a layer out](#taking-a-layer-out) |
 | `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
 | `lorenzo apply --tenant <tenant> FILES... --yes [--json]` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended. `--json` prints one document: the plan, what was written, what failed |
 | `lorenzo pack give <pack> --tenant <tenant> --owner <being-or-group>` | Hands an imported pack out: the API makes its containers and what is inside them, with quantities, in one go or not at all. A being takes the top of it into its hands; a group owns it with nothing in a container. `--dry-run` says what would be made; `--override` is a GM's, past what the owner can carry; `--json` prints what the API made |
@@ -97,7 +97,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 
 ## Importing MPMB items
 
-The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), seed it once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, seed core and D&D 5e into [two repositories](#core-and-dd-5e-are-two-repositories) instead.
+The order is: create a repository (`lorenzo tenant create "My Homebrew" --slug my-homebrew`), seed it once, then plan, then apply ([ADR 0144](../../docs/adr/0144-lorenzo-import-mapping-identity-plan-apply.md)). For something you mean to publish, seed the layers into [separate repositories](#the-seed-as-four-repositories) instead.
 
 ```bash
 uv run lorenzo seed --tenant my-repository --yes
@@ -180,28 +180,51 @@ lorenzo repo contents --tenant core
 
 It reads one repository tenant and says whether it is published (or a draft) and how many tenants it is granted to; which repositories it is built on, that is the ones it has copied, with the date and whether they have published since; how many stat groups, stat definitions and items it holds (categories included) and how many parents it attaches to items it copied (attachments, said only when there are some; `holds.attachments` in `--json`); and, for each layer of the seed, whether it is *complete*, *partly* there or *not there*, found by slug and name as `seed` finds things. What the seed doesn't name is counted as *beyond the seed*. `--json` prints the same as data. It only reads ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)).
 
-### Core and D&D 5e are two repositories
+### The seed as four repositories
 
-What is meant to be published is split in two ([ADR 0162](../../docs/adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md)): **core**, the system-neutral taxonomy and stat definitions, and **D&D 5e**, a repository that has copied core and added its own layer on top. That makes D&D a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)), and the imported items live in it, since a longbow is a ranged weapon (core) and a martial one (D&D). Another system can then build on core without carrying D&D.
+What is meant to be published is split in four ([ADR 0162](../../docs/adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), [ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md), [RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md)), one per layer of the seed:
+
+| Layer | Holds | Built on |
+| --- | --- | --- |
+| `core` | What can be said of a thing in any system: the stat groups `physical`, `sourcebook` and `tags`, ten neutral stats (weights, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine`, `sourcebook`), the category `physical-object` and the weight recipes | nothing |
+| `equipment` | The forms (weapon, armor, tool, the kinds of gear) and the materials: 32 categories with bare slugs | `core` |
+| `dnd5e` | D&D 5e's rules: its stat groups (`economic`, `damaging`, `destroyable`), 30 stat definitions (a price, an armour class, a range, the damage dice, the weapon properties) and 30 categories under one system root, `dnd5e-system` ("D&D 5e"), which is how a category says it belongs to the system. The Economic object carries a `price` of 0. Slugs start `dnd5e-` | `core` |
+| `dnd5e-equipment` | The bridge's own part: six attachments of D&D's Economic object to the equipment's forms (`weapon`, `armor`, `tool`, `container`, `consumable`, `gear`), so everything D&D prices has a price | `equipment`, `dnd5e` |
+
+Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items live in it, since a longbow is a ranged weapon (equipment) and a martial one (D&D). Another system takes `core` and `equipment` and brings its own two layers.
 
 ```bash
 lorenzo tenant create "Core" --slug core
 lorenzo seed --tenant core --layer core --yes
 lorenzo repo publish --tenant core
 
+# the equipment and the rules each draw on core like any tenant
+lorenzo tenant create "Common equipment" --slug common-fantasy-eq
+lorenzo repo grant common-fantasy-eq --tenant core
+lorenzo repo copy core --tenant common-fantasy-eq --yes
+lorenzo seed --tenant common-fantasy-eq --layer equipment --yes   # needs core's copy, which it now has
+lorenzo repo publish --tenant common-fantasy-eq
+
 lorenzo tenant create "D&D 5e" --slug dnd5e
-lorenzo repo grant dnd5e --tenant core            # the bridge draws on core like any tenant
+lorenzo repo grant dnd5e --tenant core
 lorenzo repo copy core --tenant dnd5e --yes
-lorenzo seed --tenant dnd5e --layer dnd5e --yes   # needs core's copy, which it now has
-lorenzo apply --tenant dnd5e --base ... --yes     # the items, parented in both layers
+lorenzo seed --tenant dnd5e --layer dnd5e --yes
 lorenzo repo publish --tenant dnd5e
 
-lorenzo repo offer table-one --tenant dnd5e       # grants core too, then dnd5e, and copies both
+# the bridge takes both, with core under them, and joins them
+lorenzo tenant create "D&D 5e common equipment" --slug dnd5e-common-eq
+lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
+lorenzo repo offer dnd5e-common-eq --tenant dnd5e --yes
+lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes   # the attachments
+lorenzo apply --tenant dnd5e-common-eq --base ... --yes               # the items, parented in all three
+lorenzo repo publish --tenant dnd5e-common-eq
+
+lorenzo repo offer table-one --tenant dnd5e-common-eq   # grants the others too, then copies all four
 ```
 
-A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes both, for whoever owns them all, and a single copy brings core in first. Someone who owns the bridge but not core is told which command to ask core's owners for. **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
+A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first. Someone who owns the bridge but not what it is built on is told which command to ask their owners for. A table that took the equipment first and the bridge later keeps its Weapon: the bridge's six attachments are parents it adds to the items the table has, so that Weapon has the Economic object as a parent and a `price` of 0 afterwards (it still has one Weapon, not two). **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e-common-eq --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
 
-`lorenzo seed` without `--layer` still seeds both layers into an empty repository, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published. It refuses a tenant that already holds one layer and not the other, so name the layer there ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)).
+`lorenzo seed` without `--layer` still seeds every layer into an empty repository, in that order, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published. There the attachments are ordinary parents. It refuses a tenant that already holds some layers and not others, so name the layers there ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). A tenant seeded by version 1 of the seed (two layers) still seeds under version 2, since everything is found by name and slug: its parentless axis roots are reported as "exists but is not under" the system root and left, and the rest is added; starting over is cleaner.
 
 ## Scripting
 
@@ -228,11 +251,11 @@ uv run lorenzo seed --tenant my-repository --yes       # create it
 
 The taxonomy is a graph with multiple inheritance, so a weapon is several things at once: `longsword` descends from `blade`, `dnd5e-martial` and `dnd5e-versatile`. Weapon families (blade, axe, hammer, bow, crossbow, sling, firearm), weapon properties (finesse, heavy, light, reach, thrown, two-handed, versatile…), materials, consumables and kinds of gear (clothing, climbing, nautical…) are nodes of their own; a property carries its rules as a public description, which shows on every weapon that has it, and the property lists the weapons that do ([ADR 0146](../../docs/adr/0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md)). What the sheet says beyond that is kept: other names as an "Also known as" entry, a weapon's special rules as a note, and the ability, strength requirement, bundle size and flags as stats.
 
-It writes to an existing `repository` tenant. A `play` tenant is refused, because a tenant's kind can't be changed and nothing in it could ever be published; `--allow-play-tenant` writes there anyway. The seed is in `src/lorenzo_cli/seed/builtin.toml`, tagged by layer (`core`, and `dnd5e` for D&D 5e's categories and dice, chosen with `--layer`; into [separate repositories](#core-and-dd-5e-are-two-repositories) if they are to be published). Stat names and types can't be changed once a tenant has them, so read that file before the first run against a tenant that matters.
+It writes to an existing `repository` tenant. A `play` tenant is refused, because a tenant's kind can't be changed and nothing in it could ever be published; `--allow-play-tenant` writes there anyway. The seed is in `src/lorenzo_cli/seed/builtin.toml`, tagged by layer (`core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer`; into [separate repositories](#the-seed-as-four-repositories) if they are to be published). Stat names and types can't be changed once a tenant has them, so read that file before the first run against a tenant that matters.
 
-To see what the seed makes before running it, `lorenzo seed --list` prints every layer's stat groups, stat definitions, categories (as a tree) and recipes, and `--layer dnd5e` narrows it; `--json` prints the same as data. It reads the seed file and talks to nobody, so it works before you have logged in or created a tenant, and it refuses `--dry-run`, `--yes` and `--allow-play-tenant`, which are about writing. To see what a tenant already holds of it, use [`repo contents`](#what-a-repository-holds).
+To see what the seed makes before running it, `lorenzo seed --list` prints every layer's stat groups, stat definitions, categories (as a tree, with the values a category carries), attachments and recipes, and `--layer dnd5e` narrows it; `--json` prints the same as data. It reads the seed file and talks to nobody, so it works before you have logged in or created a tenant, and it refuses `--dry-run`, `--yes` and `--allow-play-tenant`, which are about writing. To see what a tenant already holds of it, use [`repo contents`](#what-a-repository-holds).
 
-Without `--layer`, `seed` adds every layer the tenant is missing, which suits an empty tenant. A tenant that already holds one layer and none of another is refused instead (exit 1, dry run too), naming the layers to choose from, so a bare `seed` can't quietly add the D&D 5e layer to a repository that was meant to hold `core` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). Naming a layer is never refused.
+Without `--layer`, `seed` adds every layer the tenant is missing, which suits an empty tenant. A tenant that already holds one layer and none of another is refused instead (exit 1, dry run too), naming the layers to choose from, so a bare `seed` can't quietly add the D&D 5e layer to a repository that was meant to hold `core` and the equipment ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). Naming a layer is never refused.
 
 ### Taking a layer out
 
@@ -241,9 +264,9 @@ lorenzo unseed --tenant my-repository --layer dnd5e --dry-run   # what it would 
 lorenzo unseed --tenant my-repository --layer dnd5e             # asks once, default no
 ```
 
-`unseed` removes what the built-in seed made for the layer, found by slug and name so it can only touch what the seed names: its **categories**, then its **stat definitions**, then its **stat groups** (`core` holds the six conventional ones, `dnd5e` none). It needs `--layer`; there is no default. Before it writes anything it reads the tenant:
+`unseed` removes what the built-in seed made for the layer, found by slug and name so it can only touch what the seed names: its **attachments** (the parent a layer adds to a category of another, which leaves the category itself alone: that is all `dnd5e-equipment` is made of), its **categories**, its **stat definitions**, then its **stat groups** (`core` holds three, `dnd5e` three, the others none). It needs `--layer`; there is no default. Before it writes anything it reads the tenant:
 
-- A category that something *outside* the layer inherits from (the imported items under `dnd5e-martial`, say) stops it with nothing deleted, and the output names them. Remove or re-parent those first.
+- A category that something *outside* the layer inherits from (the imported items under `dnd5e-martial`, say) stops it with nothing deleted, and the output names them. Remove or re-parent those first. The seed's own attachments are the exception that has a way out: the Economic object has the equipment's forms under it in a repository that holds `dnd5e-equipment`, so `--layer dnd5e` alone is refused, and `--layer dnd5e --layer dnd5e-equipment` takes the attachments out first and then the categories.
 - Whether a stat definition is in use is known to the API, which refuses to delete one that has a value, a formula or a formula reading it. Such a definition is **kept and listed with the reason**, the rest goes on, and the exit code is 1. Fix the cause and run it again: it finds what is left.
 
 It asks once (`--yes` skips it; `--json` never asks and needs `--yes`). Stat definitions can't be restored once deleted, but `seed --layer` puts the whole layer back ([ADR 0168](../../docs/adr/0168-lorenzo-unseed.md), [ADR 0167](../../docs/adr/0167-the-api-deletes-an-unused-stat-definition-or-stat-group.md)).

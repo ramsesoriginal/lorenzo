@@ -6,6 +6,9 @@ function player(overrides: Partial<PlayerSummaryOut> = {}): PlayerSummaryOut {
   return {
     id: crypto.randomUUID(),
     user_id: crypto.randomUUID(),
+    nickname: null,
+    display_name: null,
+    user_color: null,
     characters: [],
     created_by: null,
     updated_by: null,
