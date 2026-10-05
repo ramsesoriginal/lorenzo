@@ -63,6 +63,7 @@ function me(overrides: Partial<MeOut> = {}): MeOut {
     memberships: [],
     players: [],
     campaign_gm_grants: [],
+    capabilities: { create_tenant: false },
     ...overrides,
   };
 }

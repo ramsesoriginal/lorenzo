@@ -414,6 +414,9 @@ class GivePackRequest(BaseModel):
 
 class GmOut(BaseModel):
     user_id: UUID = Field(..., title="User Id")
+    nickname: str | None = Field(..., title="Nickname")
+    display_name: str | None = Field(..., title="Display Name")
+    user_color: str | None = Field(..., title="User Color")
 
 
 class GmRosterEntryOut(BaseModel):
@@ -455,46 +458,9 @@ class InformationUpdate(BaseModel):
     order: int | None = Field(None, title="Order")
 
 
-class InviteCreate(BaseModel):
-    expires_at: AwareDatetime = Field(..., title="Expires At")
-    max_uses: conint(ge=1) | None = Field(None, title="Max Uses")
-
-
-class InviteCreatedOut(BaseModel):
-    id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    created_by: UUID | None = Field(..., title="Created By")
-    created_at: AwareDatetime = Field(..., title="Created At")
-    expires_at: AwareDatetime = Field(..., title="Expires At")
-    max_uses: int | None = Field(..., title="Max Uses")
-    use_count: int = Field(..., title="Use Count")
-    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
-    is_active: bool = Field(..., title="Is Active")
-    token: str = Field(..., title="Token")
-
-
-class InviteOut(BaseModel):
-    id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    created_by: UUID | None = Field(..., title="Created By")
-    created_at: AwareDatetime = Field(..., title="Created At")
-    expires_at: AwareDatetime = Field(..., title="Expires At")
-    max_uses: int | None = Field(..., title="Max Uses")
-    use_count: int = Field(..., title="Use Count")
-    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
-    is_active: bool = Field(..., title="Is Active")
-
-
-class InvitePreviewOut(BaseModel):
-    campaign_name: str = Field(..., title="Campaign Name")
-    picture_url: str | None = Field(..., title="Picture Url")
-
-
-class InviteRedeemOut(BaseModel):
-    tenant_id: UUID = Field(..., title="Tenant Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    player_id: UUID = Field(..., title="Player Id")
-    already_joined: bool = Field(..., title="Already Joined")
+class InviteRole(StrEnum):
+    player = "player"
+    gm = "gm"
 
 
 class ItemCreate(BaseModel):
@@ -558,6 +524,10 @@ class ManagedCampaignOut(BaseModel):
 class Role(StrEnum):
     owner = "owner"
     orga = "orga"
+
+
+class MeCapabilitiesOut(BaseModel):
+    create_tenant: bool = Field(..., title="Create Tenant")
 
 
 class MembershipCreate(BaseModel):
@@ -697,14 +667,6 @@ class PageEntitySummary(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
-class PageInviteOut(BaseModel):
-    items: list[InviteOut] = Field(..., title="Items")
-    total: conint(ge=0) = Field(..., title="Total")
-    page: conint(ge=1) = Field(..., title="Page")
-    size: conint(ge=1) = Field(..., title="Size")
-    pages: conint(ge=0) = Field(..., title="Pages")
-
-
 class PageKnowledgeEntryOut(BaseModel):
     items: list[KnowledgeEntryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -785,6 +747,9 @@ class PlayerCreate(BaseModel):
 class PlayerOut(BaseModel):
     id: UUID = Field(..., title="Id")
     user_id: UUID = Field(..., title="User Id")
+    nickname: str | None = Field(..., title="Nickname")
+    display_name: str | None = Field(..., title="Display Name")
+    user_color: str | None = Field(..., title="User Color")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
@@ -805,6 +770,9 @@ class PlayerRosterEntryOut(BaseModel):
 class PlayerSummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     user_id: UUID = Field(..., title="User Id")
+    nickname: str | None = Field(..., title="Nickname")
+    display_name: str | None = Field(..., title="Display Name")
+    user_color: str | None = Field(..., title="User Color")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
@@ -1238,6 +1206,53 @@ class InformationOut(BaseModel):
     payloads: list[Payloads] = Field(..., title="Payloads")
 
 
+class InviteCreate(BaseModel):
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+    max_uses: conint(ge=1) | None = Field(None, title="Max Uses")
+    role: InviteRole | None = "player"
+
+
+class InviteCreatedOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    role: InviteRole
+    created_by: UUID | None = Field(..., title="Created By")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+    max_uses: int | None = Field(..., title="Max Uses")
+    use_count: int = Field(..., title="Use Count")
+    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
+    is_active: bool = Field(..., title="Is Active")
+    token: str = Field(..., title="Token")
+
+
+class InviteOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    role: InviteRole
+    created_by: UUID | None = Field(..., title="Created By")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+    max_uses: int | None = Field(..., title="Max Uses")
+    use_count: int = Field(..., title="Use Count")
+    revoked_at: AwareDatetime | None = Field(..., title="Revoked At")
+    is_active: bool = Field(..., title="Is Active")
+
+
+class InvitePreviewOut(BaseModel):
+    campaign_name: str = Field(..., title="Campaign Name")
+    picture_url: str | None = Field(..., title="Picture Url")
+    role: InviteRole
+
+
+class InviteRedeemOut(BaseModel):
+    tenant_id: UUID = Field(..., title="Tenant Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    role: InviteRole
+    player_id: UUID | None = Field(..., title="Player Id")
+    already_joined: bool = Field(..., title="Already Joined")
+
+
 class ItemInstanceOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     title: str = Field(..., title="Title")
@@ -1341,6 +1356,7 @@ class MeOut(BaseModel):
     memberships: list[MembershipOut] = Field(..., title="Memberships")
     players: list[PlayerContextOut] = Field(..., title="Players")
     campaign_gm_grants: list[CampaignSummaryOut] = Field(..., title="Campaign Gm Grants")
+    capabilities: MeCapabilitiesOut
 
 
 class OwnedGroupOut(BaseModel):
@@ -1371,6 +1387,14 @@ class PageAnnotatedUnionMembershipRosterEntryOutPlayerRosterEntryOutGmRosterEntr
 
 class PageInformationOut(BaseModel):
     items: list[InformationOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageInviteOut(BaseModel):
+    items: list[InviteOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")

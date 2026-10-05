@@ -1205,7 +1205,10 @@ export interface paths {
          * Create Invite
          * @description The only response that ever contains the token - shown once, and
          *     unrecoverable afterwards, since only its hash is stored (ADR 0092).
-         *     `expires_at` must be in the future and at most 30 days out.
+         *     `expires_at` must be in the future and at most 30 days out - 7 for a GM
+         *     link, which is also single use whatever `max_uses` said (ADR 0177). Who
+         *     may create one is who may grant GM directly (`can_manage_campaign`): a
+         *     link is a new way to hand over a privilege the creator already has.
          */
         post: operations["create_invite"];
         delete?: never;
@@ -1245,8 +1248,8 @@ export interface paths {
         /**
          * Preview Invite
          * @description Unauthenticated - the campaign's name and picture URL, so a landing
-         *     page can say what the visitor is being invited to (ADR 0092). Does an
-         *     indexed read and never writes.
+         *     page can say what the visitor is being invited to (ADR 0092) - as a
+         *     player, or as a GM (ADR 0177). Does an indexed read and never writes.
          */
         get: operations["preview_invite"];
         put?: never;
@@ -1270,9 +1273,10 @@ export interface paths {
          * Redeem Invite
          * @description Authenticated but not tenant-scoped: any verified Authgear user
          *     (ADR 0092) - joining creates a `player` row, which needs a user. Gives
-         *     the player role in this one campaign and nothing more; never GM, never
-         *     tenant membership. Idempotent: someone already a player gets `200` and
-         *     no second seat, no use consumed. `201` the first time.
+         *     the player role in this one campaign and nothing more; never tenant
+         *     membership. A GM link (ADR 0177) gives a GM row instead, and no player
+         *     row. Idempotent: someone who already holds the role gets `200` and no
+         *     second seat, no use consumed. `201` the first time.
          */
         post: operations["redeem_invite"];
         delete?: never;
@@ -4707,6 +4711,12 @@ export interface components {
          *     already in the path, no need to repeat them per row. See ADR 0031/RFC
          *     0004; fits here rather than a one-class module of its own, alongside
          *     campaign-roster concerns generally.
+         *
+         *     Carries the GM's `nickname`/`display_name`/`user_color` (ADR 0176), the
+         *     same three the tenant roster shows and never the email - a GM who joined
+         *     by link (ADR 0177) holds no tenant-wide membership to be named through.
+         *     Requires `campaign_gm.user` eager-loaded first (`lazy="raise_on_sql"`,
+         *     ADR 0018).
          */
         GmOut: {
             /**
@@ -4714,6 +4724,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
         };
         /**
          * GmRosterEntryOut
@@ -4934,6 +4950,10 @@ export interface components {
          * @description POST .../campaigns/{id}/invites - see ADR 0092. `expires_at` is
          *     required (a link always ends) and at most 30 days out; `max_uses` is
          *     optional - omit it for an unlimited link.
+         *
+         *     `role` (ADR 0177) is `player` unless said otherwise. A `gm` link is
+         *     single use - `max_uses` omitted or 1 - and its `expires_at` is at most 7
+         *     days out, which the route checks.
          */
         InviteCreate: {
             /**
@@ -4943,6 +4963,8 @@ export interface components {
             expires_at: string;
             /** Max Uses */
             max_uses?: number | null;
+            /** @default player */
+            role: components["schemas"]["InviteRole"];
         };
         /**
          * InviteCreatedOut
@@ -4960,6 +4982,7 @@ export interface components {
              * Format: uuid
              */
             campaign_id: string;
+            role: components["schemas"]["InviteRole"];
             /** Created By */
             created_by: string | null;
             /**
@@ -4999,6 +5022,7 @@ export interface components {
              * Format: uuid
              */
             campaign_id: string;
+            role: components["schemas"]["InviteRole"];
             /** Created By */
             created_by: string | null;
             /**
@@ -5024,19 +5048,23 @@ export interface components {
          * InvitePreviewOut
          * @description GET /invites/{token} - unauthenticated. The campaign's name and, if
          *     it has one, its picture URL. Nothing a holder of a leaked link couldn't
-         *     already learn: no tenant name, no roster.
+         *     already learn: no tenant name, no roster. `role` (ADR 0177) says what
+         *     redeeming it makes them, so the page can ask before they log in: it is
+         *     not a secret from someone holding the link.
          */
         InvitePreviewOut: {
             /** Campaign Name */
             campaign_name: string;
             /** Picture Url */
             picture_url: string | null;
+            role: components["schemas"]["InviteRole"];
         };
         /**
          * InviteRedeemOut
          * @description POST /invites/{token}/redeem. `already_joined` is true (and the
-         *     response `200`, not `201`) when the caller was already a player in this
-         *     campaign - no second seat, no use consumed.
+         *     response `200`, not `201`) when the caller already held this role in this
+         *     campaign - no second seat, no use consumed. `player_id` is null for a GM
+         *     link (ADR 0177): redeeming it makes a GM, not a player.
          */
         InviteRedeemOut: {
             /**
@@ -5049,14 +5077,20 @@ export interface components {
              * Format: uuid
              */
             campaign_id: string;
-            /**
-             * Player Id
-             * Format: uuid
-             */
-            player_id: string;
+            role: components["schemas"]["InviteRole"];
+            /** Player Id */
+            player_id: string | null;
             /** Already Joined */
             already_joined: boolean;
         };
+        /**
+         * InviteRole
+         * @description What redeeming an invite makes someone in its campaign (ADR 0177).
+         *     `player` is every link ADR 0092 defined; `gm` is the one narrow
+         *     exception, single-use and short-lived.
+         * @enum {string}
+         */
+        InviteRole: "player" | "gm";
         /**
          * ItemCreate
          * @description POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
@@ -5432,13 +5466,25 @@ export interface components {
             campaigns: components["schemas"]["ManagedCampaignOut"][];
         };
         /**
+         * MeCapabilitiesOut
+         * @description What the caller may do on the platform, as opposed to inside one
+         *     tenant (ADR 0175). An object so a later capability is one more key; a
+         *     client treats a missing key as false. A convenience for rendering, not
+         *     authorization - the route that does the thing still answers `403`.
+         */
+        MeCapabilitiesOut: {
+            /** Create Tenant */
+            create_tenant: boolean;
+        };
+        /**
          * MeOut
          * @description The caller's own identity, tenant-wide memberships, campaign
          *     memberships, and GM grants - see ADR 0023/0031. `players`/
          *     `campaign_gm_grants` (ADR 0031/RFC 0004) are the concrete answer to
          *     "user -> owner|orga|member of tenant -> [player(campaign) ->
          *     character | GM(campaign)]" for the caller's own identity - the single
-         *     place a client reads "everything I am, everywhere."
+         *     place a client reads "everything I am, everywhere." `capabilities`
+         *     (ADR 0175) is the one platform-wide part: what the caller may create.
          */
         MeOut: {
             /**
@@ -5470,6 +5516,7 @@ export interface components {
             players: components["schemas"]["PlayerContextOut"][];
             /** Campaign Gm Grants */
             campaign_gm_grants: components["schemas"]["CampaignSummaryOut"][];
+            capabilities: components["schemas"]["MeCapabilitiesOut"];
         };
         /**
          * MembershipCreate
@@ -6221,6 +6268,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Created By */
@@ -6275,6 +6328,12 @@ export interface components {
          *     Now carries `created_by`/`updated_by` (ADR 0029) - `player`'s
          *     attribution pair lands with user/player/character CRUD (ADR 0036/RFC
          *     0007), which is what actually writes to this table.
+         *
+         *     Carries the player's `nickname`/`display_name`/`user_color` (ADR 0176),
+         *     the same three the tenant roster shows and never the email, so a GM
+         *     holding no tenant-wide membership can still name the people at their
+         *     table. Requires `player.user` eager-loaded first (`lazy="raise_on_sql"`,
+         *     ADR 0018).
          */
         PlayerSummaryOut: {
             /**
@@ -6287,6 +6346,12 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+            /** Nickname */
+            nickname: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** User Color */
+            user_color: string | null;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Created By */

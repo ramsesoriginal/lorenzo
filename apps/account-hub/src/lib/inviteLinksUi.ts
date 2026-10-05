@@ -8,9 +8,13 @@ import {
   EXPIRY_PRESETS,
   type ExpiryPresetId,
   expiresAtFor,
+  GM_EXPIRY_PRESETS,
+  GM_LINK_SHOWN_ONCE_NOTICE,
+  type GmExpiryPresetId,
   inviteStatus,
   inviteUrl,
   LINK_SHOWN_ONCE_NOTICE,
+  linkKindLabel,
   parseMaxUses,
   revokeConfirmation,
   STATUS_LABELS,
@@ -34,8 +38,14 @@ async function copyText(text: string, source: HTMLInputElement): Promise<void> {
   }
 }
 
-// What follows creating a link: the link itself, once.
-function renderLinkOnce(url: string, onDismiss: () => void): HTMLElement {
+// What follows creating a link: the link itself, once. Also the result screen
+// of /setup (ADR 0180), which says its own `notice` and `label`.
+export function renderLinkOnce(
+  url: string,
+  onDismiss: () => void,
+  notice: string = LINK_SHOWN_ONCE_NOTICE,
+  label = 'Invite link',
+): HTMLElement {
   const box = document.createElement('div');
   box.className = 'invite-link-once';
   box.setAttribute('role', 'status');
@@ -45,7 +55,7 @@ function renderLinkOnce(url: string, onDismiss: () => void): HTMLElement {
   input.readOnly = true;
   input.className = 'invite-link-input';
   input.value = url;
-  input.setAttribute('aria-label', 'Invite link');
+  input.setAttribute('aria-label', label);
 
   const copy = document.createElement('button');
   copy.type = 'button';
@@ -68,9 +78,9 @@ function renderLinkOnce(url: string, onDismiss: () => void): HTMLElement {
     onDismiss();
   });
 
-  const notice = document.createElement('p');
-  notice.textContent = LINK_SHOWN_ONCE_NOTICE;
-  box.append(input, copy, done, status, notice);
+  const noticeEl = document.createElement('p');
+  noticeEl.textContent = notice;
+  box.append(input, copy, done, status, noticeEl);
   queueMicrotask(() => input.select());
   return box;
 }
@@ -89,7 +99,7 @@ function renderInviteRow(
   badge.textContent = STATUS_LABELS[status];
   const meta = document.createElement('span');
   meta.className = 'campaign-meta';
-  meta.textContent = `Created ${formatWhen(invite.created_at)} · Expires ${formatWhen(invite.expires_at)} · Used ${usesLabel(invite)}`;
+  meta.textContent = `${linkKindLabel(invite.role)} · Created ${formatWhen(invite.created_at)} · Expires ${formatWhen(invite.expires_at)} · Used ${usesLabel(invite)}`;
   item.append(badge, meta);
 
   if (status === 'active') {
@@ -147,11 +157,31 @@ export function renderInviteLinks(
   const formStatus = createStatusSpan();
   form.append(expiryLabel, limitLabel, create, formStatus);
 
+  // A GM link (ADR 0177): one person, one use, at most a week. Next to the
+  // player link, since whoever may grant GM may hand it over this way.
+  const gmForm = document.createElement('form');
+  gmForm.className = 'inline-form';
+  const gmExpiry = document.createElement('select');
+  for (const preset of GM_EXPIRY_PRESETS) {
+    const option = document.createElement('option');
+    option.value = preset.id;
+    option.textContent = preset.label;
+    option.selected = preset.id === '3d';
+    gmExpiry.append(option);
+  }
+  const gmExpiryLabel = document.createElement('label');
+  gmExpiryLabel.append('GM link expires in ', gmExpiry);
+  const gmCreate = document.createElement('button');
+  gmCreate.type = 'submit';
+  gmCreate.textContent = 'Invite a GM';
+  const gmStatus = createStatusSpan();
+  gmForm.append(gmExpiryLabel, gmCreate, gmStatus);
+
   const created = document.createElement('div');
   const listStatus = createStatusSpan();
   const list = document.createElement('ul');
   list.className = 'list';
-  section.append(heading, form, created, listStatus, list);
+  section.append(heading, form, gmForm, created, listStatus, list);
 
   async function refresh(): Promise<void> {
     try {
@@ -177,6 +207,9 @@ export function renderInviteLinks(
     try {
       const invite = await createInvite(tenant.id, campaign.id, {
         expires_at: expiresAtFor(expiry.value as ExpiryPresetId, new Date()),
+        // The generated type wants a role whatever the server's default (ADR 0177);
+        // this panel makes the player links of ADR 0171.
+        role: 'player',
         ...(parsed.maxUses === null ? {} : { max_uses: parsed.maxUses }),
       });
       formStatus.textContent = '';
@@ -191,6 +224,32 @@ export function renderInviteLinks(
       showError(formStatus, e);
     } finally {
       create.disabled = false;
+    }
+  });
+
+  gmForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    gmCreate.disabled = true;
+    gmStatus.textContent = 'Creating…';
+    try {
+      const invite = await createInvite(tenant.id, campaign.id, {
+        expires_at: expiresAtFor(gmExpiry.value as GmExpiryPresetId, new Date()),
+        role: 'gm',
+      });
+      gmStatus.textContent = '';
+      created.replaceChildren(
+        renderLinkOnce(
+          inviteUrl(window.location.origin, invite.token),
+          () => created.replaceChildren(),
+          GM_LINK_SHOWN_ONCE_NOTICE,
+          'GM invite link',
+        ),
+      );
+      await refresh();
+    } catch (e) {
+      showError(gmStatus, e);
+    } finally {
+      gmCreate.disabled = false;
     }
   });
 

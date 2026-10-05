@@ -37,8 +37,21 @@ export const EXPIRY_PRESETS = [
 
 export type ExpiryPresetId = (typeof EXPIRY_PRESETS)[number]['id'];
 
-export function expiresAtFor(presetId: ExpiryPresetId, now: Date): string {
-  const preset = EXPIRY_PRESETS.find((p) => p.id === presetId);
+// A GM link lives at most a week (ADR 0177), against a player link's thirty
+// days. The longest preset is six days, not seven, for the same reason the
+// player links stop at four weeks: a client clock a little fast must never ask
+// for more than the API allows.
+export const GM_EXPIRY_PRESETS = [
+  { id: '1h', label: '1 hour', ms: HOUR_MS },
+  { id: '1d', label: '1 day', ms: DAY_MS },
+  { id: '3d', label: '3 days', ms: 3 * DAY_MS },
+  { id: '6d', label: '6 days', ms: 6 * DAY_MS },
+] as const;
+
+export type GmExpiryPresetId = (typeof GM_EXPIRY_PRESETS)[number]['id'];
+
+export function expiresAtFor(presetId: ExpiryPresetId | GmExpiryPresetId, now: Date): string {
+  const preset = [...EXPIRY_PRESETS, ...GM_EXPIRY_PRESETS].find((p) => p.id === presetId);
   if (preset === undefined) throw new Error(`Unknown expiry: ${presetId}`);
   return new Date(now.getTime() + preset.ms).toISOString();
 }
@@ -136,10 +149,40 @@ export const DEAD_LINK_MESSAGE =
 export const LINK_SHOWN_ONCE_NOTICE =
   "This link won't be shown again. Anyone who has it can join this campaign as a player until it expires or you revoke it.";
 
-export function joinedMessage(campaignName: string, alreadyJoined: boolean): string {
+// A GM link is worth more than a player link, and says so (ADR 0177): the first
+// person to open it becomes a GM of the campaign, and it works once.
+export const GM_LINK_SHOWN_ONCE_NOTICE =
+  "This link won't be shown again, and it works once: whoever opens it first becomes a GM of this campaign. Send it only to the person who should run it, or revoke it.";
+
+// What a link makes someone (ADR 0177): `player` for every link before it.
+export type InviteRole = 'player' | 'gm';
+
+export function linkKindLabel(role: InviteRole): 'Player link' | 'GM link' {
+  return role === 'gm' ? 'GM link' : 'Player link';
+}
+
+// What the /join page says it offers, and what its button says.
+export function inviteOffer(role: InviteRole): { sentence: string; joinLabel: string } {
+  return role === 'gm'
+    ? {
+        sentence: "You've been invited to run this campaign as a GM.",
+        joinLabel: 'Join as a GM',
+      }
+    : {
+        sentence: "You've been invited to join this campaign as a player.",
+        joinLabel: 'Join',
+      };
+}
+
+export function joinedMessage(
+  campaignName: string,
+  alreadyJoined: boolean,
+  role: InviteRole = 'player',
+): string {
+  const noun = role === 'gm' ? 'a GM' : 'a player';
   return alreadyJoined
-    ? `You're already a player in ${campaignName}.`
-    : `You're in. ${campaignName} lists you as a player.`;
+    ? `You're already ${noun} ${role === 'gm' ? 'of' : 'in'} ${campaignName}.`
+    : `You're in. ${campaignName} lists you as ${noun}.`;
 }
 
 export function revokeConfirmation(): string {

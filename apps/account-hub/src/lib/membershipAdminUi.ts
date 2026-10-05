@@ -9,6 +9,7 @@ import { showError } from './errorUi';
 // have single-item rights is the safe direction of a wrong guess).
 
 import { displayNameFor } from './format';
+import { kindNoun, kindNounCapitalized } from './tenantKind';
 import { bulkInviteMembers, createMembership, deleteMembership, updateMembership } from './tenants';
 import type {
   BulkMembershipResultItem,
@@ -80,7 +81,7 @@ function renderMembershipList(
 function renderInviteForm(tenant: TenantSummaryOut, onChanged: () => void): HTMLElement {
   const container = document.createElement('div');
   const label = document.createElement('p');
-  label.textContent = 'Invite a library admin:';
+  label.textContent = `Invite a ${kindNoun(tenant.kind)} admin:`;
   container.append(label);
 
   const roleSelect = renderRoleSelect('orga');
@@ -190,7 +191,7 @@ export function renderMembershipAdmin(
   const section = document.createElement('div');
   section.className = 'panel';
   const heading = document.createElement('h3');
-  heading.textContent = 'Library admins';
+  heading.textContent = `${kindNounCapitalized(tenant.kind)} admins`;
   section.append(heading);
   section.append(renderMembershipList(tenant, memberships, onChanged));
   section.append(renderInviteForm(tenant, onChanged));
