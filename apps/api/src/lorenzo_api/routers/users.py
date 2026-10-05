@@ -108,7 +108,7 @@ async def _me_out(user: User, request: Request, session: SessionDep) -> MeOut:
         tenant_players = await session.execute(
             select(Player)
             .where(Player.user_id == user_id, Player.tenant_id == tenant_id)
-            .options(_character_eager_load)
+            .options(_character_eager_load, selectinload(Player.campaign))
         )
         players.extend(tenant_players.scalars().all())
 

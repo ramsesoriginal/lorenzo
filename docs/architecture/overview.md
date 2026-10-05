@@ -233,6 +233,13 @@ The CLI grew the commands a stranger needs to use it, and the ones that finish a
 - **`lorenzo api METHOD PATH`** makes one authenticated request over the CLI's own client: a path, never a URL, so the token goes only to the API that was named ([ADR 0161](../adr/0161-lorenzo-api-passthrough.md)).
 - **The D&D 5e layer split out** ([ADR 0162](../adr/0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md), [0163](../adr/0163-lorenzo-repo-offer-offers-what-a-bridge-builds-on.md); decided with the maintainer on 2026-10-03, closing RFC 0025 R8): core and a D&D 5e repository that copied it, which makes D&D a bridge, so a table needs a grant on each and `repo offer` makes both. R8's untested assumption, that a category minted under an axis root in core survives a copy of the bridge, was tried against the real API and holds.
 
+Players can make their own items, and a GM can switch that off ([ADR 0185](../adr/0185-player-self-service-the-switches.md), [0186](../adr/0186-player-self-service-enforcement.md), [RFC 0034](../rfcs/0034-player-self-service.md)):
+
+- **Two switches.** `campaign.player_self_service` (on by default) and a nullable `player.self_service` override, set by whoever manages the campaign (`PATCH` on the campaign, a new `PATCH` on a player), logged, and shown on the campaign and the roster with a computed `self_service_effective`.
+- **One rule.** A manager is judged as before. Otherwise the owner must be a character the caller plays through a seat that is switched on, any one of their seats for a character in several campaigns (`403 self-service-disabled` when every one is off). A group is not an owner a player can create for.
+- **What a player may make.** A public item (`in_public_catalog`; anything else is answered as unknown), no slug, owned and not carried, or inside something the character holds. `from-pack` too, the pack and everything it names public, its top-level things Equipped. This tightens what a player could always do; `GET /me`'s `players[]` carries `self_service_effective`.
+- **loot-bot's Sack** is created in the public catalog, an existing one is made public, and a stored one the API refuses is looked up again, so its `/container-new` keeps working.
+
 ### What's next
 
 Not narrated here — see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`) for whatever's actually in flight right now. Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs in GitHub's own tracker, not in hand-maintained prose in this file — the chronicle above already proved, more than once, that it doesn't stay honest otherwise.

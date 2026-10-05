@@ -735,14 +735,36 @@ export function createLorenzoApiClient(baseUrl: string) {
     },
 
     /** POST /tenants/{tenant_id}/items - adds a plain catalog item (no
-     * prototypes) by name. Needs a tenant `Membership`, like the rest of
-     * `/items`; `/container-new` uses it once, to make the "Sack". */
+     * prototypes) by name, in the public catalog: players may only make their
+     * own instances of public items (ADR 0186). Needs a tenant `Membership`,
+     * like the rest of `/items`; `/container-new` uses it once, to make the
+     * "Sack". */
     async createItem(tenantId: string, name: string, accessToken: string): Promise<ItemOut> {
       const { data, error, response } = await client.POST("/tenants/{tenant_id}/items", {
         params: { path: { tenant_id: tenantId } },
         headers: { Authorization: `Bearer ${accessToken}` },
-        body: { name, prototype_ids: [], in_public_catalog: false },
+        body: { name, prototype_ids: [], in_public_catalog: true },
       });
+      if (error !== undefined) throw toLorenzoApiError(error, response.status);
+      return data;
+    },
+
+    /** PATCH /tenants/{tenant_id}/items/{entity_id} - puts a catalog item in
+     * the public catalog (ADR 0116). `/container-new` repairs a "Sack" made
+     * before players needed that to make one (ADR 0186). */
+    async makeItemPublic(
+      tenantId: string,
+      entityId: string,
+      accessToken: string,
+    ): Promise<ItemOut> {
+      const { data, error, response } = await client.PATCH(
+        "/tenants/{tenant_id}/items/{entity_id}",
+        {
+          params: { path: { tenant_id: tenantId, entity_id: entityId } },
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { in_public_catalog: true },
+        },
+      );
       if (error !== undefined) throw toLorenzoApiError(error, response.status);
       return data;
     },

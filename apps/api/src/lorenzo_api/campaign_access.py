@@ -9,12 +9,13 @@ than have its logic duplicated there.
 import uuid
 from collections.abc import Iterable
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.entity_access import controlled_character_entity_ids
 from lorenzo_api.models import (
     Being,
+    Campaign,
     CampaignGm,
     CharacterPlayer,
     Entity,
@@ -288,6 +289,48 @@ async def campaignless_holders_for(
         )
         stmt = stmt.where(Entity.created_by.in_(co_gms))
     return frozenset((await session.execute(stmt)).scalars().all())
+
+
+async def self_service_standing(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    character_entity_id: uuid.UUID,
+) -> bool | None:
+    """Whether the caller may make their own item instances for a character
+    they control (RFC 0034, ADR 0186), through the seats that are theirs:
+
+    - `None`: none of the caller's own seats plays that character, so they
+      don't control it and self-service doesn't come into it.
+    - `True`: at least one of those seats is enabled - the player's own
+      `self_service` if set, else the campaign's `player_self_service`. A
+      character in several campaigns is the tenant's: one yes is enough, and
+      no seat of anyone else's counts, nor does a `False` veto a `True`.
+    - `False`: they play it, and every such seat is switched off.
+    """
+    stmt = (
+        select(func.coalesce(Player.self_service, Campaign.player_self_service))
+        .select_from(Player)
+        .join(
+            CharacterPlayer,
+            (CharacterPlayer.player_id == Player.id)
+            & (CharacterPlayer.tenant_id == Player.tenant_id),
+        )
+        .join(
+            Campaign,
+            (Campaign.id == Player.campaign_id) & (Campaign.tenant_id == Player.tenant_id),
+        )
+        .where(
+            Player.user_id == user_id,
+            Player.tenant_id == tenant_id,
+            CharacterPlayer.character_entity_id == character_entity_id,
+        )
+    )
+    effective = (await session.execute(stmt)).scalars().all()
+    if not effective:
+        return None
+    return any(effective)
 
 
 async def can_manage_owner(

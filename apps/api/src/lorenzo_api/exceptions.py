@@ -80,6 +80,7 @@ __all__ = [
     "CapacityExceededError",
     "ItemBoundError",
     "OverrideForbiddenError",
+    "SelfServiceDisabledError",
     "NotAPackError",
     "PackListError",
     "InvalidPackOwnerError",
@@ -870,6 +871,14 @@ class OverrideForbiddenError(ForbiddenProblem):
     a binding, are a GM's call alone."""
 
     title = "Only a GM can do that"
+
+
+class SelfServiceDisabledError(ForbiddenProblem):
+    """A player making an item instance for their own character while every
+    seat of theirs that plays it has self-service switched off, by the
+    campaign or by their own override - RFC 0034, ADR 0186."""
+
+    title = "Self-service is switched off"
 
 
 class NotAPackError(UnprocessableProblem):

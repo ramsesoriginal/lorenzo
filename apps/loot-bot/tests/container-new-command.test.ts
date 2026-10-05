@@ -248,6 +248,40 @@ describe("containerNewCommand.execute", () => {
     );
   });
 
+  it("looks the sack up again when the API calls it unknown, and makes it with what it finds (ADR 0186)", async () => {
+    setUpSack();
+    createItemInstance
+      .mockRejectedValueOnce(new LorenzoApiError("not a base item", 422))
+      .mockResolvedValueOnce({ entity_id: "sack-1", title: "Camp supplies" });
+    resolveSackPrototype
+      .mockResolvedValueOnce({ kind: "ok", prototypeId: "stale-1" })
+      .mockResolvedValueOnce({ kind: "ok", prototypeId: "fresh-1" });
+    const interaction = fakeInteraction();
+
+    await containerNewCommand.execute(interaction, ctx);
+
+    expect(clearContainerPrototypeId).toHaveBeenCalledWith("tenant-1");
+    expect(createItemInstance).toHaveBeenCalledTimes(2);
+    expect(createItemInstance.mock.calls[1]?.[1]).toBe("fresh-1");
+  });
+
+  it("tells someone without catalog access who to ask when the sack needs setting up again", async () => {
+    setUpSack();
+    createItemInstance.mockRejectedValue(new LorenzoApiError("not a base item", 422));
+    resolveSackPrototype
+      .mockResolvedValueOnce({ kind: "ok", prototypeId: "stale-1" })
+      .mockResolvedValueOnce({ kind: "needs-catalog-access" });
+    const interaction = fakeInteraction();
+
+    await containerNewCommand.execute(interaction, ctx);
+
+    expect(clearContainerPrototypeId).toHaveBeenCalledWith("tenant-1");
+    expect(createItemInstance).toHaveBeenCalledTimes(1);
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.stringContaining("Ask a GM or admin"),
+    );
+  });
+
   it("doesn't forget the prototype for an unrelated failure", async () => {
     setUpSack();
     createItemInstance.mockRejectedValue(new LorenzoApiError("forbidden", 403));

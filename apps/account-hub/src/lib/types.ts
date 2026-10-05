@@ -5,6 +5,7 @@ export type { Page } from '@lorenzo/api-client';
 export type MembershipOut = Schema<'MembershipOut'>;
 export type CharacterSummaryOut = Schema<'CharacterSummaryOut'>;
 export type PlayerContextOut = Schema<'PlayerContextOut'>;
+export type MePlayerOut = Schema<'MePlayerOut'>;
 export type BeingSummaryOut = Schema<'BeingSummaryOut'>;
 export type CampaignSummaryOut = Schema<'CampaignSummaryOut'>;
 export type TenantSummaryOut = Schema<'TenantSummaryOut'>;

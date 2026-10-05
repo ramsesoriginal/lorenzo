@@ -9,7 +9,14 @@ from pydantic import BaseModel
 from lorenzo_api.models import Player
 from lorenzo_api.schemas.characters import CharacterSummaryOut
 
-__all__ = ["PlayerContextOut", "PlayerCreate", "PlayerOut", "PlayerSummaryOut", "PlayerUpdate"]
+__all__ = [
+    "MePlayerOut",
+    "PlayerContextOut",
+    "PlayerCreate",
+    "PlayerOut",
+    "PlayerSummaryOut",
+    "PlayerUpdate",
+]
 
 
 class PlayerCreate(BaseModel):
@@ -125,4 +132,29 @@ class PlayerContextOut(BaseModel):
                 CharacterSummaryOut.from_character(link.character)
                 for link in player.character_links
             ],
+        )
+
+
+class MePlayerOut(PlayerContextOut):
+    """`GET /me`'s `players[]`: a seat of the caller's own, with whether
+    self-service is on for it (RFC 0034, ADR 0186) - the player's own override
+    if set, else the campaign's. Only here, not on a character's roster, which
+    lists other players' seats. A character in several campaigns is the
+    tenant's, so a client asks whether *any* of its seats is on.
+
+    Also requires `player.campaign` eager-loaded.
+    """
+
+    self_service_effective: bool
+
+    @classmethod
+    def from_me_player(cls, player: Player) -> Self:
+        base = PlayerContextOut.from_player(player)
+        return cls(
+            **base.model_dump(),
+            self_service_effective=(
+                player.campaign.player_self_service
+                if player.self_service is None
+                else player.self_service
+            ),
         )

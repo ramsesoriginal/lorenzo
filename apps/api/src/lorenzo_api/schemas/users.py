@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from lorenzo_api.models import CampaignGm, Membership, Player, User
 from lorenzo_api.schemas.campaigns import CampaignSummaryOut
-from lorenzo_api.schemas.players import PlayerContextOut
+from lorenzo_api.schemas.players import MePlayerOut
 
 _USER_COLOR_PATTERN = r"^#[0-9A-Fa-f]{6}$"
 
@@ -61,7 +61,7 @@ class MeOut(BaseModel):
     # uploaded picture, a Gravatar redirect, or 404, entirely on its own.
     picture_url: str
     memberships: list[MembershipOut]
-    players: list[PlayerContextOut]
+    players: list[MePlayerOut]
     campaign_gm_grants: list[CampaignSummaryOut]
     capabilities: MeCapabilitiesOut
 
@@ -94,7 +94,7 @@ class MeOut(BaseModel):
             user_color=user.user_color,
             picture_url=str(request.url_for("get_user_picture", user_id=user.id)),
             memberships=[MembershipOut.from_membership(m) for m in user.memberships],
-            players=[PlayerContextOut.from_player(p) for p in players],
+            players=[MePlayerOut.from_me_player(p) for p in players],
             campaign_gm_grants=[
                 CampaignSummaryOut.model_validate(gm.campaign) for gm in campaign_gms
             ],
