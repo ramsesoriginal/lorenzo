@@ -46,7 +46,7 @@ The match is not case-sensitive. Any other `##` heading is **ignored, together w
 
 ### The lines
 
-```
+```text
 - [N x ]NAME[ | field: value][ | field: value]…
 ```
 
@@ -177,7 +177,7 @@ Things the sheet did that a file does not need: a *Total weight* column (Lorenzo
 
 A LaTeX or word-processor list with free-text lines:
 
-```
+```text
 \item 4 Dagger
 \item 98 Crossbow Bolts
 \item 20x20 Holzfaellerparzelle (5g pro Woche)
