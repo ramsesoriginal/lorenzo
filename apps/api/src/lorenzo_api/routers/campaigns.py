@@ -214,7 +214,7 @@ async def update_campaign(
     update = body.model_dump(exclude_unset=True)
     changed_fields = [
         field
-        for field in ("name", "game_system", "slug", "description", "secret")
+        for field in ("name", "game_system", "slug", "description", "secret", "player_self_service")
         if field in update
     ]
     for field in changed_fields:

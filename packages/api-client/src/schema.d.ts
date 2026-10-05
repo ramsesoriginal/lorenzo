@@ -1353,7 +1353,14 @@ export interface paths {
         delete: operations["delete_player"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Player
+         * @description The player's self-service override (RFC 0034, ADR 0185), the only thing
+         *     about a player that can be written after joining. can_manage_campaign
+         *     only: a player never sets their own. `exclude_unset`, like every PATCH
+         *     here: `null` clears the override, leaving the field out changes nothing.
+         */
+        patch: operations["update_player"];
         trace?: never;
     };
     "/tenants/{tenant_id}/campaigns/{campaign_id}/gms": {
@@ -3869,6 +3876,8 @@ export interface components {
             game_system: string;
             /** Secret */
             secret: boolean;
+            /** Player Self Service */
+            player_self_service: boolean;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -3924,6 +3933,8 @@ export interface components {
             description?: string | null;
             /** Secret */
             secret?: boolean | null;
+            /** Player Self Service */
+            player_self_service?: boolean | null;
         };
         /**
          * CharacterCreate
@@ -6294,10 +6305,19 @@ export interface components {
             user_color: string | null;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
+            /** Self Service */
+            self_service: boolean | null;
+            /** Self Service Effective */
+            self_service_effective: boolean;
             /** Created By */
             created_by: string | null;
             /** Updated By */
             updated_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * PlayerRosterEntryOut
@@ -6352,6 +6372,11 @@ export interface components {
          *     holding no tenant-wide membership can still name the people at their
          *     table. Requires `player.user` eager-loaded first (`lazy="raise_on_sql"`,
          *     ADR 0018).
+         *
+         *     Carries the self-service switch (RFC 0034, ADR 0185): `self_service` is the
+         *     player's own override (null: none) and `self_service_effective` what
+         *     applies, so a client does not repeat the rule; `updated_at` is the
+         *     token `If-Match` on a write to this player is checked against.
          */
         PlayerSummaryOut: {
             /**
@@ -6372,10 +6397,29 @@ export interface components {
             user_color: string | null;
             /** Characters */
             characters: components["schemas"]["CharacterSummaryOut"][];
+            /** Self Service */
+            self_service: boolean | null;
+            /** Self Service Effective */
+            self_service_effective: boolean;
             /** Created By */
             created_by: string | null;
             /** Updated By */
             updated_by: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * PlayerUpdate
+         * @description PATCH .../campaigns/{id}/players/{id} - RFC 0034/ADR 0185. `self_service`
+         *     is the per-player override of the campaign's setting: a boolean sets it,
+         *     an explicit `null` clears it, leaving it out changes nothing.
+         */
+        PlayerUpdate: {
+            /** Self Service */
+            self_service?: boolean | null;
         };
         /** PreviewInputOut */
         PreviewInputOut: {
@@ -11886,6 +11930,79 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_player: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                campaign_id: string;
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayerUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerOut"];
+                };
             };
             /** @description Validation Error */
             422: {

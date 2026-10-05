@@ -58,6 +58,10 @@ class Player(Base):
     # updated_at's own identical never-actually-updated precedent.
     created_by: Mapped[CreatedBy]
     updated_by: Mapped[UpdatedBy]
+    # The per-player override of campaign.player_self_service (RFC 0034, ADR
+    # 0185): None follows the campaign, True allows, False forbids. Nothing
+    # reads it yet.
+    self_service: Mapped[bool | None] = mapped_column(default=None)
 
     # foreign_keys explicit: player gained created_by/updated_by (ADR 0036),
     # a second and third FK to app_user alongside user_id - same

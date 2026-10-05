@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import (
@@ -57,6 +57,10 @@ class Campaign(Base):
     slug: Mapped[str]
     description: Mapped[str]
     secret: Mapped[bool] = mapped_column(default=False)
+    # Whether this campaign's players may make their own item instances
+    # from the public catalog (RFC 0034, ADR 0185); a player's own
+    # `self_service` overrides it. Nothing reads it yet.
+    player_self_service: Mapped[bool] = mapped_column(server_default=true(), default=True)
     # A dedicated Entity, not a class-table-inheritance PK+FK the way
     # item/being extend entity - campaign keeps its own surrogate id, this
     # is a plain reference column so every other FK to campaign.id is
