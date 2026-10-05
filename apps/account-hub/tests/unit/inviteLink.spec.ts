@@ -5,11 +5,15 @@ import {
   EXPIRY_PRESETS,
   expiresAtFor,
   forgetInviteToken,
+  GM_EXPIRY_PRESETS,
+  GM_LINK_SHOWN_ONCE_NOTICE,
   INVITE_TOKEN_KEY,
+  inviteOffer,
   inviteStatus,
   inviteUrl,
   joinedMessage,
   LINK_SHOWN_ONCE_NOTICE,
+  linkKindLabel,
   parseMaxUses,
   readInviteToken,
   rememberInviteToken,
@@ -234,5 +238,48 @@ describe('public/_headers', () => {
         'Referrer-Policy: no-referrer',
       ]);
     }
+  });
+});
+
+describe('GM links (ADR 0177)', () => {
+  it('offers expiries of at most a week, with slack under the API limit', () => {
+    const now = new Date('2026-10-04T12:00:00Z');
+    for (const preset of GM_EXPIRY_PRESETS) {
+      const ms = new Date(expiresAtFor(preset.id, now)).getTime() - now.getTime();
+      expect(ms).toBeGreaterThan(0);
+      // The API allows 7 days; a client clock that runs a little fast must stay inside it.
+      expect(ms).toBeLessThan(7 * 24 * 60 * 60 * 1000);
+    }
+    expect(GM_EXPIRY_PRESETS.map((p) => p.id)).toEqual(['1h', '1d', '3d', '6d']);
+  });
+
+  it('computes a GM preset like any other', () => {
+    const now = new Date('2026-10-04T12:00:00Z');
+    expect(expiresAtFor('3d', now)).toBe('2026-10-07T12:00:00.000Z');
+    expect(expiresAtFor('1w', now)).toBe('2026-10-11T12:00:00.000Z');
+  });
+
+  it('says what a link makes someone, on the page and on its button', () => {
+    expect(inviteOffer('player')).toEqual({
+      sentence: "You've been invited to join this campaign as a player.",
+      joinLabel: 'Join',
+    });
+    expect(inviteOffer('gm').sentence).toContain('as a GM');
+    expect(inviteOffer('gm').joinLabel).toBe('Join as a GM');
+    expect(linkKindLabel('gm')).toBe('GM link');
+    expect(linkKindLabel('player')).toBe('Player link');
+  });
+
+  it("says joined as a GM in a GM link's own words, and a player link's as before", () => {
+    expect(joinedMessage('Zorro', false)).toBe("You're in. Zorro lists you as a player.");
+    expect(joinedMessage('Zorro', true)).toBe("You're already a player in Zorro.");
+    expect(joinedMessage('Zorro', false, 'gm')).toBe("You're in. Zorro lists you as a GM.");
+    expect(joinedMessage('Zorro', true, 'gm')).toBe("You're already a GM of Zorro.");
+  });
+
+  it('warns that a GM link works once and makes a GM', () => {
+    expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain('works once');
+    expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain('becomes a GM');
+    expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain("won't be shown again");
   });
 });

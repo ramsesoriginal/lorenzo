@@ -46,6 +46,44 @@ Anyone with a membership can leave a library, any GM can step down, and
 campaign's manager can remove a player and undo a character's roster link (never
 its owner's). All of it is asked first with `window.confirm` (ADR 0170).
 
+## Setting up a table, and GM links
+
+`/setup` (ADR 0180) is the quick way to start: one short form (library name,
+campaign name, game system, who runs it) makes the library, the campaign, the
+GM and a link for your players, and ends on the links, each shown once. "Who
+runs it" is you, someone you find by email or nickname, or a **single-use GM
+link** (ADR 0177) for someone who has an account or doesn't. The chain is the
+calls `/tenants` already makes; a step that fails stops there, says why, and
+"Try again" goes on from it without making anything twice. It is offered only
+to an account whose `GET /me` says `capabilities.create_tenant`, from the home
+page and the empty states of `/tenants` and `/campaigns`.
+
+A campaign's invite panel also offers "Invite a GM" (one person, one use, at
+most a week), and `/join/` says whether a link offers a seat as a player or as
+a GM before asking anyone to log in.
+
+## Your campaigns
+
+`/campaigns` (ADR 0179) replaces `/overview` and `/characters`, which forward to
+it. **Where you play** lists the campaigns where you hold a seat, with your
+characters there and the actions a seat has: create, rename, use one of your
+characters from another campaign of the library, stop using a linked one, leave.
+**Where you run** lists the campaigns you GM and every campaign of a library you
+administer (marked GM or Admin), with its players by name and what each plays,
+and its GMs; the names come with the campaign's own lists (ADR 0176), so a GM
+who holds no library membership sees them too. It reads `GET /me` and
+`GET /me/managed`, for libraries only.
+
+## Repositories
+
+A repository (a tenant of kind `repository`, ADR 0178) is its own noun, not a
+library. `/tenants` lists libraries as before and gives repositories a section
+of their own: rename and edit, their people and invitations, and whether they
+are a draft or published (read-only: publishing stays on the CLI). They have no
+campaigns, invite links or characters. `/campaigns` lists libraries only;
+`/beings` lists a repository's beings for reading, without the hand-off. "Create a library" and "Create a repository" are shown only when
+`GET /me` says `capabilities.create_tenant` (ADR 0175).
+
 ## Real API browser tests
 
 Run `mise run //apps/account-hub:test-real-api` with the local Postgres from

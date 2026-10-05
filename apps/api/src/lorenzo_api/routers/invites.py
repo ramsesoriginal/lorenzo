@@ -1,3 +1,5 @@
+import uuid
+
 import structlog
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
@@ -6,7 +8,7 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import CurrentUser, SessionDep, set_tenant_rls_context
 from lorenzo_api.exceptions import InviteNotFoundError
 from lorenzo_api.invites import consume_invite, find_live_invite
-from lorenzo_api.models import Campaign, CampaignGm, CampaignProfilePicture, Player
+from lorenzo_api.models import Campaign, CampaignGm, CampaignProfilePicture, InviteRole, Player
 from lorenzo_api.notifications import notify_campaign_gms
 from lorenzo_api.rate_limit import enforce_invite_rate_limit, request_source
 from lorenzo_api.schemas.invites import InvitePreviewOut, InviteRedeemOut
@@ -37,13 +39,13 @@ def _reject(request: Request, *, endpoint: str) -> InviteNotFoundError:
 @router.get("/invites/{token}")
 async def preview_invite(token: str, request: Request, session: SessionDep) -> InvitePreviewOut:
     """Unauthenticated - the campaign's name and picture URL, so a landing
-    page can say what the visitor is being invited to (ADR 0092). Does an
-    indexed read and never writes.
+    page can say what the visitor is being invited to (ADR 0092) - as a
+    player, or as a GM (ADR 0177). Does an indexed read and never writes.
     """
     invite = await find_live_invite(session, token)
     if invite is None:
         raise _reject(request, endpoint="preview")
-    tenant_id, campaign_id = invite.tenant_id, invite.campaign_id
+    tenant_id, campaign_id, role = invite.tenant_id, invite.campaign_id, invite.role
     await set_tenant_rls_context(session, tenant_id)
 
     campaign_name = (
@@ -63,7 +65,87 @@ async def preview_invite(token: str, request: Request, session: SessionDep) -> I
         if has_picture
         else None
     )
-    return InvitePreviewOut(campaign_name=campaign_name, picture_url=picture_url)
+    return InvitePreviewOut(campaign_name=campaign_name, picture_url=picture_url, role=role)
+
+
+async def _redeem_gm_link(
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    *,
+    tenant_id: uuid.UUID,
+    campaign_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    granted_by: uuid.UUID | None,
+) -> InviteRedeemOut:
+    """A GM link's redemption (ADR 0177): a `CampaignGm` row, never a
+    player row and never a tenant membership, attributed to whoever made the
+    link as `PUT .../gms/{user}` attributes to its granter. Someone already a
+    GM of the campaign gets `200` and no use is spent.
+    """
+    if await session.get(CampaignGm, (tenant_id, user.id, campaign_id)) is not None:
+        response.status_code = 200
+        return InviteRedeemOut(
+            tenant_id=tenant_id,
+            campaign_id=campaign_id,
+            role=InviteRole.GM,
+            player_id=None,
+            already_joined=True,
+        )
+
+    # The atomic spend, which is what makes a single-use link one person.
+    if not await consume_invite(session, invite_id):
+        raise _reject(request, endpoint="redeem")
+
+    # The GMs to tell are the ones there before this one joins.
+    gm_user_ids = set(
+        (
+            await session.execute(
+                select(CampaignGm.user_id).where(
+                    CampaignGm.campaign_id == campaign_id, CampaignGm.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    session.add(
+        CampaignGm(
+            tenant_id=tenant_id, user_id=user.id, campaign_id=campaign_id, created_by=granted_by
+        )
+    )
+    campaign_name = (
+        await session.execute(
+            select(Campaign.name).where(Campaign.id == campaign_id, Campaign.tenant_id == tenant_id)
+        )
+    ).scalar_one()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="campaign_invite.redeemed",
+        target_type="campaign_invite",
+        target_id=invite_id,
+        detail=f"campaign={campaign_id}, role=gm, gm={user.id}",
+    )
+    who = user.display_name or user.nickname or "Someone"
+    notify_campaign_gms(
+        session,
+        tenant_id=tenant_id,
+        campaign_id=campaign_id,
+        gm_user_ids=gm_user_ids,
+        type="campaign_invite_gm_redeemed",
+        title=f"A new GM joined {campaign_name}",
+        body=f"{who} joined as a GM through an invite link.",
+        created_by=user.id,
+    )
+    await session.commit()
+    return InviteRedeemOut(
+        tenant_id=tenant_id,
+        campaign_id=campaign_id,
+        role=InviteRole.GM,
+        player_id=None,
+        already_joined=False,
+    )
 
 
 @router.post("/invites/{token}/redeem", status_code=201)
@@ -76,15 +158,29 @@ async def redeem_invite(
 ) -> InviteRedeemOut:
     """Authenticated but not tenant-scoped: any verified Authgear user
     (ADR 0092) - joining creates a `player` row, which needs a user. Gives
-    the player role in this one campaign and nothing more; never GM, never
-    tenant membership. Idempotent: someone already a player gets `200` and
-    no second seat, no use consumed. `201` the first time.
+    the player role in this one campaign and nothing more; never tenant
+    membership. A GM link (ADR 0177) gives a GM row instead, and no player
+    row. Idempotent: someone who already holds the role gets `200` and no
+    second seat, no use consumed. `201` the first time.
     """
     invite = await find_live_invite(session, token)
     if invite is None:
         raise _reject(request, endpoint="redeem")
     tenant_id, campaign_id, invite_id = invite.tenant_id, invite.campaign_id, invite.id
+    role, granted_by = invite.role, invite.created_by
     await set_tenant_rls_context(session, tenant_id)
+
+    if role is InviteRole.GM:
+        return await _redeem_gm_link(
+            request,
+            response,
+            session,
+            user,
+            tenant_id=tenant_id,
+            campaign_id=campaign_id,
+            invite_id=invite_id,
+            granted_by=granted_by,
+        )
 
     existing_player_id = (
         await session.execute(
@@ -96,6 +192,7 @@ async def redeem_invite(
         return InviteRedeemOut(
             tenant_id=tenant_id,
             campaign_id=campaign_id,
+            role=InviteRole.PLAYER,
             player_id=existing_player_id,
             already_joined=True,
         )
@@ -153,5 +250,9 @@ async def redeem_invite(
     )
     await session.commit()
     return InviteRedeemOut(
-        tenant_id=tenant_id, campaign_id=campaign_id, player_id=player_id, already_joined=False
+        tenant_id=tenant_id,
+        campaign_id=campaign_id,
+        role=InviteRole.PLAYER,
+        player_id=player_id,
+        already_joined=False,
     )

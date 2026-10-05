@@ -94,7 +94,10 @@ test('a visitor follows a link, logs in, joins, and every dead link reads the sa
   const created = await ok(
     owner.api.POST('/tenants/{tenant_id}/campaigns/{campaign_id}/invites', {
       params: { path: { tenant_id: library.id, campaign_id: campaign.id } },
-      body: { expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
+      body: {
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        role: 'player',
+      },
     }),
   );
   const visitor = await newUser('visitor');

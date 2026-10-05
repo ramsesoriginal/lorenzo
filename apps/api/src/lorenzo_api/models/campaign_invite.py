@@ -1,17 +1,30 @@
 from __future__ import annotations
 
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, text
+from sqlalchemy import Enum, ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk, same_tenant_fk
 
 
+class InviteRole(enum.Enum):
+    """What redeeming an invite makes someone in its campaign (ADR 0177).
+    `player` is every link ADR 0092 defined; `gm` is the one narrow
+    exception, single-use and short-lived.
+    """
+
+    PLAYER = "player"
+    GM = "gm"
+
+
 class CampaignInvite(Base):
     """A shareable link that lets people join one campaign as players
-    themselves - see ADR 0092/RFC 0023.
+    themselves - see ADR 0092/RFC 0023 - or, for `role = gm`, one person as
+    a GM (ADR 0177: single use, at most 7 days, only ever created by someone
+    who could grant GM directly).
 
     The token is never stored: only its SHA-256 (`token_hash`, unique), so
     a leaked table leaks no working links. `expires_at` is required (a
@@ -38,6 +51,14 @@ class CampaignInvite(Base):
     tenant_id: Mapped[TenantFk]
     campaign_id: Mapped[uuid.UUID] = mapped_column(index=True)
     token_hash: Mapped[str] = mapped_column(unique=True)
+    role: Mapped[InviteRole] = mapped_column(
+        Enum(
+            InviteRole,
+            name="campaign_invite_role",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        server_default=text("'player'"),
+    )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("app_user.id", ondelete="SET NULL")
     )

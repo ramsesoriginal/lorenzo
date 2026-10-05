@@ -34,6 +34,7 @@ ME = {
     ],
     "players": [],
     "campaign_gm_grants": [],
+    "capabilities": {"create_tenant": True},
 }
 SUMMARIES = [
     {

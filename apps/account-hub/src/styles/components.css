@@ -34,9 +34,28 @@
   gap: 0.5rem;
   align-items: end;
 }
-.tenant-details-form label {
+.tenant-details-form label,
+.create-tenant-form label {
   display: grid;
   gap: 0.25rem;
+}
+/* The create forms (ADR 0178) lay their fields out like the editor does. */
+.create-tenant-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: end;
+}
+.create-tenant-form > h2,
+.create-tenant-form > h3,
+.create-tenant-form > p,
+.create-tenant-form > fieldset {
+  flex-basis: 100%;
+  margin: 0;
+}
+/* A repository's draft or published state (ADR 0178). */
+.repository-status {
+  margin: 0;
 }
 .tenant-details-hint {
   flex-basis: 100%;
@@ -61,4 +80,32 @@
 .invite-link-input {
   width: min(100%, 36rem);
   font-family: var(--font-mono);
+}
+
+/* One campaign on /campaigns's "Where you run" (ADR 0179): its name, then
+   Players and GMs one under the other, not in the row the brand's .list gives
+   a single-line item. */
+.list > .run-campaign {
+  display: block;
+}
+.run-campaign h4 {
+  margin: var(--space-3) 0 var(--space-1);
+}
+.run-campaign > a {
+  display: inline-block;
+  margin-top: var(--space-2);
+}
+
+/* /setup (ADR 0180): the steps as they run, and the links of the result. */
+.setup-steps > li[data-state="failed"] {
+  color: var(--danger);
+}
+.setup-link {
+  margin-block: var(--space-3);
+}
+/* A choice among radio buttons sits in a row with its words, not above them. */
+.create-tenant-form fieldset label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }

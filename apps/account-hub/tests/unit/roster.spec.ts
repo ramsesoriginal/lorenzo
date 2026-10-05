@@ -6,6 +6,9 @@ function player(overrides: Partial<PlayerSummaryOut> = {}): PlayerSummaryOut {
   return {
     id: crypto.randomUUID(),
     user_id: crypto.randomUUID(),
+    nickname: null,
+    display_name: null,
+    user_color: null,
     characters: [],
     created_by: null,
     updated_by: null,
@@ -14,21 +17,32 @@ function player(overrides: Partial<PlayerSummaryOut> = {}): PlayerSummaryOut {
 }
 
 describe('rosterFromPlayers', () => {
-  it('makes a roster entry of each player, in the campaign, with no names', () => {
+  it('makes a roster entry of each player, in the campaign, with the names the API gave', () => {
     const cael = { entity_id: crypto.randomUUID(), name: 'Cael', is_pc: true };
-    const pia = player({ characters: [cael], created_by: 'gm-1' });
+    const pia = player({
+      characters: [cael],
+      created_by: 'gm-1',
+      nickname: 'pia',
+      display_name: 'Pia Player',
+      user_color: '#112233',
+    });
     const [entry] = rosterFromPlayers('campaign-1', [pia]);
     expect(entry).toEqual({
       kind: 'player',
       user_id: pia.user_id,
-      nickname: null,
-      display_name: null,
-      user_color: null,
+      nickname: 'pia',
+      display_name: 'Pia Player',
+      user_color: '#112233',
       campaign_id: 'campaign-1',
       characters: [cael],
       created_by: 'gm-1',
       updated_by: null,
     });
+  });
+
+  it('has no names for a player who set none, and the user id then stands in for one', () => {
+    const [entry] = rosterFromPlayers('campaign-1', [player()]);
+    expect([entry?.nickname, entry?.display_name, entry?.user_color]).toEqual([null, null, null]);
   });
 
   it('keeps the order, and is empty for no players', () => {

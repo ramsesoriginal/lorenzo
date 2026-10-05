@@ -3,6 +3,8 @@ import { ApiError } from '../../src/lib/apiError';
 import {
   deleteAccountConfirmation,
   leaveLibraryConfirmation,
+  leaveRepositoryConfirmation,
+  leaveTenantConfirmation,
   soleOwnerLibraryId,
   soleOwnerMessage,
   stepDownConfirmation,
@@ -62,7 +64,7 @@ describe('soleOwnerMessage', () => {
 
   it('still helps when the library is not one it has a name for', () => {
     expect(soleOwnerMessage(lastOwner(), new Map(), 'delete-account')).toBe(
-      "You're the only owner of one of your libraries, so your account can't be deleted yet. Make someone else an owner first, then try again.",
+      "You're the only owner of one of your libraries or repositories, so your account can't be deleted yet. Make someone else an owner first, then try again.",
     );
   });
 
@@ -85,6 +87,23 @@ describe('the confirmations', () => {
     expect(text).toContain('Nothing you made there is deleted');
     expect(text).toContain('campaign seat or GM role you hold in it stays');
     expect(text).toContain('notification confirming it');
+  });
+
+  it('leaving a repository says it in its own word, and what happens (ADR 0178)', () => {
+    const text = leaveRepositoryConfirmation('Core Rules');
+    expect(text).toContain('Leave "Core Rules"?');
+    expect(text).toContain('this repository');
+    expect(text).toContain('author or administer');
+    expect(text).toContain('Nothing you made there is deleted');
+    expect(text).toContain('notification confirming it');
+    expect(text.toLowerCase()).not.toContain('library');
+  });
+
+  it('picks the sentence by what the tenant is', () => {
+    expect(leaveTenantConfirmation('Core Rules', 'repository')).toBe(
+      leaveRepositoryConfirmation('Core Rules'),
+    );
+    expect(leaveTenantConfirmation('Home', 'play')).toBe(leaveLibraryConfirmation('Home'));
   });
 
   it('stepping down says who can make you its GM again, and that an administrator keeps it', () => {
@@ -112,6 +131,7 @@ describe('the confirmations', () => {
   it('use the product word for a tenant', () => {
     for (const text of [
       leaveLibraryConfirmation('x'),
+      leaveRepositoryConfirmation('x'),
       stepDownConfirmation('x'),
       deleteAccountConfirmation(),
     ]) {
