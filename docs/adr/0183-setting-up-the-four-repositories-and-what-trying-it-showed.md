@@ -1,6 +1,6 @@
 # 0183 - Setting up the four repositories, and what trying it showed
 
-Status: proposed
+Status: accepted
 
 The fourth and last slice of [RFC 0033](../rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) (its sections 7 and 8), tracked in [#433](https://github.com/ramsesoriginal/lorenzo/issues/433). It builds on attachments ([ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md), [0174](0174-the-cli-shows-attachments.md)), the seed's four layers ([ADR 0181](0181-the-seeds-four-layers-and-a-system-root.md)) and the importer's two passes ([ADR 0182](0182-the-importers-two-passes-neutral-and-system.md)), and it settles what [ADR 0162](0162-the-dnd5e-layer-is-its-own-repository-a-bridge-over-core.md)'s four steps for a correction left open.
 

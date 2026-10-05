@@ -41,6 +41,8 @@ The seed needs no change to allow this. It finds nodes and definitions by slug a
 3. the bridge publishes again;
 4. each table takes it on core's own route: `lorenzo repo updates core --tenant <table> --apply`.
 
+*(Addendum, 2026-10-05: [ADR 0183](0183-setting-up-the-four-repositories-and-what-trying-it-showed.md) tried it. Steps 1 and 4 are what a table needs: `repo updates` reads core as it is, so a table sees a correction before the bridge has taken it or published again. Steps 2 and 3 are the bridge keeping its own copy current, which it does when its author wants to, and before it writes anything that depends on the correction.)*
+
 **What did not change.** The seed's data and its `layer` tags, the `dnd5e-` slug rule, item slugs (`basic-weapons-longsword`) and namespaces, and `lorenzo seed`'s default. Without `--layer` it still seeds both layers into one tenant, which is fine for a table's own use and for trying things; it now says so, and says to seed the layers into separate repositories if they are to be published. Making `--layer` mandatory would break every existing invocation of a pre-1.0 command for no gain to someone who isn't publishing, so it is left as a choice to make once the split is the habit. *(Addendum, 2026-10-04: [ADR 0166](0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md): that default no longer adds a layer to a tenant that holds a different one.)*
 
 ### The assumption, tried

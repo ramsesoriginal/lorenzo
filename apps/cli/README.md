@@ -215,37 +215,82 @@ What is meant to be published is split in four ([ADR 0162](../../docs/adr/0162-t
 
 Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items are split between them (a longbow is a ranged weapon in the equipment and a martial one in the bridge). Another system takes `core` and `equipment` and brings its own two layers.
 
+#### Setting them up
+
+Eighteen commands, in this order: each repository is built on the ones above it, so a copy has to come before the seed that needs it, and a repository publishes once it holds what it should ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) §7, [ADR 0183](../../docs/adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md); `tests/e2e/test_setup.py` runs them against the real API).
+
 ```bash
+S=/tmp/mpmb/_variables    # the sheet's data, see Reading MPMB files
+BASE="--base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js"
+
+# core: the vocabulary, built on nothing
 lorenzo tenant create "Core" --slug core
 lorenzo seed --tenant core --layer core --yes
 lorenzo repo publish --tenant core
 
-# the equipment and the rules each draw on core like any tenant
-lorenzo tenant create "Common equipment" --slug common-fantasy-eq
-lorenzo repo grant common-fantasy-eq --tenant core
-lorenzo repo copy core --tenant common-fantasy-eq --yes
-lorenzo seed --tenant common-fantasy-eq --layer equipment --yes   # needs core's copy, which it now has
-lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog --base ... --yes   # the items, public
+# the equipment: a copy of core, the forms, and the neutral half of every item, public
+lorenzo tenant create "Common Fantasy Equipment" --slug common-fantasy-eq
+lorenzo repo offer common-fantasy-eq --tenant core --yes
+lorenzo seed --tenant common-fantasy-eq --layer equipment --yes
+lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE --yes
 lorenzo repo publish --tenant common-fantasy-eq
 
-lorenzo tenant create "D&D 5e" --slug dnd5e
-lorenzo repo grant dnd5e --tenant core
-lorenzo repo copy core --tenant dnd5e --yes
+# the rules: a copy of core, and D&D's stats and categories
+lorenzo tenant create "Dungeons and Dragons 5e" --slug dnd5e
+lorenzo repo offer dnd5e --tenant core --yes
 lorenzo seed --tenant dnd5e --layer dnd5e --yes
 lorenzo repo publish --tenant dnd5e
 
-# the bridge takes both, with core under them, and joins them
-lorenzo tenant create "D&D 5e common equipment" --slug dnd5e-common-eq
+# the bridge: a copy of both, the attachments, then D&D's half of every item
+lorenzo tenant create "Common D&D5e Equipment" --slug dnd5e-common-eq
 lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
 lorenzo repo offer dnd5e-common-eq --tenant dnd5e --yes
-lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes   # the attachments
-lorenzo apply --tenant dnd5e-common-eq --part system --base ... --yes # D&D's prototypes, attached to the items
+lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes
+lorenzo apply --tenant dnd5e-common-eq --part system $BASE --yes
 lorenzo repo publish --tenant dnd5e-common-eq
-
-lorenzo repo offer table-one --tenant dnd5e-common-eq   # grants the others too, then copies all four
 ```
 
-A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first. Someone who owns the bridge but not what it is built on is told which command to ask their owners for. A table that took the equipment first and the bridge later keeps its Weapon: the bridge's six attachments are parents it adds to the items the table has, so that Weapon has the Economic object as a parent and a `price` of 0 afterwards (it still has one Weapon, not two). **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e-common-eq --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
+`repo offer` grants a repository to a tenant and copies it in, and for a bridge it does the same for what the bridge is built on (core is copied once, however many offers ask for it). `lorenzo repo contents --tenant dnd5e-common-eq` says what it holds and what it is built on, per layer. The commands need the `tenant-creator` role and the sheet's data (see [Before you start](#before-you-start)); homebrew goes in as more files after `$BASE` in **both** `apply` lines, so the item is written in two halves. **Starting over:** nothing deletes a tenant, so a stack that already has a `core` or `dnd5e` from an earlier seed (version 1 had two layers, with both halves of an item together) is started again from an empty local database (`docker compose -f infra/docker-compose.yml down -v`, up again, `uv run alembic upgrade head` in `apps/api`), or the commands are run with other slugs. Nothing has been published or granted yet, so there is nothing to migrate.
+
+#### A table takes them
+
+```bash
+lorenzo tenant create "My table" --slug my-table --kind play
+lorenzo repo offer my-table --tenant common-fantasy-eq --yes   # the equipment alone is usable
+lorenzo repo offer my-table --tenant dnd5e-common-eq --yes     # later, D&D, on the items it already has
+```
+
+A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first (one offer of the bridge to a new table copies all four). Someone who owns the bridge but not what it is built on is told which command to ask their owners for. A table that took the equipment first and the bridge later keeps its Purple sword and its Weapon: the bridge's prototype is a parent it adds to the sword the table has, so that sword has D&D's dice and price afterwards (it still has one sword, not two), and the bridge's six attachments give every Weapon the Economic object and a `price` of 0. The prototypes are never public, so a player lists the neutral items and a GM, in the whole catalog, sees both.
+
+#### Corrections, and equipment that grows
+
+A correction is taken from the repository it was made in, and nothing else has to move ([ADR 0183](../../docs/adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md)):
+
+```bash
+lorenzo repo publish --tenant common-fantasy-eq                  # the equipment corrects an item
+lorenzo repo updates common-fantasy-eq --tenant my-table --apply # each table takes it from there
+```
+
+The bridge isn't asked, and the table's sword keeps the bridge's prototype. A correction to core or to the rules goes the same way. **Publishing again is the announcement, not the permission**: `repo updates` reads a repository as it is now, so a table sees a change before it is published, and `repo list` says "updated since" once it has been. The repositories built on the one that changed take its updates when their authors want their own copies current, and **a bridge has to before it imports D&D's half of new equipment**, since the system pass finds an item in the bridge's own copy of the equipment (an item it doesn't have is held, with the way out). A bridge that takes a correction keeps what it attached.
+
+```bash
+lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE more.js --yes
+lorenzo repo publish --tenant common-fantasy-eq
+lorenzo repo updates common-fantasy-eq --tenant dnd5e-common-eq --apply   # the bridge's copy of it first
+lorenzo apply --tenant dnd5e-common-eq --part system $BASE more.js --yes
+lorenzo repo publish --tenant dnd5e-common-eq
+lorenzo repo updates common-fantasy-eq --tenant my-table --apply            # then each table: the items,
+lorenzo repo updates dnd5e-common-eq --tenant my-table --apply              # and the prototypes on them
+```
+
+A table that takes the bridge first gets the prototypes and lets each attachment **wait** for its item (`the item it attaches to isn't here`; exit 2, nothing lost): once the equipment's items are there, the next `repo updates` of the bridge attaches them, with no file of actions. A bridge's own edits to its copy of a dependency don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
+
+#### What it doesn't do yet
+
+- **One system per tenant**, until resolution knows about systems ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) §9): two systems' prototypes on one item would break a tie between them arbitrarily. A campaign choosing among the systems a tenant holds is a follow-up.
+- **No way to take D&D back off a table.** Updating never takes a parent off an item; a tenant that wants to undo the bridge removes the prototype from its items itself.
+- **No setup in one command**, and nothing that says on a table's item which repository each part of it came from.
+- **No deleting a tenant**, so starting over is the empty database above.
 
 `lorenzo seed` without `--layer` still seeds every layer into an empty repository, in that order, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published. There the attachments are ordinary parents. It refuses a tenant that already holds some layers and not others, so name the layers there ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). A tenant seeded by version 1 of the seed (two layers) still seeds under version 2, since everything is found by name and slug: its parentless axis roots are reported as "exists but is not under" the system root and left, and the rest is added; starting over is cleaner.
 
