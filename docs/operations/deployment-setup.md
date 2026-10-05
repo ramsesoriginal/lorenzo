@@ -112,7 +112,7 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 
 ### Granting the `tenant-creator` role (ADR 0033)
 
-`POST /tenants` is gated by a platform-level Authgear role, not by anything in this app's own tables ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)) — bootstrapping the very first tenant is a manual, human step, not a cold API call:
+`POST /tenants` is gated by a platform-level Authgear role, not by anything in this app's own tables ([ADR 0033](../adr/0033-tenant-creation-and-update-api.md)); the same role, together with being one of the tenant's owners, is what `DELETE /tenants/{id}` takes ([ADR 0184](../adr/0184-deleting-a-tenant.md)) — bootstrapping the very first tenant is a manual, human step, not a cold API call:
 
 1. **Authgear Portal → your production project → Configuration → Roles** (create the role here first if it doesn't exist yet) **→ Users → the account that should be able to create tenants → assign the role.**
 2. **Role keys can't contain `-` at all** — the Portal accepts a display name like "tenant-creator," but silently rewrites the underlying *key* (the value that actually lands in the token's `https://authgear.com/claims/user/roles` claim) to `tenant_creator`. Confirmed empirically, not assumed from Authgear's docs — see [ADR 0033's addendum](../adr/0033-tenant-creation-and-update-api.md#addendum-role-keys-cant-contain-hyphens-only-underscores). `Settings.tenant_creator_role_key` already defaults to `tenant_creator` to match; only override `TENANT_CREATOR_ROLE_KEY` if you deliberately pick a different role key in the Portal.

@@ -1,6 +1,6 @@
 # 0184 - Deleting a tenant
 
-Status: proposed
+Status: accepted
 
 [ADR 0183](0183-setting-up-the-four-repositories-and-what-trying-it-showed.md) left "deleting a tenant" out of scope, and the maintainer asked for it right after: rebuilding the local repositories needed a command that doesn't exist. This ADR adds it to the API and to the CLI. Tracked in a milestone of its own.
 
