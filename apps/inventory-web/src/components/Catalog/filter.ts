@@ -1,5 +1,6 @@
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { CatalogItem } from '../../lib/types';
+import { perItemPrototypeIds } from './perItemPrototypes';
 
 type PrototypeNode = {
   id: string;
@@ -29,6 +30,10 @@ const required = requiredIn('Catalog filter');
 export function createPrototypeFilter(options: PrototypeFilterOptions): PrototypeFilter {
   let graph = new Map<string, PrototypeNode>();
 
+  // Prototypes that only carry one item's system half: never offered, but
+  // still walked through when matching.
+  let hidden = new Set<string>();
+
   // A prototype can sit on several paths of the tree, so the selection is
   // keyed by id and every checkbox for that id is kept in step.
   const active = new Set<string>();
@@ -45,7 +50,7 @@ export function createPrototypeFilter(options: PrototypeFilterOptions): Prototyp
   };
 
   function isFilterable(id: string): boolean {
-    return (graph.get(id)?.childIds.length ?? 0) > 0;
+    return (graph.get(id)?.childIds.length ?? 0) > 0 && !hidden.has(id);
   }
 
   function filterableChildren(id: string): string[] {
@@ -111,8 +116,10 @@ export function createPrototypeFilter(options: PrototypeFilterOptions): Prototyp
     const checkbox = required<HTMLInputElement>(row, '[data-filter-checkbox]');
     const title = required<HTMLElement>(row, '[data-filter-title]');
 
-    // The count includes the prototype itself: ticking it shows it too.
-    title.textContent = `${node.title} (${descendantsOf(id).size})`;
+    // The count includes the prototype itself: ticking it shows it too. A
+    // hidden prototype between it and an item is not an item of its own.
+    const shown = [...descendantsOf(id)].filter((itemId) => !hidden.has(itemId)).length;
+    title.textContent = `${node.title} (${shown})`;
     checkbox.checked = active.has(id);
     registerCheckbox(id, checkbox);
 
@@ -179,6 +186,7 @@ export function createPrototypeFilter(options: PrototypeFilterOptions): Prototyp
     }
 
     graph = next;
+    hidden = perItemPrototypeIds(items);
     descendantCache.clear();
 
     for (const id of [...active]) {
@@ -213,6 +221,7 @@ export function createPrototypeFilter(options: PrototypeFilterOptions): Prototyp
     destroy() {
       options.root.replaceChildren();
       graph.clear();
+      hidden.clear();
       active.clear();
       checkboxes.clear();
       descendantCache.clear();
