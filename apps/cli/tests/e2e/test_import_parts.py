@@ -15,6 +15,7 @@ from typing import Any
 
 import httpx
 import pytest
+from plain import plain
 
 from e2e.helpers import FIXTURES, by_slug, make_tenant, own_stats, parent_names, run_cli, tenant_id
 from e2e.stack import Stack
@@ -28,7 +29,8 @@ MAP = ["--map", str(FIXTURES / "legendary-form.map.toml")]
 
 
 def said(result: Any) -> str:
-    return " ".join(result.output.split())
+    # Typer draws a usage error with colour and a box under GitHub Actions: read the words.
+    return plain(result.output)
 
 
 class Parted:
