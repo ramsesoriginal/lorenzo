@@ -109,3 +109,12 @@
   gap: 0.5rem;
   align-items: center;
 }
+
+/* A notification's text, shown when it is opened on the home page: lined up with the title
+   above it (the summary's own padding), and its line breaks kept. */
+.notification-body {
+  margin: 0;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}

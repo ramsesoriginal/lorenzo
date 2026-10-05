@@ -7,7 +7,7 @@
 // where you RUN (a campaign you GM, or one of a library you administer). A
 // campaign you do both in is in both.
 import { displayNameFor } from './format';
-import type { ManagedScopeOut, MeOut, PlayerContextOut } from './types';
+import type { CampaignSummaryOut, ManagedScopeOut, MeOut, PlayerContextOut } from './types';
 
 export type RunRole = 'gm' | 'admin';
 
@@ -58,6 +58,77 @@ export function seatsIn(
   libraryIds: ReadonlySet<string>,
 ): PlayerContextOut[] {
   return me.players.filter((player) => libraryIds.has(player.tenant_id));
+}
+
+// One campaign of yours, once, for the home page: every way you are in it (you can play and run
+// the same one) and, if you play, which characters.
+export interface TableCard {
+  tenantId: string;
+  libraryName: string;
+  campaignId: string;
+  name: string;
+  gameSystem: string | null;
+  secret: boolean;
+  roles: ('Player' | 'GM' | 'Admin')[];
+  // Your characters there, or null when you don't play in it.
+  characters: string[] | null;
+}
+
+// `seats` are your own (seatsIn), `rows` what you run (runRows), `campaigns` every campaign of
+// the libraries they are in, by id. A seat whose campaign or library isn't known is left out,
+// as /campaigns leaves it out.
+export function tableCards(input: {
+  seats: readonly PlayerContextOut[];
+  rows: readonly RunRow[];
+  libraries: ReadonlyMap<string, string>;
+  campaigns: ReadonlyMap<string, CampaignSummaryOut>;
+}): TableCard[] {
+  const cards = new Map<string, TableCard>();
+
+  function cardFor(tenantId: string, libraryName: string, campaignId: string, name: string) {
+    let card = cards.get(campaignId);
+
+    if (!card) {
+      const campaign = input.campaigns.get(campaignId);
+
+      card = {
+        tenantId,
+        libraryName,
+        campaignId,
+        name: campaign?.name ?? name,
+        gameSystem: campaign?.game_system ?? null,
+        secret: campaign?.secret ?? false,
+        roles: [],
+        characters: null,
+      };
+      cards.set(campaignId, card);
+    }
+
+    return card;
+  }
+
+  for (const seat of input.seats) {
+    const campaign = input.campaigns.get(seat.campaign_id);
+    const libraryName = input.libraries.get(seat.tenant_id);
+
+    if (!campaign || !libraryName) continue;
+
+    const card = cardFor(seat.tenant_id, libraryName, seat.campaign_id, campaign.name);
+
+    if (!card.roles.includes('Player')) card.roles.push('Player');
+    card.characters = [...(card.characters ?? []), ...seat.characters.map((c) => c.name)];
+  }
+
+  for (const row of input.rows) {
+    const card = cardFor(row.tenantId, row.tenantName, row.campaignId, row.campaignName);
+    const role = runRoleLabel(row.role);
+
+    if (!card.roles.includes(role)) card.roles.push(role);
+  }
+
+  return [...cards.values()].sort(
+    (a, b) => byName(a.libraryName, b.libraryName) || byName(a.name, b.name),
+  );
 }
 
 // A player's characters on one line, for a GM looking down a roster.

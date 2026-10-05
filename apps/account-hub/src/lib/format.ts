@@ -68,6 +68,12 @@ export function campaignRoleFor(campaignId: string, me: MeOut): CampaignRole {
   return 'visible';
 }
 
+// A new account belongs nowhere yet: no library membership, no player seat, no GM grant. (A
+// player seat is also what makes someone a participant of a library in GET /tenants.)
+export function isNewAccount(me: MeOut): boolean {
+  return me.memberships.length === 0 && me.players.length === 0 && me.campaign_gm_grants.length === 0;
+}
+
 // RFC 0014's roster-reuse sub-slice: which of the caller's own characters,
 // already played in some *other* campaign in this same tenant, could be
 // brought into the given campaign instead of creating a new one. A

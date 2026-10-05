@@ -20,6 +20,15 @@ export function readInviteToken(hash: string): string | null {
   return TOKEN_SHAPE.test(token) ? token : null;
 }
 
+// What a person pastes or types into a box: the whole link, or only the code at its end. A
+// token has no whitespace in it, so any is dropped: a link wrapped over two lines in a message,
+// or a code read out and typed in groups.
+export function inviteTokenFrom(pasted: string): string | null {
+  const text = pasted.replace(/\s+/g, '');
+  const hash = text.lastIndexOf('#');
+  return readInviteToken(hash === -1 ? text : text.slice(hash));
+}
+
 // --- Expiry ---------------------------------------------------------------
 
 const HOUR_MS = 60 * 60 * 1000;

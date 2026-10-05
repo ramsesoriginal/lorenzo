@@ -1,0 +1,114 @@
+---
+// The home page of someone who belongs somewhere: what needs them, where they play and run,
+// the repositories they author, and what changed for their characters. Rendered by
+// renderBriefing; every section stays hidden until it has something to say.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<div class="stack" data-briefing hidden>
+  <h1 class="display" data-greeting>Welcome back</h1>
+
+  <section class="stack-tight" aria-labelledby="briefing-unread" data-unread hidden>
+    <div class="row">
+      <h2 id="briefing-unread" class="grow">Unread notifications</h2>
+      <a href="/notifications/">All notifications</a>
+    </div>
+    <ul class="list" data-unread-list></ul>
+    <p class="error-text" role="alert" data-error hidden></p>
+  </section>
+
+  <section class="stack-tight" aria-labelledby="briefing-tables" data-tables hidden>
+    <div class="row">
+      <h2 id="briefing-tables" class="grow">Your tables</h2>
+      <a href="/campaigns/">All campaigns</a>
+      <a class="btn btn-secondary row-tight" href="/setup/" data-setup hidden>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
+        </svg>
+        Set up a table
+      </a>
+    </div>
+    <p data-tables-empty hidden>You don't play in or run a campaign yet.</p>
+    <div class="grid" style="--grid-min: 280px" data-tables-list></div>
+    <p class="error-text" role="alert" data-error hidden></p>
+  </section>
+
+  <section class="stack-tight" aria-labelledby="briefing-repositories" data-repositories hidden>
+    <div class="row">
+      <h2 id="briefing-repositories" class="grow">Your repositories</h2>
+      <a href="/tenants/">Manage repositories</a>
+    </div>
+    <div class="grid" style="--grid-min: 280px" data-repositories-list></div>
+    <p class="error-text" role="alert" data-error hidden></p>
+  </section>
+
+  <section class="stack-tight" aria-labelledby="briefing-changes" data-changes hidden>
+    <h2 id="briefing-changes">Recent changes</h2>
+    <p class="caption">To what your characters hold.</p>
+    <ul class="list" data-changes-list></ul>
+    <p class="error-text" role="alert" data-error hidden></p>
+  </section>
+
+  <template data-notification-template>
+    <li class="row sticky-top">
+      <div class="tree grow">
+        <details>
+          <summary data-summary>
+            <span class="stack-tight grow">
+              <strong data-title></strong>
+              <span class="caption" data-when></span>
+            </span>
+            <svg class="icon tree-toggle" aria-hidden="true" data-chevron>
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+          </summary>
+          <p class="notification-body" data-body></p>
+        </details>
+      </div>
+      <button type="button" class="btn-secondary" data-mark-read>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-select-item`}></use>
+        </svg>
+        Mark read
+      </button>
+    </li>
+  </template>
+
+  <template data-table-template>
+    <article class="card card-body stack-tight">
+      <div class="row">
+        <h3 class="grow" data-name></h3>
+        <span class="row-tight" data-roles></span>
+      </div>
+      <p class="caption" data-where></p>
+      <p data-characters hidden></p>
+      <span class="badge-visibility" data-secret hidden>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+        </svg>
+        Secret
+      </span>
+    </article>
+  </template>
+
+  <template data-role-template>
+    <span class="badge"></span>
+  </template>
+
+  <template data-repository-template>
+    <article class="card card-body stack-tight">
+      <div class="row">
+        <h3 class="grow" data-name></h3>
+        <span class="badge" data-role></span>
+      </div>
+      <p class="caption" data-status></p>
+    </article>
+  </template>
+
+  <template data-change-template>
+    <li>
+      <span class="grow" data-text></span>
+      <span class="caption" data-where></span>
+    </li>
+  </template>
+</div>
