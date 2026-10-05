@@ -211,6 +211,22 @@ export async function removePlayer(
   );
 }
 
+// PATCH .../players/{player_id}: this player's own say on making their own items, over the
+// campaign's (ADR 0185, 0188). null clears it, so the campaign's applies again.
+export async function updatePlayer(
+  tenantId: string,
+  campaignId: string,
+  playerId: string,
+  selfService: boolean | null,
+): Promise<void> {
+  await unwrap(
+    await client.PATCH('/tenants/{tenant_id}/campaigns/{campaign_id}/players/{player_id}', {
+      params: { path: { tenant_id: tenantId, campaign_id: campaignId, player_id: playerId } },
+      body: { self_service: selfService },
+    }),
+  );
+}
+
 // Self-service leave: the caller's own player id.
 export function leaveCampaign(
   tenantId: string,
