@@ -27,6 +27,12 @@ SLUG_PREFIX: dict[Layer, str] = {"dnd5e": "dnd5e-", "dnd5e-equipment": "dnd5e-"}
 ValueType = Literal["int", "float", "text", "bool"]
 StatValue = int | float | str | bool
 
+
+def is_system_layer(layer: Layer) -> bool:
+    """A system's layer (one with a slug prefix) as opposed to a neutral one (ADR 0182)."""
+    return layer in SLUG_PREFIX
+
+
 # The entity slug grammar (RFC 0027, ADR 0107): what POST /items accepts.
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
 

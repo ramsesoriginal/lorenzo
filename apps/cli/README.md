@@ -138,7 +138,29 @@ flavour = { transform = "text", stat = "flavour_text", group = "lore" }   # crea
 
 **Titles.** An item's displayed title is the title of its description, so `seed` and `apply` title a description with the item's name ([ADR 0165](../../docs/adr/0165-a-description-is-titled-with-its-items-name.md)). A description an older version titled "Description" is retitled by the next run: `seed --dry-run` lists it as a `retitle` action, and `plan` counts it under "to retitle" (`apply` says how many it retitled). Only that exact title is changed; one a person chose is left alone. `repo updates` doesn't carry information (ADR 0121), so a tenant that copied a repository is put right where the commands are run: `seed` there, naming each layer the tenant holds (`--layer core` for `core`; a bare `seed` there is refused, ADR 0166), and `apply` where the items were imported.
 
-Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--allow-play-tenant`, as for `seed`.
+Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"; it replaces only the parents the importer places, the seed's categories and the ones a map row mints, and leaves any other, such as a prototype attached by `--part system`); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--part neutral|system` writes one half of each item ([below](#the-two-halves-of-an-item)); `--allow-play-tenant`, as for `seed`.
+
+### The two halves of an item
+
+Without `--part` an item is written with everything the sheet says of it, on one item. For the [four repositories](#the-seed-as-four-repositories) it is written in two passes over the same files, so each repository holds the half that is its own ([ADR 0182](../../docs/adr/0182-the-importers-two-passes-neutral-and-system.md)):
+
+- **`--part neutral`** is what is true anywhere: the item's name and other names, the sourcebook citation, its weight, its forms (weapon, melee, a blade), its materials, the kind of gear, a pack and its contents. It creates the item under those, and `--public-catalog` makes it public. It is for the equipment repository, and needs only the `core` and `equipment` layers.
+- **`--part system`** is D&D's: the price, damage dice, range in feet, armour class and what armour asks of its wearer, the ability, the proficiency, the properties, and a weapon's `description` (its list of properties) and `tooltip` (its special rules). For each item that has any, it finds the neutral item **by its slug in the tenant's own copy of the equipment**, creates a prototype, "Longsword (D&D 5e)" with the slug `srd5e-weapons-longsword`, that is never public, with those parents, stats and text, and then adds it to the item's parents, last. In the bridge the item is a copy, so that parent is an [attachment](../../docs/adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) and travels with the bridge. An item with nothing of the system's (ammunition) gets no prototype, and an item the tenant doesn't have yet is held back with the way to put it there (run the neutral pass; take it with `repo copy` or `repo updates`).
+
+A second run of either pass finds what the first made and attaches nothing twice. `plan` and `apply` say which half they are for, `--json` has `header.part` (`neutral`, `system` or `all`), and a held item says which pass held it: a price that can't be read holds only the system pass, a value no row knows holds both. `--public-catalog` is refused with `--part system`.
+
+What is whose is decided by the seed: a stat has the part of its definition's layer (`price` and `damage_die` are D&D's, `own_weight` is neutral), a category the part of its layer's, and a category a map row mints the part of its axis (`proficiency`, `tier` and `property` are the system's, `form` and `material` are neutral). A row says `part = "neutral"` or `"system"` only for what no layer decides: text, and a stat or a parent the seed doesn't have (neutral if it says nothing). Where the seed does decide, a `part` on the row is a map error. `[system_namespaces]` names the prototypes' namespace per file (`srd5e` for the sheet's own data, else the file's namespace and `-5e`), and `[system] label = "..."` the label in their names:
+
+```toml
+[namespaces]
+"my-homebrew.js" = "hb-alice"        # the neutral item: hb-alice-weapons-purple-sword
+
+[system_namespaces]
+"my-homebrew.js" = "hb-alice-5e"   # its prototype: hb-alice-5e-weapons-purple-sword
+
+[attributes.weapons]
+lore = { transform = "information", type = "note", title = "Lore", part = "system" }
+```
 
 ## Publishing a repository
 
@@ -191,7 +213,7 @@ What is meant to be published is split in four ([ADR 0162](../../docs/adr/0162-t
 | `dnd5e` | D&D 5e's rules: its stat groups (`economic`, `damaging`, `destroyable`), 30 stat definitions (a price, an armour class, a range, the damage dice, the weapon properties) and 30 categories under one system root, `dnd5e-system` ("D&D 5e"), which is how a category says it belongs to the system. The Economic object carries a `price` of 0. Slugs start `dnd5e-` | `core` |
 | `dnd5e-equipment` | The bridge's own part: six attachments of D&D's Economic object to the equipment's forms (`weapon`, `armor`, `tool`, `container`, `consumable`, `gear`), so everything D&D prices has a price | `equipment`, `dnd5e` |
 
-Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items live in it, since a longbow is a ranged weapon (equipment) and a martial one (D&D). Another system takes `core` and `equipment` and brings its own two layers.
+Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items are split between them (a longbow is a ranged weapon in the equipment and a martial one in the bridge). Another system takes `core` and `equipment` and brings its own two layers.
 
 ```bash
 lorenzo tenant create "Core" --slug core
@@ -203,6 +225,7 @@ lorenzo tenant create "Common equipment" --slug common-fantasy-eq
 lorenzo repo grant common-fantasy-eq --tenant core
 lorenzo repo copy core --tenant common-fantasy-eq --yes
 lorenzo seed --tenant common-fantasy-eq --layer equipment --yes   # needs core's copy, which it now has
+lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog --base ... --yes   # the items, public
 lorenzo repo publish --tenant common-fantasy-eq
 
 lorenzo tenant create "D&D 5e" --slug dnd5e
@@ -216,7 +239,7 @@ lorenzo tenant create "D&D 5e common equipment" --slug dnd5e-common-eq
 lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
 lorenzo repo offer dnd5e-common-eq --tenant dnd5e --yes
 lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes   # the attachments
-lorenzo apply --tenant dnd5e-common-eq --base ... --yes               # the items, parented in all three
+lorenzo apply --tenant dnd5e-common-eq --part system --base ... --yes # D&D's prototypes, attached to the items
 lorenzo repo publish --tenant dnd5e-common-eq
 
 lorenzo repo offer table-one --tenant dnd5e-common-eq   # grants the others too, then copies all four

@@ -15,7 +15,6 @@ from lorenzo_cli.client.models import (
     InformationCreate,
     ItemCreate,
     SetEntityStatRequest,
-    SetPrototypesRequest,
     StatDefinitionCreate,
     StatGroupCreate,
     StatValueType,
@@ -27,13 +26,12 @@ from lorenzo_cli.client.ops import (
     CREATE_ITEM,
     CREATE_STAT_DEFINITION,
     CREATE_STAT_GROUP,
-    GET_ITEM,
-    REPLACE_ITEM_PROTOTYPES,
     SET_COMPUTED_STAT,
     SET_ENTITY_STAT,
     SET_ENTITY_TAG,
 )
 from lorenzo_cli.client.transport import LorenzoClient
+from lorenzo_cli.prototypes import add_parent
 from lorenzo_cli.seed.plan import SeedPlan, TenantState
 from lorenzo_cli.seed.spec import SeedSpec
 
@@ -113,17 +111,7 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
             )
         elif action.kind == "attach":
             child, parent = action.name.split(": ")
-            item = client.call(GET_ITEM, path={**tenant, "entity_id": nodes[child]})
-            if nodes[parent] not in item.value.prototype_ids:
-                # The prototypes are replaced as a set, so the ones it has are kept (ADR 0181).
-                client.call(
-                    REPLACE_ITEM_PROTOTYPES,
-                    path={**tenant, "entity_id": nodes[child]},
-                    body=SetPrototypesRequest(
-                        prototype_ids=[*item.value.prototype_ids, nodes[parent]]
-                    ),
-                    if_match=item.etag,
-                )
+            add_parent(client, plan.tenant.id, nodes[child], nodes[parent])
         else:
             recipe = next(r for r in spec.recipes if f"{r.node}: {r.stat}" == action.name)
             # `kind` is set explicitly: a defaulted field isn't sent, and the API needs it.

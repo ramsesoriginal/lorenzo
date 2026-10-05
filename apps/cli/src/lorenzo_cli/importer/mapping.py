@@ -3,6 +3,10 @@
 The mapping is data with a documented schema, so a homebrew author's new category, currency or
 attribute is a row and not a code change. Everything is validated when it is loaded, so a bad
 map fails before anything is read from a tenant or written to one.
+
+A row may say which half of an item it writes, `part = "neutral"` or `"system"` (ADR 0182), where
+no layer of the seed already does: a stat's part is its definition's layer, a category's its
+node's, so a row can't say what the seed contradicts.
 """
 
 from __future__ import annotations
@@ -24,6 +28,10 @@ SYSTEM_AXES = frozenset({"proficiency", "tier", "property"})
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
 _NAMESPACE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 DEFAULT_NAMESPACE = "basic"
+# The system pass's namespace for the sheet's own SRD data, and the label its prototypes carry.
+DEFAULT_SYSTEM_NAMESPACE = "srd5e"
+DEFAULT_SYSTEM_LABEL = "D&D 5e"
+Part = Literal["neutral", "system"]
 # `regex_extract` input is capped: homebrew strings run through these patterns inside the
 # process that holds the token (RFC 0025 R5).
 REGEX_INPUT_CAP = 300
@@ -34,6 +42,15 @@ PLAIN_TRANSFORMS = frozenset(
     {
         "drop", "name", "sourcebook", "description", "own_weight", "damage", "range", "armor",
         "classify", "name_and_price", "pack_contents", "aliases",
+    }
+)  # fmt: skip
+# Transforms whose output is text, which no layer of the seed says whose it is: their rule may.
+TEXT_TRANSFORMS = frozenset({"description", "information", "aliases", "pack_contents"})
+# Transforms that write the stat their `stat` names: one the seed doesn't know may be given a part.
+STAT_TRANSFORMS = frozenset(
+    {
+        "int", "float", "text", "bool", "denomination_sum", "regex_extract", "keyword_flag",
+        "first_of", "ability_name",
     }
 )  # fmt: skip
 PARAM_TRANSFORMS = frozenset(
@@ -67,6 +84,8 @@ class Row(BaseModel):
     axis: Literal["form", "proficiency", "tier", "property", "material"] | None = None
     slug: str | None = None
     name: str | None = None
+    # Whose the row's parents are, for parents the seed doesn't know (ADR 0182).
+    part: Part | None = None
 
     @model_validator(mode="after")
     def _consistent(self) -> Row:
@@ -81,6 +100,8 @@ class Row(BaseModel):
             raise ValueError("axis, slug and name belong to create-under only")
         if self.disposition != "map" and self.parents:
             raise ValueError(f"{self.disposition} takes no parents")
+        if self.part and self.disposition != "map":
+            raise ValueError("part belongs to a row with parents: a minted category has its axis's")
         return self
 
 
@@ -90,6 +111,8 @@ class Rule(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     transform: str
+    # Whose what the rule writes is, where no layer of the seed says (ADR 0182).
+    part: Part | None = None
 
     @model_validator(mode="after")
     def _known(self) -> Rule:
@@ -131,6 +154,8 @@ class NameRule(BaseModel):
     words: list[str] = Field(default_factory=list)
     group: str = ""
     parents: list[str]
+    # Whose the rule's parents are, for parents the seed doesn't know (ADR 0182).
+    part: Part | None = None
 
     @model_validator(mode="after")
     def _says_something(self) -> NameRule:
@@ -153,9 +178,31 @@ class Mapping(BaseModel):
     namespaces: dict[str, str]
     # A pack item's display name (lower-cased) -> "list:key", or "item" for a plain catalog item.
     pack_items: dict[str, str]
+    # The system pass's namespace per file, and what its prototypes are labelled with (ADR 0182).
+    system_namespaces: dict[str, str] = Field(default_factory=dict)
+    system_label: str = DEFAULT_SYSTEM_LABEL
 
     def namespace_for(self, file_name: str) -> str:
         return self.namespaces.get(file_name, DEFAULT_NAMESPACE)
+
+    def system_namespace_for(self, file_name: str) -> str:
+        """`srd5e` for the sheet's own data, else the file's namespace and `-5e`, unless said."""
+        declared = self.system_namespaces.get(file_name)
+        if declared:
+            return declared
+        neutral = self.namespace_for(file_name)
+        return DEFAULT_SYSTEM_NAMESPACE if neutral == DEFAULT_NAMESPACE else f"{neutral}-5e"
+
+    def minted_slugs(self) -> set[str]:
+        """The categories a row can make (`create-under`): the importer manages them like the
+        seed's."""
+        return {
+            row.slug
+            for sections in self.classify.values()
+            for rows in sections.values()
+            for row in rows.values()
+            if row.slug
+        }
 
 
 class LoadedMapping(BaseModel):
@@ -201,6 +248,8 @@ def _merge(builtin: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
         "version": builtin.get("version", "0"),
         "currencies": {**builtin.get("currencies", {}), **user.get("currencies", {})},
         "namespaces": dict(user.get("namespaces", {})),
+        "system_namespaces": dict(user.get("system_namespaces", {})),
+        "system": {**builtin.get("system", {}), **user.get("system", {})},
         "lists": {},
         "classify": {},
         "attributes": {},
@@ -250,8 +299,8 @@ def load_mapping(user_text: str | None = None, *, taught: str = "") -> LoadedMap
     if extra and not user.get("schema"):
         user["schema"] = 1
     unknown = set(user) - {
-        "schema", "version", "currencies", "namespaces", "lists", "classify", "attributes",
-        "name_rule", "pack_items",
+        "schema", "version", "currencies", "namespaces", "system_namespaces", "system", "lists",
+        "classify", "attributes", "name_rule", "pack_items",
     }  # fmt: skip
     if unknown:
         raise MappingError(f"Unknown top-level keys in the map file: {', '.join(sorted(unknown))}")
@@ -276,6 +325,8 @@ def load_mapping(user_text: str | None = None, *, taught: str = "") -> LoadedMap
             },
             namespaces={str(k): str(v) for k, v in merged["namespaces"].items()},
             pack_items={str(k): str(v) for k, v in merged["pack_items"].items()},
+            system_namespaces={str(k): str(v) for k, v in merged["system_namespaces"].items()},
+            system_label=_system_label(merged["system"]),
         )
     except (ValidationError, ValueError) as exc:
         raise MappingError(f"The map isn't valid: {exc}") from exc
@@ -284,6 +335,51 @@ def load_mapping(user_text: str | None = None, *, taught: str = "") -> LoadedMap
     return LoadedMapping(
         mapping=mapping, builtin_version=str(builtin.get("version", "0")), user_map_sha256=digest
     )
+
+
+def _system_label(system: dict[str, Any]) -> str:
+    unknown = set(system) - {"label"}
+    if unknown:
+        raise ValueError(f"unknown keys in [system]: {', '.join(sorted(unknown))}")
+    label = system.get("label", DEFAULT_SYSTEM_LABEL)
+    if not isinstance(label, str) or not label.strip():
+        raise ValueError("[system] label must be some text")
+    return label.strip()
+
+
+def _check_parts(mapping: Mapping) -> None:
+    """A `part` only goes where no layer of the seed says whose the output is (ADR 0182)."""
+    seed = load_builtin()
+    stats = {d.name for d in seed.definitions}
+    nodes = {n.slug for n in seed.nodes}
+    for list_name, attribute_rules in mapping.attributes.items():
+        for attribute, rules in attribute_rules.items():
+            for rule in rules:
+                if rule.part is None or rule.transform in TEXT_TRANSFORMS:
+                    continue
+                stat = rule.params.get("stat")
+                if rule.transform in STAT_TRANSFORMS and stat not in stats:
+                    continue
+                raise MappingError(
+                    f"attributes.{list_name}.{attribute}: part = {rule.part!r} on "
+                    f"{rule.transform}, whose output the seed already says whose it is (a stat's "
+                    "part is its layer's). `part` goes on text rules and on stats the seed "
+                    "doesn't have."
+                )
+    for list_name, sections in mapping.classify.items():
+        for attribute, rows in sections.items():
+            for value, row in rows.items():
+                if row.part and all(parent in nodes for parent in row.parents):
+                    raise MappingError(
+                        f"classify.{list_name}.{attribute}.{value}: part = {row.part!r}, but "
+                        "every parent is one of the seed's, whose part is its layer's."
+                    )
+    for number, name_rule in enumerate(mapping.name_rules, start=1):
+        if name_rule.part and all(parent in nodes for parent in name_rule.parents):
+            raise MappingError(
+                f"name_rule {number} ({name_rule.in_list}): part = {name_rule.part!r}, but every "
+                "parent is one of the seed's, whose part is its layer's."
+            )
 
 
 def _positive(unit: object, value: object) -> int:
@@ -299,7 +395,7 @@ def _check(mapping: Mapping) -> None:
             raise MappingError(
                 f"“{list_name}” is not a list; the lists are {', '.join(LIST_NAMES)}"
             )
-    for file_name, namespace in mapping.namespaces.items():
+    for file_name, namespace in (*mapping.namespaces.items(), *mapping.system_namespaces.items()):
         if not _NAMESPACE.match(namespace):
             raise MappingError(
                 f"Namespace {namespace!r} for {file_name} must be lower-case letters, digits "
@@ -339,6 +435,7 @@ def _check(mapping: Mapping) -> None:
         for attribute, rows in sections.items():
             for value, row in rows.items():
                 _check_row(mapping, f"classify.{list_name}.{attribute}.{value}", list_name, row)
+    _check_parts(mapping)
 
 
 def _check_row(mapping: Mapping, where: str, list_name: str, row: Row) -> None:

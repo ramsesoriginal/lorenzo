@@ -9,11 +9,12 @@ is reproducible, and it never guesses: a value with no row, or a price it can't 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
-from lorenzo_cli.importer.mapping import Mapping, NameRule, Row
+from lorenzo_cli.importer.mapping import DEFAULT_SYSTEM_LABEL, Mapping, NameRule, Part, Row
 from lorenzo_cli.importer.packs import PackLine, Resolution, Unresolved
+from lorenzo_cli.importer.parts import Parts, issue_part, part_of_axis
 from lorenzo_cli.importer.transforms import (
     Context,
     Effect,
@@ -22,7 +23,7 @@ from lorenzo_cli.importer.transforms import (
     StatValue,
     apply_rule,
 )
-from lorenzo_cli.seed import SeedSpec
+from lorenzo_cli.seed import SeedSpec, load_builtin
 
 MELEE_OR_RANGED = frozenset({"melee-weapon", "ranged-weapon"})
 
@@ -69,6 +70,18 @@ class ItemDraft:
     made_for: str | None = None
     # Entries of their own to write on the item (other names, special rules...), by type.
     information: list[InfoDraft] = field(default_factory=list)
+    # ADR 0182. The namespaces of the neutral item and of the system's prototype, and the label the
+    # prototype's name carries; the seed decides the part of its own stats and categories, so these
+    # are only what the map's rows said for the rest.
+    neutral_namespace: str = ""
+    system_namespace: str = ""
+    system_label: str = DEFAULT_SYSTEM_LABEL
+    stat_parts: dict[str, Part] = field(default_factory=dict)
+    parent_parts: dict[str, Part] = field(default_factory=dict)
+    description_part: Part = "neutral"
+    aliases_part: Part = "neutral"
+    # The neutral item's name, in the system pass, where `name` is the prototype's.
+    neutral_name: str | None = None
 
 
 class Ancestry:
@@ -94,6 +107,57 @@ class Ancestry:
     def reduce(self, parents: set[str]) -> list[str]:
         implied = set().union(*(self.ancestors(p) for p in parents)) if parents else set()
         return sorted(parents - implied)
+
+
+_DEFAULT_PARTS: list[Parts] = []
+
+
+def default_parts() -> Parts:
+    """The parts of the built-in seed, read once."""
+    if not _DEFAULT_PARTS:
+        _DEFAULT_PARTS.append(Parts(load_builtin()))
+    return _DEFAULT_PARTS[0]
+
+
+def part_view(draft: ItemDraft, part: Part, parts: Parts) -> ItemDraft:
+    """One half of a draft (ADR 0182): what the neutral pass or the system pass writes of the item.
+
+    A stat has the part of its definition's layer, a parent the part of its category's, a minted
+    category the part of its axis; the rest is what a row said. The system's view is the
+    prototype: named for the item and the system, in the system's namespace, and with nothing to
+    write at all where nothing of the item is the system's."""
+
+    def stat_part(stat: str) -> Part:
+        return parts.stat(stat) or draft.stat_parts.get(stat, "neutral")
+
+    minted = {c.slug: part_of_axis(c.axis) for c in draft.categories}
+
+    def parent_part(slug: str) -> Part:
+        return parts.node(slug) or minted.get(slug) or draft.parent_parts.get(slug, "neutral")
+
+    stats = {s: v for s, v in draft.stats.items() if stat_part(s) == part}
+    view = replace(
+        draft,
+        stats=stats,
+        stat_types={s: t for s, t in draft.stat_types.items() if stat_part(s) == part},
+        stat_groups={s: g for s, g in draft.stat_groups.items() if stat_part(s) == part},
+        parents=[p for p in draft.parents if parent_part(p) == part],
+        categories=[c for c in draft.categories if part_of_axis(c.axis) == part],
+        description=draft.description if draft.description_part == part else None,
+        information=[i for i in draft.information if i.part == part],
+        issues=[i for i in draft.issues if i.part in (None, part)],
+        uncategorised=draft.uncategorised and part == "neutral",
+    )
+    if part == "neutral":
+        return view
+    view.pack_items, view.pack_lines = None, []
+    view.pack_unresolved, view.pack_resolution = [], None
+    view.neutral_name = draft.name
+    view.name = f"{draft.name} ({draft.system_label})" if draft.name else None
+    view.namespace = draft.system_namespace
+    if not (view.stats or view.parents or view.description or view.information or view.categories):
+        view.skip_reason = draft.skip_reason or "nothing of it is the system's"
+    return view
 
 
 def _suggestion(list_name: str, attribute: str, value: Any) -> str:
@@ -152,6 +216,8 @@ def _classify(
         else:
             parents.update(row.parents)
             replace_form = replace_form or row.replace_form
+            if row.part:
+                draft.parent_parts.update(dict.fromkeys(row.parents, row.part))
     return parents, replace_form, explicit_reach
 
 
@@ -162,8 +228,19 @@ def draft_item(
     file: str,
     mapping: Mapping,
     ancestry: Ancestry,
+    parts: Parts | None = None,
 ) -> ItemDraft:
-    draft = ItemDraft(list_name, key, file, mapping.namespace_for(file))
+    parts = parts or default_parts()
+    namespace = mapping.namespace_for(file)
+    draft = ItemDraft(
+        list_name,
+        key,
+        file,
+        namespace,
+        neutral_namespace=namespace,
+        system_namespace=mapping.system_namespace_for(file),
+        system_label=mapping.system_label,
+    )
     context = Context(list_name, mapping.currencies, entry)
     rules = mapping.attributes.get(list_name, {})
 
@@ -176,16 +253,24 @@ def draft_item(
         for rule in attribute_rules:
             effect: Effect = apply_rule(rule, attribute, entry[attribute], context)
             draft.name = effect.name or draft.name
-            draft.description = effect.description or draft.description
+            if effect.description:
+                draft.description = effect.description
+                draft.description_part = rule.part or "neutral"
             for stat, value in effect.stats.items():
+                if stat not in draft.stats and rule.part:
+                    draft.stat_parts[stat] = rule.part
                 draft.stats.setdefault(stat, value)  # first_of and friends: the first to say wins
             draft.stat_types.update(effect.stat_types)
             draft.stat_groups.update(effect.stat_groups)
             parents |= effect.parents
-            aliases.extend(effect.aliases)
+            if effect.aliases:
+                aliases.extend(effect.aliases)
+                draft.aliases_part = rule.part or "neutral"
             draft.information.extend(effect.information)
             draft.notes.extend(effect.notes)
-            draft.issues.extend(effect.issues)
+            draft.issues.extend(
+                replace(issue, part=issue_part(rule, issue, parts)) for issue in effect.issues
+            )
             if effect.pack_items is not None:
                 draft.pack_items = effect.pack_items
     draft.unmapped = [attribute for attribute in entry if attribute not in rules]
@@ -223,6 +308,7 @@ def draft_item(
                 "can't tell whether it is melee or ranged: no `list`, and no reach in the range",
                 f"[classify.{list_name}.list]\n"
                 '"..." = ["melee-weapon"]   # or ["ranged-weapon"], or []',
+                "neutral",  # reach is a form: the system's half doesn't need it
             )
         )
     if spec is not None and not replace_form:
@@ -259,6 +345,8 @@ def _text_rule_parents(
         text = source.lower() if isinstance(source, str) else ""
         if text and _matches(rule, text):
             parents.update(rule.parents)
+            if rule.part:
+                draft.parent_parts.update(dict.fromkeys(rule.parents, rule.part))
             if rule.group:
                 used.add(rule.group)
     return parents
@@ -273,4 +361,6 @@ def _aliases_entry(draft: ItemDraft, given: list[str]) -> InfoDraft | None:
         if name.lower() not in seen:
             seen.add(name.lower())
             names.append(name)
-    return InfoDraft("alias", "Also known as", "\n".join(names)) if names else None
+    return (
+        InfoDraft("alias", "Also known as", "\n".join(names), draft.aliases_part) if names else None
+    )

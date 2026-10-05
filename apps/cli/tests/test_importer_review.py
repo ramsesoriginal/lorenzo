@@ -117,7 +117,7 @@ def test_the_plan_document_has_a_header_a_script_can_chain_on() -> None:
         "published": False,
     }
     assert (header["builtin_version"], header["user_map_sha256"], header["seed_version"]) == (
-        "1",
+        "2",
         "",
         "1",
     )
