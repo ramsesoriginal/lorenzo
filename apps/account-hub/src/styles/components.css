@@ -118,3 +118,23 @@
   color: var(--text-secondary);
   white-space: pre-line;
 }
+
+/* The letter that stands in for a profile picture when there is none to show: quiet and
+   neutral, never the spark (identity.md 17.1). Sized by --avatar-size where it's placed. */
+.avatar-placeholder {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--avatar-size, 48px);
+  height: var(--avatar-size, 48px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--fill-soft);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: calc(var(--avatar-size, 48px) / 2.5);
+}
+
+.avatar-placeholder[hidden] {
+  display: none;
+}

@@ -1,4 +1,4 @@
-import authgear, { SessionState } from '@authgear/web';
+import authgear, { Page, SessionState } from '@authgear/web';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
 import { browserSessionStorage, rememberReturnPath } from './returnPath';
 
@@ -69,6 +69,14 @@ export async function logout(): Promise<void> {
   await ensureConfigured();
   await authgear.logout({ redirectURI: window.location.origin, force: true });
   window.location.assign('/');
+}
+
+// Authgear's own page for the login itself - email, password, sign-in methods - which nothing in
+// the Lorenzo API can change. It opens in a new tab and needs a signed-in session. Lorenzo's copy
+// of the email follows the next time someone logs in (ADR 0054).
+export async function openLoginSettings(): Promise<void> {
+  await ensureConfigured();
+  await authgear.open(Page.Settings);
 }
 
 export async function isAuthenticated(): Promise<boolean> {
