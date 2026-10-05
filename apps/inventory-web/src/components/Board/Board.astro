@@ -1,5 +1,6 @@
 ---
 import { BRANDING_CSS_URL } from '../../lib/config';
+import AddItem from '../AddItem/AddItem.astro';
 ---
 
 <section class="section" data-board>
@@ -32,6 +33,8 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       Select items
     </button>
   </section>
+
+  <AddItem />
 
   <template data-column-template>
     <section class="card card-body stack board-column" data-column>

@@ -242,6 +242,7 @@ Players can make their own items, and a GM can switch that off ([ADR 0185](../ad
 - **One rule.** A manager is judged as before. Otherwise the owner must be a character the caller plays through a seat that is switched on, any one of their seats for a character in several campaigns (`403 self-service-disabled` when every one is off). A group is not an owner a player can create for.
 - **What a player may make.** A public item (`in_public_catalog`; anything else is answered as unknown), no slug, owned and not carried, or inside something the character holds. `from-pack` too, the pack and everything it names public, its top-level things Equipped. This tightens what a player could always do; `GET /me`'s `players[]` carries `self_service_effective`.
 - **loot-bot's Sack** is created in the public catalog, an existing one is made public, and a stored one the API refuses is looked up again, so its `/container-new` keeps working.
+- **On the board** ([ADR 0187](../adr/0187-inventory-web-adding-an-item-to-a-board.md)): inventory-web's "Add an item" card, under the search, for a player's own character (a note when it is off) and for a GM on any being. It searches what the viewer may list, confirms, makes one in Not carried, reveals it, and offers an Undo.
 
 ### What's next
 

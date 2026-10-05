@@ -172,6 +172,23 @@ export async function listCatalogItems(tenantId: string, query = ''): Promise<Ca
   );
 }
 
+// The first `size` catalog items matching `query` (all of them when it's empty), by name: what a
+// suggestion list shows, where listCatalogItems' every page would be far too many. Players
+// list the public catalog only (ADR 0116).
+export async function findCatalogItems(
+  tenantId: string,
+  query: string,
+  size: number,
+): Promise<CatalogItem[]> {
+  const page = await unwrap(
+    await client.GET('/tenants/{tenant_id}/items', {
+      params: { path: { tenant_id: tenantId }, query: { q: query || undefined, page: 1, size } },
+    }),
+  );
+
+  return page.items;
+}
+
 // GET /tenants/{t}/items?prototype_id=&recursive= (ADR 0073) - the reverse
 // lookup: "what's built on top of X." recursive=true (unlike this
 // endpoint's own default) since this is the edit panel's "used as a
@@ -328,12 +345,13 @@ export async function getItemAncestry(
 // the same call (mirroring apps/loot-bot's /award) and/or giving it a
 // slug (ADR 0043) - both optional, an instance doesn't have to have an
 // owner, and slug can only be set here, at creation (ItemInstanceUpdate
-// doesn't include it).
+// doesn't include it). A name of its own is optional too: the item's is the default.
 export async function createItemInstance(
   tenantId: string,
   prototypeId: string,
   ownerCharacterId?: string,
   slug?: string,
+  name?: string,
 ): Promise<ItemInstance> {
   return unwrap(
     await client.POST('/tenants/{tenant_id}/item-instances', {
@@ -344,6 +362,7 @@ export async function createItemInstance(
         quantity: 1,
         ...(ownerCharacterId ? { owner_character_id: ownerCharacterId } : {}),
         ...(slug ? { slug } : {}),
+        ...(name ? { name } : {}),
       },
     }),
   );

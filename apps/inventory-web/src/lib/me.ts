@@ -53,3 +53,12 @@ export async function viewerLocales(): Promise<string[]> {
   );
   return locales.length > 0 ? locales : [...navigator.languages];
 }
+
+/**
+ * The viewer's own seats in a library, each with whether making their own items is on for it
+ * (`self_service_effective`, RFC 0034, ADR 0186): the campaign's setting, unless the GM
+ * overrode it for this player. What decides whether the board offers to add one.
+ */
+export async function seatsIn(tenantId: string) {
+  return (await getMe()).players.filter((seat) => seat.tenant_id === tenantId);
+}

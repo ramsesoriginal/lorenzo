@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // An API holding one viewer and the campaigns of whichever tenant is asked about.
 const api = vi.hoisted(() => ({
-  me: { campaign_gm_grants: [] as { id: string }[], memberships: [] as { tenant_id: string }[] },
+  me: {
+    campaign_gm_grants: [] as { id: string }[],
+    memberships: [] as { tenant_id: string }[],
+    players: [] as { tenant_id: string; self_service_effective: boolean }[],
+  },
   campaigns: {} as Record<string, { id: string }[]>,
   characters: [] as { entity_id: string; name: string; is_pc: boolean }[],
   GET: vi.fn(),
@@ -17,7 +21,7 @@ const page = <T>(items: T[]) => ({ items, total: items.length, page: 1, size: 10
 
 beforeEach(() => {
   vi.resetModules();
-  api.me = { campaign_gm_grants: [], memberships: [] };
+  api.me = { campaign_gm_grants: [], memberships: [], players: [] };
   api.campaigns = {};
   api.characters = [];
   api.GET.mockReset().mockImplementation(async (path: string, options) => {
@@ -47,6 +51,18 @@ describe('isCampaignGm', () => {
     const { isCampaignGm } = await import('./me');
     expect(await isCampaignGm('here')).toBe(false);
     expect(api.GET).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('seatsIn', () => {
+  it("lists the viewer's own seats in the library asked about, with what self-service says", async () => {
+    const { seatsIn } = await import('./me');
+    api.me.players = [
+      { tenant_id: 'here', self_service_effective: true },
+      { tenant_id: 'there', self_service_effective: false },
+    ];
+    expect(await seatsIn('here')).toEqual([{ tenant_id: 'here', self_service_effective: true }]);
+    expect(await seatsIn('nowhere')).toEqual([]);
   });
 });
 

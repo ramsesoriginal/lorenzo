@@ -30,7 +30,9 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .item-card {
-    transition: transform 150ms ease;
+    transition:
+      transform 150ms ease,
+      border-color 600ms ease;
   }
 
   .item-card:hover {
@@ -49,6 +51,36 @@
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+/* "Add an item" under the toolbar (ADR 0187): the same width as a column's content, not the
+   whole row, so the field and its suggestions read as one control. */
+.board-add {
+  margin-top: var(--space-2);
+  /* The suggestions open over the card's own edge; a card clips what spills out of it. */
+  overflow: visible;
+}
+
+.board-add-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.board-add .field,
+.board-add form {
+  max-width: 360px;
+}
+
+.combobox-empty {
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* The card a viewer has just made: marked for a moment, so they can see where it went. */
+.list > .item-card--new {
+  border-color: var(--action);
 }
 
 .selection-toolbar {

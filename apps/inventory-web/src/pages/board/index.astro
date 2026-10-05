@@ -36,7 +36,8 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
     import { addressedTenant } from '../../lib/addresses';
     import { isAuthenticated } from '../../lib/auth';
     import { descriptionRenderer } from '../../lib/descriptions';
-    import { isCampaignGm } from '../../lib/me';
+    import { isCampaignGm, seatsIn } from '../../lib/me';
+    import { addItemStanding } from '../../lib/addItem';
     import { getTenant } from '../../lib/tenants';
 
     const required = requiredIn('Board page');
@@ -78,6 +79,8 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
           tenantId,
           viewerIsGm,
           undo,
+          addItemStanding: async (holderId) =>
+            addItemStanding({ viewerIsGm, holderId, seats: await seatsIn(tenantId) }),
           onOpenItem: (item, card) => detail.open(item, card),
           onPrefetchItem: (item) => detail.prefetch(item),
         });
@@ -96,7 +99,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
           root: required(document, '[data-picker]'),
           tenantId,
           viewerIsGm,
-          onViewHolder: (entityId, viewing) => void board.load(entityId, viewing),
+          onViewHolder: (entityId, viewing, name) => void board.load(entityId, viewing, name),
           onViewUnowned: (viewing) => void board.loadUnowned(viewing),
           onPrefetch: (entityId) => board.prefetch(entityId),
           onError: (message) => board.showError(message),
