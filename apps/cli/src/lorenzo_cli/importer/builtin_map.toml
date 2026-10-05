@@ -6,9 +6,18 @@
 #
 # Nothing the source says is dropped without a reason: what has a place in the model goes there
 # (a stat, a category, an entry of its own), and `drop` is kept for what only the PDF needs.
+#
+# Every item has two halves (ADR 0182): the neutral one, true anywhere (its name, weight, forms,
+# materials, other names), and the system's, D&D's (its price, dice, proficiency, properties).
+# `lorenzo apply --part neutral` writes the first into the common equipment; `--part system`
+# writes the second as a prototype attached to it. Which half a thing is in is decided by the seed:
+# a stat has the part of its definition's layer, a category the part of its node's, a category a
+# row mints the part of its axis. A row says `part = "neutral" | "system"` only for what no layer
+# decides, such as text: here a weapon's description (a property list) and its special rules.
+# `[system_namespaces]` and `[system] label` in a project map name the prototypes' slugs and names.
 
 schema = 1
-version = "1"
+version = "2"
 
 # How many copper pieces one unit of each currency is worth. Prices are stored in copper.
 [currencies]
@@ -349,7 +358,7 @@ source = "sourcebook"
 weight = "own_weight"
 # The text is the description; "Versatile (1d10)" also gives the two-handed die.
 description = [
-  "description",
+  { transform = "description", part = "system" },
   { transform = "regex_extract", pattern = "(?i)versatile \\(1d(\\d+)\\)", group = 1, stat = "damage_versatile_die", as = "int", examples = [{ input = "Versatile (1d10)", output = "10" }, { input = "Finesse, versatile (1d8)", output = "8" }] },
 ]
 damage = "damage"
@@ -366,7 +375,7 @@ monkweapon = { transform = "bool", stat = "is_monk_weapon" }
 isNotWeapon = { transform = "bool", stat = "is_not_weapon" }
 dc = { transform = "bool", stat = "has_save_dc" }
 baseWeapon = { transform = "text", stat = "base_weapon" }
-tooltip = { transform = "information", type = "note", title = "Special rules" }
+tooltip = { transform = "information", type = "note", title = "Special rules", part = "system" }
 nameAlt = "aliases"
 # What the PDF uses to recognise the weapon in a text field; nothing here needs it.
 regExpSearch = "drop"

@@ -14,6 +14,7 @@ import httpx
 from plain import plain
 from typer.testing import CliRunner
 
+from e2e.helpers import tenant_id
 from e2e.stack import Stack
 from lorenzo_cli.auth.store import CredentialsFile
 from lorenzo_cli.main import Runtime, app
@@ -49,11 +50,6 @@ def seed(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> A
         store=CredentialsFile(tmp_path / "credentials.json"),
     )
     return runner.invoke(app, ["seed", "--tenant", tenant, *args], obj=runtime)
-
-
-def tenant_id(api: httpx.Client, slug: str) -> str:
-    listed = api.get("/tenants").json()["items"]
-    return next(t["id"] for t in listed if t["slug"] == slug)
 
 
 def test_a_fresh_repository_tenant_is_seeded_and_a_second_run_finds_nothing(

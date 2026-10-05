@@ -50,8 +50,17 @@ def run_cli(
 
 
 def tenant_id(api: httpx.Client, slug: str) -> str:
-    listed = api.get("/tenants").json()["items"]
-    return next(t["id"] for t in listed if t["slug"] == slug)
+    """The id of the tenant with this slug, through every page of the listing: a session that has
+    made more tenants than a page holds still finds the last."""
+    page = 1
+    while True:
+        body = api.get("/tenants", params={"page": page, "size": 100}).json()
+        for tenant in body["items"]:
+            if tenant["slug"] == slug:
+                return str(tenant["id"])
+        if page >= body["pages"]:
+            raise LookupError(f"no tenant {slug!r}")
+        page += 1
 
 
 def by_slug(api: httpx.Client, tid: str, slug: str) -> dict[str, Any]:

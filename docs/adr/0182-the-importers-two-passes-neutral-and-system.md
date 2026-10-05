@@ -1,6 +1,6 @@
 # 0182 - The importer's two passes: neutral and system
 
-Status: proposed
+Status: accepted
 
 The third slice of [RFC 0033](../rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) (its section 6), tracked in [#432](https://github.com/ramsesoriginal/lorenzo/issues/432). It builds on the seed's four layers ([ADR 0181](0181-the-seeds-four-layers-and-a-system-root.md)) and on attachments ([ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md)), and amends [ADR 0144](0144-lorenzo-import-mapping-identity-plan-apply.md) (the mapping, identity, plan and apply) and [ADR 0146](0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md) (what the sheet's attributes become).
 

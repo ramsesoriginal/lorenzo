@@ -14,7 +14,7 @@ def test_the_builtin_map_loads_and_says_what_a_martial_weapon_is() -> None:
     mapping = loaded.mapping
 
     assert loaded.user_map_sha256 == ""
-    assert loaded.builtin_version == "1"
+    assert loaded.builtin_version == "2"
     assert mapping.classify["weapons"]["type"]["martial"].parents == ["dnd5e-martial"]
     assert mapping.classify["weapons"]["type"]["natural"].disposition == "skip"
     assert mapping.classify["gear"]["type"]["ammunition"].replace_form is True

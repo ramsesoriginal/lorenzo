@@ -26,6 +26,7 @@ def _issue_dict(item: PlannedItem) -> list[dict[str, str]]:
             "value": issue.value,
             "reason": issue.reason,
             "suggestion": issue.suggestion,
+            "part": issue.part or "both",
         }
         for issue in item.draft.issues
     ]
@@ -43,6 +44,7 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
             "builtin_version": plan.loaded.builtin_version,
             "user_map_sha256": plan.loaded.user_map_sha256,
             "seed_version": plan.seed_version,
+            "part": plan.part or "all",
             "tenant": {
                 "id": str(tenant.id),
                 "slug": tenant.slug,
@@ -89,6 +91,7 @@ def plan_json(plan: ImportPlan) -> dict[str, Any]:
                 "file": item.draft.file,
                 "namespace": item.draft.namespace,
                 "slug": item.slug,
+                "neutral_slug": item.neutral_slug,
                 "status": item.status,
                 "name": item.draft.name,
                 "parents": item.draft.parents,
@@ -127,6 +130,7 @@ def apply_json(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -
             "completed": report.completed,
             "retitled": report.retitled,
             "reparented": report.reparented,
+            "attached": report.attached,
             "categories": report.categories,
             "definitions": report.definitions,
         },
@@ -150,6 +154,7 @@ def review_queue(plan: ImportPlan) -> list[dict[str, Any]]:
                     "value": issue.value,
                     "reason": issue.reason,
                     "suggestion": issue.suggestion,
+                    "part": issue.part or "both",
                 }
             )
         if item.status == "moved":

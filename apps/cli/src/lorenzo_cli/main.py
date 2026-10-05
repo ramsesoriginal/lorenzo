@@ -60,7 +60,7 @@ from lorenzo_cli.importer.give import (
     tree_lines,
 )
 from lorenzo_cli.importer.manifest import Manifest
-from lorenzo_cli.importer.mapping import MappingError
+from lorenzo_cli.importer.mapping import MappingError, Part
 from lorenzo_cli.importer.plan import ImportPlan, Options
 from lorenzo_cli.importer.review import (
     apply_json,
@@ -791,6 +791,28 @@ TeachOption = Annotated[
 ]
 
 
+class PartChoice(StrEnum):
+    neutral = "neutral"
+    system = "system"
+
+
+PartOption = Annotated[
+    PartChoice | None,
+    typer.Option(
+        "--part",
+        help="Only one half of each item (ADR 0182): `neutral`, what is true anywhere, for the "
+        "common equipment; `system`, D&D's, as a prototype attached to the item the neutral pass "
+        "made. Without it both halves go onto one item.",
+    ),
+]
+
+
+def _part(choice: PartChoice | None) -> Part | None:
+    if choice is None:
+        return None
+    return "neutral" if choice is PartChoice.neutral else "system"
+
+
 @dataclass(frozen=True)
 class ImportArgs:
     """What `plan` and `apply` share."""
@@ -900,6 +922,7 @@ def plan(
     reconcile: Annotated[
         bool, typer.Option("--reconcile", help="Count changed parents as pending changes.")
     ] = False,
+    part: PartOption = None,
     teach: TeachOption = False,
     state: StateOption = None,
     review_queue: ReviewOption = Path("review-queue.json"),
@@ -916,7 +939,7 @@ def plan(
     runtime: Runtime = ctx.obj
     args = ImportArgs(
         tenant, files, base, map_file, allow_play_tenant,
-        Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
+        Options(accept_moves=accept_moves, reconcile=reconcile, part=_part(part)), state, teach,
     )  # fmt: skip
     with _reporting_errors(), _client(runtime) as client:
         result, _, taught = _prepare_plan(runtime, client, args)
@@ -949,8 +972,14 @@ def apply(
         bool, typer.Option("--reconcile", help="Also re-parent items the map now files elsewhere.")
     ] = False,
     public_catalog: Annotated[
-        bool, typer.Option("--public-catalog", help="Let players list the imported items too.")
+        bool,
+        typer.Option(
+            "--public-catalog",
+            help="Let players list the imported items too (not with --part system: a prototype "
+            "is never public).",
+        ),
     ] = False,
+    part: PartOption = None,
     teach: TeachOption = False,
     state: StateOption = None,
     review_queue: ReviewOption = Path("review-queue.json"),
@@ -972,9 +1001,13 @@ def apply(
     runtime: Runtime = ctx.obj
     if as_json and teach:
         raise typer.BadParameter("--json never asks, so it can't be used with --teach.")
+    if public_catalog and part is PartChoice.system:
+        raise typer.BadParameter(
+            "--public-catalog is for the neutral pass: the system's prototypes are never public."
+        )
     args = ImportArgs(
         tenant, files, base, map_file, allow_play_tenant,
-        Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
+        Options(accept_moves=accept_moves, reconcile=reconcile, part=_part(part)), state, teach,
     )  # fmt: skip
 
     def emit(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -> None:
@@ -1016,9 +1049,10 @@ def apply(
         for failure in report.failures:
             _err.print(f"[red]{failure}[/red]")
         raise typer.Exit(1 if failed else 0)
+    attached = f"attached {report.attached}, " if result.part == "system" else ""
     _out.print(
-        f"Created {report.created}, finished {report.completed}, retitled {report.retitled}, "
-        f"re-parented {report.reparented}; "
+        f"Created {report.created}, finished {report.completed}, {attached}"
+        f"retitled {report.retitled}, re-parented {report.reparented}; "
         f"{report.categories} new categories, {report.definitions} new stat definitions."
     )
     for failure in report.failures:

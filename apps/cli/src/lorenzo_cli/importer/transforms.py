@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from lorenzo_cli.importer.mapping import REGEX_INPUT_CAP, Rule
+from lorenzo_cli.importer.mapping import REGEX_INPUT_CAP, Part, Rule
 
 StatValue = int | float | str | bool
 
@@ -25,15 +25,19 @@ class Issue:
     value: str
     reason: str
     suggestion: str = ""
+    # The pass it holds the item back in; None is both (ADR 0182).
+    part: Part | None = None
 
 
 @dataclass(frozen=True)
 class InfoDraft:
-    """An information entry to write on the item (ADR 0146): a titled, public piece of text."""
+    """An information entry to write on the item (ADR 0146): a titled, public piece of text. Its
+    part is the half of the item it belongs to (ADR 0182)."""
 
     type: str
     title: str
     content: str
+    part: Part = "neutral"
 
 
 @dataclass
@@ -426,7 +430,11 @@ def _information(rule: Rule, attribute: str, value: Any, ctx: Context) -> Effect
     if not text:
         return Effect()
     return Effect(
-        information=[InfoDraft(str(rule.params["type"]), str(rule.params["title"]), text)]
+        information=[
+            InfoDraft(
+                str(rule.params["type"]), str(rule.params["title"]), text, rule.part or "neutral"
+            )
+        ]
     )
 
 
