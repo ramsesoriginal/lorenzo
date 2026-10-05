@@ -93,7 +93,7 @@ An "Unsorted" view in inventory-web, listing every placeholder in the library: o
 When a GM sorts one, its holders are told: **"Your *Hydra Zahn* is now a *Hydra Tooth*"**. On **both** channels, with different jobs (decided with the maintainer on 2026-10-05):
 
 - **The change feed** ([ADR 0099](../adr/0099-player-facing-change-feed.md)) carries every item: one `sorted` entry per instance, written to the people who hold it, read through `GET /me/changes`. It is the complete record.
-- **The `notification` table** carries one summary per person per sorting, however many items it covered: "3 of your unsorted items have been sorted", with the change feed as where to look. A bulk action by the GM is therefore one notification per affected player, not one per item.
+- **The `notification` table** carries one summary per person, however many items it covered: "3 of your unsorted items have been sorted", with the change feed as where to look. Sortings that follow one another within a short window collapse into the same notification (decided with the maintainer on 2026-10-05), so a bulk action, or a GM working down the list, is one notification per affected player, not one per item.
 
 ### 8. "Not in the list" for a player
 
@@ -112,7 +112,7 @@ In inventory-web's *Add an item* card ([ADR 0187](../adr/0187-inventory-web-addi
 
 - **Who may read a player's note** ([§4](#4-the-placeholder-item)): whether a test shows the author cannot see what they wrote, and which of two fixes is right. Slice 2's first step.
 - **A library that already has an item with the slug `unsorted`.** The seed's rename-or-skip applies; what the importer does when the existing item is not the placeholder is slice 2's to decide.
-- **How a summary notification is batched** when a GM sorts items one at a time: one per sorting action, or collapsed over a short window. One per action is the proposal. Slice 2.
+- **The length of the window** over which sortings collapse into one summary notification (decided: collapsed over a short window, so a GM sorting items one at a time does not send a notification each). The length, and whether it is kept in the notification row or worked out when it is written, is slice 2's to decide.
 - **What import does with a line that has a `ref` to an instance of another character.** Refused, with the line number, is the proposal.
 - **Moving into the hands by id.** `--add` with an instance id that is to be Equipped needs the pick-up route, with its capacity rules ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)); what happens when it is full is slice 3's to decide.
 
