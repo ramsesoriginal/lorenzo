@@ -74,7 +74,7 @@ What this needs and the code lacks, all in the API slice:
 
 - **The seed makes a node public**: a `public = true` on a `[[node]]` (or the layer's equivalent), applied through `ItemCreate`, and the layer's `version` raised. A tenant already seeded gets it by running `lorenzo seed` again (it is idempotent) or by taking the repository's update.
 - **No unsorted item in the library** means import stops on the first line that needs one and says what to run, rather than falling back to anything.
-- **A note the writer can read.** A note created on an instance by someone who controls it is made visible to the people who control it (the author's own player, and the GM's reach as now), by an API change so the author is a knower, or by the clients granting it. Which, is the first ADR's to decide after a test that shows what actually happens today.
+- **A note the writer can read.** A new note on an instance is visible to the GM's reach only, not to its own author. No API change: the author tells their own character about it (`PUT .../information/{id}/knowers/{character}`, which an author may do), and the clients that write a placeholder's notes do that as a second call ([ADR 0192](../adr/0192-the-placeholder-item-the-api-and-the-seed.md)).
 
 ### 5. Sorting one: changing the prototype
 
@@ -102,7 +102,7 @@ In inventory-web's *Add an item* card ([ADR 0187](../adr/0187-inventory-web-addi
 ## Slices
 
 1. **The format** (docs): the [guide](../guides/inventory-file-format.md) and [ADR 0191](../adr/0191-inventory-file-format-v1.md). First, so players can start writing files and anyone can write a converter before any of the rest is built.
-2. **The placeholder, in the API and the seed** (`apps/api`, `apps/cli`): the seed's public node and the `unsorted` item, the prototype change, the list filter, the `sorted` change-feed kind and the summary notification, the readable note. A contract extension, no tightening. An ADR when it lands.
+2. **The placeholder, in the API and the seed** (`apps/api`, `apps/cli`): the seed's public node and the `unsorted` item, the prototype change, the list filter, the `sorted` change-feed kind and the summary notification. A contract extension, no tightening. An ADR when it lands.
 3. **Import and export** (`apps/cli`): the parsers (Markdown and JSON) against shared test cases in the way the pack lists are, the matching order and its preprocessing table, `inventory import` with plan and apply, `inventory export`. An ADR when it lands.
 4. **"Not in the list" and the badge** (`apps/inventory-web`): the add-an-item option and the board badge. An ADR when it lands.
 5. **The GM's view** (`apps/inventory-web`): the Unsorted view with fuzzy search and bulk actions. An ADR when it lands.
@@ -110,7 +110,6 @@ In inventory-web's *Add an item* card ([ADR 0187](../adr/0187-inventory-web-addi
 
 ## Open questions
 
-- **Who may read a player's note** ([§4](#4-the-placeholder-item)): whether a test shows the author cannot see what they wrote, and which of two fixes is right. Slice 2's first step.
 - **A library that already has an item with the slug `unsorted`.** The seed's rename-or-skip applies; what the importer does when the existing item is not the placeholder is slice 2's to decide.
 - **The length of the window** over which sortings collapse into one summary notification (decided: collapsed over a short window, so a GM sorting items one at a time does not send a notification each). The length, and whether it is kept in the notification row or worked out when it is written, is slice 2's to decide.
 - **What import does with a line that has a `ref` to an instance of another character.** Refused, with the line number, is the proposal.

@@ -6,7 +6,7 @@ Slice 2 of [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md). Th
 
 ## Context
 
-A player can make an instance only of a public item ([ADR 0186](0186-player-self-service-enforcement.md)), so something the catalog lacks has nowhere to go ([RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md) Context). Reading the code for this slice showed what was missing: an instance's prototype is written at creation and never again (`PATCH` takes a `name` only); the instance list has no filter by item; the seed has no public item; and a note a player writes on their own item is invisible to them, since a new non-public note has no knowers and its author is not made one.
+A player can make an instance only of a public item ([ADR 0186](0186-player-self-service-enforcement.md)), so something the catalog lacks has nowhere to go ([RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md) Context). Reading the code for this slice showed what was missing: an instance's prototype is written at creation and never again (`PATCH` takes a `name` only); the instance list has no filter by item; the seed has no public item. A fourth thing looked missing and is not: a note a player writes on their own item is invisible to them, since a new non-public note has no knowers, but its author can grant their own character knowledge of it ([ADR 0101](0101-editable-information-and-description-payloads.md)'s edit gate lets an author), so no API change is needed.
 
 ## Decision
 
@@ -35,9 +35,9 @@ A prototype change is told to the instance's holders, as [ADR 0099](0099-player-
 
 `record_change` now returns the rows it wrote, so a caller can act on who was told.
 
-### A writer can read what they wrote
+### A writer reads what they wrote by telling their character
 
-`InformationVisibility` gains the caller's `user_id`, and a row is visible to **whoever created it**, in both `can_see` and its SQL twin (`visible_information_clause`, which stay one definition, [ADR 0109](0109-player-knowers-knower-listing-and-information-list.md)). Without it a player's note on their own item, which is how a placeholder's description and details are kept, was invisible to them. Everything else about visibility is as it was: the GM's reach, the knowers, public rows.
+Nothing changes in visibility. A note a player writes on their own item is visible to the GM's reach and to nobody else until its author tells their own character, `PUT .../information/{id}/knowers/{character}`, which the author may do. A client that writes a placeholder's description and details does both calls (the importer and "Not in the list", slices 3 and 4). A first attempt made the author always able to read what they wrote; it broke the rule that someone who loses their standing (a demoted GM) stops seeing what they wrote as a GM, and was dropped.
 
 ## Not in scope
 
@@ -50,5 +50,4 @@ A prototype change is told to the instance's holders, as [ADR 0099](0099-player-
 
 - An **API contract extension**, nothing tightened: two new things `PATCH` and the list accept, one new feed kind, one new notification type. A client that does not know `sorted` shows a generic "changed" (loot-bot's `describeChange` already does).
 - No migration and no new table, so [ADR 0002](0002-multi-tenancy-shared-schema-rls.md) and [ADR 0117](0117-same-tenant-references-by-composite-foreign-keys.md) are untouched.
-- Whoever writes a note on something can always read it back, including a GM who later loses their grant: the note stays theirs to see.
 - The seed's `core` layer now holds two items, and a published `core` repository carries the placeholder to the tenants that copy it.
