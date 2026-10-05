@@ -45,6 +45,10 @@ From that detail view, or when multiple cards are multi-selected:
   to the character that owns the item (and the campaign's GMs) unless
   "Everyone can read this"; the item page shows them too
   ([ADR 0113](../../docs/adr/0113-inventory-web-slugs-and-player-notes.md))
+- **Unpack** a pack (an item whose description lists its contents) into what it lists,
+  in the owner's hands, after a dry run says what that will be; the pack goes. A player may when
+  self-service is on and everything in it is public
+  ([ADR 0189](../../docs/adr/0189-inventory-web-unpacking-a-pack.md))
 - **Split** a stack into two, or **merge** two stacks of the same item back
   together
 - **Undo** the last give/move/split/merge (a short-lived, single-slot undo,

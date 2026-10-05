@@ -8,6 +8,7 @@ import type {
   EntityDetail,
   ItemInstance,
   OwnedByResponse,
+  PackGiven,
   PrototypeAncestor,
 } from './types';
 
@@ -431,6 +432,24 @@ export async function bulkAssignItemInstances(
         lift_binding: item.liftBinding ?? false,
         ...(item.quantity ? { quantity: item.quantity } : {}),
       })),
+    }),
+  );
+}
+
+// POST /item-instances/from-pack (ADR 0149) - what a pack's public description lists, made for a
+// being or a group in one transaction; the pack item itself isn't. dryRun answers what would be
+// made and keeps nothing. A player gets it only with self-service on and everything public
+// (ADR 0186).
+export async function givePack(
+  tenantId: string,
+  packId: string,
+  ownerEntityId: string,
+  { dryRun = false }: { dryRun?: boolean } = {},
+): Promise<PackGiven> {
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/item-instances/from-pack', {
+      params: { path: { tenant_id: tenantId }, ...(dryRun ? { query: { dry_run: true } } : {}) },
+      body: { pack_id: packId, owner_entity_id: ownerEntityId, override: false },
     }),
   );
 }
