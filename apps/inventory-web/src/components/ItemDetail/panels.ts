@@ -57,6 +57,24 @@ export function splitPanelParts(ctx: ActionContext, label: string, max: number):
   };
 }
 
+export type UnpackPanel = {
+  element: HTMLElement;
+  question: HTMLElement;
+  submit: HTMLButtonElement;
+  status: HTMLElement;
+};
+
+export function unpackPanelParts(ctx: ActionContext): UnpackPanel {
+  const element = cloneTemplate<HTMLElement>(template(ctx, '[data-unpack-panel-template]'));
+
+  return {
+    element,
+    question: required<HTMLElement>(element, '[data-question]'),
+    submit: required<HTMLButtonElement>(element, '[data-submit]'),
+    status: required<HTMLElement>(element, '[data-status]'),
+  };
+}
+
 export type ChoicesPanel = {
   element: HTMLElement;
   // Adds a button that does `onChoose` when pressed.

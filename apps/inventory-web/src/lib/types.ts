@@ -57,4 +57,6 @@ export type PrototypeAncestor = components['schemas']['PrototypeAncestorOut'];
 export type BulkResultItem = components['schemas']['BulkMoveResultItem'];
 export type BulkAssignResult = components['schemas']['BulkAssignResultItem'];
 export type ContentsResult = components['schemas']['ContentsResultItem'];
+export type PackGiven = components['schemas']['PackGivenOut'];
+export type PackItem = components['schemas']['PackItemOut'];
 export type ProblemOut = components['schemas']['ProblemOut'];
