@@ -3,11 +3,12 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
+import structlog
 from fastapi import APIRouter, Depends, Header, Request, Response, UploadFile
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import exists, select
+from sqlalchemy import delete, exists, func, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -29,22 +30,29 @@ from lorenzo_api.exceptions import (
     MembershipAlreadyExistsError,
     MembershipManagementForbiddenError,
     MembershipNotFoundError,
+    RepositoryStillGrantedError,
     SlugConflictError,
+    TenantDeletionForbiddenError,
     TenantNotFoundError,
 )
 from lorenzo_api.models import (
     Being,
+    Campaign,
     CampaignGm,
     Character,
     CharacterPlayer,
     Membership,
     MembershipRole,
     Player,
+    RepositorySubscription,
     Tenant,
     TenantKind,
     User,
 )
-from lorenzo_api.notifications import create_tenant_notification
+from lorenzo_api.notifications import (
+    create_tenant_deleted_notifications,
+    create_tenant_notification,
+)
 from lorenzo_api.profile_pictures import (
     delete_tenant_profile_picture,
     read_and_validate_upload,
@@ -68,6 +76,7 @@ from lorenzo_api.schemas.tenants import (
 )
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
+log = structlog.get_logger(__name__)
 
 _SLUG_COLLAPSE_RE = re.compile(r"[^a-z0-9]+")
 
@@ -310,6 +319,53 @@ async def update_tenant(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _tenant_out(tenant_id, session)
+
+
+@router.delete("/{tenant_id}", status_code=204, dependencies=[Depends(require_tenant_creator_role)])
+async def delete_tenant(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Deletes a tenant and everything in it (ADR 0184). Gated twice: the
+    platform tenant-creator role, which also gates creating one, and the
+    tenant's own OWNER role. A non-member gets the usual 404, so nothing is
+    revealed; a member who isn't an owner gets 403.
+
+    Refused with 409 while the tenant is a repository other tenants still
+    hold a grant on. Every table that carries a `tenant_id` cascades from
+    the tenant row (ADR 0018), so one DELETE takes everything; the
+    campaigns go first because `campaign.entity_id` is the one reference to
+    `entity` that restricts rather than cascades, and a cascade doesn't
+    promise an order.
+
+    Nothing records this in the tenant's own activity log, which goes with
+    it. The people with a stake in it are told (platform-scope
+    notifications, which outlive it) and it is logged by the application.
+    """
+    if not await is_tenant_owner(session, tenant_id=tenant_id, user_id=user.id):
+        raise TenantDeletionForbiddenError(
+            detail=f"Only an owner of tenant {tenant_id} can delete it"
+        )
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+    grants = await session.scalar(
+        select(func.count()).where(RepositorySubscription.repository_tenant_id == tenant_id)
+    )
+    if grants:
+        raise RepositoryStillGrantedError(
+            detail=f"Tenant {tenant_id} is still granted to {grants} tenant(s)"
+        )
+
+    name, slug = tenant.name, tenant.slug
+    await create_tenant_deleted_notifications(
+        session, tenant_id=tenant_id, tenant_name=name, deleted_by=user.id
+    )
+    await session.execute(delete(Campaign).where(Campaign.tenant_id == tenant_id))
+    await session.execute(delete(Tenant).where(Tenant.id == tenant_id))
+    await session.commit()
+    log.info("tenant_deleted", tenant_id=str(tenant_id), slug=slug, deleted_by=str(user.id))
 
 
 @router.put("/{tenant_id}/picture", status_code=204)
