@@ -1,6 +1,6 @@
 # RFC: Player self-service — a player making their own gear from the public catalog, switchable per campaign and per player
 
-Status: accepted, decided with the maintainer on 2026-10-05: the two switches (campaign default on, per-player override), a character in several campaigns resolving through any of the caller's own seats, public items only, owned and not carried, packs covered too (and so Equipped), no slug, no volume limit, `self_service_effective` on `GET /me`, and loot-bot left untouched (its Sack is made public, with no code change). The rest of [Decision](#decision) is a proposal for review. What is still open is listed in [Open questions](#open-questions). Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands: slice 1 is [ADR 0185](../adr/0185-player-self-service-the-switches.md). The first steps are `apps/api` alone. Row "Player self-service (switchable per campaign or player)" of [v1.0](../../v1.0.md).
+Status: accepted, decided with the maintainer on 2026-10-05: the two switches (campaign default on, per-player override), a character in several campaigns resolving through any of the caller's own seats, public items only, owned and not carried, packs covered too (and so Equipped), no slug, no volume limit, `self_service_effective` on `GET /me`, and loot-bot's Sack made public (first by hand, without touching loot-bot; on 2026-10-05 the maintainer asked for that to be automated, see [ADR 0186](../adr/0186-player-self-service-enforcement.md)). The rest of [Decision](#decision) is a proposal for review. What is still open is listed in [Open questions](#open-questions). Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands: slice 1 is [ADR 0185](../adr/0185-player-self-service-the-switches.md), slice 2 [ADR 0186](../adr/0186-player-self-service-enforcement.md). The first steps are `apps/api` alone. Row "Player self-service (switchable per campaign or player)" of [v1.0](../../v1.0.md).
 
 ## Context
 
@@ -69,16 +69,16 @@ An instance made this way is an ordinary instance: the same activity entry and c
 ## Slices
 
 1. **The switches** (`apps/api`): the migration (two columns, no new table, so no new RLS and nothing for `repository_access`), the model, `PATCH /campaigns/{id}`, `PATCH .../players/{id}`, the output fields, the activity log. Nothing is enforced yet, so it changes no behaviour. An ADR when it lands.
-2. **The enforcement** (`apps/api`): the §3 resolution as one function in `campaign_access`, `_authorize_create_instance` using it for both routes, the §4 conditions (the pack's public-ness read from its list), the problem type, and `self_service_effective` on `GET /me`'s `players[]`. A **contract tightening** for existing callers, recorded as such in its ADR and the API's changelog. **Before it is deployed**, the tenant's "Sack" item (the one loot-bot's `/container-new` makes) is marked `in_public_catalog`, once, per tenant that has one: a data step, not a code change, listed in the ADR as a deploy precondition. loot-bot's code does not change.
+2. **The enforcement** (`apps/api`): the §3 resolution as one function in `campaign_access`, `_authorize_create_instance` using it for both routes, the §4 conditions (the pack's public-ness read from its list), the problem type, and `self_service_effective` on `GET /me`'s `players[]`. A **contract tightening** for existing callers, recorded as such in its ADR and the API's changelog. **Before it is deployed**, the tenant's "Sack" item (the one loot-bot's `/container-new` makes) is marked `in_public_catalog`, once, per tenant that has one: a data step, listed in the ADR as a deploy precondition. The maintainer then asked for it to be automated, so ADR 0186 has loot-bot make the Sack public itself instead (a few lines in the bot).
 3. **Clients** (later, not scoped): account-hub's two toggles and a "make one from the public catalog" action in inventory-web. Out of scope until asked for.
 
 ## Open questions
 
 - **The Sack and the switch.** With the Sack public, `/container-new` is ordinary self-service, so a GM who switches a campaign or a player off also stops their sacks. Consistent, and accepted for now; an exemption can be added later if a table wants sacks without loot.
-- **The deploy precondition** is a manual step per tenant. If more than the Sack turns out to be made by a client from a non-public item, this is the place to think again.
+- **The deploy precondition** is now loot-bot repairing its own Sack the first time someone with library access runs `/container-new`. If more than the Sack turns out to be made by a client from a non-public item, this is the place to think again.
 
 ## Consequences
 
 - A table can say "loot comes from the GM" with one switch, and "except Alice" with another.
-- Players who could make anything now make only what the GM published, which is the point. loot-bot is unaffected once its Sack is public (`/award` is a GM's and was never self-service).
+- Players who could make anything now make only what the GM published, which is the point. loot-bot keeps working once its Sack is public, which it now does itself (`/award` is a GM's and was never self-service).
 - No new table, so [ADR 0002](../adr/0002-multi-tenancy-shared-schema-rls.md)'s RLS and [ADR 0117](../adr/0117-same-tenant-references-by-composite-foreign-keys.md)'s same-tenant keys are untouched.
