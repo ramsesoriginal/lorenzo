@@ -24,6 +24,11 @@ export type SackPrototype = { kind: "ok"; prototypeId: string } | { kind: "needs
  *    indistinguishable from a missing tenant, ADR 0023 - or 403), report
  *    "needs catalog access" so the command can tell them who to ask.
  *
+ * The sack has to be in the public catalog: a player may only make their own
+ * instances of public items (ADR 0186). A new one is made public, and one
+ * found that isn't (made before that rule) is put there, with the same
+ * catalog access the lookup already needed, so no one has to do it by hand.
+ *
  * The match is on `title`, case-insensitively: it's all `ItemOut` exposes,
  * and equals the item's name unless someone authored a description title.
  * The server-side `q` filter narrows by *name*, so a differently-titled
@@ -43,6 +48,9 @@ export async function resolveSackPrototype(
     const existing = matches.find(
       (item) => item.title.trim().toLowerCase() === SACK_NAME.toLowerCase(),
     );
+    if (existing && existing.in_public_catalog !== true) {
+      await client.makeItemPublic(tenantId, existing.entity_id, accessToken);
+    }
     const prototypeId =
       existing?.entity_id ?? (await client.createItem(tenantId, SACK_NAME, accessToken)).entity_id;
     await setContainerPrototypeId(tenantId, prototypeId);

@@ -5542,10 +5542,41 @@ export interface components {
             /** Memberships */
             memberships: components["schemas"]["MembershipOut"][];
             /** Players */
-            players: components["schemas"]["PlayerContextOut"][];
+            players: components["schemas"]["MePlayerOut"][];
             /** Campaign Gm Grants */
             campaign_gm_grants: components["schemas"]["CampaignSummaryOut"][];
             capabilities: components["schemas"]["MeCapabilitiesOut"];
+        };
+        /**
+         * MePlayerOut
+         * @description `GET /me`'s `players[]`: a seat of the caller's own, with whether
+         *     self-service is on for it (RFC 0034, ADR 0186) - the player's own override
+         *     if set, else the campaign's. Only here, not on a character's roster, which
+         *     lists other players' seats. A character in several campaigns is the
+         *     tenant's, so a client asks whether *any* of its seats is on.
+         *
+         *     Also requires `player.campaign` eager-loaded.
+         */
+        MePlayerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Characters */
+            characters: components["schemas"]["CharacterSummaryOut"][];
+            /** Self Service Effective */
+            self_service_effective: boolean;
         };
         /**
          * MembershipCreate

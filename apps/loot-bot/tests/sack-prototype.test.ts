@@ -12,7 +12,8 @@ const { resolveSackPrototype } = await import("../src/commands/sack-prototype.js
 
 const findItemsByName = vi.fn();
 const createItem = vi.fn();
-const client = { findItemsByName, createItem } as unknown as LorenzoApiClient;
+const makeItemPublic = vi.fn();
+const client = { findItemsByName, createItem, makeItemPublic } as unknown as LorenzoApiClient;
 
 const resolve = () => resolveSackPrototype(client, "tenant-1", "token-1");
 
@@ -33,13 +34,38 @@ describe("resolveSackPrototype", () => {
   });
 
   it("finds an existing 'Sack' by title, case-insensitively, and remembers it", async () => {
-    findItemsByName.mockResolvedValue([{ entity_id: "found-1", title: "sack" }]);
+    findItemsByName.mockResolvedValue([
+      { entity_id: "found-1", title: "sack", in_public_catalog: true },
+    ]);
 
     await expect(resolve()).resolves.toEqual({ kind: "ok", prototypeId: "found-1" });
 
     expect(findItemsByName).toHaveBeenCalledWith("tenant-1", "Sack", "token-1");
     expect(createItem).not.toHaveBeenCalled();
+    expect(makeItemPublic).not.toHaveBeenCalled();
     expect(setContainerPrototypeId).toHaveBeenCalledWith("tenant-1", "found-1");
+  });
+
+  it("puts an existing 'Sack' that isn't in the public catalog there, since players can only make public items (ADR 0186)", async () => {
+    findItemsByName.mockResolvedValue([
+      { entity_id: "found-1", title: "Sack", in_public_catalog: false },
+    ]);
+
+    await expect(resolve()).resolves.toEqual({ kind: "ok", prototypeId: "found-1" });
+
+    expect(makeItemPublic).toHaveBeenCalledWith("tenant-1", "found-1", "token-1");
+    expect(setContainerPrototypeId).toHaveBeenCalledWith("tenant-1", "found-1");
+  });
+
+  it("reports 'needs catalog access' when the sack can't be made public by this caller", async () => {
+    findItemsByName.mockResolvedValue([
+      { entity_id: "found-1", title: "Sack", in_public_catalog: false },
+    ]);
+    makeItemPublic.mockRejectedValue(new LorenzoApiError("forbidden", 403));
+
+    await expect(resolve()).resolves.toEqual({ kind: "needs-catalog-access" });
+
+    expect(setContainerPrototypeId).not.toHaveBeenCalled();
   });
 
   it("doesn't take a merely similar name for the sack (the search is a substring match)", async () => {

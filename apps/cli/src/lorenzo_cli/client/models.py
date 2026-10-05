@@ -532,6 +532,14 @@ class MeCapabilitiesOut(BaseModel):
     create_tenant: bool = Field(..., title="Create Tenant")
 
 
+class MePlayerOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    tenant_id: UUID = Field(..., title="Tenant Id")
+    campaign_id: UUID = Field(..., title="Campaign Id")
+    characters: list[CharacterSummaryOut] = Field(..., title="Characters")
+    self_service_effective: bool = Field(..., title="Self Service Effective")
+
+
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     role: Role = Field(..., title="Role")
@@ -1366,7 +1374,7 @@ class MeOut(BaseModel):
     user_color: str | None = Field(..., title="User Color")
     picture_url: str = Field(..., title="Picture Url")
     memberships: list[MembershipOut] = Field(..., title="Memberships")
-    players: list[PlayerContextOut] = Field(..., title="Players")
+    players: list[MePlayerOut] = Field(..., title="Players")
     campaign_gm_grants: list[CampaignSummaryOut] = Field(..., title="Campaign Gm Grants")
     capabilities: MeCapabilitiesOut
 

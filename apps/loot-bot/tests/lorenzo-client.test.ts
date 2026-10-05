@@ -1217,7 +1217,7 @@ describe("findItemsByName", () => {
 });
 
 describe("createItem", () => {
-  it("posts a plain catalog item: a name and no prototypes", async () => {
+  it("posts a plain catalog item in the public catalog: a name and no prototypes", async () => {
     let receivedBody: unknown;
     server.use(
       http.post(`${BASE_URL}/tenants/${TENANT_ID}/items`, async ({ request }) => {
@@ -1229,8 +1229,26 @@ describe("createItem", () => {
     const client = createLorenzoApiClient(BASE_URL);
     const item = await client.createItem(TENANT_ID, "Sack", "test-token");
 
-    expect(receivedBody).toEqual({ name: "Sack", prototype_ids: [], in_public_catalog: false });
+    expect(receivedBody).toEqual({ name: "Sack", prototype_ids: [], in_public_catalog: true });
     expect(item.entity_id).toBe("item-9");
+  });
+});
+
+describe("makeItemPublic", () => {
+  it("patches the item into the public catalog, and nothing else", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.patch(`${BASE_URL}/tenants/${TENANT_ID}/items/item-9`, async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ entity_id: "item-9", in_public_catalog: true });
+      }),
+    );
+
+    const client = createLorenzoApiClient(BASE_URL);
+    const item = await client.makeItemPublic(TENANT_ID, "item-9", "test-token");
+
+    expect(receivedBody).toEqual({ in_public_catalog: true });
+    expect(item.in_public_catalog).toBe(true);
   });
 });
 

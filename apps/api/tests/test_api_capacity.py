@@ -98,7 +98,7 @@ async def _camp(test_user_id: uuid.UUID) -> _Camp:
         gear = Entity(tenant_id=tenant_id, name="Gear")
         session.add(gear)
         await session.flush()
-        session.add(Item(entity_id=gear.id, tenant_id=tenant_id))
+        session.add(Item(entity_id=gear.id, tenant_id=tenant_id, in_public_catalog=True))
         for target in ("contents_weight", "weight"):
             session.add(
                 ComputedStat(
@@ -308,7 +308,7 @@ async def test_handing_over_and_creating_inside_are_checked(
         heavy = Entity(tenant_id=t, name="Anvil pattern")
         session.add(heavy)
         await session.flush()
-        session.add(Item(entity_id=heavy.id, tenant_id=t))
+        session.add(Item(entity_id=heavy.id, tenant_id=t, in_public_catalog=True))
         session.add(EntityPrototype(entity_id=heavy.id, prototype_id=ids["gear"], tenant_id=t))
         await _set(session, t, heavy.id, ids["stat:own_weight"], 40)
         # 20 arrows (1 each, from their pattern, so a split-off weighs the
@@ -317,7 +317,7 @@ async def test_handing_over_and_creating_inside_are_checked(
         chest, arrows = Entity(tenant_id=t, name="Chest"), Entity(tenant_id=t, name="Arrows")
         session.add_all([arrow, chest, arrows])
         await session.flush()
-        session.add(Item(entity_id=arrow.id, tenant_id=t))
+        session.add(Item(entity_id=arrow.id, tenant_id=t, in_public_catalog=True))
         session.add(EntityPrototype(entity_id=arrow.id, prototype_id=ids["gear"], tenant_id=t))
         await _set(session, t, arrow.id, ids["stat:own_weight"], 1)
         for entity in (chest, arrows):
@@ -829,7 +829,7 @@ async def test_a_stack_created_inside_weighs_all_of_it(
         pebble = Entity(tenant_id=t, name="Pebble pattern")
         session.add(pebble)
         await session.flush()
-        session.add(Item(entity_id=pebble.id, tenant_id=t))
+        session.add(Item(entity_id=pebble.id, tenant_id=t, in_public_catalog=True))
         session.add(EntityPrototype(entity_id=pebble.id, prototype_id=ids["gear"], tenant_id=t))
         await _set(session, t, pebble.id, ids["stat:own_weight"], 1)
         await session.commit()
