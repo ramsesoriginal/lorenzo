@@ -1,0 +1,50 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
+<section
+  class="card card-body stack-tight board-add"
+  aria-labelledby="add-item-heading"
+  data-add-item
+  hidden
+>
+  <h3 id="add-item-heading">Add an item</h3>
+
+  <p class="status-text" data-off hidden></p>
+
+  <div class="stack-tight" data-add-form hidden>
+    <p class="field-note" data-hint></p>
+
+    <div class="field" data-find>
+      <span class="field-label" id="add-item-find-label">
+        Find an item
+      </span>
+      <Combobox placeholder="Search the catalog…" labelledby="add-item-find-label" />
+    </div>
+
+    <form class="stack-tight" data-confirm hidden>
+      <div class="field-row">
+        <span class="chip" data-picked></span>
+        <button type="button" class="btn btn-secondary" data-change>
+          Pick another
+        </button>
+      </div>
+      <label class="field">
+        <span class="field-label">Call it (optional)</span>
+        <input class="text-input" type="text" data-call-it autocomplete="off" />
+      </label>
+      <div class="field-row">
+        <button type="submit" data-add>
+          Add
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <p class="status-text board-add-status" role="status" data-status hidden>
+    <span data-status-text></span>
+    <button type="button" class="btn btn-secondary" data-undo hidden>
+      Undo
+    </button>
+  </p>
+</section>

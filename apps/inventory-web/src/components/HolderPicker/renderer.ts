@@ -13,7 +13,7 @@ export type HolderPickerOptions = {
   tenantId: string;
   viewerIsGm: boolean;
   // `viewing` says whose board it is, or null for the viewer's own character.
-  onViewHolder(entityId: string, viewing: string | null): void;
+  onViewHolder(entityId: string, viewing: string | null, name: string): void;
   onViewUnowned(viewing: string): void;
   // A link was hovered or focused: its board is likely next.
   onPrefetch(entityId: string): void;
@@ -106,7 +106,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
 
     if (address) addressHolder(holder);
 
-    options.onViewHolder(character.entity_id, null);
+    options.onViewHolder(character.entity_id, null, character.name);
   }
 
   // A group one of your characters belongs to, and what it owns (ADR 0124).
@@ -118,7 +118,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
 
     if (address) addressHolder(holder);
 
-    options.onViewHolder(group.entity_id, `Viewing what ${group.name} holds.`);
+    options.onViewHolder(group.entity_id, `Viewing what ${group.name} holds.`, group.name);
   }
 
   function openHolder(wanted: Holder | null, address = true) {
@@ -246,7 +246,7 @@ export function renderHolderPicker(options: HolderPickerOptions): RenderedHolder
   // shown then.
   function browseBeing(being: BeingRef) {
     pressOnly(null);
-    options.onViewHolder(being.entity_id, `Viewing ${being.name}'s inventory.`);
+    options.onViewHolder(being.entity_id, `Viewing ${being.name}'s inventory.`, being.name);
   }
 
   tabs.characters.addEventListener(

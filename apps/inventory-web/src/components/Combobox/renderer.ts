@@ -11,6 +11,11 @@ export type ComboboxOptions<T> = {
   onPick(value: T): void;
   // How long a pause in typing is, 200 ms unless given.
   delayMs?: number;
+  // Asks `search('')` when the field is focused or clicked while empty, to offer something to
+  // pick from before anything is typed: for a list too long to know the names of.
+  browseOnFocus?: boolean;
+  // What the list says when a search finds nothing, instead of closing: given what was typed.
+  emptyMessage?(query: string): string;
   // Ends the field's listeners with its owner's.
   signal?: AbortSignal;
 };
@@ -55,6 +60,17 @@ export function renderCombobox<T>(
     input.setAttribute('aria-expanded', 'false');
   }
 
+  function tell(message: string) {
+    const note = document.createElement('li');
+
+    note.className = 'combobox-suggestion combobox-empty';
+    note.setAttribute('role', 'presentation');
+    note.textContent = message;
+    list.replaceChildren(note);
+    list.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
   function open(found: Suggestion<T>[]) {
     list.replaceChildren(
       ...found.map((suggestion) => {
@@ -83,6 +99,27 @@ export function renderCombobox<T>(
     { once: true },
   );
 
+  // Asks, and paints the answer unless a newer question has been asked since.
+  async function ask(query: string) {
+    const turn = ++latest;
+
+    try {
+      const found = await options.search(query);
+
+      if (turn !== latest) return;
+
+      if (found.length > 0) {
+        open(found);
+      } else if (options.emptyMessage) {
+        tell(options.emptyMessage(query));
+      } else {
+        close();
+      }
+    } catch {
+      if (turn === latest) close();
+    }
+  }
+
   input.addEventListener(
     'input',
     () => {
@@ -91,30 +128,28 @@ export function renderCombobox<T>(
       const query = input.value.trim();
 
       if (!query) {
-        close();
+        if (options.browseOnFocus) {
+          void ask('');
+        } else {
+          close();
+        }
         return;
       }
 
-      timer = setTimeout(async () => {
-        const turn = ++latest;
-
-        try {
-          const found = await options.search(query);
-
-          if (turn !== latest) return;
-
-          if (found.length === 0) {
-            close();
-          } else {
-            open(found);
-          }
-        } catch {
-          if (turn === latest) close();
-        }
-      }, options.delayMs ?? 200);
+      timer = setTimeout(() => void ask(query), options.delayMs ?? 200);
     },
     { signal },
   );
+
+  if (options.browseOnFocus) {
+    // Focusing the field, or clicking it once it has focus, offers the first few.
+    const browse = () => {
+      if (!input.value.trim() && list.hidden) void ask('');
+    };
+
+    input.addEventListener('focus', browse, { signal });
+    input.addEventListener('click', browse, { signal });
+  }
 
   input.addEventListener(
     'keydown',

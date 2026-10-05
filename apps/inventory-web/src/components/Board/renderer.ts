@@ -1,8 +1,10 @@
+import type { AddItemStanding } from '../../lib/addItem';
 import { type Board, controlledBoard, unownedBoard } from '../../lib/boardColumns';
 import { errorMessage } from '../../lib/errorMessage';
 import { getControlledItemInstances, getUnownedItemInstances } from '../../lib/items';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ControlledByResponse, ItemInstance } from '../../lib/types';
+import { renderAddItem } from '../AddItem/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { createColumns, matchesSearch } from './columns';
 import { createDropZones } from './dragDrop';
@@ -16,6 +18,8 @@ export type BoardOptions = {
   tenantId: string;
   viewerIsGm: boolean;
   undo: RenderedUndoBanner;
+  // Whether to offer adding an item to this being's inventory (ADR 0187).
+  addItemStanding(holderId: string): Promise<AddItemStanding>;
   onOpenItem(item: ItemInstance, card: HTMLElement): void;
   onPrefetchItem(item: ItemInstance): void;
 };
@@ -23,14 +27,14 @@ export type BoardOptions = {
 export type RenderedBoard = {
   state: BoardState;
   // A being's or a group's board: anything controlled-by accepts. `viewing` says whose it is,
-  // or null when it's the viewer's own character.
-  load(entityId: string, viewing: string | null): Promise<void>;
+  // or null when it's the viewer's own character; `name` is who or what it is.
+  load(entityId: string, viewing: string | null, name: string): Promise<void>;
   // GM only: unclaimed loot, nobody has owned it yet (ADR 0077).
   loadUnowned(viewing: string): Promise<void>;
   // Starts a being's request before its link is clicked.
   prefetch(entityId: string): void;
   // Shows whatever board is current again, after something changed what's on it.
-  reload(): void;
+  reload(): Promise<void>;
   showError(message: string): void;
   destroy(): void;
 };
@@ -48,7 +52,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
   const state = createBoardState();
 
-  let reloadCurrentView: (() => void) | null = null;
+  let reloadCurrentView: (() => Promise<void>) | null = null;
 
   function showError(message: string) {
     error.hidden = false;
@@ -81,6 +85,19 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     undo: options.undo,
     onError: showError,
     reload: () => reloadCurrentView?.(),
+  });
+
+  // The card under the toolbar (ADR 0187). What it adds shows up on this board, and is what the
+  // viewer is taken to.
+  const addItem = renderAddItem({
+    root: required<HTMLElement>(root, '[data-add-item]'),
+    tenantId,
+    standing: options.addItemStanding,
+    async onAdded(created) {
+      await reloadCurrentView?.();
+      reveal(created.entity_id);
+    },
+    onUndone: async () => reloadCurrentView?.(),
   });
 
   const { renderColumn } = createColumns({
@@ -169,9 +186,19 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     prefetched.set(entityId, request);
   }
 
-  async function load(entityId: string, viewingText: string | null) {
-    reloadCurrentView = () => void load(entityId, viewingText);
+  // Whoever is looked at is reached through the same code as everyone: a fresh look at a being's
+  // board offers adding to it, and a reload of the same one leaves the card as it is.
+  async function load(
+    entityId: string,
+    viewingText: string | null,
+    name: string,
+    fresh = true,
+  ): Promise<void> {
+    reloadCurrentView = () => load(entityId, viewingText, name, false);
     state.ownerId = null;
+
+    if (fresh) void addItem.show(null);
+
     viewing.hidden = viewingText === null;
     viewing.textContent = viewingText ?? '';
 
@@ -189,11 +216,14 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
 
       return shown;
     }, null);
+
+    if (fresh && state.ownerId) void addItem.show({ id: state.ownerId, name });
   }
 
-  async function loadUnowned(viewingText: string) {
-    reloadCurrentView = () => void loadUnowned(viewingText);
+  async function loadUnowned(viewingText: string): Promise<void> {
+    reloadCurrentView = () => loadUnowned(viewingText);
     state.ownerId = null;
+    void addItem.show(null);
     viewing.hidden = false;
     viewing.textContent = viewingText;
 
@@ -201,6 +231,18 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
       async () => unownedBoard(await getUnownedItemInstances(tenantId)),
       "There's nothing unowned right now.",
     );
+  }
+
+  // Shows a card the viewer should see: scrolled to, focused, and marked for a moment.
+  function reveal(entityId: string) {
+    const card = columns.querySelector<HTMLElement>(`[data-entity-id="${CSS.escape(entityId)}"]`);
+
+    if (!card) return;
+
+    card.classList.add('item-card--new');
+    window.setTimeout(() => card.classList.remove('item-card--new'), 2500);
+    card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    card.focus({ preventScroll: true });
   }
 
   search.addEventListener(
@@ -222,10 +264,11 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     load,
     loadUnowned,
     prefetch,
-    reload: () => reloadCurrentView?.(),
+    reload: async () => reloadCurrentView?.(),
     showError,
 
     destroy() {
+      addItem.destroy();
       selection.destroy();
       controller.abort();
     },
