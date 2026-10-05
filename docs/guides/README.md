@@ -7,3 +7,4 @@ Task-oriented how-tos.
 - [Adding a package](adding-a-package.md)
 - [Writing a commit message](writing-a-commit-message.md)
 - [Labels, milestones, assignees, and links](labels-milestones-and-metadata.md)
+- [The inventory file (format v1)](inventory-file-format.md)
