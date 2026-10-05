@@ -83,14 +83,20 @@ async def _owner_kind(
 
 
 async def _public_description(
-    session: AsyncSession, *, tenant_id: uuid.UUID, pack_id: uuid.UUID
+    session: AsyncSession, *, tenant_id: uuid.UUID, pack_id: uuid.UUID, public_only: bool = False
 ) -> str:
     """The pack item's own public description, its payloads joined with a
     newline in order (as the CLI reads it, ADR 0145). Not what the caller
     can see: the answer mustn't depend on who asks, and GM-only text is never
     read as a list."""
     is_item = await session.scalar(
-        select(Item.entity_id).where(Item.entity_id == pack_id, Item.tenant_id == tenant_id)
+        select(Item.entity_id).where(
+            Item.entity_id == pack_id,
+            Item.tenant_id == tenant_id,
+            # Self-service reads only what players may list (ADR 0186): any
+            # other pack is answered as no item at all.
+            *([Item.in_public_catalog.is_(True)] if public_only else []),
+        )
     )
     if is_item is None:
         raise NotAPackError(detail=f"{pack_id} is not an item of tenant {tenant_id}")
@@ -110,14 +116,17 @@ async def _public_description(
 
 
 async def _items_by_slug(
-    session: AsyncSession, *, tenant_id: uuid.UUID, slugs: set[str]
+    session: AsyncSession, *, tenant_id: uuid.UUID, slugs: set[str], public_only: bool = False
 ) -> dict[str, _Item]:
-    rows = await session.execute(
+    stmt = (
         select(EntitySlug.slug, Entity.id, Entity.name)
         .join(Entity, Entity.id == EntitySlug.entity_id)
         .join(Item, Item.entity_id == Entity.id)
         .where(EntitySlug.tenant_id == tenant_id, EntitySlug.slug.in_(slugs))
     )
+    if public_only:
+        stmt = stmt.where(Item.in_public_catalog.is_(True))
+    rows = await session.execute(stmt)
     return {slug: _Item(entity_id, name) for slug, entity_id, name in rows}
 
 
@@ -223,13 +232,18 @@ async def hand_out(
     pack_id: uuid.UUID,
     owner_id: uuid.UUID,
     override: bool,
+    public_only: bool = False,
 ) -> list[Created]:
     """Creates what `pack_id`'s list names for `owner_id`, as one tree per
     top-level instance, in the order of the list. Raises a problem, and has
     made nothing the caller keeps, if the owner or the pack is wrong, the
-    list can't be handed out, or capacity refuses it (ADR 0149)."""
+    list can't be handed out, or capacity refuses it (ADR 0149). `public_only`
+    is self-service's (ADR 0186): the pack and every item it names must be in
+    the public catalog, and any that isn't is answered as no item at all."""
     kind = await _owner_kind(session, tenant_id=tenant_id, owner_id=owner_id)
-    text = await _public_description(session, tenant_id=tenant_id, pack_id=pack_id)
+    text = await _public_description(
+        session, tenant_id=tenant_id, pack_id=pack_id, public_only=public_only
+    )
     nodes = nest(parse_pack_list(text))
     if not nodes:
         raise NotAPackError(
@@ -238,7 +252,7 @@ async def hand_out(
 
     problems = list_problems(nodes, group=kind == "group")
     slugs = _slugs(nodes)
-    items = await _items_by_slug(session, tenant_id=tenant_id, slugs=slugs)
+    items = await _items_by_slug(session, tenant_id=tenant_id, slugs=slugs, public_only=public_only)
     problems += [f"“{slug}” is not an item of this tenant" for slug in sorted(slugs - set(items))]
     if problems:
         raise PackListError(

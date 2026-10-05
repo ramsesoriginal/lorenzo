@@ -13,8 +13,8 @@ import {
 import type {
   CharacterSummaryOut,
   MeOut,
+  MePlayerOut,
   Notification,
-  PlayerContextOut,
   RosterEntry,
 } from '../../src/lib/types';
 
@@ -22,12 +22,13 @@ function character(overrides: Partial<CharacterSummaryOut> = {}): CharacterSumma
   return { entity_id: crypto.randomUUID(), name: 'Cael', is_pc: true, ...overrides };
 }
 
-function player(overrides: Partial<PlayerContextOut> = {}): PlayerContextOut {
+function player(overrides: Partial<MePlayerOut> = {}): MePlayerOut {
   return {
     id: crypto.randomUUID(),
     tenant_id: crypto.randomUUID(),
     campaign_id: crypto.randomUUID(),
     characters: [],
+    self_service_effective: true,
     ...overrides,
   };
 }
@@ -135,6 +136,7 @@ describe('campaignRoleFor', () => {
           tenant_id: crypto.randomUUID(),
           campaign_id: campaignId,
           characters: [],
+          self_service_effective: true,
         },
       ],
     });
@@ -156,6 +158,7 @@ describe('campaignRoleFor', () => {
           tenant_id: crypto.randomUUID(),
           campaign_id: campaignId,
           characters: [],
+          self_service_effective: true,
         },
       ],
     });

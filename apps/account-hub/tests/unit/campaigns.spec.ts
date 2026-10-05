@@ -6,7 +6,7 @@ import {
   runRows,
   seatsIn,
 } from '../../src/lib/campaigns';
-import type { ManagedScopeOut, PlayerContextOut } from '../../src/lib/types';
+import type { ManagedScopeOut, MePlayerOut } from '../../src/lib/types';
 
 const managed = (tenants: ManagedScopeOut['tenants']): ManagedScopeOut => ({ tenants });
 
@@ -80,11 +80,12 @@ describe('runRows', () => {
 });
 
 describe('seatsIn', () => {
-  const seat = (tenantId: string): PlayerContextOut => ({
+  const seat = (tenantId: string): MePlayerOut => ({
     id: `p-${tenantId}`,
     tenant_id: tenantId,
     campaign_id: `c-${tenantId}`,
     characters: [],
+    self_service_effective: true,
   });
 
   it('keeps only the seats in the libraries given', () => {

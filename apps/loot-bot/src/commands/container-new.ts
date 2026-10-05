@@ -106,24 +106,33 @@ export const containerNewCommand: Command = {
         return;
       }
 
-      const made = await client
-        .createItemInstance(
+      const makeSack = (prototypeId: string) =>
+        client.createItemInstance(
           tenantId,
-          sack.prototypeId,
+          prototypeId,
           characterEntityId,
           undefined,
           accessToken,
           name,
-        )
-        .catch(async (error: unknown) => {
-          // A stored prototype that no longer exists (someone deleted the
-          // catalog item): forget it so the next run re-resolves, rather
-          // than failing the same way forever.
-          if (error instanceof LorenzoApiError && error.status === 422) {
-            await clearContainerPrototypeId(tenantId);
-          }
-          throw error;
-        });
+        );
+      let made: Awaited<ReturnType<typeof makeSack>>;
+      try {
+        made = await makeSack(sack.prototypeId);
+      } catch (error: unknown) {
+        // A stored prototype the API now calls unknown: someone deleted the
+        // catalog item, or it isn't in the public catalog, which players need
+        // to make their own (ADR 0186). Forget it and look again, once: whoever
+        // has catalog access finds the sack, makes it public if it isn't, and
+        // sets it up for everybody; anyone else is told who to ask.
+        if (!(error instanceof LorenzoApiError && error.status === 422)) throw error;
+        await clearContainerPrototypeId(tenantId);
+        const again = await resolveSackPrototype(client, tenantId, accessToken);
+        if (again.kind === "needs-catalog-access") {
+          await interaction.editReply(NEEDS_CATALOG_ACCESS_MESSAGE);
+          return;
+        }
+        made = await makeSack(again.prototypeId);
+      }
 
       const owned = await client.getItemInstancesOwnedBy(tenantId, characterEntityId, accessToken);
       const loose = owned.groups

@@ -126,7 +126,7 @@ async def _world(test_user_id: uuid.UUID, *, capacity: bool = False) -> _World:
             gear_entity = Entity(tenant_id=tenant_id, name="Gear")
             session.add(gear_entity)
             await session.flush()
-            session.add(Item(entity_id=gear_entity.id, tenant_id=tenant_id))
+            session.add(Item(entity_id=gear_entity.id, tenant_id=tenant_id, in_public_catalog=True))
             for target in ("contents_weight", "weight"):
                 session.add(
                     ComputedStat(
@@ -166,7 +166,7 @@ async def _world(test_user_id: uuid.UUID, *, capacity: bool = False) -> _World:
             entity = Entity(tenant_id=tenant_id, name=name)
             session.add(entity)
             await session.flush()
-            session.add(Item(entity_id=entity.id, tenant_id=tenant_id))
+            session.add(Item(entity_id=entity.id, tenant_id=tenant_id, in_public_catalog=True))
             session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=slug))
             if gear is not None:
                 session.add(
@@ -219,10 +219,20 @@ async def _pack(
         entity = Entity(tenant_id=world.tenant_id, name=name)
         session.add(entity)
         await session.flush()
-        session.add(Item(entity_id=entity.id, tenant_id=world.tenant_id))
+        session.add(Item(entity_id=entity.id, tenant_id=world.tenant_id, in_public_catalog=True))
         await _describe(session, world.tenant_id, entity.id, text, public=public)
         await session.commit()
         return entity.id
+
+
+async def _make_gm(world: _World, user_id: uuid.UUID) -> None:
+    """The caller GMs the campaign: a group's pack is a manager's to give (a
+    player's self-service makes things for their own character only, ADR 0186)."""
+    async with admin_session_factory() as session:
+        session.add(
+            CampaignGm(user_id=user_id, campaign_id=world.campaign_id, tenant_id=world.tenant_id)
+        )
+        await session.commit()
 
 
 async def _give(
@@ -382,6 +392,7 @@ async def test_gives_a_pack_to_a_group_owned_and_in_no_container(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     world = await _world(test_user_id)
+    await _make_gm(world, test_user_id)
     company = world.ids["company"]
 
     response = await _give(client, world, "pack", "company")
@@ -523,6 +534,7 @@ async def test_a_group_has_no_limit_of_its_own_at_the_top(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     world = await _world(test_user_id, capacity=True)
+    await _make_gm(world, test_user_id)
     async with admin_session_factory() as session:
         stat = await session.get_one(EntityStat, (world.ids["alice"], world.stat["carry_capacity"]))
         stat.value_int = 1
@@ -739,6 +751,7 @@ async def test_the_limits_refuse_the_whole_pack(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     world = await _world(test_user_id)
+    await _make_gm(world, test_user_id)
 
     too_many = await _give(
         client, world, await _pack(world, "- 1001 x [Rations](rations)"), "alice"

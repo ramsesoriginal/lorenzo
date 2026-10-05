@@ -163,13 +163,13 @@ async def test_members_see_move_and_give_what_their_group_owns(
     given = await client.put(f"{rope}/owner", json={"owner_character_id": str(ids["alice"])})
     assert given.status_code == 200
 
-    # A member can put something new straight into the group's hands.
+    # But making something new for the group is a GM's: a member's own
+    # self-service is for their own character (ADR 0186).
     created = await client.post(
         f"/tenants/{t}/item-instances",
         json={"prototype_id": str(ids["torch"]), "owner_character_id": str(ids["company"])},
     )
-    assert created.status_code == 201
-    assert created.json()["owner_entity_id"] == str(ids["company"])
+    assert created.status_code == 403
 
     await _tear_down(party)
 

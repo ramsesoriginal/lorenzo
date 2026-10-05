@@ -23,6 +23,7 @@ from lorenzo_api.campaign_access import (
     can_manage_any_campaign_in_tenant,
     can_manage_owner,
     is_tenant_participant,
+    self_service_standing,
 )
 from lorenzo_api.capacity import CapacityCheck, lock_ahead
 from lorenzo_api.change_feed import Change, holders, record_change
@@ -57,6 +58,7 @@ from lorenzo_api.exceptions import (
     ItemInstanceSlugNotFoundError,
     ItemNotYoursToGiveError,
     OverrideForbiddenError,
+    SelfServiceDisabledError,
     StackNeedsContainerError,
 )
 from lorenzo_api.identical import signatures
@@ -969,27 +971,70 @@ async def _authorize_create_instance(
     tenant_id: uuid.UUID,
     user: CurrentUser,
     owner_character_id: uuid.UUID | None,
-) -> None:
-    """RFC 0005's instantiate authorization: self-service if
-    owner_character_id is one of the caller's own characters or a group one
-    of them belongs to (ADR 0124; no existing entity to walk reachability
-    from yet, unlike an existing instance); otherwise can_manage_campaign on
-    any one of the owner's campaigns (a group's are its members'); ownerless
-    creation falls back to can_manage_campaign on any campaign in the tenant.
+) -> bool:
+    """RFC 0005's instantiate authorization, and RFC 0034's self-service
+    (ADR 0186). Returns whether the caller has standing *only* through
+    self-service, which the caller of this then holds to its conditions.
+
+    A manager - can_manage_campaign on any one of the owner's campaigns (a
+    group's are its members'), or for an ownerless instance on any campaign in
+    the tenant - is judged by the manager rules and nothing else, a GM who
+    also plays included. Otherwise the owner must be a character the caller
+    plays through one of their own seats, with at least one of them switched
+    on (`self_service_standing`): a group is not an owner under self-service.
     """
     if owner_character_id is not None:
-        controlled = await controlled_holder_entity_ids(
-            session, user_id=user.id, tenant_id=tenant_id
-        )
-        if owner_character_id in controlled:
-            return
         if await _manages_owner(session, tenant_id=tenant_id, user=user, owner=owner_character_id):
-            return
+            return False
+        standing = await self_service_standing(
+            session, user_id=user.id, tenant_id=tenant_id, character_entity_id=owner_character_id
+        )
+        if standing is True:
+            return True
+        if standing is False:
+            raise SelfServiceDisabledError(
+                detail=(
+                    "Making your own items is switched off for this character: ask the GM of "
+                    "one of its campaigns."
+                )
+            )
     elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
-        return
+        return False
     raise ItemInstanceManagementForbiddenError(
         detail="Not authorized to create an item instance for that owner"
     )
+
+
+async def _check_self_service_create(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    prototype_id: uuid.UUID,
+    prototype_is_public: bool,
+    slug: str | None,
+    container_id: uuid.UUID | None,
+) -> None:
+    """What self-service may make (RFC 0034 §4, ADR 0186): a public item,
+    with no slug of its own, owned and not carried - or inside something the
+    character already holds. A non-public item is answered as an unknown one,
+    so the call doesn't say which items exist."""
+    if not prototype_is_public:
+        raise InvalidItemPrototypeError(
+            detail=f"{prototype_id} is not a base item in tenant {tenant_id}"
+        )
+    if slug is not None:
+        raise ItemInstanceManagementForbiddenError(
+            detail="A slug is the GM's to name: leave it out when making your own item."
+        )
+    if container_id is not None:
+        held = await reachable_entity_ids(
+            session, root_entity_ids=frozenset({owner_id}), tenant_id=tenant_id
+        )
+        if container_id == owner_id or container_id not in held:
+            raise ItemInstanceManagementForbiddenError(
+                detail="You can only make your own item inside something your character holds."
+            )
 
 
 async def _manages_owner(
@@ -1129,19 +1174,30 @@ async def create_item_instance(
     user: CurrentUser,
 ) -> ItemInstanceOut:
     proto_stmt = (
-        select(Entity)
+        select(Entity, Item.in_public_catalog)
         .join(Item, Item.entity_id == Entity.id)
         .where(Entity.id == body.prototype_id, Entity.tenant_id == tenant_id)
     )
-    prototype_entity = (await session.execute(proto_stmt)).scalar_one_or_none()
-    if prototype_entity is None:
+    proto_row = (await session.execute(proto_stmt)).one_or_none()
+    if proto_row is None:
         raise InvalidItemPrototypeError(
             detail=f"{body.prototype_id} is not a base item in tenant {tenant_id}"
         )
+    prototype_entity, prototype_is_public = proto_row
 
-    await _authorize_create_instance(
+    self_service = await _authorize_create_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_character_id
     )
+    if self_service and body.owner_character_id is not None:
+        await _check_self_service_create(
+            session,
+            tenant_id=tenant_id,
+            owner_id=body.owner_character_id,
+            prototype_id=body.prototype_id,
+            prototype_is_public=prototype_is_public,
+            slug=body.slug,
+            container_id=body.container_entity_id,
+        )
     if body.override:
         await _authorize_override(
             session, tenant_id=tenant_id, user=user, owner=body.owner_character_id
@@ -1253,7 +1309,7 @@ async def create_item_instances_from_pack(
     included, and rolls it back (so `200`, not `201`, and ids that name
     nothing).
     """
-    await _authorize_create_instance(
+    self_service = await _authorize_create_instance(
         session, tenant_id=tenant_id, user=user, owner_character_id=body.owner_entity_id
     )
     if body.override:
@@ -1267,6 +1323,7 @@ async def create_item_instances_from_pack(
         pack_id=body.pack_id,
         owner_id=body.owner_entity_id,
         override=body.override,
+        public_only=self_service,
     )
 
     async def out(item: Created) -> PackItemOut:
