@@ -1,6 +1,6 @@
 # RFC: Player self-service — a player making their own gear from the public catalog, switchable per campaign and per player
 
-Status: proposed, Decision open. Given by the maintainer on 2026-10-05: the two switches (campaign default on, per-player override), a character in several campaigns resolving through any of the caller's own seats, public items only, owned and not carried, and the container exception. The rest of [Decision](#decision) is my proposal for review. What is still open is listed in [Open questions](#open-questions). Nothing is built; the first step is `apps/api` alone ([Slices](#slices)). Row "Player self-service (switchable per campaign or player)" of [v1.0](../../v1.0.md).
+Status: proposed, awaiting acceptance. Decided with the maintainer on 2026-10-05: the two switches (campaign default on, per-player override), a character in several campaigns resolving through any of the caller's own seats, public items only, owned and not carried, packs covered too (and so Equipped), no slug, no volume limit, `self_service_effective` on `GET /me`, and loot-bot left untouched (its Sack is made public, with no code change). The rest of [Decision](#decision) is a proposal for review. What is still open is listed in [Open questions](#open-questions). Nothing is built; the first step is `apps/api` alone ([Slices](#slices)). Row "Player self-service (switchable per campaign or player)" of [v1.0](../../v1.0.md).
 
 ## Context
 
@@ -53,8 +53,10 @@ When the caller has standing **only** through self-service (they don't also mana
 1. **The owner is a character they control**, not a group, not an NPC.
 2. **The switch is on** for them under §3.
 3. **The prototype is public**: `item.in_public_catalog` is true. Anything else is answered exactly as an unknown prototype (`422`), so the call doesn't tell a player which items exist.
-4. **It is owned and not carried**: no `container_entity_id`, so `quantity` is 1 (more than one has always needed a container, ADR 0140). The exception, decided with the maintainer, is a container the character already controls: an item in the character's own inventory (the sack of [ADR 0094](../adr/0094-loot-bot-container-new.md)), under the capacity check as ever.
-5. **`override` is refused** as ever, and `slug` is refused (see Open questions).
+4. **It is owned and not carried**: no `container_entity_id`, so `quantity` is 1 (more than one has always needed a container, ADR 0140). The exception is a container the character already controls, an item in the character's own inventory, under the capacity check as ever.
+5. **`override` is refused** as ever, and so is `slug`: a slug is a tenant-wide name that `[[links]]` resolve through ([ADR 0107](../adr/0107-entity-slugs-and-batch-resolve.md)), and a player should not claim `[[Excalibur]]`. A `name` stays allowed.
+
+**Packs are covered.** `POST .../item-instances/from-pack` ([ADR 0149](../adr/0149-giving-a-pack-from-the-api.md)) is gated the same way: the owner is a character the caller controls, the switch is on, and the pack **and every item its list names** are public, else the whole call is refused as an unknown pack is. What a pack makes is what it always makes, so a being's top-level things appear **Equipped**, in its hands, which is the one place self-service creates something carried. That is accepted: it is the character's own hands, and capacity applies as ever.
 
 A refusal for 2 is its own problem type (`403`, `self-service-disabled`) so a client can say "your GM has switched this off" rather than "not authorized".
 
@@ -67,19 +69,16 @@ An instance made this way is an ordinary instance: the same activity entry and c
 ## Slices
 
 1. **The switches** (`apps/api`): the migration (two columns, no new table, so no new RLS and nothing for `repository_access`), the model, `PATCH /campaigns/{id}`, `PATCH .../players/{id}`, the output fields, the activity log. Nothing is enforced yet, so it changes no behaviour. An ADR when it lands.
-2. **The enforcement** (`apps/api`): the §3 resolution as one function in `campaign_access`, `_authorize_create_instance` using it, the §4 conditions, the problem type. A **contract tightening** for existing callers, recorded as such in its ADR and the API's changelog.
-3. **Clients** (later, not scoped): account-hub's two toggles, a "make one from the public catalog" action in inventory-web and loot-bot, and loot-bot's sack prototype made public. Out of scope until asked for.
+2. **The enforcement** (`apps/api`): the §3 resolution as one function in `campaign_access`, `_authorize_create_instance` using it for both routes, the §4 conditions (the pack's public-ness read from its list), the problem type, and `self_service_effective` on `GET /me`'s `players[]`. A **contract tightening** for existing callers, recorded as such in its ADR and the API's changelog. **Before it is deployed**, the tenant's "Sack" item (the one loot-bot's `/container-new` makes) is marked `in_public_catalog`, once, per tenant that has one: a data step, not a code change, listed in the ADR as a deploy precondition. loot-bot's code does not change.
+3. **Clients** (later, not scoped): account-hub's two toggles and a "make one from the public catalog" action in inventory-web. Out of scope until asked for.
 
 ## Open questions
 
-- **`POST .../item-instances/from-pack`** ([ADR 0149](../adr/0149-giving-a-pack-from-the-api.md)) uses the same gate today, so a player can give themselves a pack. A pack puts things in the being's hands (Equipped, which *is* carried) and names many items. Recommended: self-service does **not** cover it; packs stay with GMs until a later slice says what a player's pack may be. This is a second tightening.
-- **`slug` for a player.** A slug is a tenant-wide name that `[[links]]` resolve through ([ADR 0107](../adr/0107-entity-slugs-and-batch-resolve.md)), so a player could claim `[[Excalibur]]`. Recommended: a self-service create takes none. A `name` stays allowed, as for any create.
-- **Volume.** Nothing limits how many a player may make. The activity log records each. Recommended: none now; a per-player limit is a later, separate switch if a table needs one.
-- **Telling a client it may.** A client needs to know whether to show the action. Recommended: `GET /me`'s `players[]` entries carry `self_service_effective` (additive), rather than a tenant-wide flag, since §3 depends on the character.
-- **The container exception** goes beyond "owned and not carried". It keeps `/container-new` working, but its sack prototype is not public today, so §4.3 breaks it until that prototype is made public (slice 3). Say if the exception should be dropped, or if the sack should be exempt from public-ness instead.
+- **The Sack and the switch.** With the Sack public, `/container-new` is ordinary self-service, so a GM who switches a campaign or a player off also stops their sacks. Consistent, and accepted for now; an exemption can be added later if a table wants sacks without loot.
+- **The deploy precondition** is a manual step per tenant. If more than the Sack turns out to be made by a client from a non-public item, this is the place to think again.
 
 ## Consequences
 
 - A table can say "loot comes from the GM" with one switch, and "except Alice" with another.
-- Players who could make anything now make only what the GM published, which is the point, and a tightening existing loot-bot users will notice (`/container-new`, `/award` is a GM's and unaffected).
+- Players who could make anything now make only what the GM published, which is the point. loot-bot is unaffected once its Sack is public (`/award` is a GM's and was never self-service).
 - No new table, so [ADR 0002](../adr/0002-multi-tenancy-shared-schema-rls.md)'s RLS and [ADR 0117](../adr/0117-same-tenant-references-by-composite-foreign-keys.md)'s same-tenant keys are untouched.
