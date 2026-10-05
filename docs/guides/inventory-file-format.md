@@ -42,7 +42,7 @@ Any other text outside the sections (a title, a paragraph, a `#` heading) is ign
 - **`## Equipped`**: what the character has in hand or on them, at the top level. Also accepted: `Holding`, `Hands`, `In hand`, `Worn`.
 - **`## Not carried`**: what the character owns but is not carrying. Also accepted: `Stored`, `Elsewhere`, `At home`, `Owned`.
 
-The match is not case-sensitive. Any other `##` heading is reported, not guessed at: everything else in a file is a container, and a container is written as a line (below), not a heading.
+The match is not case-sensitive. Any other `##` heading is **ignored, together with the lines under it**, and you get a warning saying so: headings are kept free for later versions of the format, and nothing is guessed into the wrong section. Everything else in a file is a container, and a container is written as a line (below), not a heading.
 
 ### The lines
 
@@ -100,7 +100,9 @@ Each line is matched to the library's items, in this order, and the first hit wi
 5. the name after a **preprocessing step** (a table of known translations and spellings the importer keeps, so `Seil` can find `Rope`)
 6. nothing found: it becomes an **unsorted item**
 
-An unsorted item is a placeholder: it keeps your name, note, weight, value and kind, and shows a badge on the board. Your GM sees all of them in one list and either points each at a real catalog item or makes one for it. You are told when that happens. Nothing is lost by importing something the catalog does not know.
+An unsorted item is a placeholder: it keeps your name, note, weight, value and kind, and shows a badge on the board. Your GM sees all of them in one list and either points each at a real catalog item or makes one for it. You are told when that happens: each item appears in your list of changes, and you get one notification saying that items were sorted. Nothing is lost by importing something the catalog does not know.
+
+A file holds at most **1024 lines**.
 
 Two things to know:
 

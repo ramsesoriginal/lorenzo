@@ -1,6 +1,6 @@
 # RFC: Inventory files and placeholder items — importing and exporting a character's gear, with a stand-in for what the catalog does not know
 
-Status: accepted, decided with the maintainer on 2026-10-05: the build order (placeholders in the API first, then import and export, then "Not in the list" in inventory-web, then a GM view for sorting them), a placeholder badge on the board, notifying the player when a GM sorts one, no flooding limit (a social matter, not a code one), the file format in [§1](#1-the-inventory-file) (specified in the [guide](../guides/inventory-file-format.md)), the matching order in [§3](#3-how-a-line-finds-its-item), and the placeholder as a well-known item the seed's `core` layer creates ([§4](#4-the-placeholder-item)). The rest of [Decision](#decision) is a proposal for review, and what is still open is in [Open questions](#open-questions). Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands; the first, [ADR 0191](../adr/0191-inventory-file-format-v1.md), is the format. Row "Importing and exporting an inventory" of [v1.0](../../v1.0.md).
+Status: accepted, decided with the maintainer on 2026-10-05: the build order (placeholders in the API first, then import and export, then "Not in the list" in inventory-web, then a GM view for sorting them), a placeholder badge on the board, telling the player when a GM sorts one (both on the change feed and as one notification, [§7](#7-telling-the-player)), `unsorted` as the placeholder's slug, a limit of 1024 lines to a file, no flooding limit (a social matter, not a code one), the file format in [§1](#1-the-inventory-file) (specified in the [guide](../guides/inventory-file-format.md)), the matching order in [§3](#3-how-a-line-finds-its-item), and the placeholder as a well-known item the seed's `core` layer creates ([§4](#4-the-placeholder-item)). The rest of [Decision](#decision) is a proposal for review, and what is still open is in [Open questions](#open-questions). Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands; the first, [ADR 0191](../adr/0191-inventory-file-format-v1.md), is the format. Row "Importing and exporting an inventory" of [v1.0](../../v1.0.md).
 
 ## Context
 
@@ -35,6 +35,8 @@ One text file, one owner, written by hand or by a script, and written back out b
 - **A line** is `[N x ]Name | field: value | …`. Fields: `ref`, `item`, `weight` (pounds, per piece), `value` (free text), `kind` (a hint), `note`, `place`. All optional. Unknown fields are ignored with a warning.
 - **A stack needs a container**, since a count lives on a containment row ([ADR 0140](../adr/0140-a-stack-when-an-item-instance-is-created.md)); a loose count above 1 is reported, never guessed.
 - **One owner per file.** The structure leaves room for more later without changing what v1 means.
+- **Other headings are ignored**, with the lines under them, and reported as a warning, so nothing lands in the wrong section and the headings stay free for later versions to use.
+- **At most 1024 lines** to a file.
 - **A version line**, and readers ignore what they do not know. The format is meant to outlive any importer.
 - **Weight, value, kind and place are kept as a note** on the instance, in a fixed, plain layout (`Weight: 0.04 lb`, one per line). They are for the GM who sorts it, who may make the catalog item from them; they are not a new column.
 
@@ -88,7 +90,10 @@ An "Unsorted" view in inventory-web, listing every placeholder in the library: o
 
 ### 7. Telling the player
 
-When a GM sorts one, its holders are told: **"Your *Hydra Zahn* is now a *Hydra Tooth*"**. Through the change feed ([ADR 0099](../adr/0099-player-facing-change-feed.md)) rather than the `notification` table: the feed is already written to exactly the people who hold an instance, for every write to it, and read through `GET /me/changes`; the notification table is for a message one person writes to another and would need the recipients worked out again. To confirm with the maintainer, since "use notifications" was said of the system as a whole ([Open questions](#open-questions)).
+When a GM sorts one, its holders are told: **"Your *Hydra Zahn* is now a *Hydra Tooth*"**. On **both** channels, with different jobs (decided with the maintainer on 2026-10-05):
+
+- **The change feed** ([ADR 0099](../adr/0099-player-facing-change-feed.md)) carries every item: one `sorted` entry per instance, written to the people who hold it, read through `GET /me/changes`. It is the complete record.
+- **The `notification` table** carries one summary per person per sorting, however many items it covered: "3 of your unsorted items have been sorted", with the change feed as where to look. A bulk action by the GM is therefore one notification per affected player, not one per item.
 
 ### 8. "Not in the list" for a player
 
@@ -97,7 +102,7 @@ In inventory-web's *Add an item* card ([ADR 0187](../adr/0187-inventory-web-addi
 ## Slices
 
 1. **The format** (docs): the [guide](../guides/inventory-file-format.md) and [ADR 0191](../adr/0191-inventory-file-format-v1.md). First, so players can start writing files and anyone can write a converter before any of the rest is built.
-2. **The placeholder, in the API and the seed** (`apps/api`, `apps/cli`): the seed's public node and the `unsorted` item, the prototype change, the list filter, the `sorted` change-feed kind, the readable note. A contract extension, no tightening. An ADR when it lands.
+2. **The placeholder, in the API and the seed** (`apps/api`, `apps/cli`): the seed's public node and the `unsorted` item, the prototype change, the list filter, the `sorted` change-feed kind and the summary notification, the readable note. A contract extension, no tightening. An ADR when it lands.
 3. **Import and export** (`apps/cli`): the parsers (Markdown and JSON) against shared test cases in the way the pack lists are, the matching order and its preprocessing table, `inventory import` with plan and apply, `inventory export`. An ADR when it lands.
 4. **"Not in the list" and the badge** (`apps/inventory-web`): the add-an-item option and the board badge. An ADR when it lands.
 5. **The GM's view** (`apps/inventory-web`): the Unsorted view with fuzzy search and bulk actions. An ADR when it lands.
@@ -105,10 +110,9 @@ In inventory-web's *Add an item* card ([ADR 0187](../adr/0187-inventory-web-addi
 
 ## Open questions
 
-- **The notification route**: the change feed in [§7](#7-telling-the-player) or the notification table. The feed is the closer fit and already does the recipients, but "told" may mean something the maintainer wants to see in account-hub's notifications. Settled before slice 2 is built.
 - **Who may read a player's note** ([§4](#4-the-placeholder-item)): whether a test shows the author cannot see what they wrote, and which of two fixes is right. Slice 2's first step.
-- **The slug.** `unsorted` is the proposal; the maintainer floated `unknown`, `tosort`, `proposed` and `misc`. A library may already have an item with the chosen slug, in which case the seed's rename-or-skip applies. Settled before slice 2.
-- **The size of a file** and whether a stack of a hundred should be allowed to be a hundred lines. A limit like the pack-list's is proposed (500 lines) and not decided.
+- **A library that already has an item with the slug `unsorted`.** The seed's rename-or-skip applies; what the importer does when the existing item is not the placeholder is slice 2's to decide.
+- **How a summary notification is batched** when a GM sorts items one at a time: one per sorting action, or collapsed over a short window. One per action is the proposal. Slice 2.
 - **What import does with a line that has a `ref` to an instance of another character.** Refused, with the line number, is the proposal.
 - **Moving into the hands by id.** `--add` with an instance id that is to be Equipped needs the pick-up route, with its capacity rules ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)); what happens when it is full is slice 3's to decide.
 
@@ -127,7 +131,7 @@ In inventory-web's *Add an item* card ([ADR 0187](../adr/0187-inventory-web-addi
 - **One format only, JSON or YAML.** JSON is a poor thing to hand to a player; YAML has traps (`no` as false, indentation) a player will meet. The Markdown list is something they can already read and the pack grammar already parses.
 - **A tag or flag marking any instance as unsorted**, instead of a placeholder item. A player cannot make catalog items, and a flag on an arbitrary instance needs a prototype anyway.
 - **Fuzzy matching in the importer.** Right often enough to be trusted, wrong often enough to hurt. A GM looking at a list is the safer place.
-- **A `notification` row for "sorted".** See [§7](#7-telling-the-player).
+- **Only the change feed, or only a notification** for "sorted". The feed is complete but easy to miss; a notification per item would flood a bulk action. Both, as in [§7](#7-telling-the-player).
 
 ## Consequences
 
