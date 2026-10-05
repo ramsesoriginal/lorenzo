@@ -2581,7 +2581,8 @@ export interface paths {
         /**
          * List Item Instances
          * @description Every item instance for this tenant, optionally filtered to one
-         *     container's contents (?container_id=&recursive=). `recursive` defaults
+         *     container's contents (?container_id=&recursive=) or to one item's
+         *     instances (?prototype_id=, ADR 0192: "everything unsorted"). `recursive` defaults
          *     to false - the costlier, cycle-risk-bearing traversal is explicit
          *     opt-in, not the default (ADR 0020 / task brief) - consistent with
          *     owned-by-grouped below also being non-recursive by design. Filtering by
@@ -2780,7 +2781,7 @@ export interface paths {
          * Update Item Instance
          * @description A rename - deliberately not recorded in the activity log (ADR 0084:
          *     descriptive-content edits are excluded; `updated_by` already says who
-         *     last touched it).
+         *     last touched it) - and, for a manager, a change of prototype (ADR 0192).
          */
         patch: operations["update_item_instance"];
         trace?: never;
@@ -5259,6 +5260,8 @@ export interface components {
         ItemInstanceUpdate: {
             /** Name */
             name?: string | null;
+            /** Prototype Id */
+            prototype_id?: string | null;
         };
         /**
          * ItemOut
@@ -16332,6 +16335,8 @@ export interface operations {
                 container_id?: string | null;
                 /** @description With container_id, also include instances nested arbitrarily deep inside it, not just its direct contents. */
                 recursive?: boolean;
+                /** @description Only return item instances whose direct prototype is this item. */
+                prototype_id?: string | null;
                 page?: number;
                 size?: number;
             };

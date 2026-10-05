@@ -65,6 +65,9 @@ class NodeSpec(_Strict):
     stats: dict[str, StatValue] = Field(default_factory=dict)
     # What the category means, written as its public description: every item under it shows it.
     description: str = ""
+    # In the public catalog, so a player may make an instance of it (RFC 0035, ADR 0192). Taxonomy
+    # nodes are vocabulary for the tenant's authors and are not.
+    public: bool = False
 
 
 class RecipeSpec(_Strict):

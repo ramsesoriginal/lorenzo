@@ -306,8 +306,8 @@ def test_a_core_repository_shows_core_complete_and_the_others_not_there(tmp_path
     text = plain(result.output)
     assert "core (Core) is a repository, published 2026-10-03, granted to 2 tenant(s)." in text
     assert "Built on nothing: it has copied no repository." in text
-    assert "Holds 3 stat groups, 10 stat definitions and 1 items (categories included)." in text
-    assert "core complete 3 of 3 10 of 10 1 of 1 -" in text
+    assert "Holds 3 stat groups, 10 stat definitions and 2 items (categories included)." in text
+    assert "core complete 3 of 3 10 of 10 2 of 2 -" in text
     assert "equipment not there - - 0 of 32 -" in text
     assert "dnd5e not there 0 of 3 0 of 30 0 of 30 -" in text
     assert "dnd5e-equipment not there - - - 0 of 6" in text
@@ -325,7 +325,7 @@ def test_what_the_seed_doesnt_name_is_counted_beyond_it(tmp_path: Path) -> None:
 
     text = plain(contents(tmp_path, shelf).output)
 
-    assert "Holds 7 stat groups, 43 stat definitions and 113 items" in text
+    assert "Holds 7 stat groups, 43 stat definitions and 114 items" in text
     assert "dnd5e complete 3 of 3 30 of 30 30 of 30 -" in text
     assert "Beyond the seed: 1 stat groups, 3 stat definitions and 82 items." in text
 
@@ -378,13 +378,13 @@ def test_json_has_the_same_facts(tmp_path: Path) -> None:
     assert data["holds"] == {
         "stat_groups": 3,
         "stat_definitions": 10,
-        "items": 3,
+        "items": 4,
         "attachments": 0,
     }
     assert data["seed"]["version"] == SPEC.version
     assert list(data["seed"]["layers"]) == list(LAYERS)
     assert data["seed"]["layers"]["core"]["holds"] == "complete"
-    assert data["seed"]["layers"]["core"]["categories"] == {"present": 1, "in_seed": 1}
+    assert data["seed"]["layers"]["core"]["categories"] == {"present": 2, "in_seed": 2}
     assert data["seed"]["layers"]["core"]["attachments"] == {"present": 0, "in_seed": 0}
     assert data["seed"]["layers"]["dnd5e"]["holds"] == "not there"
     assert data["beyond_seed"] == {"stat_groups": 0, "stat_definitions": 0, "items": 2}
