@@ -32,6 +32,12 @@ function renderEditCampaignForm(
   secretInput.type = 'checkbox';
   secretInput.checked = campaign.secret;
   secretLabel.append(secretInput, 'Secret');
+  // ADR 0188: whether this campaign's players may make their own items (ADR 0185).
+  const selfServiceLabel = document.createElement('label');
+  const selfServiceInput = document.createElement('input');
+  selfServiceInput.type = 'checkbox';
+  selfServiceInput.checked = campaign.player_self_service;
+  selfServiceLabel.append(selfServiceInput, 'Players can make their own items');
   const saveButton = document.createElement('button');
   saveButton.type = 'submit';
   saveButton.textContent = 'Save';
@@ -46,6 +52,7 @@ function renderEditCampaignForm(
     gameSystemInput,
     descriptionInput,
     secretLabel,
+    selfServiceLabel,
     saveButton,
     cancelButton,
     status,
@@ -65,6 +72,9 @@ function renderEditCampaignForm(
       patch.description = descriptionInput.value.trim();
     }
     if (secretInput.checked !== campaign.secret) patch.secret = secretInput.checked;
+    if (selfServiceInput.checked !== campaign.player_self_service) {
+      patch.player_self_service = selfServiceInput.checked;
+    }
 
     if (Object.keys(patch).length === 0) {
       onDone();

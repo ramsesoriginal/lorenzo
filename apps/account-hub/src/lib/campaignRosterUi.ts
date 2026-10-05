@@ -10,7 +10,7 @@ import { showError } from './errorUi';
 import { displayNameFor } from './format';
 import { playerIdForUser } from './roster';
 import { renderUnlinkCharacter } from './rosterLinkUi';
-import { removePlayer } from './tenants';
+import { removePlayer, updatePlayer } from './tenants';
 import type {
   CampaignSummaryOut,
   PlayerRosterEntryOut,
@@ -52,7 +52,39 @@ function renderPlayerControls(
       showError(status, e);
     }
   });
-  controls.append(removeButton, status);
+  // ADR 0188: this player's say on making their own items, over the campaign's.
+  const selfService = document.createElement('select');
+  selfService.setAttribute('aria-label', `Making their own items: ${name}`);
+  for (const [value, label] of [
+    ['', 'Follows the campaign'],
+    ['true', 'Can make their own items'],
+    ['false', "Can't make their own items"],
+  ]) {
+    selfService.append(new Option(label, value));
+  }
+  const current = management.players.find((p) => p.id === playerId)?.self_service ?? null;
+  let shown = current === null ? '' : String(current);
+  selfService.value = shown;
+  selfService.addEventListener('change', async () => {
+    selfService.disabled = true;
+    status.textContent = 'Saving…';
+    try {
+      await updatePlayer(
+        management.tenant.id,
+        campaign.id,
+        playerId,
+        selfService.value === '' ? null : selfService.value === 'true',
+      );
+      shown = selfService.value;
+      status.textContent = 'Saved.';
+    } catch (e) {
+      selfService.value = shown;
+      showError(status, e);
+    } finally {
+      selfService.disabled = false;
+    }
+  });
+  controls.append(selfService, removeButton, status);
   return controls;
 }
 
