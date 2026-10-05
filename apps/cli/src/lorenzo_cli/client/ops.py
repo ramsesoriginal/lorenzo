@@ -34,6 +34,7 @@ from lorenzo_cli.client.models import (
     MeOut,
     PackGivenOut,
     PageAttachmentRefOut,
+    PageCharacterSummaryOut,
     PageItemOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
@@ -115,6 +116,9 @@ CREATE_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
 
 RESOLVE_SLUGS: Op[list[ResolvedSlugOut]] = Op(
     "resolve_slugs", "GET", f"{_TENANT}/entities/resolve", response_type=list[ResolvedSlugOut]
+)
+LIST_CHARACTERS: Op[PageCharacterSummaryOut] = Op(
+    "list_characters", "GET", f"{_TENANT}/characters", response_type=PageCharacterSummaryOut
 )
 LIST_ITEMS: Op[PageItemOut] = Op("list_items", "GET", f"{_TENANT}/items", response_type=PageItemOut)
 GET_ITEM: Op[ItemOut] = Op(
@@ -261,6 +265,7 @@ ALL_OPS: tuple[Op[Any], ...] = (
     LIST_STAT_DEFINITIONS,
     CREATE_STAT_DEFINITION,
     RESOLVE_SLUGS,
+    LIST_CHARACTERS,
     LIST_ITEMS,
     GET_ITEM,
     DELETE_ITEM,
