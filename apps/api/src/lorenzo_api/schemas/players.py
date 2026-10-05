@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Self
 
 from pydantic import BaseModel
@@ -8,7 +9,7 @@ from pydantic import BaseModel
 from lorenzo_api.models import Player
 from lorenzo_api.schemas.characters import CharacterSummaryOut
 
-__all__ = ["PlayerContextOut", "PlayerCreate", "PlayerOut", "PlayerSummaryOut"]
+__all__ = ["PlayerContextOut", "PlayerCreate", "PlayerOut", "PlayerSummaryOut", "PlayerUpdate"]
 
 
 class PlayerCreate(BaseModel):
@@ -18,6 +19,15 @@ class PlayerCreate(BaseModel):
     honestly" for the full reasoning)."""
 
     user_id: uuid.UUID
+
+
+class PlayerUpdate(BaseModel):
+    """PATCH .../campaigns/{id}/players/{id} - RFC 0034/ADR 0185. `self_service`
+    is the per-player override of the campaign's setting: a boolean sets it,
+    an explicit `null` clears it, leaving it out changes nothing.
+    """
+
+    self_service: bool | None = None
 
 
 class PlayerSummaryOut(BaseModel):
@@ -34,6 +44,11 @@ class PlayerSummaryOut(BaseModel):
     holding no tenant-wide membership can still name the people at their
     table. Requires `player.user` eager-loaded first (`lazy="raise_on_sql"`,
     ADR 0018).
+
+    Carries the self-service switch (RFC 0034, ADR 0185): `self_service` is the
+    player's own override (null: none) and `self_service_effective` what
+    applies, so a client does not repeat the rule; `updated_at` is the
+    token `If-Match` on a write to this player is checked against.
     """
 
     id: uuid.UUID
@@ -42,11 +57,14 @@ class PlayerSummaryOut(BaseModel):
     display_name: str | None
     user_color: str | None
     characters: list[CharacterSummaryOut]
+    self_service: bool | None
+    self_service_effective: bool
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
+    updated_at: datetime
 
     @classmethod
-    def from_player(cls, player: Player) -> Self:
+    def from_player(cls, player: Player, *, campaign_self_service: bool) -> Self:
         return cls(
             id=player.id,
             user_id=player.user_id,
@@ -57,8 +75,13 @@ class PlayerSummaryOut(BaseModel):
                 CharacterSummaryOut.from_character(link.character)
                 for link in player.character_links
             ],
+            self_service=player.self_service,
+            self_service_effective=(
+                campaign_self_service if player.self_service is None else player.self_service
+            ),
             created_by=player.created_by,
             updated_by=player.updated_by,
+            updated_at=player.updated_at,
         )
 
 

@@ -10,8 +10,11 @@ function player(overrides: Partial<PlayerSummaryOut> = {}): PlayerSummaryOut {
     display_name: null,
     user_color: null,
     characters: [],
+    self_service: null,
+    self_service_effective: true,
     created_by: null,
     updated_by: null,
+    updated_at: '2026-10-05T12:00:00Z',
     ...overrides,
   };
 }
