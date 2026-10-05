@@ -24,9 +24,9 @@ from lorenzo_api.exceptions import (
     PlayerAlreadyExistsError,
     PlayerNotFoundError,
 )
-from lorenzo_api.models import Being, CampaignGm, Character, CharacterPlayer, Player, User
+from lorenzo_api.models import Being, Campaign, CampaignGm, Character, CharacterPlayer, Player, User
 from lorenzo_api.schemas.campaigns import GmOut
-from lorenzo_api.schemas.players import PlayerCreate, PlayerOut, PlayerSummaryOut
+from lorenzo_api.schemas.players import PlayerCreate, PlayerOut, PlayerSummaryOut, PlayerUpdate
 
 # get_campaign_context here, not per-route (ADR 0020's revised guidance,
 # matching entities.py) - every route on this router needs it and none read
@@ -51,6 +51,18 @@ _character_eager_load = (
 _player_eager_load = (_character_eager_load, selectinload(Player.user))
 
 
+async def _campaign_self_service(
+    session: SessionDep, *, tenant_id: uuid.UUID, campaign_id: uuid.UUID
+) -> bool:
+    """The campaign's own setting, which a roster row's effective value falls
+    back to (RFC 0034, ADR 0185). The campaign exists: the router's
+    get_campaign_context already ran."""
+    stmt = select(Campaign.player_self_service).where(
+        Campaign.id == campaign_id, Campaign.tenant_id == tenant_id
+    )
+    return bool((await session.execute(stmt)).scalar_one())
+
+
 @router.get("/players")
 async def list_players(
     tenant_id: uuid.UUID, campaign_id: uuid.UUID, session: SessionDep, params: ParamsDep
@@ -62,8 +74,15 @@ async def list_players(
         .order_by(Player.id)
     )
 
+    campaign_self_service = await _campaign_self_service(
+        session, tenant_id=tenant_id, campaign_id=campaign_id
+    )
+
     def _players_out(players: Sequence[Player]) -> list[PlayerSummaryOut]:
-        return [PlayerSummaryOut.from_player(p) for p in players]
+        return [
+            PlayerSummaryOut.from_player(p, campaign_self_service=campaign_self_service)
+            for p in players
+        ]
 
     # apaginate is typed to return Any (fastapi_pagination's own signature) -
     # cast rather than suppress, the declared return type is otherwise exact.
@@ -92,7 +111,12 @@ async def get_player(
     player = (await session.execute(stmt)).scalar_one_or_none()
     if player is None:
         raise PlayerNotFoundError(detail=f"No player with id {player_id} in campaign {campaign_id}")
-    return PlayerOut.from_player(player)
+    return PlayerOut.from_player(
+        player,
+        campaign_self_service=await _campaign_self_service(
+            session, tenant_id=tenant_id, campaign_id=campaign_id
+        ),
+    )
 
 
 @router.get("/gms")
@@ -192,7 +216,61 @@ async def create_player(
         )
     )
     created = await _get_player_or_404(tenant_id, campaign_id, player.id, session)
-    return PlayerSummaryOut.from_player(created)
+    return PlayerSummaryOut.from_player(
+        created,
+        campaign_self_service=await _campaign_self_service(
+            session, tenant_id=tenant_id, campaign_id=campaign_id
+        ),
+    )
+
+
+@router.patch("/players/{player_id}")
+async def update_player(
+    tenant_id: uuid.UUID,
+    campaign_id: uuid.UUID,
+    player_id: uuid.UUID,
+    body: PlayerUpdate,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> PlayerOut:
+    """The player's self-service override (RFC 0034, ADR 0185), the only thing
+    about a player that can be written after joining. can_manage_campaign
+    only: a player never sets their own. `exclude_unset`, like every PATCH
+    here: `null` clears the override, leaving the field out changes nothing.
+    """
+    player = await _get_player_or_404(tenant_id, campaign_id, player_id, session)
+    check_if_match(if_match, updated_at=player.updated_at)
+    if not await can_manage_campaign(
+        session, user_id=user.id, campaign_id=campaign_id, tenant_id=tenant_id
+    ):
+        raise CampaignManagementForbiddenError(
+            detail=f"Not authorized to manage campaign {campaign_id}"
+        )
+
+    update = body.model_dump(exclude_unset=True)
+    if "self_service" in update and update["self_service"] != player.self_service:
+        player.self_service = update["self_service"]
+        player.updated_by = user.id
+        # The field's name, never the value (ADR 0084).
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="player.updated",
+            target_type="player",
+            target_id=player_id,
+            detail="fields=self_service",
+        )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    updated = await _get_player_or_404(tenant_id, campaign_id, player_id, session)
+    return PlayerOut.from_player(
+        updated,
+        campaign_self_service=await _campaign_self_service(
+            session, tenant_id=tenant_id, campaign_id=campaign_id
+        ),
+    )
 
 
 @router.delete("/players/{player_id}", status_code=204)

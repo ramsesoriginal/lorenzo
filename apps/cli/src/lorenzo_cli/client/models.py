@@ -163,6 +163,7 @@ class CampaignOut(BaseModel):
     description: str = Field(..., title="Description")
     game_system: str = Field(..., title="Game System")
     secret: bool = Field(..., title="Secret")
+    player_self_service: bool = Field(..., title="Player Self Service")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     created_at: AwareDatetime = Field(..., title="Created At")
@@ -183,6 +184,7 @@ class CampaignUpdate(BaseModel):
     slug: str | None = Field(None, title="Slug")
     description: str | None = Field(None, title="Description")
     secret: bool | None = Field(None, title="Secret")
+    player_self_service: bool | None = Field(None, title="Player Self Service")
 
 
 class CharacterCreate(BaseModel):
@@ -751,8 +753,11 @@ class PlayerOut(BaseModel):
     display_name: str | None = Field(..., title="Display Name")
     user_color: str | None = Field(..., title="User Color")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
+    self_service: bool | None = Field(..., title="Self Service")
+    self_service_effective: bool = Field(..., title="Self Service Effective")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
 class PlayerRosterEntryOut(BaseModel):
@@ -774,8 +779,15 @@ class PlayerSummaryOut(BaseModel):
     display_name: str | None = Field(..., title="Display Name")
     user_color: str | None = Field(..., title="User Color")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
+    self_service: bool | None = Field(..., title="Self Service")
+    self_service_effective: bool = Field(..., title="Self Service Effective")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class PlayerUpdate(BaseModel):
+    self_service: bool | None = Field(None, title="Self Service")
 
 
 class PreviewInputOut(BaseModel):

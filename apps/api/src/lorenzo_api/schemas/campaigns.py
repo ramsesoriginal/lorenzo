@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from lorenzo_api.models import CampaignGm
 
@@ -39,6 +39,15 @@ class CampaignUpdate(BaseModel):
     slug: str | None = None
     description: str | None = None
     secret: bool | None = None
+    # RFC 0034/ADR 0185. Not nullable: there is no "no setting" for a campaign.
+    player_self_service: bool | None = None
+
+    @field_validator("player_self_service")
+    @classmethod
+    def _not_null(cls, value: bool | None) -> bool | None:
+        if value is None:
+            raise ValueError("player_self_service cannot be null")
+        return value
 
 
 class CampaignSummaryOut(BaseModel):
@@ -73,6 +82,7 @@ class CampaignOut(BaseModel):
     description: str
     game_system: str
     secret: bool
+    player_self_service: bool
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
     created_at: datetime
