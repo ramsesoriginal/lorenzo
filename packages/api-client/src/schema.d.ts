@@ -515,7 +515,25 @@ export interface paths {
         get: operations["get_tenant"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Tenant
+         * @description Deletes a tenant and everything in it (ADR 0184). Gated twice: the
+         *     platform tenant-creator role, which also gates creating one, and the
+         *     tenant's own OWNER role. A non-member gets the usual 404, so nothing is
+         *     revealed; a member who isn't an owner gets 403.
+         *
+         *     Refused with 409 while the tenant is a repository other tenants still
+         *     hold a grant on. Every table that carries a `tenant_id` cascades from
+         *     the tenant row (ADR 0018), so one DELETE takes everything; the
+         *     campaigns go first because `campaign.entity_id` is the one reference to
+         *     `entity` that restricts rather than cascades, and a cascade doesn't
+         *     promise an order.
+         *
+         *     Nothing records this in the tenant's own activity log, which goes with
+         *     it. The people with a stake in it are told (platform-scope
+         *     notifications, which outlive it) and it is logged by the application.
+         */
+        delete: operations["delete_tenant"];
         options?: never;
         head?: never;
         /**
@@ -8635,6 +8653,69 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TenantOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_tenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

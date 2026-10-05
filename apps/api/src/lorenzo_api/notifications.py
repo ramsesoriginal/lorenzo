@@ -309,6 +309,34 @@ def create_platform_notification(
     )
 
 
+async def create_tenant_deleted_notifications(
+    session: AsyncSession, *, tenant_id: uuid.UUID, tenant_name: str, deleted_by: uuid.UUID
+) -> list[Notification]:
+    """scope="platform", one per user with any standing in the tenant (a
+    membership, a player seat or a GM seat) except the one deleting it.
+    Platform scope on purpose: a tenant-scoped notification would be deleted
+    with the tenant it is about (ADR 0184). Reads the roster under RLS, so
+    `app.tenant_id` must be `tenant_id` when this runs, and it must run
+    before the tenant goes.
+    """
+    recipients = await _tenant_roster_user_ids(session, tenant_id=tenant_id) - {deleted_by}
+    notifications = [
+        create_platform_notification(
+            recipient_user_id=user_id,
+            type="tenant_deleted",
+            title=f"{tenant_name} was deleted",
+            body=(
+                f"{tenant_name} and everything in it, its campaigns, characters and items"
+                " included, has been deleted by one of its owners."
+            ),
+            created_by=deleted_by,
+        )
+        for user_id in sorted(recipients, key=str)
+    ]
+    session.add_all(notifications)
+    return notifications
+
+
 def notify_campaign_gms(
     session: AsyncSession,
     *,

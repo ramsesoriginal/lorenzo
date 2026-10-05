@@ -33,6 +33,7 @@ from lorenzo_cli.client.errors import (
 from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut, TenantSummaryOut
 from lorenzo_cli.client.ops import (
     CREATE_TENANT,
+    DELETE_TENANT,
     GET_ME,
     GRANT_REPOSITORY,
     LIST_REPOSITORY_UPDATES,
@@ -357,6 +358,59 @@ def tenant_create(
     _print_tenant(created, as_json)
     if not as_json and created.kind == TenantKind.repository:
         _out.print(f"Next: lorenzo seed --tenant {created.slug}")
+
+
+@tenant_app.command("delete")
+def tenant_delete(
+    ctx: typer.Context,
+    tenant: Annotated[str, typer.Argument(help="The tenant's id or slug.")],
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Don't ask before deleting (nothing else is asked).")
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the tenant that was deleted as JSON. Needs --yes.")
+    ] = False,
+) -> None:
+    """Delete a tenant and everything in it. This can't be undone.
+
+    Takes both the tenant-creator role and being one of the tenant's owners. A repository that
+    other tenants still hold a grant on is refused, with nothing deleted: take the grants back
+    (`lorenzo repo revoke`), or delete the tenants that hold it, first. Tenants that copied from
+    a repository keep what they copied. The tenant's other members are told.
+
+    It asks you to type the tenant's slug (`--yes` skips that; `--json` never asks and needs it).
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        found = resolve_tenant(client, tenant)
+        if not yes:
+            if as_json or not runtime.interactive:
+                _err.print("[red]Not asking anything here: run again with --yes to delete.[/red]")
+                raise typer.Exit(1)
+            _print_tenant(found, False)
+            _err.print(
+                f"[bold]This deletes “{found.name}” and everything in it.[/bold] "
+                "It can't be undone."
+            )
+            if typer.prompt("Type its slug to confirm").strip() != found.slug:
+                _err.print("Nothing was deleted.")
+                raise typer.Exit(1)
+        try:
+            client.call(DELETE_TENANT, path={"tenant_id": found.id})
+        except LorenzoApiError as exc:
+            if exc.problem_type != "repository-still-granted":
+                raise
+            raise LorenzoApiError(
+                f"{exc} Take the grants back first (`lorenzo repo subscribers --tenant "
+                f"{found.slug}` lists who holds it, `lorenzo repo revoke <tenant> --tenant "
+                f"{found.slug}` takes one back), or delete the tenants that hold it.",
+                exc.status,
+                exc.problem,
+            ) from exc
+    if as_json:
+        typer.echo(found.model_dump_json(indent=2))
+    else:
+        _out.print(f"Deleted {found.slug} (“{found.name}”).")
 
 
 def _require_address(name: str, value: str | None) -> None:

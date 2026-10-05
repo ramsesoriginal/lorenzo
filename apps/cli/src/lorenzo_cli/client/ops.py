@@ -87,6 +87,7 @@ LIST_TENANTS: Op[PageTenantSummaryOut] = Op(
 CREATE_TENANT: Op[TenantOut] = Op(
     "create_tenant", "POST", "/tenants", request_type=TenantCreate, response_type=TenantOut
 )
+DELETE_TENANT: Op[None] = Op("delete_tenant", "DELETE", _TENANT)
 
 LIST_STAT_GROUPS: Op[PageStatGroupOut] = Op(
     "list_stat_groups", "GET", f"{_TENANT}/stat-groups", response_type=PageStatGroupOut
@@ -254,6 +255,7 @@ ALL_OPS: tuple[Op[Any], ...] = (
     GET_TENANT,
     LIST_TENANTS,
     CREATE_TENANT,
+    DELETE_TENANT,
     LIST_STAT_GROUPS,
     CREATE_STAT_GROUP,
     LIST_STAT_DEFINITIONS,
