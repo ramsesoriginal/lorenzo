@@ -5,7 +5,7 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 <div class="stack" data-notification-composer>
   <strong>Send a notification:</strong>
 
-  <form class="stack card card-body"data-form>
+  <form class="stack card card-body" data-form>
     <div class="row">
       <label class="field grow">
         <span class="field-label">Type (e.g. announcement)</span>
@@ -30,13 +30,7 @@ import UserPicker from '../UserPicker/UserPicker.astro';
         />
       </label>
     </div>
-    <textarea
-      class="text-input"
-      placeholder="Body"
-      aria-label="Body"
-      required
-      data-body
-    ></textarea>
+    <textarea class="text-input" placeholder="Body" aria-label="Body" required data-body></textarea>
   </form>
 
   <!-- Outside the form, which cannot contain the picker's own form; the Send button below
@@ -45,18 +39,24 @@ import UserPicker from '../UserPicker/UserPicker.astro';
     <div class="stack grow">
       <div data-broadcasting>
         <p class="status-text">Broadcasting to everyone in this scope.</p>
-        <button type="button" data-pick>Pick a specific recipient instead of broadcasting</button>
+        <button type="button" data-pick>
+          Pick a specific recipient instead of broadcasting
+        </button>
       </div>
 
       <div data-picking hidden></div>
 
       <div data-chosen hidden>
         <p data-chosen-text></p>
-        <button type="button" data-clear>Clear (broadcast instead)</button>
+        <button type="button" data-clear>
+          Clear (broadcast instead)
+        </button>
       </div>
     </div>
     <div class="row">
-      <button type="submit" data-send>Send</button>
+      <button type="submit" data-send>
+        Send
+      </button>
     </div>
   </div>
 

@@ -9,7 +9,9 @@ import Handoff from '../Handoff/Handoff.astro';
 <section class="stack section" data-beings>
   <h2 class="row">
     <span data-name></span>
-    <span class="badge" data-repository-badge hidden>Repository</span>
+    <span class="badge" data-repository-badge hidden>
+      Repository
+    </span>
   </h2>
 
   <input
@@ -43,8 +45,12 @@ import Handoff from '../Handoff/Handoff.astro';
     <li class="row">
       <div class="row grow">
         <span class="grow" data-being-name></span>
-        <button type="button" data-rename>Rename</button>
-        <button type="button" data-handoff-button>Use as a played character</button>
+        <button type="button" data-rename>
+          Rename
+        </button>
+        <button type="button" data-handoff-button>
+          Use as a played character
+        </button>
         <form class="row" data-rename-form hidden>
           <input
             type="text"
@@ -54,7 +60,9 @@ import Handoff from '../Handoff/Handoff.astro';
             data-rename-input
           />
           <button type="submit">Save</button>
-          <button type="button" data-rename-cancel>Cancel</button>
+          <button type="button" data-rename-cancel>
+            Cancel
+          </button>
         </form>
         <span class="status-text" role="status" data-status hidden></span>
       </div>
@@ -66,5 +74,7 @@ import Handoff from '../Handoff/Handoff.astro';
     <li></li>
   </template>
 
-  <template data-handoff-template><Handoff /></template>
+  <template data-handoff-template>
+    <Handoff />
+  </template>
 </section>

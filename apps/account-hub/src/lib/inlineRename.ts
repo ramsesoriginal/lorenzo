@@ -23,7 +23,7 @@ export function bindInlineRename(
   const { name, renameButton, form, input, cancel, status, alongside = [] } = parts;
 
   // What the other controls were showing, so a button that was hidden stays hidden.
-  let hiddenBefore: boolean[] = [];
+  let hiddenBefore: HTMLElement['hidden'][] = [];
 
   function showName(): void {
     form.hidden = true;

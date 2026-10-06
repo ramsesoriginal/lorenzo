@@ -1,16 +1,14 @@
 <!-- What follows creating an invite link: the link itself, once, in one input and nowhere else.
      Rendered by renderLinkOnce, which fills in the link, the notice and the input's label. -->
 <div class="invite-link-once stack" role="status" data-link-once>
-  <input
-    type="text"
-    class="invite-link-input"
-    aria-label="Invite link"
-    readonly
-    data-input
-  />
+  <input type="text" class="invite-link-input" aria-label="Invite link" readonly data-input />
   <div class="row">
-    <button type="button" data-copy>Copy</button>
-    <button type="button" data-done>Done</button>
+    <button type="button" data-copy>
+      Copy
+    </button>
+    <button type="button" data-done>
+      Done
+    </button>
     <span class="status-text" role="status" data-status hidden></span>
   </div>
   <p data-notice></p>

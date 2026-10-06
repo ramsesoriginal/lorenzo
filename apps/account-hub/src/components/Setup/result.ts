@@ -1,11 +1,7 @@
 // The result of /setup (ADR 0180): the links, each shown once, and where to go next. "Done" clears a
 // link from the page; nothing keeps it (ADR 0171's panel does the same).
 
-import {
-  GM_LINK_SHOWN_ONCE_NOTICE,
-  inviteUrl,
-  LINK_SHOWN_ONCE_NOTICE,
-} from '../../lib/inviteLink';
+import { GM_LINK_SHOWN_ONCE_NOTICE, inviteUrl, LINK_SHOWN_ONCE_NOTICE } from '../../lib/inviteLink';
 import type { SetupInput, SetupState } from '../../lib/setup';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { tenantHref } from '../../lib/tenantKind';

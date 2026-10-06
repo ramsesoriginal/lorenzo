@@ -3,7 +3,7 @@
 // been deleted. So an id is shown as its slug or its person's name, in an <abbr> that keeps the id
 // as its title, wherever one is known, and as the id itself where none is.
 
-import { type Segment, entityIdsIn, segments } from '../../lib/activityNames';
+import { entityIdsIn, type Segment, segments } from '../../lib/activityNames';
 import { getEntityLabel } from '../../lib/entities';
 import { formatTimestamp } from '../../lib/relativeTime';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
@@ -64,9 +64,10 @@ export async function renderActivityLog(
     required<HTMLElement>(item, '[data-summary]').textContent =
       `${entry.action} · ${entry.target_type}`;
     required<HTMLElement>(item, '[data-meta]').replaceChildren(
-      ...segments(parts.join(' · '), (id) => known.get(id) ?? (pending.has(id) ? id : undefined)).map(
-        show,
-      ),
+      ...segments(
+        parts.join(' · '),
+        (id) => known.get(id) ?? (pending.has(id) ? id : undefined),
+      ).map(show),
     );
     list.append(item);
   }

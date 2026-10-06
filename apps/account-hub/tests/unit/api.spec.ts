@@ -5,6 +5,7 @@ vi.mock('../../src/lib/auth', () => ({
 }));
 
 import { getAccessToken } from '../../src/lib/auth';
+import { clearCache } from '../../src/lib/cache';
 import { unlinkCharacterFromPlayer } from '../../src/lib/characters';
 import { getMe } from '../../src/lib/me';
 import { deleteProfilePicture, uploadProfilePicture } from '../../src/lib/profile';
@@ -23,6 +24,8 @@ const fetchMock = vi.hoisted(() => {
 });
 vi.mock('../../src/lib/config', () => ({ API_BASE_URL: 'http://api.test' }));
 beforeEach(() => {
+  // Reads are cached (lib/cache.ts); each test starts from an empty one.
+  clearCache();
   vi.stubGlobal('fetch', fetchMock);
   vi.mocked(getAccessToken).mockResolvedValue('token');
 });

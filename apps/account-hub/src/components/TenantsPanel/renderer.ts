@@ -140,9 +140,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     links.clear();
     librariesList.replaceChildren(
       ...libraries.map((tenant) => renderItem({ type: 'tenant', tenant }, tenant.name, false)),
-      ...(mayCreate
-        ? [renderItem({ type: 'new', tenantKind: 'play' }, 'New library', true)]
-        : []),
+      ...(mayCreate ? [renderItem({ type: 'new', tenantKind: 'play' }, 'New library', true)] : []),
     );
     repositoriesList.replaceChildren(
       ...repositories.map((tenant) => renderItem({ type: 'tenant', tenant }, tenant.name, false)),

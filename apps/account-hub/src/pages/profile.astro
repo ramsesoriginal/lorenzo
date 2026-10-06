@@ -13,7 +13,13 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
 
   <form id="profile-form" class="card card-body stack" hidden>
     <div class="row">
-      <img id="picture-preview" alt="Your profile picture" width="192" height="192" class="card card-body squircle" />
+      <img
+        id="picture-preview"
+        alt="Your profile picture"
+        width="192"
+        height="192"
+        class="card card-body squircle"
+      />
       <span
         id="picture-placeholder"
         class="avatar-placeholder squircle"
@@ -23,8 +29,15 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
         hidden
       ></span>
       <div class="field">
-        <label for="picture-input" class="field-label">Change picture</label>
-        <input id="picture-input" type="file" accept={PICTURE_ACCEPT} aria-describedby="picture-hint" />
+        <label for="picture-input" class="field-label">
+          Change picture
+        </label>
+        <input
+          id="picture-input"
+          type="file"
+          accept={PICTURE_ACCEPT}
+          aria-describedby="picture-hint"
+        />
         <p id="picture-hint" class="caption">
           PNG, JPEG, WebP or GIF, up to 2 MB
         </p>
@@ -58,29 +71,49 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     <section class="section stack">
       <div class="grid">
         <div class="field">
-          <label for="nickname" class="field-label">Nickname</label>
-          <input id="nickname" name="nickname" type="text" class="text-input" aria-describedby="nickname-hint" />
+          <label for="nickname" class="field-label">
+            Nickname
+          </label>
+          <input
+            id="nickname"
+            name="nickname"
+            type="text"
+            class="text-input"
+            aria-describedby="nickname-hint"
+          />
           <p id="nickname-hint" class="caption">
             Unique across Lorenzo. People can find you by it, to invite you.
           </p>
         </div>
 
         <div class="field">
-          <label for="display_name" class="field-label">Display name</label>
-          <input id="display_name" name="display_name" type="text" class="text-input" aria-describedby="display-name-hint" />
+          <label for="display_name" class="field-label">
+            Display name
+          </label>
+          <input
+            id="display_name"
+            name="display_name"
+            type="text"
+            class="text-input"
+            aria-describedby="display-name-hint"
+          />
           <p id="display-name-hint" class="caption">
             What others see first. Without one, your nickname is shown.
           </p>
         </div>
 
         <div class="field">
-          <label for="pronouns" class="field-label">Pronouns</label>
+          <label for="pronouns" class="field-label">
+            Pronouns
+          </label>
           <input id="pronouns" name="pronouns" type="text" class="text-input" />
         </div>
       </div>
 
       <div class="field bio-field">
-        <label for="bio" class="field-label">Bio</label>
+        <label for="bio" class="field-label">
+          Bio
+        </label>
         <textarea id="bio" name="bio" rows="4" aria-describedby="bio-hint"></textarea>
         <p id="bio-hint" class="caption">
           Bold, italic, links, lists and quotes work here (LorenzoScript). Some places, such as
@@ -90,8 +123,16 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
 
       <div class="row">
         <div class="field">
-          <label for="locales" class="field-label">Locales</label>
-          <input id="locales" name="locales" type="text" class="text-input" aria-describedby="locales-hint" />
+          <label for="locales" class="field-label">
+            Locales
+          </label>
+          <input
+            id="locales"
+            name="locales"
+            type="text"
+            class="text-input"
+            aria-describedby="locales-hint"
+          />
           <p id="locales-hint" class="caption">
             Language codes such as en, de or en-GB, separated by commas.
           </p>
@@ -99,8 +140,10 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
 
         <div class="row-tight">
           <div class="field">
-            <label for="user_color" class="field-label">Color</label>
-            <input id="user_color" name="user_color" type="color"  />
+            <label for="user_color" class="field-label">
+              Color
+            </label>
+            <input id="user_color" name="user_color" type="color" />
           </div>
           <button id="color-clear" type="button">
             Clear color
@@ -181,7 +224,22 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     // A bio is LorenzoScript (RFC 0027), but only what Discord, which shows it too (loot-bot's
     // /introduce and /whoami), renders as well: no tables, footnotes or math. No entity links or
     // images either, since a profile has no library to resolve them in.
-    const BIO_TOOLBAR: Tool[] = ['bold', 'italic', 'strike', '|', 'link', '|', 'quote', 'bullets', 'numbers', 'table', 'code', '|', 'undo', 'redo'];
+    const BIO_TOOLBAR: Tool[] = [
+      'bold',
+      'italic',
+      'strike',
+      '|',
+      'link',
+      '|',
+      'quote',
+      'bullets',
+      'numbers',
+      'table',
+      'code',
+      '|',
+      'undo',
+      'redo',
+    ];
     const bioEditor = createEditor({ textarea: bioEl, toolbar: BIO_TOOLBAR });
 
     let initial: MeOut | null = null;

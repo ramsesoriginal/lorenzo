@@ -16,10 +16,7 @@ import Base from '../layouts/Base.astro';
     import { runPage } from '../lib/pageLoad';
     import { requiredIn } from '../lib/template';
 
-    const panel = requiredIn('Notifications')<HTMLElement>(
-      document,
-      '[data-notifications-panel]',
-    );
+    const panel = requiredIn('Notifications')<HTMLElement>(document, '[data-notifications-panel]');
 
     await runPage(() => renderNotificationsPanel(panel));
   </script>

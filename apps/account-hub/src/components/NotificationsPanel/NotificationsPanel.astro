@@ -13,10 +13,14 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <input type="checkbox" data-unread-only />
       Unread only
     </label>
-    <button type="button" class="btn-secondary" data-refresh>Refresh</button>
+    <button type="button" class="btn-secondary" data-refresh>
+      Refresh
+    </button>
   </div>
 
-  <p data-empty hidden>No notifications.</p>
+  <p data-empty hidden>
+    No notifications.
+  </p>
   <ul class="list" data-list></ul>
 
   <section class="stack">
@@ -27,7 +31,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
     </div>
 
     <div class="stack" data-sent hidden>
-      <p data-sent-empty hidden>You haven't sent any notifications.</p>
+      <p data-sent-empty hidden>
+        You haven't sent any notifications.
+      </p>
       <ul class="list" data-sent-list></ul>
     </div>
   </section>
@@ -40,7 +46,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
             <span class="stack-tight grow">
               <span class="row-tight">
                 <strong data-title></strong>
-                <span class="badge" data-unread-badge hidden>Unread</span>
+                <span class="badge" data-unread-badge hidden>
+                  Unread
+                </span>
               </span>
               <span class="caption notification-meta" data-meta></span>
             </span>
@@ -51,7 +59,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
           <p class="notification-body" data-body></p>
         </details>
       </div>
-      <button type="button" class="btn-secondary" data-mark-read hidden>Mark read</button>
+      <button type="button" class="btn-secondary" data-mark-read hidden>
+        Mark read
+      </button>
       <span class="status-text" role="status" data-status hidden></span>
     </li>
   </template>

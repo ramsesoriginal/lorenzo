@@ -10,7 +10,9 @@ import Seat from '../Seat/Seat.astro';
 
   <p data-empty hidden>
     You don't play in or run any campaign yet.
-    <a href="/setup/" data-setup hidden>Set up a table</a>
+    <a href="/setup/" data-setup hidden>
+      Set up a table
+    </a>
   </p>
 
   <section class="stack" data-play hidden>
@@ -23,6 +25,10 @@ import Seat from '../Seat/Seat.astro';
     <div data-run-list></div>
   </section>
 
-  <template data-seat-template><Seat /></template>
-  <template data-run-template><RunCampaign /></template>
+  <template data-seat-template>
+    <Seat />
+  </template>
+  <template data-run-template>
+    <RunCampaign />
+  </template>
 </div>

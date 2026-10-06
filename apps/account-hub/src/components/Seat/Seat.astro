@@ -7,7 +7,9 @@
     <span class="campaign-meta" data-where></span>
   </h3>
 
-  <p data-no-characters hidden>You don't have a character here yet.</p>
+  <p data-no-characters hidden>
+    You don't have a character here yet.
+  </p>
   <ul class="list" data-characters hidden></ul>
 
   <form class="row" data-create-form>
@@ -35,16 +37,22 @@
 
   <!-- RFC 0017 (c): removes this player row and every character link it grants. -->
   <div>
-    <button type="button" class="" data-leave>Leave this campaign</button>
+    <button type="button" class="" data-leave>
+      Leave this campaign
+    </button>
     <span class="status-text" class="btn-danger" role="status" data-leave-status hidden></span>
   </div>
 
   <template data-character-template>
     <li class="row">
       <span class="grow" data-character-name></span>
-      <button type="button" data-rename>Rename</button>
+      <button type="button" data-rename>
+        Rename
+      </button>
       <!-- Only for a link that is not the character's own owner's (ADR 0170). -->
-      <button type="button" data-unlink hidden>Stop using in this campaign</button>
+      <button type="button" data-unlink hidden>
+        Stop using in this campaign
+      </button>
       <form class="stack" data-rename-form hidden>
         <input
           type="text"
@@ -55,7 +63,9 @@
         />
         <div class="row">
           <button type="submit">Save</button>
-          <button type="button" data-rename-cancel>Cancel</button>
+          <button type="button" data-rename-cancel>
+            Cancel
+          </button>
         </div>
       </form>
       <span class="status-text" role="status" data-status hidden></span>
@@ -65,7 +75,9 @@
   <template data-reusable-template>
     <li class="row">
       <span class="grow" data-reusable-name></span>
-      <button type="button" data-use>Use this character</button>
+      <button type="button" data-use>
+        Use this character
+      </button>
       <span class="status-text" role="status" data-status hidden></span>
     </li>
   </template>

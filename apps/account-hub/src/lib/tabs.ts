@@ -43,6 +43,9 @@ export function bindTabs(root: HTMLElement): BoundTabs {
 
   views += 1;
 
+  // Narrowed here, which a function declared below does not see in `tablist`.
+  const strip: HTMLElement = tablist;
+
   tabs.forEach((tab, index) => {
     const panel = panels[index];
 
@@ -79,7 +82,7 @@ export function bindTabs(root: HTMLElement): BoundTabs {
     });
 
     // One tab is nothing to choose between.
-    tablist.hidden = available.filter(Boolean).length < 2;
+    strip.hidden = available.filter(Boolean).length < 2;
   }
 
   tabs.forEach((tab, index) => {

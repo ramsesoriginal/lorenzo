@@ -40,7 +40,6 @@ const brandStylesheets = [
       document.documentElement.setAttribute('data-theme', 'dark');
     }
   </script>
-
   {brandStylesheets.map((file) => (
     <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${file}`} />
   ))}

@@ -1,7 +1,7 @@
 // The home page of someone who belongs somewhere. Each section asks for what it needs and shows
 // itself when it has it, so a slow or failed answer holds up or hides only its own section.
 
-import { type TableCard, runRows, seatsIn, tableCards } from '../../lib/campaigns';
+import { runRows, seatsIn, type TableCard, tableCards } from '../../lib/campaigns';
 import { listMyChanges } from '../../lib/changes';
 import { getManaged } from '../../lib/me';
 import { listNotifications } from '../../lib/notifications';

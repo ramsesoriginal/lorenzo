@@ -11,10 +11,12 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 
   <div class="row card card-body" data-invite>
     <label class="field">
-      <span class="field-label"data-invite-label></span>
+      <span class="field-label" data-invite-label></span>
       <select class="text-input" aria-label="Role" data-invite-role>
         <option value="owner">owner</option>
-        <option value="orga" selected>orga</option>
+        <option value="orga" selected>
+          orga
+        </option>
       </select>
     </label>
     <span class="status-text" role="status" data-status hidden></span>
@@ -25,8 +27,12 @@ import UserPicker from '../UserPicker/UserPicker.astro';
     <strong>Bulk invite:</strong>
     <div class="list" data-bulk-rows></div>
     <div class="row">
-      <button type="button" data-add-row>Add another</button>
-      <button type="button" data-send>Send invites</button>
+      <button type="button" data-add-row>
+        Add another
+      </button>
+      <button type="button" data-send>
+        Send invites
+      </button>
       <span class="status-text" role="status" data-status hidden></span>
     </div>
     <ul class="list" data-results></ul>
@@ -41,7 +47,9 @@ import UserPicker from '../UserPicker/UserPicker.astro';
           <option value="orga">orga</option>
         </select>
       </span>
-      <button type="button" data-remove>Remove</button>
+      <button type="button" data-remove>
+        Remove
+      </button>
       <span class="status-text" role="status" data-status hidden></span>
     </li>
   </template>
@@ -51,7 +59,9 @@ import UserPicker from '../UserPicker/UserPicker.astro';
       <div class="row">
         <select class="text-input" aria-label="Role" data-role>
           <option value="owner">owner</option>
-          <option value="orga" selected>orga</option>
+          <option value="orga" selected>
+            orga
+          </option>
         </select>
       </div>
       <span class="status-text" role="status" data-status hidden></span>

@@ -3,13 +3,17 @@
      a copy of the form at the end of the block of that button. -->
 <template data-tenant-edit-form-template>
   <form class="card card-body stack" data-form>
-    <div class="row  sticky-top">
+    <div class="row sticky-top">
       <label class="field grow">
-        <span class="field-label"><span data-noun-capitalized></span> name</span>
+        <span class="field-label">
+          <span data-noun-capitalized></span> name
+        </span>
         <input type="text" class="text-input" required data-name-input />
       </label>
       <label class="field grow">
-        <span class="field-label"><span data-noun-capitalized></span> slug</span>
+        <span class="field-label">
+          <span data-noun-capitalized></span> slug
+        </span>
         <input
           type="text"
           class="text-input"
@@ -31,8 +35,12 @@
       <textarea rows="6" aria-label="Description" data-description-input></textarea>
     </div>
     <div class="row">
-      <button type="submit" data-save>Save</button>
-      <button type="button" data-cancel>Cancel</button>
+      <button type="submit" data-save>
+        Save
+      </button>
+      <button type="button" data-cancel>
+        Cancel
+      </button>
     </div>
     <span class="status-text" role="status" data-form-status hidden></span>
   </form>

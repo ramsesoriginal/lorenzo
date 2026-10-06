@@ -25,8 +25,7 @@ export async function renderRunCampaign(
     ` in ${row.tenantName} · ${runRoleLabel(row.role)}`;
 
   // Its administration is on /tenants, with this library open.
-  required<HTMLAnchorElement>(root, '[data-manage]').href =
-    tenantHref(row.tenantSlug);
+  required<HTMLAnchorElement>(root, '[data-manage]').href = tenantHref(row.tenantSlug);
 
   // A line of text for each, or the sentence that there is none.
   function fill(listSelector: string, emptySelector: string, lines: readonly string[]) {

@@ -4,8 +4,8 @@
 // every campaign of a library you administer, with who is at each table.
 
 import { onCacheRefreshed } from '../../lib/cache';
-import { isEditingIn } from '../../lib/editing';
 import { runRows, seatsIn } from '../../lib/campaigns';
+import { isEditingIn } from '../../lib/editing';
 import { byName } from '../../lib/format';
 import { getManaged, getMe } from '../../lib/me';
 import { loadSeatOwners } from '../../lib/seatOwners';
@@ -67,7 +67,9 @@ export async function renderCampaignsPanel(root: HTMLElement): Promise<void> {
     const campaignsByTenant = new Map(campaignEntries);
     const ownersByTenant = new Map(ownerEntries);
     const seatRows = seats.flatMap((seat) => {
-      const campaign = campaignsByTenant.get(seat.tenant_id)?.find((c) => c.id === seat.campaign_id);
+      const campaign = campaignsByTenant
+        .get(seat.tenant_id)
+        ?.find((c) => c.id === seat.campaign_id);
       const libraryName = libraryNames.get(seat.tenant_id);
 
       return campaign && libraryName ? [{ seat, campaign, libraryName }] : [];

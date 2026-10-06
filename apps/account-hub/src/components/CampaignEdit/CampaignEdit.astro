@@ -5,10 +5,14 @@ import CampaignForm from '../CampaignForm/CampaignForm.astro';
 
 <span class="stack grow" data-campaign-edit>
   <div class="row">
-    <button type="button" data-edit>Edit</button>
+    <button type="button" data-edit>
+      Edit
+    </button>
   </div>
   <span class="status-text" role="status" data-status hidden></span>
 
   <!-- Swapped in for the button once the full campaign has loaded. -->
-  <template data-form-template><CampaignForm /></template>
+  <template data-form-template>
+    <CampaignForm />
+  </template>
 </span>

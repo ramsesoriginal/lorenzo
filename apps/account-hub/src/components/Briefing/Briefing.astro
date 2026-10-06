@@ -6,11 +6,15 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
 <div class="stack" data-briefing hidden>
-  <h1 class="display" data-greeting>Welcome back</h1>
+  <h1 class="display" data-greeting>
+    Welcome back
+  </h1>
 
   <section class="stack-tight" aria-labelledby="briefing-unread" data-unread hidden>
     <div class="row">
-      <h2 id="briefing-unread" class="grow">Unread notifications</h2>
+      <h2 id="briefing-unread" class="grow">
+        Unread notifications
+      </h2>
       <a href="/notifications/">All notifications</a>
     </div>
     <ul class="list" data-unread-list></ul>
@@ -19,7 +23,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 
   <section class="stack-tight" aria-labelledby="briefing-tables" data-tables hidden>
     <div class="row">
-      <h2 id="briefing-tables" class="grow">Your tables</h2>
+      <h2 id="briefing-tables" class="grow">
+        Your tables
+      </h2>
       <a href="/campaigns/">All campaigns</a>
       <a class="btn btn-secondary row-tight" href="/setup/" data-setup hidden>
         <svg class="icon" aria-hidden="true">
@@ -28,14 +34,18 @@ import { BRANDING_CSS_URL } from '../../lib/config';
         Set up a table
       </a>
     </div>
-    <p data-tables-empty hidden>You don't play in or run a campaign yet.</p>
+    <p data-tables-empty hidden>
+      You don't play in or run a campaign yet.
+    </p>
     <div class="grid" style="--grid-min: 280px" data-tables-list></div>
     <p class="error-text" role="alert" data-error hidden></p>
   </section>
 
   <section class="stack-tight" aria-labelledby="briefing-repositories" data-repositories hidden>
     <div class="row">
-      <h2 id="briefing-repositories" class="grow">Your repositories</h2>
+      <h2 id="briefing-repositories" class="grow">
+        Your repositories
+      </h2>
       <a href="/tenants/">Manage repositories</a>
     </div>
     <div class="grid" style="--grid-min: 280px" data-repositories-list></div>
@@ -81,7 +91,8 @@ import { BRANDING_CSS_URL } from '../../lib/config';
         <span class="row-tight" data-roles></span>
       </div>
       <p class="caption">
-        <a data-library></a><span data-system></span>
+        <a data-library></a>
+        <span data-system></span>
       </p>
       <p data-characters hidden></p>
       <span class="badge-visibility" data-secret hidden>
@@ -100,7 +111,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   <template data-repository-template>
     <article class="card card-body stack-tight">
       <div class="row">
-        <h3 class="grow"><a data-link data-name></a></h3>
+        <h3 class="grow">
+          <a data-link data-name></a>
+        </h3>
         <span class="badge" data-role></span>
       </div>
       <p class="caption" data-status></p>

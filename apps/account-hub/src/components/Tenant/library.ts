@@ -25,8 +25,8 @@ import {
 } from '../../lib/tenants';
 import type {
   CampaignSummaryOut,
-  MeOut,
   MembershipRosterEntryOut,
+  MeOut,
   TenantSummaryOut,
 } from '../../lib/types';
 import { renderActivityLog } from '../ActivityLog/renderer';

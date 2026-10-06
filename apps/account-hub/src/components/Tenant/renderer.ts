@@ -3,8 +3,8 @@
 // that arrives after that is dropped.
 
 import { showLorenzoScript } from '../../lib/lorenzoScript';
-import { bindTabs } from '../../lib/tabs';
 import { sayError } from '../../lib/statusLine';
+import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import { isRepository, kindNounCapitalized } from '../../lib/tenantKind';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';

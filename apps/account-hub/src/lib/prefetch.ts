@@ -22,7 +22,10 @@ import type { MeOut, TenantSummaryOut } from './types';
 // One library or repository, as opening it asks for it.
 async function warmTenant(tenant: TenantSummaryOut, me: MeOut): Promise<void> {
   if (isRepository(tenant)) {
-    await Promise.all([getTenant(tenant.id), tenant.role === 'owner' ? listTenantRoster(tenant.id) : null]);
+    await Promise.all([
+      getTenant(tenant.id),
+      tenant.role === 'owner' ? listTenantRoster(tenant.id) : null,
+    ]);
 
     return;
   }
@@ -91,7 +94,7 @@ function warm(link: HTMLAnchorElement): void {
 
   const path = link.pathname.endsWith('/') ? link.pathname : `${link.pathname}/`;
 
-  WARMERS[path]?.(link.searchParams)?.catch(() => {
+  WARMERS[path]?.(new URL(link.href).searchParams)?.catch(() => {
     // Not this one's to report.
   });
 }

@@ -31,7 +31,8 @@ export function renderCreateTenant(
 
   required<HTMLElement>(root, '[data-heading]').textContent = `Create a ${noun}`;
   required<HTMLElement>(root, '[data-blurb]').textContent = BLURB[kind];
-  required<HTMLElement>(root, '[data-name-label]').textContent = `${kindNounCapitalized(kind)} name`;
+  required<HTMLElement>(root, '[data-name-label]').textContent =
+    `${kindNounCapitalized(kind)} name`;
   required<HTMLElement>(root, '[data-submit]').textContent = `Create ${noun}`;
 
   root.addEventListener('submit', async (event) => {
