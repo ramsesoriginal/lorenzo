@@ -23,3 +23,9 @@ export function relativeTime(iso: string, now: Date = new Date(), locale = 'en')
 
   return 'just now';
 }
+
+// The full date and time, in the reader's own format: for the places that say when exactly, or
+// carry it as a title behind a relativeTime.
+export function formatTimestamp(iso: string): string {
+  return new Date(iso).toLocaleString();
+}

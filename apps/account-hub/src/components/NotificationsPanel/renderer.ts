@@ -3,9 +3,10 @@
 // No server push exists yet (see ADR 0071/RFC 0013) - the interval is a deliberately simple,
 // honest "pull", paused while the tab isn't visible so it doesn't poll a backgrounded page forever.
 
-import { showError } from '../../lib/errorUi';
+import { bindOpensToBody } from '../../lib/disclosure';
 import { countUnread } from '../../lib/format';
 import { listNotifications, markNotificationRead } from '../../lib/notifications';
+import { formatTimestamp } from '../../lib/relativeTime';
 import { say, sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import type { Notification } from '../../lib/types';
@@ -34,16 +35,15 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
     required<HTMLElement>(row, '[data-title]').textContent = notification.title;
     required<HTMLElement>(row, '[data-body]').textContent = notification.body;
     required<HTMLElement>(row, '[data-meta]').textContent =
-      `${notification.scope}/${notification.type} · ${new Date(notification.created_at).toLocaleString()}`;
+      `${notification.scope}/${notification.type} · ${formatTimestamp(notification.created_at)}`;
     required<HTMLElement>(row, '[data-unread-badge]').hidden = !unread;
 
     // Opens to its text; one without any has nothing to open to.
-    if (notification.body.trim() === '') {
-      required<HTMLElement>(row, '[data-chevron]').hidden = true;
-      required<HTMLElement>(row, '[data-open]').addEventListener('click', (event) =>
-        event.preventDefault(),
-      );
-    }
+    bindOpensToBody(
+      required<HTMLElement>(row, '[data-open]'),
+      required<HTMLElement>(row, '[data-chevron]'),
+      notification.body,
+    );
 
     markRead.hidden = !unread;
     markRead.addEventListener('click', async () => {
@@ -86,8 +86,7 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
     try {
       await load();
     } catch (cause) {
-      error.hidden = false;
-      showError(error, cause);
+      sayError(error, cause);
     }
   }
 

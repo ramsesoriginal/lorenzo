@@ -13,27 +13,11 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { renderBeingsPanel } from '../components/BeingsPanel/renderer';
-    import { isAuthenticated } from '../lib/auth';
-    import { showError } from '../lib/errorUi';
+    import { runPage } from '../lib/pageLoad';
     import { requiredIn } from '../lib/template';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const panel = requiredIn('Beings')<HTMLElement>(document, '[data-beings-panel]');
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
-      try {
-        await renderBeingsPanel(panel);
-        loading.hidden = true;
-      } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
-      }
-    }
+    await runPage(() => renderBeingsPanel(panel));
   </script>
 </Base>

@@ -2,9 +2,9 @@
 // with what the person can do with it, for its kind. Showing another replaces it, and an answer
 // that arrives after that is dropped.
 
-import { showError } from '../../lib/errorUi';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { bindTabs } from '../../lib/tabs';
+import { sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import { isRepository, kindNounCapitalized } from '../../lib/tenantKind';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
@@ -128,8 +128,7 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
       } catch (cause) {
         if (turn !== latest) return;
 
-        error.hidden = false;
-        showError(error, cause);
+        sayError(error, cause);
       } finally {
         if (turn === latest) {
           loading.hidden = true;

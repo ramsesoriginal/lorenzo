@@ -13,28 +13,12 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { renderTenantsPanel } from '../components/TenantsPanel/renderer';
-    import { isAuthenticated } from '../lib/auth';
-    import { showError } from '../lib/errorUi';
     import { getMe } from '../lib/me';
+    import { runPage } from '../lib/pageLoad';
     import { requiredIn } from '../lib/template';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const panel = requiredIn('Tenants')<HTMLElement>(document, '[data-tenants-panel]');
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
-      try {
-        await renderTenantsPanel(panel, await getMe());
-        loading.hidden = true;
-      } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
-      }
-    }
+    await runPage(async () => renderTenantsPanel(panel, await getMe()));
   </script>
 </Base>

@@ -1,6 +1,7 @@
-import { showError } from '../../lib/errorUi';
+import { bindOpensToBody } from '../../lib/disclosure';
 import { markNotificationRead } from '../../lib/notifications';
-import { relativeTime } from '../../lib/relativeTime';
+import { formatTimestamp, relativeTime } from '../../lib/relativeTime';
+import { sayError } from '../../lib/statusLine';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import type { Notification } from '../../lib/types';
 
@@ -22,15 +23,14 @@ export function showUnread(root: HTMLElement, notifications: Notification[]): vo
     required<HTMLElement>(fragment, '[data-title]').textContent = notification.title;
     required<HTMLElement>(fragment, '[data-body]').textContent = notification.body;
     when.textContent = relativeTime(notification.created_at);
-    when.title = new Date(notification.created_at).toLocaleString();
+    when.title = formatTimestamp(notification.created_at);
 
     // Opens to its text; one without any has nothing to open to.
-    if (notification.body.trim() === '') {
-      required<HTMLElement>(fragment, '[data-chevron]').hidden = true;
-      required<HTMLElement>(fragment, '[data-summary]').addEventListener('click', (event) =>
-        event.preventDefault(),
-      );
-    }
+    bindOpensToBody(
+      required<HTMLElement>(fragment, '[data-summary]'),
+      required<HTMLElement>(fragment, '[data-chevron]'),
+      notification.body,
+    );
 
     markRead.addEventListener('click', async () => {
       markRead.disabled = true;
@@ -42,8 +42,7 @@ export function showUnread(root: HTMLElement, notifications: Notification[]): vo
         section.hidden = list.children.length === 0;
       } catch (cause) {
         markRead.disabled = false;
-        error.hidden = false;
-        showError(error, cause);
+        sayError(error, cause);
       }
     });
 

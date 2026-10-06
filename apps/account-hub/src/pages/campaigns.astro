@@ -12,27 +12,11 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { renderCampaignsPanel } from '../components/CampaignsPanel/renderer';
-    import { isAuthenticated } from '../lib/auth';
-    import { showError } from '../lib/errorUi';
+    import { runPage } from '../lib/pageLoad';
     import { requiredIn } from '../lib/template';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const panel = requiredIn('Campaigns')<HTMLElement>(document, '[data-campaigns-panel]');
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
-      try {
-        await renderCampaignsPanel(panel);
-        loading.hidden = true;
-      } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
-      }
-    }
+    await runPage(() => renderCampaignsPanel(panel));
   </script>
 </Base>

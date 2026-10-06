@@ -6,7 +6,7 @@
 // Two sections: where you PLAY (a seat of your own, with your characters) and
 // where you RUN (a campaign you GM, or one of a library you administer). A
 // campaign you do both in is in both.
-import { displayNameFor } from './format';
+import { byName, displayNameFor } from './format';
 import type { CampaignSummaryOut, ManagedScopeOut, MeOut, PlayerContextOut } from './types';
 
 export type RunRole = 'gm' | 'admin';
@@ -25,10 +25,6 @@ export interface RunRow {
 
 export function runRoleLabel(role: RunRole): 'GM' | 'Admin' {
   return role === 'gm' ? 'GM' : 'Admin';
-}
-
-function byName(a: string, b: string): number {
-  return a.localeCompare(b, 'en', { sensitivity: 'base' });
 }
 
 // The campaigns you run, from `GET /me/managed`, libraries only (a repository

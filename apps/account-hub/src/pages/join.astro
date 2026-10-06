@@ -17,20 +17,12 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { renderJoinInvite } from '../components/JoinInvite/renderer';
-    import { showError } from '../lib/errorUi';
+    import { runPage } from '../lib/pageLoad';
     import { requiredIn } from '../lib/template';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const join = requiredIn('Join')<HTMLElement>(document, '[data-join]');
 
-    try {
-      await renderJoinInvite(join);
-    } catch (e) {
-      loadError.hidden = false;
-      showError(loadError, e);
-    } finally {
-      loading.hidden = true;
-    }
+    // A link someone was sent is open to them before they have logged in.
+    await runPage(() => renderJoinInvite(join), { needsLogin: false });
   </script>
 </Base>

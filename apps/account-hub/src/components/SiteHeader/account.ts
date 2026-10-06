@@ -1,5 +1,5 @@
 import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from '../../lib/auth';
-import { showError } from '../../lib/errorUi';
+import { sayError } from '../../lib/statusLine';
 import { required } from './required';
 
 export type AccountOptions = {
@@ -15,8 +15,7 @@ export async function renderAccount(root: HTMLElement, options: AccountOptions):
 
   function fail(cause: unknown) {
     loading.hidden = true;
-    error.hidden = false;
-    showError(error, cause);
+    sayError(error, cause);
   }
 
   if (window.location.pathname.startsWith('/auth/')) {

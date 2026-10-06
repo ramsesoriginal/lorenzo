@@ -3,6 +3,7 @@
 // open. "New library" and "New repository" are items in the tree too, for an account that may
 // create. Rendered by renderTenantsPanel.
 import { BRANDING_CSS_URL } from '../../lib/config';
+import CreateTenant from '../CreateTenant/CreateTenant.astro';
 import Tenant from '../Tenant/Tenant.astro';
 ---
 
@@ -57,6 +58,8 @@ import Tenant from '../Tenant/Tenant.astro';
       <a data-link></a>
     </li>
   </template>
+
+  <template data-create-template><CreateTenant /></template>
 
   <template data-new-template>
     <li>

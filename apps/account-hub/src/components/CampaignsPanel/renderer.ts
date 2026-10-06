@@ -4,8 +4,9 @@
 // every campaign of a library you administer, with who is at each table.
 
 import { runRows, seatsIn } from '../../lib/campaigns';
-import { showError } from '../../lib/errorUi';
+import { byName } from '../../lib/format';
 import { getManaged, getMe } from '../../lib/me';
+import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
 import { listMyTenants, listTenantCampaigns } from '../../lib/tenants';
@@ -14,10 +15,6 @@ import { loadSeatOwners } from '../Seat/owners';
 import { renderSeat } from '../Seat/renderer';
 
 const required = requiredIn('Campaigns panel');
-
-function byName(a: string, b: string): number {
-  return a.localeCompare(b, 'en', { sensitivity: 'base' });
-}
 
 // `root` is the <CampaignsPanel /> block. It is built, and shown, once; the first load's failure
 // rejects, for the page to show. A change anywhere in it builds it again.
@@ -106,8 +103,7 @@ export async function renderCampaignsPanel(root: HTMLElement): Promise<void> {
     try {
       await load();
     } catch (cause) {
-      error.hidden = false;
-      showError(error, cause);
+      sayError(error, cause);
     }
   }
 

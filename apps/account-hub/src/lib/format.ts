@@ -125,3 +125,8 @@ export function reusableCharactersFor(
   }
   return [...byId.values()];
 }
+
+// Names in the order a person reads them: "alder" beside "Alder", "é" beside "e".
+export function byName(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { sensitivity: 'base' });
+}

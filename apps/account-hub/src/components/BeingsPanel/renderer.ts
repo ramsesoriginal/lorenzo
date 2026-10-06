@@ -1,8 +1,8 @@
 // /beings: a section of beings for each library you GM a campaign in, and for every repository.
 
-import { showError } from '../../lib/errorUi';
 import { campaignRoleFor } from '../../lib/format';
 import { getMe } from '../../lib/me';
+import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { isRepository } from '../../lib/tenantKind';
 import { listMyTenants, listTenantCampaigns } from '../../lib/tenants';
@@ -61,8 +61,7 @@ export async function renderBeingsPanel(root: HTMLElement): Promise<void> {
     try {
       await load();
     } catch (cause) {
-      error.hidden = false;
-      showError(error, cause);
+      sayError(error, cause);
     }
   }
 

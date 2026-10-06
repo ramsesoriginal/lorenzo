@@ -1,5 +1,5 @@
 import { describeChange } from '../../lib/changeText';
-import { relativeTime } from '../../lib/relativeTime';
+import { formatTimestamp, relativeTime } from '../../lib/relativeTime';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import type { EntityChange } from '../../lib/types';
 
@@ -32,7 +32,7 @@ export function showChanges(
       where.textContent = [context.libraryName(change.tenant_id), relativeTime(change.occurred_at)]
         .filter(Boolean)
         .join(' · ');
-      where.title = new Date(change.occurred_at).toLocaleString();
+      where.title = formatTimestamp(change.occurred_at);
 
       return rootElement(fragment);
     }),

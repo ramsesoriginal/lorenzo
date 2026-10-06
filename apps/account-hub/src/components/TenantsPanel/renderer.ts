@@ -3,12 +3,12 @@
 // `?new=repository` for the create forms), so a link, Back and a reload all land where they were.
 // Only the open one is loaded.
 
-import { renderCreateTenantForm } from '../../lib/createTenantUi';
-import { showError } from '../../lib/errorUi';
-import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
+import { sayError } from '../../lib/statusLine';
+import { cloneRoot, fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { canCreateTenants, splitByKind, type TenantKind } from '../../lib/tenantKind';
 import { listMyTenants } from '../../lib/tenants';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
+import { renderCreateTenant } from '../CreateTenant/renderer';
 import { renderTenant } from '../Tenant/renderer';
 
 type View =
@@ -157,11 +157,6 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     buildTree();
   }
 
-  function fail(cause: unknown) {
-    error.hidden = false;
-    showError(error, cause);
-  }
-
   // Opens the group the view belongs to, once it is selected, and leaves the other as it was.
   function openGroupOf(view: View) {
     const kind =
@@ -186,9 +181,10 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     if (view.type !== 'tenant') tenantView.hide();
 
     if (view.type === 'new') {
-      createView.replaceChildren(
-        renderCreateTenantForm(view.tenantKind, (created) => void openCreated(created)),
-      );
+      const form = cloneRoot(root, '[data-create-template]') as HTMLFormElement;
+
+      renderCreateTenant(form, view.tenantKind, (created) => void openCreated(created));
+      createView.replaceChildren(form);
     }
 
     if (view.type === 'tenant') await tenantView.show(view.tenant);
@@ -217,7 +213,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
       window.history.replaceState(null, '', urlFor(next));
       await show(next);
     } catch (cause) {
-      fail(cause);
+      sayError(error, cause);
     }
   }
 
@@ -234,7 +230,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
         await show(defaultView());
       }
     } catch (cause) {
-      fail(cause);
+      sayError(error, cause);
     }
   }
 

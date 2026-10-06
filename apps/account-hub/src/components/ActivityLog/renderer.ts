@@ -5,6 +5,7 @@
 
 import { type Segment, entityIdsIn, segments } from '../../lib/activityNames';
 import { getEntityLabel } from '../../lib/entities';
+import { formatTimestamp } from '../../lib/relativeTime';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { listActivityLog } from '../../lib/tenants';
 import type { TenantSummaryOut } from '../../lib/types';
@@ -57,7 +58,7 @@ export async function renderActivityLog(
       `by ${entry.actor_id ?? 'unknown'}`,
       entry.target_id ? `on ${entry.target_id}` : null,
       entry.detail,
-      new Date(entry.created_at).toLocaleString(),
+      formatTimestamp(entry.created_at),
     ].filter((part): part is string => Boolean(part));
 
     required<HTMLElement>(item, '[data-summary]').textContent =

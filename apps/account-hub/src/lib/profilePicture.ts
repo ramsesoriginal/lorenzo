@@ -2,8 +2,8 @@
 // not by a 422 after it. Pure and dependency-free like format.ts. The size is the API's
 // `profile_picture_max_bytes` default; a server set differently still answers for itself.
 
-export const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
-export const PICTURE_MAX_BYTES = 2_000_000;
+const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
+const PICTURE_MAX_BYTES = 2_000_000;
 
 // For an <input type="file" accept>: the four types, so a picker doesn't offer an SVG.
 export const PICTURE_ACCEPT = PICTURE_TYPES.join(',');

@@ -137,10 +137,11 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
 
   <script>
     import { createEditor, type Tool } from '@lorenzo/lorenzoscript-editor';
-    import { showError } from '../lib/errorUi';
     import { renderDeleteAccount } from '../components/DeleteAccount/renderer';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
+    import { runPage } from '../lib/pageLoad';
+    import { say, sayError } from '../lib/statusLine';
     import { requiredIn } from '../lib/template';
     import {
       avatarInitial,
@@ -151,10 +152,8 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     } from '../lib/format';
     import { pictureProblem } from '../lib/profilePicture';
     import type { MeOut, ProfileUpdate } from '../lib/types';
-    import { isAuthenticated, openLoginSettings } from '../lib/auth';
+    import { openLoginSettings } from '../lib/auth';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const form = document.getElementById('profile-form') as HTMLFormElement;
     const saveButton = document.getElementById('save-button') as HTMLButtonElement;
     const saveStatus = document.getElementById('save-status')!;
@@ -192,19 +191,6 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     // The picture sits at one address whatever it is, so after a change the browser is asked
     // for it afresh.
     let pictureVersion = '';
-
-    // A line of status text, shown only while it has something to say.
-    function say(line: HTMLElement, text: string, failed = false) {
-      line.textContent = text;
-      line.classList.toggle('error-text', failed);
-      line.hidden = text === '';
-    }
-
-    function fail(line: HTMLElement, cause: unknown) {
-      line.hidden = false;
-      line.classList.add('error-text');
-      showError(line, cause);
-    }
 
     // The picture, or the letter standing in for it. An account with no upload and no email has
     // nothing at the picture's address, which answers 404.
@@ -309,7 +295,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
         await openLoginSettings();
         say(loginSettingsStatus, '');
       } catch (e) {
-        fail(loginSettingsStatus, e);
+        sayError(loginSettingsStatus, e);
       }
     });
 
@@ -323,7 +309,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
         populate(me);
         say(pictureStatus, 'Removed.');
       } catch (e) {
-        fail(pictureStatus, e);
+        sayError(pictureStatus, e);
       }
     });
 
@@ -348,7 +334,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
         populate(me);
         say(pictureStatus, 'Updated.');
       } catch (e) {
-        fail(pictureStatus, e);
+        sayError(pictureStatus, e);
       } finally {
         pictureInput.value = '';
       }
@@ -368,27 +354,17 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
         populate(me);
         say(saveStatus, 'Saved.');
       } catch (e) {
-        fail(saveStatus, e);
+        sayError(saveStatus, e);
       }
     });
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
-      try {
-        const me = await getMe();
-        initial = me;
-        populate(me);
-        loading.hidden = true;
-        form.hidden = false;
-        renderDeleteAccount(deleteAccount);
-      } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
-      }
-    }
+    await runPage(async () => {
+      const me = await getMe();
+
+      initial = me;
+      populate(me);
+      form.hidden = false;
+      renderDeleteAccount(deleteAccount);
+    });
   </script>
 </Base>

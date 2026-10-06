@@ -15,11 +15,12 @@ import Base from '../../layouts/Base.astro';
     import { describeError } from '../../lib/describeError';
     import { getMe } from '../../lib/me';
     import { isAuthenticated } from '../../lib/auth';
+    import { NOT_LOGGED_IN } from '../../lib/pageLoad';
 
     const result = document.getElementById('result')!;
 
     if (!(await isAuthenticated())) {
-      result.textContent = 'Not logged in. Go back and log in first.';
+      result.textContent = NOT_LOGGED_IN;
     } else {
       try {
         const me = await getMe();

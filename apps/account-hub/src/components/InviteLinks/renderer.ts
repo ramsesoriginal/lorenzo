@@ -18,16 +18,13 @@ import {
   usesLabel,
 } from '../../lib/inviteLink';
 import { createInvite, listInvites, revokeInvite } from '../../lib/invites';
+import { formatTimestamp } from '../../lib/relativeTime';
 import { say, sayError } from '../../lib/statusLine';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import type { CampaignSummaryOut, InviteOut, TenantSummaryOut } from '../../lib/types';
 import { renderLinkOnce } from '../LinkOnce/renderer';
 
 const required = requiredIn('Invite links');
-
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
 
 function fillPresets(
   select: HTMLSelectElement,
@@ -55,7 +52,7 @@ function inviteRow(
 
   required<HTMLElement>(fragment, '[data-state]').textContent = STATUS_LABELS[state];
   required<HTMLElement>(fragment, '[data-meta]').textContent =
-    `${linkKindLabel(invite.role)} · Created ${formatWhen(invite.created_at)} · Expires ${formatWhen(invite.expires_at)} · Used ${usesLabel(invite)}`;
+    `${linkKindLabel(invite.role)} · Created ${formatTimestamp(invite.created_at)} · Expires ${formatTimestamp(invite.expires_at)} · Used ${usesLabel(invite)}`;
 
   // Only a link that still works can be revoked.
   if (state !== 'active') {

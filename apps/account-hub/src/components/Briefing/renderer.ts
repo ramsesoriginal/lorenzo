@@ -3,9 +3,9 @@
 
 import { type TableCard, runRows, seatsIn, tableCards } from '../../lib/campaigns';
 import { listMyChanges } from '../../lib/changes';
-import { showError } from '../../lib/errorUi';
 import { getManaged } from '../../lib/me';
 import { listNotifications } from '../../lib/notifications';
+import { sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants, isRepository, publishedLabel } from '../../lib/tenantKind';
 import { getTenant, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
@@ -77,8 +77,7 @@ export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void
       const error = required<HTMLElement>(element, '[data-error]');
 
       element.hidden = false;
-      error.hidden = false;
-      showError(error, cause);
+      sayError(error, cause);
     });
   }
 

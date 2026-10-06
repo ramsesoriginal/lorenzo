@@ -22,39 +22,26 @@ import Base from '../layouts/Base.astro';
 
   <script>
     import { renderSetup } from '../components/Setup/renderer';
-    import { isAuthenticated } from '../lib/auth';
-    import { showError } from '../lib/errorUi';
     import { getMe } from '../lib/me';
+    import { runPage } from '../lib/pageLoad';
     import { requiredIn } from '../lib/template';
     import { canCreateTenants } from '../lib/tenantKind';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const unavailable = document.getElementById('setup-unavailable')!;
     const section = document.getElementById('setup')!;
     const setup = requiredIn('Setup page')<HTMLElement>(document, '[data-setup]');
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
-      try {
-        const me = await getMe();
-        loading.hidden = true;
-        // ADR 0175: only an account that may create is offered the form; the
-        // 403 is still shown if it comes.
-        if (canCreateTenants(me)) {
-          section.hidden = false;
-          renderSetup(setup, me.id);
-        } else {
-          unavailable.hidden = false;
-        }
-      } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
+    await runPage(async () => {
+      const me = await getMe();
+
+      // ADR 0175: only an account that may create is offered the form; the 403 is still shown if
+      // it comes.
+      if (canCreateTenants(me)) {
+        section.hidden = false;
+        renderSetup(setup, me.id);
+      } else {
+        unavailable.hidden = false;
       }
-    }
+    });
   </script>
 </Base>

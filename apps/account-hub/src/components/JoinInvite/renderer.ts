@@ -4,7 +4,6 @@
 
 import { ApiError } from '../../lib/apiError';
 import { isAuthConfigured, isAuthenticated, login } from '../../lib/auth';
-import { showError } from '../../lib/errorUi';
 import {
   DEAD_LINK_MESSAGE,
   forgetInviteToken,

@@ -1,8 +1,9 @@
 // The notifications you have sent, grouped by broadcast, with who has read each (RFC 0017 (h): did
 // anyone actually read what I sent?). Shown on request.
 
-import { showError } from '../../lib/errorUi';
 import { listSentNotifications } from '../../lib/notifications';
+import { formatTimestamp } from '../../lib/relativeTime';
+import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import type { Notification } from '../../lib/types';
 
@@ -22,10 +23,6 @@ function inBatches(notifications: Notification[]): Notification[][] {
   return [...batches.values()];
 }
 
-function when(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
-
 // `root` is the <NotificationsPanel /> block; `error` is where a failed load is said.
 export function bindSent(root: HTMLElement, error: HTMLElement): void {
   const toggle = required<HTMLButtonElement>(root, '[data-sent-toggle]');
@@ -40,7 +37,7 @@ export function bindSent(root: HTMLElement, error: HTMLElement): void {
 
     required<HTMLElement>(row, '[data-title]').textContent = first.title;
     required<HTMLElement>(row, '[data-meta]').textContent =
-      `${first.scope}/${first.type} · ${when(first.created_at)} · ${readCount}/${recipients.length} read`;
+      `${first.scope}/${first.type} · ${formatTimestamp(first.created_at)} · ${readCount}/${recipients.length} read`;
     required<HTMLElement>(row, '[data-body]').textContent = first.body;
 
     // Opens to its text and recipients; the text may be empty, the recipients never are.
@@ -49,7 +46,7 @@ export function bindSent(root: HTMLElement, error: HTMLElement): void {
         const item = cloneRoot(root, '[data-recipient-template]');
 
         item.textContent = recipient.read_at
-          ? `${recipient.user_id} · read ${when(recipient.read_at)}`
+          ? `${recipient.user_id} · read ${formatTimestamp(recipient.read_at)}`
           : `${recipient.user_id} · unread`;
 
         return item;
@@ -83,8 +80,7 @@ export function bindSent(root: HTMLElement, error: HTMLElement): void {
       sent.hidden = false;
       toggle.textContent = 'Hide sent notifications';
     } catch (cause) {
-      error.hidden = false;
-      showError(error, cause);
+      sayError(error, cause);
     } finally {
       toggle.disabled = false;
     }
