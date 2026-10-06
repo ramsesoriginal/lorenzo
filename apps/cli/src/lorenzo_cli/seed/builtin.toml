@@ -25,7 +25,7 @@
 # holds copies of both does (ADR 0172): it is a parent, in the layer that makes it.
 
 schema = 1
-version = "2"
+version = "3"
 
 # ---- stat groups: `physical`, `sourcebook` and `tags` are core's, which every layer builds on;
 # `economic`, `damaging` and `destroyable` are D&D's, since every stat in them is -------------------
@@ -326,6 +326,15 @@ layer = "dnd5e"
 slug = "physical-object"
 name = "Physical object"
 layer = "core"
+
+# The placeholder (RFC 0035, ADR 0192): what a player's own item is until a GM sorts it. Public, so
+# a player may make one; its instances carry the player's own name and notes.
+[[node]]
+slug = "unsorted"
+name = "Unsorted item"
+layer = "core"
+public = true
+description = "A stand-in for something the catalog does not have yet. The name and notes are the player's own, and a GM will match it to an item or make one for it."
 
 # ---- equipment: the forms ---------------------------------------------------------------------------
 

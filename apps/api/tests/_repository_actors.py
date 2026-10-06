@@ -45,11 +45,15 @@ class Actor:
         return uuid.UUID(response.json()["id"])
 
 
-async def make_actor(raw_client: AsyncClient, jwks: FakeJwksServer, name: str) -> Actor:
-    """A fresh user who may create tenants."""
-    token = jwks.issue_token(
-        f"authgear|{name}-{uuid.uuid4()}", **{_ROLES_CLAIM: ["tenant_creator"]}
-    )
+async def make_actor(
+    raw_client: AsyncClient,
+    jwks: FakeJwksServer,
+    name: str,
+    *,
+    roles: tuple[str, ...] = ("tenant_creator",),
+) -> Actor:
+    """A fresh user who may create tenants, unless `roles` says otherwise."""
+    token = jwks.issue_token(f"authgear|{name}-{uuid.uuid4()}", **{_ROLES_CLAIM: list(roles)})
     headers = {"Authorization": f"Bearer {token}"}
     response = await raw_client.get("/me", headers=headers)
     assert response.status_code == 200, response.text

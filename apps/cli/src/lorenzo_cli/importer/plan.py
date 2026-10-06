@@ -12,13 +12,18 @@ from typing import Literal
 from uuid import UUID
 
 from lorenzo_cli import descriptions
-from lorenzo_cli.client.models import ResolvedSlugOut, StatDefinitionOut, TenantOut
+from lorenzo_cli.client.models import (
+    EntityDetailOut,
+    ResolvedSlugOut,
+    StatDefinitionOut,
+    TenantOut,
+)
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.evalworker import EvalResult
 from lorenzo_cli.importer import tenant_view
-from lorenzo_cli.importer.draft import Ancestry, ItemDraft, NewCategory, draft_item
+from lorenzo_cli.importer.draft import Ancestry, ItemDraft, NewCategory, draft_item, part_view
 from lorenzo_cli.importer.manifest import Manifest
-from lorenzo_cli.importer.mapping import LoadedMapping, Mapping
+from lorenzo_cli.importer.mapping import LoadedMapping, Mapping, Part
 from lorenzo_cli.importer.packs import (
     NameIndex,
     Placed,
@@ -29,7 +34,9 @@ from lorenzo_cli.importer.packs import (
     render,
     resolve_refs,
 )
+from lorenzo_cli.importer.parts import Parts
 from lorenzo_cli.importer.slugs import LIST_TOKENS, assign_slugs
+from lorenzo_cli.importer.transforms import Issue
 from lorenzo_cli.seed import SeedSpec
 
 Status = Literal["create", "complete", "retitle", "exists", "held", "skipped", "moved"]
@@ -55,6 +62,11 @@ class PlannedItem:
     # Its description, titled with the placeholder the CLI used to give every one: the row, and
     # the name it should be titled with (ADR 0165).
     retitle: tuple[UUID, str] | None = None
+    # The system pass (ADR 0182): the neutral item this prototype is for, by slug and id, and
+    # whether the prototype is among its parents already.
+    neutral_slug: str = ""
+    neutral_id: UUID | None = None
+    attached: bool = False
 
 
 @dataclass(frozen=True)
@@ -77,6 +89,11 @@ class ImportPlan:
     stubbed: list[str] = field(default_factory=list)
     # The tenant can't take this import as it is (not seeded, a stat of the wrong type...).
     problems: list[str] = field(default_factory=list)
+    # Which half of the items this plan is for (ADR 0182); None writes both onto one item.
+    part: Part | None = None
+    # The parents the importer places (the seed's categories and those a row mints): re-parenting
+    # replaces these and keeps every other parent.
+    managed_ids: frozenset[UUID] = frozenset()
 
     def count(self, status: Status) -> int:
         return sum(1 for i in self.items if i.status == status)
@@ -119,10 +136,12 @@ class ImportPlan:
 class Options:
     accept_moves: bool = False
     reconcile: bool = False
+    part: Part | None = None
 
 
 def build_drafts(result: EvalResult, loaded: LoadedMapping, seed: SeedSpec) -> list[ItemDraft]:
     ancestry = Ancestry(seed)
+    parts = Parts(seed)
     drafts: list[ItemDraft] = []
     for variable, token in LIST_TOKENS.items():
         entries = result.lists.get(variable, {})
@@ -131,7 +150,7 @@ def build_drafts(result: EvalResult, loaded: LoadedMapping, seed: SeedSpec) -> l
             if not isinstance(entry, dict):
                 continue
             drafts.append(
-                draft_item(token, key, entry, origins.get(key, ""), loaded.mapping, ancestry)
+                draft_item(token, key, entry, origins.get(key, ""), loaded.mapping, ancestry, parts)
             )
     return drafts
 
@@ -165,7 +184,7 @@ def build_plan(
     options: Options | None = None,
 ) -> ImportPlan:
     options = options or Options()
-    plan = ImportPlan(tenant=tenant, loaded=loaded, seed_version=seed.version)
+    plan = ImportPlan(tenant=tenant, loaded=loaded, seed_version=seed.version, part=options.part)
     plan.overrides = [
         {"list": o.list, "key": o.key, "replaced_file": o.replaced_file, "by_file": o.by_file}
         for o in result.overrides
@@ -182,10 +201,19 @@ def build_plan(
         if item.draft.skip_reason is not None:
             item.status = "skipped"
 
+    # The neutral slugs come first, over the whole run in every pass, so that the system pass
+    # finds the items the neutral pass made (ADR 0182).
     slugs, found = _final_slugs(client, tenant.id, [p.draft for p in live])
     for item in live:
-        item.slug = slugs[(item.draft.list_name, item.draft.key)]
+        item.slug = item.neutral_slug = slugs[(item.draft.list_name, item.draft.key)]
     _render_packs(live, index, slugs)
+
+    parts = Parts(seed)
+    if options.part == "neutral":
+        for item in live:
+            item.draft = part_view(item.draft, "neutral", parts)
+    elif options.part == "system":
+        live, found = _system_items(client, tenant.id, live, parts)
 
     categories: dict[str, NewCategory] = {}
     for item in live:
@@ -198,12 +226,52 @@ def build_plan(
         slug: hit.entity_id
         for slug, hit in tenant_view.resolve_slugs(client, tenant.id, needed_parents).items()
     }
+    managed = tenant_view.resolve_slugs(
+        client, tenant.id, sorted({n.slug for n in seed.nodes} | loaded.mapping.minted_slugs())
+    )
+    plan.managed_ids = frozenset(
+        {hit.entity_id for hit in managed.values()} | set(parent_ids.values())
+    )
     tenant_defs = tenant_view.stat_definitions(client, tenant.id)
     _check_seeded(plan, live, needed_parents, parent_ids, tenant_defs, seed)
     for item in live:
-        _decide(client, tenant.id, item, found, parent_ids, manifest, options)
+        _decide(client, tenant.id, item, found, parent_ids, plan.managed_ids, manifest, options)
     plan.items = planned
     return plan
+
+
+def _system_items(
+    client: LorenzoClient, tenant_id: UUID, live: list[PlannedItem], parts: Parts
+) -> tuple[list[PlannedItem], dict[str, ResolvedSlugOut]]:
+    """The system pass (ADR 0182): each item's prototype, in the system's namespace, for the item
+    the neutral pass made. An item with nothing of the system's has no prototype; an item that
+    isn't in this tenant is held, with the way to put it there."""
+    prototypes: list[PlannedItem] = []
+    for item in live:
+        item.draft = part_view(item.draft, "system", parts)
+        if item.draft.skip_reason is not None:
+            item.status = "skipped"
+        else:
+            prototypes.append(item)
+    slugs, found = _final_slugs(client, tenant_id, [i.draft for i in prototypes])
+    neutral = tenant_view.resolve_slugs(client, tenant_id, [i.neutral_slug for i in prototypes])
+    for item in prototypes:
+        item.slug = slugs[(item.draft.list_name, item.draft.key)]
+        hit = neutral.get(item.neutral_slug)
+        if hit is None or "item" not in {kind.value for kind in hit.kinds}:
+            item.draft.issues.append(
+                Issue(
+                    "neutral-item",
+                    "",
+                    item.neutral_slug,
+                    f"its neutral item {item.neutral_slug} isn't in this tenant",
+                    "run `lorenzo apply --part neutral` in the equipment repository, and take "
+                    "it here with `lorenzo repo copy` or `lorenzo repo updates`",
+                )
+            )
+        else:
+            item.neutral_id = hit.entity_id
+    return prototypes, found
 
 
 def _check_seeded(
@@ -264,6 +332,7 @@ def _decide(
     item: PlannedItem,
     found: dict[str, ResolvedSlugOut],
     parent_ids: dict[str, UUID],
+    managed_ids: frozenset[UUID],
     manifest: Manifest,
     options: Options,
 ) -> None:
@@ -271,9 +340,12 @@ def _decide(
     if draft.issues:
         item.status = "held"
         return
+    system = options.part == "system"
+    # The system pass keeps its slugs apart from the neutral pass's, which may share a tenant.
+    token = f"system:{draft.list_name}" if system else draft.list_name
     hit = found.get(item.slug)
     if hit is None:
-        previous = manifest.slug_for(draft.list_name, draft.key)
+        previous = manifest.slug_for(token, draft.key)
         if previous and previous != item.slug and not options.accept_moves:
             still_there = tenant_view.resolve_slugs(client, tenant_id, [previous])
             if previous in still_there:
@@ -287,15 +359,29 @@ def _decide(
     item.has_description = any(i.type == "description" for i in detail.information)
     item.have_information = frozenset(i.type for i in detail.information)
     wanted = {parent_ids[p] for p in draft.parents if p in parent_ids}
-    if {p.id for p in detail.prototypes} != wanted and len(wanted) == len(draft.parents):
+    # Only the parents the importer places count: an attached prototype, or a parent an author
+    # added, is neither wrong nor to be removed (ADR 0182).
+    placed = {p.id for p in detail.prototypes if p.id in managed_ids}
+    if placed != wanted and len(wanted) == len(draft.parents):
         item.reparent = True
-    incomplete = (MARKER_STAT in draft.stats and MARKER_STAT not in item.have_stats) or (
-        bool(draft.pack_lines) and not item.has_description
-    )
+    if system:
+        # The attachment is the system pass's last step, so it is what says a prototype is done.
+        assert item.neutral_id is not None
+        neutral = tenant_view.entity_detail(client, tenant_id, item.neutral_id)
+        item.attached = entity_is_parent(neutral, item.entity_id)
+        incomplete = not item.attached
+    else:
+        incomplete = (MARKER_STAT in draft.stats and MARKER_STAT not in item.have_stats) or (
+            bool(draft.pack_lines) and not item.has_description
+        )
     stale = descriptions.placeholder_description(detail)
     if stale is not None:
         item.retitle = (stale.id, detail.name)
     item.status = "complete" if incomplete else ("retitle" if stale is not None else "exists")
+
+
+def entity_is_parent(detail: EntityDetailOut, parent_id: UUID) -> bool:
+    return any(p.id == parent_id for p in detail.prototypes)
 
 
 def _resolve_packs(
@@ -357,3 +443,4 @@ def _render_packs(
         draft.notes.extend(contents.notes)
         if contents.lines:
             draft.description = render(contents.lines)
+            draft.description_part = "neutral"  # a pack's contents are its equipment's

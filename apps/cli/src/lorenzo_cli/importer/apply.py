@@ -6,6 +6,9 @@ the middle leaves an item the next plan recognises as unfinished and finishes, n
 mistakes for done.
 
 One item failing does not stop the rest; the failures are reported and the exit code says so.
+
+The system pass (ADR 0182) writes a prototype instead, with the system's half of the item, and
+attaches it to the neutral item last: the attachment is what says the prototype is done.
 """
 
 from __future__ import annotations
@@ -40,6 +43,7 @@ from lorenzo_cli.importer import tenant_view
 from lorenzo_cli.importer.manifest import Manifest
 from lorenzo_cli.importer.plan import MARKER_STAT, ImportPlan, PlannedItem
 from lorenzo_cli.importer.transforms import StatValue
+from lorenzo_cli.prototypes import add_parent
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,8 @@ class ApplyReport:
     completed: int = 0
     retitled: int = 0
     reparented: int = 0
+    # Prototypes the system pass attached to their items.
+    attached: int = 0
     categories: int = 0
     definitions: int = 0
     failures: list[str] = field(default_factory=list)
@@ -101,14 +107,17 @@ def apply_import(
         progress(f"{number}/{len(todo)} {item.slug}")
         try:
             _write_item(client, plan, item, parent_ids, definitions, options, report)
-            manifest.record(item.draft.list_name, item.draft.key, item.slug)
+            token = (
+                f"system:{item.draft.list_name}" if plan.part == "system" else item.draft.list_name
+            )
+            manifest.record(token, item.draft.key, item.slug)
         except LorenzoApiError as exc:
             report.failures.append(f"{item.slug}: {exc} (HTTP {exc.status})")
 
     if options.reconcile:
         for item in plan.items:
             if item.reparent and item.entity_id is not None:
-                _reparent(client, tenant["tenant_id"], item, parent_ids, report)
+                _reparent(client, tenant["tenant_id"], item, parent_ids, plan.managed_ids, report)
     return report
 
 
@@ -193,7 +202,8 @@ def _write_item(
                     name=name,
                     slug=item.slug,
                     prototype_ids=[parent_ids[p] for p in draft.parents],
-                    in_public_catalog=options.public_catalog,
+                    # A prototype is never public: players list the neutral items (ADR 0182).
+                    in_public_catalog=options.public_catalog and plan.part != "system",
                 ),
             )
             entity_id = created.value.entity_id
@@ -259,6 +269,28 @@ def _write_item(
         _retitle(client, plan.tenant.id, item, report)
     if MARKER_STAT in draft.stats:
         write(MARKER_STAT)  # last: its presence says the item is finished
+    if plan.part == "system":
+        _attach(client, plan, item, entity_id, report)
+
+
+def _attach(
+    client: LorenzoClient,
+    plan: ImportPlan,
+    item: PlannedItem,
+    prototype_id: UUID,
+    report: ApplyReport,
+) -> None:
+    """Add the prototype to the neutral item's parents, last (ADR 0182). In a bridge the item is a
+    copy of the equipment's, so the parent is an attachment (ADR 0172)."""
+    assert item.neutral_id is not None
+    try:
+        if add_parent(client, plan.tenant.id, item.neutral_id, prototype_id):
+            report.attached += 1
+    except StaleResourceError:
+        # The prototype is written; the next run finds it unattached and attaches it.
+        report.failures.append(
+            f"{item.neutral_slug} changed while attaching {item.slug}; run it again"
+        )
 
 
 def _retitle(
@@ -281,15 +313,21 @@ def _reparent(
     tenant_id: UUID,
     item: PlannedItem,
     parent_ids: dict[str, UUID],
+    managed_ids: frozenset[UUID],
     report: ApplyReport,
 ) -> None:
     path = {"tenant_id": tenant_id, "entity_id": item.entity_id}
     try:
         current = client.call(GET_ITEM, path=path)
+        # Replace the parents the importer places and keep the others: a prototype attached by
+        # the system pass, or a parent an author added, stays (ADR 0182).
+        kept = [p for p in current.value.prototype_ids if p not in managed_ids]
         client.call(
             REPLACE_ITEM_PROTOTYPES,
             path=path,
-            body=SetPrototypesRequest(prototype_ids=[parent_ids[p] for p in item.draft.parents]),
+            body=SetPrototypesRequest(
+                prototype_ids=[*kept, *(parent_ids[p] for p in item.draft.parents)]
+            ),
             if_match=current.etag,
         )
         report.reparented += 1

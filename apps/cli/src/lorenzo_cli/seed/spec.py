@@ -27,6 +27,12 @@ SLUG_PREFIX: dict[Layer, str] = {"dnd5e": "dnd5e-", "dnd5e-equipment": "dnd5e-"}
 ValueType = Literal["int", "float", "text", "bool"]
 StatValue = int | float | str | bool
 
+
+def is_system_layer(layer: Layer) -> bool:
+    """A system's layer (one with a slug prefix) as opposed to a neutral one (ADR 0182)."""
+    return layer in SLUG_PREFIX
+
+
 # The entity slug grammar (RFC 0027, ADR 0107): what POST /items accepts.
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
 
@@ -59,6 +65,9 @@ class NodeSpec(_Strict):
     stats: dict[str, StatValue] = Field(default_factory=dict)
     # What the category means, written as its public description: every item under it shows it.
     description: str = ""
+    # In the public catalog, so a player may make an instance of it (RFC 0035, ADR 0192). Taxonomy
+    # nodes are vocabulary for the tenant's authors and are not.
+    public: bool = False
 
 
 class RecipeSpec(_Strict):

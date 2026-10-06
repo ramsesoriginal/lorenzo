@@ -33,6 +33,7 @@ from lorenzo_cli.client.errors import (
 from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut, TenantSummaryOut
 from lorenzo_cli.client.ops import (
     CREATE_TENANT,
+    DELETE_TENANT,
     GET_ME,
     GRANT_REPOSITORY,
     LIST_REPOSITORY_UPDATES,
@@ -60,7 +61,7 @@ from lorenzo_cli.importer.give import (
     tree_lines,
 )
 from lorenzo_cli.importer.manifest import Manifest
-from lorenzo_cli.importer.mapping import MappingError
+from lorenzo_cli.importer.mapping import MappingError, Part
 from lorenzo_cli.importer.plan import ImportPlan, Options
 from lorenzo_cli.importer.review import (
     apply_json,
@@ -70,6 +71,12 @@ from lorenzo_cli.importer.review import (
 )
 from lorenzo_cli.importer.run import prepare
 from lorenzo_cli.importer.teach import ask, rows_toml, unknown_values
+from lorenzo_cli.inventory import preprocess as inventory_preprocess
+from lorenzo_cli.inventory.apply import apply as apply_inventory
+from lorenzo_cli.inventory.export import export_inventory
+from lorenzo_cli.inventory.format import parse as parse_inventory
+from lorenzo_cli.inventory.format import render_json, render_markdown
+from lorenzo_cli.inventory.plan import Plan, build_plan
 from lorenzo_cli.report import (
     import_exit_code,
     print_evaluation,
@@ -98,6 +105,15 @@ from lorenzo_cli.seed import (
     read_state,
     read_unseed_state,
 )
+from lorenzo_cli.self_service import (
+    SelfServiceError,
+    add_item,
+    catalog,
+    characters,
+    resolve_container,
+    resolve_item,
+    resolve_owner,
+)
 from lorenzo_cli.tenants import (
     TenantNotFoundError,
     WrongTenantKindError,
@@ -115,6 +131,15 @@ tenant_app = typer.Typer(help="List, read or create a tenant.", no_args_is_help=
 app.add_typer(tenant_app, name="tenant")
 pack_app = typer.Typer(help="Hand out an imported pack.", no_args_is_help=True)
 app.add_typer(pack_app, name="pack")
+item_app = typer.Typer(help="Find the items you may add, and add one.", no_args_is_help=True)
+app.add_typer(item_app, name="item")
+inventory_app = typer.Typer(
+    help="Bring a character's inventory in from a file, or write it out as one.",
+    no_args_is_help=True,
+)
+app.add_typer(inventory_app, name="inventory")
+character_app = typer.Typer(help="List characters.", no_args_is_help=True)
+app.add_typer(character_app, name="character")
 repo_app = typer.Typer(
     help="Publish a repository, grant it, copy it into a tenant, and take its updates.",
     no_args_is_help=True,
@@ -238,6 +263,7 @@ def _reporting_errors() -> Iterator[None]:
         LorenzoConnectionError,
         LorenzoResponseError,
         RepoError,
+        SelfServiceError,
     ) as exc:
         _err.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc
@@ -357,6 +383,59 @@ def tenant_create(
     _print_tenant(created, as_json)
     if not as_json and created.kind == TenantKind.repository:
         _out.print(f"Next: lorenzo seed --tenant {created.slug}")
+
+
+@tenant_app.command("delete")
+def tenant_delete(
+    ctx: typer.Context,
+    tenant: Annotated[str, typer.Argument(help="The tenant's id or slug.")],
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Don't ask before deleting (nothing else is asked).")
+    ] = False,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the tenant that was deleted as JSON. Needs --yes.")
+    ] = False,
+) -> None:
+    """Delete a tenant and everything in it. This can't be undone.
+
+    Takes both the tenant-creator role and being one of the tenant's owners. A repository that
+    other tenants still hold a grant on is refused, with nothing deleted: take the grants back
+    (`lorenzo repo revoke`), or delete the tenants that hold it, first. Tenants that copied from
+    a repository keep what they copied. The tenant's other members are told.
+
+    It asks you to type the tenant's slug (`--yes` skips that; `--json` never asks and needs it).
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        found = resolve_tenant(client, tenant)
+        if not yes:
+            if as_json or not runtime.interactive:
+                _err.print("[red]Not asking anything here: run again with --yes to delete.[/red]")
+                raise typer.Exit(1)
+            _print_tenant(found, False)
+            _err.print(
+                f"[bold]This deletes “{found.name}” and everything in it.[/bold] "
+                "It can't be undone."
+            )
+            if typer.prompt("Type its slug to confirm").strip() != found.slug:
+                _err.print("Nothing was deleted.")
+                raise typer.Exit(1)
+        try:
+            client.call(DELETE_TENANT, path={"tenant_id": found.id})
+        except LorenzoApiError as exc:
+            if exc.problem_type != "repository-still-granted":
+                raise
+            raise LorenzoApiError(
+                f"{exc} Take the grants back first (`lorenzo repo subscribers --tenant "
+                f"{found.slug}` lists who holds it, `lorenzo repo revoke <tenant> --tenant "
+                f"{found.slug}` takes one back), or delete the tenants that hold it.",
+                exc.status,
+                exc.problem,
+            ) from exc
+    if as_json:
+        typer.echo(found.model_dump_json(indent=2))
+    else:
+        _out.print(f"Deleted {found.slug} (“{found.name}”).")
 
 
 def _require_address(name: str, value: str | None) -> None:
@@ -791,6 +870,28 @@ TeachOption = Annotated[
 ]
 
 
+class PartChoice(StrEnum):
+    neutral = "neutral"
+    system = "system"
+
+
+PartOption = Annotated[
+    PartChoice | None,
+    typer.Option(
+        "--part",
+        help="Only one half of each item (ADR 0182): `neutral`, what is true anywhere, for the "
+        "common equipment; `system`, D&D's, as a prototype attached to the item the neutral pass "
+        "made. Without it both halves go onto one item.",
+    ),
+]
+
+
+def _part(choice: PartChoice | None) -> Part | None:
+    if choice is None:
+        return None
+    return "neutral" if choice is PartChoice.neutral else "system"
+
+
 @dataclass(frozen=True)
 class ImportArgs:
     """What `plan` and `apply` share."""
@@ -900,6 +1001,7 @@ def plan(
     reconcile: Annotated[
         bool, typer.Option("--reconcile", help="Count changed parents as pending changes.")
     ] = False,
+    part: PartOption = None,
     teach: TeachOption = False,
     state: StateOption = None,
     review_queue: ReviewOption = Path("review-queue.json"),
@@ -916,7 +1018,7 @@ def plan(
     runtime: Runtime = ctx.obj
     args = ImportArgs(
         tenant, files, base, map_file, allow_play_tenant,
-        Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
+        Options(accept_moves=accept_moves, reconcile=reconcile, part=_part(part)), state, teach,
     )  # fmt: skip
     with _reporting_errors(), _client(runtime) as client:
         result, _, taught = _prepare_plan(runtime, client, args)
@@ -949,8 +1051,14 @@ def apply(
         bool, typer.Option("--reconcile", help="Also re-parent items the map now files elsewhere.")
     ] = False,
     public_catalog: Annotated[
-        bool, typer.Option("--public-catalog", help="Let players list the imported items too.")
+        bool,
+        typer.Option(
+            "--public-catalog",
+            help="Let players list the imported items too (not with --part system: a prototype "
+            "is never public).",
+        ),
     ] = False,
+    part: PartOption = None,
     teach: TeachOption = False,
     state: StateOption = None,
     review_queue: ReviewOption = Path("review-queue.json"),
@@ -972,9 +1080,13 @@ def apply(
     runtime: Runtime = ctx.obj
     if as_json and teach:
         raise typer.BadParameter("--json never asks, so it can't be used with --teach.")
+    if public_catalog and part is PartChoice.system:
+        raise typer.BadParameter(
+            "--public-catalog is for the neutral pass: the system's prototypes are never public."
+        )
     args = ImportArgs(
         tenant, files, base, map_file, allow_play_tenant,
-        Options(accept_moves=accept_moves, reconcile=reconcile), state, teach,
+        Options(accept_moves=accept_moves, reconcile=reconcile, part=_part(part)), state, teach,
     )  # fmt: skip
 
     def emit(plan: ImportPlan, report: ApplyReport | None, unresolved: bool) -> None:
@@ -1016,9 +1128,10 @@ def apply(
         for failure in report.failures:
             _err.print(f"[red]{failure}[/red]")
         raise typer.Exit(1 if failed else 0)
+    attached = f"attached {report.attached}, " if result.part == "system" else ""
     _out.print(
-        f"Created {report.created}, finished {report.completed}, retitled {report.retitled}, "
-        f"re-parented {report.reparented}; "
+        f"Created {report.created}, finished {report.completed}, {attached}"
+        f"retitled {report.retitled}, re-parented {report.reparented}; "
         f"{report.categories} new categories, {report.definitions} new stat definitions."
     )
     for failure in report.failures:
@@ -1083,6 +1196,116 @@ def pack_give(
         _out.print(line, highlight=False)
     verb = "Would give" if dry_run else "Gave"
     _out.print(f"{verb} {count_instances(given)} item(s).")
+
+
+ItemTenant = Annotated[
+    str,
+    typer.Option("--tenant", "-t", envvar="LORENZO_TENANT", help="The library: its id or slug."),
+]
+
+
+@item_app.command("list")
+def item_list(
+    ctx: typer.Context,
+    tenant: ItemTenant,
+    query: Annotated[
+        str | None, typer.Option("--query", "-q", help="Only items whose name has this in it.")
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the items as JSON.")] = False,
+) -> None:
+    """List the items you may add: for a player the public catalog, for a member all of it."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        target = resolve_tenant(client, tenant)
+        items = catalog(client, target.id, query)
+    if as_json:
+        typer.echo(json.dumps([item.model_dump(mode="json") for item in items], indent=2))
+        return
+    if not items:
+        _out.print("Nothing matches." if query else "Nothing is in the catalog you can see yet.")
+        return
+    table = Table(box=None, pad_edge=False)
+    table.add_column("title")
+    table.add_column("id")
+    for item in items:
+        table.add_row(item.title, str(item.entity_id))
+    _out.print(table)
+
+
+@item_app.command("add")
+def item_add(
+    ctx: typer.Context,
+    item: Annotated[str, typer.Argument(help="The item: its id, its slug, or its exact title.")],
+    tenant: ItemTenant,
+    owner: Annotated[
+        str | None,
+        typer.Option(
+            "--owner",
+            help="The character (id or name) to add it to; your only one when you leave it out.",
+        ),
+    ] = None,
+    name: Annotated[
+        str | None, typer.Option("--name", help="Call it this instead of the item's own name.")
+    ] = None,
+    quantity: Annotated[
+        int, typer.Option("--quantity", "-n", help="How many, as one stack. Needs --into.")
+    ] = 1,
+    into: Annotated[
+        str | None,
+        typer.Option("--into", help="A container you hold (id or slug) to put it in."),
+    ] = None,
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the new item instance as JSON.")
+    ] = False,
+) -> None:
+    """Add an item to a character: one instance, not carried, or a stack inside a container.
+
+    The same rules as the web: a player adds public items to their own characters while self-service
+    is on for them, and the API says why when it is not.
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime, writes=True) as client:
+        target = resolve_tenant(client, tenant)
+        found = resolve_item(client, target.id, item)
+        owner_id, owner_name = resolve_owner(client, target.id, owner)
+        container = resolve_container(client, target.id, into) if into else None
+        made = add_item(
+            client, target.id, found, owner_id, name=name, quantity=quantity, into=container
+        )
+    if as_json:
+        typer.echo(made.model_dump_json(indent=2))
+        return
+    count = f"{quantity} x " if quantity > 1 else ""
+    _out.print(f"Added {count}{made.title} to {owner_name}.", highlight=False)
+    _out.print(str(made.entity_id))
+
+
+@character_app.command("list")
+def character_list(
+    ctx: typer.Context,
+    tenant: ItemTenant,
+    everyone: Annotated[
+        bool, typer.Option("--all", help="The library's characters, not only yours.")
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the characters as JSON.")] = False,
+) -> None:
+    """List your characters in a library, or with --all everyone's."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        target = resolve_tenant(client, tenant)
+        found = characters(client, target.id, mine=not everyone)
+    if as_json:
+        typer.echo(json.dumps([row.model_dump(mode="json") for row in found], indent=2))
+        return
+    if not found:
+        _out.print("No characters here." if everyone else "You don't control a character here yet.")
+        return
+    table = Table(box=None, pad_edge=False)
+    for heading in ("name", "id", "kind"):
+        table.add_column(heading)
+    for row in found:
+        table.add_row(row.name, str(row.entity_id), "PC" if row.is_pc else "NPC")
+    _out.print(table)
 
 
 @app.command("api")
@@ -1745,3 +1968,135 @@ def _offer_dry_run(
             _out.print(f"  updates: {takes} take(s) need no decision.")
         _out.print("Dry run: nothing was written." if something else "Nothing to do.")
     raise typer.Exit(2 if something else 0)
+
+
+def _inventory_summary(plan: Plan) -> None:
+    makes = plan.makes
+    by_how: dict[str, int] = {}
+    for step in makes:
+        by_how[step.match.via] = by_how.get(step.match.via, 0) + 1
+    matched = len(makes) - len(plan.placeholders)
+    _out.print(f"For {plan.owner_name} in {plan.tenant.slug}:", highlight=False)
+    _out.print(f"  {len(makes)} to make, {matched} matched to an item", highlight=False)
+    for how, label in (
+        ("id", "by id"),
+        ("slug", "by slug"),
+        ("title", "by title"),
+        ("spelling", "by another spelling"),
+    ):
+        if by_how.get(how):
+            _out.print(f"    {by_how[how]} {label}", highlight=False)
+    if plan.placeholders:
+        _out.print(
+            f"  {len(plan.placeholders)} unsorted, for your GM to match to an item:",
+            highlight=False,
+        )
+        for step in plan.placeholders[:25]:
+            _out.print(f"    {step.line.name}", highlight=False)
+        if len(plan.placeholders) > 25:
+            _out.print(f"    … and {len(plan.placeholders) - 25} more", highlight=False)
+    if plan.moves:
+        _out.print(
+            f"  {len(plan.moves)} existing to move to where the file puts them", highlight=False
+        )
+
+
+@inventory_app.command("import")
+def inventory_import(
+    ctx: typer.Context,
+    file: Annotated[
+        Path, typer.Argument(help="The inventory file (Markdown or JSON), or - for stdin.")
+    ],
+    tenant: ItemTenant,
+    owner: Annotated[
+        str | None,
+        typer.Option(
+            "--owner", help="The character (id or name); the file's owner: line otherwise."
+        ),
+    ] = None,
+    add: Annotated[
+        bool,
+        typer.Option(
+            "--add",
+            help="For a character who already has things: add, and move what the file names.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Say what would be made, and make nothing.")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask before writing.")] = False,
+    spellings: Annotated[
+        Path | None,
+        typer.Option(
+            "--preprocess", help="A table of other spellings (TOML), added to the built-in one."
+        ),
+    ] = None,
+) -> None:
+    """Make the things a file lists, for a character.
+
+    Each line is matched to an item by id, slug, title or a known other spelling, and what matches
+    nothing becomes an unsorted item your GM can match later. Nothing is made if any line cannot be
+    made as written; with --dry-run nothing is made at all.
+    """
+    runtime: Runtime = ctx.obj
+    text = runtime.stdin.read() if str(file) == "-" else file.read_text("utf-8")
+    inventory = parse_inventory(text)
+    table = inventory_preprocess.load(spellings)
+    with _reporting_errors(), _client(runtime, writes=not dry_run) as client:
+        target = resolve_tenant(client, tenant)
+        plan = build_plan(client, target, inventory, owner=owner, add=add, table=table)
+        for remark in plan.warnings:
+            _err.print(f"[yellow]{remark}[/yellow]", highlight=False)
+        if plan.problems:
+            for remark in plan.problems:
+                _err.print(f"[red]{remark}[/red]", highlight=False)
+            raise typer.Exit(1)
+        _inventory_summary(plan)
+        if dry_run or not plan.steps:
+            return
+        if not yes:
+            if not runtime.interactive:
+                _err.print("[red]Not asking anything here: run again with --yes to write.[/red]")
+                raise typer.Exit(1)
+            if not typer.confirm("Make these?"):
+                raise typer.Exit(1)
+        done = apply_inventory(client, plan)
+    _out.print(
+        f"Made {done.made} ({done.placeholders} unsorted)"
+        + (f", moved {done.moved}" if done.moved else "")
+        + ".",
+        highlight=False,
+    )
+    for remark in done.failed:
+        _err.print(f"[red]{remark}[/red]", highlight=False)
+    if done.failed:
+        raise typer.Exit(1)
+
+
+@inventory_app.command("export")
+def inventory_export(
+    ctx: typer.Context,
+    tenant: ItemTenant,
+    owner: Annotated[
+        str | None,
+        typer.Option(
+            "--owner", help="The character (id or name); your only one when you leave it out."
+        ),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Write the JSON form.")] = False,
+    output: Annotated[
+        Path | None, typer.Option("--output", "-o", help="Write to this file, not the terminal.")
+    ] = None,
+) -> None:
+    """Write a character's inventory as a file: what they own, where it is, and what is noted."""
+    runtime: Runtime = ctx.obj
+    with _reporting_errors(), _client(runtime) as client:
+        target = resolve_tenant(client, tenant)
+        owner_id, owner_name = resolve_owner(client, target.id, owner)
+        inventory = export_inventory(client, target.id, owner_id, owner_name, target.slug)
+    text = render_json(inventory) if as_json else render_markdown(inventory)
+    if output is None:
+        typer.echo(text, nl=False)
+        return
+    output.write_text(text, encoding="utf-8")
+    _out.print(f"Wrote {output}.", highlight=False)

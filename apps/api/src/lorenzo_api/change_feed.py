@@ -139,12 +139,13 @@ async def record_change(
     tenant_id: uuid.UUID,
     actor_id: uuid.UUID,
     changes: list[Change],
-) -> None:
-    """Writes the feed rows for `changes`. Call after the mutation (the
-    after-holders are computed now, from current state) and before the
-    route's commit, while its tenant context is still set."""
+) -> list[EntityChange]:
+    """Writes the feed rows for `changes` and returns them. Call after the
+    mutation (the after-holders are computed now, from current state) and
+    before the route's commit, while its tenant context is still set."""
+    written: list[EntityChange] = []
     if not changes:
-        return
+        return written
     plans: list[tuple[Change, str, dict[uuid.UUID, str]]] = []
     for change in changes:
         after = (
@@ -171,7 +172,7 @@ async def record_change(
             ).scalar_one()
         plans.append((change, name, kinds))
     if not plans:
-        return
+        return written
 
     users = await _users_by_character(
         session,
@@ -183,18 +184,19 @@ async def record_change(
     for change, name, kinds in plans:
         for character_id, kind in kinds.items():
             for user_id in users.get(character_id, set()) - {actor_id}:
-                session.add(
-                    EntityChange(
-                        id=uuid.uuid4(),
-                        tenant_id=tenant_id,
-                        user_id=user_id,
-                        character_entity_id=character_id,
-                        entity_id=change.entity_id,
-                        kind=kind,
-                        entity_name=name,
-                        detail=change.detail,
-                        actor_user_id=actor_id,
-                        actor_visible=visible,
-                        occurred_at=now,
-                    )
+                row = EntityChange(
+                    id=uuid.uuid4(),
+                    tenant_id=tenant_id,
+                    user_id=user_id,
+                    character_entity_id=character_id,
+                    entity_id=change.entity_id,
+                    kind=kind,
+                    entity_name=name,
+                    detail=change.detail,
+                    actor_user_id=actor_id,
+                    actor_visible=visible,
+                    occurred_at=now,
                 )
+                session.add(row)
+                written.append(row)
+    return written

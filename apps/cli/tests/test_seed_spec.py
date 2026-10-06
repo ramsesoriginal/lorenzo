@@ -46,7 +46,7 @@ def test_the_seed_is_four_layers_in_dependency_order() -> None:
     seed = load_builtin()
 
     assert LAYERS == ("core", "equipment", "dnd5e", "dnd5e-equipment")
-    assert seed.version == "2"
+    assert seed.version == "3"
     assert [n.layer for n in seed.nodes] == sorted((n.layer for n in seed.nodes), key=LAYERS.index)
     counts = {
         layer: (
@@ -60,7 +60,7 @@ def test_the_seed_is_four_layers_in_dependency_order() -> None:
     }
     # Groups, definitions, categories, attachments, recipes.
     assert counts == {
-        "core": (3, 10, 1, 0, 2),
+        "core": (3, 10, 2, 0, 2),
         "equipment": (0, 0, 32, 0, 0),
         "dnd5e": (3, 30, 30, 0, 0),
         "dnd5e-equipment": (0, 0, 0, 6, 0),
@@ -75,7 +75,10 @@ def test_core_is_what_can_be_said_of_a_thing_in_any_system() -> None:
         "own_weight", "weight", "contents_weight", "bundle_amount", "is_container", "is_consumable",
         "is_magical", "is_silvered", "is_adamantine", "sourcebook",
     }  # fmt: skip
-    assert [n.slug for n in seed.nodes if n.layer == "core"] == ["physical-object"]
+    assert [n.slug for n in seed.nodes if n.layer == "core"] == [
+        "physical-object",
+        "unsorted",
+    ]
     assert {r.node for r in seed.recipes if r.layer == "core"} == {"physical-object"}
     types = {d.name: d.value_type for d in seed.definitions}
     assert types["own_weight"] == "float" and types["bundle_amount"] == "int"

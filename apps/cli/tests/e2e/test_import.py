@@ -121,7 +121,7 @@ def test_the_plan_says_what_each_item_will_be(stack: Stack, tmp_path: Path) -> N
     header = document["header"]
     assert header["tenant"]["kind"] == "repository"
     assert header["counts"]["create"] == 3 and header["counts"]["held"] == 1
-    assert header["user_map_sha256"] == "" and header["builtin_version"] == "1"
+    assert header["user_map_sha256"] == "" and header["builtin_version"] == "2"
 
 
 def test_what_needs_a_decision_goes_to_the_review_queue_with_a_row_to_paste(

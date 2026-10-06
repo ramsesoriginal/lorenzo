@@ -71,6 +71,7 @@ __all__ = [
     "RepositoryHasNoCampaignsError",
     "RepositoryManagementForbiddenError",
     "RepositoryNotFoundError",
+    "RepositoryStillGrantedError",
     "ProfilePictureNotFoundError",
     "SlugConflictError",
     "SubscriptionNotFoundError",
@@ -87,6 +88,7 @@ __all__ = [
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
     "TenantCreationForbiddenError",
+    "TenantDeletionForbiddenError",
     "TooManyRequestsError",
     "TenantNotFoundError",
     "UserNotFoundError",
@@ -515,6 +517,18 @@ class TenantCreationForbiddenError(ForbiddenProblem):
     title = "Missing the tenant-creator role"
 
 
+class TenantDeletionForbiddenError(ForbiddenProblem):
+    """DELETE /tenants/{id} - the caller is a member of the tenant but not
+    one of its OWNERs (ADR 0184). Narrower than update_tenant's ORGA gate,
+    like membership management (ADR 0036): deleting the world is not
+    day-to-day administration. A caller without the platform tenant-creator
+    role gets TenantCreationForbiddenError instead, before the tenant is
+    looked at, and a non-member gets the same 404 as for any tenant.
+    """
+
+    title = "Only an owner can delete a tenant"
+
+
 class PlatformOperatorRoleRequiredError(ForbiddenProblem):
     """/admin/* - the caller lacks the platform-level platform-operator
     Authgear role. See ADR 0057 - exact mirror of
@@ -795,6 +809,16 @@ class InvalidSubscriberError(UnprocessableProblem):
     """Granting a repository to itself - ADR 0118."""
 
     title = "A repository can't be granted to itself"
+
+
+class RepositoryStillGrantedError(ConflictProblem):
+    """DELETE /tenants/{id} on a repository that other tenants still hold a
+    grant on (ADR 0184): deleting it would cut them off from its updates
+    without anyone having chosen that. Revoke the grants (or delete the
+    tenants that hold them) first.
+    """
+
+    title = "Other tenants still hold this repository"
 
 
 class RepositoryAlreadyCopiedError(ConflictProblem):

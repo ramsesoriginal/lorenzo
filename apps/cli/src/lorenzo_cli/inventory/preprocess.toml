@@ -1,0 +1,375 @@
+# What the importer tries when a name matches no item (ADR 0193): the same name written another way.
+# It is data, and it grows as GMs find gaps; `lorenzo inventory import --preprocess FILE` adds a
+# table of one's own, in this shape, on top of it.
+#
+# `names` is a whole name and what it may be called in the catalog: one title, or a list tried in
+# order. `words` is one word and its translation, for names that are a few words long. Both are
+# compared without case. Before a name is looked up, a bracket, a length ("50 ft", "16m") and
+# `$math$` are taken off it and a plural made singular, so "Ropes (old)" is looked up as "rope".
+#
+# The titles are the D&D 5e equipment's, as the SRD and the character sheets write them ("Rope,
+# hempen (50 feet)"). A library that names things otherwise adds its own table.
+#
+# Gear a table does not know stays an unsorted item, which is what the GM's view is for: homebrew,
+# creatures and one-offs are deliberately not here.
+
+[names]
+# ---- weapons and ammunition -------------------------------------------------------------------
+"crossbow bolts" = ["crossbow bolts (20)", "bolts (20)", "crossbow bolt", "bolt"]
+"normal pistol bullets" = ["bullets, firearm (10)", "bullets, firearm"]
+"normal pistole bullets" = ["bullets, firearm (10)", "bullets, firearm"]
+"normal musket bullets" = ["bullets, firearm (10)", "bullets, firearm"]
+"heavy crossbow" = "crossbow, heavy"
+"hand crossbow" = "crossbow, hand"
+"light crossbow" = "crossbow, light"
+"schwere armbrust" = "crossbow, heavy"
+"leichte armbrust" = "crossbow, light"
+"great sword" = "greatsword"
+"battle axe" = "battleaxe"
+"lanbogen" = "longbow"
+"scimital" = "scimitar"
+
+# ---- armour and clothes -----------------------------------------------------------------------
+"common clothes" = "clothes, common"
+"cloak of dissplacement" = "cloak of displacement"
+"ring of magic resistance" = "ring of resistance"
+
+# ---- adventuring gear -------------------------------------------------------------------------
+"rations" = ["rations (1 day)"]
+"day rations" = ["rations (1 day)"]
+"tinder box" = "tinderbox"
+"zunderbüchse" = "tinderbox"
+"flint 'n steel" = ["flint and steel", "tinderbox"]
+"belt pouch" = ["pouch"]
+"münzbeutel" = ["pouch"]
+"hooded lantern" = "lantern, hooded"
+"vial of acid" = ["acid (vial)", "acid"]
+"holy symbol" = ["holy symbol (amulet)", "holy symbol (emblem)", "holy symbol (reliquary)"]
+"sticks of incense" = ["incense (block)", "incense"]
+"alarm sanduhr" = ["hourglass"]
+"bottle of black ink" = ["ink (1 ounce bottle)", "ink"]
+"quill" = ["ink pen", "quill"]
+"chalk" = ["chalk (1 piece)"]
+"paper" = ["paper (one sheet)"]
+"ball bearings" = ["ball bearings (bag of 1,000)"]
+"saddle bag" = ["saddlebags"]
+"saddle" = ["saddle, riding"]
+"light brown riding horse" = ["riding horse"]
+"enterhacken" = "grappling hook"
+"playing card set" = ["playing card set", "playing cards"]
+
+# ---- rope ---------------------------------------------------------------------------------------
+# A length ("16m", "50 ft") comes off before these are looked up, so they are the rope itself.
+"rope, hempen" = ["rope, hempen (50 feet)", "rope, hempen"]
+"untrustworthy rope, hempen" = ["rope, hempen (50 feet)"]
+"hanfseil" = ["rope, hempen (50 feet)"]
+"hempen rope" = ["rope, hempen (50 feet)"]
+"seil" = ["rope, hempen (50 feet)", "rope"]
+"seidenseil" = ["rope, silk (50 feet)"]
+"seide seil" = ["rope, silk (50 feet)"]
+"silk rope" = ["rope, silk (50 feet)"]
+
+# ---- tools --------------------------------------------------------------------------------------
+"climbers kit" = "climber's kit"
+"miners pick" = ["miner's pick", "pick, miner's"]
+"pickaxe" = ["pick, miner's", "miner's pick"]
+"sledgehammer" = ["hammer, sledge"]
+"tinkers tools" = "tinker's tools"
+
+# ---- potions, scrolls and magic ---------------------------------------------------------------
+"heiltrank" = "potion of healing"
+"trank der heilung" = "potion of healing"
+"großer heiltrank" = "potion of greater healing"
+"poition of greater healing" = "potion of greater healing"
+"dimension door scroll" = ["spell scroll (dimension door)", "scroll of dimension door"]
+"manual of iron golem" = ["manual of golems"]
+
+# ---- valuables ----------------------------------------------------------------------------------
+"pearl" = ["pearl (100 gp)"]
+"emerald" = ["emerald (100 gp)"]
+"goldbarren" = ["gold bar", "ingot, gold"]
+
+# ---- the animals' tack and the like -------------------------------------------------------------
+"fass" = ["barrel"]
+# ---- more weapons: German names, spaced and British spellings, typos -----------------------------
+"short sword" = "shortsword"
+"long sword" = "longsword"
+"short bow" = "shortbow"
+"long bow" = "longbow"
+"hand axe" = "handaxe"
+"great axe" = "greataxe"
+"war hammer" = "warhammer"
+"morning star" = "morningstar"
+"quaterstaff" = "quarterstaff"
+"quarterstaf" = "quarterstaff"
+"quarter staff" = "quarterstaff"
+"great club" = "greatclub"
+"kampfstab" = "quarterstaff"
+"kampfstock" = "quarterstaff"
+"streitkolben" = "mace"
+"keule" = "club"
+"großkeule" = "greatclub"
+"speer" = "spear"
+"wurfspeer" = "javelin"
+"handaxt" = "handaxe"
+"wurfaxt" = "handaxe"
+"schleuder" = "sling"
+"peitsche" = "whip"
+"hellebarde" = "halberd"
+"lanze" = "lance"
+"morgenstern" = "morningstar"
+"kriegshammer" = "warhammer"
+"streithammer" = "warhammer"
+"dreizack" = "trident"
+"sichel" = "sickle"
+"flegel" = "flail"
+"degen" = "rapier"
+"zweihandschwert" = "greatsword"
+"blasrohr" = "blowgun"
+"netz" = "net"
+"handarmbrust" = "crossbow, hand"
+"armbrustbolzen" = ["crossbow bolts (20)", "bolts (20)"]
+"pfeile" = ["arrows (20)", "arrow"]
+"pfeil" = ["arrows (20)", "arrow"]
+"wurfpfeile" = "dart"
+"köcher" = "quiver"
+
+# ---- more armour and clothes -----------------------------------------------------------------------
+"leather armour" = "leather armor"
+"lederrüstung" = "leather armor"
+"lederharnisch" = "leather armor"
+"gepolsterte rüstung" = "padded armor"
+"beschlagenes leder" = "studded leather armor"
+"studded leather" = "studded leather armor"
+"fellrüstung" = "hide armor"
+"kettenhemd" = ["chain shirt", "chain mail"]
+"kettenpanzer" = "chain mail"
+"kettenrüstung" = "chain mail"
+"schuppenpanzer" = "scale mail"
+"brustplatte" = "breastplate"
+"halbplatte" = "half plate armor"
+"half plate" = "half plate armor"
+"ringpanzer" = "ring mail"
+"plattenpanzer" = ["plate armor", "plate"]
+"plattenrüstung" = ["plate armor", "plate"]
+"plate armour" = "plate armor"
+"umhang" = "cloak"
+"handschuhe" = "gloves"
+
+# ---- more adventuring gear --------------------------------------------------------------------------
+"backpak" = "backpack"
+"back pack" = "backpack"
+"bedrol" = "bedroll"
+"bed roll" = "bedroll"
+"bettrolle" = "bedroll"
+"water skin" = "waterskin"
+"feldflasche" = "waterskin"
+"wasserflasche" = "waterskin"
+"messkit" = "mess kit"
+"tinder-box" = "tinderbox"
+"feuerstein und stahl" = ["flint and steel", "tinderbox"]
+"zunder" = "tinderbox"
+"lantren" = "lantern"
+"bullseye lantern" = "lantern, bullseye"
+"blendlaterne" = "lantern, bullseye"
+"zelt" = ["tent, two-person", "tent"]
+"öl" = "oil (flask)"
+"ölflasche" = "oil (flask)"
+"flask of oil" = "oil (flask)"
+"oil" = "oil (flask)"
+"kreide" = "chalk (1 piece)"
+"kerze" = "candle"
+"kerzen" = "candle"
+"glocke" = "bell"
+"decke" = "blanket"
+"spiegel" = ["mirror, steel", "mirror"]
+"handspiegel" = ["mirror, steel", "mirror"]
+"brecheisen" = "crowbar"
+"brechstange" = "crowbar"
+"kletterausrüstung" = "climber's kit"
+"climber kit" = "climber's kit"
+"angelausrüstung" = "fishing tackle"
+"angel" = "fishing tackle"
+"grapling hook" = "grappling hook"
+"kletterhaken" = ["piton", "iron spikes (10)"]
+"iron spikes" = ["piton", "iron spikes (10)"]
+"spielkarten" = "playing card set"
+"kartenspiel" = "playing card set"
+"heilerset" = "healer's kit"
+"heilerausrüstung" = "healer's kit"
+"healers kit" = "healer's kit"
+"diebeswerkzeug" = "thieves' tools"
+"thieves tools" = "thieves' tools"
+"zauberbuch" = "spellbook"
+"spell book" = "spellbook"
+"buch" = "book"
+"tinte" = "ink (1 ounce bottle)"
+"ink" = "ink (1 ounce bottle)"
+"feder" = ["ink pen", "quill"]
+"schreibfeder" = ["ink pen", "quill"]
+"pergament" = "parchment (one sheet)"
+"parchment" = "parchment (one sheet)"
+"seife" = "soap"
+"parfüm" = "perfume (vial)"
+"perfume" = "perfume (vial)"
+"falle" = "hunting trap"
+"fernrohr" = "spyglass"
+"lupe" = "magnifying glass"
+"kompass" = "compass"
+"schloss" = "lock"
+"handschellen" = "manacles"
+"pfeife" = "whistle"
+"signalpfeife" = "signal whistle"
+"proviant" = "rations (1 day)"
+"ration" = "rations (1 day)"
+"komponentenbeutel" = "component pouch"
+"eimer" = "bucket"
+"korb" = "basket"
+"truhe" = "chest"
+"kiste" = "chest"
+"flasche" = "flask"
+"phiole" = "vial"
+"glasflasche" = "bottle, glass"
+"heiliges symbol" = ["holy symbol (amulet)", "holy symbol (emblem)", "holy symbol (reliquary)"]
+"weihrauch" = ["incense (block)", "incense"]
+"räucherstäbchen" = ["incense (block)", "incense"]
+"almosenkasten" = "alms box"
+"weihwasser" = "holy water (flask)"
+"holy water" = "holy water (flask)"
+"säure" = "acid (vial)"
+"alchemistenfeuer" = "alchemist's fire (flask)"
+"alchemists fire" = "alchemist's fire (flask)"
+"gegengift" = "antitoxin (vial)"
+"antitoxin" = "antitoxin (vial)"
+"gift" = "basic poison (vial)"
+"poison" = "basic poison (vial)"
+"caltrops" = "caltrops (bag of 20)"
+"krähenfüße" = "caltrops (bag of 20)"
+"pole" = "pole (10-foot)"
+"stange" = "pole (10-foot)"
+"leiter" = "ladder (10-foot)"
+"schaufel" = "shovel"
+"sledge hammer" = "hammer, sledge"
+"vorschlaghammer" = "hammer, sledge"
+"spitzhacke" = ["pick, miner's", "miner's pick"]
+"minenspitzhacke" = ["pick, miner's", "miner's pick"]
+"tent" = ["tent, two-person", "tent"]
+"nimmervoller beutel" = "bag of holding"
+"bodenloser beutel" = "bag of holding"
+
+# ---- more potions, scrolls and valuables ------------------------------------------------------------
+"healing potion" = "potion of healing"
+"potion of heal" = "potion of healing"
+"greater healing potion" = "potion of greater healing"
+"superior healing potion" = "potion of superior healing"
+"trank der großen heilung" = "potion of greater healing"
+"trank der überlegenen heilung" = "potion of superior healing"
+"schriftrolle" = "spell scroll"
+"zauberschriftrolle" = "spell scroll"
+"ring der resistenz" = "ring of resistance"
+"edelstein" = "gem"
+"edelsteine" = "gem"
+"perle" = "pearl (100 gp)"
+"smaragd" = "emerald (100 gp)"
+"rubin" = "ruby (1,000 gp)"
+"saphir" = "sapphire (1,000 gp)"
+"amethyst" = "amethyst (100 gp)"
+"opal" = "opal (1,000 gp)"
+"topas" = "topaz (500 gp)"
+"granat" = "garnet (100 gp)"
+"silberbarren" = ["silver bar", "ingot, silver"]
+"gold bar" = ["gold bar", "ingot, gold"]
+"goldbarre" = ["gold bar", "ingot, gold"]
+
+# ---- the tex list's and the sheet's leftover spellings -----------------------------------------------
+"arcane focus - orb" = ["arcane focus (orb)", "orb", "arcane focus"]
+"arcane focus: orb" = ["arcane focus (orb)", "orb", "arcane focus"]
+"arkaner fokus" = "arcane focus"
+"druidischer fokus" = "druidic focus"
+"zauberstab" = "wand"
+"stab" = "staff"
+"kugel" = "orb"
+"kristall" = "crystal"
+"saddle bags" = "saddlebags"
+"sattel" = "saddle, riding"
+"satteltasche" = "saddlebags"
+"satteltaschen" = "saddlebags"
+"reitpferd" = "riding horse"
+"pferd" = "riding horse"
+"esel" = "donkey"
+"fässer" = "barrel"
+"fässchen" = "keg"
+"säcke" = "sack"
+"rucksäcke" = "backpack"
+"tagesration" = "rations (1 day)"
+"tagesrationen" = "rations (1 day)"
+"day ration" = "rations (1 day)"
+"ball bearing" = "ball bearings (bag of 1,000)"
+"kugellager" = "ball bearings (bag of 1,000)"
+"stahlkugeln" = "ball bearings (bag of 1,000)"
+"paper sheets" = "paper (one sheet)"
+"papier" = "paper (one sheet)"
+"fackeln" = "torch"
+
+[words]
+"amulett" = "amulet"
+"armbrust" = "crossbow"
+"axt" = "axe"
+"beutel" = "pouch"
+"bogen" = "bow"
+"bolzen" = "bolts"
+"dolch" = "dagger"
+"diamant" = "diamond"
+"diamanten" = "diamonds"
+"fackel" = "torch"
+"fackeln" = "torches"
+"kette" = "chain"
+"kupfer" = "copper"
+"kurzbogen" = "shortbow"
+"kurzschwert" = "shortsword"
+"langbogen" = "longbow"
+"langschwert" = "longsword"
+"laterne" = "lantern"
+"leder" = "leather"
+"rationen" = "rations"
+"rucksack" = "backpack"
+"sanduhr" = "hourglass"
+"schild" = "shield"
+"schlafsack" = "bedroll"
+"schwert" = "sword"
+"skelett" = "skeleton"
+"skelette" = "skeletons"
+"streitaxt" = "battleaxe"
+"wasserschlauch" = "waterskin"
+"zweihänder" = "greatsword"
+"kletterhaken" = "piton"
+"krummsäbel" = "scimitar"
+"armour" = "armor"
+"braun" = "brown"
+"eisen" = "iron"
+"golden" = "gold"
+"goldener" = "gold"
+"goldenes" = "gold"
+"holz" = "wooden"
+"hölzern" = "wooden"
+"hölzerne" = "wooden"
+"kupfern" = "copper"
+"magisch" = "magic"
+"magische" = "magic"
+"magischer" = "magic"
+"magisches" = "magic"
+"messer" = "knife"
+"schwarz" = "black"
+"schwarze" = "black"
+"schwarzer" = "black"
+"silber" = "silver"
+"silbern" = "silver"
+"silberne" = "silver"
+"silberner" = "silver"
+"stahl" = "steel"
+"stein" = "stone"
+"steine" = "stones"
+"tasche" = "bag"
+"trank" = "potion"
+"zauber" = "spell"
+"minotaurenskelette" = "minotaur skeletons"

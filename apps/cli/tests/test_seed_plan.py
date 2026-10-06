@@ -128,9 +128,9 @@ def test_an_empty_tenant_gets_everything_in_dependency_order() -> None:
     assert order[("node", "dnd5e-finesse")] < order[("description", "dnd5e-finesse")]
     assert kinds.count("group") == 6
     assert kinds.count("definition") == len(SPEC.definitions) == 40
-    assert kinds.count("node") == len(SPEC.nodes) == 63
+    assert kinds.count("node") == len(SPEC.nodes) == 64
     assert kinds.count("tag") == sum(len(n.tags) for n in SPEC.nodes) == 14
-    assert kinds.count("description") == sum(1 for n in SPEC.nodes if n.description) == 20
+    assert kinds.count("description") == sum(1 for n in SPEC.nodes if n.description) == 21
     assert kinds.count("stat") == sum(len(n.stats) for n in SPEC.nodes) == 1
     assert kinds.count("attach") == len(SPEC.attachments) == 6
     assert kinds.count("recipe") == 2

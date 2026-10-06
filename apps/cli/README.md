@@ -82,6 +82,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo tenant list [--kind repository\|play] [--json]` | The tenants you belong to, with each one's kind and your role |
 | `lorenzo tenant create <name> [--slug S] [--kind KIND]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
+| `lorenzo tenant delete <tenant> [--yes] [--json]` | Deletes a tenant and everything in it. **It can't be undone.** Needs the tenant-creator role and being one of the tenant's owners; asks you to type the slug (`--yes` skips that, `--json` needs it). A repository other tenants still hold a grant on is refused, with how to go on ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)) |
 | `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
 | `lorenzo inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
 | `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. The seed has four layers, `core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer` ([ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md)). A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
@@ -89,6 +90,11 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo plan --tenant <tenant> FILES...` | Works out what importing these MPMB files would do and changes nothing. Deterministic JSON with `--json`; exit 0 nothing to do, 2 changes pending, 1 something unresolved |
 | `lorenzo apply --tenant <tenant> FILES... --yes [--json]` | Imports them: what is resolved, and none of what needs a decision. Safe to run again, and unattended. `--json` prints one document: the plan, what was written, what failed |
 | `lorenzo pack give <pack> --tenant <tenant> --owner <being-or-group>` | Hands an imported pack out: the API makes its containers and what is inside them, with quantities, in one go or not at all. A being takes the top of it into its hands; a group owns it with nothing in a container. `--dry-run` says what would be made; `--override` is a GM's, past what the owner can carry; `--json` prints what the API made |
+| `lorenzo item list --tenant <tenant> [-q QUERY]` | The items you may add: for a player the public catalog, for a library member all of it. Title and id ([ADR 0190](../../docs/adr/0190-lorenzo-item-and-character-commands.md)) |
+| `lorenzo character list --tenant <tenant> [--all]` | Your characters in a library, or with `--all` everyone's |
+| `lorenzo item add <item> --tenant <tenant> [--owner CHARACTER] [--name N] [-n QUANTITY --into CONTAINER]` | Makes your own item, as on the web: one instance of the item (its id, slug or exact title) for the character (your only one, unless you name one), not carried, or a stack inside a container you hold. Prints the new id; `--json` prints the instance. The API says why when it isn't allowed (not public, switched off) |
+| `lorenzo inventory import FILE --tenant <tenant> [--owner CHARACTER] [--add] [--dry-run] [--yes] [--preprocess TABLE]` | Makes the things an [inventory file](../../docs/guides/inventory-file-format.md) lists, for a character ([ADR 0193](../../docs/adr/0193-lorenzo-inventory-import-and-export.md)). Each line is matched to an item by id, slug, exact title or a known other spelling; what matches nothing becomes an *Unsorted item* with the player's own name and notes, for the GM to sort. Nothing is made if a line can't be made as written. A character who already has things needs `--add`, which also moves what the file names by id. `--dry-run` says what would be made |
+| `lorenzo inventory export --tenant <tenant> [--owner CHARACTER] [--json] [-o FILE]` | Writes a character's inventory as a file: what they own, where it is, and what was noted, with each item's id so `import --add` reads it back as moves |
 | `lorenzo repo publish\|unpublish\|grant\|revoke\|subscribers --tenant <repository>` | The repository's own side: publish it (again, to announce an update), withdraw it, give a tenant access, take it back, list who has it. Owners only |
 | `lorenzo repo list\|copy-plan\|copy\|updates --tenant <tenant>` | A tenant's side: which repositories it holds, what copying one would do, copying it, and taking what it changed since. See [Publishing a repository](#publishing-a-repository) |
 | `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, how many stat groups, stat definitions and items, how much of each seed layer it has, and what is beyond the seed ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
@@ -138,7 +144,29 @@ flavour = { transform = "text", stat = "flavour_text", group = "lore" }   # crea
 
 **Titles.** An item's displayed title is the title of its description, so `seed` and `apply` title a description with the item's name ([ADR 0165](../../docs/adr/0165-a-description-is-titled-with-its-items-name.md)). A description an older version titled "Description" is retitled by the next run: `seed --dry-run` lists it as a `retitle` action, and `plan` counts it under "to retitle" (`apply` says how many it retitled). Only that exact title is changed; one a person chose is left alone. `repo updates` doesn't carry information (ADR 0121), so a tenant that copied a repository is put right where the commands are run: `seed` there, naming each layer the tenant holds (`--layer core` for `core`; a bare `seed` there is refused, ADR 0166), and `apply` where the items were imported.
 
-Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--allow-play-tenant`, as for `seed`.
+Other flags: `--reconcile` re-parents items the map now files elsewhere (default is create-only, and a changed map only reports "N items would change parents"; it replaces only the parents the importer places, the seed's categories and the ones a map row mints, and leaves any other, such as a prototype attached by `--part system`); `--accept-moves` creates the items whose namespace changed; `--public-catalog` lets players list the imported items; `--part neutral|system` writes one half of each item ([below](#the-two-halves-of-an-item)); `--allow-play-tenant`, as for `seed`.
+
+### The two halves of an item
+
+Without `--part` an item is written with everything the sheet says of it, on one item. For the [four repositories](#the-seed-as-four-repositories) it is written in two passes over the same files, so each repository holds the half that is its own ([ADR 0182](../../docs/adr/0182-the-importers-two-passes-neutral-and-system.md)):
+
+- **`--part neutral`** is what is true anywhere: the item's name and other names, the sourcebook citation, its weight, its forms (weapon, melee, a blade), its materials, the kind of gear, a pack and its contents. It creates the item under those, and `--public-catalog` makes it public. It is for the equipment repository, and needs only the `core` and `equipment` layers.
+- **`--part system`** is D&D's: the price, damage dice, range in feet, armour class and what armour asks of its wearer, the ability, the proficiency, the properties, and a weapon's `description` (its list of properties) and `tooltip` (its special rules). For each item that has any, it finds the neutral item **by its slug in the tenant's own copy of the equipment**, creates a prototype, "Longsword (D&D 5e)" with the slug `srd5e-weapons-longsword`, that is never public, with those parents, stats and text, and then adds it to the item's parents, last. In the bridge the item is a copy, so that parent is an [attachment](../../docs/adr/0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md) and travels with the bridge. An item with nothing of the system's (ammunition) gets no prototype, and an item the tenant doesn't have yet is held back with the way to put it there (run the neutral pass; take it with `repo copy` or `repo updates`).
+
+A second run of either pass finds what the first made and attaches nothing twice. `plan` and `apply` say which half they are for, `--json` has `header.part` (`neutral`, `system` or `all`), and a held item says which pass held it: a price that can't be read holds only the system pass, a value no row knows holds both. `--public-catalog` is refused with `--part system`.
+
+What is whose is decided by the seed: a stat has the part of its definition's layer (`price` and `damage_die` are D&D's, `own_weight` is neutral), a category the part of its layer's, and a category a map row mints the part of its axis (`proficiency`, `tier` and `property` are the system's, `form` and `material` are neutral). A row says `part = "neutral"` or `"system"` only for what no layer decides: text, and a stat or a parent the seed doesn't have (neutral if it says nothing). Where the seed does decide, a `part` on the row is a map error. `[system_namespaces]` names the prototypes' namespace per file (`srd5e` for the sheet's own data, else the file's namespace and `-5e`), and `[system] label = "..."` the label in their names:
+
+```toml
+[namespaces]
+"my-homebrew.js" = "hb-alice"        # the neutral item: hb-alice-weapons-purple-sword
+
+[system_namespaces]
+"my-homebrew.js" = "hb-alice-5e"   # its prototype: hb-alice-5e-weapons-purple-sword
+
+[attributes.weapons]
+lore = { transform = "information", type = "note", title = "Lore", part = "system" }
+```
 
 ## Publishing a repository
 
@@ -191,38 +219,83 @@ What is meant to be published is split in four ([ADR 0162](../../docs/adr/0162-t
 | `dnd5e` | D&D 5e's rules: its stat groups (`economic`, `damaging`, `destroyable`), 30 stat definitions (a price, an armour class, a range, the damage dice, the weapon properties) and 30 categories under one system root, `dnd5e-system` ("D&D 5e"), which is how a category says it belongs to the system. The Economic object carries a `price` of 0. Slugs start `dnd5e-` | `core` |
 | `dnd5e-equipment` | The bridge's own part: six attachments of D&D's Economic object to the equipment's forms (`weapon`, `armor`, `tool`, `container`, `consumable`, `gear`), so everything D&D prices has a price | `equipment`, `dnd5e` |
 
-Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items live in it, since a longbow is a ranged weapon (equipment) and a martial one (D&D). Another system takes `core` and `equipment` and brings its own two layers.
+Each is a repository, and the last is a *bridge* ([ADR 0120](../../docs/adr/0120-bridge-repositories-and-dependency-manifests.md)) over the two before it. The imported items are split between them (a longbow is a ranged weapon in the equipment and a martial one in the bridge). Another system takes `core` and `equipment` and brings its own two layers.
+
+#### Setting them up
+
+Eighteen commands, in this order: each repository is built on the ones above it, so a copy has to come before the seed that needs it, and a repository publishes once it holds what it should ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) §7, [ADR 0183](../../docs/adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md); `tests/e2e/test_setup.py` runs them against the real API).
 
 ```bash
+S=/tmp/mpmb/_variables    # the sheet's data, see Reading MPMB files
+BASE="--base $S/ListsSources.js --base $S/Lists.js --base $S/ListsGear.js"
+
+# core: the vocabulary, built on nothing
 lorenzo tenant create "Core" --slug core
 lorenzo seed --tenant core --layer core --yes
 lorenzo repo publish --tenant core
 
-# the equipment and the rules each draw on core like any tenant
-lorenzo tenant create "Common equipment" --slug common-fantasy-eq
-lorenzo repo grant common-fantasy-eq --tenant core
-lorenzo repo copy core --tenant common-fantasy-eq --yes
-lorenzo seed --tenant common-fantasy-eq --layer equipment --yes   # needs core's copy, which it now has
+# the equipment: a copy of core, the forms, and the neutral half of every item, public
+lorenzo tenant create "Common Fantasy Equipment" --slug common-fantasy-eq
+lorenzo repo offer common-fantasy-eq --tenant core --yes
+lorenzo seed --tenant common-fantasy-eq --layer equipment --yes
+lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE --yes
 lorenzo repo publish --tenant common-fantasy-eq
 
-lorenzo tenant create "D&D 5e" --slug dnd5e
-lorenzo repo grant dnd5e --tenant core
-lorenzo repo copy core --tenant dnd5e --yes
+# the rules: a copy of core, and D&D's stats and categories
+lorenzo tenant create "Dungeons and Dragons 5e" --slug dnd5e
+lorenzo repo offer dnd5e --tenant core --yes
 lorenzo seed --tenant dnd5e --layer dnd5e --yes
 lorenzo repo publish --tenant dnd5e
 
-# the bridge takes both, with core under them, and joins them
-lorenzo tenant create "D&D 5e common equipment" --slug dnd5e-common-eq
+# the bridge: a copy of both, the attachments, then D&D's half of every item
+lorenzo tenant create "Common D&D5e Equipment" --slug dnd5e-common-eq
 lorenzo repo offer dnd5e-common-eq --tenant common-fantasy-eq --yes
 lorenzo repo offer dnd5e-common-eq --tenant dnd5e --yes
-lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes   # the attachments
-lorenzo apply --tenant dnd5e-common-eq --base ... --yes               # the items, parented in all three
+lorenzo seed --tenant dnd5e-common-eq --layer dnd5e-equipment --yes
+lorenzo apply --tenant dnd5e-common-eq --part system $BASE --yes
 lorenzo repo publish --tenant dnd5e-common-eq
-
-lorenzo repo offer table-one --tenant dnd5e-common-eq   # grants the others too, then copies all four
 ```
 
-A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first. Someone who owns the bridge but not what it is built on is told which command to ask their owners for. A table that took the equipment first and the bridge later keeps its Weapon: the bridge's six attachments are parents it adds to the items the table has, so that Weapon has the Economic object as a parent and a `price` of 0 afterwards (it still has one Weapon, not two). **A correction to core** takes four steps: core publishes again; the bridge takes it (`lorenzo repo updates core --tenant dnd5e-common-eq --apply`); the bridge publishes again; each table takes it on core's own route (`lorenzo repo updates core --tenant table-one --apply`). A bridge's own edits to its copy of core don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
+`repo offer` grants a repository to a tenant and copies it in, and for a bridge it does the same for what the bridge is built on (core is copied once, however many offers ask for it). `lorenzo repo contents --tenant dnd5e-common-eq` says what it holds and what it is built on, per layer. The commands need the `tenant-creator` role and the sheet's data (see [Before you start](#before-you-start)); homebrew goes in as more files after `$BASE` in **both** `apply` lines, so the item is written in two halves. **Starting over:** `lorenzo tenant delete` takes a tenant and everything in it ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)), from the top down: a repository that other tenants still hold a grant on is refused, so the table goes first, then the bridge, then the equipment and the rules, then core (`lorenzo tenant delete my-table --yes`, and so on). The slugs are free afterwards. That is also how a `core` or `dnd5e` from an earlier seed (version 1 had two layers, with both halves of an item together) is replaced. Nothing has been published or granted yet, so there is nothing to migrate.
+
+#### A table takes them
+
+```bash
+lorenzo tenant create "My table" --slug my-table --kind play
+lorenzo repo offer my-table --tenant common-fantasy-eq --yes   # the equipment alone is usable
+lorenzo repo offer my-table --tenant dnd5e-common-eq --yes     # later, D&D, on the items it already has
+```
+
+A table needs a grant on **each** repository, since grants aren't transitive; `offer` makes them, for whoever owns them all, and a single copy brings the others in first (one offer of the bridge to a new table copies all four). Someone who owns the bridge but not what it is built on is told which command to ask their owners for. A table that took the equipment first and the bridge later keeps its Purple sword and its Weapon: the bridge's prototype is a parent it adds to the sword the table has, so that sword has D&D's dice and price afterwards (it still has one sword, not two), and the bridge's six attachments give every Weapon the Economic object and a `price` of 0. The prototypes are never public, so a player lists the neutral items and a GM, in the whole catalog, sees both.
+
+#### Corrections, and equipment that grows
+
+A correction is taken from the repository it was made in, and nothing else has to move ([ADR 0183](../../docs/adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md)):
+
+```bash
+lorenzo repo publish --tenant common-fantasy-eq                  # the equipment corrects an item
+lorenzo repo updates common-fantasy-eq --tenant my-table --apply # each table takes it from there
+```
+
+The bridge isn't asked, and the table's sword keeps the bridge's prototype. A correction to core or to the rules goes the same way. **Publishing again is the announcement, not the permission**: `repo updates` reads a repository as it is now, so a table sees a change before it is published, and `repo list` says "updated since" once it has been. The repositories built on the one that changed take its updates when their authors want their own copies current, and **a bridge has to before it imports D&D's half of new equipment**, since the system pass finds an item in the bridge's own copy of the equipment (an item it doesn't have is held, with the way out). A bridge that takes a correction keeps what it attached.
+
+```bash
+lorenzo apply --tenant common-fantasy-eq --part neutral --public-catalog $BASE more.js --yes
+lorenzo repo publish --tenant common-fantasy-eq
+lorenzo repo updates common-fantasy-eq --tenant dnd5e-common-eq --apply   # the bridge's copy of it first
+lorenzo apply --tenant dnd5e-common-eq --part system $BASE more.js --yes
+lorenzo repo publish --tenant dnd5e-common-eq
+lorenzo repo updates common-fantasy-eq --tenant my-table --apply            # then each table: the items,
+lorenzo repo updates dnd5e-common-eq --tenant my-table --apply              # and the prototypes on them
+```
+
+A table that takes the bridge first gets the prototypes and lets each attachment **wait** for its item (`the item it attaches to isn't here`; exit 2, nothing lost): once the equipment's items are there, the next `repo updates` of the bridge attaches them, with no file of actions. A bridge's own edits to its copy of a dependency don't travel, apart from the parents it adds to its copies (attachments, above): to change how a core entity behaves under D&D, author one that inherits from it, or attach one to it.
+
+#### What it doesn't do yet
+
+- **One system per tenant**, until resolution knows about systems ([RFC 0033](../../docs/rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md) §9): two systems' prototypes on one item would break a tie between them arbitrarily. A campaign choosing among the systems a tenant holds is a follow-up.
+- **No way to take D&D back off a table.** Updating never takes a parent off an item; a tenant that wants to undo the bridge removes the prototype from its items itself.
+- **No setup in one command**, and nothing that says on a table's item which repository each part of it came from.
 
 `lorenzo seed` without `--layer` still seeds every layer into an empty repository, in that order, which is fine for a table's own use and for trying things; it says so, and says to separate them if they are to be published. There the attachments are ordinary parents. It refuses a tenant that already holds some layers and not others, so name the layers there ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). A tenant seeded by version 1 of the seed (two layers) still seeds under version 2, since everything is found by name and slug: its parentless axis roots are reported as "exists but is not under" the system root and left, and the rest is added; starting over is cleaner.
 

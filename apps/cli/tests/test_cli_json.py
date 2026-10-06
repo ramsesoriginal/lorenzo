@@ -103,6 +103,7 @@ def test_apply_json_is_one_document_with_the_plan_and_what_was_written(
         "completed": 0,
         "retitled": 0,
         "reparented": 0,
+        "attached": 0,
         "categories": 1,
         "definitions": 0,
     }

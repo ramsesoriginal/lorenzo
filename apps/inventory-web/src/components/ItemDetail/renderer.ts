@@ -6,6 +6,7 @@ import { withReflow } from '../../lib/reflow';
 import { createStaleCache, RECENT_MS } from '../../lib/staleCache';
 import { requiredIn } from '../../lib/template';
 import type { CharacterSummary, ItemBase, ItemInstance } from '../../lib/types';
+import { looksLikeAPack } from '../../lib/unpack';
 import { renderAncestryTree } from '../AncestryTree/renderer';
 import type { BoardState } from '../Board/state';
 import { renderItemView } from '../ItemView/renderer';
@@ -16,6 +17,7 @@ import { mergePanel } from './merge';
 import { movePanel } from './move';
 import type { ActionContext } from './panels';
 import { splitPanel } from './split';
+import { unpackPanel } from './unpack';
 
 // What the dialog shows: a catalog item, or an instance, which also has an owner, a slug and
 // can be bound.
@@ -134,9 +136,14 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
       label: 'Merge into…',
       panel: mergePanel,
     },
+    {
+      button: required<HTMLButtonElement>(root, '[data-unpack]'),
+      label: 'Unpack…',
+      panel: unpackPanel,
+    },
   ];
 
-  const [give, giveContents, move, split] = actions.map((action) => action.button);
+  const [give, giveContents, move, split, , unpack] = actions.map((action) => action.button);
 
   function closePanels() {
     actionPanel.replaceChildren();
@@ -240,6 +247,16 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
     // A read-only column's cards aren't moved from this board (ADR 0131).
     move.hidden = board.state.readOnly.has(item.entity_id);
+
+    // A pack is unpacked for its owner, one at a time, from a column you can act in (ADR 0189).
+    // Whether it really is one is the API's dry run to say.
+    unpack.hidden = !isInstance(item) || !looksLikeAPack(item.descriptions) || move.hidden;
+    unpack.disabled = !item.owner_entity_id || stacked;
+    unpack.title = !item.owner_entity_id
+      ? 'It has no owner to unpack it for.'
+      : stacked
+        ? 'Split one off to unpack it.'
+        : '';
   }
 
   required<HTMLElement>(root, '[data-close]').addEventListener('click', close, { signal });

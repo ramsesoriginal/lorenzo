@@ -16,6 +16,19 @@
   </div>
 </template>
 
+<!-- Unpack…: what a dry run says it would make, then the button (ADR 0189). -->
+<template data-unpack-panel-template>
+  <div class="character-picker-panel">
+    <p class="field-note" data-question>
+      Checking what's inside…
+    </p>
+    <button type="button" data-submit hidden>
+      Unpack
+    </button>
+    <p class="picker-status" data-status hidden></p>
+  </div>
+</template>
+
 <!-- Merge into… and Move to…: a note when there's nothing to pick, else the choices. -->
 <template data-choices-panel-template>
   <div class="character-picker-panel">

@@ -488,6 +488,7 @@ class ItemInstanceCreate(BaseModel):
 
 class ItemInstanceUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
+    prototype_id: UUID | None = Field(None, title="Prototype Id")
 
 
 class ItemUpdate(BaseModel):

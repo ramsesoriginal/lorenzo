@@ -21,6 +21,14 @@ ancestry, and descriptions (its own and those it inherits from its prototypes,
 labelled), rendered as [LorenzoScript](../../packages/lorenzoscript/SPEC.md)
 (Lorenzo's Markdown dialect) with entity links and pictures resolved.
 
+Under the board's search, **Add an item** makes one for the character whose board it is, out of the
+catalog the viewer may list (the public one, for a player): pick it, optionally name it, and it
+lands in Not carried, with an Undo beside it. A player gets it for their own character while their
+GM has self-service on for them, and a note saying so when it's off; a GM gets it on any being's
+board; a group's board and the unowned board have none
+([ADR 0187](../../docs/adr/0187-inventory-web-adding-an-item-to-a-board.md), [ADR
+0186](../../docs/adr/0186-player-self-service-enforcement.md)).
+
 From that detail view, or when multiple cards are multi-selected:
 
 - **Give** an item (or part of a stack) to another being; a player finds the
@@ -37,6 +45,10 @@ From that detail view, or when multiple cards are multi-selected:
   to the character that owns the item (and the campaign's GMs) unless
   "Everyone can read this"; the item page shows them too
   ([ADR 0113](../../docs/adr/0113-inventory-web-slugs-and-player-notes.md))
+- **Unpack** a pack (an item whose description lists its contents) into what it lists,
+  in the owner's hands, after a dry run says what that will be; the pack goes. A player may when
+  self-service is on and everything in it is public
+  ([ADR 0189](../../docs/adr/0189-inventory-web-unpacking-a-pack.md))
 - **Split** a stack into two, or **merge** two stacks of the same item back
   together
 - **Undo** the last give/move/split/merge (a short-lived, single-slot undo,

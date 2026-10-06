@@ -401,6 +401,9 @@ class ItemInstanceUpdate(BaseModel):
     """
 
     name: str | None = None
+    # What the instance is: replaces its prototype. A manager's alone (ADR 0192),
+    # and the name and notes stay.
+    prototype_id: uuid.UUID | None = None
 
 
 class SetOwnerRequest(BaseModel):

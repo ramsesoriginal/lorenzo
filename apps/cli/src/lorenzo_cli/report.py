@@ -168,13 +168,22 @@ def import_exit_code(plan: ImportPlan, *, strict: bool, reconcile: bool) -> int:
     return 0
 
 
+# What a plan says of the half it is for (ADR 0182).
+PART_TEXT: dict[str | None, str] = {
+    None: "Both halves of each item, on one item",
+    "neutral": "The neutral half of each item",
+    "system": "The system's half of each item, as a prototype attached to its neutral item",
+}
+
+
 def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> None:
     tenant = plan.tenant
     published = " (published: subscribers will see these changes)" if tenant.published_at else ""
     console.print(
         f"Tenant [bold]{tenant.slug}[/bold], a {tenant.kind.value} tenant{published}. "
         f"Map: built-in {plan.loaded.builtin_version}"
-        f"{', project ' + plan.loaded.user_map_sha256[:8] if plan.loaded.user_map_sha256 else ''}."
+        f"{', project ' + plan.loaded.user_map_sha256[:8] if plan.loaded.user_map_sha256 else ''}. "
+        f"{PART_TEXT[plan.part]}."
     )
     table = Table("what", "items", title="Plan", title_justify="left")
     for label, count in (
@@ -184,7 +193,10 @@ def print_import_plan(console: Console, plan: ImportPlan, *, strict: bool) -> No
         ("already there", plan.count("exists")),
         ("held for review", plan.count("held")),
         ("moved to another namespace", plan.count("moved")),
-        ("not items (skipped)", plan.count("skipped")),
+        (
+            "nothing of the system's (skipped)" if plan.part == "system" else "not items (skipped)",
+            plan.count("skipped"),
+        ),
         ("would change parents (with --reconcile)", plan.reparent_count),
         ("new categories", len(plan.categories)),
         ("new stat definitions", len(plan.definitions)),
