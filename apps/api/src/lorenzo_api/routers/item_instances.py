@@ -77,6 +77,7 @@ from lorenzo_api.models import (
     Ownership,
     VItemInstance,
 )
+from lorenzo_api.notifications import notify_items_sorted
 from lorenzo_api.pack_giving import Created, hand_out
 from lorenzo_api.routers.items import eager_load_options
 from lorenzo_api.schemas.common import EntitySummary
@@ -247,9 +248,14 @@ async def list_item_instances(
             )
         ),
     ] = False,
+    prototype_id: Annotated[
+        uuid.UUID | None,
+        Query(description="Only return item instances whose direct prototype is this item."),
+    ] = None,
 ) -> Page[ItemInstanceOut]:
     """Every item instance for this tenant, optionally filtered to one
-    container's contents (?container_id=&recursive=). `recursive` defaults
+    container's contents (?container_id=&recursive=) or to one item's
+    instances (?prototype_id=, ADR 0192: "everything unsorted"). `recursive` defaults
     to false - the costlier, cycle-risk-bearing traversal is explicit
     opt-in, not the default (ADR 0020 / task brief) - consistent with
     owned-by-grouped below also being non-recursive by design. Filtering by
@@ -280,6 +286,15 @@ async def list_item_instances(
             .where(predicate)
             .options(*eager_load_options(VItemInstance.entity))
             .order_by(VItemInstance.entity_id)
+        )
+    if prototype_id is not None:
+        stmt = stmt.where(
+            VItemInstance.entity_id.in_(
+                select(EntityPrototype.entity_id).where(
+                    EntityPrototype.prototype_id == prototype_id,
+                    EntityPrototype.tenant_id == tenant_id,
+                )
+            )
         )
 
     async def _item_instances_out(items: Sequence[VItemInstance]) -> list[ItemInstanceOut]:
@@ -1372,6 +1387,91 @@ async def create_item_instances_from_pack(
     return answer
 
 
+async def _change_prototype(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    entity: Entity,
+    prototype_id: uuid.UUID | None,
+) -> None:
+    """What an instance is, changed (ADR 0192): its prototype link replaced by
+    one other base item, the name, notes, owner and container as they were.
+    A manager's alone - a GM of the owner's campaigns, or for an ownerless
+    instance any GM in the tenant - since it changes what a player's thing
+    is. Recorded in the activity log, and told to the holders as `sorted`
+    (the feed, every item) with one summary notification (a window, ADR 0192).
+    """
+    owner = await _current_owner_character_id(session, entity_id=entity.id, tenant_id=tenant_id)
+    manages = (
+        await _manages_owner(session, tenant_id=tenant_id, user=user, owner=owner)
+        if owner is not None
+        else await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id)
+    )
+    if not manages:
+        raise ItemInstanceManagementForbiddenError(
+            detail="Only a GM can change what an item instance is."
+        )
+    if prototype_id is None:
+        raise InvalidItemPrototypeError(detail="prototype_id can't be null")
+    proto_row = (
+        await session.execute(
+            select(Entity.name)
+            .join(Item, Item.entity_id == Entity.id)
+            .where(Entity.id == prototype_id, Entity.tenant_id == tenant_id)
+        )
+    ).one_or_none()
+    if proto_row is None:
+        raise InvalidItemPrototypeError(
+            detail=f"{prototype_id} is not a base item in tenant {tenant_id}"
+        )
+    links = list(
+        (
+            await session.execute(
+                select(EntityPrototype).where(
+                    EntityPrototype.entity_id == entity.id, EntityPrototype.tenant_id == tenant_id
+                )
+            )
+        ).scalars()
+    )
+    if [link.prototype_id for link in links] == [prototype_id]:
+        return
+    before = await holders(session, tenant_id=tenant_id, entity_id=entity.id)
+    for link in links:
+        await session.delete(link)
+    await session.flush()
+    session.add(
+        EntityPrototype(entity_id=entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
+    )
+    entity.updated_by = user.id
+    await session.flush()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="item_instance.prototype_changed",
+        target_type="item_instance",
+        target_id=entity.id,
+        detail=(
+            f"prototype={prototype_id}; was={','.join(str(link.prototype_id) for link in links)}"
+        ),
+    )
+    written = await record_change(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        changes=[
+            Change(
+                entity_id=entity.id,
+                before=before,
+                both_kind="sorted",
+                detail=f"prototype={proto_row[0]}",
+            )
+        ],
+    )
+    await notify_items_sorted(session, tenant_id=tenant_id, actor_id=user.id, changes=written)
+
+
 @router.patch("/{entity_id}")
 async def update_item_instance(
     tenant_id: uuid.UUID,
@@ -1385,12 +1485,20 @@ async def update_item_instance(
 ) -> ItemInstanceOut:
     """A rename - deliberately not recorded in the activity log (ADR 0084:
     descriptive-content edits are excluded; `updated_by` already says who
-    last touched it).
+    last touched it) - and, for a manager, a change of prototype (ADR 0192).
     """
     entity = await _get_item_instance_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
     await _authorize_instance_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
     update = body.model_dump(exclude_unset=True)
+    if "prototype_id" in update:
+        await _change_prototype(
+            session,
+            tenant_id=tenant_id,
+            user=user,
+            entity=entity,
+            prototype_id=update["prototype_id"],
+        )
     if "name" in update:
         renamed = update["name"] != entity.name
         entity.name = update["name"]

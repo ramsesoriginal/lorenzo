@@ -71,8 +71,9 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
                     name=node.name,
                     slug=node.slug,
                     prototype_ids=[nodes[parent] for parent in node.parents],
-                    # Taxonomy nodes are vocabulary for the tenant's authors, not catalog entries.
-                    in_public_catalog=False,
+                    # Taxonomy nodes are vocabulary for the tenant's authors, not catalog entries;
+                    # the one that says so (the placeholder, ADR 0192) is one players may use.
+                    in_public_catalog=node.public,
                 ),
             )
             nodes[node.slug] = created_node.value.entity_id

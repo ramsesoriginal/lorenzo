@@ -7,7 +7,9 @@ Fanned out at creation (one row per recipient), never resolved at read
 time - see ADR 0058's own reasoning.
 """
 
+import re
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,11 +17,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
+    EntityChange,
     GroupMember,
     Membership,
     Notification,
     Player,
 )
+
+# Sortings that follow one another within this long of the first are one
+# notification (ADR 0192): a GM working down a list is not a stream of them.
+SORTED_WINDOW = timedelta(minutes=10)
+SORTED_TYPE = "items_sorted"
+_SORTED_COUNT = re.compile(r"^(\d+) ")
 
 
 def _build(
@@ -370,3 +379,64 @@ def notify_campaign_gms(
     ]
     session.add_all(notifications)
     return notifications
+
+
+def _sorted_title(count: int) -> str:
+    return f"{count} of your items {'has' if count == 1 else 'have'} been sorted"
+
+
+async def notify_items_sorted(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    changes: list[EntityChange],
+) -> None:
+    """One summary per person for the `sorted` rows just written (ADR 0192):
+    "3 of your items have been sorted", the change feed being where each is.
+    A person who still has an unread one from the last `SORTED_WINDOW` gets
+    its count raised instead of a second notification. The count lives in
+    the title, since a feed row can't be read back by the writer (it is
+    visible to its recipient alone). scope="tenant", free-text type.
+    """
+    per_user: dict[uuid.UUID, int] = {}
+    for change in changes:
+        if change.kind == "sorted":
+            per_user[change.user_id] = per_user.get(change.user_id, 0) + 1
+    if not per_user:
+        return
+    since = datetime.now(tz=UTC) - SORTED_WINDOW
+    batch_id = uuid.uuid4()
+    for user_id, count in sorted(per_user.items(), key=lambda pair: str(pair[0])):
+        recent = (
+            await session.execute(
+                select(Notification)
+                .where(
+                    Notification.user_id == user_id,
+                    Notification.tenant_id == tenant_id,
+                    Notification.type == SORTED_TYPE,
+                    Notification.read_at.is_(None),
+                    Notification.created_at >= since,
+                )
+                .order_by(Notification.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if recent is not None:
+            found = _SORTED_COUNT.match(recent.title)
+            count += int(found.group(1)) if found else 0
+            recent.title = _sorted_title(count)
+            continue
+        session.add(
+            _build(
+                batch_id=batch_id,
+                user_id=user_id,
+                tenant_id=tenant_id,
+                scope="tenant",
+                source_id=None,
+                type=SORTED_TYPE,
+                title=_sorted_title(count),
+                body="A GM matched what you wrote to the catalog. Your changes list each.",
+                created_by=actor_id,
+            )
+        )

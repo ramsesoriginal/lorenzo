@@ -82,6 +82,13 @@ def test_a_fresh_repository_tenant_is_seeded_and_a_second_run_finds_nothing(
         resolved = api.get(f"/tenants/{tid}/entities/resolve", params={"slug": slugs}).json()
         assert sorted(r["slug"] for r in resolved) == sorted(slugs)
         assert {tuple(r["kinds"]) for r in resolved} == {("item",)}
+        # Only the placeholder is in the public catalog, so a player may make one (ADR 0192).
+        public = {
+            r["slug"]
+            for r in resolved
+            if api.get(f"/tenants/{tid}/items/{r['entity_id']}").json()["in_public_catalog"]
+        }
+        assert public == {"unsorted"}
         groups = api.get(f"/tenants/{tid}/stat-groups").json()["items"]
         assert {g["name"] for g in groups} == {g.name for g in SPEC.groups}
         definitions = api.get(f"/tenants/{tid}/stat-definitions").json()["items"]

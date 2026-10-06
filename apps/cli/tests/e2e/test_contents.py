@@ -12,7 +12,7 @@ from plain import plain
 from e2e.helpers import FIXTURES, by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
 
-SEED_CATEGORIES = 63  # 1 in core, 32 in equipment and 30 in dnd5e
+SEED_CATEGORIES = 64  # 2 in core, 32 in equipment and 30 in dnd5e
 
 
 def said(result: Any) -> str:
@@ -45,7 +45,7 @@ def test_a_core_repository_holds_core_and_nothing_beyond_it(stack: Stack, tmp_pa
     assert document["holds"] == {
         "stat_groups": 3,
         "stat_definitions": 10,
-        "items": 1,
+        "items": 2,
         "attachments": 0,
     }
     layers = document["seed"]["layers"]
@@ -63,7 +63,7 @@ def test_a_core_repository_holds_core_and_nothing_beyond_it(stack: Stack, tmp_pa
     assert human.exit_code == 0, human.output
     text = said(human)
     assert "is a repository, a draft, granted to 0 tenant(s)." in text
-    assert "core complete 3 of 3 10 of 10 1 of 1 -" in text
+    assert "core complete 3 of 3 10 of 10 2 of 2 -" in text
     assert "dnd5e not there 0 of 3 0 of 30 0 of 30 -" in text
     assert "dnd5e-equipment not there - - - 0 of 6" in text
 

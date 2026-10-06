@@ -114,7 +114,7 @@ def test_a_layer_is_planned_as_its_categories_then_definitions_then_groups() -> 
 def test_the_core_layer_takes_its_groups_too() -> None:
     plan = make_unseed_plan(SPEC, held("core"), TENANT, ("core",))
 
-    assert counts(plan) == (1, 10, 3)
+    assert counts(plan) == (2, 10, 3)
 
 
 def test_the_equipment_layer_is_only_categories() -> None:
@@ -134,7 +134,7 @@ def test_only_what_the_tenant_has_is_planned() -> None:
 
     plan = make_unseed_plan(SPEC, state, TENANT, ("core", "equipment"))
 
-    assert counts(plan) == (32, 9, 3)
+    assert counts(plan) == (33, 9, 3)
 
 
 def test_an_empty_tenant_has_nothing_to_remove() -> None:
@@ -343,9 +343,9 @@ def test_categories_go_first_then_definitions_then_groups_each_item_with_its_eta
 
     deletes = [r for r in seen if r.method == "DELETE"]
     kinds = [r.url.path.split("/")[3] for r in deletes]
-    assert kinds == ["items"] * 33 + ["stat-definitions"] * 10 + ["stat-groups"] * 3
+    assert kinds == ["items"] * 34 + ["stat-definitions"] * 10 + ["stat-groups"] * 3
     assert all(r.headers["If-Match"] == '"v1"' for r in deletes if "/items/" in r.url.path)
-    assert len(result.deleted) == 46 and result.kept == []
+    assert len(result.deleted) == 47 and result.kept == []
 
 
 def test_a_definition_the_api_refuses_is_kept_with_its_reason_and_the_rest_goes_on() -> None:
