@@ -1,0 +1,24 @@
+<!-- What /join shows for an invite link (ADR 0171): the campaign it is for and what joining makes you,
+     or, for a link that doesn't work, one sentence that doesn't say why (ADR 0092). Rendered by
+     renderJoinInvite. -->
+<div class="stack" data-join hidden>
+  <p data-dead hidden></p>
+
+  <section class="card card-body stack" data-invite hidden>
+    <img alt="" width="192" height="192" hidden data-picture />
+    <h2 data-campaign></h2>
+    <p data-offer>You've been invited to join this campaign as a player.</p>
+
+    <div class="row">
+      <button type="button" data-login hidden>Log in to join</button>
+      <button type="button" data-join-button hidden>Join</button>
+      <a href="/campaigns/" data-next hidden>Your campaigns</a>
+    </div>
+
+    <!-- Without sessionStorage the link would not survive the login. -->
+    <p class="status-text" data-keep-hint hidden>
+      Your browser won't keep this link while you log in. Log in first, then open the link again.
+    </p>
+    <p class="status-text" role="status" data-status hidden></p>
+  </section>
+</div>

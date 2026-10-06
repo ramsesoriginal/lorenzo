@@ -1,4 +1,5 @@
 ---
+import JoinInvite from '../components/JoinInvite/JoinInvite.astro';
 import Base from '../layouts/Base.astro';
 ---
 
@@ -11,151 +12,25 @@ import Base from '../layouts/Base.astro';
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
-  <p id="dead-link" hidden></p>
 
-  <section id="invite" class="section" hidden>
-    <img id="invite-picture" alt="" width="96" height="96" hidden />
-    <h2 id="invite-campaign"></h2>
-    <p id="invite-offer">You've been invited to join this campaign as a player.</p>
-    <div id="invite-actions"></div>
-    <p id="invite-status" role="status"></p>
-  </section>
+  <JoinInvite />
 
   <script>
-    import { ApiError } from '../lib/apiError';
-    import { isAuthConfigured, isAuthenticated, login } from '../lib/auth';
-    import { createStatusSpan } from '../lib/dom';
+    import { renderJoinInvite } from '../components/JoinInvite/renderer';
     import { showError } from '../lib/errorUi';
-    import {
-      DEAD_LINK_MESSAGE,
-      forgetInviteToken,
-      type InviteRole,
-      inviteOffer,
-      joinedMessage,
-      readInviteToken,
-      rememberInviteToken,
-      storedInviteToken,
-    } from '../lib/inviteLink';
-    import { previewInvite, redeemInvite } from '../lib/invites';
-    import { browserSessionStorage } from '../lib/returnPath';
+    import { requiredIn } from '../lib/template';
 
     const loading = document.getElementById('loading')!;
     const loadError = document.getElementById('load-error')!;
-    const deadLink = document.getElementById('dead-link')!;
-    const invite = document.getElementById('invite')!;
-    const picture = document.getElementById('invite-picture') as HTMLImageElement;
-    const campaignName = document.getElementById('invite-campaign')!;
-    const offer = document.getElementById('invite-offer')!;
-    const actions = document.getElementById('invite-actions')!;
-    const status = document.getElementById('invite-status')!;
+    const join = requiredIn('Join')<HTMLElement>(document, '[data-join]');
 
-    // Read the token, keep it for the login round trip, and take it out of the
-    // address bar and the history entry before anything else happens (ADR 0092
-    // requirement 7). It is never logged, put in a link, or kept anywhere but
-    // this tab's sessionStorage, until it is used.
-    const storage = browserSessionStorage();
-    const hash = window.location.hash;
-    const fromLink = readInviteToken(hash);
-    const kept = fromLink === null ? true : rememberInviteToken(storage, fromLink);
-    if (hash !== '') {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    }
-    const token = fromLink ?? storedInviteToken(storage);
-
-    // A link pasted into this very tab changes only the fragment, which the
-    // browser does not load a page for: start over, so it is read like any other.
-    window.addEventListener('hashchange', () => window.location.reload());
-
-    // Every dead link is the same 404, and the page does not tell them apart.
-    function showDeadLink() {
-      forgetInviteToken(storage);
+    try {
+      await renderJoinInvite(join);
+    } catch (e) {
+      loadError.hidden = false;
+      showError(loadError, e);
+    } finally {
       loading.hidden = true;
-      invite.hidden = true;
-      deadLink.textContent = DEAD_LINK_MESSAGE;
-      deadLink.hidden = false;
-    }
-
-    function isDead(error: unknown): boolean {
-      return error instanceof ApiError && error.status === 404;
-    }
-
-    async function showActions(currentToken: string, role: InviteRole) {
-      if (!isAuthConfigured()) {
-        status.textContent = 'Authgear is not configured for this app yet.';
-        return;
-      }
-      if (await isAuthenticated()) {
-        const join = document.createElement('button');
-        join.type = 'button';
-        join.textContent = inviteOffer(role).joinLabel;
-        join.addEventListener('click', async () => {
-          join.disabled = true;
-          status.textContent = 'Joining…';
-          try {
-            const joined = await redeemInvite(currentToken);
-            forgetInviteToken(storage);
-            status.textContent = joinedMessage(
-              campaignName.textContent ?? 'the campaign',
-              joined.already_joined,
-              joined.role,
-            );
-            const next = document.createElement('a');
-            next.href = '/campaigns';
-            next.textContent = 'Your campaigns';
-            actions.replaceChildren(next);
-          } catch (e) {
-            if (isDead(e)) {
-              showDeadLink();
-              return;
-            }
-            join.disabled = false;
-            showError(status, e);
-          }
-        });
-        actions.replaceChildren(join);
-      } else {
-        const loginButton = document.createElement('button');
-        loginButton.type = 'button';
-        loginButton.textContent = 'Log in to join';
-        loginButton.addEventListener('click', () => void login());
-        actions.replaceChildren(loginButton);
-        if (!kept) {
-          // Without sessionStorage the link would not survive the login.
-          const hint = createStatusSpan();
-          hint.textContent =
-            "Your browser won't keep this link while you log in. Log in first, then open the link again.";
-          actions.append(hint);
-        }
-      }
-    }
-
-    if (token === null) {
-      showDeadLink();
-    } else {
-      try {
-        const preview = await previewInvite(token);
-        campaignName.textContent = preview.campaign_name;
-        // A GM link says so before anyone is asked to log in (ADR 0177).
-        offer.textContent = inviteOffer(preview.role).sentence;
-        if (preview.picture_url) {
-          picture.src = preview.picture_url;
-          picture.referrerPolicy = 'no-referrer';
-          picture.addEventListener('load', () => {
-            picture.hidden = false;
-          });
-        }
-        loading.hidden = true;
-        invite.hidden = false;
-        await showActions(token, preview.role);
-      } catch (e) {
-        if (isDead(e)) {
-          showDeadLink();
-        } else {
-          loading.hidden = true;
-          loadError.hidden = false;
-          showError(loadError, e);
-        }
-      }
     }
   </script>
 </Base>
