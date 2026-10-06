@@ -14,7 +14,10 @@ from importlib import resources
 from pathlib import Path
 
 _BRACKETS = re.compile(r"\s*[(\[][^)\]]*[)\]]\s*")
-_LENGTH = re.compile(r"\s+\d+(?:[.,]\d+)?\s*(?:ft\.?|feet|foot|m|meter|metres?)\b", re.IGNORECASE)
+_LENGTH = re.compile(
+    r"(?:^|\s+)\d+(?:[.,]\d+)?\s*(?:ft\.?|feet|foot|m|meters?|metres?)\b", re.IGNORECASE
+)
+_MATH = re.compile(r"\s*\$[^$]*\$")
 _SPACES = re.compile(r"\s+")
 
 
@@ -34,7 +37,7 @@ def _singular(name: str) -> str | None:
 
 @dataclass
 class Table:
-    names: dict[str, str] = field(default_factory=dict)
+    names: dict[str, list[str]] = field(default_factory=dict)
     words: dict[str, str] = field(default_factory=dict)
 
     def merged(self, other: Table) -> Table:
@@ -44,7 +47,8 @@ class Table:
         """Other ways to write `name`, most likely first, never the name itself."""
         start = _clean(name)
         stems = [start]
-        for stem in (_clean(_LENGTH.sub("", _BRACKETS.sub(" ", name))),):
+        stripped = _MATH.sub("", _LENGTH.sub("", _BRACKETS.sub(" ", name)))
+        for stem in (_clean(stripped.strip(" ,-")),):
             if stem and stem not in stems:
                 stems.append(stem)
         for stem in list(stems):
@@ -67,8 +71,8 @@ class Table:
                 add(singular)
 
         for stem in stems:
-            if stem in self.names:
-                translated(self.names[stem])
+            for other in self.names.get(stem, []):
+                translated(other)
             words = stem.split(" ")
             if any(word in self.words for word in words):
                 translated(" ".join(self.words.get(word, word) for word in words))
@@ -78,7 +82,10 @@ class Table:
 def _table(text: str) -> Table:
     data = tomllib.loads(text)
     return Table(
-        {_clean(k): _clean(v) for k, v in data.get("names", {}).items()},
+        {
+            _clean(k): [_clean(o) for o in ([v] if isinstance(v, str) else v)]
+            for k, v in data.get("names", {}).items()
+        },
         {_clean(k): _clean(v) for k, v in data.get("words", {}).items()},
     )
 
