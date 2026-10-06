@@ -80,7 +80,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
         <h3 class="grow" data-name></h3>
         <span class="row-tight" data-roles></span>
       </div>
-      <p class="caption" data-where></p>
+      <p class="caption">
+        <a data-library></a><span data-system></span>
+      </p>
       <p data-characters hidden></p>
       <span class="badge-visibility" data-secret hidden>
         <svg class="icon" aria-hidden="true">
@@ -98,7 +100,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   <template data-repository-template>
     <article class="card card-body stack-tight">
       <div class="row">
-        <h3 class="grow" data-name></h3>
+        <h3 class="grow"><a data-link data-name></a></h3>
         <span class="badge" data-role></span>
       </div>
       <p class="caption" data-status></p>

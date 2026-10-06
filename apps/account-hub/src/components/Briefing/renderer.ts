@@ -28,7 +28,9 @@ async function loadTables(
   managed: ManagedScopeOut,
 ): Promise<TableCard[]> {
   const libraries = new Map(
-    tenants.filter((tenant) => !isRepository(tenant)).map((tenant) => [tenant.id, tenant.name]),
+    tenants
+      .filter((tenant) => !isRepository(tenant))
+      .map((tenant) => [tenant.id, { name: tenant.name, slug: tenant.slug }]),
   );
   const seats = seatsIn(me, new Set(libraries.keys()));
   const rows = runRows(managed);
@@ -45,6 +47,7 @@ function loadRepositories(tenants: TenantSummaryOut[]): Promise<RepositoryCard[]
   return Promise.all(
     tenants.filter(isRepository).map(async (tenant) => ({
       name: tenant.name,
+      slug: tenant.slug,
       role: tenant.role,
       status: await getTenant(tenant.id).then(
         ({ tenant: detail }) => publishedLabel(detail.published_at),

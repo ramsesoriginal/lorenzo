@@ -48,3 +48,8 @@ export function canCreateTenants(me: { capabilities?: Partial<MeOut['capabilitie
 export function publishedLabel(publishedAt: string | null): string {
   return publishedAt === null ? 'Draft' : `Published ${publishedAt.slice(0, 10)}`;
 }
+
+// Where a library or repository is on /tenants: the page opens the one an address names, by slug.
+export function tenantHref(slug: string): string {
+  return `/tenants/?tenant=${encodeURIComponent(slug)}`;
+}

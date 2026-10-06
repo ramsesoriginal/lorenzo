@@ -8,6 +8,7 @@ import { ApiError } from '../../lib/apiError';
 import { charactersLine, personLabel, type RunRow, runRoleLabel } from '../../lib/campaigns';
 import { sayError } from '../../lib/statusLine';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
+import { tenantHref } from '../../lib/tenantKind';
 import { listCampaignGms, listCampaignPlayers } from '../../lib/tenants';
 
 const required = requiredIn('Run campaign');
@@ -25,7 +26,7 @@ export async function renderRunCampaign(
 
   // Its administration is on /tenants, with this library open.
   required<HTMLAnchorElement>(root, '[data-manage]').href =
-    `/tenants/?tenant=${encodeURIComponent(row.tenantSlug)}`;
+    tenantHref(row.tenantSlug);
 
   // A line of text for each, or the sentence that there is none.
   function fill(listSelector: string, emptySelector: string, lines: readonly string[]) {

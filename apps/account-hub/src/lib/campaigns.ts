@@ -68,6 +68,8 @@ export function seatsIn(
 export interface TableCard {
   tenantId: string;
   libraryName: string;
+  // What /tenants names the library by.
+  librarySlug: string;
   campaignId: string;
   name: string;
   gameSystem: string | null;
@@ -83,20 +85,25 @@ export interface TableCard {
 export function tableCards(input: {
   seats: readonly PlayerContextOut[];
   rows: readonly RunRow[];
-  libraries: ReadonlyMap<string, string>;
+  libraries: ReadonlyMap<string, { name: string; slug: string }>;
   campaigns: ReadonlyMap<string, CampaignSummaryOut>;
 }): TableCard[] {
   const cards = new Map<string, TableCard>();
 
-  function cardFor(tenantId: string, libraryName: string, campaignId: string, name: string) {
+  function cardFor(
+    library: { tenantId: string; name: string; slug: string },
+    campaignId: string,
+    name: string,
+  ) {
     let card = cards.get(campaignId);
 
     if (!card) {
       const campaign = input.campaigns.get(campaignId);
 
       card = {
-        tenantId,
-        libraryName,
+        tenantId: library.tenantId,
+        libraryName: library.name,
+        librarySlug: library.slug,
         campaignId,
         name: campaign?.name ?? name,
         gameSystem: campaign?.game_system ?? null,
@@ -112,18 +119,22 @@ export function tableCards(input: {
 
   for (const seat of input.seats) {
     const campaign = input.campaigns.get(seat.campaign_id);
-    const libraryName = input.libraries.get(seat.tenant_id);
+    const library = input.libraries.get(seat.tenant_id);
 
-    if (!campaign || !libraryName) continue;
+    if (!campaign || !library) continue;
 
-    const card = cardFor(seat.tenant_id, libraryName, seat.campaign_id, campaign.name);
+    const card = cardFor({ tenantId: seat.tenant_id, ...library }, seat.campaign_id, campaign.name);
 
     if (!card.roles.includes('Player')) card.roles.push('Player');
     card.characters = [...(card.characters ?? []), ...seat.characters.map((c) => c.name)];
   }
 
   for (const row of input.rows) {
-    const card = cardFor(row.tenantId, row.tenantName, row.campaignId, row.campaignName);
+    const card = cardFor(
+      { tenantId: row.tenantId, name: row.tenantName, slug: row.tenantSlug },
+      row.campaignId,
+      row.campaignName,
+    );
     const role = runRoleLabel(row.role);
 
     if (!card.roles.includes(role)) card.roles.push(role);

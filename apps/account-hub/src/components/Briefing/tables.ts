@@ -1,5 +1,6 @@
 import type { TableCard } from '../../lib/campaigns';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
+import { tenantHref } from '../../lib/tenantKind';
 
 const required = requiredIn('Briefing');
 
@@ -15,12 +16,13 @@ export function showTables(root: HTMLElement, cards: TableCard[], mayCreate: boo
     const characters = required<HTMLElement>(fragment, '[data-characters]');
 
     required<HTMLElement>(fragment, '[data-name]').textContent = card.name;
-    required<HTMLElement>(fragment, '[data-where]').textContent = [
-      card.libraryName,
-      card.gameSystem,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    // The library it is in, which opens on /tenants, and the game system.
+    const library = required<HTMLAnchorElement>(fragment, '[data-library]');
+    const system = required<HTMLElement>(fragment, '[data-system]');
+
+    library.textContent = card.libraryName;
+    library.href = tenantHref(card.librarySlug);
+    system.textContent = card.gameSystem ? ` · ${card.gameSystem}` : '';
     required<HTMLElement>(fragment, '[data-secret]').hidden = !card.secret;
 
     required<HTMLElement>(fragment, '[data-roles]').append(
