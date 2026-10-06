@@ -3,6 +3,7 @@
 // No server push exists yet (see ADR 0071/RFC 0013) - the interval is a deliberately simple,
 // honest "pull", paused while the tab isn't visible so it doesn't poll a backgrounded page forever.
 
+import { onCacheRefreshed } from '../../lib/cache';
 import { bindOpensToBody } from '../../lib/disclosure';
 import { countUnread } from '../../lib/format';
 import { listNotifications, markNotificationRead } from '../../lib/notifications';
@@ -51,7 +52,7 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
 
       try {
         await markNotificationRead(notification.id);
-        await load();
+        await load(true);
       } catch (cause) {
         markRead.disabled = false;
         sayError(status, cause);
@@ -64,9 +65,9 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
   // Only the newest load paints: a poll, a refresh and the checkbox can overlap.
   let latest = 0;
 
-  async function load(): Promise<void> {
+  async function load(force = false): Promise<void> {
     const turn = ++latest;
-    const page = await listNotifications(unreadOnly.checked);
+    const page = await listNotifications(unreadOnly.checked, { force });
 
     if (turn !== latest) return;
 
@@ -81,10 +82,10 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
     );
   }
 
-  // After the first: a failure is said in place.
+  // After the first: a failure is said in place. Asked of the API, not the cache.
   async function reload(): Promise<void> {
     try {
-      await load();
+      await load(true);
     } catch (cause) {
       sayError(error, cause);
     }
@@ -93,6 +94,9 @@ export async function renderNotificationsPanel(root: HTMLElement): Promise<void>
   required<HTMLElement>(root, '[data-refresh]').addEventListener('click', () => void reload());
   unreadOnly.addEventListener('change', () => void reload());
   bindSent(root, error);
+
+  // What was shown came from the cache, and the API has something different.
+  onCacheRefreshed(() => void load().catch(() => {}));
 
   let pollHandle: ReturnType<typeof setInterval> | undefined;
 

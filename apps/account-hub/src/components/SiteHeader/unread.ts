@@ -13,11 +13,12 @@ export function renderUnreadCount(root: HTMLElement): void {
 
   let timer: ReturnType<typeof setInterval> | undefined;
 
-  async function refresh() {
+  // `force` is false only for the first, which may show what is held; the rest are the poll.
+  async function refresh(force = true) {
     let count: number;
 
     try {
-      count = await getUnreadCount();
+      count = await getUnreadCount({ force });
     } catch {
       // Keeps what it shows; the next ask may do better.
       return;
@@ -54,7 +55,7 @@ export function renderUnreadCount(root: HTMLElement): void {
 
   window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, () => void refresh());
 
-  void refresh();
+  void refresh(false);
 
   if (document.visibilityState === 'visible') start();
 }

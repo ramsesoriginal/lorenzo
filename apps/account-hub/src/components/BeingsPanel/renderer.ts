@@ -1,5 +1,7 @@
 // /beings: a section of beings for each library you GM a campaign in, and for every repository.
 
+import { onCacheRefreshed } from '../../lib/cache';
+import { isEditingIn } from '../../lib/editing';
 import { campaignRoleFor } from '../../lib/format';
 import { getMe } from '../../lib/me';
 import { sayError } from '../../lib/statusLine';
@@ -22,8 +24,7 @@ export async function renderBeingsPanel(root: HTMLElement): Promise<void> {
 
   async function load(): Promise<void> {
     const turn = ++latest;
-    const me = await getMe();
-    const tenants = await listMyTenants();
+    const [me, tenants] = await Promise.all([getMe(), listMyTenants()]);
     const withGmCampaigns = await Promise.all(
       tenants.items.map(async (tenant) => {
         // A repository holds no campaigns, and the API says so with an error if asked: it is
@@ -64,6 +65,11 @@ export async function renderBeingsPanel(root: HTMLElement): Promise<void> {
       sayError(error, cause);
     }
   }
+
+  // What was shown came from the cache, and the API has something different.
+  onCacheRefreshed(() => {
+    if (!isEditingIn(root)) void reload();
+  });
 
   await load();
   root.hidden = false;

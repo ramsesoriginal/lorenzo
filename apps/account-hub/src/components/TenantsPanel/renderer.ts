@@ -3,6 +3,8 @@
 // `?new=repository` for the create forms), so a link, Back and a reload all land where they were.
 // Only the open one is loaded.
 
+import { onCacheRefreshed } from '../../lib/cache';
+import { isEditingIn } from '../../lib/editing';
 import { sayError } from '../../lib/statusLine';
 import { cloneRoot, fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { canCreateTenants, splitByKind, type TenantKind } from '../../lib/tenantKind';
@@ -49,7 +51,8 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   let tenants: TenantSummaryOut[] = [];
   let current: View = { type: 'empty' };
 
-  const tenantView = renderTenant(required<HTMLElement>(root, '[data-tenant]'), me, {
+  const tenantRoot = required<HTMLElement>(root, '[data-tenant]');
+  const tenantView = renderTenant(tenantRoot, me, {
     onChanged: () => void reload(),
     onRenamed,
   });
@@ -202,7 +205,6 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
       const openId = current.type === 'tenant' ? current.tenant.id : null;
 
       await refresh();
-
       const open = openId ? tenants.find((t) => t.id === openId) : undefined;
       const next: View = open
         ? { type: 'tenant', tenant: open }
@@ -254,6 +256,22 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   createUnavailable.hidden = mayCreate;
 
   await refresh();
+
+  // What the tree shows came from the cache, and the API has something different.
+  // Where the open library is one of them, it is drawn again as well, unless someone is typing in it.
+  onCacheRefreshed(() => {
+    void refresh()
+      .then(() => {
+        const open = current.type === 'tenant' ? current.tenant.id : null;
+        const tenant = tenants.find((t) => t.id === open);
+
+        if (!tenant || isEditingIn(tenantRoot)) return;
+
+        current = { type: 'tenant', tenant };
+        void tenantView.show(tenant);
+      })
+      .catch(() => {});
+  });
 
   const first = viewFromUrl() ?? defaultView();
 

@@ -1,4 +1,5 @@
 import authgear, { Page, SessionState } from '@authgear/web';
+import { clearCache } from './cache';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
 import { browserSessionStorage, rememberReturnPath } from './returnPath';
 
@@ -59,6 +60,8 @@ export async function login(): Promise<void> {
 export async function completeLogin(): Promise<void> {
   await ensureConfigured();
   await authgear.finishAuthentication();
+  // A new session, perhaps a different person: nothing held from before is theirs.
+  clearCache();
 }
 
 // A refresh-token session is revoked and cleared, but the SDK doesn't
@@ -67,6 +70,7 @@ export async function completeLogin(): Promise<void> {
 // goes home itself. `force` clears the session even if revoking it fails.
 export async function logout(): Promise<void> {
   await ensureConfigured();
+  clearCache();
   await authgear.logout({ redirectURI: window.location.origin, force: true });
   window.location.assign('/');
 }
@@ -81,7 +85,13 @@ export async function openLoginSettings(): Promise<void> {
 
 export async function isAuthenticated(): Promise<boolean> {
   await ensureConfigured();
-  return authgear.sessionState === SessionState.Authenticated;
+
+  const signedIn = authgear.sessionState === SessionState.Authenticated;
+
+  // A session that has ended (expired, or ended in another tab) leaves nothing behind to show.
+  if (!signedIn) clearCache();
+
+  return signedIn;
 }
 
 export async function getAccessToken(): Promise<string | undefined> {

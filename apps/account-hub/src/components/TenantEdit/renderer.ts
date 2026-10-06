@@ -49,7 +49,7 @@ export function renderTenantEdit(
     try {
       // The summary has no description, and the editor needs the version it is
       // editing: both come from this read.
-      const { tenant: current, etag } = await getTenant(target.id);
+      const { tenant: current, etag } = await getTenant(target.id, { force: true });
 
       if (turn !== shown) return;
 

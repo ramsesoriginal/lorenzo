@@ -1,4 +1,5 @@
 import { client, unwrap } from './api';
+import { cached } from './cache';
 import type {
   BeingSummaryOut,
   CharacterCreate,
@@ -14,11 +15,15 @@ const PAGE_SIZE = 50;
 // 0078/0079. Replaces an earlier list-characters-and-filter workaround
 // from before this endpoint existed.
 export async function listBeings(tenantId: string, q?: string): Promise<Page<BeingSummaryOut>> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/beings', {
-      params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE, q } },
-    }),
-  );
+  const fetchBeings = async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/beings', {
+        params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE, q } },
+      }),
+    );
+
+  // Only the whole list is held; what a search turns up is asked for each time.
+  return q ? fetchBeings() : cached(`beings:${tenantId}`, fetchBeings);
 }
 
 export async function createCharacter(
@@ -65,10 +70,12 @@ export async function linkCharacterToPlayer(
 // Readable by any tenant participant, a player included, and the only place a
 // character's owner_player_id is given.
 export async function getCharacter(tenantId: string, characterId: string): Promise<CharacterOut> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/characters/{character_id}', {
-      params: { path: { tenant_id: tenantId, character_id: characterId } },
-    }),
+  return cached(`character:${tenantId}:${characterId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/characters/{character_id}', {
+        params: { path: { tenant_id: tenantId, character_id: characterId } },
+      }),
+    ),
   );
 }
 

@@ -5,6 +5,8 @@ import { defineConfig } from 'astro/config';
 // time, ever.
 export default defineConfig({
   output: 'static',
+  // The page of a link is fetched while the pointer is on it (lib/prefetch.ts warms what it reads).
+  prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
   // /overview and /characters became one page (ADR 0179). A static build turns
   // each entry into a page that forwards, so bookmarks and old links still work.
   redirects: {

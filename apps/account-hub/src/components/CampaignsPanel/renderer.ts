@@ -3,15 +3,17 @@
 // using here" needs (who owns each of your characters). Where you run: the campaigns you GM, and
 // every campaign of a library you administer, with who is at each table.
 
+import { onCacheRefreshed } from '../../lib/cache';
+import { isEditingIn } from '../../lib/editing';
 import { runRows, seatsIn } from '../../lib/campaigns';
 import { byName } from '../../lib/format';
 import { getManaged, getMe } from '../../lib/me';
+import { loadSeatOwners } from '../../lib/seatOwners';
 import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
 import { listMyTenants, listTenantCampaigns } from '../../lib/tenants';
 import { renderRunCampaign } from '../RunCampaign/renderer';
-import { loadSeatOwners } from '../Seat/owners';
 import { renderSeat } from '../Seat/renderer';
 
 const required = requiredIn('Campaigns panel');
@@ -32,21 +34,38 @@ export async function renderCampaignsPanel(root: HTMLElement): Promise<void> {
 
   async function load(): Promise<void> {
     const turn = ++latest;
-    const me = await getMe();
-    const [tenants, managed] = await Promise.all([listMyTenants('play'), getManaged()]);
+    const [me, tenants, managed] = await Promise.all([
+      getMe(),
+      listMyTenants('play'),
+      getManaged(),
+    ]);
     const libraryNames = new Map(tenants.items.map((tenant) => [tenant.id, tenant.name]));
 
     // Where you play: the campaign behind each seat, and who owns your characters in its library.
     const seats = seatsIn(me, new Set(libraryNames.keys()));
     const tenantIds = [...new Set(seats.map((seat) => seat.tenant_id))];
-    const campaignsByTenant = new Map(
-      await Promise.all(
+    // Where you run: the campaigns you GM, and every campaign of a library you administer, with who
+    // is at each table.
+    const runRequests = Promise.all(
+      runRows(managed).map(async (row) => {
+        const element = cloneRoot(root, '[data-run-template]');
+
+        await renderRunCampaign(element, row, me.id);
+
+        return element;
+      }),
+    );
+
+    // All of it at once: none of these waits for another.
+    const [campaignEntries, ownerEntries, runElements] = await Promise.all([
+      Promise.all(
         tenantIds.map(async (id) => [id, (await listTenantCampaigns(id)).items] as const),
       ),
-    );
-    const ownersByTenant = new Map(
-      await Promise.all(tenantIds.map(async (id) => [id, await loadSeatOwners(id, me)] as const)),
-    );
+      Promise.all(tenantIds.map(async (id) => [id, await loadSeatOwners(id, me)] as const)),
+      runRequests,
+    ]);
+    const campaignsByTenant = new Map(campaignEntries);
+    const ownersByTenant = new Map(ownerEntries);
     const seatRows = seats.flatMap((seat) => {
       const campaign = campaignsByTenant.get(seat.tenant_id)?.find((c) => c.id === seat.campaign_id);
       const libraryName = libraryNames.get(seat.tenant_id);
@@ -73,18 +92,6 @@ export async function renderCampaignsPanel(root: HTMLElement): Promise<void> {
       return element;
     });
 
-    // Where you run: the campaigns you GM, and every campaign of a library you administer, with who
-    // is at each table.
-    const runElements = await Promise.all(
-      runRows(managed).map(async (row) => {
-        const element = cloneRoot(root, '[data-run-template]');
-
-        await renderRunCampaign(element, row, me.id);
-
-        return element;
-      }),
-    );
-
     if (turn !== latest) return;
 
     error.hidden = true;
@@ -106,6 +113,11 @@ export async function renderCampaignsPanel(root: HTMLElement): Promise<void> {
       sayError(error, cause);
     }
   }
+
+  // What was shown came from the cache, and the API has something different.
+  onCacheRefreshed(() => {
+    if (!isEditingIn(root)) void reload();
+  });
 
   await load();
   root.hidden = false;

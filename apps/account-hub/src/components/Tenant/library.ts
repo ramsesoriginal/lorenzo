@@ -8,6 +8,7 @@
 
 import { knownNames } from '../../lib/activityNames';
 import { type CampaignRole, campaignRoleFor, isTenantAdmin } from '../../lib/format';
+import { type LibraryReads, readLibrary } from '../../lib/libraryData';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { rosterFromPlayers } from '../../lib/roster';
 import { bindTabs } from '../../lib/tabs';
@@ -18,12 +19,6 @@ import {
   createTenantNotification,
   deleteCampaignPicture,
   deleteTenantPicture,
-  getCampaign,
-  getTenant,
-  listCampaignGms,
-  listCampaignPlayers,
-  listTenantCampaigns,
-  listTenantRoster,
   tenantPictureUrl,
   uploadCampaignPicture,
   uploadTenantPicture,
@@ -32,8 +27,6 @@ import type {
   CampaignSummaryOut,
   MeOut,
   MembershipRosterEntryOut,
-  PlayerSummaryOut,
-  RosterEntry,
   TenantSummaryOut,
 } from '../../lib/types';
 import { renderActivityLog } from '../ActivityLog/renderer';
@@ -52,16 +45,7 @@ import { bindStepDownAsGm } from './stepDownAsGm';
 
 const required = requiredIn('Tenant');
 
-export type LibraryData = {
-  // LorenzoScript, as written; empty when there is none.
-  description: string;
-  // Each campaign's description, LorenzoScript as written, by campaign id.
-  descriptions: Map<string, string>;
-  campaigns: CampaignSummaryOut[];
-  // Null where the caller isn't an administrator: it isn't fetched at all.
-  roster: RosterEntry[] | null;
-  gmsByCampaign: Map<string, string[]>;
-  playersByCampaign: Map<string, PlayerSummaryOut[]>;
+export type LibraryData = LibraryReads & {
   // Bound to what it fetched but not in the page yet, for administrators.
   activity: HTMLElement | null;
 };
@@ -82,63 +66,24 @@ export async function loadLibrary(
   tenant: TenantSummaryOut,
   me: MeOut,
 ): Promise<LibraryData> {
-  const admin = isTenantAdmin(tenant);
-  // get_tenant_context (the real gate behind list_tenant_roster/
-  // list_activity_log/create_tenant_notification_route) requires an
-  // actual Membership row, which by construction means admin
-  // (owner/orga) - MembershipRole has no plain-member role. Fetching
-  // this for every tenant listMyTenants() returns, including
-  // participant-only ones (Player/CampaignGm standing, no Membership),
-  // 404'd uncaught and broke this whole page for that caller.
-  const [campaignPage, rosterPage, detail] = await Promise.all([
-    listTenantCampaigns(tenant.id),
-    admin ? listTenantRoster(tenant.id) : null,
-    // The summary has no description; the detail read does.
-    getTenant(tenant.id),
-  ]);
-  const campaigns = campaignPage.items;
-
-  const gmLists = admin
-    ? await Promise.all(campaigns.map((c) => listCampaignGms(tenant.id, c.id)))
-    : [];
-  const gmsByCampaign = new Map(
-    campaigns.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)]),
-  );
-  // The players of every campaign the caller manages: where a player's
-  // own id comes from (ADR 0170).
-  const managed = campaigns.filter((c) => admin || campaignRoleFor(c.id, me) === 'gm');
-  // The list has no descriptions; each campaign's own read does.
-  const [playerPages, details] = await Promise.all([
-    Promise.all(managed.map((c) => listCampaignPlayers(tenant.id, c.id))),
-    Promise.all(campaigns.map((c) => getCampaign(tenant.id, c.id))),
-  ]);
-  const playersByCampaign = new Map(managed.map((c, i) => [c.id, playerPages[i]?.items ?? []]));
-
+  const reads = await readLibrary(tenant, me);
   let activity: HTMLElement | null = null;
 
-  if (admin) {
+  if (isTenantAdmin(tenant)) {
     activity = cloneComponent(root, '[data-activity-log-template]');
     await renderActivityLog(
       activity,
       tenant,
       knownNames({
         tenant,
-        campaigns,
-        roster: rosterPage?.items ?? null,
-        players: [...playersByCampaign.values()].flat(),
+        campaigns: reads.campaigns,
+        roster: reads.roster,
+        players: [...reads.playersByCampaign.values()].flat(),
       }),
     );
   }
 
-  return {
-    description: detail.tenant.description,
-    descriptions: new Map(details.map((c) => [c.id, c.description])),
-    campaigns,
-    roster: rosterPage?.items ?? null,
-    gmsByCampaign,
-    playersByCampaign,
-    activity,
-  };
+  return { ...reads, activity };
 }
 
 // One campaign of the library, from <Tenant />'s template, with the controls its caller may use.

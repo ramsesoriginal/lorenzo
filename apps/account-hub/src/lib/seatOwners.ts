@@ -1,5 +1,5 @@
-import { getCharacter } from '../../lib/characters';
-import type { MeOut } from '../../lib/types';
+import { getCharacter } from './characters';
+import type { MeOut } from './types';
 
 // Who owns each character on the caller's seats in one library: the one fact
 // "Stop using here" needs, and only a character read gives. A character whose
