@@ -14,6 +14,8 @@ export type RunRole = 'gm' | 'admin';
 export interface RunRow {
   tenantId: string;
   tenantName: string;
+  // What an address names the library by (`/tenants/?tenant=`).
+  tenantSlug: string;
   campaignId: string;
   campaignName: string;
   // `gm`: you hold the GM grant. `admin`: you administer the library and so run
@@ -40,6 +42,7 @@ export function runRows(managed: ManagedScopeOut): RunRow[] {
       rows.push({
         tenantId: tenant.tenant_id,
         tenantName: tenant.name,
+        tenantSlug: tenant.slug,
         campaignId: campaign.campaign_id,
         campaignName: campaign.name,
         role: campaign.is_gm ? 'gm' : 'admin',

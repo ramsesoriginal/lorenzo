@@ -17,7 +17,7 @@ import type {
   RosterEntry,
   TenantSummaryOut,
 } from '../../lib/types';
-import { bindUnlinkCharacter } from './unlinkCharacter';
+import { bindUnlinkCharacter } from '../../lib/unlinkCharacter';
 
 const required = requiredIn('Campaign roster');
 

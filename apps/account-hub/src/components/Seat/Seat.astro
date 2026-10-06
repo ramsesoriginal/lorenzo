@@ -1,0 +1,72 @@
+<!-- Your seat in one campaign (ADR 0179): your characters there, and what belongs to a seat. There is
+     no self-service join (RFC 0014), so this is only ever drawn for a campaign you already hold a
+     seat in. Rendered by renderSeat. -->
+<section class="card card-body stack" data-seat>
+  <h3 class="row">
+    <span data-name></span>
+    <span class="campaign-meta" data-where></span>
+  </h3>
+
+  <p data-no-characters hidden>You don't have a character here yet.</p>
+  <ul class="list" data-characters hidden></ul>
+
+  <form class="row" data-create-form>
+    <label class="field">
+      <span class="field-label">New Character Name</span>
+      <input
+        type="text"
+        class="text-input"
+        placeholder="New character name"
+        aria-label="New character name"
+        required
+        data-create-name
+      />
+    </label>
+    <button type="submit">Create character</button>
+    <span class="status-text" role="status" data-create-status hidden></span>
+  </form>
+
+  <!-- RFC 0014's roster reuse: bring a character of another campaign in the same library into this
+       one, instead of making a new one - only before there is one here. -->
+  <div data-reuse hidden>
+    <p>Or use one of your existing characters in this library:</p>
+    <ul class="list" data-reusable></ul>
+  </div>
+
+  <!-- RFC 0017 (c): removes this player row and every character link it grants. -->
+  <div>
+    <button type="button" class="" data-leave>Leave this campaign</button>
+    <span class="status-text" class="btn-danger" role="status" data-leave-status hidden></span>
+  </div>
+
+  <template data-character-template>
+    <li class="row">
+      <span class="grow" data-character-name></span>
+      <button type="button" data-rename>Rename</button>
+      <!-- Only for a link that is not the character's own owner's (ADR 0170). -->
+      <button type="button" data-unlink hidden>Stop using in this campaign</button>
+      <form class="stack" data-rename-form hidden>
+        <input
+          type="text"
+          class="text-input"
+          aria-label="Character name"
+          required
+          data-rename-input
+        />
+        <div class="row">
+          <button type="submit">Save</button>
+          <button type="button" data-rename-cancel>Cancel</button>
+        </div>
+      </form>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+
+  <template data-reusable-template>
+    <li class="row">
+      <span class="grow" data-reusable-name></span>
+      <button type="button" data-use>Use this character</button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+</section>

@@ -1,0 +1,29 @@
+<!-- One campaign you run, on /campaigns's "Where you run" (ADR 0179): who is at the table, by name
+     (ADR 0176), and the characters each plays. Read-only: a campaign's administration stays on
+     /tenants, which this links to. Rendered by renderRunCampaign. -->
+<section class="stack card card-body" data-run-campaign>
+  <h3 class="row">
+    <strong data-name></strong>
+    <span class="campaign-meta" data-meta></span>
+  </h3>
+
+  <div data-people hidden>
+    <h4>Players</h4>
+    <p data-no-players hidden>No players yet.</p>
+    <ul class="list" data-players hidden></ul>
+    <h4>GMs</h4>
+    <p data-no-gms hidden>No GMs yet.</p>
+    <ul class="list" data-gms hidden></ul>
+  </div>
+
+  <!-- An administrator who has opted out of a campaign's play side: GET /me/managed still lists it
+       (that is the administrative axis), but its people are not theirs to see. -->
+  <p data-unavailable hidden>This campaign's people aren't shown to you.</p>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <a href="/tenants/" data-manage>Manage in Your libraries and campaigns</a>
+
+  <template data-person-template>
+    <li class="row"></li>
+  </template>
+</section>

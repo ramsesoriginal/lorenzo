@@ -33,3 +33,8 @@ export function rootElement(fragment: ParentNode): HTMLElement {
 
   return root;
 }
+
+// A fresh copy of the one element a <template> holds: a row, a card, a component.
+export function cloneRoot(container: ParentNode, selector: string): HTMLElement {
+  return rootElement(fromTemplate(container, selector));
+}
