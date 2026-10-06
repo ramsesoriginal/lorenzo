@@ -1,0 +1,48 @@
+# What the importer tries when a name matches no item (ADR 0193): the same name written another way.
+# It is data, and it grows as GMs find gaps; `lorenzo inventory import --preprocess FILE` adds a
+# table of one's own, in this shape, on top of it.
+#
+# `names` is a whole name and what it is called in the catalog. `words` is one word and its
+# translation, for the names that are a few words long. Both are compared without case.
+
+[names]
+"heavy crossbow" = "crossbow, heavy"
+"hand crossbow" = "crossbow, hand"
+"light crossbow" = "crossbow, light"
+"schwere armbrust" = "heavy crossbow"
+"leichte armbrust" = "light crossbow"
+"trank der heilung" = "potion of healing"
+"heiltrank" = "potion of healing"
+"großer heiltrank" = "potion of greater healing"
+"zunderbüchse" = "tinderbox"
+"tinder box" = "tinderbox"
+"seil" = "rope"
+"hanfseil" = "rope, hempen"
+"seidenseil" = "rope, silk"
+
+[words]
+"armbrust" = "crossbow"
+"axt" = "axe"
+"beutel" = "pouch"
+"bogen" = "bow"
+"bolzen" = "bolts"
+"dolch" = "dagger"
+"fackel" = "torch"
+"fackeln" = "torches"
+"kette" = "chain"
+"kurzbogen" = "shortbow"
+"kurzschwert" = "shortsword"
+"langbogen" = "longbow"
+"langschwert" = "longsword"
+"laterne" = "lantern"
+"rationen" = "rations"
+"rucksack" = "backpack"
+"schild" = "shield"
+"schlafsack" = "bedroll"
+"schwert" = "sword"
+"streitaxt" = "battleaxe"
+"wasserschlauch" = "waterskin"
+"zweihänder" = "greatsword"
+"enterhaken" = "grappling hook"
+"kletterhaken" = "piton"
+"krummsäbel" = "scimitar"
