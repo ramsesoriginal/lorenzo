@@ -1,4 +1,5 @@
 ---
+import DeleteAccount from '../components/DeleteAccount/DeleteAccount.astro';
 import Base from '../layouts/Base.astro';
 import { BRANDING_CSS_URL } from '../lib/config';
 import { PICTURE_ACCEPT } from '../lib/profilePicture';
@@ -132,21 +133,15 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     <p id="save-status" role="status"></p>
   </form>
 
-  <section id="danger-zone" class="section danger-zone" hidden>
-    <h2>Delete your account</h2>
-    <p>
-      This removes your Lorenzo account and ends every library membership, campaign seat and GM role
-      you hold. It doesn't delete your Authgear login.
-    </p>
-    <div id="delete-account"></div>
-  </section>
+  <DeleteAccount />
 
   <script>
     import { createEditor, type Tool } from '@lorenzo/lorenzoscript-editor';
     import { showError } from '../lib/errorUi';
-    import { renderDeleteAccount } from '../lib/exitsUi';
+    import { renderDeleteAccount } from '../components/DeleteAccount/renderer';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
+    import { requiredIn } from '../lib/template';
     import {
       avatarInitial,
       localesToText,
@@ -175,8 +170,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     const previewPlaceholder = document.getElementById('preview-placeholder')!;
     const previewName = document.getElementById('preview-name')!;
     const previewPronouns = document.getElementById('preview-pronouns')!;
-    const dangerZone = document.getElementById('danger-zone')!;
-    const deleteAccountContainer = document.getElementById('delete-account')!;
+    const deleteAccount = requiredIn('Profile')<HTMLElement>(document, '[data-delete-account]');
 
     const nicknameEl = document.getElementById('nickname') as HTMLInputElement;
     const displayNameEl = document.getElementById('display_name') as HTMLInputElement;
@@ -389,8 +383,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
         populate(me);
         loading.hidden = true;
         form.hidden = false;
-        deleteAccountContainer.replaceChildren(renderDeleteAccount());
-        dangerZone.hidden = false;
+        renderDeleteAccount(deleteAccount);
       } catch (e) {
         loading.hidden = true;
         loadError.hidden = false;
