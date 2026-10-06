@@ -1,0 +1,58 @@
+---
+// Invite links for a campaign's managers (ADR 0171): make one, see them all, revoke one. A token
+// exists exactly once, in the response to creating a link; the panel shows the whole link then,
+// in a <LinkOnce />, and nowhere else. Rendered by renderInviteLinks.
+import LinkOnce from '../LinkOnce/LinkOnce.astro';
+---
+
+<div class="stack" data-invite-links>
+  <strong>Invite links:</strong>
+
+  <div class="row sticky-top">
+
+    <form class="row card card-body grow" data-player-form>
+      <label class="field">
+        <span class="field-label">Expires in</span>
+        <select  class="text-input" data-expiry></select>
+      </label>
+      <label class="field">
+        <span class="field-label">Most people who may use it (optional)</span>
+        <input class="text-input"type="number" inputmode="numeric" placeholder="No limit" data-limit />
+      </label>
+      <button type="submit" data-create>Create link</button>
+      <span class="status-text" role="status" data-form-status hidden></span>
+    </form>
+
+    <!-- A GM link (ADR 0177): one person, one use, at most a week. Next to the player link,
+        since whoever may grant GM may hand it over this way. -->
+    <form class="row card card-body grow" data-gm-form>
+      <label class="field">
+        <span class="field-label">GM link expires in</span>
+        <select class="text-input" data-gm-expiry></select>
+      </label>
+      <button type="submit" data-gm-create>Invite a GM</button>
+      <span class="status-text" role="status" data-gm-status hidden></span>
+    </form>
+
+  </div>
+
+
+  <div class="row-tight grow">
+    <div data-created></div>
+    <span class="status-text" role="status" data-list-status hidden></span>
+    <ul class="list grow" data-list></ul>
+  </div>
+
+  <template data-link-once-template>
+    <LinkOnce />
+  </template>
+
+  <template data-invite-template>
+    <li class="row">
+      <span class="badge" data-state></span>
+      <span class="campaign-meta grow" data-meta></span>
+      <button type="button" data-revoke>Revoke</button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+</div>

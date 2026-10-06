@@ -1,0 +1,22 @@
+---
+import UserPicker from '../UserPicker/UserPicker.astro';
+---
+
+<div class="stack" data-gm-management>
+  <div class="card card-body stack">
+    <strong>Assign a new GM:</strong>
+    <UserPicker />
+    <p class="error-text" role="alert" data-error hidden></p>
+  </div>
+  <strong>GMs:</strong>
+  <ul class="list" data-gm-list></ul>
+
+
+  <template data-row-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <button type="button" data-revoke>Revoke</button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+</div>

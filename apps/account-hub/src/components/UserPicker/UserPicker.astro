@@ -1,0 +1,22 @@
+<form class="row" data-user-picker>
+  <label class="field-row">
+    <input type="radio" value="email" checked data-email />
+    Email
+  </label>
+  <label class="field-row">
+    <input type="radio" value="nickname" data-nickname />
+    Nickname
+  </label>
+  <label class="field-row ">
+    <input
+      type="text"
+      class="text-input"
+      placeholder="Email or nickname"
+      aria-label="Email or nickname"
+      required
+      data-lookup
+    />
+  </label>
+  <button type="submit">Look up</button>
+  <span class="status-text" role="status" data-status hidden></span>
+</form>

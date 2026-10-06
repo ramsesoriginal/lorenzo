@@ -1,0 +1,17 @@
+<!-- A tenant's activity log. Rendered by renderActivityLog, which fetches it and fills the list
+     (or says there is nothing yet). -->
+<div class="stack" data-activity-log>
+  <h3>Activity log</h3>
+  <p class="status-text" data-empty hidden>No activity recorded yet.</p>
+  <ul class="list" data-entries hidden></ul>
+
+  <template data-entry-template>
+    <li class="row-tight">
+      <span data-summary></span>
+      <span class="campaign-meta" data-meta></span>
+    </li>
+  </template>
+
+  <!-- An id that has a name (a slug, a person's display name): the name, and the id as its title. -->
+  <template data-abbr-template><abbr></abbr></template>
+</div>

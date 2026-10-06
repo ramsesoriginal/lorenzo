@@ -1,0 +1,39 @@
+<!-- The form that edits a library's or repository's name, slug and description. <Tenant /> has the
+     Edit button that opens it, and keeps this template anywhere in its markup; renderTenantEdit puts
+     a copy of the form at the end of the block of that button. -->
+<template data-tenant-edit-form-template>
+  <form class="card card-body stack" data-form>
+    <div class="row  sticky-top">
+      <label class="field grow">
+        <span class="field-label"><span data-noun-capitalized></span> name</span>
+        <input type="text" class="text-input" required data-name-input />
+      </label>
+      <label class="field grow">
+        <span class="field-label"><span data-noun-capitalized></span> slug</span>
+        <input
+          type="text"
+          class="text-input"
+          required
+          pattern="[a-z0-9]+(-[a-z0-9]+)*"
+          autocapitalize="none"
+          spellcheck="false"
+          data-slug-input
+        />
+        <p class="caption" data-hint>
+          Use lowercase letters, numbers, and single hyphens between words. Links using the previous
+          slug will stop working.
+        </p>
+      </label>
+    </div>
+    <!-- A div, not a label: the editor puts its toolbar buttons in the same field as the text. -->
+    <div class="field">
+      <span class="field-label">Description</span>
+      <textarea rows="6" aria-label="Description" data-description-input></textarea>
+    </div>
+    <div class="row">
+      <button type="submit" data-save>Save</button>
+      <button type="button" data-cancel>Cancel</button>
+    </div>
+    <span class="status-text" role="status" data-form-status hidden></span>
+  </form>
+</template>

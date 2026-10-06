@@ -1,0 +1,71 @@
+---
+// Everything on /tenants: a tree of your libraries and repositories beside whichever one is
+// open. "New library" and "New repository" are items in the tree too, for an account that may
+// create. Rendered by renderTenantsPanel.
+import { BRANDING_CSS_URL } from '../../lib/config';
+import Tenant from '../Tenant/Tenant.astro';
+---
+
+<div class="with-sidebar full-width" data-tenants-panel hidden>
+  <nav class="sidebar" aria-label="Libraries and repositories">
+    <ul class="tree" data-tree>
+      <li data-libraries-group hidden>
+        <details data-libraries-details>
+          <summary>
+            <span class="grow">Libraries</span>
+            <svg class="icon tree-toggle" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+          </summary>
+          <ul data-libraries></ul>
+        </details>
+      </li>
+      <li data-repositories-group hidden>
+        <details data-repositories-details>
+          <summary>
+            <span class="grow">Repositories</span>
+            <svg class="icon tree-toggle" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+          </summary>
+          <ul data-repositories></ul>
+        </details>
+      </li>
+    </ul>
+    <p class="caption" data-create-unavailable hidden>
+      Creating a library or a repository isn't open to your account yet.
+    </p>
+  </nav>
+
+  <div class="stack" data-main>
+    <p class="error-text" role="alert" data-error hidden></p>
+
+    <Tenant />
+
+    <div data-create hidden></div>
+
+    <div class="stack-tight" data-empty hidden>
+      <p>You don't belong to any library yet.</p>
+      <div data-setup hidden>
+        <a class="btn btn-primary" href="/setup/">Set up a table</a>
+      </div>
+    </div>
+  </div>
+
+  <template data-item-template>
+    <li>
+      <a data-link></a>
+    </li>
+  </template>
+
+  <template data-new-template>
+    <li>
+      <a class="row-tight" data-link>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
+        </svg>
+        <span data-label></span>
+      </a>
+    </li>
+  </template>
+</div>

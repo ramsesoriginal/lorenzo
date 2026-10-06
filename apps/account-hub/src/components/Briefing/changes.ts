@@ -1,6 +1,6 @@
 import { describeChange } from '../../lib/changeText';
 import { relativeTime } from '../../lib/relativeTime';
-import { fromTemplate, requiredIn } from '../../lib/template';
+import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import type { EntityChange } from '../../lib/types';
 
 const required = requiredIn('Briefing');
@@ -34,7 +34,7 @@ export function showChanges(
         .join(' · ');
       where.title = new Date(change.occurred_at).toLocaleString();
 
-      return required<HTMLLIElement>(fragment, 'li');
+      return rootElement(fragment);
     }),
   );
 }

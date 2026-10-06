@@ -1,5 +1,5 @@
 import type { TableCard } from '../../lib/campaigns';
-import { fromTemplate, requiredIn } from '../../lib/template';
+import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 
 const required = requiredIn('Briefing');
 
@@ -11,7 +11,7 @@ export function showTables(root: HTMLElement, cards: TableCard[], mayCreate: boo
 
   function renderTable(card: TableCard): HTMLElement {
     const fragment = fromTemplate(root, '[data-table-template]');
-    const article = required<HTMLElement>(fragment, 'article');
+    const article = rootElement(fragment);
     const characters = required<HTMLElement>(fragment, '[data-characters]');
 
     required<HTMLElement>(fragment, '[data-name]').textContent = card.name;
@@ -25,7 +25,7 @@ export function showTables(root: HTMLElement, cards: TableCard[], mayCreate: boo
 
     required<HTMLElement>(fragment, '[data-roles]').append(
       ...card.roles.map((role) => {
-        const badge = required<HTMLElement>(fromTemplate(root, '[data-role-template]'), 'span');
+        const badge = rootElement(fromTemplate(root, '[data-role-template]'));
 
         badge.textContent = role;
 

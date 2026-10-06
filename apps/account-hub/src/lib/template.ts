@@ -20,3 +20,16 @@ export function fromTemplate(root: ParentNode, selector: string): DocumentFragme
     true,
   ) as DocumentFragment;
 }
+
+// The one element a <template> holds, for a template that is exactly one row, card or box. It is
+// taken by being the first element, not by its tag, so its markup can be an <li> today and an
+// <article> tomorrow without anything breaking.
+export function rootElement(fragment: ParentNode): HTMLElement {
+  const root = fragment.firstElementChild;
+
+  if (!(root instanceof HTMLElement)) {
+    throw new Error('A template holds no element.');
+  }
+
+  return root;
+}

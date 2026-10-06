@@ -1,0 +1,68 @@
+---
+import UserPicker from '../UserPicker/UserPicker.astro';
+---
+
+<div class="stack" data-notification-composer>
+  <strong>Send a notification:</strong>
+
+  <form class="stack card card-body"data-form>
+    <div class="row">
+      <label class="field grow">
+        <span class="field-label">Type (e.g. announcement)</span>
+        <input
+          type="text"
+          class="text-input"
+          placeholder="Type (e.g. announcement)"
+          aria-label="Type (e.g. announcement)"
+          required
+          data-type
+        />
+      </label>
+      <label class="field grow">
+        <span class="field-label">Title</span>
+        <input
+          type="text"
+          class="text-input"
+          placeholder="Title"
+          aria-label="Title"
+          required
+          data-title
+        />
+      </label>
+    </div>
+    <textarea
+      class="text-input"
+      placeholder="Body"
+      aria-label="Body"
+      required
+      data-body
+    ></textarea>
+  </form>
+
+  <!-- Outside the form, which cannot contain the picker's own form; the Send button below
+       belongs to the composer's form through its form attribute. -->
+  <div class="row">
+    <div class="stack grow">
+      <div data-broadcasting>
+        <p class="status-text">Broadcasting to everyone in this scope.</p>
+        <button type="button" data-pick>Pick a specific recipient instead of broadcasting</button>
+      </div>
+
+      <div data-picking hidden></div>
+
+      <div data-chosen hidden>
+        <p data-chosen-text></p>
+        <button type="button" data-clear>Clear (broadcast instead)</button>
+      </div>
+    </div>
+    <div class="row">
+      <button type="submit" data-send>Send</button>
+    </div>
+  </div>
+
+  <span class="status-text" role="status" data-status hidden></span>
+
+  <template data-picker-template>
+    <UserPicker />
+  </template>
+</div>

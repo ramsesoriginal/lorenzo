@@ -9,6 +9,7 @@ import { createStatusSpan } from './dom';
 import { showError } from './errorUi';
 import { kindNoun, kindNounCapitalized, type TenantKind } from './tenantKind';
 import { createTenant } from './tenants';
+import type { TenantOut } from './types';
 
 // What each one is, in a sentence, so nobody has to know the difference first.
 const BLURB: Record<TenantKind, string> = {
@@ -26,12 +27,15 @@ function field(
   return label;
 }
 
-export function renderCreateTenantForm(kind: TenantKind, onCreated: () => void): HTMLElement {
+// `onCreated` gets the new library or repository, so the page can open it.
+export function renderCreateTenantForm(
+  kind: TenantKind,
+  onCreated: (tenant: TenantOut) => void,
+): HTMLElement {
   const noun = kindNoun(kind);
   const form = document.createElement('form');
   form.className = 'create-tenant-form';
-  // A repository's form sits under "Your repositories" (an h2), so it is an h3.
-  const heading = document.createElement(kind === 'repository' ? 'h3' : 'h2');
+  const heading = document.createElement('h2');
   heading.textContent = `Create a ${noun}`;
   const blurb = document.createElement('p');
   blurb.textContent = BLURB[kind];
@@ -64,7 +68,7 @@ export function renderCreateTenantForm(kind: TenantKind, onCreated: () => void):
     event.preventDefault();
     status.textContent = 'Creating…';
     try {
-      await createTenant({
+      const created = await createTenant({
         name: nameInput.value.trim(),
         slug: slugInput.value.trim() || null,
         description: descriptionInput.value.trim() || null,
@@ -74,7 +78,7 @@ export function renderCreateTenantForm(kind: TenantKind, onCreated: () => void):
       });
       form.reset();
       status.textContent = '';
-      onCreated();
+      onCreated(created);
     } catch (e) {
       showError(status, e);
     }

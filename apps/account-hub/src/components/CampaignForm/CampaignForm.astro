@@ -1,0 +1,66 @@
+---
+// The form that makes a campaign or edits one: the same fields either way. renderCampaignForm says
+// which, and shows only what that one has: the heading and "Create campaign" for a new campaign,
+// "Save", "Cancel" and the players' self-service switch (ADR 0188) for an existing one.
+---
+
+<form class="stack card card-body grow" data-campaign-form>
+  <header data-heading hidden>
+    <h3>Create a campaign</h3>
+  </header>
+  <div class="row">
+    <label class="field grow">
+      <span class="field-label">Name</span>
+      <input
+        type="text"
+        class="text-input"
+        placeholder="Name"
+        aria-label="Name"
+        required
+        data-name
+      />
+    </label>
+    <label class="field grow">
+      <span class="field-label">Slug</span>
+      <input
+        type="text"
+        class="text-input"
+        placeholder="Slug"
+        aria-label="Slug"
+        required
+        data-slug
+      />
+    </label>
+    <label class="field grow">
+      <span class="field-label">Game system</span>
+      <input
+        type="text"
+        class="text-input"
+        placeholder="Game system"
+        aria-label="Game system"
+        required
+        data-game-system
+      />
+    </label>
+  </div>
+  <!-- Named by its placeholder, with no aria-label: the library's own Description field sits in the
+       same card, and a second label of that name makes a lookup by it ambiguous. -->
+  <textarea placeholder="Description" data-description></textarea>
+
+  <div class="row">
+    <div class="row grow">
+      <label class="field-row">
+        <input type="checkbox" data-secret />
+        Secret
+      </label>
+      <!-- ADR 0188: whether this campaign's players may make their own items (ADR 0185). -->
+      <label class="field-row" data-self-service-field hidden>
+        <input type="checkbox" data-self-service />
+        Players can make their own items
+      </label>
+    </div>
+    <button type="submit" data-submit></button>
+    <button type="button" data-cancel hidden>Cancel</button>
+  </div>
+  <span class="status-text" role="status" data-status hidden></span>
+</form>

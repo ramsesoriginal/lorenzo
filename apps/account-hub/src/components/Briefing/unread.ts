@@ -1,7 +1,7 @@
 import { showError } from '../../lib/errorUi';
 import { markNotificationRead } from '../../lib/notifications';
 import { relativeTime } from '../../lib/relativeTime';
-import { fromTemplate, requiredIn } from '../../lib/template';
+import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import type { Notification } from '../../lib/types';
 
 const required = requiredIn('Briefing');
@@ -13,9 +13,9 @@ export function showUnread(root: HTMLElement, notifications: Notification[]): vo
   const list = required<HTMLUListElement>(section, '[data-unread-list]');
   const error = required<HTMLElement>(section, '[data-error]');
 
-  function renderNotification(notification: Notification): HTMLLIElement {
+  function renderNotification(notification: Notification): HTMLElement {
     const fragment = fromTemplate(root, '[data-notification-template]');
-    const item = required<HTMLLIElement>(fragment, 'li');
+    const item = rootElement(fragment);
     const when = required<HTMLElement>(fragment, '[data-when]');
     const markRead = required<HTMLButtonElement>(fragment, '[data-mark-read]');
 

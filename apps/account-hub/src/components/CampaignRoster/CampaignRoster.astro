@@ -1,0 +1,42 @@
+---
+// Who plays and who GMs one campaign, with each player's characters. For whoever manages the
+// campaign it also carries the player's self-service switch and "Remove", and "Unlink" on each of
+// their characters (RFC 0017 (a), ADR 0170, ADR 0188). Rendered by renderCampaignRoster.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<div class="stack" data-campaign-roster>
+  <strong>Roster:</strong>
+  <p class="status-text" data-empty hidden>No one here yet.</p>
+  <ul class="list" data-list></ul>
+
+  <template data-entry-template>
+    <li class="row">
+      <span class="row grow">
+        <span data-name></span>
+        <span class="badge" data-role></span>
+        <span class="row" data-characters hidden></span>
+      </span>
+      <span class="row-tight" data-controls hidden>
+        <span class="status-text" role="status" data-status hidden></span>
+        <select class="text-input" data-self-service>
+          <option value="">Follows the campaign</option>
+          <option value="true">Can make their own items</option>
+          <option value="false">Can't make their own items</option>
+        </select>
+        <button type="button" data-remove>Remove</button>
+      </span>
+    </li>
+  </template>
+
+  <template data-character-template>
+    <span class="chip">
+      <span data-character-name></span>
+      <button class="chip-remove" type="button" data-unlink>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-close`}></use>
+        </svg>
+      </button>
+    </span>
+  </template>
+</div>

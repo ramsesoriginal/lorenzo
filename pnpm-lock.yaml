@@ -180,6 +180,9 @@ importers:
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@lorenzo/lorenzoscript':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript-editor

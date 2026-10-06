@@ -1,4 +1,4 @@
-import { fromTemplate, requiredIn } from '../../lib/template';
+import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 
 const required = requiredIn('Briefing');
 
@@ -25,7 +25,7 @@ export function showRepositories(root: HTMLElement, repositories: RepositoryCard
       status.textContent = repository.status ?? '';
       status.hidden = repository.status === null;
 
-      return required<HTMLElement>(fragment, 'article');
+      return rootElement(fragment);
     }),
   );
 }

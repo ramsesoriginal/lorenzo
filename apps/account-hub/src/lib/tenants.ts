@@ -43,7 +43,7 @@ export async function listMyTenants(
 // ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike
 // MeOut, ADR 0056/0060), so the client constructs the URL itself; GET
 // .../picture has no fallback for a tenant with nothing uploaded (a plain
-// 404, unlike a user's Gravatar redirect), which pictureUi.ts's <img
+// 404, unlike a user's Gravatar redirect), which the PictureUpload component's <img
 // onerror> handles.
 export function tenantPictureUrl(tenantId: string): string {
   return `${API_BASE_URL}/tenants/${tenantId}/picture`;
