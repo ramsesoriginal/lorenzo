@@ -111,7 +111,7 @@ def test_alternatives_come_most_likely_first_and_never_include_the_name() -> Non
     assert TABLE.alternatives("Torches") == ["torch"]
     assert TABLE.alternatives("Hanfseil 50 ft") == ["hanfseil", "rope, hempen (50 feet)"]
     assert TABLE.alternatives("Rope") == []
-    assert TABLE.alternatives("Fackeln") == ["torches", "torch"]
+    assert TABLE.alternatives("Fackeln") == ["torch", "torches"]
 
 
 def test_a_table_of_ones_own_goes_on_top_of_the_built_in_one(tmp_path: Path) -> None:
@@ -231,3 +231,91 @@ def test_homebrew_creatures_and_one_offs_stay_unsorted() -> None:
         "Black Feathers Daggers with Box (schwarze Armee)",
     ):
         assert match(Line(name), found, TABLE).via == "placeholder", name
+
+
+MORE_CATALOG = [
+    "Shortsword", "Handaxe", "Greataxe", "Warhammer", "Morningstar", "Quarterstaff", "Javelin",
+    "Sling", "Halberd", "Rapier", "Arrows (20)", "Quiver", "Leather armor", "Chain shirt",
+    "Chain mail", "Scale mail", "Plate armor", "Studded leather armor", "Backpack", "Bedroll",
+    "Lantern, bullseye", "Tent, two-person", "Oil (flask)", "Candle", "Crowbar", "Piton",
+    "Healer's kit", "Thieves' tools", "Spellbook", "Parchment (one sheet)", "Soap",
+    "Hunting trap", "Spyglass", "Component pouch", "Bucket", "Chest", "Holy water (flask)",
+    "Alchemist's fire (flask)", "Antitoxin (vial)", "Caltrops (bag of 20)", "Pole (10-foot)",
+    "Shovel", "Bag of holding", "Potion of greater healing", "Potion of healing", "Spell scroll",
+    "Ruby (1,000 gp)", "Gold bar", "Arcane focus (orb)", "Wand", "Saddlebags", "Riding horse",
+    "Rations (1 day)", "Ink (1 ounce bottle)", "Mirror, steel", "Climber's kit", "Waterskin",
+]  # fmt: skip
+
+MORE_KNOWN = {
+    "Short sword": "Shortsword",
+    "Hand axe": "Handaxe",
+    "Great axe": "Greataxe",
+    "War hammer": "Warhammer",
+    "Morning star": "Morningstar",
+    "Quaterstaff": "Quarterstaff",
+    "Kampfstab": "Quarterstaff",
+    "Wurfspeer": "Javelin",
+    "Schleuder": "Sling",
+    "Hellebarde": "Halberd",
+    "Degen": "Rapier",
+    "Pfeile": "Arrows (20)",
+    "Köcher": "Quiver",
+    "Leather armour": "Leather armor",
+    "Lederrüstung": "Leather armor",
+    "Kettenhemd": "Chain shirt",
+    "Kettenpanzer": "Chain mail",
+    "Schuppenpanzer": "Scale mail",
+    "Plattenpanzer": "Plate armor",
+    "Beschlagenes Leder": "Studded leather armor",
+    "Back pack": "Backpack",
+    "Bed roll": "Bedroll",
+    "Bettrolle": "Bedroll",
+    "Blendlaterne": "Lantern, bullseye",
+    "Zelt": "Tent, two-person",
+    "Ölflasche": "Oil (flask)",
+    "Kerzen": "Candle",
+    "Brecheisen": "Crowbar",
+    "Kletterhaken": "Piton",
+    "Heilerset": "Healer's kit",
+    "Thieves tools": "Thieves' tools",
+    "Zauberbuch": "Spellbook",
+    "Pergament": "Parchment (one sheet)",
+    "Seife": "Soap",
+    "Falle": "Hunting trap",
+    "Fernrohr": "Spyglass",
+    "Komponentenbeutel": "Component pouch",
+    "Eimer": "Bucket",
+    "Truhe": "Chest",
+    "Weihwasser": "Holy water (flask)",
+    "Alchemists fire": "Alchemist's fire (flask)",
+    "Gegengift": "Antitoxin (vial)",
+    "Caltrops": "Caltrops (bag of 20)",
+    "Stange": "Pole (10-foot)",
+    "Schaufel": "Shovel",
+    "Nimmervoller Beutel": "Bag of holding",
+    "Greater healing potion": "Potion of greater healing",
+    "Healing potion": "Potion of healing",
+    "Zauberschriftrolle": "Spell scroll",
+    "Rubin": "Ruby (1,000 gp)",
+    "Goldbarren": "Gold bar",
+    "Arcane focus - Orb": "Arcane focus (orb)",
+    "Zauberstab": "Wand",
+    "Satteltaschen": "Saddlebags",
+    "Reitpferd": "Riding horse",
+    "Tagesrationen": "Rations (1 day)",
+    "Tinte": "Ink (1 ounce bottle)",
+    "Spiegel": "Mirror, steel",
+    "Kletterausrüstung": "Climber's kit",
+    "Wasserflasche": "Waterskin",
+}
+
+
+def test_more_names_players_are_likely_to_write_find_their_items() -> None:
+    found = library(*(item(200 + i, title) for i, title in enumerate(MORE_CATALOG)))
+    wrong = {}
+    for written, wanted in MORE_KNOWN.items():
+        result = match(Line(written), found, TABLE)
+        got = result.item.title if result.item is not None else None
+        if got != wanted:
+            wrong[written] = got
+    assert wrong == {}
