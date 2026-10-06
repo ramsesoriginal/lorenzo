@@ -32,9 +32,11 @@ from lorenzo_cli.client.models import (
     ItemOut,
     LinearFormulaBodyInput,
     MeOut,
+    OwnedByResponse,
     PackGivenOut,
     PageAttachmentRefOut,
     PageCharacterSummaryOut,
+    PageInformationOut,
     PageItemOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
@@ -42,6 +44,7 @@ from lorenzo_cli.client.models import (
     PageSubscriptionOut,
     PageTenantSummaryOut,
     ResolvedSlugOut,
+    SetContainerRequest,
     SetEntityStatRequest,
     SetPrototypesRequest,
     StatDefinitionCreate,
@@ -191,6 +194,37 @@ CREATE_ITEM_INSTANCE: Op[ItemInstanceOut] = Op(
     request_type=ItemInstanceCreate,
     response_type=ItemInstanceOut,
 )
+LIST_ENTITY_INFORMATION: Op[PageInformationOut] = Op(
+    "list_entity_information",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/information",
+    response_type=PageInformationOut,
+)
+ADD_INFORMATION_KNOWER: Op[InformationOut] = Op(
+    "add_information_knower",
+    "PUT",
+    f"{_TENANT}/information/{{information_id}}/knowers/{{knower_entity_id}}",
+    response_type=InformationOut,
+)
+LIST_ITEM_INSTANCES_OWNED_BY: Op[OwnedByResponse] = Op(
+    "list_item_instances_owned_by",
+    "GET",
+    f"{_TENANT}/item-instances/owned-by/{{owner_entity_id}}",
+    response_type=OwnedByResponse,
+)
+SET_ITEM_INSTANCE_CONTAINER: Op[ItemInstanceOut] = Op(
+    "set_item_instance_container",
+    "PUT",
+    f"{_TENANT}/item-instances/{{entity_id}}/container",
+    request_type=SetContainerRequest,
+    response_type=ItemInstanceOut,
+)
+CLEAR_ITEM_INSTANCE_CONTAINER: Op[ItemInstanceOut] = Op(
+    "clear_item_instance_container",
+    "DELETE",
+    f"{_TENANT}/item-instances/{{entity_id}}/container",
+    response_type=ItemInstanceOut,
+)
 CREATE_ITEM_INSTANCES_FROM_PACK: Op[PackGivenOut] = Op(
     "create_item_instances_from_pack",
     "POST",
@@ -282,6 +316,11 @@ ALL_OPS: tuple[Op[Any], ...] = (
     UPDATE_INFORMATION,
     REPLACE_ITEM_PROTOTYPES,
     CREATE_ITEM_INSTANCE,
+    LIST_ENTITY_INFORMATION,
+    ADD_INFORMATION_KNOWER,
+    LIST_ITEM_INSTANCES_OWNED_BY,
+    SET_ITEM_INSTANCE_CONTAINER,
+    CLEAR_ITEM_INSTANCE_CONTAINER,
     CREATE_ITEM_INSTANCES_FROM_PACK,
     PUBLISH_REPOSITORY,
     UNPUBLISH_REPOSITORY,
