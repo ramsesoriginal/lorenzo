@@ -6,14 +6,16 @@
 // Two sections: where you PLAY (a seat of your own, with your characters) and
 // where you RUN (a campaign you GM, or one of a library you administer). A
 // campaign you do both in is in both.
-import { displayNameFor } from './format';
-import type { ManagedScopeOut, MeOut, PlayerContextOut } from './types';
+import { byName, displayNameFor } from './format';
+import type { CampaignSummaryOut, ManagedScopeOut, MeOut, PlayerContextOut } from './types';
 
 export type RunRole = 'gm' | 'admin';
 
 export interface RunRow {
   tenantId: string;
   tenantName: string;
+  // What an address names the library by (`/tenants/?tenant=`).
+  tenantSlug: string;
   campaignId: string;
   campaignName: string;
   // `gm`: you hold the GM grant. `admin`: you administer the library and so run
@@ -23,10 +25,6 @@ export interface RunRow {
 
 export function runRoleLabel(role: RunRole): 'GM' | 'Admin' {
   return role === 'gm' ? 'GM' : 'Admin';
-}
-
-function byName(a: string, b: string): number {
-  return a.localeCompare(b, 'en', { sensitivity: 'base' });
 }
 
 // The campaigns you run, from `GET /me/managed`, libraries only (a repository
@@ -40,6 +38,7 @@ export function runRows(managed: ManagedScopeOut): RunRow[] {
       rows.push({
         tenantId: tenant.tenant_id,
         tenantName: tenant.name,
+        tenantSlug: tenant.slug,
         campaignId: campaign.campaign_id,
         campaignName: campaign.name,
         role: campaign.is_gm ? 'gm' : 'admin',
@@ -58,6 +57,88 @@ export function seatsIn(
   libraryIds: ReadonlySet<string>,
 ): PlayerContextOut[] {
   return me.players.filter((player) => libraryIds.has(player.tenant_id));
+}
+
+// One campaign of yours, once, for the home page: every way you are in it (you can play and run
+// the same one) and, if you play, which characters.
+export interface TableCard {
+  tenantId: string;
+  libraryName: string;
+  // What /tenants names the library by.
+  librarySlug: string;
+  campaignId: string;
+  name: string;
+  gameSystem: string | null;
+  secret: boolean;
+  roles: ('Player' | 'GM' | 'Admin')[];
+  // Your characters there, or null when you don't play in it.
+  characters: string[] | null;
+}
+
+// `seats` are your own (seatsIn), `rows` what you run (runRows), `campaigns` every campaign of
+// the libraries they are in, by id. A seat whose campaign or library isn't known is left out,
+// as /campaigns leaves it out.
+export function tableCards(input: {
+  seats: readonly PlayerContextOut[];
+  rows: readonly RunRow[];
+  libraries: ReadonlyMap<string, { name: string; slug: string }>;
+  campaigns: ReadonlyMap<string, CampaignSummaryOut>;
+}): TableCard[] {
+  const cards = new Map<string, TableCard>();
+
+  function cardFor(
+    library: { tenantId: string; name: string; slug: string },
+    campaignId: string,
+    name: string,
+  ) {
+    let card = cards.get(campaignId);
+
+    if (!card) {
+      const campaign = input.campaigns.get(campaignId);
+
+      card = {
+        tenantId: library.tenantId,
+        libraryName: library.name,
+        librarySlug: library.slug,
+        campaignId,
+        name: campaign?.name ?? name,
+        gameSystem: campaign?.game_system ?? null,
+        secret: campaign?.secret ?? false,
+        roles: [],
+        characters: null,
+      };
+      cards.set(campaignId, card);
+    }
+
+    return card;
+  }
+
+  for (const seat of input.seats) {
+    const campaign = input.campaigns.get(seat.campaign_id);
+    const library = input.libraries.get(seat.tenant_id);
+
+    if (!campaign || !library) continue;
+
+    const card = cardFor({ tenantId: seat.tenant_id, ...library }, seat.campaign_id, campaign.name);
+
+    if (!card.roles.includes('Player')) card.roles.push('Player');
+    card.characters = [...(card.characters ?? []), ...seat.characters.map((c) => c.name)];
+  }
+
+  for (const row of input.rows) {
+    const card = cardFor(
+      { tenantId: row.tenantId, name: row.tenantName, slug: row.tenantSlug },
+      row.campaignId,
+      row.campaignName,
+    );
+    const role = runRoleLabel(row.role);
+
+    if (!card.roles.includes(role)) card.roles.push(role);
+  }
+
+  return [...cards.values()].sort(
+    (a, b) => byName(a.libraryName, b.libraryName) || byName(a.name, b.name),
+  );
 }
 
 // A player's characters on one line, for a GM looking down a roster.

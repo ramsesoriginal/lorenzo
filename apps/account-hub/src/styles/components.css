@@ -3,14 +3,9 @@
  * status text, and the like already come from @lorenzo/brand's own
  * components.css (ADR 0098; use .badge/.canonical-marker/.list/
  * .inline-form/.row directly rather than a local re-implementation).
- * Only the header nav-link sizing and campaign/notification metadata
- * lines are genuinely local.
+ * Only the campaign/notification metadata lines, the danger zone, and the
+ * invite-link and setup pieces are genuinely local.
  */
-
-.account a {
-  font-family: var(--font-ui);
-  font-size: 14px;
-}
 
 /* Secondary metadata line under a campaign or notification title - game
    system/role/secret, or scope/timestamp. */
@@ -19,46 +14,6 @@
   display: block;
   font-size: 13px;
   color: var(--text-tertiary);
-}
-
-/* Library editor: name, slug and description (ADR 0136, ADR 0170). */
-.tenant-details {
-  margin-block: 1rem;
-}
-.tenant-details-value {
-  overflow-wrap: anywhere;
-}
-.tenant-details-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: end;
-}
-.tenant-details-form label,
-.create-tenant-form label {
-  display: grid;
-  gap: 0.25rem;
-}
-/* The create forms (ADR 0178) lay their fields out like the editor does. */
-.create-tenant-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: end;
-}
-.create-tenant-form > h2,
-.create-tenant-form > h3,
-.create-tenant-form > p,
-.create-tenant-form > fieldset {
-  flex-basis: 100%;
-  margin: 0;
-}
-/* A repository's draft or published state (ADR 0178). */
-.repository-status {
-  margin: 0;
-}
-.tenant-details-hint {
-  flex-basis: 100%;
 }
 
 /* The one section of /profile that can't be undone (ADR 0170): set apart from
@@ -82,20 +37,6 @@
   font-family: var(--font-mono);
 }
 
-/* One campaign on /campaigns's "Where you run" (ADR 0179): its name, then
-   Players and GMs one under the other, not in the row the brand's .list gives
-   a single-line item. */
-.list > .run-campaign {
-  display: block;
-}
-.run-campaign h4 {
-  margin: var(--space-3) 0 var(--space-1);
-}
-.run-campaign > a {
-  display: inline-block;
-  margin-top: var(--space-2);
-}
-
 /* /setup (ADR 0180): the steps as they run, and the links of the result. */
 .setup-steps > li[data-state="failed"] {
   color: var(--danger);
@@ -103,9 +44,31 @@
 .setup-link {
   margin-block: var(--space-3);
 }
-/* A choice among radio buttons sits in a row with its words, not above them. */
-.create-tenant-form fieldset label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+/* A notification's text, shown when it is opened on the home page: lined up with the title
+   above it (the summary's own padding), and its line breaks kept. */
+.notification-body {
+  margin: 0;
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+/* The letter that stands in for a profile picture when there is none to show: quiet and
+   neutral, never the spark (identity.md 17.1). Sized by --avatar-size where it's placed. */
+.avatar-placeholder {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--avatar-size, 48px);
+  height: var(--avatar-size, 48px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--fill-soft);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: calc(var(--avatar-size, 48px) / 2.5);
+}
+
+.avatar-placeholder[hidden] {
+  display: none;
 }

@@ -1,0 +1,197 @@
+---
+// One library or repository: its name and kind, and what the signed-in person can do with it.
+// Rendered by renderTenant. Each part of a tenant is a component, kept here as a <template>: the
+// renderer clones the ones this tenant and this person have a use for into the slots below (a slot
+// stays hidden until it has one), and the campaign's own parts into each campaign's row.
+import ActivityLog from '../ActivityLog/ActivityLog.astro';
+import CampaignEdit from '../CampaignEdit/CampaignEdit.astro';
+import CampaignForm from '../CampaignForm/CampaignForm.astro';
+import CampaignRoster from '../CampaignRoster/CampaignRoster.astro';
+import GmManagement from '../GmManagement/GmManagement.astro';
+import InviteLinks from '../InviteLinks/InviteLinks.astro';
+import InvitePlayer from '../InvitePlayer/InvitePlayer.astro';
+import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
+import NotificationComposer from '../NotificationComposer/NotificationComposer.astro';
+import PictureUpload from '../PictureUpload/PictureUpload.astro';
+import TenantEdit from '../TenantEdit/TenantEdit.astro';
+---
+
+<article class="stack card card-body" data-tenant hidden>
+  <header class="stack">
+    <p class="caption" data-status hidden></p>
+    <div class="row">
+      <div class="row grow">
+        <h2 class="" data-name></h2>
+        <code data-slug></code>
+      </div>
+      <span class="badge" data-kind hidden></span>
+      <span class="badge" data-role></span>
+    </div>
+    <div class="stack">
+      <div class="row sticky-top" data-body>
+        <!-- For its administrators the Edit button, whose form <TenantEdit /> holds. -->
+
+        <div class="stack grow" data-tenant-edit>
+          <div class="ls-content" data-tenant-description hidden></div>
+          <div class="row" data-body>
+            <button type="button" data-edit hidden>
+              Edit <span data-noun></span>
+            </button>
+          </div>
+
+          <span class="status-text" role="status" data-edit-status hidden></span>
+        </div>
+        <div data-slot data-picture-slot hidden></div>
+      </div>
+      <TenantEdit />
+    </div>
+  </header>
+  <div class="stack">
+    <p data-loading hidden>
+      Loading&hellip;
+    </p>
+    <p class="error-text" role="alert" data-error hidden></p>
+
+    <!-- What a tenant's people can do in it, one part at a time. A tab is there only while its panel has
+         something in it, so a repository, or a player, has fewer; bindTabs does that. -->
+    <div class="stack" data-tenant-tabs>
+      <div class="tabs" role="tablist" aria-label="Manage this tenant">
+        <button type="button" class="tab" role="tab">
+          Campaigns
+        </button>
+        <button type="button" class="tab" role="tab">
+          New campaign
+        </button>
+        <button type="button" class="tab" role="tab">
+          Admins
+        </button>
+        <button type="button" class="tab" role="tab">
+          Activity
+        </button>
+        <button type="button" class="tab" role="tab">
+          Notifications
+        </button>
+      </div>
+
+      <div class="stack" role="tabpanel">
+        <section class="stack" data-campaigns hidden>
+          <p data-no-campaigns hidden>
+            No campaigns visible to you here yet.
+          </p>
+          <div class="stack" data-campaign-list></div>
+        </section>
+      </div>
+
+      <div class="stack" role="tabpanel">
+        <div data-slot data-create-campaign-slot hidden></div>
+      </div>
+
+      <div class="stack" role="tabpanel">
+        <div data-slot data-memberships-slot hidden></div>
+
+        <div data-leave hidden>
+          <button type="button" class="btn-danger" data-leave-button>
+            Leave this <span data-noun></span>
+          </button>
+          <span class="status-text" role="status" data-leave-status hidden></span>
+        </div>
+      </div>
+
+      <div class="stack" role="tabpanel">
+        <div data-slot data-activity-slot hidden></div>
+      </div>
+
+      <div class="stack" role="tabpanel">
+        <div data-slot data-notifications-slot hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- The library's parts. -->
+  <template data-picture-upload-template>
+    <PictureUpload />
+  </template>
+  <template data-create-campaign-template>
+    <CampaignForm />
+  </template>
+  <template data-membership-admin-template>
+    <MembershipAdmin />
+  </template>
+  <template data-activity-log-template>
+    <ActivityLog />
+  </template>
+  <template data-notification-composer-template>
+    <NotificationComposer />
+  </template>
+
+  <!-- A campaign's row and its parts, which are the same components for every campaign. -->
+  <template data-campaign-template>
+    <article class="card card-body stack">
+      <header class="row">
+        <h3 data-campaign-name></h3>
+        <span class="campaign-meta" data-campaign-meta></span>
+      </header>
+      <div class="stack">
+        <div class="row sticky-top">
+          <div data-campaign-picture-slot hidden></div>
+          <div class="stack grow">
+            <div class="ls-content grow" data-campaign-description hidden></div>
+            <div class="row-tight grow" data-campaign-edit-slot hidden></div>
+          </div>
+        </div>
+      </div>
+      <!-- What a campaign's managers can do, one part at a time. bindTabs makes it work; the tabs are
+           only there for those who manage the campaign. -->
+      <div class="stack" data-campaign-tabs hidden>
+        <div class="tabs" role="tablist" aria-label="Manage this campaign">
+          <button type="button" class="tab" role="tab">
+            People
+          </button>
+          <button type="button" class="tab" role="tab">
+            Invite links
+          </button>
+          <button type="button" class="tab" role="tab">
+            Notifications
+          </button>
+        </div>
+        <div class="row sticky-top" role="tabpanel">
+          <div class="stack grow">
+            <div data-campaign-invite-player-slot hidden></div>
+            <div data-campaign-roster-slot hidden></div>
+          </div>
+          <div class="stack grow">
+            <div data-campaign-gms-slot hidden></div>
+            <!-- Stepping down as the campaign's GM, shown to its GMs. -->
+            <div class="row" data-campaign-step-down hidden>
+              <button type="button" class="btn-danger" data-step-down>
+                Step down as GM
+              </button>
+              <span class="status-text" role="status" data-step-down-status hidden></span>
+            </div>
+          </div>
+        </div>
+        <div role="tabpanel">
+          <div data-campaign-invite-links-slot hidden></div>
+        </div>
+        <div role="tabpanel">
+          <div data-campaign-notify-slot hidden></div>
+        </div>
+      </div>
+    </article>
+  </template>
+  <template data-campaign-roster-template>
+    <CampaignRoster />
+  </template>
+  <template data-campaign-edit-template>
+    <CampaignEdit />
+  </template>
+  <template data-gm-management-template>
+    <GmManagement />
+  </template>
+  <template data-invite-player-template>
+    <InvitePlayer />
+  </template>
+  <template data-invite-links-template>
+    <InviteLinks />
+  </template>
+</article>

@@ -1,0 +1,33 @@
+<!-- The two create forms of /tenants: "Create a library" and "Create a repository" (ADR 0178). One
+     markup for both, since they ask the same three things; the renderer says which it is. Only
+     shown to an account whose GET /me says it may create (ADR 0175). Rendered by
+     renderCreateTenant. -->
+<form class="stack" data-create-tenant>
+  <h2 data-heading></h2>
+  <p data-blurb></p>
+
+  <label class="field">
+    <span class="field-label" data-name-label></span>
+    <input type="text" class="text-input" placeholder="Name" required data-name />
+  </label>
+
+  <label class="field">
+    <span class="field-label">Slug</span>
+    <input
+      type="text"
+      class="text-input"
+      placeholder="Slug (optional, derived from name)"
+      data-slug
+    />
+  </label>
+
+  <label class="field">
+    <span class="field-label">Description</span>
+    <textarea class="text-input" placeholder="Description (optional)" data-description></textarea>
+  </label>
+
+  <div class="row">
+    <button type="submit" data-submit></button>
+    <span class="status-text" role="status" data-status hidden></span>
+  </div>
+</form>

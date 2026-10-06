@@ -13,6 +13,7 @@ export type MeOut = Schema<'MeOut'>;
 export type ManagedScopeOut = Schema<'ManagedScopeOut'>;
 export type ProfileUpdate = Schema<'ProfileUpdate'>;
 export type Notification = Schema<'NotificationOut'>;
+export type EntityChange = Schema<'EntityChangeOut'>;
 export type CampaignOut = Schema<'CampaignOut'>;
 export type CharacterCreate = Schema<'CharacterCreate'>;
 export type CharacterUpdate = Schema<'CharacterUpdate'>;

@@ -15,6 +15,38 @@ export function textToLocales(text: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+// A locale tag has no whitespace, comma or semicolon in it, so any of them separates two. Repeats
+// (in any case) are dropped, keeping the first as it was typed: "en, de EN" is ["en", "de"].
+export function normalizeLocales(text: string): string[] {
+  const seen = new Set<string>();
+
+  return text
+    .split(/[\s,;]+/)
+    .filter((tag) => tag !== '')
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+
+      if (seen.has(key)) return false;
+      seen.add(key);
+
+      return true;
+    });
+}
+
+// What other people see first for someone, before the user id RFC 0017's chain ends on: the
+// display name, else the nickname. Null when the person has set neither.
+export function nameForOthers(profile: {
+  display_name: string | null;
+  nickname: string | null;
+}): string | null {
+  return profile.display_name?.trim() || profile.nickname?.trim() || null;
+}
+
+// The letter that stands in for a picture: the name's first, in capitals, or "?" for no name.
+export function avatarInitial(name: string | null): string {
+  return Array.from(name?.trim() ?? '')[0]?.toUpperCase() ?? '?';
+}
+
 // "" means the user cleared a nullable text field - ProfileUpdate needs an
 // explicit null for that (an empty string would fail nickname's own
 // min_length=1, and is meaningless for the others too).
@@ -68,6 +100,14 @@ export function campaignRoleFor(campaignId: string, me: MeOut): CampaignRole {
   return 'visible';
 }
 
+// A new account belongs nowhere yet: no library membership, no player seat, no GM grant. (A
+// player seat is also what makes someone a participant of a library in GET /tenants.)
+export function isNewAccount(me: MeOut): boolean {
+  return (
+    me.memberships.length === 0 && me.players.length === 0 && me.campaign_gm_grants.length === 0
+  );
+}
+
 // RFC 0014's roster-reuse sub-slice: which of the caller's own characters,
 // already played in some *other* campaign in this same tenant, could be
 // brought into the given campaign instead of creating a new one. A
@@ -86,4 +126,9 @@ export function reusableCharactersFor(
     }
   }
   return [...byId.values()];
+}
+
+// Names in the order a person reads them: "alder" beside "Alder", "é" beside "e".
+export function byName(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { sensitivity: 'base' });
 }

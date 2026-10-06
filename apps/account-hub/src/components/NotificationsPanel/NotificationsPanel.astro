@@ -1,0 +1,93 @@
+---
+// Everything on /notifications: the inbox, and the notifications you have sent with who has read
+// them (RFC 0017 (h)). Rendered by renderNotificationsPanel.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<div class="stack" data-notifications-panel hidden>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <div class="row">
+    <p class="grow" role="status" data-summary></p>
+    <label class="field-row">
+      <input type="checkbox" data-unread-only />
+      Unread only
+    </label>
+    <button type="button" class="btn-secondary" data-refresh>
+      Refresh
+    </button>
+  </div>
+
+  <p data-empty hidden>
+    No notifications.
+  </p>
+  <ul class="list" data-list></ul>
+
+  <section class="stack">
+    <div>
+      <button type="button" class="btn-secondary" data-sent-toggle>
+        Show notifications I've sent
+      </button>
+    </div>
+
+    <div class="stack" data-sent hidden>
+      <p data-sent-empty hidden>
+        You haven't sent any notifications.
+      </p>
+      <ul class="list" data-sent-list></ul>
+    </div>
+  </section>
+
+  <template data-notification-template>
+    <li class="row" data-notification>
+      <div class="tree grow">
+        <details>
+          <summary data-open>
+            <span class="stack-tight grow">
+              <span class="row-tight">
+                <strong data-title></strong>
+                <span class="badge" data-unread-badge hidden>
+                  Unread
+                </span>
+              </span>
+              <span class="caption notification-meta" data-meta></span>
+            </span>
+            <svg class="icon tree-toggle" aria-hidden="true" data-chevron>
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+          </summary>
+          <p class="notification-body" data-body></p>
+        </details>
+      </div>
+      <button type="button" class="btn-secondary" data-mark-read hidden>
+        Mark read
+      </button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+
+  <!-- One broadcast: every row a single creation call fanned out shares a batch (ADR 0061). -->
+  <template data-batch-template>
+    <li>
+      <div class="tree">
+        <details>
+          <summary data-open>
+            <span class="stack-tight grow">
+              <strong data-title></strong>
+              <span class="caption notification-meta" data-meta></span>
+            </span>
+            <svg class="icon tree-toggle" aria-hidden="true" data-chevron>
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+          </summary>
+          <p class="notification-body" data-body></p>
+          <ul class="list" data-recipients></ul>
+        </details>
+      </div>
+    </li>
+  </template>
+
+  <template data-recipient-template>
+    <li></li>
+  </template>
+</div>

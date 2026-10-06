@@ -1,0 +1,56 @@
+<div class="new-user stack" data-new-user hidden>
+  <div class="row">
+    <div class="stack grow">
+      <h1 class="display">Welcome to Lorenzo</h1>
+
+      <p class="lede stack">
+        You're not part of a library yet. A library is where a group keeps its campaigns and
+        characters.
+        <span data-can-create hidden>
+          Start a table of your own, or join one you've been invited to.
+        </span>
+        <span data-cannot-create>Ask your GM for an invite link to join theirs.</span>
+      </p>
+    </div>
+    <!-- Lazy, so someone with a table already (this block stays hidden) never downloads it. -->
+    <img
+      src="/brand/mascot_getting_started_web.png"
+      alt="Lorenzo holding out a welcoming hand, an open book with blank pages in the other"
+      loading="lazy"
+      width="320"
+    />
+  </div>
+
+  <div class="grid" style="--grid-min: 280px">
+    <section class="card card-body stack-tight" data-start-card hidden>
+      <h2>Start a table</h2>
+      <p>Make a library, a campaign in it, and the links for your players, in one go.</p>
+      <div>
+        <a class="btn btn-primary" href="/setup/">
+          Set up a table
+        </a>
+      </div>
+    </section>
+
+    <section class="card card-body stack-tight">
+      <h2>Join a table</h2>
+      <p>Paste the invite link your GM sent you, or just the code at the end of it.</p>
+      <form class="stack-tight" data-invite-form>
+        <label class="field">
+          <span class="field-label">Invite link or code</span>
+          <input
+            type="text"
+            class="text-input"
+            autocomplete="off"
+            spellcheck="false"
+            data-invite-input
+          />
+        </label>
+        <div>
+          <button type="submit">Open invite</button>
+        </div>
+        <p class="status-text error-text" role="alert" data-invite-error hidden></p>
+      </form>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,34 @@
+---
+// Everything on /campaigns (ADR 0179): the campaigns you play in, as a seat each, and the ones you
+// run, as a table each. A campaign you do both in is in both. Rendered by renderCampaignsPanel.
+import RunCampaign from '../RunCampaign/RunCampaign.astro';
+import Seat from '../Seat/Seat.astro';
+---
+
+<div class="stack" data-campaigns-panel hidden>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <p data-empty hidden>
+    You don't play in or run any campaign yet.
+    <a href="/setup/" data-setup hidden>
+      Set up a table
+    </a>
+  </p>
+
+  <section class="stack" data-play hidden>
+    <h2>Where you play</h2>
+    <div data-play-list></div>
+  </section>
+
+  <section class="stack" data-run hidden>
+    <h2>Where you run</h2>
+    <div data-run-list></div>
+  </section>
+
+  <template data-seat-template>
+    <Seat />
+  </template>
+  <template data-run-template>
+    <RunCampaign />
+  </template>
+</div>

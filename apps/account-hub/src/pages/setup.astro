@@ -1,12 +1,10 @@
 ---
+import Setup from '../components/Setup/Setup.astro';
 import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Set up a table — Lorenzo">
   <h1 class="display">Set up a table</h1>
-  <p>
-    <a href="/">&larr; Back</a>
-  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
@@ -14,48 +12,36 @@ import Base from '../layouts/Base.astro';
     Setting up a library isn't open to your account yet.
   </p>
 
-  <section id="setup" class="section" hidden>
+  <section id="setup" class="stack car card-body" hidden>
     <p>
       This makes a library to keep it in, a campaign in that library, and the links for your
       players. A library holds the campaigns and characters of a group of people.
     </p>
-    <div id="setup-container"></div>
+    <Setup />
   </section>
 
   <script>
-    import { showError } from '../lib/errorUi';
+    import { renderSetup } from '../components/Setup/renderer';
     import { getMe } from '../lib/me';
-    import { renderSetup } from '../lib/setupUi';
+    import { runPage } from '../lib/pageLoad';
+    import { requiredIn } from '../lib/template';
     import { canCreateTenants } from '../lib/tenantKind';
-    import { isAuthenticated } from '../lib/auth';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const unavailable = document.getElementById('setup-unavailable')!;
-    const setup = document.getElementById('setup')!;
-    const container = document.getElementById('setup-container')!;
+    const section = document.getElementById('setup')!;
+    const setup = requiredIn('Setup page')<HTMLElement>(document, '[data-setup]');
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
-      try {
-        const me = await getMe();
-        loading.hidden = true;
-        // ADR 0175: only an account that may create is offered the form; the
-        // 403 is still shown if it comes.
-        if (canCreateTenants(me)) {
-          setup.hidden = false;
-          renderSetup(me.id, container);
-        } else {
-          unavailable.hidden = false;
-        }
-      } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
+    await runPage(async () => {
+      const me = await getMe();
+
+      // ADR 0175: only an account that may create is offered the form; the 403 is still shown if
+      // it comes.
+      if (canCreateTenants(me)) {
+        section.hidden = false;
+        renderSetup(setup, me.id);
+      } else {
+        unavailable.hidden = false;
       }
-    }
+    });
   </script>
 </Base>

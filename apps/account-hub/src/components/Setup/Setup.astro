@@ -1,0 +1,116 @@
+---
+// /setup (ADR 0180): the form, the progress of the chain, and the result with its links, shown once.
+// One phase shows at a time; the logic is lib/setup.ts's, and renderSetup is what runs them.
+//
+// <UserPicker /> is a <form> of its own, and forms do not nest: the picker and the submit button sit
+// outside the setup <form>, and the button is tied to it by a form attribute.
+import LinkOnce from '../LinkOnce/LinkOnce.astro';
+import UserPicker from '../UserPicker/UserPicker.astro';
+---
+
+<div data-setup>
+  <div class="stack" data-form-phase>
+    <form class="stack" data-form>
+      <div class="row">
+        <label class="field grow">
+          <span class="field-label">Library name</span>
+          <input type="text" class="text-input" required data-library-name />
+        </label>
+        <label class="field grow">
+          <span class="field-label">Campaign name</span>
+          <input type="text" class="text-input" required data-campaign-name />
+        </label>
+        <label class="field grow">
+          <span class="field-label">Game system</span>
+          <input
+            type="text"
+            class="text-input"
+            placeholder="e.g. D&D 5e"
+            required
+            data-game-system
+          />
+        </label>
+      </div>
+
+      <fieldset class="stack">
+        <legend>Who runs the campaign?</legend>
+        <label class="field-row">
+          <input type="radio" name="gm-choice" value="me" checked />I do
+        </label>
+        <label class="field-row">
+          <input type="radio" name="gm-choice" value="user" />
+          Someone I can find, by email or nickname
+        </label>
+        <label class="field-row">
+          <input type="radio" name="gm-choice" value="link" />
+          Someone I'll send a link to (they can have an account or make one)
+        </label>
+      </fieldset>
+
+      <label class="field">
+        <span class="field-label">Link for your players works for</span>
+        <select class="text-input" data-player-expiry></select>
+      </label>
+
+      <label class="field" data-gm-expiry-field hidden>
+        <span class="field-label">GM link works for</span>
+        <select class="text-input" data-gm-expiry></select>
+      </label>
+    </form>
+
+    <!-- The lookup for "someone I can find", outside the form (see the top). -->
+    <div data-picker-box hidden>
+      <p>Find the GM:</p>
+      <UserPicker />
+    </div>
+
+    <div class="row">
+      <button type="submit" data-submit>
+        Set up
+      </button>
+      <span class="status-text" role="status" data-form-status hidden></span>
+    </div>
+  </div>
+
+  <!-- The chain as it runs: each step says what it is doing, and a failure stops here, says where
+       and why, and offers to go on from that step. -->
+  <div data-progress-phase hidden>
+    <ul class="list setup-steps" data-steps></ul>
+    <div role="alert" data-problem hidden>
+      <p>It stopped here. What is already made is kept, and trying again goes on from this step.</p>
+      <span class="status-text" data-why></span>
+      <button type="button" data-retry>
+        Try again
+      </button>
+    </div>
+  </div>
+
+  <!-- The result: the links, each shown once, and where to go next. "Done" clears a link from the
+       page; nothing keeps it (ADR 0171's panel does the same). -->
+  <div data-result-phase hidden>
+    <h2>Your table is ready</h2>
+    <p data-summary></p>
+    <p data-who></p>
+    <div class="setup-link" data-gm-link hidden>
+      <p>Link for your GM, which works once:</p>
+      <div data-gm-link-box></div>
+    </div>
+    <div class="setup-link" data-player-link hidden>
+      <p>Link for your players:</p>
+      <div data-player-link-box></div>
+    </div>
+    <p>
+      <a href="/campaigns/">Your campaigns</a> ·
+      <a href="/tenants/" data-library-link>
+        Manage the library
+      </a>
+    </p>
+  </div>
+
+  <template data-step-template>
+    <li class="row"></li>
+  </template>
+  <template data-link-once-template>
+    <LinkOnce />
+  </template>
+</div>

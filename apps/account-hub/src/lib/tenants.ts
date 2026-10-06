@@ -1,5 +1,6 @@
 import { etagOf } from '@lorenzo/api-client';
 import { client, pictureUpload, unwrap } from './api';
+import { cached } from './cache';
 import { API_BASE_URL } from './config';
 import type {
   AuditLogEntryOut,
@@ -33,17 +34,19 @@ const PAGE_SIZE = 50;
 export async function listMyTenants(
   kind?: TenantSummaryOut['kind'],
 ): Promise<Page<TenantSummaryOut>> {
-  return unwrap(
-    await client.GET('/tenants', {
-      params: { query: { page: 1, size: PAGE_SIZE, ...(kind ? { kind } : {}) } },
-    }),
+  return cached(`tenants:${kind ?? 'all'}`, async () =>
+    unwrap(
+      await client.GET('/tenants', {
+        params: { query: { page: 1, size: PAGE_SIZE, ...(kind ? { kind } : {}) } },
+      }),
+    ),
   );
 }
 
 // ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike
 // MeOut, ADR 0056/0060), so the client constructs the URL itself; GET
 // .../picture has no fallback for a tenant with nothing uploaded (a plain
-// 404, unlike a user's Gravatar redirect), which pictureUi.ts's <img
+// 404, unlike a user's Gravatar redirect), which the PictureUpload component's <img
 // onerror> handles.
 export function tenantPictureUrl(tenantId: string): string {
   return `${API_BASE_URL}/tenants/${tenantId}/picture`;
@@ -67,18 +70,22 @@ export async function deleteTenantPicture(tenantId: string): Promise<void> {
 }
 
 export async function listTenantCampaigns(tenantId: string): Promise<Page<CampaignSummaryOut>> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/campaigns', {
-      params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE } },
-    }),
+  return cached(`campaigns:${tenantId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/campaigns', {
+        params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE } },
+      }),
+    ),
   );
 }
 
 export async function getCampaign(tenantId: string, campaignId: string): Promise<CampaignOut> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}', {
-      params: { path: { tenant_id: tenantId, campaign_id: campaignId } },
-    }),
+  return cached(`campaign:${tenantId}:${campaignId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}', {
+        params: { path: { tenant_id: tenantId, campaign_id: campaignId } },
+      }),
+    ),
   );
 }
 
@@ -134,10 +141,12 @@ export async function deleteCampaignPicture(tenantId: string, campaignId: string
 // Unpaginated - GmOut's own docstring calls this "inherently small and
 // bounded by construction," matching OwnedByResponse's precedent.
 export async function listCampaignGms(tenantId: string, campaignId: string): Promise<GmOut[]> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/gms', {
-      params: { path: { tenant_id: tenantId, campaign_id: campaignId } },
-    }),
+  return cached(`gms:${tenantId}:${campaignId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/gms', {
+        params: { path: { tenant_id: tenantId, campaign_id: campaignId } },
+      }),
+    ),
   );
 }
 
@@ -185,13 +194,15 @@ export async function listCampaignPlayers(
   tenantId: string,
   campaignId: string,
 ): Promise<Page<PlayerSummaryOut>> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
-      params: {
-        path: { tenant_id: tenantId, campaign_id: campaignId },
-        query: { page: 1, size: PAGE_SIZE },
-      },
-    }),
+  return cached(`players:${tenantId}:${campaignId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
+        params: {
+          path: { tenant_id: tenantId, campaign_id: campaignId },
+          query: { page: 1, size: PAGE_SIZE },
+        },
+      }),
+    ),
   );
 }
 
@@ -249,10 +260,12 @@ export async function createTenant(body: TenantCreate): Promise<TenantOut> {
 // already treats GmOut/PlayerSummaryOut - bounded by how many people are
 // involved in one world, not by total traffic.
 export async function listTenantRoster(tenantId: string): Promise<Page<RosterEntry>> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/memberships', {
-      params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE } },
-    }),
+  return cached(`roster:${tenantId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/memberships', {
+        params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE } },
+      }),
+    ),
   );
 }
 
@@ -306,10 +319,12 @@ export async function bulkInviteMembers(
 }
 
 export async function listActivityLog(tenantId: string): Promise<Page<AuditLogEntryOut>> {
-  return unwrap(
-    await client.GET('/tenants/{tenant_id}/activity-log', {
-      params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE } },
-    }),
+  return cached(`activity:${tenantId}`, async () =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/activity-log', {
+        params: { path: { tenant_id: tenantId }, query: { page: 1, size: PAGE_SIZE } },
+      }),
+    ),
   );
 }
 
@@ -340,14 +355,25 @@ export async function createCampaignNotification(
   );
 }
 
-export async function getTenant(tenantId: string): Promise<{ tenant: TenantOut; etag: string }> {
-  const result = await client.GET('/tenants/{tenant_id}', {
-    params: { path: { tenant_id: tenantId } },
-  });
-  const tenant = await unwrap(result);
-  const etag = etagOf(result.response);
-  if (!etag) throw new Error('Tenant editing is temporarily unavailable. Try again later.');
-  return { tenant, etag };
+// The detail and the version it is of. What is held may be old, so a read that is about to save
+// something passes `force`: an old version would only be refused (If-Match).
+export async function getTenant(
+  tenantId: string,
+  options: { force?: boolean } = {},
+): Promise<{ tenant: TenantOut; etag: string }> {
+  return cached(
+    `tenant:${tenantId}`,
+    async () => {
+      const result = await client.GET('/tenants/{tenant_id}', {
+        params: { path: { tenant_id: tenantId } },
+      });
+      const tenant = await unwrap(result);
+      const etag = etagOf(result.response);
+      if (!etag) throw new Error('Tenant editing is temporarily unavailable. Try again later.');
+      return { tenant, etag };
+    },
+    options,
+  );
 }
 
 // Only what is given changes (PATCH, `exclude_unset`); `etag` is the version

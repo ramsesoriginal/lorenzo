@@ -1,0 +1,35 @@
+---
+// Handing a being to a player as a played character (RFC 0014): pick the campaign, then a player
+// of it, or invite someone new. Rendered by renderHandoff.
+//
+// Hooks here must not collide with <UserPicker />'s (data-status, data-email, data-nickname,
+// data-lookup): a lookup takes the first match in document order.
+import UserPicker from '../UserPicker/UserPicker.astro';
+---
+
+<div class="stack" data-handoff>
+  <label class="field">
+    <span class="field-label">Campaign</span>
+    <select class="text-input" data-campaign></select>
+  </label>
+
+  <p class="status-text" role="status" data-handoff-status hidden></p>
+
+  <div class="stack" data-players hidden>
+    <ul class="list" data-player-list></ul>
+
+    <div class="stack">
+      <p>Or invite a new player:</p>
+      <UserPicker />
+    </div>
+  </div>
+
+  <template data-player-template>
+    <li class="row">
+      <span class="grow" data-player-name></span>
+      <button type="button" data-use>
+        Use this player
+      </button>
+    </li>
+  </template>
+</div>

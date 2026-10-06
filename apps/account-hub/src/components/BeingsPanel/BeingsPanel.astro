@@ -1,0 +1,19 @@
+---
+// Everything on /beings: the beings of each library whose campaigns you GM, and of every repository.
+// Rendered by renderBeingsPanel.
+import Beings from '../Beings/Beings.astro';
+---
+
+<div class="stack" data-beings-panel hidden>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <p data-empty hidden>
+    You don't GM any campaigns yet, and you don't own a repository.
+  </p>
+
+  <div class="stack" data-list></div>
+
+  <template data-beings-template>
+    <Beings />
+  </template>
+</div>

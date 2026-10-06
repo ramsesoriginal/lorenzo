@@ -1,0 +1,51 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+import '../../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+// The whole @lorenzo/brand package, in ITCSS order (ADR 0098): reset ->
+// tokens -> fonts -> base element defaults -> structural layout -> reusable
+// components -> motion. `global.css` (imported above) loads only what's
+// genuinely account-hub-specific and layers on top of these.
+const brandStylesheets = [
+  'normalize.css',
+  'tokens.css',
+  'fonts.css',
+  'base.css',
+  'layout.css',
+  'components.css',
+  'motion.css',
+];
+---
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <!-- @lorenzo/brand's tokens.css gates its dark values behind
+       [data-theme="dark"] (identity.md's own CSS starter), rather than
+       a pure prefers-color-scheme media query - so this app has to set
+       that attribute itself. Synchronous and inline, before first
+       paint, so there's no light-mode flash for a dark-preferring
+       browser (ADR 0098 doesn't build a manual toggle here - just
+       following the system preference, same as this app's previous
+       light-dark()-based tokens.css did automatically). -->
+  <script is:inline>
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+  {brandStylesheets.map((file) => (
+    <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${file}`} />
+  ))}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <title>{title}</title>
+  <slot name="head" />
+</head>

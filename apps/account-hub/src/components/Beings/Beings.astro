@@ -1,0 +1,80 @@
+---
+// The beings of one library (RFC 0013): search them, rename one, hand one to a player as a played
+// character, make a new one. A repository's beings are content its owners author: listed for
+// reading, with no hand-off (nobody plays there) and nothing to rename or create from here
+// (ADR 0178). Rendered by renderBeings.
+import Handoff from '../Handoff/Handoff.astro';
+---
+
+<section class="stack section" data-beings>
+  <h2 class="row">
+    <span data-name></span>
+    <span class="badge" data-repository-badge hidden>
+      Repository
+    </span>
+  </h2>
+
+  <input
+    type="search"
+    class="text-input"
+    placeholder="Search beings by name…"
+    aria-label="Search beings by name"
+    data-search
+  />
+
+  <p data-none hidden></p>
+  <ul class="list vertical-window vertical-mask" data-list hidden></ul>
+
+  <form class="row" data-create-form hidden>
+    <label class="field">
+      <span class="field-label">New being name</span>
+      <input
+        type="text"
+        class="text-input"
+        placeholder="New being name"
+        aria-label="New being name"
+        required
+        data-create-name
+      />
+    </label>
+    <button type="submit">Create being</button>
+    <span class="status-text" role="status" data-create-status hidden></span>
+  </form>
+
+  <template data-being-template>
+    <li class="row">
+      <div class="row grow">
+        <span class="grow" data-being-name></span>
+        <button type="button" data-rename>
+          Rename
+        </button>
+        <button type="button" data-handoff-button>
+          Use as a played character
+        </button>
+        <form class="row" data-rename-form hidden>
+          <input
+            type="text"
+            class="text-input"
+            aria-label="Being name"
+            required
+            data-rename-input
+          />
+          <button type="submit">Save</button>
+          <button type="button" data-rename-cancel>
+            Cancel
+          </button>
+        </form>
+        <span class="status-text" role="status" data-status hidden></span>
+      </div>
+      <div data-handoff-slot></div>
+    </li>
+  </template>
+
+  <template data-readonly-template>
+    <li></li>
+  </template>
+
+  <template data-handoff-template>
+    <Handoff />
+  </template>
+</section>

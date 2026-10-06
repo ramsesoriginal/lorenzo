@@ -1,50 +1,173 @@
 ---
+import DeleteAccount from '../components/DeleteAccount/DeleteAccount.astro';
 import Base from '../layouts/Base.astro';
+import { BRANDING_CSS_URL } from '../lib/config';
+import { PICTURE_ACCEPT } from '../lib/profilePicture';
 ---
 
 <Base title="Your profile — Lorenzo">
   <h1 class="display">Your profile</h1>
-  <p>
-    <a href="/">&larr; Back</a>
-  </p>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
 
-  <form id="profile-form" hidden>
-    <section class="section">
-      <img id="picture-preview" alt="Your profile picture" width="96" height="96" />
-      <div>
-        <label for="picture-input">Change picture</label>
-        <input id="picture-input" type="file" accept="image/*" />
+  <form id="profile-form" class="card card-body stack" hidden>
+    <div class="row">
+      <img
+        id="picture-preview"
+        alt="Your profile picture"
+        width="192"
+        height="192"
+        class="card card-body squircle"
+      />
+      <span
+        id="picture-placeholder"
+        class="avatar-placeholder squircle"
+        style="--avatar-size: 192px"
+        role="img"
+        aria-label="No profile picture yet"
+        hidden
+      ></span>
+      <div class="field">
+        <label for="picture-input" class="field-label">
+          Change picture
+        </label>
+        <input
+          id="picture-input"
+          type="file"
+          accept={PICTURE_ACCEPT}
+          aria-describedby="picture-hint"
+        />
+        <p id="picture-hint" class="caption">
+          PNG, JPEG, WebP or GIF, up to 2 MB
+        </p>
         <button id="picture-remove" type="button">
           Remove picture
         </button>
       </div>
       <p id="picture-status" role="status"></p>
+    </div>
+
+    <div class="stack">
+      <div class="row">
+        <div class="field grow">
+          <span class="field-label">Email</span>
+          <span id="email-value"></span>
+          <p class="caption">
+            It comes from your login. Change it in your login settings; the new address shows here
+            after you next log in.
+          </p>
+        </div>
+        <button id="login-settings" type="button" class="btn-secondary row-tight">
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-settings`}></use>
+          </svg>
+          Manage your login
+        </button>
+      </div>
+      <p id="login-settings-status" class="status-text" role="status" hidden></p>
+    </div>
+
+    <section class="section stack">
+      <div class="grid">
+        <div class="field">
+          <label for="nickname" class="field-label">
+            Nickname
+          </label>
+          <input
+            id="nickname"
+            name="nickname"
+            type="text"
+            class="text-input"
+            aria-describedby="nickname-hint"
+          />
+          <p id="nickname-hint" class="caption">
+            Unique across Lorenzo. People can find you by it, to invite you.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="display_name" class="field-label">
+            Display name
+          </label>
+          <input
+            id="display_name"
+            name="display_name"
+            type="text"
+            class="text-input"
+            aria-describedby="display-name-hint"
+          />
+          <p id="display-name-hint" class="caption">
+            What others see first. Without one, your nickname is shown.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="pronouns" class="field-label">
+            Pronouns
+          </label>
+          <input id="pronouns" name="pronouns" type="text" class="text-input" />
+        </div>
+      </div>
+
+      <div class="field bio-field">
+        <label for="bio" class="field-label">
+          Bio
+        </label>
+        <textarea id="bio" name="bio" rows="4" aria-describedby="bio-hint"></textarea>
+        <p id="bio-hint" class="caption">
+          Bold, italic, links, lists and quotes work here (LorenzoScript). Some places, such as
+          Discord, may show the marks as typed.
+        </p>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="locales" class="field-label">
+            Locales
+          </label>
+          <input
+            id="locales"
+            name="locales"
+            type="text"
+            class="text-input"
+            aria-describedby="locales-hint"
+          />
+          <p id="locales-hint" class="caption">
+            Language codes such as en, de or en-GB, separated by commas.
+          </p>
+        </div>
+
+        <div class="row-tight">
+          <div class="field">
+            <label for="user_color" class="field-label">
+              Color
+            </label>
+            <input id="user_color" name="user_color" type="color" />
+          </div>
+          <button id="color-clear" type="button">
+            Clear color
+          </button>
+        </div>
+      </div>
     </section>
 
-    <section class="section">
-      <label for="nickname">Nickname</label>
-      <input id="nickname" name="nickname" type="text" />
-
-      <label for="display_name">Display name</label>
-      <input id="display_name" name="display_name" type="text" />
-
-      <label for="pronouns">Pronouns</label>
-      <input id="pronouns" name="pronouns" type="text" />
-
-      <label for="bio">Bio</label>
-      <textarea id="bio" name="bio" rows="4"></textarea>
-
-      <label for="locales">Locales (comma-separated, e.g. "en, de")</label>
-      <input id="locales" name="locales" type="text" />
-
-      <label for="user_color">Color</label>
-      <input id="user_color" name="user_color" type="color" />
-      <button id="color-clear" type="button">
-        Clear color
-      </button>
+    <section class="stack-tight" aria-labelledby="preview-heading">
+      <h3 id="preview-heading">How others see you</h3>
+      <div id="preview" class="card card-body row">
+        <img id="preview-picture" alt="" width="48" height="48" />
+        <span
+          id="preview-placeholder"
+          class="avatar-placeholder"
+          style="--avatar-size: 48px"
+          aria-hidden="true"
+          hidden
+        ></span>
+        <div class="stack-tight">
+          <strong id="preview-name"></strong>
+          <span id="preview-pronouns" class="caption" hidden></span>
+        </div>
+      </div>
     </section>
 
     <button id="save-button" type="submit">
@@ -53,33 +176,43 @@ import Base from '../layouts/Base.astro';
     <p id="save-status" role="status"></p>
   </form>
 
-  <section id="danger-zone" class="section danger-zone" hidden>
-    <h2>Delete your account</h2>
-    <p>
-      This removes your Lorenzo account and ends every library membership, campaign seat and GM role
-      you hold. It doesn't delete your Authgear login.
-    </p>
-    <div id="delete-account"></div>
-  </section>
+  <DeleteAccount />
 
   <script>
-    import { showError } from '../lib/errorUi';
-    import { renderDeleteAccount } from '../lib/exitsUi';
+    import { createEditor, type Tool } from '@lorenzo/lorenzoscript-editor';
+    import { renderDeleteAccount } from '../components/DeleteAccount/renderer';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
-    import { localesToText, textOrNull, textToLocales } from '../lib/format';
+    import { runPage } from '../lib/pageLoad';
+    import { say, sayError } from '../lib/statusLine';
+    import { requiredIn } from '../lib/template';
+    import {
+      avatarInitial,
+      localesToText,
+      nameForOthers,
+      normalizeLocales,
+      textOrNull,
+    } from '../lib/format';
+    import { pictureProblem } from '../lib/profilePicture';
     import type { MeOut, ProfileUpdate } from '../lib/types';
-    import { isAuthenticated } from '../lib/auth';
+    import { openLoginSettings } from '../lib/auth';
 
-    const loading = document.getElementById('loading')!;
-    const loadError = document.getElementById('load-error')!;
     const form = document.getElementById('profile-form') as HTMLFormElement;
+    const saveButton = document.getElementById('save-button') as HTMLButtonElement;
     const saveStatus = document.getElementById('save-status')!;
     const picturePreview = document.getElementById('picture-preview') as HTMLImageElement;
+    const picturePlaceholder = document.getElementById('picture-placeholder')!;
     const pictureInput = document.getElementById('picture-input') as HTMLInputElement;
     const pictureStatus = document.getElementById('picture-status')!;
-    const dangerZone = document.getElementById('danger-zone')!;
-    const deleteAccountContainer = document.getElementById('delete-account')!;
+    const emailValue = document.getElementById('email-value')!;
+    const loginSettings = document.getElementById('login-settings')!;
+    const loginSettingsStatus = document.getElementById('login-settings-status')!;
+    const preview = document.getElementById('preview')!;
+    const previewPicture = document.getElementById('preview-picture') as HTMLImageElement;
+    const previewPlaceholder = document.getElementById('preview-placeholder')!;
+    const previewName = document.getElementById('preview-name')!;
+    const previewPronouns = document.getElementById('preview-pronouns')!;
+    const deleteAccount = requiredIn('Profile')<HTMLElement>(document, '[data-delete-account]');
 
     const nicknameEl = document.getElementById('nickname') as HTMLInputElement;
     const displayNameEl = document.getElementById('display_name') as HTMLInputElement;
@@ -88,64 +221,54 @@ import Base from '../layouts/Base.astro';
     const localesEl = document.getElementById('locales') as HTMLInputElement;
     const colorEl = document.getElementById('user_color') as HTMLInputElement;
 
-    let initial: MeOut | null = null;
-    // The color input can't itself represent "no color set" (it always
-    // holds a valid hex value) - track intent to clear separately from
-    // "user picked this exact color".
-    let colorCleared = false;
+    // A bio is LorenzoScript (RFC 0027), but only what Discord, which shows it too (loot-bot's
+    // /introduce and /whoami), renders as well: no tables, footnotes or math. No entity links or
+    // images either, since a profile has no library to resolve them in.
+    const BIO_TOOLBAR: Tool[] = [
+      'bold',
+      'italic',
+      'strike',
+      '|',
+      'link',
+      '|',
+      'quote',
+      'bullets',
+      'numbers',
+      'table',
+      'code',
+      '|',
+      'undo',
+      'redo',
+    ];
+    const bioEditor = createEditor({ textarea: bioEl, toolbar: BIO_TOOLBAR });
 
-    function populate(me: MeOut) {
-      nicknameEl.value = me.nickname ?? '';
-      displayNameEl.value = me.display_name ?? '';
-      pronounsEl.value = me.pronouns ?? '';
-      bioEl.value = me.bio ?? '';
-      localesEl.value = localesToText(me.locales);
-      colorEl.value = me.user_color ?? '#000000';
-      picturePreview.src = me.picture_url;
+    let initial: MeOut | null = null;
+    // The color input can't itself represent "no color set" (it always holds a valid hex
+    // value), so the form's own color is tracked here: null is none.
+    let color: string | null = null;
+    // The picture sits at one address whatever it is, so after a change the browser is asked
+    // for it afresh.
+    let pictureVersion = '';
+
+    // The picture, or the letter standing in for it. An account with no upload and no email has
+    // nothing at the picture's address, which answers 404.
+    function showAvatar(image: HTMLImageElement, placeholder: HTMLElement, src: string) {
+      image.onload = () => {
+        image.hidden = false;
+        placeholder.hidden = true;
+      };
+      image.onerror = () => {
+        image.hidden = true;
+        placeholder.hidden = false;
+      };
+      image.src = src;
     }
 
-    document.getElementById('color-clear')?.addEventListener('click', () => {
-      colorCleared = true;
-      colorEl.value = '#000000';
-    });
-    colorEl.addEventListener('input', () => {
-      colorCleared = false;
-    });
-
-    document.getElementById('picture-remove')?.addEventListener('click', async () => {
-      pictureStatus.textContent = 'Removing…';
-      try {
-        await deleteProfilePicture();
-        const me = await getMe();
-        initial = me;
-        populate(me);
-        pictureStatus.textContent = 'Removed.';
-      } catch (e) {
-        showError(pictureStatus, e);
-      }
-    });
-
-    pictureInput.addEventListener('change', async () => {
-      const file = pictureInput.files?.[0];
-      if (!file) return;
-      pictureStatus.textContent = 'Uploading…';
-      try {
-        await uploadProfilePicture(file);
-        const me = await getMe();
-        initial = me;
-        populate(me);
-        pictureStatus.textContent = 'Updated.';
-      } catch (e) {
-        showError(pictureStatus, e);
-      } finally {
-        pictureInput.value = '';
-      }
-    });
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (!initial) return;
+    // What this form would change, as the API's own PATCH: only what differs from what it loaded.
+    function currentPatch(): ProfileUpdate {
       const patch: ProfileUpdate = {};
+
+      if (!initial) return patch;
 
       const nickname = textOrNull(nicknameEl.value);
       if (nickname !== (initial.nickname ?? null)) patch.nickname = nickname;
@@ -159,50 +282,147 @@ import Base from '../layouts/Base.astro';
       const bio = textOrNull(bioEl.value);
       if (bio !== (initial.bio ?? null)) patch.bio = bio;
 
-      const locales = textToLocales(localesEl.value);
+      const locales = normalizeLocales(localesEl.value);
       if (JSON.stringify(locales) !== JSON.stringify(initial.locales)) patch.locales = locales;
 
-      if (colorCleared) {
-        if (initial.user_color !== null) patch.user_color = null;
-      } else if (colorEl.value !== (initial.user_color ?? '#000000')) {
-        patch.user_color = colorEl.value;
-      }
+      if (color !== (initial.user_color ?? null)) patch.user_color = color;
 
-      if (Object.keys(patch).length === 0) {
-        saveStatus.textContent = 'Nothing to save.';
-        return;
-      }
+      return patch;
+    }
 
-      saveStatus.textContent = 'Saving…';
+    // Everything on the page that follows what has been typed: the preview, the letter standing
+    // in for a picture, and whether there is anything to save.
+    function onEdit() {
+      const name = nameForOthers({
+        display_name: displayNameEl.value,
+        nickname: nicknameEl.value,
+      });
+      const pronouns = pronounsEl.value.trim();
+
+      previewName.textContent = name ?? 'No name yet';
+      previewPronouns.hidden = pronouns === '';
+      previewPronouns.textContent = pronouns;
+      preview.style.borderInlineStart = color ? `4px solid ${color}` : '';
+
+      picturePlaceholder.textContent = avatarInitial(name);
+      previewPlaceholder.textContent = avatarInitial(name);
+
+      saveButton.disabled = Object.keys(currentPatch()).length === 0;
+    }
+
+    function populate(me: MeOut) {
+      nicknameEl.value = me.nickname ?? '';
+      displayNameEl.value = me.display_name ?? '';
+      pronounsEl.value = me.pronouns ?? '';
+      bioEl.value = me.bio ?? '';
+      // Setting the value doesn't tell the editor, whose preview follows what's typed.
+      void bioEditor.refresh();
+      localesEl.value = localesToText(me.locales);
+      color = me.user_color ?? null;
+      colorEl.value = color ?? '#000000';
+      emailValue.textContent = me.email ?? 'No email on your login.';
+
+      const picture = `${me.picture_url}${pictureVersion}`;
+      showAvatar(picturePreview, picturePlaceholder, picture);
+      showAvatar(previewPicture, previewPlaceholder, picture);
+
+      onEdit();
+    }
+
+    form.addEventListener('input', onEdit);
+
+    // Tags are tidied once the field is left: separated by commas, no repeats.
+    localesEl.addEventListener('change', () => {
+      localesEl.value = normalizeLocales(localesEl.value).join(', ');
+      onEdit();
+    });
+
+    colorEl.addEventListener('input', () => {
+      color = colorEl.value;
+      onEdit();
+    });
+    document.getElementById('color-clear')?.addEventListener('click', () => {
+      color = null;
+      colorEl.value = '#000000';
+      onEdit();
+    });
+
+    loginSettings.addEventListener('click', async () => {
+      say(loginSettingsStatus, 'Opening your login settings…');
       try {
-        const me = await updateProfile(patch);
-        initial = me;
-        colorCleared = false;
-        populate(me);
-        saveStatus.textContent = 'Saved.';
+        await openLoginSettings();
+        say(loginSettingsStatus, '');
       } catch (e) {
-        showError(saveStatus, e);
+        sayError(loginSettingsStatus, e);
       }
     });
 
-    if (!(await isAuthenticated())) {
-      loading.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent = 'Not logged in. Go back and log in first.';
-    } else {
+    document.getElementById('picture-remove')?.addEventListener('click', async () => {
+      say(pictureStatus, 'Removing…');
       try {
+        await deleteProfilePicture();
+        pictureVersion = `?v=${Date.now()}`;
         const me = await getMe();
         initial = me;
         populate(me);
-        loading.hidden = true;
-        form.hidden = false;
-        deleteAccountContainer.replaceChildren(renderDeleteAccount());
-        dangerZone.hidden = false;
+        say(pictureStatus, 'Removed.');
       } catch (e) {
-        loading.hidden = true;
-        loadError.hidden = false;
-        showError(loadError, e);
+        sayError(pictureStatus, e);
       }
-    }
+    });
+
+    pictureInput.addEventListener('change', async () => {
+      const file = pictureInput.files?.[0];
+      if (!file) return;
+
+      // Told here what the API would only refuse after the upload.
+      const problem = pictureProblem(file);
+      if (problem) {
+        say(pictureStatus, problem, true);
+        pictureInput.value = '';
+        return;
+      }
+
+      say(pictureStatus, 'Uploading…');
+      try {
+        await uploadProfilePicture(file);
+        pictureVersion = `?v=${Date.now()}`;
+        const me = await getMe();
+        initial = me;
+        populate(me);
+        say(pictureStatus, 'Updated.');
+      } catch (e) {
+        sayError(pictureStatus, e);
+      } finally {
+        pictureInput.value = '';
+      }
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const patch = currentPatch();
+
+      if (Object.keys(patch).length === 0) return;
+
+      say(saveStatus, 'Saving…');
+      try {
+        const me = await updateProfile(patch);
+        initial = me;
+        populate(me);
+        say(saveStatus, 'Saved.');
+      } catch (e) {
+        sayError(saveStatus, e);
+      }
+    });
+
+    await runPage(async () => {
+      const me = await getMe();
+
+      initial = me;
+      populate(me);
+      form.hidden = false;
+      renderDeleteAccount(deleteAccount);
+    });
   </script>
 </Base>
