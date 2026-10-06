@@ -752,6 +752,32 @@ input[type="image"]:focus-visible {
   gap: var(--space-2);
 }
 
+/* A group of related controls under one question: a set of radios, a few checkboxes. A bare
+   <fieldset> needs no class; its <legend> is the question, labelled like .field-label is for a
+   single control. The controls stack, and min-width: 0 undoes the browser's own, which would
+   otherwise let a long label push the box wider than its container. A class that sets its own
+   layout (a .grid, say) wins over the stacking. */
+fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+legend {
+  padding-inline: var(--space-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+fieldset:disabled {
+  opacity: 0.6;
+}
+
 /* A toggle switch - not a native input type, built from a checkbox
    visually hidden under a track/thumb pair. */
 .switch {
