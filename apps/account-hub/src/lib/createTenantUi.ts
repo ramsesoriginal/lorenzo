@@ -1,7 +1,7 @@
 // The two create forms of /tenants: "Create a library" and "Create a
 // repository" (ADR 0178), one builder for both since they ask the same three
-// things and differ in the word and in the `kind` they send. Like
-// userPicker.ts (ADR 0074), a lib/*.ts module that builds DOM.
+// things and differ in the word and in the `kind` they send. A lib/*.ts module
+// that builds DOM.
 //
 // Only shown to an account whose `GET /me` says it may create (ADR 0175); the
 // API's 403 is still shown if it comes, like any other refusal.

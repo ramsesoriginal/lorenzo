@@ -1,7 +1,7 @@
 // An error, shown (ADR 0170). The sentence itself is describeError's; what
 // lives here is the DOM around it: when a session has expired, a way back to
-// login right where the message is. Like userPicker.ts (ADR 0074), a lib/*.ts
-// module that builds DOM.
+// login right where the message is. A lib/*.ts module that
+// builds DOM.
 import { login } from './auth';
 import { describeError, isSessionExpired } from './describeError';
 

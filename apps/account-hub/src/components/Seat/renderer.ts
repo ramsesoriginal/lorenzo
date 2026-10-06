@@ -5,6 +5,7 @@
 
 import { createCharacter, linkCharacterToPlayer, updateCharacter } from '../../lib/characters';
 import { reusableCharactersFor } from '../../lib/format';
+import { bindInlineRename } from '../../lib/inlineRename';
 import { say, sayError } from '../../lib/statusLine';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { leaveCampaign } from '../../lib/tenants';
@@ -69,44 +70,22 @@ function renderCharacter(
     );
   }
 
-  // The name, or its edit form: one at a time.
-  function showName() {
-    form.hidden = true;
-    name.hidden = false;
-    renameButton.hidden = false;
-    unlinkButton.hidden = !(owner !== undefined && owner !== player.id);
-  }
-
-  renameButton.addEventListener('click', () => {
-    nameInput.value = character.name;
-    name.hidden = true;
-    renameButton.hidden = true;
-    unlinkButton.hidden = true;
-    form.hidden = false;
-    nameInput.focus();
-  });
-  cancelButton.addEventListener('click', showName);
-
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const newName = nameInput.value.trim();
-
-    if (newName === '' || newName === character.name) {
-      showName();
-
-      return;
-    }
-
-    say(status, 'Saving…');
-
-    try {
+  bindInlineRename(
+    {
+      name,
+      renameButton,
+      form,
+      input: nameInput,
+      cancel: cancelButton,
+      status,
+      alongside: [unlinkButton],
+    },
+    character.name,
+    async (newName) => {
       await updateCharacter(player.tenant_id, character.entity_id, { name: newName });
       onChanged();
-    } catch (e) {
-      sayError(status, e);
-    }
-  });
+    },
+  );
 
   return rootElement(fragment);
 }
