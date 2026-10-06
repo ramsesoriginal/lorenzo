@@ -102,7 +102,7 @@ Each line is matched to the library's items, in this order, and the first hit wi
 
 An unsorted item is a placeholder: it keeps your name, note, weight, value and kind, and shows a badge on the board. Your GM sees all of them in one list and either points each at a real catalog item or makes one for it. You are told when that happens: each item appears in your list of changes, and you get one notification saying that items were sorted. Nothing is lost by importing something the catalog does not know.
 
-A file holds at most **1024 lines**.
+A file holds at most **1024 item lines** (the lines that start with `- `).
 
 Two things to know:
 
