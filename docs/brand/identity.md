@@ -2,7 +2,7 @@
 
 version: 1.0
 status: living specification
-updated: 2026-09-23
+updated: 2026-10-07
 scope: master brand, product family, digital applications, developer tools, community surfaces
 
 ---
@@ -144,6 +144,7 @@ Preferred pattern:
 - Lorenzo Sync
 - Lorenzo API
 - Lorenzo Mobile
+- Lorenzo Bench
 - Lorenzo for Discord
 
 Use descriptive product names rather than inventing a separate brand for every utility.
@@ -155,6 +156,15 @@ Example:
 `✧ Lorenzo` `CLI`
 
 The descriptor is secondary and should never be redrawn into the custom wordmark.
+
+#### Workspace names
+
+Some parts of a product have a name of their own because people need a short way to say where to look ("check in Studio"). These are names of places, not products: they take no descriptor, no mark and no separate identity, and the navigation link to each still says what it does.
+
+- **Shelf** and **Studio** are areas of the account hub: what a library has copied from repositories, and managing repositories. See [§14.3](#143-terminology).
+- **Bench** is the app for writing a repository's content, named **Lorenzo Bench** by the pattern above.
+
+The word **Workshop** is not used for any of them; it stays free for a tool that may come later.
 
 ---
 
@@ -1274,7 +1284,8 @@ access boundary.
 
 A library contains the campaigns, characters, and other material that a group
 of people works with in Lorenzo. A person may have access to one or more
-libraries. A library may take copies of a repository's content (below).
+libraries. A library may copy a repository's content and receive its updates
+(below).
 
 **Tenant** is the corresponding technical term used by Lorenzo's architecture,
 database, authorization model, and implementation.
@@ -1328,11 +1339,164 @@ them.
 
 A **repository** is the user-facing name for a tenant of kind `repository`. It
 is not a library and not part of one: it is a separate top-level space whose
-content libraries copy from and take updates from. Nobody plays in a repository
+content libraries copy from and update from. Nobody plays in a repository
 and it holds no campaigns. Say "repository" for it everywhere in product copy
 (its heading, its badge, "Create a repository", "Leave this repository"), and
 never "library". The `tenant` rows above read "library" only for a tenant that
 is one.
+
+The rest of this section names the other things people meet in the product, one
+word per idea. Some of them belong to features that are not built yet (the
+Author role, releases, public repositories, Discover, Bench, working offline):
+their names are fixed here so that each arrives with one word. The designs live
+in the RFCs for repository tooling (RFC 0036 to RFC 0041) and in ADR 0194, which
+records this vocabulary and the sweep that brings the existing screens, bot
+messages, command line and API messages into line with it.
+
+#### People and roles
+
+| Term | Means | Not |
+| --- | --- | --- |
+| **People** | The tab and page listing everyone with a role in a library or repository | Admins, Members |
+| **Owner** | Full control: publishes, hands out access, manages people, deletes | |
+| **Organizer** | Runs a library: campaigns, items, and people below Owner. Cannot publish a repository or hand out access to it. | Orga, Admin |
+| **Author** | Edits content only. Cannot publish, invite, manage people or delete structure. Exists in libraries and in repositories. | |
+| **Admin** | The collective noun for an Owner or an Organizer ("library admins can ..."). It is not a role name, and an Author is not an admin. | Administrator |
+| **GM** | Who runs a campaign. Spell out "game master" on first use. | DM (except where Discord says "DM you") |
+| **Player** | A person playing in a campaign | Seat |
+| **Campaign** | A game run in a library | Table |
+| **Invite link** | A link that adds someone in a stated role: "player invite link", "GM invite link", "author invite link". The same invite can be pasted as a code, which is the link's token. | GM link, code (alone) |
+
+A campaign may choose its own title for the GM role (DM, Storyteller, Master,
+Narrator, and so on), given as a singular and a plural form. Every screen,
+notification and bot message about that campaign then uses it; "GM" is the
+default. Never show raw role values such as `owner` or `orga`: one mapping turns
+them into the words above.
+
+#### Entries, kinds and what they are
+
+| Term | Means | Not |
+| --- | --- | --- |
+| **Entry** | Any one thing in a library or repository, when its kind does not matter (search results, links). Otherwise use the specific noun. | Entity |
+| **Kind** | What an entry is: item, being, and later place, clock and others. An entry can be several kinds at once: a sentient sword is an item and a being. | Role, type, facet |
+| **Item** | A kind: an object | |
+| **Catalog item** | Describes a sort of object ("Longsword") | Base item, prototype, template |
+| **Inventory item** | One specific item that exists in play ("Mira's longsword") | Instance, item instance |
+| **Catalog** | A library's list of catalog items | |
+| **Being** | A kind: anything that acts, such as a person, a creature or a sentient sword | |
+| **Character** | A being tracked as an individual, and the thing a player plays | |
+| **NPC** | A character no player plays. Prose only, not a type of its own. | |
+| **Group** | A named set of characters that can own things | Party |
+| **Stat**, **stat group** | A named value such as weight, and a bundle of them | Stat definition |
+| **Tag** | A yes/no stat shown as a label | |
+| **Formula** | A stat worked out from other stats | Computed stat |
+| **Link name** | What links call an entry (`[[Longsword]]`). "Slug" is accepted beside it: the label says "Link name" with "slug" as a hint, and code, addresses and the command line say slug. | |
+| **Picture**, **cover** | An entry's or library's picture, and a repository's cover picture | |
+
+#### Description, notes and who can read them
+
+An entry's **description** is its main text. A **note** is further written text
+added to it; a note may have a label (backstory, personality) or none, and
+without one it is simply a "Note". "Information" is the data model's word and is
+not shown.
+
+Every text has an audience, and the product names the four tiers the same way
+everywhere:
+
+| Tier | Says |
+| --- | --- |
+| **GM only** | "Only the GM knows this." |
+| **Everyone** | Anyone with access to the library |
+| **Some characters** | Chosen characters |
+| **Player note** | Written by a player |
+
+"Secret" is fine in prose and is not a label. "Public" is kept for two things:
+a **public repository** and the **public catalog**. Text visibility says
+Everyone, never public.
+
+#### Inheritance
+
+An entry **inherits from** another, its **parent**: it takes values and text
+from it unless it sets its own. The whole chain above an entry is its
+**ancestry**, and the reverse reads "used as a parent by". Never "prototype" or
+"based on". A repository that builds on another is **built on** it; that word is
+for repositories only, so the two relations never share a phrase.
+
+#### Carrying and moving
+
+| Term | Means |
+| --- | --- |
+| **Inventory** | What a character or group holds, shown as columns ("board" stays an internal name) |
+| **Equipped** | In the being's hands |
+| **Not carried** | Owned, but in no container |
+| **Container**, **pack**, **stack** | Holds items; a catalog item with a contents list (you "unpack" it); several identical items counted as one (×20) |
+| **Bound** | Stays with its owner until a GM lifts the binding |
+| **Give** | Changes who owns it |
+| **Hand over** | Give, and put it into the recipient's hands |
+| **Move** | Change which container it is in |
+| **Set down** | Take it out of every container, keeping the owner |
+| **Assign** | Connect a person to a character (never "hand-off") |
+| **Take** | Pick up loot from a drop. Never used for repositories. |
+| **Award**, **Confiscate** | A GM creates a new item for someone, or removes one for good. A confiscation does not read "taken from you". |
+
+#### Repositories
+
+| Term | Means | Not |
+| --- | --- | --- |
+| **Draft**, **Published** | Not visible to anyone with access, and visible to everyone with access. **Unpublish** goes back to draft. | |
+| **Release** | A published version with a free-text label, an optional "breaking" flag and notes. A row changed since reads "Edited since release 1.3", never "stable" or "frozen". | Version |
+| **Public repository** | One its owner has chosen to list. Logged-in users find it on the Discover page and copy it. | |
+| **Invite a library** | An owner gives a library access to a repository, by invite link | Grant, offer, subscribe |
+| **Libraries using it** | The libraries and repositories that copied it | Subscribers |
+| **Copy** | A library copies a repository's content into itself. Nothing is shared afterwards except updates. | Take, import |
+| **Update** | A change in the repository since you copied. It is New, Changed, Removed upstream, or in Conflict (you changed it too). | Sync |
+| **Name clash** | A name already in use when copying. The choices read Keep both, Use the existing one, Leave it out. | Collision, merge, skip |
+| **Built on** | One repository builds on another | Bridge, depends on, draws on |
+| **Check first** | Try a copy or an update without changing anything | Dry run |
+
+An attachment (a parent that a repository adds to something a library copied) has
+no noun in the product; the screen says what it does in a sentence. Seed, layer
+and bridge are command-line words.
+
+#### Working offline
+
+| Term | Means |
+| --- | --- |
+| **Sync** | Bench exchanging changes with Lorenzo. A library receiving a repository's changes is an update, never a sync. |
+| **Saved on this device** | Written locally and not yet uploaded |
+| **Waiting to sync**, **Synced** | Queued for upload, and up to date |
+| **Out of date** | The marker on inherited or formula values that cannot be worked out until the device is online |
+| **Conflict** | Someone changed the same field. It is shown with the same three-way view as an update. |
+
+#### Where things live
+
+Three workspaces have names, which are used when talking about them and are not
+product brands (§3.3): **Shelf** (what a library copies and its updates) and
+**Studio** (managing repositories), both areas of the account hub, and
+**Bench** (writing a repository's content), which is the app **Lorenzo Bench**.
+The navigation says what a link does: **Repositories** and **My repositories**.
+The page that lists public repositories is **Discover**. The word "Workshop" is
+not used.
+
+Signing in reads **Log in** and **Log out**, and the account is a **Lorenzo
+account**. Neither "identity" nor the name of the sign-in provider is shown.
+
+#### Technical terms and their product words
+
+| Technical | Product | Never |
+| --- | --- | --- |
+| entity | entry | entity |
+| kinds (item, being) | kind | role, type, facet |
+| item (catalog entry) | catalog item | base item, prototype |
+| item instance | inventory item | instance |
+| prototype, prototype graph | parent, inherits from, ancestry | prototype |
+| information | description and notes | information |
+| stat definition, computed stat | stat, formula | |
+| slug | link name (slug) | |
+| `owner`, `orga`, membership | Owner, Organizer, People | Orga, Admins |
+| subscription, grant | invite a library, libraries using it | subscribe, grant |
+| `copy-plan`, dry run | copy, check first | |
+| `published_at`, release | published, release | version |
 
 ---
 
