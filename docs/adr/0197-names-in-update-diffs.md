@@ -1,6 +1,6 @@
 # 0197 - Names in update diffs
 
-Status: accepted, decided with the maintainer on 2026-10-07. Slice A1 of [RFC 0036](../rfcs/0036-repository-tooling.md), tracked in #507. Extends [ADR 0121](0121-repository-updates.md) and [ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md); additive, nothing existing changes meaning.
+Status: accepted, decided with the maintainer on 2026-10-07. Slice A1 of [RFC 0036](../rfcs/0036-repository-tooling.md), tracked in #507. Extends [ADR 0121](0121-repository-updates-and-re-sync.md) and [ADR 0172](0172-attachments-a-parent-a-bridge-adds-to-a-copy-travels-with-it.md); additive, nothing existing changes meaning.
 
 ## Context
 
@@ -41,7 +41,7 @@ Its entries gain `name`, the row the entry is about, and `label`, what its `fiel
 ### Not changed
 
 - No route, parameter, request body or status code. Nothing is added to the database.
-- Existing fields keep their values. `names`, `name` and `label` are new response properties, which the committed OpenAPI snapshot and the generated clients ([ADR 0122](0122-the-typed-api-client-package.md), [ADR 0137](0137-lorenzo-cli-app-python-client-and-auth.md)) take; no accepted break is needed.
+- Existing fields keep their values. `names`, `name` and `label` are new response properties, which the committed OpenAPI snapshot and the generated clients ([ADR 0122](0122-api-client-package.md), [ADR 0137](0137-lorenzo-cli-app-python-client-and-auth.md)) take; no accepted break is needed.
 - Who may read: the same members, through the same gated read of the repository. Names come from the repository's content that read already returns, the library's own rows and the library's own copy links, so no other library's row can appear.
 
 ## Not in scope
