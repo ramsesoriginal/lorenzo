@@ -6,6 +6,8 @@ There's no tier of "important" things that get full treatment while everything e
 
 **Beings can be items, and items can act like beings** — the model doesn't force a hard split between "creature" and "object." A sword can be sentient. A summoned creature can be tracked like inventory. Treating these as one overlapping concept rather than two exclusive categories is deliberate.
 
+In the product an entity is an **entry**, and what it is (an item, a being, later a place or a clock) is its **kind**: a sentient sword is one entry of two kinds, not two things. See [identity §14.3](../brand/identity.md#143-terminology).
+
 ## State is game-system-specific
 
 The same entity can carry different stats/state depending on which game system is looking at it — a character might have D&D stats in one campaign and Warhammer Wrath & Glory stats in another, if the same underlying repository gets used across systems (see [repositories](repositories.md)).
