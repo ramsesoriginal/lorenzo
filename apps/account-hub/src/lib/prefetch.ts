@@ -4,9 +4,11 @@
 // for again, and a failure is the page's to show later, not this.
 
 import { runRows } from './campaigns';
+import { isTenantAdmin } from './format';
 import { readLibrary } from './libraryData';
 import { getManaged, getMe } from './me';
 import { listNotifications } from './notifications';
+import { listLibraryRepositories } from './repositories';
 import { loadSeatOwners } from './seatOwners';
 import { isRepository } from './tenantKind';
 import {
@@ -70,6 +72,15 @@ const WARMERS: Record<string, (params: URLSearchParams) => Promise<unknown>> = {
         ]),
       ),
     ]);
+  },
+  // Shelf: the libraries you run, and the repositories of the one in the address (or the first).
+  '/repositories/': async (params) => {
+    const tenants = await listMyTenants('play');
+    const libraries = tenants.items.filter(isTenantAdmin);
+    const wanted = params.get('tenant');
+    const library = libraries.find((l) => l.slug === wanted || l.id === wanted) ?? libraries[0];
+
+    if (library) await listLibraryRepositories(library.id);
   },
   '/beings/': async () => {
     const [, tenants] = await Promise.all([getMe(), listMyTenants()]);
