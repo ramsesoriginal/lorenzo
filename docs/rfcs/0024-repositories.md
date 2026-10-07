@@ -184,6 +184,8 @@ See ADR 0120.
 
 Accepted for this version as a known gap, not a blocker: until a campaign's characters reach copied content, a campaign GM doesn't see its GM-only text. Only the tenant's OWNER and ORGA do (ADR 0035/0046/0096). The "facts" mechanism stays open (RFC 0001 question 4).
 
+*Update, 2026-10-07:* the gap is to be closed. The maintainer decided that GM-only text a copy brings is readable by the library's GMs; the slice that does it is A4 of [RFC 0036](0036-repository-tooling.md).
+
 ### A10. Smaller decisions
 
 - **`tenant.kind` can never change.** A trigger rejects any update to it, not "settable while empty", so the check is trivially sound.

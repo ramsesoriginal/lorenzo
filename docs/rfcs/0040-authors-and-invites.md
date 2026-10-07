@@ -1,6 +1,6 @@
 # RFC: Authors and invites — an Author role, and invite links for libraries and roles
 
-Status: accepted, decided with the maintainer on 2026-10-07: an **Author** role in repositories and libraries alike (it edits content and cannot publish, invite, manage people or delete structure), invite links that grant a role in a library or repository and never grant Owner, single-use short-lived defaults for them as for [ADR 0177](../adr/0177-gm-invite-links.md)'s GM link, the invite code being the pasted token, the names Owner, Organizer and Author with **Admin** as the collective noun for the first two (ADR 0194), and the GM's title chosen per campaign. The capability matrix in [§1](#1-the-author-role), the exact lifetimes and caps in [§2](#2-one-invite-table-with-kinds), the table rename, and the wording in [§3](#3-the-people-screen) are proposed. Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands. Rows "Tenant-role invite links" and "Authoring tool" of [v1.0](../../v1.0.md). Part of [RFC 0036](0036-repository-tooling.md); the library-access link is how a private repository is shared before [RFC 0038](0038-public-repositories-and-discovery.md)'s public ones exist.
+Status: accepted, decided with the maintainer on 2026-10-07: an **Author** role in repositories and libraries alike (it edits content and cannot publish, invite, manage people or delete structure), invite links that grant a role in a library or repository and never grant Owner, single-use short-lived defaults for them as for [ADR 0177](../adr/0177-gm-invite-links.md)'s GM link, the invite code being the pasted token, the names Owner, Organizer and Author with **Admin** as the collective noun for the first two (ADR 0194), and the GM's title chosen per campaign; and, in the capability matrix, that an Author may delete an entry nobody inherits from and reads every note on the entries in reach (GM-only included), that only an Owner mints invite links, the proposed link lifetimes, and the rename of the invite table to `invite`. The rest of the capability matrix in [§1](#1-the-author-role) and the wording in [§3](#3-the-people-screen) are proposed. Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands. Rows "Tenant-role invite links" and "Authoring tool" of [v1.0](../../v1.0.md). Part of [RFC 0036](0036-repository-tooling.md); the library-access link is how a private repository is shared before [RFC 0038](0038-public-repositories-and-discovery.md)'s public ones exist.
 
 Throughout, **library** and **repository** are the user-facing names for a tenant of kind `play` and of kind `repository`; the code, the API and the tables say tenant, and the role values are `owner`, `orga` and (new) `author`. A person sees Owner, Organizer and Author, never `orga` (ADR 0194).
 
@@ -131,6 +131,11 @@ Decided with the maintainer and recorded as **its own small ADR**, not here, sin
 - **The names**: Owner, Organizer, Author, with Admin as the collective noun for the first two (ADR 0194).
 - **A GM's title is chosen per campaign**, with a singular and a plural field, as a small ADR of its own.
 - **Repository creation stays behind `tenant-creator`**; nothing here lets an invite create a repository.
+- **An Author may delete an entry nobody inherits from**, with the count warning of RFC 0041.
+- **An Author reads every note on the entries in reach**, GM-only notes included, in libraries as in repositories.
+- **Only an Owner mints invite links.** An Organizer does not mint an Author link.
+- **The proposed lifetimes stand**: role links at most 7 days, library links at most 30 days, as a GM link and a player link are today; the use-cap ceiling is the one proposed in [§2](#2-one-invite-table-with-kinds).
+- **The invite table is renamed** from `campaign_invite` to `invite`.
 
 ## Slices
 
@@ -145,13 +150,9 @@ Each is recorded as its own ADR when it lands. U1 and U2 each carry a migration,
 
 ## Open questions
 
-- **The matrix's proposed rows.** In particular whether an Author may delete an entry nobody inherits from at all (the proposal) or never; whether an Author may rename the repository (proposed no); and whether the copy and update routes are an admin act (proposed yes).
-- **What an Author reads.** The proposal is every note on the entries in reach, GM-only included. In a library that puts GM-only notes on catalog items in an Author's hands; if that is too much, the alternative is repository-only reach for GM-only notes.
-- **May an Organizer mint an Author link?** The proposal is no: an Owner only, since adding people is Owner-only today. The alternative lets an Organizer who runs a library onboard its editors without bothering the Owner.
+- **The matrix's remaining proposed rows.** Whether an Author may rename the repository (proposed no), and whether the copy and update routes are an admin act (proposed yes).
 - **Are Authors added to a campaign-less repository only by its Owner?** Yes under the proposal; a repository has no GM to delegate to.
 - **May an Author see who else is in a repository?** Proposed no (People and the activity log are admin reads). A repository has no players, so showing co-authors would leak nothing about play; it is left out to keep one rule.
-- **The ceilings.** The exact maximum lifetimes and the use-cap ceiling for Author and library links.
-- **Whether the table is renamed** to `invite`, or kept as `campaign_invite` with a note, which saves a rename at the price of a misleading name.
 
 ## Not in scope
 

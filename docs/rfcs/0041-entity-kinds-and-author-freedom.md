@@ -1,6 +1,6 @@
 # RFC: Entity kinds and author freedom — making an entry whatever it is
 
-Status: accepted, decided with the maintainer on 2026-10-07: kinds stay marker tables with no new table per author ([§2](#2-making-an-entry-with-kinds)), one thin registry of the tables a copy carries ([§1](#1-a-copyable-table-registry)), the field is called `kinds` ([§2](#2-making-an-entry-with-kinds)), a kind change after a first publish is a breaking change and the round-trip matrix gates publishing such entries ([§2](#2-making-an-entry-with-kinds)), parents for every entry ([§3](#3-parents-for-any-entry)), rename-only stat PATCH ([§6](#6-stat-group-and-stat-definition-patch-rename-only)), deleting something libraries hold warns with a count and never blocks ([§9](#9-deleting-what-libraries-hold)), and RFC 0018 closed as superseded by parents ([§10](#10-rfc-0018-is-closed)). The mechanisms inside those decisions (routes, field names, refusal rules) are a proposal for review, the three spike-gated points are in [Spikes](#spikes), and what is still open is in [Open questions](#open-questions). Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands. Rows "Authoring tool" and "Publish, subscribe, update screens" of [v1.0](../../v1.0.md); part of [RFC 0036](0036-repository-tooling.md).
+Status: accepted, decided with the maintainer on 2026-10-07: kinds stay marker tables with no new table per author ([§2](#2-making-an-entry-with-kinds)), one thin registry of the tables a copy carries ([§1](#1-a-copyable-table-registry)), the field is called `kinds` ([§2](#2-making-an-entry-with-kinds)), a kind change after a first publish is a breaking change and the round-trip matrix gates publishing such entries ([§2](#2-making-an-entry-with-kinds)), parents for every entry ([§3](#3-parents-for-any-entry)), rename-only stat PATCH ([§6](#6-stat-group-and-stat-definition-patch-rename-only)), deleting something libraries hold warns with a count and never blocks ([§9](#9-deleting-what-libraries-hold)), and RFC 0018 closed as superseded by parents ([§10](#10-rfc-0018-is-closed)). The guards on deleting an entry that is also a being, the kinds an inventory item may take, any-of for the kind filter and the refusal of a reorder by someone who cannot see every note are decided too. The remaining mechanisms inside those decisions (routes, field names) are a proposal for review, the three spike-gated points are in [Spikes](#spikes), and what is still open is in [Open questions](#open-questions). Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands. Rows "Authoring tool" and "Publish, subscribe, update screens" of [v1.0](../../v1.0.md); part of [RFC 0036](0036-repository-tooling.md).
 
 ## Context
 
@@ -120,6 +120,12 @@ Deleting an entry, a stat definition or a stat group that libraries have copied 
 - **Stat PATCH is rename-only**, amending ADR 0143.
 - **Deleting something libraries hold warns with a count**, a narrow aggregate, never names, no block. Deleting a stat definition in use stays refused.
 - **RFC 0018 is closed** unless a slot case appears that parents cannot cover.
+- **Deleting an entry that is also a being** deletes the entry, with the guards of every kind composed and the other kinds named in the delete dialog; it is not refused until the extra kind is removed.
+- **An inventory item may take the kind `being`** (a summoned creature tracked as inventory) and not `item`, and takes no generic parents.
+- **Any-of for the `kind` filter**; an "all of" form only if a client asks.
+- **A reorder of notes is refused** from a caller who cannot see every note of the entry.
+- **The item route keeps the name `prototypes`** next to the generic `parents`, until a cleanup.
+- **The delete count is a read, not a gate.** A script may skip it; no acknowledgement is required.
 
 ## Spikes
 
@@ -148,14 +154,8 @@ Each its own ADR when it lands. Order, not schedule: K2 and K3 come first so Ben
 
 ## Open questions
 
-- **What `DELETE /items/{id}` does to an entry that is also a being.** Today it deletes the entry. The proposal is to keep that, with the guards of every kind composed, and to name the other kinds in the delete dialog; the alternative is to refuse until the extra kind is removed.
-- **Which kinds an inventory item may take.** The proposal is `being` yes (RFC 0001's summoned creature that is also tracked as inventory) and `item` no, since an inventory item is of a catalog item; and no generic parents for it. Neither is exercised yet.
-- **The path name.** The generic route says `parents` and the item route `prototypes`; the proposal is to leave the item route until a cleanup, since API stability is not a constraint.
-- **`kind` given twice.** Any-of is the proposal, as a filter chip would want; an "all of" form is added only if a client asks.
-- **Reordering notes the caller cannot see.** The owner of a character can write its notes without seeing every GM-only one. The proposal is to refuse a reorder from a caller who cannot see every note of the entry.
 - **Carrying an enum rename to libraries.** An enum value's identity in the snapshot is its text, so a rename arrives as an addition and a refused removal, and a library's entries keep the old value. Giving enum values an identity in the snapshot fixes it and changes the snapshot format; whether that is worth it is for a later slice.
 - **Who sees which entries.** `GET /entities` is open to every participant of a tenant and lists every entry name, with no visibility filter ([§5](#5-finding-entries) adds filters, not a gate). Whether a player should see entries a GM has not shared is outside this RFC and is raised here because it is now a filterable list.
-- **Whether a script may delete blind.** The count is a read, so a script can skip it. An acknowledgement the delete must carry is possible and not proposed.
 - **Picture cap and count.** The starting cap is the profile-picture cap; whether an entry may hold any number of pictures, and what the cap should be for a repository's cover as against an entry, waits for real use.
 
 ## Not in scope
