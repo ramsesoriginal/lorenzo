@@ -4,15 +4,10 @@
 // the page, in `state`, and are sent as the API's `resolutions`.
 
 import {
-  CHOICE_LABEL,
   type Choice,
-  type ChoiceAction,
   COPY_LIMITS,
   type CopyRefusal,
-  choiceExplanation,
-  choiceProblem,
   collisionKey,
-  collisionSentence,
   copyRefusal,
   droppedSentences,
   missingSentence,
@@ -22,14 +17,13 @@ import {
   resolutionsOf,
   stepHeading,
   stepLine,
-  suggestedName,
   unsettled,
   type WizardStep,
 } from '../../lib/copyWizard';
 import { copyRepository, getCopyPlan } from '../../lib/repositories';
 import { type CopyMode, shelfHref } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
-import { cloneRoot, requiredIn } from '../../lib/template';
+import { requiredIn } from '../../lib/template';
 import type {
   CollisionOut,
   CopyOut,
@@ -38,6 +32,7 @@ import type {
   SubscriptionOut,
   TenantSummaryOut,
 } from '../../lib/types';
+import { renderClashCard } from './clash';
 
 const required = requiredIn('Copy wizard');
 
@@ -315,88 +310,15 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
     clashes.next.dataset.keepDisabled = String(open > 0);
   }
 
-  function paintProblem(card: HTMLElement, collision: CollisionOut): void {
-    if (!state) return;
-
-    const choice = state.choices.get(collisionKey(collision));
-    const problem = required<HTMLElement>(card, '[data-problem]');
-    // Only a name that was typed is complained about: an empty one is the first thing to type.
-    const text =
-      choice?.action === 'rename' && choice.name !== '' ? choiceProblem(collision, choice) : null;
-
-    problem.textContent = text ?? '';
-    problem.hidden = text === null;
-  }
-
   function paintClash(collision: CollisionOut, index: number): HTMLElement {
     const mine = state as State;
-    const card = cloneRoot(panel, '[data-clash-template]');
-    const key = collisionKey(collision);
-    const recommended = recommendedChoices([collision], mine.subscription.repository.name).get(key);
-    const nameField = required<HTMLElement>(card, '[data-name-field]');
-    const nameInput = required<HTMLInputElement>(card, '[data-name]');
 
-    required<HTMLElement>(card, '[data-sentence]').textContent = collisionSentence(collision);
-    required<HTMLElement>(card, '[data-name-label]').textContent =
-      collision.kind === 'slug' ? 'New link name' : 'New name';
-
-    const choices = required<HTMLElement>(card, '[data-choices]');
-
-    for (const action of collision.choices) {
-      const option = cloneRoot(panel, '[data-choice-template]');
-      const radio = required<HTMLInputElement>(option, '[data-radio]');
-
-      radio.name = `clash-${index}`;
-      radio.value = action;
-      radio.checked = mine.choices.get(key)?.action === action;
-      required<HTMLElement>(option, '[data-label]').textContent = CHOICE_LABEL[action];
-      required<HTMLElement>(option, '[data-explanation]').textContent = choiceExplanation(
-        collision,
-        action,
-      );
-      required<HTMLElement>(option, '[data-recommended]').hidden = recommended?.action !== action;
-      choices.append(option);
-    }
-
-    function paintName(): void {
-      const choice = mine.choices.get(key);
-
-      nameField.hidden = choice?.action !== 'rename';
-      nameInput.value = choice?.name ?? '';
-    }
-
-    card.addEventListener('change', (event) => {
-      const radio = event.target as HTMLInputElement;
-
-      if (radio.type !== 'radio') return;
-
-      const action = radio.value as ChoiceAction;
-      const known = mine.choices.get(key);
-
-      mine.choices.set(key, {
-        action,
-        name: known?.name || suggestedName(collision, mine.subscription.repository.name),
-      });
-      paintName();
-      paintProblem(card, collision);
-      refreshClashButtons();
-
-      if (action === 'rename') nameInput.focus();
+    return renderClashCard(panel, collision, {
+      index,
+      repositoryName: mine.subscription.repository.name,
+      choices: mine.choices,
+      onChange: refreshClashButtons,
     });
-
-    nameInput.addEventListener('input', () => {
-      const choice = mine.choices.get(key);
-
-      if (choice) choice.name = nameInput.value;
-
-      paintProblem(card, collision);
-      refreshClashButtons();
-    });
-
-    paintName();
-    paintProblem(card, collision);
-
-    return card;
   }
 
   function paintClashes(note: string | null = null): void {

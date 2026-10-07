@@ -142,3 +142,17 @@
     min-height: var(--target-min);
   }
 }
+
+/* A changed field in the update inbox (ADR 0203): what it was, what it is, and what the library has,
+   stacked and never side by side, and a long value wraps instead of widening the page. The choice
+   for a conflict is pressed, so each row is the brand's target size at phone widths and for a
+   coarse pointer (identity.md 8.5). */
+.update-field .key-values dd {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  [data-updates-view] .field-row {
+    min-height: var(--target-min);
+  }
+}

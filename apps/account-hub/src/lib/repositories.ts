@@ -6,6 +6,8 @@ import { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE } from '@lorenzo/api-clie
 import { client, unwrap } from './api';
 import { cached } from './cache';
 import type {
+  ApplyUpdatesOut,
+  ApplyUpdatesRequest,
   CopyOut,
   CopyPlanOut,
   CopyRequest,
@@ -13,6 +15,7 @@ import type {
   RepositoryEntityOut,
   RepositoryStatGroupOut,
   SubscriptionOut,
+  UpdatesOut,
 } from './types';
 
 // Every repository offered to a library, and every one it has copied.
@@ -107,5 +110,50 @@ export async function listRepositoryStatGroups(
         params: { path: { tenant_id: libraryId, repository_id: repositoryId } },
       }),
     ),
+  );
+}
+
+// What the repository changed since the library copied or last updated it, row by row, beside the
+// library's own copy (ADR 0121). It needs the repository to be offered and published: for any
+// other the API refuses, and so does this, with null, since that is a state to show and not a
+// failure. The inbox asks `fresh`: what it shows decides what is applied.
+export async function getUpdates(
+  libraryId: string,
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<UpdatesOut | null> {
+  return cached(
+    `updates:${libraryId}:${repositoryId}`,
+    async () => {
+      try {
+        return unwrap(
+          await client.GET('/tenants/{tenant_id}/repositories/{repository_id}/updates', {
+            params: { path: { tenant_id: libraryId, repository_id: repositoryId } },
+          }),
+        );
+      } catch (cause) {
+        if (cause instanceof LorenzoApiError && (cause.status === 404 || cause.status === 409)) {
+          return null;
+        }
+
+        throw cause;
+      }
+    },
+    { force: fresh },
+  );
+}
+
+// Applies the rows named, in one transaction, or with `dry_run` does everything and rolls it back.
+// A write, so it empties the hub's cache like any other.
+export async function applyUpdates(
+  libraryId: string,
+  repositoryId: string,
+  body: ApplyUpdatesRequest,
+): Promise<ApplyUpdatesOut> {
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/repositories/{repository_id}/updates', {
+      params: { path: { tenant_id: libraryId, repository_id: repositoryId } },
+      body,
+    }),
   );
 }

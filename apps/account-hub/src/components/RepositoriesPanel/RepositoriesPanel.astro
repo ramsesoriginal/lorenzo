@@ -25,6 +25,11 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       No repository is offered to this library yet. The owner of a repository invites a library to
       it; ask them to invite this one.
     </p>
+    <p data-check-updates hidden>
+      <a class="btn btn-secondary" href="/repositories/" data-link data-inbox-link>
+        Check for updates
+      </a>
+    </p>
     <ul class="list" data-list></ul>
   </section>
 
@@ -43,6 +48,12 @@ import { BRANDING_CSS_URL } from '../../lib/config';
     </header>
 
     <p data-explanation></p>
+
+    <p data-updates-actions hidden>
+      <a class="btn btn-primary" href="/repositories/" data-link data-updates-link>
+        Check for updates
+      </a>
+    </p>
 
     <div class="stack-tight" data-actions hidden>
       <p>
@@ -265,6 +276,219 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       </div>
     </template>
   </section>
+
+  <!-- The update inbox of a library (ADR 0203): a row for each repository it has copied, each checked
+       for updates and said in words. -->
+  <section class="stack" data-inbox-view hidden>
+    <p>
+      <a class="shelf-link" href="/repositories/" data-link data-inbox-back>
+        All repositories
+      </a>
+    </p>
+    <h2 data-inbox-title></h2>
+    <p class="caption" data-inbox-note></p>
+    <p class="error-text" role="alert" data-inbox-error hidden></p>
+    <p data-inbox-empty hidden>
+      Your library has not copied a repository, so it has nothing to update.
+    </p>
+    <ul class="list" data-inbox-list></ul>
+    <p>
+      <button type="button" class="btn btn-secondary" data-inbox-recheck>
+        Check again
+      </button>
+    </p>
+  </section>
+
+  <!-- One repository's updates (ADR 0203): what changed since the library copied or last updated
+       it, in groups, each row with what to do about it. -->
+  <section class="stack" data-updates-view hidden>
+    <p>
+      <a class="shelf-link" href="/repositories/" data-link data-updates-back>
+        Back to the repository
+      </a>
+    </p>
+    <h2 data-updates-title></h2>
+    <p class="caption" role="status" tabindex="-1" data-updates-status></p>
+    <p class="error-text" role="alert" data-updates-error hidden></p>
+    <p data-updates-gone hidden></p>
+
+    <div class="stack" data-updates-body hidden>
+      <p class="lede" data-updates-summary></p>
+      <p class="caption" data-updates-notes></p>
+
+      <div class="card card-body stack" data-bulk hidden>
+        <p data-bulk-sentence></p>
+        <div class="row">
+          <button type="button" class="btn btn-primary" data-bulk-check>
+            Apply all clean
+          </button>
+        </div>
+        <div class="stack" data-bulk-receipt hidden>
+          <p data-bulk-receipt-text></p>
+          <div class="row">
+            <button type="button" class="btn btn-secondary" data-bulk-cancel>
+              Cancel
+            </button>
+            <button type="button" class="btn btn-primary" data-bulk-apply>
+              Apply now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack" role="status" data-result hidden>
+        <p data-result-text></p>
+        <ul class="stack-tight" data-not-applied hidden></ul>
+      </div>
+
+      <div class="stack" data-groups></div>
+
+      <details class="stack shelf-section" data-skipped-section hidden>
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          <span data-skipped-title></span>
+        </summary>
+        <ul class="list" data-skipped></ul>
+      </details>
+
+      <details class="stack shelf-section" data-deleted-section hidden>
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          <span data-deleted-title></span>
+        </summary>
+        <ul class="stack-tight" data-deleted></ul>
+      </details>
+    </div>
+
+    <template data-group-template>
+      <section class="stack">
+        <h3 data-title></h3>
+        <p class="caption" data-hint hidden></p>
+        <ul class="stack" data-rows></ul>
+        <button type="button" class="btn btn-secondary" data-more hidden>
+          Show more
+        </button>
+      </section>
+    </template>
+
+    <template data-change-template>
+      <li class="card card-body stack">
+        <header class="row">
+          <span class="badge" data-kind></span>
+          <strong class="grow" data-name></strong>
+        </header>
+        <div class="stack" data-fields></div>
+        <p class="caption" data-choose-first hidden>
+          Choose what to do about each conflict first.
+        </p>
+        <div class="row">
+          <button type="button" class="btn btn-primary" data-apply>
+            Apply
+          </button>
+          <button type="button" class="btn btn-secondary" data-skip>
+            Skip
+          </button>
+        </div>
+        <p class="status-text" role="status" data-status hidden></p>
+      </li>
+    </template>
+
+    <template data-field-template>
+      <div class="stack-tight update-field">
+        <strong data-label></strong>
+        <dl class="key-values" data-values></dl>
+        <p class="caption" data-note hidden></p>
+        <fieldset data-conflict hidden>
+          <legend>This is changed in your library too</legend>
+          <label class="field-row">
+            <input type="radio" value="keep" data-keep />
+            Keep yours
+          </label>
+          <label class="field-row">
+            <input type="radio" value="take" data-take />
+            Take the update, and replace yours
+          </label>
+        </fieldset>
+      </div>
+    </template>
+
+    <template data-added-template>
+      <li class="card card-body stack">
+        <header class="row">
+          <span class="badge" data-kind></span>
+          <strong class="grow" data-name></strong>
+        </header>
+        <div class="stack" data-clash></div>
+        <div class="row">
+          <button type="button" class="btn btn-primary" data-add>
+            Add to your library
+          </button>
+          <button type="button" class="btn btn-secondary" data-skip>
+            Skip
+          </button>
+        </div>
+        <p class="status-text" role="status" data-status hidden></p>
+      </li>
+    </template>
+
+    <template data-removed-template>
+      <li class="card card-body stack">
+        <header class="row">
+          <span class="badge" data-kind></span>
+          <strong class="grow" data-name></strong>
+        </header>
+        <p class="caption">
+          The repository no longer has it. Yours stays as it is. Detach it to stop comparing it with
+          the repository.
+        </p>
+        <div class="row">
+          <button type="button" class="btn btn-secondary" data-detach>
+            Detach
+          </button>
+        </div>
+        <p class="status-text" role="status" data-status hidden></p>
+      </li>
+    </template>
+
+    <template data-parent-template>
+      <li class="card card-body stack">
+        <p data-sentence></p>
+        <p class="caption" data-reason hidden></p>
+        <div class="row">
+          <button type="button" class="btn btn-primary" data-add hidden>
+            Add this parent
+          </button>
+          <button type="button" class="btn btn-secondary" data-detach hidden>
+            Detach
+          </button>
+        </div>
+        <p class="status-text" role="status" data-status hidden></p>
+      </li>
+    </template>
+
+    <template data-skipped-template>
+      <li class="row">
+        <span class="grow" data-name></span>
+        <button type="button" class="btn btn-secondary" data-undo>
+          Undo
+        </button>
+      </li>
+    </template>
+  </section>
+
+  <template data-inbox-row-template>
+    <li class="row repository-card">
+      <div class="grow stack-tight">
+        <a class="shelf-link" href="/repositories/" data-link data-name></a>
+        <span class="campaign-meta" data-summary></span>
+      </div>
+      <span data-state></span>
+    </li>
+  </template>
 
   <template data-card-template>
     <li class="row repository-card">

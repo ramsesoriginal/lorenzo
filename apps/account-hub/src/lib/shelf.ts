@@ -27,12 +27,24 @@ export function shelfHref(library: string, repository?: string, copy?: CopyMode)
   return `/repositories/?${query.toString()}`;
 }
 
-// What an address asks for: which library, which repository and whether to copy it, any of which
-// may be absent. Anything but "again" asks for a first copy.
+// The address of the update inbox of a library (ADR 0203), or, with a repository, of its updates.
+export function updatesHref(library: string, repository?: string): string {
+  const query = new URLSearchParams({ tenant: library });
+
+  if (repository) query.set('repository', repository);
+
+  query.set('updates', '1');
+
+  return `/repositories/?${query.toString()}`;
+}
+
+// What an address asks for: which library, which repository, whether to copy it and whether to look
+// at its updates, any of which may be absent. Anything but "again" asks for a first copy.
 export function readShelfLocation(search: string): {
   library: string | null;
   repository: string | null;
   copy: CopyMode | null;
+  updates: boolean;
 } {
   const query = new URLSearchParams(search);
   const copy = query.get('copy');
@@ -41,6 +53,7 @@ export function readShelfLocation(search: string): {
     library: query.get('tenant'),
     repository: query.get('repository'),
     copy: copy === null ? null : copy === 'again' ? 'again' : 'new',
+    updates: query.get('updates') === '1',
   };
 }
 
@@ -81,7 +94,7 @@ export const SHELF_STATE_EXPLANATION: Record<ShelfState, string> = {
   'not-copied': 'Your library is invited to this repository and has not copied it yet.',
   copied: 'Your library has copied this repository, and nothing newer has been announced.',
   'update-announced':
-    'The repository was published after your library last updated from it. What changed is not shown here yet.',
+    'The repository was published after your library last updated from it. Check for updates to see what changed.',
   'no-longer-offered':
     'This repository is no longer offered to your library. What you copied stays yours, and there will be no more updates unless the owner invites your library again.',
   'not-published':
