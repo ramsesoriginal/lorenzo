@@ -6,7 +6,7 @@ Status: accepted, decided with the maintainer on 2026-10-07: kinds stay marker t
 
 Studio and [Bench](0039-bench-authoring-offline-and-extensibility.md) let an Author do what the API allows, and the API was built one kind at a time: a route to make an item, a route to make an inventory item, a route to make a character. Writing the tools showed where that leaves an author. A sentient sword, a race that other beings inherit from, a category node that is neither, a catalog sorted by name, a rename of a stat group, a picture on an entry: each is something a person writing a repository reasonably wants, and each stops at a missing route rather than a missing idea. This RFC lists those gaps, checked against the code, and closes them with the smallest change each, keeping what is already decided: no new table per author, and the copy engine as the one thing a repository's content must pass through.
 
-Words, once: an **entry** is what the UI calls an `entity` (the table and the API's term); its **kind** is which marker rows it has. The user-facing words are those of ADR 0194. The **parent** of an entry is the API's `prototype`: an `entity_prototype` row, which is what "inherits from" means.
+Words, once: an **entry** is what the UI calls an `entity` (the table and the API's term); its **kind** is which marker rows it has. The user-facing words are those of [ADR 0194](../adr/0194-user-facing-terminology.md). The **parent** of an entry is the API's `prototype`: an `entity_prototype` row, which is what "inherits from" means.
 
 ### How kinds work today
 

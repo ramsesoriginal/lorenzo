@@ -43,7 +43,7 @@ Read from `apps/api` for this RFC:
 
 ### 1. The app
 
-**`apps/bench`: a static Astro app, the authoring tool, named "Lorenzo Bench"** (ADR 0194 fixes the name and the words used in it; the name follows brand §3.3's "Lorenzo `<descriptor>`" pattern).
+**`apps/bench`: a static Astro app, the authoring tool, named "Lorenzo Bench"** ([ADR 0194](../adr/0194-user-facing-terminology.md) fixes the name and the words used in it; the name follows brand §3.3's "Lorenzo `<descriptor>`" pattern).
 
 - **Static Astro, `output: 'static'`, and its own small TypeScript.** No component framework: no Lit, no React, no Svelte, nothing that does the work of one. The app is one page with its own router, so the outbox runner and the editors outlive a change of view ([§9](#9-ui-layer-rules) says what the small layer is). Astro builds the page and its assets; everything else is the app's.
 - **What it reuses.** `packages/api-client` (the typed client, [ADR 0122](../adr/0122-api-client-package.md)), `@lorenzo/brand`, `packages/lorenzoscript` and `packages/lorenzoscript-editor` for description and note text. It does not import from `apps/inventory-web` or `apps/account-hub`: where Bench needs something they already have, it is a second consumer, and the generic part moves to a package in the slice that needs it, as AGENTS.md asks.
