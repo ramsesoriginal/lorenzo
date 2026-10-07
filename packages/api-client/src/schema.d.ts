@@ -4666,9 +4666,10 @@ export interface components {
          * @description One field the repository changed since this tenant copied or last
          *     synced it. `field` is its name, or `stats:<id>`/`formulas:<id>` for one
          *     stat, `label` then naming the stat. Values name other rows by their
-         *     origin id. `clean`: the tenant hasn't changed it, so it can simply be
-         *     taken; `conflict`: the tenant changed it too; `not_applicable`: shown,
-         *     but changed by hand. Sets (`prototypes`, `stat_groups`, `enum_values`)
+         *     origin id, and the response's `names` has each one's name (ADR 0197).
+         *     `clean`: the tenant hasn't changed it, so it can simply be taken;
+         *     `conflict`: the tenant changed it too; `not_applicable`: shown, but
+         *     changed by hand. Sets (`prototypes`, `stat_groups`, `enum_values`)
          *     list what upstream `added` and `removed`, and are always clean.
          */
         FieldChangeOut: {
@@ -5676,7 +5677,8 @@ export interface components {
         };
         /**
          * NotAppliedOut
-         * @description A field that couldn't be applied, and why. It keeps being offered.
+         * @description A field that couldn't be applied, and why. It keeps being offered. `name` is the
+         *     row it is about and `label` the stat or parent its `field` names, in words (ADR 0197).
          */
         NotAppliedOut: {
             /** Kind */
@@ -5690,6 +5692,10 @@ export interface components {
             field: string;
             /** Reason */
             reason: string;
+            /** Name */
+            name: string | null;
+            /** Label */
+            label: string | null;
         };
         /**
          * NotificationCreate
@@ -7245,7 +7251,11 @@ export interface components {
          *     `attachments_*` lists are the same for the parents the repository added to
          *     its copies (ADR 0172): `attachments_removed` are ones it no longer has, which
          *     are only detached, and `attachments_deleted_locally` are ones whose edge this
-         *     tenant removed.
+         *     tenant removed. `names` maps every id the changed fields mention (an origin id,
+         *     or `local:<id>` for one of this tenant's own rows) to its name, the repository's
+         *     row as it is now, else this tenant's, else the one it was copied as, so a row
+         *     gone upstream or deleted here still reads (ADR 0197). An id nobody has a name for
+         *     is not in it, and a client says "an entry that is gone", never the id.
          */
         UpdatesOut: {
             /**
@@ -7267,6 +7277,10 @@ export interface components {
             attachments_removed: components["schemas"]["AttachmentRefOut"][];
             /** Attachments Deleted Locally */
             attachments_deleted_locally: components["schemas"]["AttachmentRefOut"][];
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
         };
         /**
          * UserRefOut
