@@ -62,6 +62,12 @@ node = "apps/inventory-web"
 # Playwright against the real API and a fake Authgear (ADR 0114).
 depends_on = ["apps/api"]
 
+[suites.account-hub-real-api]
+node = "apps/account-hub"
+# The hub's own browser tests on the same stack (ADR 0114, ADR 0136, ADR 0196): the real API and a
+# fake Authgear, reached through inventory-web's launchers.
+depends_on = ["apps/api", "apps/inventory-web"]
+
 [suites.cli-e2e]
 node = "apps/cli"
 # The real API on a fresh database behind a fake Authgear (ADR 0137), split over three runners.

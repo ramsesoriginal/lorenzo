@@ -6,8 +6,9 @@ import { AUTHGEAR_URL, SUBJECT_COOKIE } from '../../../inventory-web/tests/e2e/s
 export async function signIn(page: Page, context: BrowserContext, subject: string): Promise<void> {
   await context.addCookies([{ name: SUBJECT_COOKIE, value: subject, url: AUTHGEAR_URL }]);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Log in' }).click();
-  await expect(page.locator('#account-signed-in')).toBeVisible();
+  // The header's button: the home page has a second one, and the header is on every page.
+  await page.getByRole('banner').getByRole('button', { name: 'Log in' }).click();
+  await expect(page.locator('[data-account-signed-in]')).toBeVisible();
 }
 
 /**
