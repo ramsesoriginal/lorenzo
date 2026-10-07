@@ -12,7 +12,7 @@ E2E_POSTGRES_URL=postgres://lorenzo:lorenzo@127.0.0.1:55432/postgres pnpm run te
 ## What CI runs
 
 CI runs `pnpm run test:real-api:ci` ([ADR 0196](../../../../docs/adr/0196-shelf-the-repositories-list-and-page.md)): the logged-out
-smoke tests in `tests/e2e`, `tests/real-api/shelf.spec.ts` and `tests/real-api/copy.spec.ts` ([ADR 0201](../../../../docs/adr/0201-shelf-the-copy-wizard.md)). Those are the tests known to match the pages
+smoke tests in `tests/e2e`, `tests/real-api/shelf.spec.ts` and `tests/real-api/copy.spec.ts` and `tests/real-api/studio.spec.ts` ([ADR 0202](../../../../docs/adr/0202-studio-my-repositories.md), [ADR 0201](../../../../docs/adr/0201-shelf-the-copy-wizard.md)). Those are the tests known to match the pages
 as they are today.
 
 ## What is not run in CI, and why
@@ -25,4 +25,5 @@ behaviour. They stay here, so that what each one checks is not lost, and are rep
 (each repaired spec is added to `test:real-api:ci`), tracked in #505. Do not delete one to make a run green.
 
 The specs not run in CI: `admin-basics`, `being-handoff`, `campaigns`, `errors`, `exits`, `invite-links`,
-`repositories`, `self-service`, `setup` and `tenant-slug`.
+`repositories` (what is left of it, about `/beings` and the pages of playing: the rest became
+`studio.spec.ts`, ADR 0202), `self-service`, `setup` and `tenant-slug`.

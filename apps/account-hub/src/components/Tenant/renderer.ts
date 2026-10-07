@@ -1,18 +1,16 @@
-// One library or repository in the main area: its heading, and the slots of <Tenant /> filled
-// with what the person can do with it, for its kind. Showing another replaces it, and an answer
+// One library in the main area: its heading, and the slots of <Tenant /> filled with what the
+// person can do with it. Showing another replaces it, and an answer
 // that arrives after that is dropped.
 
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { sayError } from '../../lib/statusLine';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
-import { isRepository, kindNounCapitalized } from '../../lib/tenantKind';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
 import { renderTenantEdit } from '../TenantEdit/renderer';
 import type { TenantHooks } from './hooks';
 import { bindLeaveTenant } from './leaveTenant';
 import { fillLibrary, loadLibrary } from './library';
-import { fillRepository, loadRepository } from './repository';
 
 export type RenderedTenant = {
   // Shows `tenant`, replacing what was shown.
@@ -25,11 +23,9 @@ const required = requiredIn('Tenant');
 // `root` is the <Tenant /> article.
 export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): RenderedTenant {
   const name = required<HTMLElement>(root, '[data-name]');
-  const kind = required<HTMLElement>(root, '[data-kind]');
   const role = required<HTMLElement>(root, '[data-role]');
   const slug = required<HTMLElement>(root, '[data-slug]');
   const description = required<HTMLElement>(root, '[data-tenant-description]');
-  const status = required<HTMLElement>(root, '[data-status]');
   const loading = required<HTMLElement>(root, '[data-loading]');
   const error = required<HTMLElement>(root, '[data-error]');
   const campaigns = required<HTMLElement>(root, '[data-campaigns]');
@@ -63,7 +59,6 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
     campaignList.replaceChildren();
     campaigns.hidden = true;
     showDescription('');
-    status.hidden = true;
   }
 
   // The Edit button is this block's own, bound once for whichever tenant is shown.
@@ -91,8 +86,6 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
       root.hidden = false;
       name.textContent = tenant.name;
       slug.textContent = tenant.slug;
-      kind.hidden = !isRepository(tenant);
-      kind.textContent = kindNounCapitalized(tenant.kind);
       role.textContent = tenant.role;
       tenantEdit.show(tenant);
       leaveTenant.show(tenant);
@@ -108,23 +101,12 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
       loading.hidden = false;
 
       try {
-        if (isRepository(tenant)) {
-          const data = await loadRepository(tenant);
+        const data = await loadLibrary(root, tenant, me);
 
-          if (turn !== latest) return;
+        if (turn !== latest) return;
 
-          status.textContent = data.status;
-          status.hidden = false;
-          showDescription(data.description);
-          fillRepository(root, tenant, tenantHooks, data);
-        } else {
-          const data = await loadLibrary(root, tenant, me);
-
-          if (turn !== latest) return;
-
-          showDescription(data.description);
-          fillLibrary(root, tenant, me, tenantHooks, data);
-        }
+        showDescription(data.description);
+        fillLibrary(root, tenant, me, tenantHooks, data);
       } catch (cause) {
         if (turn !== latest) return;
 

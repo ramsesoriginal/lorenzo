@@ -73,13 +73,17 @@ function fillMembers(
   }
 }
 
-function bindInvite(root: HTMLElement, tenant: TenantSummaryOut, onChanged: () => void): void {
+function bindInvite(
+  root: HTMLElement,
+  tenant: TenantSummaryOut,
+  onChanged: () => void,
+  label: string,
+): void {
   const invite = required<HTMLElement>(root, '[data-invite]');
   const roleSelect = required<HTMLSelectElement>(invite, '[data-invite-role]');
   const status = required<HTMLElement>(invite, '[data-status]');
 
-  required<HTMLElement>(invite, '[data-invite-label]').textContent =
-    `Invite a ${kindNoun(tenant.kind)} admin:`;
+  required<HTMLElement>(invite, '[data-invite-label]').textContent = label;
 
   renderUserPicker(required<HTMLElement>(invite, '[data-user-picker]'), async (user) => {
     say(status, 'Inviting…');
@@ -154,17 +158,24 @@ function bindBulkInvite(root: HTMLElement, tenant: TenantSummaryOut, onChanged: 
   });
 }
 
-// `root` is the <MembershipAdmin /> panel.
+// `root` is the <MembershipAdmin /> panel. A page that has its own words for the heading and the
+// invitation (Studio's People) gives them.
 export function renderMembershipAdmin(
   root: HTMLElement,
   tenant: TenantSummaryOut,
   memberships: MembershipRosterEntryOut[],
   onChanged: () => void,
+  words: { heading?: string; inviteLabel?: string } = {},
 ): void {
   required<HTMLElement>(root, '[data-heading]').textContent =
-    `${kindNounCapitalized(tenant.kind)} admins`;
+    words.heading ?? `${kindNounCapitalized(tenant.kind)} admins`;
 
   fillMembers(root, tenant, memberships, onChanged);
-  bindInvite(root, tenant, onChanged);
+  bindInvite(
+    root,
+    tenant,
+    onChanged,
+    words.inviteLabel ?? `Invite a ${kindNoun(tenant.kind)} admin:`,
+  );
   bindBulkInvite(root, tenant, onChanged);
 }
