@@ -16,7 +16,7 @@ The decision about who may read is easy; where to stop is not. Widening the reac
 
 A **seat** is a `character_player` row: a character played by a player in a campaign. Over the whole library, whatever the caller GMs:
 
-- the **campaign roots** are every seated character, every entry that transitively contains one (the room a player character stands in, the building around it: ADR 0046), and every group one of them belongs to (ADR 0124);
+- the **campaign roots** are every seated character, every entry that transitively contains one (the room a player character stands in, the building around it: ADR 0046), every group one of them belongs to (ADR 0124), and the entry each campaign carries for itself ([ADR 0030](0030-tenant-campaign-read-api.md)), so that the notes on a campaign are its own;
 - the **campaign reach** is those roots, everything they own, and everything contained in any of those, at any depth: the same walk of ownership and containment as everywhere else (`entity_access.reachable_entity_ids`), started from every seat in the library at once instead of from one campaign's;
 - an entry is **owned by a campaign** when it is in the campaign reach, and **owned by no campaign** otherwise.
 
