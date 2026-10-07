@@ -1,0 +1,145 @@
+---
+// Everything on /repositories (ADR 0196): Shelf, the repositories a library has been invited to or
+// has copied. A list, and one repository's page, both for the library chosen at the top. Rendered
+// by renderRepositoriesPanel.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<div class="stack" data-repositories-panel hidden>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <p data-no-library hidden>
+    Repositories are copied into a library, and you do not run one yet.
+    <a href="/tenants/">Your libraries</a>
+  </p>
+
+  <div class="field" data-library-picker hidden>
+    <label class="field-label" for="shelf-library">
+      Library
+    </label>
+    <select id="shelf-library" class="text-input" data-library></select>
+  </div>
+
+  <section class="stack" data-list-view hidden>
+    <p data-empty hidden>
+      No repository is offered to this library yet. The owner of a repository invites a library to
+      it; ask them to invite this one.
+    </p>
+    <ul class="list" data-list></ul>
+  </section>
+
+  <article class="stack" data-detail-view hidden>
+    <p>
+      <a class="shelf-link" href="/repositories/" data-back>
+        All repositories
+      </a>
+    </p>
+
+    <header class="row">
+      <img class="repository-picture" alt="" width="64" height="64" data-picture hidden />
+      <span class="avatar-placeholder repository-initial" aria-hidden="true" data-initial></span>
+      <h2 class="grow" data-name></h2>
+      <span data-state></span>
+    </header>
+
+    <p data-explanation></p>
+    <div class="ls-content" data-description hidden></div>
+
+    <section class="stack" data-inside-section hidden>
+      <h3>What is inside</h3>
+      <dl class="key-values" data-inside></dl>
+      <p data-inside-unknown hidden></p>
+      <p class="caption" data-attachments hidden></p>
+      <p class="caption">
+        Only names show until your library copies this repository: entries with their kinds and
+        parents, and stat groups with their stats.
+      </p>
+    </section>
+
+    <section class="stack" data-built-on-section hidden>
+      <h3>Built on</h3>
+      <ul class="outline" aria-label="Built on" data-outline></ul>
+      <p data-built-on-none hidden>
+        It is not built on other repositories.
+      </p>
+    </section>
+
+    <section class="stack" data-history-section hidden>
+      <h3>Your library and this repository</h3>
+      <dl class="key-values" data-history></dl>
+      <p data-brought hidden></p>
+    </section>
+
+    <details class="stack shelf-section" data-entries-section hidden>
+      <summary>
+        <svg class="icon tree-toggle" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+        </svg>
+        Entries
+      </summary>
+      <label class="field-label" for="shelf-entry-search">
+        Find an entry
+      </label>
+      <input id="shelf-entry-search" class="text-input" type="search" data-entry-search />
+      <ul class="list" data-entries></ul>
+      <p data-entries-empty hidden>
+        No entry matches.
+      </p>
+      <button type="button" class="btn btn-secondary" data-entries-more hidden>
+        Show more
+      </button>
+      <p class="error-text" role="alert" data-entries-error hidden></p>
+    </details>
+
+    <details class="stack shelf-section" data-stat-groups-section hidden>
+      <summary>
+        <svg class="icon tree-toggle" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+        </svg>
+        Stat groups
+      </summary>
+      <ul class="list" data-stat-groups></ul>
+      <p data-stat-groups-empty hidden>
+        It has no stat groups.
+      </p>
+      <p class="error-text" role="alert" data-stat-groups-error hidden></p>
+    </details>
+  </article>
+
+  <template data-card-template>
+    <li class="row repository-card">
+      <img class="repository-picture" alt="" width="48" height="48" data-picture hidden />
+      <span class="avatar-placeholder" aria-hidden="true" data-initial></span>
+      <div class="grow stack-tight">
+        <a class="shelf-link" href="/repositories/" data-link></a>
+        <span class="campaign-meta" data-description></span>
+      </div>
+      <span data-state></span>
+    </li>
+  </template>
+
+  <template data-outline-node-template>
+    <li>
+      <div class="outline-node">
+        <span class="outline-name" data-name></span>
+        <span data-state></span>
+        <p class="outline-hint" data-hint hidden></p>
+      </div>
+    </li>
+  </template>
+
+  <template data-entry-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <span class="badge" data-kinds></span>
+      <span class="campaign-meta" data-parents></span>
+    </li>
+  </template>
+
+  <template data-stat-group-template>
+    <li class="stack-tight shelf-stat-group">
+      <strong data-name></strong>
+      <span class="campaign-meta" data-stats></span>
+    </li>
+  </template>
+</div>
