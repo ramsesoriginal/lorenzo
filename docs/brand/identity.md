@@ -906,6 +906,19 @@ Dense data views should prioritize legibility over decorative branding.
 
 When a screen contains tables, timelines, relationship graphs, permissions, or knowledge matrices, reduce brand decoration and let the structure do the work.
 
+### 8.5 Phone widths and touch targets
+
+A phone is a first-class width for the screens a person uses away from a desk, such as checking what a repository changed before a session. The rules below are the shared base; a screen that needs more says so in its own decision.
+
+- **One breakpoint.** 720px, the width at which a sidebar already stacks. A second breakpoint would mean two kinds of "narrow" to keep in step.
+- **One column.** Below it, content stacks: the gutter is single (not the page padding plus the container's), the header may wrap, and names sit above their values. Nothing is hidden to make room.
+- **Targets.** Anything pressed is at least 44px tall (`--target-min`) at phone widths and for any coarse pointer. A control already taller is left alone, and a desktop with a fine pointer keeps its sizes. A small mark inside a larger control (a chip's remove mark) grows its pressable area, not its look.
+- **No hover-only controls.** What hover reveals must also be reachable by touch and by keyboard.
+- **Type does not shrink** to fit (§15.5); a long name wraps.
+- **A bar fixed to the bottom of the screen**, where a screen needs one, is separated by a border, not a shadow (§8.2), and leaves room for the device's safe area.
+
+A chain such as the repositories one is built on is shown as an outline (`.outline`), not a graph, so that it reads in order and works at this width; §18 gives its edges.
+
 ---
 
 ## 9. Mascot and illustration system

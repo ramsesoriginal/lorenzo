@@ -261,3 +261,40 @@ body:has(.full-width) {
   max-height: 70vh;
   overflow-y: auto;
 }
+
+/* Phone widths (identity.md §8.5). One breakpoint, the same 720px as
+   .with-sidebar, because a second one would mean two kinds of "narrow" to
+   keep in step. A custom property cannot be used in a media query, so the
+   number is written here and in the .with-sidebar rule above.
+
+   What changes is only what stops working at that width: the double gutter
+   (main's padding plus .wrap's), a header that cannot fit on one row, and
+   side-by-side columns. Type does not shrink (§15.5) and nothing is hidden
+   to make room. */
+@media (max-width: 720px) {
+  main {
+    padding: var(--space-3);
+  }
+
+  /* main already gives the gutter; the footer's .wrap, which has no main
+     around it, keeps its own. */
+  main .wrap {
+    padding-inline: 0;
+  }
+
+  .site-header {
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .site-header nav {
+    flex-wrap: wrap;
+  }
+
+  /* Wider than the viewport minus the gutters at 320px, so it gives way
+     rather than overflowing; §4.7's 220px minimum is for the lockup at
+     rest, and the spark alone is the compact form (§12.2). */
+  .brand-mark {
+    max-width: 100%;
+  }
+}
