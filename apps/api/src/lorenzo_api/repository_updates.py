@@ -179,6 +179,8 @@ class Updates:
     attachments_added: list[AttachmentRef] = field(default_factory=list)
     attachments_removed: list[AttachmentRef] = field(default_factory=list)
     attachments_deleted_locally: list[AttachmentRef] = field(default_factory=list)
+    # Id -> name, for every id the changed fields mention (ADR 0197).
+    names: dict[str, str] = field(default_factory=dict)
     upstream: Content | None = None
     local: Content | None = None
 
@@ -273,6 +275,89 @@ def _row_name(content: Content, kind: str, row_id: uuid.UUID) -> str:
     return str(row) if kind == "entity" else str(row["name"])
 
 
+class Names:
+    """The name of an id a diff mentions (ADR 0197): the repository's row as it is
+    now, else the tenant's own row for it (its copy, or its own row the repository
+    copied from it), else the snapshot taken when it was copied, which also names
+    a row deleted here. An id nobody has a name for has none, and is never named
+    by itself."""
+
+    def __init__(self, upstream: Content, local: Content) -> None:
+        self.upstream, self.local = upstream, local
+        self._by_origin: dict[
+            str, tuple[dict[uuid.UUID, uuid.UUID], dict[uuid.UUID, uuid.UUID]]
+        ] = {
+            kind: (upstream.links.local_of(kind), local.links.local_of(kind)) for kind in _ROW_KINDS
+        }
+
+    @staticmethod
+    def _named(content: Content, kind: str, row_id: uuid.UUID | None) -> str | None:
+        if row_id is None or row_id not in _rows(content, kind):
+            return None
+        return _row_name(content, kind, row_id) or None
+
+    def name(self, kind: str, ref: str) -> str | None:
+        """`ref` is an origin id, or `local:<id>` for the tenant's own row that
+        no repository has."""
+        try:
+            if ref.startswith("local:"):
+                return self._named(self.local, kind, uuid.UUID(ref.removeprefix("local:")))
+            origin = uuid.UUID(ref)
+        except ValueError:
+            return None
+        for content, by_origin in zip(
+            (self.upstream, self.local), self._by_origin[kind], strict=True
+        ):
+            row = by_origin.get(origin)
+            if row is None and content.own(kind, origin):
+                row = origin
+            found = self._named(content, kind, row)
+            if found:
+                return found
+        snapshot = self.local.links.snapshots.get(origin)
+        found = snapshot.get("name") if snapshot else None
+        return found if isinstance(found, str) and found else None
+
+
+def _formula_inputs(formula: Any) -> list[str]:
+    if not isinstance(formula, dict):
+        return []
+    inputs = [formula[role] for role in ("source", "left", "right") if formula.get(role)]
+    return inputs + [term["source"] for term in formula.get("terms") or []]
+
+
+def mentioned(change: FieldChange) -> list[tuple[str, str]]:
+    """The (kind, id) of every row a field's values name: the stat a keyed field is
+    about, the stats a formula reads, the entries and stat groups of a set, the
+    stat group of a definition."""
+    values = [change.base, change.upstream, change.local]
+    found: list[tuple[str, str]] = []
+    if change.field in ("prototypes", "stat_groups"):
+        kind = "entity" if change.field == "prototypes" else "stat_group"
+        found += [(kind, ref) for value in values for ref in value or []]
+    elif change.field == "stat_group":
+        found += [("stat_group", value) for value in values if isinstance(value, str)]
+    elif change.field.partition(":")[0] in _KEYED:
+        prefix, _, definition = change.field.partition(":")
+        found.append(("stat_definition", definition))
+        if prefix == "formulas":
+            found += [("stat_definition", ref) for v in values for ref in _formula_inputs(v)]
+    return found
+
+
+def _name_the_changes(updates: Updates) -> None:
+    assert updates.upstream is not None and updates.local is not None
+    book = Names(updates.upstream, updates.local)
+    for row in updates.changed:
+        for change in row.fields:
+            for kind, ref in mentioned(change):
+                if ref not in updates.names and (found := book.name(kind, ref)):
+                    updates.names[ref] = found
+            prefix, _, definition = change.field.partition(":")
+            if change.label is None and prefix in _KEYED:
+                change.label = updates.names.get(definition)
+
+
 async def compute_updates(
     session: AsyncSession, *, tenant_id: uuid.UUID, repository_id: uuid.UUID
 ) -> Updates:
@@ -354,6 +439,7 @@ async def compute_updates(
                 )
             updates.added.append(Added(kind, row_id, name, collision))
     _find_attachment_updates(updates, tenant_id=tenant_id)
+    _name_the_changes(updates)
     return updates
 
 
@@ -444,6 +530,9 @@ class NotApplied:
     source_id: uuid.UUID
     field: str
     reason: str
+    # The row, and the stat or parent the field is about, in words (ADR 0197).
+    name: str | None = None
+    label: str | None = None
 
 
 @dataclass
@@ -470,10 +559,13 @@ class ApplyResult:
 class _Applier:
     """Writes the chosen fields of changed rows onto the tenant's copies."""
 
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID, local: Content) -> None:
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, local: Content, names: Names
+    ) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.local = local
+        self.names = names
         self.origin_to_local = {
             kind: local.links.local_of(kind) for kind in ("entity", "stat_group", "stat_definition")
         }
@@ -491,7 +583,11 @@ class _Applier:
         return origin_id if origin_id in _rows(self.local, kind) else None
 
     def skip(self, row: RowChange, name: str, reason: str) -> None:
-        self.result.not_applied.append(NotApplied(row.kind, row.source_id, name, reason))
+        prefix, _, stat = name.partition(":")
+        label = self.names.name("stat_definition", stat) if prefix in _KEYED else None
+        self.result.not_applied.append(
+            NotApplied(row.kind, row.source_id, name, reason, row.name, label)
+        )
 
     async def apply(self, row: RowChange, chosen: list[FieldChange]) -> set[str]:
         """Applies `chosen`; returns the fields it couldn't apply."""
@@ -558,7 +654,8 @@ class _Applier:
             for origin in change.added or []:
                 target = self.resolve(kind, origin)
                 if target is None:
-                    self.skip(row, name, f"{origin} wasn't copied here")
+                    what = self.names.name(kind, origin) or "what it points at"
+                    self.skip(row, name, f"{what} wasn't copied here")
                     ok = False
                     continue
                 exists = await s.scalar(
@@ -871,7 +968,7 @@ async def apply_updates(
         result.added = len(additions)
         local = await load_content(session, tenant_id)
 
-    applier = _Applier(session, tenant_id, local)
+    applier = _Applier(session, tenant_id, local, Names(updates.upstream, local))
     applier.result = result
     for action in actions:
         key = (action.kind, action.source_id)
@@ -942,6 +1039,7 @@ async def _attach(
     isn't here, or that would make a prototype loop, is `not_applied` and keeps
     being offered."""
     assert updates.upstream is not None
+    book = Names(updates.upstream, local)
     step = Step(
         repository_id=updates.repository_id,
         name="",
@@ -971,7 +1069,16 @@ async def _attach(
                 if child is None
                 else "the prototype it attaches isn't here"
             )
-            result.not_applied.append(NotApplied("attachment", child_source, "prototypes", reason))
+            result.not_applied.append(
+                NotApplied(
+                    "attachment",
+                    child_source,
+                    "prototypes",
+                    reason,
+                    book.name("entity", str(child_source)),
+                    book.name("entity", str(parent_source)),
+                )
+            )
             continue
         edge = not await session.scalar(
             select(func.count())
@@ -990,7 +1097,14 @@ async def _attach(
     for a in planned:
         if (a.child_source_id, a.parent_source_id) in refused:
             result.not_applied.append(
-                NotApplied("attachment", a.child_source_id, "prototypes", LOOP_REASON)
+                NotApplied(
+                    "attachment",
+                    a.child_source_id,
+                    "prototypes",
+                    LOOP_REASON,
+                    book.name("entity", str(a.child_source_id)),
+                    book.name("entity", str(a.parent_source_id)),
+                )
             )
         else:
             result.attachments_added += 1

@@ -575,6 +575,8 @@ class NotAppliedOut(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     field: str = Field(..., title="Field")
     reason: str = Field(..., title="Reason")
+    name: str | None = Field(..., title="Name")
+    label: str | None = Field(..., title="Label")
 
 
 class NotificationCreate(BaseModel):
@@ -1575,6 +1577,7 @@ class UpdatesOut(BaseModel):
     attachments_deleted_locally: list[AttachmentRefOut] = Field(
         ..., title="Attachments Deleted Locally"
     )
+    names: dict[str, str] = Field(..., title="Names")
 
 
 class ApplyUpdatesRequest(BaseModel):

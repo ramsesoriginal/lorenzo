@@ -230,9 +230,10 @@ class FieldChangeOut(BaseModel):
     """One field the repository changed since this tenant copied or last
     synced it. `field` is its name, or `stats:<id>`/`formulas:<id>` for one
     stat, `label` then naming the stat. Values name other rows by their
-    origin id. `clean`: the tenant hasn't changed it, so it can simply be
-    taken; `conflict`: the tenant changed it too; `not_applicable`: shown,
-    but changed by hand. Sets (`prototypes`, `stat_groups`, `enum_values`)
+    origin id, and the response's `names` has each one's name (ADR 0197).
+    `clean`: the tenant hasn't changed it, so it can simply be taken;
+    `conflict`: the tenant changed it too; `not_applicable`: shown, but
+    changed by hand. Sets (`prototypes`, `stat_groups`, `enum_values`)
     list what upstream `added` and `removed`, and are always clean."""
 
     field: str
@@ -300,7 +301,11 @@ class UpdatesOut(BaseModel):
     `attachments_*` lists are the same for the parents the repository added to
     its copies (ADR 0172): `attachments_removed` are ones it no longer has, which
     are only detached, and `attachments_deleted_locally` are ones whose edge this
-    tenant removed."""
+    tenant removed. `names` maps every id the changed fields mention (an origin id,
+    or `local:<id>` for one of this tenant's own rows) to its name, the repository's
+    row as it is now, else this tenant's, else the one it was copied as, so a row
+    gone upstream or deleted here still reads (ADR 0197). An id nobody has a name for
+    is not in it, and a client says "an entry that is gone", never the id."""
 
     repository_id: uuid.UUID
     changed: list[RowChangeOut]
@@ -310,6 +315,7 @@ class UpdatesOut(BaseModel):
     attachments_added: list[AttachmentAddedOut]
     attachments_removed: list[AttachmentRefOut]
     attachments_deleted_locally: list[AttachmentRefOut]
+    names: dict[str, str]
 
 
 class UpdateResolutionIn(BaseModel):
@@ -362,12 +368,15 @@ class ApplyUpdatesRequest(BaseModel):
 
 
 class NotAppliedOut(BaseModel):
-    """A field that couldn't be applied, and why. It keeps being offered."""
+    """A field that couldn't be applied, and why. It keeps being offered. `name` is the
+    row it is about and `label` the stat or parent its `field` names, in words (ADR 0197)."""
 
     kind: str
     source_id: uuid.UUID
     field: str
     reason: str
+    name: str | None
+    label: str | None
 
 
 class ApplyUpdatesOut(BaseModel):

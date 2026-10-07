@@ -395,6 +395,7 @@ class World:
                 "attachments_added": [],
                 "attachments_removed": [],
                 "attachments_deleted_locally": [],
+                "names": {},
             }
             return httpx.Response(
                 200, json={"repository_id": str(REPO_ID), **nothing, **self.updates}

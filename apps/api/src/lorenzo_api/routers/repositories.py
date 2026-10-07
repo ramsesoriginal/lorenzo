@@ -904,6 +904,7 @@ async def list_repository_updates(
         attachments_deleted_locally=[
             _attachment_ref_out(a) for a in updates.attachments_deleted_locally
         ],
+        names=updates.names,
     )
 
 
@@ -968,7 +969,14 @@ async def apply_repository_updates(
         attachments_added=result.attachments_added,
         attachments_detached=result.attachments_detached,
         not_applied=[
-            NotAppliedOut(kind=n.kind, source_id=n.source_id, field=n.field, reason=n.reason)
+            NotAppliedOut(
+                kind=n.kind,
+                source_id=n.source_id,
+                field=n.field,
+                reason=n.reason,
+                name=n.name,
+                label=n.label,
+            )
             for n in result.not_applied
         ],
     )
