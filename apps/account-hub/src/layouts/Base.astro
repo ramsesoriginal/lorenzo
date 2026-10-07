@@ -12,7 +12,10 @@ const { title = 'Lorenzo - Account' } = Astro.props;
 
 <!doctype html>
 <html lang="en">
-  <SiteHead title={title} />
+  <SiteHead title={title}>
+    <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
+    <slot name="head" slot="head" />
+  </SiteHead>
   <body>
     <SiteHeader />
     <main>
