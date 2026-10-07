@@ -11,24 +11,37 @@ import type {
   SubscriptionOut,
 } from './types';
 
-// The address of Shelf for a library, and of one of its repositories. `library` is the library's
-// slug or id, whichever the address already had; `repository` is the repository's id.
-export function shelfHref(library: string, repository?: string): string {
+// Copying a repository for the first time, or again (ADR 0201): the wizard is a place of its own,
+// so that it can be linked to and gone back out of.
+export type CopyMode = 'new' | 'again';
+
+// The address of Shelf for a library, of one of its repositories, and of the copy wizard for it.
+// `library` is the library's slug or id, whichever the address already had; `repository` is the
+// repository's id.
+export function shelfHref(library: string, repository?: string, copy?: CopyMode): string {
   const query = new URLSearchParams({ tenant: library });
 
   if (repository) query.set('repository', repository);
+  if (repository && copy) query.set('copy', copy);
 
   return `/repositories/?${query.toString()}`;
 }
 
-// What an address asks for: which library and which repository, either of which may be absent.
+// What an address asks for: which library, which repository and whether to copy it, any of which
+// may be absent. Anything but "again" asks for a first copy.
 export function readShelfLocation(search: string): {
   library: string | null;
   repository: string | null;
+  copy: CopyMode | null;
 } {
   const query = new URLSearchParams(search);
+  const copy = query.get('copy');
 
-  return { library: query.get('tenant'), repository: query.get('repository') };
+  return {
+    library: query.get('tenant'),
+    repository: query.get('repository'),
+    copy: copy === null ? null : copy === 'again' ? 'again' : 'new',
+  };
 }
 
 export type ShelfState =
