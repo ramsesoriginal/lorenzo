@@ -7147,7 +7147,10 @@ export interface components {
             kind: components["schemas"]["TenantKind"];
             /** Published At */
             published_at: string | null;
-            /** Npcs Shared With Gms */
+            /**
+             * Npcs Shared With Gms
+             * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
+             */
             npcs_shared_with_gms: boolean;
             /** Created By */
             created_by: string | null;
@@ -7194,7 +7197,10 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
-            /** Npcs Shared With Gms */
+            /**
+             * Npcs Shared With Gms
+             * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
+             */
             npcs_shared_with_gms?: boolean | null;
         };
         /**

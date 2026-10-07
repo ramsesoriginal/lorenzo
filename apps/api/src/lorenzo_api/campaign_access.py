@@ -9,10 +9,15 @@ than have its logic duplicated there.
 import uuid
 from collections.abc import Iterable
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import ColumnElement, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.entity_access import controlled_character_entity_ids
+from lorenzo_api.entity_access import (
+    containing_ancestors_ids,
+    controlled_character_entity_ids,
+    group_ids_for_characters,
+    reachable_entity_ids,
+)
 from lorenzo_api.models import (
     Being,
     Campaign,
@@ -282,13 +287,99 @@ async def campaignless_holders_for(
     if among is not None:
         stmt = stmt.where(Entity.id.in_(set(among)))
 
-    tenant = await session.get(Tenant, tenant_id)
-    if tenant is None or not tenant.npcs_shared_with_gms:
-        co_gms = select(CampaignGm.user_id).where(
-            CampaignGm.campaign_id.in_(gm_campaigns), CampaignGm.tenant_id == tenant_id
-        )
-        stmt = stmt.where(Entity.created_by.in_(co_gms))
+    authored = await _authored_by_my_tables(session, user_id=user_id, tenant_id=tenant_id)
+    if authored is not None:
+        stmt = stmt.where(authored)
     return frozenset((await session.execute(stmt)).scalars().all())
+
+
+async def _authored_by_my_tables(
+    session: AsyncSession, *, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> ColumnElement[bool] | None:
+    """What narrows a GM's standing over entries no campaign owns when the
+    tenant does not share them (ADR 0152): authored by the caller or a co-GM,
+    someone who GMs at least one campaign the caller GMs. None when the tenant
+    shares them, and so no narrowing.
+    """
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is not None and tenant.npcs_shared_with_gms:
+        return None
+    gm_campaigns = select(CampaignGm.campaign_id).where(
+        CampaignGm.user_id == user_id, CampaignGm.tenant_id == tenant_id
+    )
+    co_gms = select(CampaignGm.user_id).where(
+        CampaignGm.campaign_id.in_(gm_campaigns), CampaignGm.tenant_id == tenant_id
+    )
+    return Entity.created_by.in_(co_gms)
+
+
+async def campaign_owned_entity_ids(
+    session: AsyncSession, *, tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """Every entry some campaign owns (ADR 0200): what a campaign's GM reaches
+    from the campaign's own seats (ADR 0035, 0046, 0124), taken over every
+    campaign in the library at once. The roots are each character with a seat,
+    every entry that transitively contains one (the room it stands in), each
+    group one belongs to, and the entry each campaign carries for itself (ADR
+    0030); the set is those, what they own, and what is contained in any of
+    that at any depth.
+    """
+    campaign_entries = frozenset(
+        (await session.execute(select(Campaign.entity_id).where(Campaign.tenant_id == tenant_id)))
+        .scalars()
+        .all()
+    )
+    seated = frozenset(
+        (
+            await session.execute(
+                select(CharacterPlayer.character_entity_id)
+                .join(Player, Player.id == CharacterPlayer.player_id)
+                .where(Player.tenant_id == tenant_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    roots = (
+        campaign_entries
+        | seated
+        | await containing_ancestors_ids(session, entity_ids=seated, tenant_id=tenant_id)
+        | await group_ids_for_characters(session, character_ids=seated, tenant_id=tenant_id)
+    )
+    return await reachable_entity_ids(session, root_entity_ids=roots, tenant_id=tenant_id)
+
+
+async def unowned_entry_reach_for(
+    session: AsyncSession, *, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> frozenset[uuid.UUID]:
+    """The entries no campaign owns that a GM reads (ADR 0200), whatever their
+    kind: a catalog item a copy brought, a place, an inventory item no
+    character holds, a being in no campaign.
+
+    Only a caller who holds a CampaignGm row in the tenant gets any. With the
+    tenant's `npcs_shared_with_gms` on (the default) it is every entry of the
+    library that campaign_owned_entity_ids does not hold. With it off it is
+    those the caller or a co-GM authored, and what they own and contain, minus
+    what a campaign owns: the walk from an entry can arrive at a campaign's
+    things (a being no campaign has, carrying what a player character holds)
+    and those never come with it, so a GM gains nothing about what another
+    campaign's characters own.
+    """
+    is_gm = select(CampaignGm.campaign_id).where(
+        CampaignGm.user_id == user_id, CampaignGm.tenant_id == tenant_id
+    )
+    if (await session.execute(is_gm.limit(1))).first() is None:
+        return frozenset()
+
+    owned = await campaign_owned_entity_ids(session, tenant_id=tenant_id)
+    entries = select(Entity.id).where(Entity.tenant_id == tenant_id)
+    authored = await _authored_by_my_tables(session, user_id=user_id, tenant_id=tenant_id)
+    if authored is None:
+        return frozenset((await session.execute(entries)).scalars().all()) - owned
+    roots = frozenset((await session.execute(entries.where(authored))).scalars().all()) - owned
+    if not roots:
+        return frozenset()
+    return await reachable_entity_ids(session, root_entity_ids=roots, tenant_id=tenant_id) - owned
 
 
 async def self_service_standing(

@@ -17,6 +17,7 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_tenant_or_404,
 )
+from lorenzo_api.entity_access import entity_id_among
 from lorenzo_api.exceptions import TenantNotFoundError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Being, Entity
@@ -73,7 +74,7 @@ async def list_beings(
         .order_by(Being.entity_id)
     )
     if reach is not None:
-        stmt = stmt.where(Being.entity_id.in_(reach))
+        stmt = stmt.where(entity_id_among(Being.entity_id, reach))
     if q is not None:
         stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
 
