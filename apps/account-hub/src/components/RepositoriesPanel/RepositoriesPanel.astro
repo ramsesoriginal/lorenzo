@@ -43,6 +43,29 @@ import { BRANDING_CSS_URL } from '../../lib/config';
     </header>
 
     <p data-explanation></p>
+
+    <div class="stack-tight" data-actions hidden>
+      <p>
+        <a class="btn btn-primary" href="/repositories/" data-link data-copy-link>
+          Copy this repository
+        </a>
+      </p>
+      <p class="caption">
+        You see what it brings, and what it would clash with, before anything is copied.
+      </p>
+    </div>
+    <details class="stack shelf-section" data-more hidden>
+      <summary>
+        <svg class="icon tree-toggle" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+        </svg>
+        More
+      </summary>
+      <a class="shelf-link" href="/repositories/" data-link data-copy-again-link>
+        Copy again&hellip;
+      </a>
+    </details>
+
     <div class="ls-content" data-description hidden></div>
 
     <section class="stack" data-inside-section hidden>
@@ -105,6 +128,143 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <p class="error-text" role="alert" data-stat-groups-error hidden></p>
     </details>
   </article>
+
+  <section class="stack" data-copy-view hidden>
+    <p>
+      <a class="shelf-link" href="/repositories/" data-link data-copy-back>
+        Back to the repository
+      </a>
+    </p>
+    <h2 data-copy-title></h2>
+    <p class="caption" role="status" tabindex="-1" data-copy-step></p>
+    <p class="error-text" role="alert" data-copy-error hidden></p>
+    <p data-copy-working hidden>
+      Checking&hellip;
+    </p>
+
+    <section class="stack" data-step="check" hidden>
+      <h3>Before you copy</h3>
+      <ul class="stack-tight" data-limits></ul>
+
+      <fieldset data-again hidden>
+        <legend>What happens to the copy you already have?</legend>
+        <label class="field-row">
+          <input type="radio" name="copy-again" value="keep" checked />
+          Keep it as your own, and copy again beside it
+        </label>
+        <p class="caption" data-again-keep>
+          What the earlier copy created stays as your own entries and stat groups, no longer linked
+          to the repository. Their names will clash with the new copy, so expect choices to make.
+        </p>
+        <label class="field-row">
+          <input type="radio" name="copy-again" value="purge" />
+          Replace it
+        </label>
+        <p class="caption" data-again-purge>
+          What the earlier copy created is removed first, together with what your library added to
+          it.
+        </p>
+      </fieldset>
+
+      <section class="stack" data-brings-section hidden>
+        <h3>What it brings</h3>
+        <ul class="stack-tight" data-brings></ul>
+        <p class="caption" data-attachments hidden></p>
+        <p data-clash-count hidden></p>
+      </section>
+
+      <section class="stack" data-blocked hidden>
+        <h3>It cannot be copied yet</h3>
+        <p data-blocked-reason></p>
+        <ul class="stack-tight" data-missing></ul>
+      </section>
+
+      <div class="row">
+        <button type="button" class="btn btn-primary" data-check-next>
+          Continue
+        </button>
+      </div>
+    </section>
+
+    <section class="stack" data-step="clashes" hidden>
+      <p data-clash-intro></p>
+      <p>
+        <button type="button" class="btn btn-secondary" data-recommended-all>
+          Do what is recommended for all
+        </button>
+      </p>
+      <p class="caption" role="status" data-clash-progress></p>
+      <ol class="list" data-clashes></ol>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-clashes-back>
+          Back
+        </button>
+        <button type="button" class="btn btn-primary" data-clashes-next>
+          Review the copy
+        </button>
+      </div>
+    </section>
+
+    <section class="stack" data-step="review" hidden>
+      <p class="lede" data-receipt></p>
+      <p data-previous hidden></p>
+      <ul class="stack-tight" data-dropped hidden></ul>
+      <details class="stack shelf-section">
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          Everything it would bring
+        </summary>
+        <ul class="stack-tight" data-step-lines></ul>
+      </details>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-review-back>
+          Back
+        </button>
+        <button type="button" class="btn btn-primary" data-copy-now>
+          Copy now
+        </button>
+      </div>
+    </section>
+
+    <section class="stack" data-step="done" hidden>
+      <p class="lede" data-done-receipt></p>
+      <ul class="stack-tight" data-done-dropped hidden></ul>
+      <p>
+        <a class="btn btn-primary" href="/repositories/" data-link data-done-open>
+          Open the repository
+        </a>
+      </p>
+    </section>
+
+    <template data-clash-template>
+      <li>
+        <fieldset class="clash">
+          <legend data-sentence></legend>
+          <div class="stack" data-choices></div>
+          <label class="field" data-name-field hidden>
+            <span class="field-label" data-name-label></span>
+            <input class="text-input" type="text" autocomplete="off" spellcheck="false" data-name />
+          </label>
+          <p class="error-text" role="alert" data-problem hidden></p>
+        </fieldset>
+      </li>
+    </template>
+
+    <template data-choice-template>
+      <div class="stack-tight">
+        <label class="field-row">
+          <input type="radio" data-radio />
+          <span data-label></span>
+          <span class="pill" data-recommended hidden>
+            Recommended
+          </span>
+        </label>
+        <p class="caption" data-explanation></p>
+      </div>
+    </template>
+  </section>
 
   <template data-card-template>
     <li class="row repository-card">

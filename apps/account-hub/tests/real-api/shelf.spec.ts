@@ -1,29 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { type Api, ok } from '../../../inventory-web/tests/e2e/support/api';
-import { newLibrary, newRepository, newUser, signedInPage } from './support';
-
-async function publish(api: Api, repositoryId: string) {
-  await ok(
-    api.PUT('/tenants/{tenant_id}/published', { params: { path: { tenant_id: repositoryId } } }),
-  );
-}
-
-async function invite(api: Api, repositoryId: string, libraryId: string) {
-  await ok(
-    api.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
-      params: { path: { tenant_id: repositoryId, subscriber_tenant_id: libraryId } },
-    }),
-  );
-}
-
-async function addItem(api: Api, repositoryId: string, name: string) {
-  return ok(
-    api.POST('/tenants/{tenant_id}/items', {
-      params: { path: { tenant_id: repositoryId } },
-      body: { name, prototype_ids: [], in_public_catalog: false },
-    }),
-  );
-}
+import { ok } from '../../../inventory-web/tests/e2e/support/api';
+import {
+  addItem,
+  invite,
+  newLibrary,
+  newRepository,
+  newUser,
+  publish,
+  signedInPage,
+} from './support';
 
 // A small world, all through the API: a core repository, a repository built on it (so the
 // library is invited to the one and not the other), and a draft nobody has published.
