@@ -25,7 +25,9 @@ def seeded_tenant(stack: Stack, token: str, tmp_path: Path) -> str:
     return tenant
 
 
-def plan(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> Any:
+def plan(
+    stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str, real_engine: bool = False
+) -> Any:
     return run_cli(
         stack,
         token,
@@ -38,10 +40,13 @@ def plan(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> A
         "--proposed-map",
         str(tmp_path / "proposed.map.toml"),
         *args,
+        real_engine=real_engine,
     )
 
 
-def apply(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> Any:
+def apply(
+    stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str, real_engine: bool = False
+) -> Any:
     return run_cli(
         stack,
         token,
@@ -54,6 +59,7 @@ def apply(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> 
         "--proposed-map",
         str(tmp_path / "proposed.map.toml"),
         *args,
+        real_engine=real_engine,
     )
 
 
@@ -65,7 +71,9 @@ def test_a_tenant_that_was_not_seeded_is_told_to_run_seed(stack: Stack, tmp_path
     token = stack.creator_token()
     tenant = make_tenant(stack, token)
 
-    result = plan(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--json")
+    result = plan(
+        stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--json", real_engine=True
+    )
 
     assert result.exit_code == 1
     problems = json.loads(result.stdout)["problems"]
@@ -151,7 +159,9 @@ def test_apply_imports_what_is_resolved_and_leaves_the_rest_for_review(
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
 
-    result = apply(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--yes")
+    result = apply(
+        stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--yes", real_engine=True
+    )
 
     assert result.exit_code == 1  # one item is still held
     with stack.api(token) as api:
