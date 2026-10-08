@@ -840,6 +840,15 @@ class PrototypeAncestorOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
+class RepositoryDependencyOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str = Field(..., title="Slug")
+    invited: bool = Field(..., title="Invited")
+    copied: bool = Field(..., title="Copied")
+    published: bool = Field(..., title="Published")
+
+
 class Kind7(StrEnum):
     item = "item"
     item_instance = "item_instance"

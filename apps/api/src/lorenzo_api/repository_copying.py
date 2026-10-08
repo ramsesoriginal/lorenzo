@@ -202,6 +202,16 @@ async def _step(
     )
 
 
+async def _copied_by(session: AsyncSession, tenant_id: uuid.UUID) -> set[uuid.UUID]:
+    """The repositories `tenant_id` has copied: its own copy records, nothing
+    of what they brought in."""
+    return set(
+        await session.scalars(
+            select(RepositoryCopy.repository_tenant_id).where(RepositoryCopy.tenant_id == tenant_id)
+        )
+    )
+
+
 async def _dependencies(session: AsyncSession, repository_id: uuid.UUID) -> set[uuid.UUID] | None:
     """The repositories `repository_id` has copied, read through the gated
     read; None if this tenant can't read it."""
@@ -225,7 +235,7 @@ async def manifest(
     repository's: it had to copy them first. The copying tenant is never a
     step, even if it's somebody's dependency - its rows are the origins.
     """
-    copied = (await load_links(session, tenant_id)).copies
+    copied = await _copied_by(session, tenant_id)
     top = await _step(session, tenant_id, repository_id, copied)
     if not (top.granted and top.published):
         raise RepositoryNotFoundError(
@@ -255,6 +265,18 @@ async def manifest(
     for d in sorted(deps, key=lambda d: (steps[d].name, str(d))):
         visit(d)
     return [steps[d] for d in ordered] + [top]
+
+
+async def dependencies_of(
+    session: AsyncSession, *, tenant_id: uuid.UUID, repository_id: uuid.UUID
+) -> list[Step]:
+    """What `repository_id` is built on, in the manifest's order (ADR 0198):
+    its steps without itself, each carrying `tenant_id`'s own state of it
+    (`granted`, `already_copied`) and whether it is published. Reads no
+    content, only copy records, and refuses as the manifest does, with
+    `RepositoryNotFoundError`, unless `tenant_id` holds a grant to the
+    repository and it is published."""
+    return (await manifest(session, tenant_id=tenant_id, repository_id=repository_id))[:-1]
 
 
 # --- Planning (ADR 0119) --------------------------------------------------------
