@@ -68,7 +68,21 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           <span class="pill pill-warning">Live</span>
           <span data-live-text></span>
         </p>
-        <p class="caption" data-command-line></p>
+        <div class="stack-tight" data-publish-actions>
+          <div class="row" data-publish-buttons hidden>
+            <button type="button" class="btn btn-primary" data-publish hidden>
+              Publish&hellip;
+            </button>
+            <button type="button" class="btn btn-secondary" data-announce hidden>
+              Tell libraries about an update&hellip;
+            </button>
+            <button type="button" class="btn btn-secondary" data-unpublish hidden>
+              Unpublish&hellip;
+            </button>
+          </div>
+          <p class="caption" data-owner-only hidden></p>
+          <p class="status-text" role="status" data-publish-status hidden></p>
+        </div>
       </section>
     </div>
 
@@ -141,6 +155,25 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       <div data-activity-slot hidden></div>
     </div>
   </div>
+
+  <!-- What a publish will do, said before it does it (ADR 0206). -->
+  <dialog aria-labelledby="publish-dialog-title" data-publish-dialog>
+    <form method="dialog" class="stack" data-publish-form>
+      <h3 id="publish-dialog-title" data-dialog-title></h3>
+      <div class="stack-tight" data-dialog-warnings hidden>
+        <strong>Check before you go on</strong>
+        <ul class="stack-tight" data-dialog-warning-list></ul>
+      </div>
+      <ul class="stack-tight" data-dialog-lines></ul>
+      <p class="error-text" role="alert" data-dialog-error hidden></p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-dialog-cancel autofocus>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-dialog-confirm></button>
+      </div>
+    </form>
+  </dialog>
 
   <template data-using-template>
     <li class="row">
