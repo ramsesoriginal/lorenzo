@@ -10,6 +10,7 @@ from e2e.helpers import (
     FIXTURES,
     SharedRepository,
     by_slug,
+    copy_of_seeded,
     make_tenant,
     own_stats,
     parent_names,
@@ -20,10 +21,8 @@ from e2e.stack import Stack
 
 
 def seeded_tenant(stack: Stack, token: str, tmp_path: Path) -> str:
-    tenant = make_tenant(stack, token)
-    seeded = run_cli(stack, token, tmp_path, "seed", "--tenant", tenant, "--yes")
-    assert seeded.exit_code == 0, seeded.output
-    return tenant
+    """A repository of the test's own that holds the seed, as a copy of the seeded one."""
+    return copy_of_seeded(stack, token, tmp_path)
 
 
 def plan(

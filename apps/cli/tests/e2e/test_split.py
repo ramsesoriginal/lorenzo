@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import pytest
 
 from e2e.helpers import FIXTURES, by_slug, make_tenant, parent_names, run_cli, tenant_id
 from e2e.stack import Stack
@@ -103,10 +104,18 @@ def all_titles(api: httpx.Client, tid: str) -> list[str]:
         page += 1
 
 
+@pytest.fixture(scope="module")
+def shared_split(stack: Stack, tmp_path_factory: pytest.TempPathFactory) -> Split:
+    """One Split for the tests that only add tables, grants and copies to it, and read what it
+    holds: building one is about 14 commands, three seeds and an import. The test that renames in
+    core and publishes changes what the others read, so it builds its own."""
+    return Split(stack, tmp_path_factory.mktemp("split"))
+
+
 def test_a_copy_of_the_bridge_keeps_a_category_minted_under_a_root_in_core(
-    stack: Stack, tmp_path: Path
+    stack: Stack, shared_split: Split
 ) -> None:
-    split = Split(stack, tmp_path)
+    split = shared_split
     table = split.table()
 
     code, offered = split.json("repo", "offer", table, "--tenant", split.bridge, "--yes")
@@ -143,9 +152,9 @@ def test_a_copy_of_the_bridge_keeps_a_category_minted_under_a_root_in_core(
 
 
 def test_a_table_that_took_the_equipment_first_gets_the_prices_when_it_takes_the_bridge(
-    stack: Stack, tmp_path: Path
+    stack: Stack, shared_split: Split
 ) -> None:
-    split = Split(stack, tmp_path)
+    split = shared_split
     table = split.table()
     split.ok("repo", "offer", table, "--tenant", split.equipment, "--yes")
     before = split.entity(table, "weapon")
@@ -183,9 +192,9 @@ def test_a_table_that_took_the_equipment_first_gets_the_prices_when_it_takes_the
 
 
 def test_the_bridge_counts_what_it_attaches_and_the_layers_it_holds(
-    stack: Stack, tmp_path: Path
+    stack: Stack, shared_split: Split
 ) -> None:
-    split = Split(stack, tmp_path)
+    split = shared_split
 
     code, contents = split.json("repo", "contents", "--tenant", split.bridge)
     layers = contents["seed"]["layers"]
@@ -209,9 +218,9 @@ def test_the_bridge_counts_what_it_attaches_and_the_layers_it_holds(
 
 
 def test_a_tenant_needs_every_grant_and_the_plan_says_which_is_missing(
-    stack: Stack, tmp_path: Path
+    stack: Stack, shared_split: Split
 ) -> None:
-    split = Split(stack, tmp_path)
+    split = shared_split
     table = split.table()
     split.ok("repo", "grant", table, "--tenant", split.bridge)  # only the bridge
 

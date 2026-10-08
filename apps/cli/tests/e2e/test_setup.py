@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from e2e.helpers import FIXTURES, by_slug, own_stats, parent_names, run_cli, tenant_id
 from e2e.stack import Stack
 
@@ -137,10 +139,18 @@ def names(rows: list[dict[str, Any]]) -> set[str]:
     return {row["name"] for row in rows}
 
 
+@pytest.fixture(scope="module")
+def shared_setup(stack: Stack, tmp_path_factory: pytest.TempPathFactory) -> Setup:
+    """One Setup for the two tests that only read the repositories or add a table drawing on them:
+    the eighteen commands cost about 18 s. The two that rename, import and publish in the
+    repositories change what the others see, so each builds its own."""
+    return Setup(stack, tmp_path_factory.mktemp("setup"))
+
+
 def test_the_setup_leaves_four_repositories_and_the_bridge_attaches_what_it_made(
-    stack: Stack, tmp_path: Path
+    shared_setup: Setup,
 ) -> None:
-    setup = Setup(stack, tmp_path)
+    setup = shared_setup
 
     contents = {
         name: setup.json("repo", "contents", "--tenant", slug)[1]
@@ -186,9 +196,9 @@ def test_the_setup_leaves_four_repositories_and_the_bridge_attaches_what_it_made
 
 
 def test_a_table_is_usable_with_the_equipment_alone_and_gets_dnd_on_the_same_items_later(
-    stack: Stack, tmp_path: Path
+    shared_setup: Setup,
 ) -> None:
-    setup = Setup(stack, tmp_path)
+    setup = shared_setup
 
     table = setup.table(setup.equipment)
     before = setup.entity(table, SWORD)

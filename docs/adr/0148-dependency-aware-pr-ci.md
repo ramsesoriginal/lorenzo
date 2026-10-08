@@ -113,4 +113,31 @@ Two fixed costs that the faster tests leave as a larger share:
 
 **What the runner's own Chrome showed, and why it was not kept.** The first version of this change set `E2E_BROWSER_CHANNEL=chrome`, which both Playwright configs read, to skip the browser install altogether. Measured in CI it saved the install but made the test steps 28 to 43 s longer (inventory-web's 84 s to 127 s, account-hub's 31 s to 59 s), because Chrome's new headless mode is a full browser where the headless shell is a stripped one, so inventory-web's job did not get faster. It also failed one test the shell passes: account-hub's Studio phone test found 8 px of horizontal overflow on the People tab. That is a real bug the shell had been hiding: below 720 px `.with-sidebar` was `grid-template-columns: 1fr`, which is `minmax(auto, 1fr)`, so the column would not shrink below the intrinsic width of a form control in it and the page scrolled sideways on a phone. It is now `minmax(0, 1fr)`, which passes in both headless modes.
 
-Still open, in this order: shards balanced by recorded duration rather than test count, a cache of the JS evaluation, a seeded repository shared by the tests that only read, and Playwright's own setup (parallel seeding, an injected login).
+## Addendum (2026-10-08): a profile of the end-to-end suites, and what it led to
+
+The first changes left the CLI's end-to-end suite as the longest job, so the three suites were profiled from the inside: every API request (route and duration), every CLI command and every test, timestamped and joined. On a checkout on a native file system (a clone under WSL's home, where the suite took 704 s against CI's 708 s summed), because a checkout mounted from Windows distorted the first profile.
+
+- **CLI end-to-end, 704 s for 129 tests.** 95% of it is the API serving requests, 18,329 of them at 36.6 ms on average. `lorenzo seed` is 68% of the suite (141 commands, about 126 sequential requests for a full seed, 4.7 s) and `apply` 15%. 71 of the 129 tests seed, 65 of them in full and 76 more by layer.
+- **Why a request costs what it does.** A read of one item runs about 32 SQL statements, half the time in SQL and half in Python, with the same lookups repeated inside one request (membership three times; the campaign GM grants, information, prototypes and tenant twice each), and every authenticated request writes an `app_user` upsert. Changing that is a change to the API and to what [ADR 0075](0075-sync-email-via-userinfo-not-access-token.md) decided about the user row; it is not part of this change.
+- **`seed` read what it found one item at a time.** Its plan asked for every node a tenant already had with its own `GET /items/{id}`: 10 to 25 of them for a layered seed, a second run or a dry run.
+- **Playwright (inventory-web), 281 s on one worker.** Building a world 14%, building a scene 31% (the same `packed()` in 57 tests), the browser and the test's own calls 55%.
+- **apps/api's tests, 185 s for 1,295 tests.** A median test takes 60 ms; the slowest tenth takes 57% of the time and fixtures 3%.
+
+What changed, in `apps/cli`:
+
+- **A copy, not a seed, as the start state.** A copy of a seeded repository (a grant and a copy, about 10 requests, 0.2 to 0.3 s) is how a table gets the seed ([ADR 0183](0183-setting-up-the-four-repositories-and-what-trying-it-showed.md)); a seed is 4 to 5 s. The tests of what the importer does with a seeded tenant (plan, apply, packs, the titles of imported items) start from a copy of one seeded, published repository that the session builds when something first asks (`helpers.golden_repository`, `copy_of_seeded`). The tests of the seed itself, and the `unseed` ones, still run it.
+- **One world for tests that only read or add.** `test_split`'s first four tests and `test_setup`'s first two build their four-repository world once per module. The tests that rename or publish in the repositories keep their own.
+- **Parallel workers, a stack each** (pytest-xdist, `E2E_WORKERS`, four by default, `--dist loadfile`). Each worker has its own API process and its own database, cloned from a template one of them migrates: the migrations create a role that belongs to the whole server, so running them side by side races. An advisory lock serialises the template and the clones, and the template is named after the migrations, so a changed one makes a new template. A run's databases are named after the run and the worker and dropped at the end, because two sessions on one Postgres, each with a fixed name, dropped each other's tables (two of nine benchmark runs).
+- **`seed` reads in bulk** (`read_items`): one page of the item listing, 100 a request, instead of a request per node. A page costs about 40 ms and under a millisecond a row, and a request for one item about 30 ms, so a tenant of up to ten pages is read from the listing and a bigger one node by node; what the listing does not hold is still asked for by id, so the answer is the same. A layered seed went from 2.1 s to 1.3 s and a dry run from 1.2 s to 0.16 s.
+
+Measured with the tests and Postgres pinned to four cores, a shard at a time, as CI splits them (a 16-core machine standing in for a four-vCPU runner, so the ratios carry over and the seconds may not):
+
+| Shard | Baseline, serial | Copies and shared worlds, serial | And three workers |
+| --- | --- | --- | --- |
+| 1 of 3 | 169 s | 173 s | 88 s |
+| 2 of 3 | 274 s | 161 s | 97 s |
+| 3 of 3 | 247 s | 152 s | 75 s |
+
+The slowest shard with two, three and four workers took 105, 97 and 78 s; the whole suite on one runner with four workers 168 s, and 147 s with the bulk read in. Shard 1 did not gain from copies: it is the seed's own tests.
+
+Still open, in this order: the API's per-request SQL and the `app_user` upsert (a decision on ADR 0075); how many runners `cli-e2e` needs now that a shard takes about a minute and a half, with two probably enough; shards balanced by recorded duration; `unseed`'s own item-by-item reads; apps/api's tests on parallel workers (a database per worker, from a template as here); and, for Playwright, `packed()` built once per worker for the specs that only read.
