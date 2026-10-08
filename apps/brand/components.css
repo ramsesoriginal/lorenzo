@@ -164,6 +164,14 @@ button:disabled {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/* A row of tabs that does not fit a phone wraps onto a second line instead of running off the
+   screen (identity.md 8.5). */
+@media (max-width: 720px) {
+  .tabs {
+    flex-wrap: wrap;
+  }
+}
+
 .tab {
   font-family: var(--font-ui);
   font-size: 14px;

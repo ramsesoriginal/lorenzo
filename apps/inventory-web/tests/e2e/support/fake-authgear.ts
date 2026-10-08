@@ -183,6 +183,13 @@ async function route(req: http.IncomingMessage, url: URL, body: string): Promise
       accounts.set(subject, { email: email ?? `${subject}@e2e.test`, roles: roles ?? [] });
       return { status: 200, body: { access_token: accessToken(subject) } };
     }
+    // A signed-in browser without the sign-in: a refresh token the SDK can trade for tokens.
+    case 'POST /e2e/sessions': {
+      const { subject } = JSON.parse(body);
+      const refreshToken = opaque();
+      refreshTokens.set(refreshToken, subject);
+      return { status: 200, body: { refresh_token: refreshToken } };
+    }
     default:
       return { status: 404, body: { error: `no ${path} here` } };
   }

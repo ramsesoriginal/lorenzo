@@ -45,11 +45,11 @@ test('an account that may create makes a repository, which opens on its Overview
     'aria-selected',
     'true',
   );
-  await expect(page.locator('[data-state]')).toHaveText('Draft');
+  await expect(page.locator('[data-overview] [data-state]')).toHaveText('Draft');
   await expect(
     page.getByText('Libraries it has been offered to cannot look inside it'),
   ).toBeVisible();
-  await expect(page.getByText('lorenzo repo publish')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Publish/ })).toBeVisible();
   // A draft has nobody to be live for.
   await expect(page.locator('[data-live]')).toBeHidden();
 
@@ -161,7 +161,9 @@ test('a published repository says so, and that libraries see edits live', async 
   const { page, context } = await signedInPage(browser, owner.subject);
 
   await page.goto(`/studio/?repository=${repository.slug}`);
-  await expect(page.locator('[data-state]')).toHaveText(/^Published \d{4}-\d{2}-\d{2}$/);
+  await expect(page.locator('[data-overview] [data-state]')).toHaveText(
+    /^Published \d{4}-\d{2}-\d{2}$/,
+  );
   await expect(page.locator('[data-live]')).toBeVisible();
   await expect(page.getByText('see your edits when they next check for updates')).toBeVisible();
   await context.close();

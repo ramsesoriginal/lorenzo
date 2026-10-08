@@ -12,6 +12,13 @@ export const CLIENT_ID = 'lorenzo-e2e';
 export const SUBJECT_COOKIE = 'e2e_subject';
 
 /**
+ * Where @authgear/web keeps a signed-in browser's refresh token: `authgear_` + the container's
+ * name ("default") + `_refreshToken`, a plain string in localStorage. Put one there and the site
+ * starts out signed in, as it does for someone who logged in earlier.
+ */
+export const REFRESH_TOKEN_KEY = 'authgear_default_refreshToken';
+
+/**
  * The privileged Postgres role: it recreates the API's database and runs its migrations.
  * The default is infra/docker-compose.yml's.
  */

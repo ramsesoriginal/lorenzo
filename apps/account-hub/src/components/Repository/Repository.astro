@@ -1,8 +1,9 @@
 ---
 // One repository in Studio (ADR 0202): its name, picture and description with the Edit button,
-// and two tabs, Overview and People. Rendered by renderRepository. The parts that are the same as a
+// and its tabs: Overview, People, Libraries using it, Built on and Activity. Rendered by renderRepository. The parts that are the same as a
 // library's (the picture, the form that edits the name, the people) are components, kept here as
 // <template>s or in place, and bound by their own renderers.
+import ActivityLog from '../ActivityLog/ActivityLog.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
@@ -45,6 +46,15 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       <button type="button" class="tab" role="tab">
         People
       </button>
+      <button type="button" class="tab" role="tab">
+        Libraries using it
+      </button>
+      <button type="button" class="tab" role="tab">
+        Built on
+      </button>
+      <button type="button" class="tab" role="tab">
+        Activity
+      </button>
     </div>
 
     <div class="stack" role="tabpanel">
@@ -58,7 +68,21 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           <span class="pill pill-warning">Live</span>
           <span data-live-text></span>
         </p>
-        <p class="caption" data-command-line></p>
+        <div class="stack-tight" data-publish-actions>
+          <div class="row" data-publish-buttons hidden>
+            <button type="button" class="btn btn-primary" data-publish hidden>
+              Publish&hellip;
+            </button>
+            <button type="button" class="btn btn-secondary" data-announce hidden>
+              Tell libraries about an update&hellip;
+            </button>
+            <button type="button" class="btn btn-secondary" data-unpublish hidden>
+              Unpublish&hellip;
+            </button>
+          </div>
+          <p class="caption" data-owner-only hidden></p>
+          <p class="status-text" role="status" data-publish-status hidden></p>
+        </div>
       </section>
     </div>
 
@@ -80,8 +104,106 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
         </div>
       </section>
     </div>
+
+    <div class="stack" role="tabpanel">
+      <section class="stack" data-using hidden>
+        <h3>Libraries using it</h3>
+        <p data-using-summary></p>
+        <p class="error-text" role="alert" data-using-error hidden></p>
+        <ul class="list" data-using-list></ul>
+
+        <!-- An Owner invites a library by its id; an Organizer reads the list. -->
+        <form class="card card-body stack" data-invite hidden>
+          <h4>Invite a library</h4>
+          <p class="caption" data-invite-help></p>
+          <div class="row">
+            <label class="field grow">
+              <span class="field-label">Library id</span>
+              <input
+                type="text"
+                class="text-input"
+                autocomplete="off"
+                spellcheck="false"
+                data-invite-id
+              />
+            </label>
+            <button type="submit" class="btn btn-primary" data-invite-submit>
+              Invite
+            </button>
+          </div>
+          <p class="status-text" role="status" data-invite-status hidden></p>
+        </form>
+      </section>
+    </div>
+
+    <div class="stack" role="tabpanel">
+      <section class="stack" data-built-on hidden>
+        <h3>Built on</h3>
+        <p class="error-text" role="alert" data-built-on-error hidden></p>
+        <p data-built-on-none hidden></p>
+        <ul class="list" data-built-on-list></ul>
+        <p class="caption" data-built-on-add></p>
+        <p>
+          <a class="shelf-link" href="/repositories/" data-offered-link>
+            Repositories offered to this one
+          </a>
+        </p>
+      </section>
+    </div>
+
+    <div class="stack" role="tabpanel">
+      <div data-activity-slot hidden></div>
+    </div>
   </div>
 
+  <!-- What a publish will do, said before it does it (ADR 0206). -->
+  <dialog aria-labelledby="publish-dialog-title" data-publish-dialog>
+    <form method="dialog" class="stack" data-publish-form>
+      <h3 id="publish-dialog-title" data-dialog-title></h3>
+      <div class="stack-tight" data-dialog-warnings hidden>
+        <strong>Check before you go on</strong>
+        <ul class="stack-tight" data-dialog-warning-list></ul>
+      </div>
+      <ul class="stack-tight" data-dialog-lines></ul>
+      <p class="error-text" role="alert" data-dialog-error hidden></p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-dialog-cancel autofocus>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-dialog-confirm></button>
+      </div>
+    </form>
+  </dialog>
+
+  <template data-using-template>
+    <li class="row">
+      <div class="grow stack-tight">
+        <strong data-name></strong>
+        <span class="campaign-meta" data-line></span>
+      </div>
+      <span data-state></span>
+      <button type="button" class="btn btn-secondary" data-stop hidden>
+        Stop inviting
+      </button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+  <template data-built-on-template>
+    <li class="row">
+      <div class="grow stack-tight">
+        <a class="shelf-link" href="/repositories/" data-name></a>
+        <span class="campaign-meta" data-line></span>
+        <span class="campaign-meta" data-updates></span>
+      </div>
+      <span data-state></span>
+      <a class="btn btn-secondary" href="/repositories/" data-review hidden>
+        Review updates
+      </a>
+    </li>
+  </template>
+  <template data-activity-log-template>
+    <ActivityLog />
+  </template>
   <template data-picture-upload-template>
     <PictureUpload />
   </template>

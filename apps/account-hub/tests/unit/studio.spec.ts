@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  COMMAND_LINE_NOTE,
   canChangePeople,
   LIVE_NOTICE,
   ROLE_MEANINGS,
@@ -68,7 +67,7 @@ describe('repositoryState', () => {
 
 describe('the sentences', () => {
   it('use the glossary: libraries and repositories, never tenants', () => {
-    const text = [LIVE_NOTICE, COMMAND_LINE_NOTE, ...ROLE_MEANINGS.map((r) => r.meaning)].join(' ');
+    const text = [LIVE_NOTICE, ...ROLE_MEANINGS.map((r) => r.meaning)].join(' ');
 
     expect(text).not.toMatch(/tenant|subscri|grant/i);
     expect(LIVE_NOTICE).toMatch(/next check for updates/);

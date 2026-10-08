@@ -8,6 +8,7 @@ from typing import Any
 
 from e2e.helpers import (
     FIXTURES,
+    SharedRepository,
     by_slug,
     make_tenant,
     own_stats,
@@ -25,7 +26,9 @@ def seeded_tenant(stack: Stack, token: str, tmp_path: Path) -> str:
     return tenant
 
 
-def plan(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> Any:
+def plan(
+    stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str, real_engine: bool = False
+) -> Any:
     return run_cli(
         stack,
         token,
@@ -38,10 +41,13 @@ def plan(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> A
         "--proposed-map",
         str(tmp_path / "proposed.map.toml"),
         *args,
+        real_engine=real_engine,
     )
 
 
-def apply(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> Any:
+def apply(
+    stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str, real_engine: bool = False
+) -> Any:
     return run_cli(
         stack,
         token,
@@ -54,6 +60,7 @@ def apply(stack: Stack, token: str, tmp_path: Path, tenant: str, *args: str) -> 
         "--proposed-map",
         str(tmp_path / "proposed.map.toml"),
         *args,
+        real_engine=real_engine,
     )
 
 
@@ -65,16 +72,19 @@ def test_a_tenant_that_was_not_seeded_is_told_to_run_seed(stack: Stack, tmp_path
     token = stack.creator_token()
     tenant = make_tenant(stack, token)
 
-    result = plan(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--json")
+    result = plan(
+        stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--json", real_engine=True
+    )
 
     assert result.exit_code == 1
     problems = json.loads(result.stdout)["problems"]
     assert any("hasn't been seeded" in p and "lorenzo seed" in p for p in problems)
 
 
-def test_the_plan_says_what_each_item_will_be(stack: Stack, tmp_path: Path) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+def test_the_plan_says_what_each_item_will_be(
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
+) -> None:
+    token, tenant = shared_repository.token, shared_repository.slug
 
     result = plan(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--json")
 
@@ -125,10 +135,9 @@ def test_the_plan_says_what_each_item_will_be(stack: Stack, tmp_path: Path) -> N
 
 
 def test_what_needs_a_decision_goes_to_the_review_queue_with_a_row_to_paste(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
 
     plan(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"))
 
@@ -151,7 +160,9 @@ def test_apply_imports_what_is_resolved_and_leaves_the_rest_for_review(
     token = stack.creator_token()
     tenant = seeded_tenant(stack, token, tmp_path)
 
-    result = apply(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--yes")
+    result = apply(
+        stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--yes", real_engine=True
+    )
 
     assert result.exit_code == 1  # one item is still held
     with stack.api(token) as api:

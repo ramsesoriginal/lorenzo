@@ -14,7 +14,7 @@ import httpx
 from plain import plain
 from typer.testing import CliRunner
 
-from e2e.helpers import tenant_id
+from e2e.helpers import SharedRepository, tenant_id
 from e2e.stack import Stack
 from lorenzo_cli.auth.store import CredentialsFile
 from lorenzo_cli.main import Runtime, app
@@ -104,14 +104,10 @@ def entity(api: httpx.Client, tid: str, slug: str) -> dict[str, Any]:
 
 
 def test_the_system_root_the_price_it_carries_and_the_attachments_are_in_the_tenant(
-    stack: Stack, tmp_path: Path
+    stack: Stack, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = make_tenant(stack, token)
-    assert seed(stack, token, tmp_path, tenant, "--yes").exit_code == 0
-
-    with stack.api(token) as api:
-        tid = tenant_id(api, tenant)
+    with stack.api(shared_repository.token) as api:
+        tid = shared_repository.id
         economic = entity(api, tid, "dnd5e-economic-object")
         assert [p["name"] for p in economic["prototypes"]] == ["D&D 5e"]
         price = next(s for s in economic["stats"] if s["name"] == "price")
@@ -138,11 +134,9 @@ def test_the_system_root_the_price_it_carries_and_the_attachments_are_in_the_ten
 
 
 def test_seeding_again_finds_the_forms_with_their_attached_parents_in_place(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = make_tenant(stack, token)
-    assert seed(stack, token, tmp_path, tenant, "--yes").exit_code == 0
+    token, tenant = shared_repository.token, shared_repository.slug
 
     for layer in LAYER_ORDER:
         again = seed(stack, token, tmp_path, tenant, "--layer", layer, "--dry-run", "--json")
