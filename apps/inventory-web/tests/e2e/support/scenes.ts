@@ -14,26 +14,27 @@ export const DESCRIPTIONS = {
 
 /** A small catalog: Book → Spellbook → Ornate Spellbook, containers, and arrows. */
 export async function catalog(world: World) {
-  const book = await world.item('Book', { description: DESCRIPTIONS.book, stats: { weight: 2 } });
-  const spellbook = await world.item('Spellbook', {
-    prototypes: [book],
-    description: DESCRIPTIONS.spellbook,
-    tags: ['is_magical'],
-  });
-  const ornate = await world.item('Ornate Spellbook', {
-    prototypes: [spellbook],
-    description: DESCRIPTIONS.ornate,
-    stats: { price: 250 },
-  });
-  const backpack = await world.item('Backpack', {
-    description: DESCRIPTIONS.backpack,
-    tags: ['is_container'],
-  });
-  const pouch = await world.item('Belt Pouch', {
-    description: DESCRIPTIONS.pouch,
-    tags: ['is_container'],
-  });
-  const arrow = await world.item('Arrow');
+  // Each book is made once the one it's based on is, and the rest don't wait for any of them.
+  const books = (async () => {
+    const book = await world.item('Book', { description: DESCRIPTIONS.book, stats: { weight: 2 } });
+    const spellbook = await world.item('Spellbook', {
+      prototypes: [book],
+      description: DESCRIPTIONS.spellbook,
+      tags: ['is_magical'],
+    });
+    const ornate = await world.item('Ornate Spellbook', {
+      prototypes: [spellbook],
+      description: DESCRIPTIONS.ornate,
+      stats: { price: 250 },
+    });
+    return { book, spellbook, ornate };
+  })();
+  const [{ book, spellbook, ornate }, backpack, pouch, arrow] = await Promise.all([
+    books,
+    world.item('Backpack', { description: DESCRIPTIONS.backpack, tags: ['is_container'] }),
+    world.item('Belt Pouch', { description: DESCRIPTIONS.pouch, tags: ['is_container'] }),
+    world.item('Arrow'),
+  ]);
   return { book, spellbook, ornate, backpack, pouch, arrow };
 }
 
@@ -43,9 +44,14 @@ export async function packed(world: World, player: Player) {
   const owner = { owner: player };
   // Equipped: contained by the character itself (RFC 0031). Owned alone, they'd be Not carried.
   const equipped = { ...owner, container: player.character.entity_id };
-  const backpack = await world.instance(items.backpack, equipped);
-  const pouch = await world.instance(items.pouch, equipped);
-  const spellbook = await world.instance(items.ornate, { ...owner, container: backpack });
-  const arrows = await world.stack(items.arrow, 3, { ...owner, container: backpack });
+  const [backpack, pouch] = await Promise.all([
+    world.instance(items.backpack, equipped),
+    world.instance(items.pouch, equipped),
+  ]);
+  // What goes in the backpack waits for it, and not for each other.
+  const [spellbook, arrows] = await Promise.all([
+    world.instance(items.ornate, { ...owner, container: backpack }),
+    world.stack(items.arrow, 3, { ...owner, container: backpack }),
+  ]);
   return { items, backpack, pouch, spellbook, arrows };
 }

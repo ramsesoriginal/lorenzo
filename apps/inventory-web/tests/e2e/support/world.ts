@@ -43,83 +43,110 @@ export async function person(name: string, roles: string[] = []): Promise<Person
   return { name, subject, userId: me.id, api };
 }
 
+// A world is built before every test, and a round trip each, one after another, was most of the
+// time that took. What doesn't depend on something else is made side by side. Nothing here reads
+// the order things were made in: the app sorts by name, by position, or by random id.
 export async function buildWorld() {
-  const gm = await person('Gwen', ['tenant_creator']);
+  const [gm, piaWho, oskarWho] = await Promise.all([
+    person('Gwen', ['tenant_creator']),
+    person('Pia'),
+    person('Oskar'),
+  ]);
   const api = gm.api;
   const tenant = await ok(api.POST('/tenants', { body: { name: `Vale of ${randomUUID()}` } }));
   const t = { params: { path: { tenant_id: tenant.id } } };
-  const campaign = await ok(
-    api.POST('/tenants/{tenant_id}/campaigns', {
-      ...t,
-      body: {
-        name: 'The Sunken Crown',
-        game_system: 'D&D 5e',
-        slug: 'sunken-crown',
-        description: '',
-        secret: false,
-      },
-    }),
-  );
-  await ok(
-    api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
-      params: { path: { tenant_id: tenant.id, campaign_id: campaign.id, user_id: gm.userId } },
-    }),
-  );
 
-  async function player(name: string, characterName: string): Promise<Player> {
-    const who = await person(name);
-    const seat = await ok(
-      api.POST('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
-        params: { path: { tenant_id: tenant.id, campaign_id: campaign.id } },
-        body: { user_id: who.userId },
-      }),
-    );
-    const character = await ok(
-      api.POST('/tenants/{tenant_id}/characters', {
+  async function seatPlayers() {
+    const campaign = await ok(
+      api.POST('/tenants/{tenant_id}/campaigns', {
         ...t,
-        body: { name: characterName, owner_player_id: seat.id, player_ids: [seat.id] },
+        body: {
+          name: 'The Sunken Crown',
+          game_system: 'D&D 5e',
+          slug: 'sunken-crown',
+          description: '',
+          secret: false,
+        },
       }),
     );
-    return { ...who, playerId: seat.id, character };
-  }
 
-  const stats = {} as Record<Stat, string>;
-  for (const [group, names] of Object.entries(STATS)) {
-    const created = await ok(
-      api.POST('/tenants/{tenant_id}/stat-groups', {
-        ...t,
-        body: { name: group, priority: 0, mandatory: false },
-      }),
-    );
-    for (const name of names) {
-      const value_type = group === 'tags' ? 'bool' : 'int';
-      const definition = await ok(
-        api.POST('/tenants/{tenant_id}/stat-definitions', {
-          ...t,
-          body: { name, stat_group_id: created.id, value_type },
+    async function player(who: Person, characterName: string): Promise<Player> {
+      const seat = await ok(
+        api.POST('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
+          params: { path: { tenant_id: tenant.id, campaign_id: campaign.id } },
+          body: { user_id: who.userId },
         }),
       );
-      stats[name] = definition.id;
+      const character = await ok(
+        api.POST('/tenants/{tenant_id}/characters', {
+          ...t,
+          body: { name: characterName, owner_player_id: seat.id, player_ids: [seat.id] },
+        }),
+      );
+      return { ...who, playerId: seat.id, character };
     }
+
+    const [pia, oskar] = await Promise.all([
+      player(piaWho, 'Ashfang'),
+      player(oskarWho, 'Brisk'),
+      ok(
+        api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
+          params: { path: { tenant_id: tenant.id, campaign_id: campaign.id, user_id: gm.userId } },
+        }),
+      ),
+    ]);
+    return { campaignId: campaign.id, pia, oskar };
   }
 
-  const rules = await ok(
-    api.POST('/tenants/{tenant_id}/stat-groups', {
-      ...t,
-      body: { name: 'rules', priority: 0, mandatory: false },
-    }),
-  );
-  const binding = await ok(
-    api.POST('/tenants/{tenant_id}/stat-definitions', {
-      ...t,
-      body: {
-        name: 'binding',
-        stat_group_id: rules.id,
-        value_type: 'enum',
-        enum_values: ['on_own', 'on_pickup', 'on_equip', 'none'],
-      },
-    }),
-  );
+  async function defineStats() {
+    const stats = {} as Record<Stat, string>;
+    const groups = Object.entries(STATS).map(async ([group, names]) => {
+      const created = await ok(
+        api.POST('/tenants/{tenant_id}/stat-groups', {
+          ...t,
+          body: { name: group, priority: 0, mandatory: false },
+        }),
+      );
+      await Promise.all(
+        names.map(async (name) => {
+          const value_type = group === 'tags' ? 'bool' : 'int';
+          const definition = await ok(
+            api.POST('/tenants/{tenant_id}/stat-definitions', {
+              ...t,
+              body: { name, stat_group_id: created.id, value_type },
+            }),
+          );
+          stats[name] = definition.id;
+        }),
+      );
+    });
+    const rules = (async () => {
+      const created = await ok(
+        api.POST('/tenants/{tenant_id}/stat-groups', {
+          ...t,
+          body: { name: 'rules', priority: 0, mandatory: false },
+        }),
+      );
+      return ok(
+        api.POST('/tenants/{tenant_id}/stat-definitions', {
+          ...t,
+          body: {
+            name: 'binding',
+            stat_group_id: created.id,
+            value_type: 'enum',
+            enum_values: ['on_own', 'on_pickup', 'on_equip', 'none'],
+          },
+        }),
+      );
+    })();
+    const [, binding] = await Promise.all([Promise.all(groups), rules]);
+    return { stats, binding };
+  }
+
+  const [{ campaignId, pia, oskar }, { stats, binding }] = await Promise.all([
+    seatPlayers(),
+    defineStats(),
+  ]);
 
   /** Writes a public description, as a GM does. */
   async function describe(entityId: string, content: string, title = '') {
@@ -143,30 +170,39 @@ export async function buildWorld() {
       }),
     );
     const entity = { tenant_id: tenant.id, entity_id: created.entity_id };
+    // Each of these is its own row on the new item, so they go in together.
+    const setUp: Promise<unknown>[] = [];
     for (const tag of options.tags ?? []) {
-      await ok(
-        api.PUT('/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}', {
-          params: { path: { ...entity, stat_definition_id: stats[tag] } },
-        }),
+      setUp.push(
+        ok(
+          api.PUT('/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}', {
+            params: { path: { ...entity, stat_definition_id: stats[tag] } },
+          }),
+        ),
       );
     }
     for (const [stat, value] of Object.entries(options.stats ?? {})) {
-      await ok(
-        api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
-          params: { path: { ...entity, stat_definition_id: stats[stat as Stat] } },
-          body: { value, acquire_group: false },
-        }),
+      setUp.push(
+        ok(
+          api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+            params: { path: { ...entity, stat_definition_id: stats[stat as Stat] } },
+            body: { value, acquire_group: false },
+          }),
+        ),
       );
     }
     if (options.binding) {
-      await ok(
-        api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
-          params: { path: { ...entity, stat_definition_id: binding.id } },
-          body: { value: options.binding, acquire_group: false },
-        }),
+      setUp.push(
+        ok(
+          api.PUT('/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}', {
+            params: { path: { ...entity, stat_definition_id: binding.id } },
+            body: { value: options.binding, acquire_group: false },
+          }),
+        ),
       );
     }
-    if (options.description) await describe(created.entity_id, options.description);
+    if (options.description) setUp.push(describe(created.entity_id, options.description));
+    await Promise.all(setUp);
     return created.entity_id;
   }
 
@@ -272,10 +308,10 @@ export async function buildWorld() {
     tenantId: tenant.id,
     tenantSlug: tenant.slug,
     tenantName: tenant.name,
-    campaignId: campaign.id,
+    campaignId,
     gm,
-    pia: await player('Pia', 'Ashfang'),
-    oskar: await player('Oskar', 'Brisk'),
+    pia,
+    oskar,
     stats,
     describe,
     item,
