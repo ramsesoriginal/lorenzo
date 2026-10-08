@@ -32,6 +32,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     InvalidSubscriberError,
     NotARepositoryError,
+    ReleaseHasBreakingChangesError,
     ReleaseNotFoundError,
     RepositoryManagementForbiddenError,
     RepositoryNotCopiedError,
@@ -70,9 +71,11 @@ from lorenzo_api.repository_copying import (
     forget_copy,
     plan_copy,
 )
+from lorenzo_api.repository_digest import BreakingNote, Row, assess, replace_stored_rows
 from lorenzo_api.repository_releases import (
     ReleaseRef,
     latest_release,
+    lock_repository,
     make_release,
     relabel,
     release_notice,
@@ -82,6 +85,7 @@ from lorenzo_api.repository_updates import (
     COLLISION_KIND,
     AttachmentAction,
     AttachmentRef,
+    RowRef,
     UpdateAction,
     apply_updates,
     compute_updates,
@@ -91,7 +95,10 @@ from lorenzo_api.schemas.repositories import (
     ApplyUpdatesOut,
     ApplyUpdatesRequest,
     AttachmentAddedOut,
+    AttachmentChangeOut,
     AttachmentRefOut,
+    BreakingNoteOut,
+    BreakingRowOut,
     CollisionOut,
     ContributionCountsOut,
     ContributionOut,
@@ -107,7 +114,9 @@ from lorenzo_api.schemas.repositories import (
     PublishedOut,
     PublishRequest,
     ReleaseAuthoredOut,
+    ReleaseCountsOut,
     ReleaseOut,
+    ReleasePreviewOut,
     ReleaseRefOut,
     ReleaseUpdate,
     RepositoryDependencyOut,
@@ -116,6 +125,7 @@ from lorenzo_api.schemas.repositories import (
     RepositoryStatGroupOut,
     RepositorySummaryOut,
     RowChangeOut,
+    RowNameOut,
     RowRefOut,
     SubscriberOut,
     SubscriptionOut,
@@ -178,21 +188,38 @@ async def publish_repository(
     published: either way it makes a release (ADR 0207), `published_at`
     becomes now, and every granted tenant's members are told (ADR 0118). The
     body is optional: without a label the release is called by its number.
-    `409` if the label is taken. Until the first publish, no subscriber can
-    see anything of it.
+    `409` if the label is taken, and `409 release-has-breaking-changes` while it holds
+    changes the update engine cannot carry to the libraries that copied it, unless
+    `acknowledge_breaking` (ADR 0208). The release records the digest of what was
+    published, what it added, changed and removed, and those changes, and the
+    repository's released rows become what was published. Until the first publish, no
+    subscriber can see anything of it.
     """
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await _require_repository(session, tenant_id)
     body = body or PublishRequest()
     was_published = tenant.published_at is not None
+    await lock_repository(session, tenant_id)
+    assessed = await assess(session, tenant_id)
+    if assessed.hits and not body.acknowledge_breaking:
+        raise ReleaseHasBreakingChangesError(
+            detail=f"{len(assessed.hits)} of the changes in this release break what libraries "
+            "built on this repository hold. Look at them, then publish again, saying you "
+            "acknowledge it.",
+            breaking_rows=[b.as_json() for b in assessed.hits],
+        )
     release = await make_release(
         session,
         repository=tenant,
         user_id=user.id,
         label=body.label,
         notes=body.notes,
-        breaking=body.breaking,
+        breaking=body.breaking or bool(assessed.hits),
+        digest=assessed.digest,
+        counts=assessed.counts,
+        breaking_rows=[b.as_json() for b in assessed.hits],
     )
+    await replace_stored_rows(session, tenant_id, assessed.live.values())
     release_out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
     tenant.published_at = datetime.now(UTC)
     tenant.updated_by = user.id
@@ -264,6 +291,44 @@ async def unpublish_repository(
     return TenantOut.model_validate(await session.get_one(Tenant, tenant_id))
 
 
+@router.get("/release-preview")
+async def preview_release(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+) -> ReleasePreviewOut:
+    """What publishing now would release, before it is made (ADR 0208): this repository's live
+    content against what its latest release saw, for any of its members. Whether it matches
+    that release, which rows were added, changed or removed, what the detector would refuse,
+    the hint of descriptions edited, and how many libraries would be told. Writes nothing;
+    loads the repository once, like a publish. `409` for a play tenant."""
+    await _require_repository(session, tenant_id)
+    assessed = await assess(session, tenant_id)
+    told = await session.scalar(
+        select(func.count())
+        .select_from(RepositorySubscription)
+        .where(RepositorySubscription.repository_tenant_id == tenant_id)
+    )
+    found = assessed.comparison
+    return ReleasePreviewOut(
+        release=(
+            ReleaseOut.model_validate(assessed.release, from_attributes=True)
+            if assessed.release
+            else None
+        ),
+        baseline=assessed.baseline,
+        matches=assessed.matches,
+        live_digest=assessed.digest,
+        differing_rows=found.differing,
+        counts=ReleaseCountsOut.model_validate(assessed.counts),
+        added=_row_names(found.added),
+        changed=_row_names([now for _, now in found.changed]),
+        removed=_row_names(found.removed),
+        breaking=[BreakingRowOut.model_validate(b.as_json()) for b in assessed.hits],
+        descriptions_edited=assessed.descriptions_edited,
+        libraries_told=told or 0,
+    )
+
+
 @router.get("/releases")
 async def list_releases(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -330,6 +395,23 @@ async def edit_release(
     out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
     await session.commit()
     return out
+
+
+# What a preview names of what a publish would add, change or remove; the counts say the rest.
+PREVIEW_NAMES = 200
+
+
+def _row_names(rows: Sequence[Row]) -> list[RowNameOut]:
+    return [
+        RowNameOut(
+            kind=r.kind,
+            row_id=r.row_id,
+            parent_id=r.parent_id,
+            name=r.name,
+            parent_name=r.facts.get("parent_name"),
+        )
+        for r in rows[:PREVIEW_NAMES]
+    ]
 
 
 def _release_ref(release: ReleaseRef | None) -> ReleaseRefOut | None:
@@ -1076,6 +1158,17 @@ def _collision_out(c: Any) -> CollisionOut | None:
     )
 
 
+def _notes_out(notes: Sequence[BreakingNote]) -> list[BreakingNoteOut]:
+    return [
+        BreakingNoteOut(
+            reason=n.reason,
+            detail=n.detail,
+            release=ReleaseRefOut(id=n.release.id, number=n.release.number, label=n.release.label),
+        )
+        for n in notes
+    ]
+
+
 def _attachment_ref_out(a: AttachmentRef) -> AttachmentRefOut:
     return AttachmentRefOut(
         child_source_id=a.child_source_id,
@@ -1084,6 +1177,23 @@ def _attachment_ref_out(a: AttachmentRef) -> AttachmentRefOut:
         parent_source_id=a.parent_source_id,
         parent_local_id=a.parent_local_id,
         parent_name=a.parent_name,
+    )
+
+
+def _row_ref_out(r: RowRef) -> RowRefOut:
+    return RowRefOut(
+        kind=r.kind,
+        source_id=r.source_id,
+        local_id=r.local_id,
+        name=r.name,
+        state=r.state,
+        breaking=_notes_out(r.breaking),
+    )
+
+
+def _attachment_change_out(a: AttachmentRef) -> AttachmentChangeOut:
+    return AttachmentChangeOut(
+        **_attachment_ref_out(a).model_dump(), state=a.state, breaking=_notes_out(a.breaking)
     )
 
 
@@ -1120,37 +1230,40 @@ async def list_repository_updates(
                     )
                     for f in row.fields
                 ],
+                state=row.state,
+                breaking=_notes_out(row.breaking),
             )
             for row in updates.changed
         ],
-        removed=[
-            RowRefOut(kind=r.kind, source_id=r.source_id, local_id=r.local_id, name=r.name)
-            for r in updates.removed
-        ],
-        deleted_locally=[
-            RowRefOut(kind=r.kind, source_id=r.source_id, local_id=r.local_id, name=r.name)
-            for r in updates.deleted_locally
-        ],
+        removed=[_row_ref_out(r) for r in updates.removed],
+        deleted_locally=[_row_ref_out(r) for r in updates.deleted_locally],
         added=[
             AddedOut(
                 kind=a.kind,
                 source_id=a.source_id,
                 name=a.name,
                 collision=_collision_out(a.collision),
+                state=a.state,
+                breaking=_notes_out(a.breaking),
             )
             for a in updates.added
         ],
         attachments_added=[
             AttachmentAddedOut(
-                **_attachment_ref_out(a).model_dump(), applicable=a.applicable, reason=a.reason
+                **_attachment_change_out(a).model_dump(), applicable=a.applicable, reason=a.reason
             )
             for a in updates.attachments_added
         ],
-        attachments_removed=[_attachment_ref_out(a) for a in updates.attachments_removed],
+        attachments_removed=[_attachment_change_out(a) for a in updates.attachments_removed],
         attachments_deleted_locally=[
-            _attachment_ref_out(a) for a in updates.attachments_deleted_locally
+            _attachment_change_out(a) for a in updates.attachments_deleted_locally
         ],
         names=updates.names,
+        release=(
+            ReleaseOut.model_validate(updates.release, from_attributes=True)
+            if updates.release
+            else None
+        ),
     )
 
 
@@ -1185,6 +1298,7 @@ async def apply_repository_updates(
                 if a.resolution
                 else None
             ),
+            confirm=bool(a.confirm),
         )
         for a in body.actions
     ]
@@ -1199,6 +1313,7 @@ async def apply_repository_updates(
                 child_source_id=a.child_source_id,
                 parent_source_id=a.parent_source_id,
                 action=a.action.value,
+                confirm=bool(a.confirm),
             )
             for a in body.attachments or []
         ],

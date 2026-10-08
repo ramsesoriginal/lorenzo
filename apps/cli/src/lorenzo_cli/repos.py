@@ -278,9 +278,12 @@ class CleanUpdates:
     conflicts: list[RowChangeOut] = field(default_factory=list)
     collisions: list[AddedOut] = field(default_factory=list)
     removed: int = 0
-    # The parents the repository added to its copies (ADR 0172, 0174): the ones to add, the ones
-    # that can't be taken yet, and how many are gone upstream.
-    attachments: list[AttachmentActionIn] = field(default_factory=list)
+    # Rows a release since the last update called breaking, and rows edited since the repository's
+    # latest release: each is applied by name, never as part of all (ADR 0208).
+    breaking: list[RowChangeOut] = field(default_factory=list)
+    edited: list[RowChangeOut | AddedOut] = field(default_factory=list)
+    # The parents the repository added to its copies (ADR 0172, 0174): every one is left, for it
+    # changes what an item is in the library, and how many are gone upstream (ADR 0208).
     attachments_waiting: list[AttachmentAddedOut] = field(default_factory=list)
     attachments_removed: int = 0
 
@@ -290,23 +293,29 @@ class CleanUpdates:
             self.conflicts
             or self.collisions
             or self.removed
+            or self.breaking
+            or self.edited
             or self.attachments_waiting
             or self.attachments_removed
         )
 
     @property
     def takes(self) -> int:
-        return len(self.actions) + len(self.attachments)
+        return len(self.actions)
 
 
 def clean_updates(updates: UpdatesOut) -> CleanUpdates:
-    """Every change that needs no decision, and nothing else (ADR 0159).
+    """Every change that needs no decision, and nothing else (ADR 0159, 0208).
 
-    A changed row with only clean fields is applied; one with a conflict is left, since the
-    tenant's own edit is never overwritten without being named. An added row with no collision is
-    copied. A row gone upstream is left: detaching it is a decision about a row that may be in
-    play. An added attachment is taken when both its ends are here or are rows this call adds
-    (ADR 0174); a removed one is left, for the reason a removed row is.
+    A changed row with only clean fields is applied, if it is released: the repository's latest
+    release saw it as it is, and no release since the tenant last updated called it breaking. One
+    with a conflict is left, since the tenant's own edit is never overwritten without being named;
+    one edited since the release, and one called breaking, are left to be applied by name. An added
+    row with no collision is copied if it is released. A row gone upstream is left: detaching it
+    is a decision about a row that may be in play. An attachment is never taken here, added or
+    removed: it changes what an item is in the library, and is named, one by one, in a file.
+    A repository that has no release with a digest marks nothing, and its rows are taken as
+    they were before.
     """
     chosen = CleanUpdates(
         removed=len(updates.removed), attachments_removed=len(updates.attachments_removed)
@@ -315,46 +324,21 @@ def clean_updates(updates: UpdatesOut) -> CleanUpdates:
         states = {f.state.value for f in row.fields}
         if "conflict" in states:
             chosen.conflicts.append(row)
+        elif row.breaking:
+            chosen.breaking.append(row)
+        elif row.state is not None and row.state.value == "edited":
+            chosen.edited.append(row)
         elif "clean" in states:
             chosen.actions.append(_action(row.kind.value, row.source_id, "apply"))
-    arriving: set[UUID] = set()
     for added in updates.added:
         if added.collision is not None:
             chosen.collisions.append(added)
+        elif added.state is not None and added.state.value == "edited":
+            chosen.edited.append(added)
         else:
             chosen.actions.append(_action(added.kind.value, added.source_id, "add"))
-            if added.kind.value == "entity":
-                arriving.add(added.source_id)
-    for attachment in updates.attachments_added:
-        if attachment.applicable or _ends_arrive(attachment, arriving):
-            chosen.attachments.append(_attachment_action(attachment, "add"))
-        else:
-            chosen.attachments_waiting.append(attachment)
+    chosen.attachments_waiting = list(updates.attachments_added)
     return chosen
-
-
-def _ends_arrive(attachment: AttachmentAddedOut, arriving: set[UUID]) -> bool:
-    """Whether the end an attachment lacks is a row this same call adds, so that taking the row
-    and not the attachment would leave one more round to run (ADR 0174)."""
-    missing = [
-        source
-        for source, local in (
-            (attachment.child_source_id, attachment.child_local_id),
-            (attachment.parent_source_id, attachment.parent_local_id),
-        )
-        if local is None
-    ]
-    return bool(missing) and all(source in arriving for source in missing)
-
-
-def _attachment_action(attachment: AttachmentAddedOut, action: str) -> AttachmentActionIn:
-    return AttachmentActionIn.model_validate(
-        {
-            "child_source_id": attachment.child_source_id,
-            "parent_source_id": attachment.parent_source_id,
-            "action": action,
-        }
-    )
 
 
 def _action(kind: str, source_id: UUID, action: str) -> UpdateActionIn:
@@ -641,13 +625,14 @@ def perform_offer(
             repository_id,
             chosen.actions,
             dry_run=False,
-            attachments=chosen.attachments,
         )
     # What is left is what needed a decision, whether or not anything was taken.
     result.updates_waiting = (
         len(chosen.conflicts)
         + len(chosen.collisions)
         + chosen.removed
+        + len(chosen.breaking)
+        + len(chosen.edited)
         + len(chosen.attachments_waiting)
         + chosen.attachments_removed
     )
@@ -689,6 +674,21 @@ def in_words(error: LorenzoApiError) -> LorenzoApiError:
                 if isinstance(entry, dict)
             ]
             return LorenzoApiError(f"{error}{''.join(lines)}", error.status, error.problem)
+    if error.problem_type in ("release-has-breaking-changes", "update-needs-confirmation"):
+        key = "breaking_rows" if error.problem_type.startswith("release") else "unconfirmed"
+        entries = error.problem.get(key)
+        if isinstance(entries, list):
+            lines = [
+                f"\n  - {entry.get('name')}: {entry.get('detail')}"
+                for entry in entries
+                if isinstance(entry, dict)
+            ]
+            how = (
+                "Publish again with --acknowledge-breaking to say you know."
+                if key == "breaking_rows"
+                else 'Name each one in the file with "confirm": true to take it.'
+            )
+            return LorenzoApiError(f"{error}{''.join(lines)}\n{how}", error.status, error.problem)
     if error.problem_type == "repository-already-copied":
         said = str(error).rstrip()
         said += "" if said.endswith((".", "!", "?")) else "."

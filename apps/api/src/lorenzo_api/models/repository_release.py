@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import CheckConstraint, Index, UniqueConstraint, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UuidPk
@@ -39,3 +42,10 @@ class RepositoryRelease(Base):
     breaking: Mapped[bool] = mapped_column(server_default="false")
     created_by: Mapped[CreatedBy]
     created_at: Mapped[CreatedAt]
+    # ADR 0208: the hash over the rows it released, what it added, changed and removed, and
+    # the rows a publish acknowledged as breaking. Null for a release made before digests.
+    digest: Mapped[str | None]
+    counts: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    breaking_rows: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )

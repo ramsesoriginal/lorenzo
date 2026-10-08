@@ -445,7 +445,7 @@ def test_a_repository_that_copied_nothing_has_no_dependencies(tmp_path: Path) ->
 # --- attachments (ADR 0172, 0174) ----------------------------------------------------
 
 
-def test_apply_updates_takes_the_attachments_that_can_be_applied(tmp_path: Path) -> None:
+def test_apply_updates_leaves_every_attachment_for_its_own_decision(tmp_path: Path) -> None:
     world = World(granted=True, copied=True)
     world.updates = {
         "changed": [],
@@ -460,16 +460,9 @@ def test_apply_updates_takes_the_attachments_that_can_be_applied(tmp_path: Path)
     }
     result = offer(tmp_path, world, "--apply-updates", "--yes")
 
-    assert result.exit_code == 0, result.output
-    assert world.writes() == [UPDATES]
-    (sent,) = world.bodies("POST", "/updates")
-    assert [(a["action"], a["child_source_id"]) for a in sent["attachments"]] == [
-        ("add", str(uuid.UUID(int=601)))
-    ]
-    text = said(result)
-    assert "Attachments: 1 added, 0 detached." in text
-    # The one that can't be taken yet and the one gone upstream still wait.
-    assert "2 update(s) wait for a decision" in text
+    # An attachment changes what an item is in the library: none is taken with the rest.
+    assert world.writes() == []
+    assert "3 update(s) wait for a decision" in said(result)
 
 
 def test_without_the_flag_attachments_are_counted_with_the_updates_waiting(
@@ -490,7 +483,9 @@ def test_without_the_flag_attachments_are_counted_with_the_updates_waiting(
     assert "2 update(s) wait for a decision" in said(result)
 
 
-def test_a_dry_run_counts_the_attachments_it_would_take(tmp_path: Path) -> None:
+def test_a_dry_run_counts_no_attachment_among_the_updates_it_would_take(
+    tmp_path: Path,
+) -> None:
     world = World(granted=True, copied=True)
     world.updates = {
         "changed": [],
@@ -501,6 +496,7 @@ def test_a_dry_run_counts_the_attachments_it_would_take(tmp_path: Path) -> None:
     }
     result = offer(tmp_path, world, "--dry-run", "--apply-updates", "--json")
 
-    assert result.exit_code == 2
-    assert json.loads(result.stdout)["clean_updates"] == 1
+    # Nothing it would take: the attachment waits for its own decision.
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["clean_updates"] == 0
     assert world.writes() == []

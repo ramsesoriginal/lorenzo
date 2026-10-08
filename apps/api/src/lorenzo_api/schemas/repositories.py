@@ -16,7 +16,13 @@ __all__ = [
     "ContributionCountsOut",
     "ContributionOut",
     "PreviousCopyOut",
+    "AttachmentChangeOut",
+    "BreakingNoteOut",
+    "BreakingRowOut",
     "PublishRequest",
+    "ReleaseCountsOut",
+    "ReleasePreviewOut",
+    "RowNameOut",
     "PublishedOut",
     "ReleaseAuthoredOut",
     "ReleaseOut",
@@ -61,6 +67,57 @@ def _blank_is_none(value: str | None) -> str | None:
     return value or None
 
 
+ReleasedKindName = Literal["entity", "stat_group", "stat_definition", "attachment"]
+BreakingReason = Literal[
+    "entity_removed",
+    "stat_definition_removed",
+    "stat_definition_retyped",
+    "stat_group_removed",
+    "enum_value_removed",
+    "kinds_changed",
+    "slug_changed",
+    "attachment_added",
+]
+
+
+class BreakingRowOut(BaseModel):
+    """A change the update engine cannot carry to a library that already copied the repository
+    (ADR 0208, RFC 0037 §3), kept on the release that was acknowledged as breaking. `row_id` is
+    the row's origin id, the id a library's copy link holds, and an attachment's child, with
+    `parent_id` its parent. `reason` is one of a fixed few; `detail` says it in words, naming the
+    row as the repository calls it."""
+
+    kind: ReleasedKindName
+    row_id: uuid.UUID
+    parent_id: uuid.UUID | None
+    name: str
+    reason: BreakingReason
+    detail: str
+
+
+class KindCountsOut(BaseModel):
+    added: int
+    changed: int
+    removed: int
+
+
+class AttachmentCountsOut(BaseModel):
+    added: int
+    removed: int
+
+
+class ReleaseCountsOut(BaseModel):
+    """What a release added, changed and removed, by kind (ADR 0208). The first release added
+    everything it holds. `descriptions_edited` is a hint, not a count of changes: the texts
+    written or edited since the release before, which the digest does not see."""
+
+    entities: KindCountsOut
+    stat_groups: KindCountsOut
+    stat_definitions: KindCountsOut
+    attachments: AttachmentCountsOut
+    descriptions_edited: int
+
+
 class ReleaseRefOut(BaseModel):
     """A release by its number and its label: what a copy says it last took, and
     what a list of libraries shows (ADR 0207)."""
@@ -79,6 +136,12 @@ class ReleaseOut(ReleaseRefOut):
     notes: str | None
     breaking: bool
     created_at: datetime
+    # The hash over the rows it released (RFC 0037 §2), what it added, changed and removed, and
+    # the rows it was acknowledged as breaking: null and empty for a release made before digests
+    # (ADR 0208).
+    digest: str | None
+    counts: ReleaseCountsOut | None
+    breaking_rows: list[BreakingRowOut]
 
 
 class ReleaseAuthoredOut(ReleaseOut):
@@ -103,6 +166,9 @@ class PublishRequest(BaseModel):
     label: ReleaseLabel | None = None
     notes: Annotated[str | None, StringConstraints(max_length=4000)] = None
     breaking: bool = False
+    # Publish although the release breaks things (ADR 0208): without it a release that does is
+    # refused with `409 release-has-breaking-changes`, listing the rows and why.
+    acknowledge_breaking: bool = False
 
     @field_validator("notes")
     @classmethod
@@ -130,6 +196,47 @@ class ReleaseUpdate(BaseModel):
         if "label" in self.model_fields_set and self.label is None:
             raise ValueError("A release always has a label")
         return self
+
+
+class RowNameOut(BaseModel):
+    """A row a publish would add, change or remove, by name (ADR 0208). For an attachment `name`
+    is the item it is added to and `parent_name` the parent; `parent_id` is null for every other
+    kind."""
+
+    kind: ReleasedKindName
+    row_id: uuid.UUID
+    parent_id: uuid.UUID | None
+    name: str
+    parent_name: str | None
+
+
+class ReleasePreviewOut(BaseModel):
+    """`GET .../release-preview` (ADR 0208): the repository's live content against what its latest
+    release saw, which is what a publish would say of itself, before it is made.
+
+    `release` is the latest release, null before the first; `baseline` is whether it has a digest
+    to compare with (not one made before digests). Without a baseline every row counts as added,
+    `matches` is null and nothing is breaking. `matches` is true when the live content hashes to
+    the release's digest, and `live_digest` is that hash; `differing_rows` is how many rows
+    differ when it does not. `counts` is what a publish would record; `added`, `changed` and
+    `removed` name at most 200 rows each, in the order stat groups, stats, entries,
+    attachments, and the counts are always complete. `breaking` is what a publish refuses without
+    `acknowledge_breaking`. `descriptions_edited` is the hint of texts written or edited since the
+    release, which `matches` does not see: text edits are not tracked. `libraries_told` is how many
+    libraries hold an invitation, whom a publish would tell."""
+
+    release: ReleaseOut | None
+    baseline: bool
+    matches: bool | None
+    live_digest: str
+    differing_rows: int
+    counts: ReleaseCountsOut
+    added: list[RowNameOut]
+    changed: list[RowNameOut]
+    removed: list[RowNameOut]
+    breaking: list[BreakingRowOut]
+    descriptions_edited: int | None
+    libraries_told: int
 
 
 class SubscriberOut(BaseModel):
@@ -360,12 +467,30 @@ class FieldChangeOut(BaseModel):
     removed: list[Any] | None
 
 
+class BreakingNoteOut(BaseModel):
+    """Why a release since the one a library last took called a row breaking (ADR 0208): the
+    reason, in words, and the release that said it."""
+
+    reason: BreakingReason
+    detail: str
+    release: ReleaseRefOut
+
+
+RowState = Literal["released", "edited"]
+
+
 class RowChangeOut(BaseModel):
     kind: RowKindName
     source_id: uuid.UUID
     local_id: uuid.UUID
     name: str
     fields: list[FieldChangeOut]
+    # Whether the repository's row is what its latest release saw: `released`, or `edited` since;
+    # null before the repository has a release with a digest (ADR 0208).
+    state: RowState | None
+    # What releases since this library last updated called breaking about it. Applying it
+    # needs `confirm`.
+    breaking: list[BreakingNoteOut]
 
 
 class RowRefOut(BaseModel):
@@ -373,6 +498,8 @@ class RowRefOut(BaseModel):
     source_id: uuid.UUID
     local_id: uuid.UUID | None
     name: str
+    state: RowState | None
+    breaking: list[BreakingNoteOut]
 
 
 class AddedOut(BaseModel):
@@ -383,6 +510,8 @@ class AddedOut(BaseModel):
     source_id: uuid.UUID
     name: str
     collision: CollisionOut | None
+    state: RowState | None
+    breaking: list[BreakingNoteOut]
 
 
 class AttachmentRefOut(BaseModel):
@@ -398,7 +527,14 @@ class AttachmentRefOut(BaseModel):
     parent_name: str
 
 
-class AttachmentAddedOut(AttachmentRefOut):
+class AttachmentChangeOut(AttachmentRefOut):
+    """An attachment in a library's updates, marked as a row is (ADR 0208)."""
+
+    state: RowState | None
+    breaking: list[BreakingNoteOut]
+
+
+class AttachmentAddedOut(AttachmentChangeOut):
     """An attachment this tenant has no record of taking. `applicable`: both
     ends are here, so it can be taken now; otherwise `reason` says which isn't.
     It becomes applicable once the end is here, whether an update brings it or
@@ -427,9 +563,12 @@ class UpdatesOut(BaseModel):
     deleted_locally: list[RowRefOut]
     added: list[AddedOut]
     attachments_added: list[AttachmentAddedOut]
-    attachments_removed: list[AttachmentRefOut]
-    attachments_deleted_locally: list[AttachmentRefOut]
+    attachments_removed: list[AttachmentChangeOut]
+    attachments_deleted_locally: list[AttachmentChangeOut]
     names: dict[str, str]
+    # The repository's latest release (ADR 0208), null before its first; the `state` of a row is
+    # against it.
+    release: ReleaseOut | None
 
 
 class UpdateResolutionIn(BaseModel):
@@ -450,6 +589,9 @@ class UpdateActionIn(BaseModel):
     keep_local: list[str] | None = None
     take_upstream: list[str] | None = None
     resolution: UpdateResolutionIn | None = None
+    # Says the row was called breaking by a release since the library last updated, and it takes
+    # it anyway (ADR 0208); without it such a row is refused, as `detach` is not.
+    confirm: bool | None = None
 
 
 class AttachmentActionName(StrEnum):
@@ -469,6 +611,7 @@ class AttachmentActionIn(BaseModel):
     child_source_id: uuid.UUID
     parent_source_id: uuid.UUID
     action: AttachmentActionName
+    confirm: bool | None = None
 
 
 class ApplyUpdatesRequest(BaseModel):

@@ -11,9 +11,10 @@ a library inside `reading_repository` (ADR 0118).
 """
 
 import uuid
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,16 +32,36 @@ FIRST_PUBLISH_BODY = "You can browse it and copy it into your tenant."
 
 @dataclass(frozen=True)
 class ReleaseRef:
-    """A release as a copy and an update check name it."""
+    """A release as a copy and an update check name it, with what the ledger holds of it
+    (ADR 0208): its digest, counts and breaking rows, as the JSON they are stored as."""
 
     id: uuid.UUID
     number: int
     label: str
     created_at: datetime
+    notes: str | None = None
+    breaking: bool = False
+    digest: str | None = None
+    counts: dict[str, Any] | None = None
+    breaking_rows: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _ref(release: RepositoryRelease) -> ReleaseRef:
-    return ReleaseRef(release.id, release.number, release.label, release.created_at)
+    return ReleaseRef(
+        release.id,
+        release.number,
+        release.label,
+        release.created_at,
+        release.notes,
+        release.breaking,
+        release.digest,
+        release.counts,
+        list(release.breaking_rows or []),
+    )
+
+
+def releases_as_refs(releases: Sequence[RepositoryRelease]) -> list[ReleaseRef]:
+    return [_ref(r) for r in releases]
 
 
 def cut(text: str, limit: int = NOTICE_NOTES_LENGTH) -> str:
@@ -92,6 +113,12 @@ def _taken(label: str) -> ReleaseLabelTakenError:
     )
 
 
+async def lock_repository(session: AsyncSession, repository_id: uuid.UUID) -> None:
+    """Holds the repository's row until the transaction ends, so two publishes at once are
+    taken one after the other: each gets its own number and compares with the one before."""
+    await session.execute(select(Tenant.id).where(Tenant.id == repository_id).with_for_update())
+
+
 async def make_release(
     session: AsyncSession,
     *,
@@ -100,11 +127,14 @@ async def make_release(
     label: str | None,
     notes: str | None,
     breaking: bool,
+    digest: str | None = None,
+    counts: dict[str, Any] | None = None,
+    breaking_rows: list[dict[str, Any]] | None = None,
 ) -> RepositoryRelease:
     """The repository's next release, flushed. Locks the repository's row first, so two
     publishes at once get two numbers. `409` if the label is in use: the default one,
     the number, too."""
-    await session.execute(select(Tenant.id).where(Tenant.id == repository.id).with_for_update())
+    await lock_repository(session, repository.id)
     last = await session.scalar(
         select(func.max(RepositoryRelease.number)).where(
             RepositoryRelease.tenant_id == repository.id
@@ -121,6 +151,9 @@ async def make_release(
         notes=notes,
         breaking=breaking,
         created_by=user_id,
+        digest=digest,
+        counts=counts,
+        breaking_rows=breaking_rows or [],
     )
     session.add(release)
     await session.flush()

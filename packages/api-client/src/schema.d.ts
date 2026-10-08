@@ -710,8 +710,12 @@ export interface paths {
          *     published: either way it makes a release (ADR 0207), `published_at`
          *     becomes now, and every granted tenant's members are told (ADR 0118). The
          *     body is optional: without a label the release is called by its number.
-         *     `409` if the label is taken. Until the first publish, no subscriber can
-         *     see anything of it.
+         *     `409` if the label is taken, and `409 release-has-breaking-changes` while it holds
+         *     changes the update engine cannot carry to the libraries that copied it, unless
+         *     `acknowledge_breaking` (ADR 0208). The release records the digest of what was
+         *     published, what it added, changed and removed, and those changes, and the
+         *     repository's released rows become what was published. Until the first publish, no
+         *     subscriber can see anything of it.
          */
         put: operations["publish_repository"];
         post?: never;
@@ -722,6 +726,30 @@ export interface paths {
          *     §6).
          */
         delete: operations["unpublish_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/release-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Release
+         * @description What publishing now would release, before it is made (ADR 0208): this repository's live
+         *     content against what its latest release saw, for any of its members. Whether it matches
+         *     that release, which rows were added, changed or removed, what the detector would refuse,
+         *     the hint of descriptions edited, and how many libraries would be told. Writes nothing;
+         *     loads the repository once, like a publish. `409` for a play tenant.
+         */
+        get: operations["preview_release"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3362,6 +3390,10 @@ export interface components {
             /** Name */
             name: string;
             collision: components["schemas"]["CollisionOut"] | null;
+            /** State */
+            state: ("released" | "edited") | null;
+            /** Breaking */
+            breaking: components["schemas"]["BreakingNoteOut"][];
         };
         /**
          * AdminNotificationCreate
@@ -3475,6 +3507,8 @@ export interface components {
              */
             parent_source_id: string;
             action: components["schemas"]["AttachmentActionName"];
+            /** Confirm */
+            confirm?: boolean | null;
         };
         /**
          * AttachmentActionName
@@ -3509,10 +3543,49 @@ export interface components {
             parent_local_id: string | null;
             /** Parent Name */
             parent_name: string;
+            /** State */
+            state: ("released" | "edited") | null;
+            /** Breaking */
+            breaking: components["schemas"]["BreakingNoteOut"][];
             /** Applicable */
             applicable: boolean;
             /** Reason */
             reason: string | null;
+        };
+        /**
+         * AttachmentChangeOut
+         * @description An attachment in a library's updates, marked as a row is (ADR 0208).
+         */
+        AttachmentChangeOut: {
+            /**
+             * Child Source Id
+             * Format: uuid
+             */
+            child_source_id: string;
+            /** Child Local Id */
+            child_local_id: string | null;
+            /** Child Name */
+            child_name: string;
+            /**
+             * Parent Source Id
+             * Format: uuid
+             */
+            parent_source_id: string;
+            /** Parent Local Id */
+            parent_local_id: string | null;
+            /** Parent Name */
+            parent_name: string;
+            /** State */
+            state: ("released" | "edited") | null;
+            /** Breaking */
+            breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /** AttachmentCountsOut */
+        AttachmentCountsOut: {
+            /** Added */
+            added: number;
+            /** Removed */
+            removed: number;
         };
         /**
          * AttachmentRefOut
@@ -3638,6 +3711,52 @@ export interface components {
         Body_upload_tenant_picture: {
             /** File */
             file: string;
+        };
+        /**
+         * BreakingNoteOut
+         * @description Why a release since the one a library last took called a row breaking (ADR 0208): the
+         *     reason, in words, and the release that said it.
+         */
+        BreakingNoteOut: {
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "entity_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
+            /** Detail */
+            detail: string;
+            release: components["schemas"]["ReleaseRefOut"];
+        };
+        /**
+         * BreakingRowOut
+         * @description A change the update engine cannot carry to a library that already copied the repository
+         *     (ADR 0208, RFC 0037 §3), kept on the release that was acknowledged as breaking. `row_id` is
+         *     the row's origin id, the id a library's copy link holds, and an attachment's child, with
+         *     `parent_id` its parent. `reason` is one of a fixed few; `detail` says it in words, naming the
+         *     row as the repository calls it.
+         */
+        BreakingRowOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition" | "attachment";
+            /**
+             * Row Id
+             * Format: uuid
+             */
+            row_id: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "entity_removed" | "stat_definition_removed" | "stat_definition_retyped" | "stat_group_removed" | "enum_value_removed" | "kinds_changed" | "slug_changed" | "attachment_added";
+            /** Detail */
+            detail: string;
         };
         /**
          * BulkAddPrototypeRequest
@@ -5433,6 +5552,15 @@ export interface components {
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
         };
+        /** KindCountsOut */
+        KindCountsOut: {
+            /** Added */
+            added: number;
+            /** Changed */
+            changed: number;
+            /** Removed */
+            removed: number;
+        };
         /**
          * KnowerOut
          * @description One knower of an Information row - see ADR 0109. `kind` says which
@@ -6709,6 +6837,11 @@ export interface components {
              * @default false
              */
             breaking: boolean;
+            /**
+             * Acknowledge Breaking
+             * @default false
+             */
+            acknowledge_breaking: boolean;
         };
         /**
          * PublishedOut
@@ -6765,8 +6898,27 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Digest */
+            digest: string | null;
+            counts: components["schemas"]["ReleaseCountsOut"] | null;
+            /** Breaking Rows */
+            breaking_rows: components["schemas"]["BreakingRowOut"][];
             /** Created By */
             created_by: string | null;
+        };
+        /**
+         * ReleaseCountsOut
+         * @description What a release added, changed and removed, by kind (ADR 0208). The first release added
+         *     everything it holds. `descriptions_edited` is a hint, not a count of changes: the texts
+         *     written or edited since the release before, which the digest does not see.
+         */
+        ReleaseCountsOut: {
+            entities: components["schemas"]["KindCountsOut"];
+            stat_groups: components["schemas"]["KindCountsOut"];
+            stat_definitions: components["schemas"]["KindCountsOut"];
+            attachments: components["schemas"]["AttachmentCountsOut"];
+            /** Descriptions Edited */
+            descriptions_edited: number;
         };
         /**
          * ReleaseOut
@@ -6794,6 +6946,51 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Digest */
+            digest: string | null;
+            counts: components["schemas"]["ReleaseCountsOut"] | null;
+            /** Breaking Rows */
+            breaking_rows: components["schemas"]["BreakingRowOut"][];
+        };
+        /**
+         * ReleasePreviewOut
+         * @description `GET .../release-preview` (ADR 0208): the repository's live content against what its latest
+         *     release saw, which is what a publish would say of itself, before it is made.
+         *
+         *     `release` is the latest release, null before the first; `baseline` is whether it has a digest
+         *     to compare with (not one made before digests). Without a baseline every row counts as added,
+         *     `matches` is null and nothing is breaking. `matches` is true when the live content hashes to
+         *     the release's digest, and `live_digest` is that hash; `differing_rows` is how many rows
+         *     differ when it does not. `counts` is what a publish would record; `added`, `changed` and
+         *     `removed` name at most 200 rows each, in the order stat groups, stats, entries,
+         *     attachments, and the counts are always complete. `breaking` is what a publish refuses without
+         *     `acknowledge_breaking`. `descriptions_edited` is the hint of texts written or edited since the
+         *     release, which `matches` does not see: text edits are not tracked. `libraries_told` is how many
+         *     libraries hold an invitation, whom a publish would tell.
+         */
+        ReleasePreviewOut: {
+            release: components["schemas"]["ReleaseOut"] | null;
+            /** Baseline */
+            baseline: boolean;
+            /** Matches */
+            matches: boolean | null;
+            /** Live Digest */
+            live_digest: string;
+            /** Differing Rows */
+            differing_rows: number;
+            counts: components["schemas"]["ReleaseCountsOut"];
+            /** Added */
+            added: components["schemas"]["RowNameOut"][];
+            /** Changed */
+            changed: components["schemas"]["RowNameOut"][];
+            /** Removed */
+            removed: components["schemas"]["RowNameOut"][];
+            /** Breaking */
+            breaking: components["schemas"]["BreakingRowOut"][];
+            /** Descriptions Edited */
+            descriptions_edited: number | null;
+            /** Libraries Told */
+            libraries_told: number;
         };
         /**
          * ReleaseRefOut
@@ -6987,6 +7184,34 @@ export interface components {
             name: string;
             /** Fields */
             fields: components["schemas"]["FieldChangeOut"][];
+            /** State */
+            state: ("released" | "edited") | null;
+            /** Breaking */
+            breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /**
+         * RowNameOut
+         * @description A row a publish would add, change or remove, by name (ADR 0208). For an attachment `name`
+         *     is the item it is added to and `parent_name` the parent; `parent_id` is null for every other
+         *     kind.
+         */
+        RowNameOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "stat_group" | "stat_definition" | "attachment";
+            /**
+             * Row Id
+             * Format: uuid
+             */
+            row_id: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Name */
+            name: string;
+            /** Parent Name */
+            parent_name: string | null;
         };
         /** RowRefOut */
         RowRefOut: {
@@ -7004,6 +7229,10 @@ export interface components {
             local_id: string | null;
             /** Name */
             name: string;
+            /** State */
+            state: ("released" | "edited") | null;
+            /** Breaking */
+            breaking: components["schemas"]["BreakingNoteOut"][];
         };
         /**
          * SetContainerRequest
@@ -7521,6 +7750,8 @@ export interface components {
             /** Take Upstream */
             take_upstream?: string[] | null;
             resolution?: components["schemas"]["UpdateResolutionIn"] | null;
+            /** Confirm */
+            confirm?: boolean | null;
         };
         /** UpdateResolutionIn */
         UpdateResolutionIn: {
@@ -7563,13 +7794,14 @@ export interface components {
             /** Attachments Added */
             attachments_added: components["schemas"]["AttachmentAddedOut"][];
             /** Attachments Removed */
-            attachments_removed: components["schemas"]["AttachmentRefOut"][];
+            attachments_removed: components["schemas"]["AttachmentChangeOut"][];
             /** Attachments Deleted Locally */
-            attachments_deleted_locally: components["schemas"]["AttachmentRefOut"][];
+            attachments_deleted_locally: components["schemas"]["AttachmentChangeOut"][];
             /** Names */
             names: {
                 [key: string]: string;
             };
+            release: components["schemas"]["ReleaseOut"] | null;
         };
         /**
          * UserRefOut
@@ -9909,6 +10141,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    preview_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasePreviewOut"];
                 };
             };
             /** @description Validation Error */

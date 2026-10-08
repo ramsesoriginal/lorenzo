@@ -105,22 +105,47 @@ def field_change(name: str, state: str, **extra: Any) -> dict[str, Any]:
     }
 
 
-def row_change(n: int, name: str, *states: str, kind: str = "entity") -> dict[str, Any]:
+def marks(state: str | None = None, breaking: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """What a repository with releases says of a row (ADR 0208): released or edited, and why it is
+    breaking."""
+    return {"state": state, "breaking": breaking or []}
+
+
+def note(reason: str = "entity_removed", release: str = "1.1") -> dict[str, Any]:
+    return {
+        "reason": reason,
+        "detail": f"It is {reason.replace('_', ' ')}.",
+        "release": {"id": str(uuid.UUID(int=9100)), "number": 2, "label": release},
+    }
+
+
+def row_change(
+    n: int,
+    name: str,
+    *states: str,
+    kind: str = "entity",
+    state: str | None = None,
+    breaking: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     return {
         "kind": kind,
         "source_id": str(uuid.UUID(int=100 + n)),
         "local_id": str(uuid.UUID(int=200 + n)),
         "name": name,
         "fields": [field_change(f"field{i}", state) for i, state in enumerate(states)],
+        **marks(state, breaking),
     }
 
 
-def added(n: int, name: str, with_collision: dict[str, Any] | None = None) -> dict[str, Any]:
+def added(
+    n: int, name: str, with_collision: dict[str, Any] | None = None, state: str | None = None
+) -> dict[str, Any]:
     return {
         "kind": "entity",
         "source_id": str(uuid.UUID(int=300 + n)),
         "name": name,
         "collision": with_collision,
+        **marks(state),
     }
 
 
@@ -130,6 +155,7 @@ def removed(n: int, name: str) -> dict[str, Any]:
         "source_id": str(uuid.UUID(int=400 + n)),
         "local_id": str(uuid.UUID(int=500 + n)),
         "name": name,
+        **marks(),
     }
 
 
@@ -160,6 +186,7 @@ def attachment(
         "parent_name": parent,
         "applicable": reason is None,
         "reason": reason,
+        **marks(),
     }
 
 
@@ -182,6 +209,8 @@ class World:
     synced_at: str | None = None
     # How many releases the repository has made, and so the number of the next.
     releases: int = 0
+    # What PUT .../published answers instead of publishing, e.g. a problem.
+    publish_answer: httpx.Response | None = None
     # Collisions a copy has to be given a choice for, until it is.
     collisions: list[dict[str, Any]] = field(default_factory=list)
     updates: dict[str, Any] = field(
@@ -288,6 +317,8 @@ class World:
 
         # The repository's own side.
         if path == f"{repo}/published":
+            if method == "PUT" and self.publish_answer is not None:
+                return self.publish_answer
             self.published_at = LATER if method == "PUT" else None
             answer = tenant(REPO_ID, "sunken-vale", self.repo_kind, self.published_at)
             if method == "PUT":
@@ -301,6 +332,9 @@ class World:
                     "breaking": bool(said.get("breaking")),
                     "created_at": LATER,
                     "created_by": None,
+                    "digest": None,
+                    "counts": None,
+                    "breaking_rows": [],
                 }
             return httpx.Response(200, json=answer)
         if path == f"{repo}/subscribers" and method == "GET":
@@ -425,6 +459,7 @@ class World:
                 "attachments_removed": [],
                 "attachments_deleted_locally": [],
                 "names": {},
+                "release": None,
             }
             return httpx.Response(
                 200, json={"repository_id": str(REPO_ID), **nothing, **self.updates}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
@@ -149,13 +150,33 @@ def print_copy_result(console: Console, out: CopyOut) -> None:
             )
 
 
+# Said of an attachment that can be taken: it is never taken with the rest (ADR 0208).
+ATTACHMENT_REASON = (
+    "it changes an item you already hold, so it is named in a file, not taken with the rest"
+)
+
+
+def _marks(row: Any, updates: UpdatesOut) -> str:
+    """What the repository says of a row beside its name: edited since its latest release, and
+    called breaking by a release since this tenant last updated (ADR 0208)."""
+    said: list[str] = []
+    if row.state is not None and row.state.value == "edited":
+        release = f" {updates.release.label}" if updates.release else ""
+        said.append(f"edited since release{release}")
+    if row.breaking:
+        said.append(f"breaking, release {row.breaking[0].release.label}")
+    return f" ({'; '.join(said)})" if said else ""
+
+
 def print_updates(console: Console, name: str, updates: UpdatesOut) -> None:
     if not updates_waiting(updates):
         console.print(f"{name}: nothing new since this tenant copied or last synced it.")
     else:
         console.print(f"{name} has changed since this tenant copied or last synced it:")
     for row in updates.changed:
-        console.print(f"  changed {row.kind.value} “{row.name}”", highlight=False)
+        console.print(
+            f"  changed {row.kind.value} “{row.name}”{_marks(row, updates)}", highlight=False
+        )
         for field in row.fields:
             detail = field.state.value.replace("_", " ")
             if field.added or field.removed:
@@ -167,13 +188,20 @@ def print_updates(console: Console, name: str, updates: UpdatesOut) -> None:
             if added.collision is not None
             else ""
         )
-        console.print(f"  added {added.kind.value} “{added.name}”{note}", highlight=False)
+        console.print(
+            f"  added {added.kind.value} “{added.name}”{note}{_marks(added, updates)}",
+            highlight=False,
+        )
     for removed in updates.removed:
-        console.print(f"  gone upstream: {removed.kind.value} “{removed.name}”", highlight=False)
+        console.print(
+            f"  gone upstream: {removed.kind.value} “{removed.name}”{_marks(removed, updates)}",
+            highlight=False,
+        )
     for attachment in updates.attachments_added:
         note = f", but it waits: {attachment.reason}" if not attachment.applicable else ""
         console.print(
-            f"  added attachment “{attachment.parent_name}” on “{attachment.child_name}”{note}",
+            f"  added attachment “{attachment.parent_name}” on “{attachment.child_name}”{note}"
+            f"{_marks(attachment, updates)}",
             highlight=False,
         )
     for gone in updates.attachments_removed:
@@ -205,12 +233,25 @@ def print_left_for_a_decision(console: Console, chosen: CleanUpdates) -> None:
             f"  {added.kind.value} “{added.name}” would collide with a name already here",
             highlight=False,
         )
+    for row in chosen.breaking:
+        notes = "; ".join(f"{n.detail} (release {n.release.label})" for n in row.breaking)
+        console.print(
+            f"  {row.kind.value} “{row.name}” is marked breaking: {notes}. "
+            'Name it in a file with "confirm": true to take it',
+            highlight=False,
+        )
+    for edited in chosen.edited:
+        console.print(
+            f"  {edited.kind.value} “{edited.name}” was edited after the release, "
+            "so it is not taken with the rest",
+            highlight=False,
+        )
     if chosen.removed:
         console.print(f"  {chosen.removed} gone upstream (detach is a decision)")
     for attachment in chosen.attachments_waiting:
         console.print(
-            f"  attachment “{attachment.parent_name}” on “{attachment.child_name}” waits: "
-            f"{attachment.reason}",
+            f"  attachment “{attachment.parent_name}” on “{attachment.child_name}” "
+            f"waits: {attachment.reason or ATTACHMENT_REASON}",
             highlight=False,
         )
     if chosen.attachments_removed:
