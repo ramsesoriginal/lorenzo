@@ -14,6 +14,7 @@ import socket
 import subprocess
 import threading
 import time
+import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
@@ -194,6 +195,16 @@ def _prepare_database(
         raise StackUnavailableError(f"no Postgres at {host}:{port} ({exc})") from exc
 
 
+def _drop_database(host: str, port: int, database: str) -> None:
+    """Best effort: a database left behind by a run that was killed is only clutter."""
+    dsn = f"postgresql://lorenzo:lorenzo@{host}:{port}/postgres"
+    with (
+        suppress(psycopg.Error),
+        psycopg.connect(dsn, autocommit=True, connect_timeout=3) as connection,
+    ):
+        connection.execute(f'DROP DATABASE IF EXISTS "{database}" WITH (FORCE)')
+
+
 def _free_port() -> int:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
@@ -203,9 +214,12 @@ def _free_port() -> int:
 @contextmanager
 def running_stack() -> Iterator[Stack]:
     host, port = _postgres_parts()
-    # One database per pytest-xdist worker, so the workers' stacks never share a row.
-    worker = os.environ.get("PYTEST_XDIST_WORKER")
-    database = f"{DATABASE}_{worker}" if worker else DATABASE
+    # A database of its own for each pytest-xdist worker and each run, so neither a run's workers
+    # nor two runs at once (another worktree, another session on the same Postgres) ever share a
+    # row. It is dropped when the stack stops.
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    run = (os.environ.get("PYTEST_XDIST_TESTRUNUID") or uuid.uuid4().hex)[:8]
+    database = f"{DATABASE}_{run}_{worker}"
     authgear = FakeAuthgear()
 
     def env_for(name: str) -> dict[str, str]:
@@ -262,3 +276,4 @@ def running_stack() -> Iterator[Stack]:
             if server.poll() is None:
                 server.kill()
         authgear.shutdown()
+        _drop_database(host, port, database)

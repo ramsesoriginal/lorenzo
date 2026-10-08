@@ -18,13 +18,13 @@ run = "uv run pytest --cov --ignore=tests/e2e"
 # in CI) and takes minutes. CI runs it as the sharded `cli-e2e` job, with TEST_SHARD=2/3 selecting
 # one third of the test files (tests/e2e/conftest.py, ADR 0148).
 #
-# The tests run on E2E_WORKERS parallel workers (3 by default, 0 for one process: a single test, or
+# The tests run on E2E_WORKERS parallel workers (4 by default, 0 for one process: a single test, or
 # a debugger), each with a stack of its own: its own API process and its own database, cloned from a
 # migrated template (tests/e2e/stack.py). `--dist loadfile` keeps a file's tests on one worker, since
 # a module's shared world is built once per worker.
 [tasks.test-e2e]
 description = "Run the end-to-end tests against the real API (ADR 0137)"
-run = "uv run pytest tests/e2e --no-cov -n ${E2E_WORKERS:-3} --dist loadfile"
+run = "uv run pytest tests/e2e --no-cov -n ${E2E_WORKERS:-4} --dist loadfile"
 
 [tasks.build]
 description = "Build the wheel and sdist"
