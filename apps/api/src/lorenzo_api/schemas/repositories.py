@@ -212,6 +212,15 @@ class RowNameOut(BaseModel):
     parent_name: str | None
 
 
+class UnprovenKindOut(BaseModel):
+    """An entry whose combination of kinds no round-trip matrix covers yet (ADR 0217): a publish
+    is refused while the repository has any. `kinds` are those of `GET .../entities/{id}`."""
+
+    id: uuid.UUID
+    name: str
+    kinds: list[str]
+
+
 class ReleasePreviewOut(BaseModel):
     """`GET .../release-preview` (ADR 0208): the repository's live content against what its latest
     release saw, which is what a publish would say of itself, before it is made.
@@ -223,10 +232,11 @@ class ReleasePreviewOut(BaseModel):
     differ when it does not. `counts` is what a publish would record; `added`, `changed` and
     `removed` name at most 200 rows each, in the order stat groups, stats, entries,
     attachments, and the counts are always complete. `breaking` is what a publish refuses without
-    `acknowledge_breaking`; `warnings` is what it says and never refuses, a parent added to an
-    item libraries hold. `descriptions_edited` is the hint of texts written or edited since the
-    release, which `matches` does not see: text edits are not tracked. `libraries_told` is how many
-    libraries hold an invitation, whom a publish would tell."""
+    `acknowledge_breaking`, and `unproven_kinds` what it refuses always: entries whose combination
+    of kinds no round-trip matrix covers yet. `warnings` is what it says and never refuses, a parent
+    added to an item libraries hold. `descriptions_edited` is the hint of texts written or edited
+    since the release, which `matches` does not see: text edits are not tracked. `libraries_told`
+    is how many libraries hold an invitation, whom a publish would tell."""
 
     release: ReleaseOut | None
     baseline: bool
@@ -239,6 +249,7 @@ class ReleasePreviewOut(BaseModel):
     removed: list[RowNameOut]
     breaking: list[BreakingRowOut]
     warnings: list[BreakingRowOut]
+    unproven_kinds: list[UnprovenKindOut]
     descriptions_edited: int | None
     libraries_told: int
 
