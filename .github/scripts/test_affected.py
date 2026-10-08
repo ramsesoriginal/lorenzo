@@ -231,10 +231,10 @@ class ThisRepository(unittest.TestCase):
     def test_the_postgres_legs(self) -> None:
         self.assertEqual({n for n, v in self.graph.nodes.items() if v.postgres}, {"apps/api", "apps/loot-bot"})
 
-    def test_the_api_suite_is_split_over_two_runners(self) -> None:
-        self.assertEqual(self.graph.nodes["apps/api"].shards, 2)
+    def test_the_api_suite_is_one_leg_that_runs_on_parallel_workers(self) -> None:
+        self.assertEqual(self.graph.nodes["apps/api"].shards, 1)
         matrix = json.loads(affected.matrices(self.graph, affected.affected(self.graph, ["apps/api/a.py"]))["test_matrix"])
-        self.assertEqual([(leg["app"], leg["shard"]) for leg in matrix], [("apps/api", "1/2"), ("apps/api", "2/2")])
+        self.assertEqual([(leg["app"], leg["shard"]) for leg in matrix], [("apps/api", "")])
 
     def test_cli_unit_tests_do_not_run_for_an_api_change_but_its_e2e_does(self) -> None:
         result = affected.affected(self.graph, ["apps/api/a.py"])
