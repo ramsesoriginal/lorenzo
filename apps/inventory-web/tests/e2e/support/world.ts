@@ -172,15 +172,19 @@ export async function buildWorld() {
     const entity = { tenant_id: tenant.id, entity_id: created.entity_id };
     // Each of these is its own row on the new item, so they go in together.
     const setUp: Promise<unknown>[] = [];
-    for (const tag of options.tags ?? []) {
-      setUp.push(
-        ok(
-          api.PUT('/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}', {
-            params: { path: { ...entity, stat_definition_id: stats[tag] } },
-          }),
-        ),
-      );
-    }
+    // The tags one after another: each adds the tags group to the item if it hasn't it yet, which
+    // is a read and then an insert, so two at once can both insert it.
+    setUp.push(
+      (async () => {
+        for (const tag of options.tags ?? []) {
+          await ok(
+            api.PUT('/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}', {
+              params: { path: { ...entity, stat_definition_id: stats[tag] } },
+            }),
+          );
+        }
+      })(),
+    );
     for (const [stat, value] of Object.entries(options.stats ?? {})) {
       setUp.push(
         ok(
