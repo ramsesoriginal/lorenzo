@@ -6,7 +6,7 @@ Status: accepted, decided with the maintainer on 2026-10-08. Slice A5 of [RFC 00
 
 `GET /tenants/{id}/subscribers` tells a repository's members which tenants it is granted to: name, link name, when, by whom. [RFC 0036](../rfcs/0036-repository-tooling.md) §4 wants Studio's **Libraries using it** to say more: for each library, **invited on**, **copied or not** and **last updated**. The API cannot say that. Whether and when a library copied a repository is in `repository_copy`, a row of the *library*, under its own `tenant_isolation` policy and the `repository_read` policy that lets a library read the repository's content: nothing lets the repository's side read it.
 
-The list also misses a case that matters to the person who runs a repository. An owner who **stops inviting** a library ([ADR 0118](0118-repository-tenants-subscriptions-and-a-gated-read.md), [ADR 0199](0199-tell-a-library-when-its-invitation-is-revoked.md)) removes the grant, and the library keeps its copy and the right to be told nothing more. From then on the list no longer shows it, though it holds the repository's content. "Who uses it" is those with an invitation and those with a copy.
+The list also misses a case that matters to the person who runs a repository. An owner who **stops inviting** a library ([ADR 0118](0118-repository-tenants-subscriptions-and-a-gated-read.md), [ADR 0199](0199-a-notification-when-an-invitation-is-revoked.md)) removes the grant, and the library keeps its copy and the right to be told nothing more. From then on the list no longer shows it, though it holds the repository's content. "Who uses it" is those with an invitation and those with a copy.
 
 ## Decision
 
@@ -24,11 +24,11 @@ That widens a field that was never null, which oasdiff counts as breaking; it is
 
 - Who may read: the repository's members, as before. A library sees nothing new.
 - No row is written; no table is added. One policy.
-- The count and names of the libraries using a **public** repository are [RFC 0038](0038-public-repositories-and-discovery.md)'s question (counts, not names); this route is the owner's own view of a repository they invited libraries to.
+- The count and names of the libraries using a **public** repository are [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)'s question (counts, not names); this route is the owner's own view of a repository they invited libraries to.
 
 ## Not in scope
 
-- Which release a library is on ([RFC 0037](0037-releases-and-public-snapshots.md) R3 adds `synced_release_id`).
+- Which release a library is on ([RFC 0037](../rfcs/0037-releases-and-public-snapshots.md) R3 adds `synced_release_id`).
 - What a library did with the copy, or its contents.
 
 ## Consequences
