@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +13,32 @@ from typer.testing import CliRunner
 
 from e2e.stack import Stack
 from lorenzo_cli.auth.store import CredentialsFile
+from lorenzo_cli.evalworker import Engine, EvalRequest, EvalResult, WorkerEngine
 from lorenzo_cli.main import Runtime, app
 
 runner = CliRunner()
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class CachingEngine:
+    """Evaluates a request once per session and hands every later identical one a copy of the
+    answer. Every plan, apply and --teach otherwise starts a worker subprocess to read the same
+    handful of sheet files again; the request is keyed whole (file contents and options), so
+    different input never shares a result. A few tests ask for the real engine instead
+    (`run_cli(real_engine=True)`) to keep the subprocess path covered."""
+
+    def __init__(self, inner: Engine) -> None:
+        self._inner = inner
+        self._results: dict[str, EvalResult] = {}
+
+    def evaluate(self, request: EvalRequest) -> EvalResult:
+        key = request.model_dump_json()
+        if key not in self._results:
+            self._results[key] = self._inner.evaluate(request)
+        return self._results[key].model_copy(deep=True)
+
+
+ENGINE = CachingEngine(WorkerEngine())
 
 
 def make_tenant(stack: Stack, token: str, kind: str = "repository") -> str:
@@ -32,9 +55,12 @@ def run_cli(
     tmp_path: Path,
     *args: str,
     answers: str | None = None,
+    real_engine: bool = False,
     **env: str,
 ) -> Any:
-    """Run the command. `answers` are typed at a terminal that is there to be asked."""
+    """Run the command. `answers` are typed at a terminal that is there to be asked. The sheet's
+    JavaScript is evaluated through the session's cache, unless `real_engine` asks for the worker
+    subprocess itself."""
     runtime = Runtime(
         env={
             "LORENZO_API_URL": stack.api_url,
@@ -45,6 +71,7 @@ def run_cli(
         stdin=io.StringIO(),
         store=CredentialsFile(tmp_path / "credentials.json"),
         interactive_override=answers is not None,
+        engine=WorkerEngine() if real_engine else ENGINE,
     )
     return runner.invoke(app, list(args), obj=runtime, input=answers)
 
@@ -76,3 +103,18 @@ def own_stats(detail: dict[str, Any]) -> dict[str, Any]:
 
 def parent_names(detail: dict[str, Any]) -> list[str]:
     return sorted(p["name"] for p in detail["prototypes"])
+
+
+@dataclass(frozen=True)
+class SharedRepository:
+    """The session's one seeded repository (see the `shared_repository` fixture), and the owner
+    whose token reaches it. The token is signed anew on each use, since a suite can outlast one."""
+
+    stack: Stack
+    subject: str
+    slug: str
+    id: str
+
+    @property
+    def token(self) -> str:
+        return self.stack.creator_token(self.subject)

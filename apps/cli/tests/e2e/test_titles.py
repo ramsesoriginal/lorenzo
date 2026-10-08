@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from e2e.helpers import FIXTURES, by_slug, make_tenant, run_cli, tenant_id
+from e2e.helpers import FIXTURES, SharedRepository, by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
 
 
@@ -49,13 +49,10 @@ def import_weapons(stack: Stack, token: str, tmp_path: Path, tenant: str) -> Any
 
 
 def test_a_seeded_node_shows_its_name_where_a_client_shows_the_title(
-    stack: Stack, tmp_path: Path
+    stack: Stack, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded(stack, token, tmp_path)
-
-    with stack.api(token) as api:
-        tid = tenant_id(api, tenant)
+    with stack.api(shared_repository.token) as api:
+        tid = shared_repository.id
         assert shown_title(api, tid, "firearm") == "Firearm"
         focus = by_slug(api, tid, "dnd5e-spellcasting-focus")
         assert description_titles(focus) == [focus["name"]]
