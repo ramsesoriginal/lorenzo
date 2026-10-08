@@ -1,8 +1,8 @@
 import { expect, test } from './support/fixtures.ts';
 import { person } from './support/world.ts';
 
-test('a player logs in and lands in the only library they play in', async ({ world, as }) => {
-  const page = await as(world.pia);
+test('a player logs in and lands in the only library they play in', async ({ world, logInAs }) => {
+  const page = await logInAs(world.pia);
   await expect(page.getByText('Signed in as')).toContainText(world.pia.subject);
   // Her only character, opened by itself (ADR 0134).
   await expect(page).toHaveURL(
@@ -12,6 +12,7 @@ test('a player logs in and lands in the only library they play in', async ({ wor
 
 test('logs out', async ({ world, as }) => {
   const page = await as(world.pia);
+  await page.goto(`/board/?tenant=${world.tenantId}`);
   await page.getByRole('button', { name: 'Log out' }).click();
   await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
   await page.reload();
@@ -20,6 +21,7 @@ test('logs out', async ({ world, as }) => {
 
 test('says so to someone in no library yet', async ({ as }) => {
   const page = await as(await person('Newcomer'));
+  await page.goto('/');
   await expect(page.getByText("You don't have access to a library yet.")).toBeVisible();
 });
 

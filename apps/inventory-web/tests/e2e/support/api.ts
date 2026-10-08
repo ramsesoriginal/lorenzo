@@ -25,3 +25,13 @@ export async function ok<T>(
   }
   return data as T;
 }
+
+/** A refresh token for `subject` from the fake Authgear, for a browser to start out signed in. */
+export async function refreshTokenFor(subject: string): Promise<string> {
+  const response = await fetch(`${AUTHGEAR_URL}/e2e/sessions`, {
+    method: 'POST',
+    body: JSON.stringify({ subject }),
+  });
+  const { refresh_token } = (await response.json()) as { refresh_token: string };
+  return refresh_token;
+}

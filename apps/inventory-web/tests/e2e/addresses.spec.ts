@@ -19,7 +19,6 @@ test("opens a board by the library's slug and the character's, and keeps them", 
   await packed(world, world.pia);
   await world.slug(world.pia.character.entity_id, 'ashfang');
   const page = await as(world.pia);
-  await page.evaluate(() => window.localStorage.removeItem('lorenzo:lastTenant'));
   const address = `/board/?tenant=${world.tenantSlug}&character=ashfang`;
   await page.goto(address);
 
@@ -86,6 +85,9 @@ test('says so when a slug names nothing, or a library that is not hers', async (
     body: { name: `Hilde's ${world.tenantId}` },
   });
   const page = await as(world.pia);
+  // She has a library open, which is what's remembered below.
+  await page.goto(`/board/?tenant=${world.tenantId}`);
+  await expect.poll(() => lastTenant(page)).toBe(world.tenantId);
 
   for (const slug of ['no-such-library', elsewhere.data?.slug as string]) {
     await page.goto(`/board/?tenant=${slug}`);
@@ -122,6 +124,7 @@ test('gives something to a being named by its slug', async ({ world, as }) => {
   await packed(world, world.pia);
   await world.slug(world.oskar.character.entity_id, 'brisk');
   const page = await as(world.pia);
+  await page.goto(`/board/?tenant=${world.tenantId}`);
 
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await page.getByRole('button', { name: 'Give to…' }).click();
