@@ -8,6 +8,7 @@ from typing import Any
 
 from e2e.helpers import (
     FIXTURES,
+    SharedRepository,
     by_slug,
     make_tenant,
     own_stats,
@@ -80,9 +81,10 @@ def test_a_tenant_that_was_not_seeded_is_told_to_run_seed(stack: Stack, tmp_path
     assert any("hasn't been seeded" in p and "lorenzo seed" in p for p in problems)
 
 
-def test_the_plan_says_what_each_item_will_be(stack: Stack, tmp_path: Path) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+def test_the_plan_says_what_each_item_will_be(
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
+) -> None:
+    token, tenant = shared_repository.token, shared_repository.slug
 
     result = plan(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"), "--json")
 
@@ -133,10 +135,9 @@ def test_the_plan_says_what_each_item_will_be(stack: Stack, tmp_path: Path) -> N
 
 
 def test_what_needs_a_decision_goes_to_the_review_queue_with_a_row_to_paste(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
 
     plan(stack, token, tmp_path, tenant, str(FIXTURES / "weapons.js"))
 

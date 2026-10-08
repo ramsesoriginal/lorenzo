@@ -17,7 +17,7 @@ def test_a_repository_is_created_and_seeded_from_the_command_line(
     slug = f"e2e-{uuid.uuid4().hex[:10]}"
 
     created = run_cli(stack, token, tmp_path, "tenant", "create", "Homebrew", "--slug", slug)
-    seeded = run_cli(stack, token, tmp_path, "seed", "--tenant", slug, "--yes")
+    seeded = run_cli(stack, token, tmp_path, "seed", "--tenant", slug, "--layer", "core", "--yes")
 
     assert created.exit_code == 0, created.output
     assert f"lorenzo seed --tenant {slug}" in created.output

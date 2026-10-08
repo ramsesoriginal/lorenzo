@@ -7,6 +7,7 @@ from pathlib import Path
 
 from e2e.helpers import (
     FIXTURES,
+    SharedRepository,
     by_slug,
     make_tenant,
     own_stats,
@@ -147,10 +148,9 @@ def test_changed_parents_are_reported_and_only_reconciled_when_asked(
 
 
 def test_strict_treats_an_attribute_no_rule_mentions_as_unresolved(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
     only_the_category = write(
         tmp_path / "category.map.toml",
         "schema = 1\n"
@@ -198,10 +198,9 @@ def test_a_rule_can_write_a_stat_the_tenant_does_not_have_yet(stack: Stack, tmp_
 
 
 def test_two_keys_that_slugify_alike_both_take_a_suffix_and_a_later_file_wins(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
     first = write(
         tmp_path / "first.js",
         'WeaponsList["long sword"] = {name: "Long sword", type: "Martial", list: "melee", '
@@ -252,11 +251,10 @@ def test_the_imported_items_are_not_public_unless_asked(stack: Stack, tmp_path: 
 
 
 def test_a_play_tenant_is_refused_and_a_bad_map_is_reported_before_anything_else(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
+    token, tenant = shared_repository.token, shared_repository.slug
     play = make_tenant(stack, token, kind="play")
-    tenant = seeded_tenant(stack, token, tmp_path)
     broken = write(tmp_path / "broken.map.toml", 'schema = 1\n[attributes.weapons]\nx = "shout"\n')
     not_toml = write(tmp_path / "not.map.toml", "this is = = not toml")
 
@@ -269,9 +267,10 @@ def test_a_play_tenant_is_refused_and_a_bad_map_is_reported_before_anything_else
     assert garbled.exit_code == 1 and "isn't valid TOML" in garbled.output
 
 
-def test_two_plans_of_the_same_inputs_are_the_same_document(stack: Stack, tmp_path: Path) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+def test_two_plans_of_the_same_inputs_are_the_same_document(
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
+) -> None:
+    token, tenant = shared_repository.token, shared_repository.slug
 
     one = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")
     two = plan(stack, token, tmp_path, tenant, WEAPONS, "--map", LEGENDARY, "--json")

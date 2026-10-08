@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -102,3 +103,18 @@ def own_stats(detail: dict[str, Any]) -> dict[str, Any]:
 
 def parent_names(detail: dict[str, Any]) -> list[str]:
     return sorted(p["name"] for p in detail["prototypes"])
+
+
+@dataclass(frozen=True)
+class SharedRepository:
+    """The session's one seeded repository (see the `shared_repository` fixture), and the owner
+    whose token reaches it. The token is signed anew on each use, since a suite can outlast one."""
+
+    stack: Stack
+    subject: str
+    slug: str
+    id: str
+
+    @property
+    def token(self) -> str:
+        return self.stack.creator_token(self.subject)

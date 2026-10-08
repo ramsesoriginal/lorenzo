@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from e2e.helpers import FIXTURES, by_slug, make_tenant, run_cli, tenant_id
+from e2e.helpers import FIXTURES, SharedRepository, by_slug, make_tenant, run_cli, tenant_id
 from e2e.stack import Stack
 from e2e.test_import import apply, plan, seeded_tenant, statuses
 
@@ -61,10 +61,9 @@ def test_the_server_leaves_the_contents_list_exactly_as_it_was_written(
 
 
 def test_a_pack_is_planned_with_its_contents_and_what_could_not_be_linked(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
 
     result = plan(stack, token, tmp_path, tenant, PACKS, "--json")
 
@@ -94,10 +93,9 @@ def test_an_entry_nothing_could_be_linked_to_is_reported_and_strict_makes_it_mat
 
 
 def test_a_row_in_the_map_links_the_entry_and_the_description_follows_on_a_new_tenant(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
     map_file = tmp_path / "packs.map.toml"
     map_file.write_text('schema = 1\n[pack_items]\n"Mystery thing" = "item"\n')
 
@@ -111,10 +109,9 @@ def test_a_row_in_the_map_links_the_entry_and_the_description_follows_on_a_new_t
 
 
 def test_a_row_saying_text_is_refused_since_every_line_of_a_pack_links(
-    stack: Stack, tmp_path: Path
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
 ) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+    token, tenant = shared_repository.token, shared_repository.slug
     map_file = tmp_path / "packs.map.toml"
     map_file.write_text('schema = 1\n[pack_items]\n"Mystery thing" = "text"\n')
 
