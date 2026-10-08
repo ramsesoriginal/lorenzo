@@ -34,6 +34,8 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
 )
+from lorenzo_api.repository_content import Content
+from lorenzo_api.repository_updates import Names
 
 
 @dataclass
@@ -509,3 +511,285 @@ async def test_an_update_that_would_loop_prototypes_is_reported_not_applied(
         assert "prototypes" in still["Orc"]
     finally:
         await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+# --- Names in the diff (ADR 0197) -----------------------------------------------
+
+
+def _is_id(text: str) -> bool:
+    try:
+        uuid.UUID(text.removeprefix("local:"))
+    except ValueError:
+        return False
+    return True
+
+
+def _names_are_names(updates: dict[str, Any]) -> None:
+    """Whatever the map holds is a name, never an id standing in for one."""
+    assert all(name and not _is_id(name) for name in updates["names"].values())
+
+
+async def test_a_changed_stat_and_a_changed_prototype_set_carry_names(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """ADR 0197: every id a field mentions is named in `names`, whether it is
+    the repository's row, the table's own row, or one upstream has dropped."""
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    local = await _local(world)
+    other = await world.gm.create_tenant("Another Table")
+    try:
+        async with admin_session_factory() as session:
+            blade = Entity(tenant_id=world.repository, name="Blade")
+            house = Entity(tenant_id=world.table, name="House Rule")
+            session.add_all([blade, house])
+            await session.flush()
+            (await session.get_one(EntityStat, (ids["Longsword"], ids["Strength"]))).value_int = 12
+            await session.execute(
+                delete(EntityPrototype).where(EntityPrototype.entity_id == ids["Dagger"])
+            )
+            session.add_all(
+                [
+                    EntityPrototype(
+                        entity_id=ids["Dagger"], prototype_id=blade.id, tenant_id=world.repository
+                    ),
+                    # The table's own prototype on its copy: named by a marker.
+                    EntityPrototype(
+                        entity_id=local[ids["Dagger"]],
+                        prototype_id=house.id,
+                        tenant_id=world.table,
+                    ),
+                ]
+            )
+            await session.commit()
+            blade_id, house_id = blade.id, house.id
+        # Another table renaming its copy must not show up anywhere here.
+        subscribed = await world.author.put(f"/tenants/{world.repository}/subscribers/{other}")
+        assert subscribed.status_code == 201
+        copied = await world.gm.post(f"/tenants/{other}/repositories/{world.repository}/copy")
+        assert copied.status_code == 201
+        async with admin_session_factory() as session:
+            for entity in await session.scalars(
+                select(Entity).where(Entity.tenant_id == other, Entity.name == "Longsword")
+            ):
+                entity.name = "Secret Sword"
+            await session.commit()
+
+        updates = (await gm.get(f"{url}/updates")).json()
+        rows = _by_row(updates)
+        strength = rows["Longsword"][f"stats:{ids['Strength']}"]
+        assert strength["label"] == "Strength"
+        assert updates["names"][str(ids["Strength"])] == "Strength"
+
+        prototypes = rows["Dagger"]["prototypes"]
+        assert prototypes["added"] == [str(blade_id)]
+        assert prototypes["removed"] == [str(ids["Longsword"])]
+        names = updates["names"]
+        assert names[str(blade_id)] == "Blade"
+        assert names[str(ids["Longsword"])] == "Longsword"
+        # The table's own entity, which has no origin, is in the local list.
+        assert f"local:{house_id}" in prototypes["local"]
+        assert names[f"local:{house_id}"] == "House Rule"
+        _names_are_names(updates)
+        assert "Secret Sword" not in names.values()
+    finally:
+        await cleanup([other, world.table, world.repository], [world.author, world.gm])
+
+
+async def test_a_stat_group_and_a_definition_change_carry_names(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    try:
+        async with admin_session_factory() as session:
+            skills = StatGroup(tenant_id=world.repository, name="Skills")
+            session.add(skills)
+            await session.flush()
+            # A definition moves to another group, and an entity takes it too.
+            (await session.get_one(StatDefinition, ids["Mood"])).stat_group_id = skills.id
+            session.add(
+                EntityStatGroup(
+                    entity_id=ids["Dagger"], stat_group_id=skills.id, tenant_id=world.repository
+                )
+            )
+            await session.commit()
+            skills_id = skills.id
+        updates = (await gm.get(f"{url}/updates")).json()
+        rows = _by_row(updates)
+        moved = rows["Mood"]["stat_group"]
+        assert (moved["base"], moved["upstream"]) == (str(ids["Abilities"]), str(skills_id))
+        assert rows["Dagger"]["stat_groups"]["added"] == [str(skills_id)]
+        # The new group exists only upstream, the old one in both.
+        assert updates["names"][str(skills_id)] == "Skills"
+        assert updates["names"][str(ids["Abilities"])] == "Abilities"
+        _names_are_names(updates)
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+async def test_formula_inputs_carry_names(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    try:
+        async with admin_session_factory() as session:
+            keys = {
+                "entity_id": ids["Longsword"],
+                "stat_definition_id": ids["Speed"],
+                "tenant_id": world.repository,
+            }
+            session.add(ComputedStat(**keys))
+            await session.flush()
+            session.add(ComputedStatSum(**keys, offset=Decimal(1), round_mode="none"))
+            await session.flush()
+            session.add(
+                ComputedStatSumTerm(
+                    **keys,
+                    source_stat_definition_id=ids["Strength"],
+                    coefficient=Decimal(3),
+                    position=0,
+                )
+            )
+            await session.commit()
+        updates = (await gm.get(f"{url}/updates")).json()
+        formula = _by_row(updates)["Longsword"][f"formulas:{ids['Speed']}"]
+        assert formula["label"] == "Speed"
+        assert updates["names"][str(ids["Speed"])] == "Speed"
+        assert updates["names"][str(ids["Strength"])] == "Strength"
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+async def test_a_row_removed_upstream_is_still_named(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """Upstream drops Strength, then Longsword, which Dagger inherits from.
+    Neither exists there any more; the table's copies still know them."""
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    try:
+        async with admin_session_factory() as session:
+            await session.delete(
+                await session.get_one(EntityStat, (ids["Longsword"], ids["Strength"]))
+            )
+            await session.flush()
+            await session.delete(await session.get_one(StatDefinition, ids["Strength"]))
+            await session.commit()
+        updates = (await gm.get(f"{url}/updates")).json()
+        stat = _by_row(updates)["Longsword"][f"stats:{ids['Strength']}"]
+        # Gone upstream, so the label and the name come from the table's copy.
+        assert (stat["base"], stat["upstream"], stat["label"]) == (10, None, "Strength")
+        assert updates["names"][str(ids["Strength"])] == "Strength"
+        assert [r["name"] for r in updates["removed"]] == ["Strength"]
+        _names_are_names(updates)
+
+        async with admin_session_factory() as session:
+            await session.delete(await session.get_one(Entity, ids["Longsword"]))
+            await session.commit()
+        updates = (await gm.get(f"{url}/updates")).json()
+        assert _by_row(updates)["Dagger"]["prototypes"]["removed"] == [str(ids["Longsword"])]
+        assert updates["names"][str(ids["Longsword"])] == "Longsword"
+        _names_are_names(updates)
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+async def test_a_row_deleted_locally_is_still_named(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """The table deleted its Longsword; upstream changes what refers to it.
+    The snapshot taken at the copy has its name."""
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    local = await _local(world)
+    try:
+        async with admin_session_factory() as session:
+            blade = Entity(tenant_id=world.repository, name="Blade")
+            session.add(blade)
+            await session.flush()
+            await session.execute(
+                delete(EntityPrototype).where(EntityPrototype.entity_id == ids["Dagger"])
+            )
+            session.add(
+                EntityPrototype(
+                    entity_id=ids["Dagger"], prototype_id=blade.id, tenant_id=world.repository
+                )
+            )
+            await session.delete(await session.get_one(Entity, local[ids["Longsword"]]))
+            await session.commit()
+        updates = (await gm.get(f"{url}/updates")).json()
+        assert [r["name"] for r in updates["deleted_locally"]] == ["Longsword"]
+        prototypes = _by_row(updates)["Dagger"]["prototypes"]
+        assert prototypes["removed"] == [str(ids["Longsword"])]
+        assert updates["names"][str(ids["Longsword"])] == "Longsword"
+        _names_are_names(updates)
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+async def test_what_could_not_be_applied_names_what_it_is_about(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """ADR 0197: a `not_applied` entry says which row and which stat in
+    words, and its reason names the row it lacks instead of quoting an id."""
+    world = await _world(raw_client, fake_jwks_server)
+    ids, gm, url = world.ids, world.gm, f"/tenants/{world.table}/repositories/{world.repository}"
+    try:
+        async with admin_session_factory() as session:
+            blade = Entity(tenant_id=world.repository, name="Blade")
+            weight = StatDefinition(
+                tenant_id=world.repository,
+                stat_group_id=ids["Abilities"],
+                name="Weight",
+                value_type=StatValueType.INT,
+            )
+            session.add_all([blade, weight])
+            await session.flush()
+            await session.execute(
+                delete(EntityPrototype).where(EntityPrototype.entity_id == ids["Dagger"])
+            )
+            session.add_all(
+                [
+                    EntityPrototype(
+                        entity_id=ids["Dagger"], prototype_id=blade.id, tenant_id=world.repository
+                    ),
+                    EntityStat(
+                        entity_id=ids["Longsword"],
+                        stat_definition_id=weight.id,
+                        tenant_id=world.repository,
+                        value_int=3,
+                    ),
+                ]
+            )
+            await session.commit()
+            weight_id = weight.id
+        applied = await gm.post(
+            f"{url}/updates",
+            json={
+                "actions": [
+                    {"kind": "entity", "source_id": str(ids["Dagger"]), "action": "apply"},
+                    {"kind": "entity", "source_id": str(ids["Longsword"]), "action": "apply"},
+                ]
+            },
+        )
+        assert applied.status_code == 200, applied.text
+        entries = {n["field"]: n for n in applied.json()["not_applied"]}
+        prototypes = entries["prototypes"]
+        assert (prototypes["name"], prototypes["label"]) == ("Dagger", None)
+        assert prototypes["reason"] == "Blade wasn't copied here"
+        stat = entries[f"stats:{weight_id}"]
+        assert (stat["name"], stat["label"]) == ("Longsword", "Weight")
+        assert stat["reason"] == "its stat wasn't copied here"
+    finally:
+        await cleanup([world.table, world.repository], [world.author, world.gm])
+
+
+def test_an_id_nobody_has_a_name_for_has_none() -> None:
+    """ADR 0197: never the id itself, and never an error."""
+    names = Names(Content(uuid.uuid4()), Content(uuid.uuid4()))
+    for kind in ("entity", "stat_group", "stat_definition"):
+        assert names.name(kind, str(uuid.uuid4())) is None
+        assert names.name(kind, f"local:{uuid.uuid4()}") is None
+        assert names.name(kind, "not an id") is None

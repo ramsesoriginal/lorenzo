@@ -581,6 +581,8 @@ async def test_an_entity_and_an_attachment_to_it_are_added_in_one_call(
                 "source_id": str(stack.ids["Longsword"]),
                 "field": "prototypes",
                 "reason": NO_PARENT,
+                "name": "Longsword",
+                "label": "Greatsword 5e",
             }
         ]
         assert len((await gm.get(url)).json()["attachments_added"]) == 1

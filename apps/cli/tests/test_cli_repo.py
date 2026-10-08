@@ -1023,6 +1023,8 @@ def test_an_attachment_that_could_not_be_applied_is_said_and_stays_on_offer(
             "source_id": str(uuid.UUID(int=601)),
             "field": "prototypes",
             "reason": "it would make a prototype loop here",
+            "name": None,
+            "label": None,
         }
     ]
     result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
