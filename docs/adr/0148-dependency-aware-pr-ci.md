@@ -140,4 +140,21 @@ Measured with the tests and Postgres pinned to four cores, a shard at a time, as
 
 The slowest shard with two, three and four workers took 105, 97 and 78 s; the whole suite on one runner with four workers 168 s, and 147 s with the bulk read in. Shard 1 did not gain from copies: it is the seed's own tests.
 
-Still open, in this order: the API's per-request SQL and the `app_user` upsert (a decision on ADR 0075); how many runners `cli-e2e` needs now that a shard takes about a minute and a half, with two probably enough; shards balanced by recorded duration; `unseed`'s own item-by-item reads; apps/api's tests on parallel workers (a database per worker, from a template as here); and, for Playwright, `packed()` built once per worker for the specs that only read.
+Still open, in this order: the API's per-request SQL and the `app_user` upsert (a decision on ADR 0075); how many runners `cli-e2e` needs now that a shard takes about a minute and a half, with two probably enough; shards balanced by recorded duration; `unseed`'s own item-by-item reads; and, for Playwright, `packed()` built once per worker for the specs that only read.
+
+## Addendum (2026-10-08): apps/api's tests on parallel workers
+
+The API's 1,295 tests are many small, independent ones (a median of 60 ms; the slowest tenth takes 57% of the time and fixtures 3%), so parallel workers help directly. `pytest-xdist` runs them on `TEST_WORKERS` workers (four by default, 0 for one process), each with a database of its own cloned from a migrated template, as for the CLI's end-to-end tests: `tests/_workers.py`, imported first by `conftest.py` because the settings are read at import, with `asyncpg` since `psycopg` is not a dependency of the API. A run without workers uses the database it is given, as before.
+
+One test read the whole `information` table, so on a shared database it failed on rows other runs had left; with a database per worker it sees only its own.
+
+Measured with the tests and Postgres pinned to four cores, coverage on:
+
+| Run | Time |
+| --- | --- |
+| One process, shard 1 of 2 / shard 2 of 2 (today's two runners) | 97 s / 65 s |
+| Four workers, shard 1 / shard 2 | 36 s / 27 s |
+| Whole suite on one runner, two / three / four workers | 85 / 61 / 51 s |
+| Four workers, `loadfile` / no coverage | 53 s / 48 s |
+
+So `apps/api` is one `test` leg now (`shards = 2` is gone from `.github/ci-graph.toml`): 51 s on one runner against 97 s for the longer of two. `deploy-api.yml` runs `mise run test` too, so its verify job uses the workers as well. CI's own timings are the check.
