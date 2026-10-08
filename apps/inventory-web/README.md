@@ -142,7 +142,8 @@ Environment variables, all optional:
   privileged and restricted roles.
 - `E2E_BROWSER_CHANNEL`: an installed browser, such as `msedge` or `chrome`,
   instead of Playwright's own download (`pnpm exec playwright install
-  chromium`).
+  chromium`). CI sets it to `chrome`, the runner's own, and downloads nothing
+  ([ADR 0148](../../docs/adr/0148-dependency-aware-pr-ci.md)).
 
 Servers that are already running are an error rather than reused, since a stale one
 serves an old build. `E2E_REUSE_SERVERS=1` reuses them anyway, which speeds up a second
