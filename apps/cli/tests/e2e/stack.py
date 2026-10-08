@@ -34,8 +34,28 @@ _ROLES_CLAIM = "https://authgear.com/claims/user/roles"
 _KEY_ID = "e2e-key"
 
 
+def _userinfo(authorization: str) -> tuple[int, bytes]:
+    """What Authgear's UserInfo endpoint says about the token's subject: a verified email of its own.
+
+    The API asks for an email on every request until it has one for the user, and a request that
+    asks builds an HTTP client first (about 70 ms on a slow machine, against under 1 ms to answer).
+    A fake that has no email to give leaves every request of every test paying that, which was most
+    of an end-to-end run. A real user has one, and the API keeps it after the first request.
+    """
+    try:
+        claims = jwt.decode(
+            authorization.removeprefix("Bearer "), options={"verify_signature": False}
+        )
+    except jwt.InvalidTokenError:
+        return 401, b'{"error": "invalid_token"}'
+    subject = str(claims.get("sub", "unknown"))
+    return 200, json.dumps(
+        {"sub": subject, "email": f"{subject}@e2e.test", "email_verified": True}
+    ).encode()
+
+
 class FakeAuthgear:
-    """Serves a JWKS and signs tokens with its key."""
+    """Serves a JWKS and a UserInfo endpoint, and signs tokens with its key."""
 
     def __init__(self) -> None:
         self._key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -45,9 +65,12 @@ class FakeAuthgear:
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802 - stdlib's own naming
-                # /userinfo is only asked for an email; a 404 is "no email", which the API allows.
-                status = 200 if self.path.startswith("/oauth2/jwks") else 404
-                payload = body if status == 200 else b"{}"
+                if self.path.startswith("/oauth2/jwks"):
+                    status, payload = 200, body
+                elif self.path.startswith("/oauth2/userinfo"):
+                    status, payload = _userinfo(self.headers.get("Authorization", ""))
+                else:
+                    status, payload = 404, b"{}"
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(payload)))
