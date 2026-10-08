@@ -10,9 +10,11 @@ run = ["uv lock --check", "uv run ruff check .", "uv run ruff format --check .",
 description = "Ruff autoformat"
 run = "uv run ruff format ."
 
+# The tests run on TEST_WORKERS parallel workers (4 by default, 0 for one process: a single test, a
+# debugger), each with a database of its own cloned from a migrated template (tests/_workers.py).
 [tasks.test]
 description = "Run the test suite with coverage"
-run = "uv run pytest --cov"
+run = "uv run pytest --cov -n ${TEST_WORKERS:-4}"
 
 [tasks.build]
 description = "Build the container image"

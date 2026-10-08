@@ -34,8 +34,8 @@ openapi_source = "apps/api"
 
 [nodes."apps/api"]
 postgres = true
-# 1084 tests over two runners, each with its own database (apps/api/tests/conftest.py).
-shards = 2
+# One leg: its tests run on four parallel workers, each with a database cloned from a migrated
+# template (apps/api/tests/_workers.py, ADR 0148), which is faster than two runners of one process.
 
 [nodes."apps/cli"]
 # Its unit tests need neither the API nor a database; the end-to-end tests, which start the real API,
