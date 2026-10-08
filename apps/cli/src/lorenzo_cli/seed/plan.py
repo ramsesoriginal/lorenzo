@@ -23,11 +23,12 @@ from lorenzo_cli.client.ops import (
     GET_ENTITY,
     GET_ITEM,
     LIST_ENTITY_COMPUTED_STATS,
+    LIST_ITEMS,
     LIST_STAT_DEFINITIONS,
     LIST_STAT_GROUPS,
     RESOLVE_SLUGS,
 )
-from lorenzo_cli.client.paging import all_items
+from lorenzo_cli.client.paging import PAGE_SIZE, all_items
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.seed.spec import AttachmentSpec, NodeSpec, SeedSpec, StatValue
 
@@ -35,6 +36,11 @@ ActionKind = Literal[
     "group", "definition", "node", "description", "retitle", "tag", "stat", "attach", "recipe"
 ]
 _RESOLVE_BATCH = 100  # GET .../entities/resolve takes at most this many slugs (ADR 0107)
+# A page of the item listing costs about 40 ms and under a millisecond a row; a request for one item
+# costs about 30 ms. So the listing reads every node the tenant has in a request or two, and is
+# still no dearer than reading them one at a time for a tenant of up to this many pages of items. A
+# bigger one (an import of thousands) is read node by node.
+_MAX_LISTED_PAGES = 10
 
 
 @dataclass(frozen=True)
@@ -90,6 +96,33 @@ def resolve_nodes(
     return found
 
 
+def read_items(
+    client: LorenzoClient, tenant_id: UUID, wanted: dict[str, UUID]
+) -> dict[str, ItemOut]:
+    """The items of these nodes (slug -> entity id), from the tenant's item listing where that is
+    cheaper than asking for each, which it is for every tenant but one with a great many items.
+
+    Whatever the listing doesn't hold (it lists only what the caller may see) is asked for by id,
+    as it always was, so the answer is the same either way."""
+    path = {"tenant_id": tenant_id}
+    by_id = {entity_id: slug for slug, entity_id in wanted.items()}
+    found: dict[str, ItemOut] = {}
+    if wanted:
+        page = client.call(LIST_ITEMS, path=path, query={"page": 1, "size": PAGE_SIZE}).value
+        if page.pages <= _MAX_LISTED_PAGES:
+            for number in range(1, page.pages + 1):
+                if number > 1:
+                    query = {"page": number, "size": PAGE_SIZE}
+                    page = client.call(LIST_ITEMS, path=path, query=query).value
+                for listed in page.items:
+                    if listed.entity_id in by_id:
+                        found[by_id[listed.entity_id]] = listed
+    for slug, entity_id in wanted.items():
+        if slug not in found:
+            found[slug] = client.call(GET_ITEM, path={**path, "entity_id": entity_id}).value
+    return {slug: found[slug] for slug in wanted}
+
+
 def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> TenantState:
     path = {"tenant_id": tenant_id}
     groups = {g.name: g for g in all_items(client, LIST_STAT_GROUPS, path=path, of=StatGroupOut)}
@@ -99,17 +132,25 @@ def read_state(client: LorenzoClient, tenant_id: UUID, spec: SeedSpec) -> Tenant
 
     nodes = resolve_nodes(client, tenant_id, [node.slug for node in spec.nodes])
 
-    items: dict[str, ItemOut] = {}
+    items = read_items(
+        client,
+        tenant_id,
+        {
+            slug: found.entity_id
+            for slug, found in nodes.items()
+            if "item" in {kind.value for kind in found.kinds}
+        },
+    )
     retitles: dict[str, tuple[UUID, str]] = {}
-    for slug, found in nodes.items():
-        if "item" in {kind.value for kind in found.kinds}:
-            items[slug] = client.call(GET_ITEM, path={**path, "entity_id": found.entity_id}).value
-            if items[slug].title == descriptions.PLACEHOLDER_TITLE:
-                # Its title is the description's, so the row may be the placeholder: look.
-                detail = client.call(GET_ENTITY, path={**path, "entity_id": found.entity_id}).value
-                stale = descriptions.placeholder_description(detail)
-                if stale is not None:
-                    retitles[slug] = (stale.id, detail.name)
+    for slug, read in items.items():
+        if read.title == descriptions.PLACEHOLDER_TITLE:
+            # Its title is the description's, so the row may be the placeholder: look.
+            detail = client.call(
+                GET_ENTITY, path={**path, "entity_id": nodes[slug].entity_id}
+            ).value
+            stale = descriptions.placeholder_description(detail)
+            if stale is not None:
+                retitles[slug] = (stale.id, detail.name)
 
     own_stats: dict[tuple[str, str], StatValue] = {}
     for node in spec.nodes:
