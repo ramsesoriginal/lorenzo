@@ -49,6 +49,8 @@ from lorenzo_api.models.repository_copy import (
     RepositoryCopyLinkStatGroup,
 )
 from lorenzo_api.models.repository_release import RepositoryRelease
+from lorenzo_api.models.repository_release_blob import RepositoryReleaseBlob
+from lorenzo_api.models.repository_release_document import RepositoryReleaseDocument
 from lorenzo_api.models.repository_released_row import RepositoryReleasedRow
 from lorenzo_api.models.repository_subscription import RepositorySubscription
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
@@ -115,6 +117,8 @@ __all__ = [
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",
     "RepositoryRelease",
+    "RepositoryReleaseBlob",
+    "RepositoryReleaseDocument",
     "RepositoryReleasedRow",
     "RepositorySubscription",
     "StatDefinition",

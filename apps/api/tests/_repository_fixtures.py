@@ -2,11 +2,13 @@
 tests, which need each table to have something to hide or show.
 """
 
+import hashlib
 import uuid
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
     Character,
@@ -39,12 +41,15 @@ from lorenzo_api.models import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
     RepositoryRelease,
+    RepositoryReleaseBlob,
+    RepositoryReleaseDocument,
     RepositoryReleasedRow,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
 )
+from lorenzo_api.repository_content import Content
 
 
 async def seed_every_content_table(
@@ -221,7 +226,25 @@ async def seed_every_content_table(
             Knowledge(tenant_id=tenant_id, knower_entity_id=elminster.id, information_id=info.id),
         ]
     )
-    session.add(RepositoryRelease(tenant_id=tenant_id, number=1, label="Seed", notes="Seeded."))
+    release = RepositoryRelease(
+        id=uuid.uuid4(), tenant_id=tenant_id, number=1, label="Seed", notes="Seeded."
+    )
+    session.add(release)
+    # Its document, and the one file it refers to (ADR 0214).
+    file = b"\x89PNG"
+    sha256 = hashlib.sha256(file).hexdigest()
+    session.add(RepositoryReleaseBlob(tenant_id=tenant_id, sha256=sha256, data=file))
+    session.add(
+        RepositoryReleaseDocument(
+            release_id=release.id,
+            tenant_id=tenant_id,
+            format=release_document.FORMAT,
+            content=release_document.dumps(
+                release_document.encode(Content(tenant_id=tenant_id))[0]
+            ),
+            blobs=[sha256],
+        )
+    )
     session.add(
         RepositoryReleasedRow(
             tenant_id=tenant_id, kind="entity", row_id=sword.id, hash="0" * 64, name="Sword"

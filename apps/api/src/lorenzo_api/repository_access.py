@@ -63,6 +63,9 @@ REPOSITORY_CONTENT_TABLES = frozenset(
         "repository_copy_link_stat_definition",
         # What a repository published (ADR 0207), which the libraries it is granted to read.
         "repository_release",
+        # What a release was, and the files it refers to (ADR 0214), which the libraries read.
+        "repository_release_document",
+        "repository_release_blob",
         # The hashes of what it released, which a library marks its updates against (ADR 0208).
         "repository_released_row",
     }
