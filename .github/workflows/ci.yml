@@ -224,12 +224,21 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
+      # The API's Python environment, built in the background while pnpm installs: Playwright starts
+      # the API with `uv run`, which would otherwise build it first, the dev tools included (about
+      # 5 s of a shard, ADR 0148, addendum of 2026-10-08).
+      - name: Build the API's environment
+        run: |
+          nohup sh -c 'uv sync --frozen --no-dev --project apps/api; echo $? > "$RUNNER_TEMP/api-env.status"' \
+            > "$RUNNER_TEMP/api-env.log" 2>&1 < /dev/null &
       - run: pnpm install --frozen-lockfile
         working-directory: apps/inventory-web
-      - name: Wait for Postgres
+      - name: Wait for Postgres and the API's environment
         run: |
           timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
             || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
+          timeout 120 sh -c 'until [ -f "$RUNNER_TEMP/api-env.status" ]; do sleep 1; done'
+          [ "$(cat "$RUNNER_TEMP/api-env.status")" = 0 ] || { cat "$RUNNER_TEMP/api-env.log"; exit 1; }
       # Playwright's headless shell, cached by Playwright's version, and installed without
       # `--with-deps`, whose apt packages the runner image already has (a shard's install was 21-33 s).
       # Not the runner's own Chrome: its new headless mode ran the test steps 28-43 s longer and
@@ -249,6 +258,8 @@ jobs:
       - run: pnpm exec playwright test --shard=${{ matrix.shard }}
         working-directory: apps/inventory-web
         env:
+          # `uv run` then finds the environment built above and leaves the dev tools out.
+          UV_NO_DEV: 1
           E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
           E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
       - uses: actions/upload-artifact@v7
@@ -282,12 +293,19 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
+      # The API's environment in the background while pnpm installs: see the job above.
+      - name: Build the API's environment
+        run: |
+          nohup sh -c 'uv sync --frozen --no-dev --project apps/api; echo $? > "$RUNNER_TEMP/api-env.status"' \
+            > "$RUNNER_TEMP/api-env.log" 2>&1 < /dev/null &
       - run: pnpm install --frozen-lockfile
         working-directory: apps/account-hub
-      - name: Wait for Postgres
+      - name: Wait for Postgres and the API's environment
         run: |
           timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
             || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
+          timeout 120 sh -c 'until [ -f "$RUNNER_TEMP/api-env.status" ]; do sleep 1; done'
+          [ "$(cat "$RUNNER_TEMP/api-env.status")" = 0 ] || { cat "$RUNNER_TEMP/api-env.log"; exit 1; }
       - name: Playwright version
         id: playwright
         run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
@@ -303,6 +321,7 @@ jobs:
       - run: pnpm run test:real-api:ci
         working-directory: apps/account-hub
         env:
+          UV_NO_DEV: 1
           E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
           E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
       - uses: actions/upload-artifact@v7
