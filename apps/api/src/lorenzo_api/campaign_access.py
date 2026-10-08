@@ -25,11 +25,13 @@ from lorenzo_api.models import (
     CharacterPlayer,
     Entity,
     GroupMember,
+    Item,
     Membership,
     MembershipRole,
     Player,
     Tenant,
     TenantAdminCampaignOptOut,
+    TenantKind,
 )
 
 
@@ -70,6 +72,65 @@ async def is_tenant_owner(
     0118) require."""
     membership = await session.get(Membership, (tenant_id, user_id))
     return membership is not None and membership.role is MembershipRole.OWNER
+
+
+async def membership_role_of(
+    session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
+) -> MembershipRole | None:
+    """The role a user holds in a tenant, or None without a membership."""
+    membership = await session.get(Membership, (tenant_id, user_id))
+    return membership.role if membership is not None else None
+
+
+async def is_tenant_author(
+    session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Whether a user may edit the content of a tenant: an OWNER, an ORGA or an AUTHOR
+    (RFC 0040, ADR 0210). `is_tenant_admin` is the narrower predicate, and still the one
+    that decides who runs a tenant: an AUTHOR is not an administrator anywhere it is used.
+    """
+    role = await membership_role_of(session, tenant_id=tenant_id, user_id=user_id)
+    return role in (MembershipRole.OWNER, MembershipRole.ORGA, MembershipRole.AUTHOR)
+
+
+async def entry_in_author_reach(
+    session: AsyncSession, *, tenant_id: uuid.UUID, entity_id: uuid.UUID
+) -> bool:
+    """Whether an Author's role reaches this entry (ADR 0210): every entry of a repository,
+    which has no campaigns, players or owners of entries; in a library, the catalog, the
+    entries that are items. Beings, item instances and what a campaign owns stay with the
+    library's administrators and GMs.
+    """
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        return False
+    if tenant.kind is TenantKind.REPOSITORY:
+        return (
+            await session.scalar(
+                select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+            )
+            is not None
+        )
+    return (
+        await session.scalar(
+            select(Item.entity_id).where(Item.entity_id == entity_id, Item.tenant_id == tenant_id)
+        )
+        is not None
+    )
+
+
+async def can_author_entry(
+    session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID, entity_id: uuid.UUID
+) -> bool:
+    """Whether the caller may write to an entry nobody owns because they author content here:
+    a member who may edit (`is_tenant_author`) and an entry in an Author's reach. What the
+    unowned-entity fallbacks of entities.py, entity_stats.py and item_instances.py accept
+    next to `can_manage_any_campaign_in_tenant`, which keeps its meaning (an administrator,
+    or someone holding a GM grant).
+    """
+    if not await is_tenant_author(session, tenant_id=tenant_id, user_id=user_id):
+        return False
+    return await entry_in_author_reach(session, tenant_id=tenant_id, entity_id=entity_id)
 
 
 async def is_tenant_participant(

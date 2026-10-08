@@ -33,11 +33,23 @@ export async function isCampaignGm(tenantId: string): Promise<boolean> {
 }
 
 /**
- * Whether the viewer holds a membership in the tenant (an owner or orga). The catalog and
- * the being search need one (ADR 0032, 0078); a player has a seat in a campaign instead.
+ * Whether the viewer holds a membership in the tenant, of any role: an Owner, an Organizer or an
+ * Author (RFC 0040). The catalog needs one (ADR 0032); a player has a seat in a campaign instead.
  */
 export async function isTenantMember(tenantId: string): Promise<boolean> {
   return (await getMe()).memberships.some((membership) => membership.tenant_id === tenantId);
+}
+
+/**
+ * Whether the viewer is an Owner or an Organizer of the tenant: the being search needs that (ADR
+ * 0078, 0173). An Author edits the catalog and reaches no being (ADR 0210).
+ */
+export async function isTenantAdmin(tenantId: string): Promise<boolean> {
+  return (await getMe()).memberships.some(
+    (membership) =>
+      membership.tenant_id === tenantId &&
+      (membership.role === 'owner' || membership.role === 'orga'),
+  );
 }
 
 /** The viewer's own user id. */

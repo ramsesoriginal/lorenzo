@@ -20,6 +20,7 @@ from lorenzo_api.models import (
     EntityChange,
     GroupMember,
     Membership,
+    MembershipRole,
     Notification,
     Player,
 )
@@ -112,7 +113,7 @@ async def create_tenant_notification(
     return notifications
 
 
-async def create_tenant_members_notification(
+async def create_tenant_admins_notification(
     session: AsyncSession,
     *,
     tenant_id: uuid.UUID,
@@ -121,13 +122,18 @@ async def create_tenant_members_notification(
     body: str,
     created_by: uuid.UUID | None,
 ) -> list[Notification]:
-    """scope="tenant", to the tenant's members (Membership rows) only, not
-    its whole roster: ADR 0118's repository notices are for the people who
-    run a tenant, not its players. Membership is read under RLS, so
-    `app.tenant_id` must be `tenant_id` when this runs.
+    """scope="tenant", to the tenant's administrators (OWNER and ORGA memberships) only, not
+    its whole roster: ADR 0118's repository notices are for the people who run a library, not
+    its players and not its Authors, who are told only about their own role (ADR 0210).
+    Membership is read under RLS, so `app.tenant_id` must be `tenant_id` when this runs.
     """
     member_ids = (
-        await session.execute(select(Membership.user_id).where(Membership.tenant_id == tenant_id))
+        await session.execute(
+            select(Membership.user_id).where(
+                Membership.tenant_id == tenant_id,
+                Membership.role.in_((MembershipRole.OWNER, MembershipRole.ORGA)),
+            )
+        )
     ).scalars()
     batch_id = uuid.uuid4()
     notifications = [

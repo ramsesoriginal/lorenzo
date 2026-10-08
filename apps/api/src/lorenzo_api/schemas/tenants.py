@@ -24,12 +24,12 @@ __all__ = [
     "TenantUpdate",
 ]
 
-TenantRole = Literal["owner", "orga", "participant"]
+TenantRole = Literal["owner", "orga", "author", "participant"]
 
-# Membership.role only ever holds one of these two (MembershipRole, ADR
-# 0022) - narrower than TenantRole above, which also admits "participant"
+# Membership.role only ever holds one of these three (MembershipRole, ADR
+# 0022, ADR 0210) - narrower than TenantRole above, which also admits "participant"
 # for a caller with no Membership row at all, never a valid *input* value.
-MembershipRoleName = Literal["owner", "orga"]
+MembershipRoleName = Literal["owner", "orga", "author"]
 
 # Basic format only (lowercase alphanumeric segments joined by single
 # hyphens, no leading/trailing/doubled hyphen) - RFC 0012's own "Open

@@ -559,6 +559,7 @@ class ManagedCampaignOut(BaseModel):
 class Role(StrEnum):
     owner = "owner"
     orga = "orga"
+    author = "author"
 
 
 class MeCapabilitiesOut(BaseModel):
@@ -1155,6 +1156,7 @@ class TenantOut(BaseModel):
 class Role3(StrEnum):
     owner = "owner"
     orga = "orga"
+    author = "author"
     participant = "participant"
 
 

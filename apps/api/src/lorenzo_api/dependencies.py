@@ -15,7 +15,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.campaign_access import can_access_campaign, is_tenant_participant
+from lorenzo_api.campaign_access import (
+    can_access_campaign,
+    is_tenant_admin,
+    is_tenant_participant,
+)
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import get_db_session
 from lorenzo_api.exceptions import (
@@ -24,6 +28,7 @@ from lorenzo_api.exceptions import (
     EntityNotFoundError,
     InvalidTokenError,
     PlatformOperatorRoleRequiredError,
+    TenantAdminRequiredError,
     TenantCreationForbiddenError,
     TenantNotFoundError,
 )
@@ -37,6 +42,7 @@ __all__ = [
     "get_current_user",
     "get_entity_or_404",
     "get_jwks_client",
+    "get_tenant_admin_context",
     "get_tenant_context",
     "get_tenant_or_404",
     "get_userinfo_url",
@@ -350,10 +356,11 @@ async def get_tenant_context(
     tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> uuid.UUID:
     """Validates tenant_id is real *and* the caller actually has a
-    Membership in it, then sets app.tenant_id on this same request-scoped
-    session, which RLS policies now actually filter on, since the app
-    connects as a restricted, non-superuser role (ADR 0002/0021) - see
-    ADR 0020/0022/0023. Every route must still filter its own queries by
+    Membership in it, of any role: an Owner, an Organizer or an Author (ADR 0210;
+    `get_tenant_admin_context` is the one for the first two), then sets
+    app.tenant_id on this same request-scoped session, which RLS policies now
+    actually filter on, since the app connects as a restricted, non-superuser role
+    (ADR 0002/0021) - see ADR 0020/0022/0023. Every route must still filter its own queries by
     tenant_id explicitly regardless; RLS is defense in depth for a missed
     filter, not a replacement for filtering deliberately (ADR 0002).
 
@@ -366,6 +373,21 @@ async def get_tenant_context(
     if await session.get(Membership, (tenant_id, user.id)) is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     await set_tenant_rls_context(session, tenant_id)
+    return tenant_id
+
+
+async def get_tenant_admin_context(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> uuid.UUID:
+    """A membership, as `get_tenant_context` asks for, and a role that runs the tenant: an Owner
+    or an Organizer (ADR 0210). An Author is a member who is refused with a 403. Every route
+    behind a bare `get_tenant_context` is open to an Author, which tests/test_author_route_audit.py
+    makes each route choose.
+    """
+    if not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
+        raise TenantAdminRequiredError(detail="Only an Owner or an Organizer can do this")
     return tenant_id
 
 

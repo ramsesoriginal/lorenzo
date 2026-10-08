@@ -13,7 +13,7 @@ from lorenzo_api.dependencies import (
     ParamsDep,
     SessionDep,
     get_campaign_context,
-    get_tenant_context,
+    get_tenant_admin_context,
     get_tenant_or_404,
     require_tenant_participant,
     set_tenant_rls_context,
@@ -148,7 +148,7 @@ async def _require_can_manage(
 
 @router.post("", status_code=201)
 async def create_campaign(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     body: CampaignCreate,
     request: Request,
     response: Response,
@@ -269,7 +269,7 @@ async def delete_campaign_picture(
 
 @router.delete("/{campaign_id}", status_code=204)
 async def delete_campaign(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     campaign_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
@@ -431,7 +431,7 @@ async def revoke_campaign_gm(
 
 @router.put("/{campaign_id}/admin-opt-out")
 async def opt_out_of_campaign_admin_visibility(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     campaign_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
@@ -442,7 +442,7 @@ async def opt_out_of_campaign_admin_visibility(
     don't hold in the first place is meaningless. Idempotent, matching the
     GM grant above.
 
-    Gated by get_tenant_context, not get_campaign_context - the identical
+    Gated by get_tenant_admin_context, not get_campaign_context - the identical
     reasoning DELETE /campaigns/{id} above already applies to itself:
     can_access_campaign's own opt-out-suppression must not be able to lock
     its holder out of the very route that would undo it. Still loads the
@@ -450,12 +450,11 @@ async def opt_out_of_campaign_admin_visibility(
     404 shape - it just doesn't run can_access_campaign against it.
 
     The is_tenant_admin check below is consequently unreachable via any
-    real caller today: get_tenant_context already requires a Membership
-    row, and MembershipRole has exactly OWNER/ORGA (ADR 0022) - nothing
-    else a Membership row could hold. Kept anyway as the explicit
-    statement of the actual business rule, not merely an artifact of
-    get_tenant_context's own check - the same dead-but-documented-intent
-    shape tenants.py's own get_tenant uses for its post-dependency re-fetch.
+    real caller: get_tenant_admin_context already refuses everyone but an
+    OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0210). Kept anyway as
+    the explicit statement of the actual business rule - the same
+    dead-but-documented-intent shape tenants.py's own get_tenant uses for its
+    post-dependency re-fetch.
     """
     await _get_campaign_or_404(tenant_id, campaign_id, session)
     if not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
@@ -486,7 +485,7 @@ async def opt_out_of_campaign_admin_visibility(
 
 @router.delete("/{campaign_id}/admin-opt-out")
 async def opt_back_in_to_campaign_admin_visibility(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     campaign_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,

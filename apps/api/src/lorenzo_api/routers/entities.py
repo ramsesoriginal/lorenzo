@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
+    can_author_entry,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
@@ -495,7 +496,9 @@ async def authorize_entity_write(
             session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
         ):
             return
-    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+    elif await can_manage_any_campaign_in_tenant(
+        session, user_id=user.id, tenant_id=tenant_id
+    ) or await can_author_entry(session, user_id=user.id, tenant_id=tenant_id, entity_id=entity_id):
         return
     raise forbidden or InformationManagementForbiddenError(
         detail=f"Not authorized to manage information on entity {entity_id}"

@@ -49,6 +49,7 @@ from lorenzo_api.campaign_access import (
     campaignless_holders_for,
     is_tenant_admin,
     is_tenant_orga,
+    membership_role_of,
     unowned_entry_reach_for,
 )
 from lorenzo_api.entity_access import (
@@ -62,9 +63,13 @@ from lorenzo_api.models import (
     CharacterPlayer,
     GroupMember,
     Information,
+    Item,
     Knowledge,
+    MembershipRole,
     Player,
+    Tenant,
     TenantAdminCampaignOptOut,
+    TenantKind,
 )
 
 
@@ -80,6 +85,11 @@ class InformationVisibility:
     player_ids: frozenset[uuid.UUID]
     knower_entity_ids: frozenset[uuid.UUID]
     gm_reachable_entity_ids: frozenset[uuid.UUID]
+    # An Author (RFC 0040, ADR 0210) reads every note on the entries in their reach: all of a
+    # repository (`author_sees_all`), the catalog items of a library (`author_entry_ids`).
+    # Neither is an administrator's bypass, so what an Author reads never widens past it.
+    author_sees_all: bool = False
+    author_entry_ids: frozenset[uuid.UUID] = frozenset()
 
     def can_see(self, info: Information) -> bool:
         """info.knowledge_links must already be eager-loaded (raise_on_sql,
@@ -103,9 +113,11 @@ class InformationVisibility:
         loaded column, no eager-load chain needed for this check the way
         knowledge_links needs one.
         """
-        if self.is_admin or info.is_public:
+        if self.is_admin or self.author_sees_all or info.is_public:
             return True
         if info.entity_id in self.gm_reachable_entity_ids:
+            return True
+        if info.entity_id in self.author_entry_ids:
             return True
         return any(
             link.knower_player_id in self.player_ids
@@ -124,7 +136,7 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     two must stay one definition, which tests/test_information_list.py's
     parity test enforces over a fixed matrix of callers and rows.
     """
-    if vis.is_admin:
+    if vis.is_admin or vis.author_sees_all:
         return true()
     knower_matches = []
     if vis.player_ids:
@@ -134,6 +146,8 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
     if vis.gm_reachable_entity_ids:
         clauses.append(entity_id_among(Information.entity_id, vis.gm_reachable_entity_ids))
+    if vis.author_entry_ids:
+        clauses.append(entity_id_among(Information.entity_id, vis.author_entry_ids))
     if knower_matches:
         clauses.append(
             exists().where(Knowledge.information_id == Information.id, or_(*knower_matches))
@@ -308,10 +322,28 @@ async def resolve_information_visibility(
             session, user_id=user_id, tenant_id=tenant_id
         )
 
+    author_sees_all = False
+    author_entry_ids: frozenset[uuid.UUID] = frozenset()
+    if (
+        await membership_role_of(session, tenant_id=tenant_id, user_id=user_id)
+        is MembershipRole.AUTHOR
+    ):
+        tenant = await session.get(Tenant, tenant_id)
+        if tenant is not None and tenant.kind is TenantKind.REPOSITORY:
+            author_sees_all = True
+        else:
+            author_entry_ids = frozenset(
+                (await session.execute(select(Item.entity_id).where(Item.tenant_id == tenant_id)))
+                .scalars()
+                .all()
+            )
+
     return InformationVisibility(
         is_orga=is_orga,
         is_admin=is_admin,
         player_ids=frozenset(player_ids),
         knower_entity_ids=frozenset(character_ids | group_ids),
         gm_reachable_entity_ids=gm_reachable_ids,
+        author_sees_all=author_sees_all,
+        author_entry_ids=author_entry_ids,
     )

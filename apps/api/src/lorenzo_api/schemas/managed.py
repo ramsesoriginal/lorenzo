@@ -28,7 +28,7 @@ class ManagedTenantOut(BaseModel):
     tenant_id: uuid.UUID
     name: str
     slug: str
-    role: Literal["owner", "orga"] | None
+    role: Literal["owner", "orga", "author"] | None
     # ADR 0118: a repository's authors run it too, but it has no campaigns.
     kind: TenantKind
     campaigns: list[ManagedCampaignOut]

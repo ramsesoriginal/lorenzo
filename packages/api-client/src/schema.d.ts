@@ -155,11 +155,9 @@ export interface paths {
          *     a mutation route either calls `activity_log.record_activity` or says
          *     in its own docstring why it doesn't.
          *
-         *     Gated by `get_tenant_context`. That means "OWNER or ORGA" only because
-         *     every `MembershipRole` is administrative - GMs and players without a
-         *     Membership row get a 404. `tests/test_activity_log_access.py` fails if
-         *     a non-administrative role is ever added, at which point this gate must
-         *     become an explicit `is_tenant_admin` check in the same change.
+         *     Gated by `get_tenant_admin_context`: an OWNER or an ORGA. An AUTHOR (RFC 0040,
+         *     ADR 0210) is a member and gets a 403; GMs and players without a Membership row
+         *     get a 404.
          */
         get: operations["list_activity_log"];
         put?: never;
@@ -256,10 +254,11 @@ export interface paths {
         /**
          * Get My Managed Scope
          * @description What the caller runs, across every tenant - see ADR 0086. Tenants
-         *     where they hold a tenant-wide OWNER/ORGA Membership (with every
-         *     campaign in them), plus tenants where they only GM (with just the
-         *     campaigns they GM). Not paginated, like `GET /me`: bounded by the
-         *     caller's own memberships and GM rows. Authenticated but not
+         *     where they hold a tenant-wide Membership (with every campaign in them for an
+         *     OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0210), plus
+         *     tenants where they only GM (with just the campaigns they GM). Not
+         *     paginated, like `GET /me`: bounded by the caller's own memberships and GM
+         *     rows. Authenticated but not
          *     tenant-scoped.
          *
          *     Resolved tenant by tenant for the same reason `_me_out` is: `membership`
@@ -1278,7 +1277,7 @@ export interface paths {
          *     don't hold in the first place is meaningless. Idempotent, matching the
          *     GM grant above.
          *
-         *     Gated by get_tenant_context, not get_campaign_context - the identical
+         *     Gated by get_tenant_admin_context, not get_campaign_context - the identical
          *     reasoning DELETE /campaigns/{id} above already applies to itself:
          *     can_access_campaign's own opt-out-suppression must not be able to lock
          *     its holder out of the very route that would undo it. Still loads the
@@ -1286,12 +1285,11 @@ export interface paths {
          *     404 shape - it just doesn't run can_access_campaign against it.
          *
          *     The is_tenant_admin check below is consequently unreachable via any
-         *     real caller today: get_tenant_context already requires a Membership
-         *     row, and MembershipRole has exactly OWNER/ORGA (ADR 0022) - nothing
-         *     else a Membership row could hold. Kept anyway as the explicit
-         *     statement of the actual business rule, not merely an artifact of
-         *     get_tenant_context's own check - the same dead-but-documented-intent
-         *     shape tenants.py's own get_tenant uses for its post-dependency re-fetch.
+         *     real caller: get_tenant_admin_context already refuses everyone but an
+         *     OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0210). Kept anyway as
+         *     the explicit statement of the actual business rule - the same
+         *     dead-but-documented-intent shape tenants.py's own get_tenant uses for its
+         *     post-dependency re-fetch.
          */
         put: operations["opt_out_of_campaign_admin_visibility"];
         post?: never;
@@ -2548,6 +2546,9 @@ export interface paths {
          *     is deleted, leaving every instance that inherited from it quietly
          *     missing stats it used to resolve through. No ?force= escape hatch -
          *     the caller's real fix is to delete or re-parent the instances first.
+         *
+         *     An Author (ADR 0210) deletes an item nobody inherits from: while another entry has this
+         *     one as a prototype it is 403, and an Owner or an Organizer decides.
          */
         delete: operations["delete_item"];
         options?: never;
@@ -5723,7 +5724,7 @@ export interface components {
             /** Slug */
             slug: string;
             /** Role */
-            role: ("owner" | "orga") | null;
+            role: ("owner" | "orga" | "author") | null;
             kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
@@ -5828,7 +5829,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "orga";
+            role: "owner" | "orga" | "author";
         };
         /**
          * MembershipOut
@@ -5890,7 +5891,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "orga";
+            role: "owner" | "orga" | "author";
         };
         /**
          * MergeItemInstanceRequest
@@ -7708,7 +7709,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "orga" | "participant";
+            role: "owner" | "orga" | "author" | "participant";
             kind: components["schemas"]["TenantKind"];
         };
         /**

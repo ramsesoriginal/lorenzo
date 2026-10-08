@@ -87,6 +87,18 @@ async def test_visible_information_clause_matches_can_see() -> None:
     callers = {
         "admin": InformationVisibility(True, True, frozenset(), frozenset(), frozenset()),
         "nobody": InformationVisibility(False, False, frozenset(), frozenset(), frozenset()),
+        # An Author (ADR 0210): all of a repository, or the catalog items of a library.
+        "author-of-a-repository": InformationVisibility(
+            False, False, frozenset(), frozenset(), frozenset(), author_sees_all=True
+        ),
+        "author-of-a-library": InformationVisibility(
+            False,
+            False,
+            frozenset(),
+            frozenset(),
+            frozenset(),
+            author_entry_ids=frozenset({near_id}),
+        ),
     }
     for p, c, g, gm in product((False, True), repeat=4):
         callers[f"p{p:d}c{c:d}g{g:d}gm{gm:d}"] = InformationVisibility(

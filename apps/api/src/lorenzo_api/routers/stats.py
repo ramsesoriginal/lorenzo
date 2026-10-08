@@ -13,6 +13,7 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_tenant_admin_context,
     get_tenant_context,
     set_tenant_rls_context,
 )
@@ -52,8 +53,9 @@ from lorenzo_api.schemas.stats import (
 # matching routers/items.py's identical precedent) - every route on this
 # router needs it and none read its return value. stat_group/stat_definition
 # are the shared stat vocabulary ("physical," "weight," ...), the same kind
-# of tenant-admin-authored catalog concern as item's own prototypes
-# (ADR 0032/ADR 0037, RFC 0008).
+# of authored catalog concern as item's own prototypes (ADR 0032/ADR 0037, RFC
+# 0008): any member, an Author too, adds to it; deleting from it is an
+# administrator's (get_tenant_admin_context, ADR 0210) since subscribers use it.
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
     tags=["stats"],
@@ -131,7 +133,11 @@ async def create_stat_group(
     return StatGroupOut.model_validate(stat_group)
 
 
-@router.delete("/stat-groups/{stat_group_id}", status_code=204)
+@router.delete(
+    "/stat-groups/{stat_group_id}",
+    status_code=204,
+    dependencies=[Depends(get_tenant_admin_context)],
+)
 async def delete_stat_group(
     tenant_id: uuid.UUID,
     stat_group_id: uuid.UUID,
@@ -304,7 +310,11 @@ def _in_use_parts(*counted: tuple[int | None, str]) -> str:
     return ", ".join(f"{count} {what}" for count, what in counted if count)
 
 
-@router.delete("/stat-definitions/{stat_definition_id}", status_code=204)
+@router.delete(
+    "/stat-definitions/{stat_definition_id}",
+    status_code=204,
+    dependencies=[Depends(get_tenant_admin_context)],
+)
 async def delete_stat_definition(
     tenant_id: uuid.UUID,
     stat_definition_id: uuid.UUID,
@@ -410,7 +420,10 @@ async def add_stat_enum_value(
     )
 
 
-@router.delete("/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}")
+@router.delete(
+    "/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}",
+    dependencies=[Depends(get_tenant_admin_context)],
+)
 async def remove_stat_enum_value(
     tenant_id: uuid.UUID,
     stat_definition_id: uuid.UUID,

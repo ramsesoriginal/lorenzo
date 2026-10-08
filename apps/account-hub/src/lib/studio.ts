@@ -24,14 +24,15 @@ export function readStudioLocation(search: string): {
   return { repository: query.get('repository'), create: query.get('new') === '1' };
 }
 
-// A role as a person reads it. Only an Owner or an Organizer works on a repository today; the
-// Author role (RFC 0040) adds a third.
+// A role as a person reads it (RFC 0040, ADR 0194).
 export function roleLabel(role: string): string {
   switch (role) {
     case 'owner':
       return 'Owner';
     case 'orga':
       return 'Organizer';
+    case 'author':
+      return 'Author';
     default:
       return role;
   }

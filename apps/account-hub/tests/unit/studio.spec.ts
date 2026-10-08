@@ -33,9 +33,10 @@ describe('studioHref and readStudioLocation', () => {
 });
 
 describe('roles', () => {
-  it('are called Owner and Organizer, never the API’s words', () => {
+  it('are called Owner, Organizer and Author, never the API’s words', () => {
     expect(roleLabel('owner')).toBe('Owner');
     expect(roleLabel('orga')).toBe('Organizer');
+    expect(roleLabel('author')).toBe('Author');
   });
 
   it('each carry what it can do, in the order of how much they can', () => {

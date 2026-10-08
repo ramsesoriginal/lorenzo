@@ -47,6 +47,7 @@ __all__ = [
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
+    "InheritedEntryDeletionForbiddenError",
     "InvalidTokenError",
     "InvalidUserError",
     "ItemInstanceManagementForbiddenError",
@@ -87,6 +88,7 @@ __all__ = [
     "InvalidPackOwnerError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
+    "TenantAdminRequiredError",
     "TenantCreationForbiddenError",
     "TenantDeletionForbiddenError",
     "TooManyRequestsError",
@@ -519,6 +521,25 @@ class TenantCreationForbiddenError(ForbiddenProblem):
     """
 
     title = "Missing the tenant-creator role"
+
+
+class TenantAdminRequiredError(ForbiddenProblem):
+    """A route for the people who run a library or a repository, an Owner or an Organizer,
+    and the caller is a member who is neither: an Author (RFC 0040, ADR 0210). 403, not 404:
+    they are a member, so they can already see the library exists, and they lack one nameable
+    standing. A non-member never gets here, the membership check before it gives the usual 404.
+    """
+
+    title = "Only an Owner or an Organizer can do this"
+
+
+class InheritedEntryDeletionForbiddenError(ForbiddenProblem):
+    """An Author deleting an entry that other entries inherit from (RFC 0040, ADR 0210): what
+    they would lose is not theirs to lose, so an Owner or an Organizer deletes it. Nothing is
+    deleted; the entry nobody inherits from is the Author's to delete.
+    """
+
+    title = "Only an Owner or an Organizer can delete an entry others inherit from"
 
 
 class TenantDeletionForbiddenError(ForbiddenProblem):

@@ -21,11 +21,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.campaign_access import is_tenant_owner
+from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_owner
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_tenant_admin_context,
     get_tenant_context,
     set_tenant_rls_context,
 )
@@ -38,6 +39,7 @@ from lorenzo_api.exceptions import (
     RepositoryNotCopiedError,
     RepositoryNotFoundError,
     SubscriptionNotFoundError,
+    TenantAdminRequiredError,
     TenantNotFoundError,
 )
 from lorenzo_api.models import (
@@ -59,7 +61,7 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
-from lorenzo_api.notifications import create_tenant_members_notification
+from lorenzo_api.notifications import create_tenant_admins_notification
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -143,6 +145,18 @@ async def _require_owner(session: SessionDep, *, tenant_id: uuid.UUID, user: Cur
         )
 
 
+async def _require_admin_unless_dry_run(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, dry_run: bool
+) -> None:
+    """Copying a repository and applying its updates bring stat groups and entries in, so they are
+    for an Owner or an Organizer; an Author may run either as a dry run, to check what it would
+    do (RFC 0040, ADR 0210)."""
+    if not dry_run and not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
+        raise TenantAdminRequiredError(
+            detail="Only an Owner or an Organizer can do this; an Author can check it as a dry run"
+        )
+
+
 async def _require_repository(session: SessionDep, tenant_id: uuid.UUID) -> Tenant:
     tenant = await session.get_one(Tenant, tenant_id)
     if tenant.kind is not TenantKind.REPOSITORY:
@@ -160,7 +174,7 @@ async def _notify_members_of(
     body: str,
     user: CurrentUser,
 ) -> None:
-    """Tells each tenant's members, reading each one's Membership under its
+    """Tells each tenant's administrators, reading each one's Membership under its
     own RLS context, then puts the current tenant's context back. Flushes
     first: anything still pending belongs to the current tenant, and would
     fail RLS if autoflush wrote it under another tenant's context.
@@ -168,7 +182,7 @@ async def _notify_members_of(
     await session.flush()
     for recipient in recipient_tenant_ids:
         await set_tenant_rls_context(session, recipient)
-        await create_tenant_members_notification(
+        await create_tenant_admins_notification(
             session, tenant_id=recipient, type=type, title=title, body=body, created_by=user.id
         )
     await set_tenant_rls_context(session, current_tenant_id)
@@ -453,7 +467,7 @@ async def _releases_taken_by(
 
 @router.get("/subscribers")
 async def list_subscribers(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[SubscriberOut]:
@@ -1100,6 +1114,7 @@ async def copy_repository(
     the tenant-admin tier, like authoring stat definitions.
     """
     dry_run = bool(body and body.dry_run)
+    await _require_admin_unless_dry_run(session, tenant_id=tenant_id, user=user, dry_run=dry_run)
     again = body.again if body else None
     previous = None
     if again and await session.get(RepositoryCopy, (tenant_id, repository_id)) is not None:
@@ -1286,6 +1301,9 @@ async def apply_repository_updates(
     (ADR 0172) are applied after the actions, so one can point at a row an
     action adds; `422` for one that has nothing to add or detach.
     `dry_run` applies everything and rolls it back."""
+    await _require_admin_unless_dry_run(
+        session, tenant_id=tenant_id, user=user, dry_run=bool(body.dry_run)
+    )
     actions = [
         UpdateAction(
             kind=a.kind,

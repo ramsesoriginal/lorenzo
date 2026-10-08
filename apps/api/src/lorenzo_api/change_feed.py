@@ -105,7 +105,8 @@ async def _actor_visible(
     session: AsyncSession, *, tenant_id: uuid.UUID, actor_id: uuid.UUID
 ) -> bool:
     """Hidden if the actor holds any GM grant or tenant-wide membership in
-    this tenant (every MembershipRole is administrative) - ADR 0099."""
+    this tenant - an Owner, an Organizer or an Author (ADR 0099, 0210): the people who run
+    or write a tenant, not its players."""
     if await session.get(Membership, (tenant_id, actor_id)) is not None:
         return False
     gm = await session.execute(

@@ -1,8 +1,8 @@
 """Authoring computed stats - see ADR 0104/RFC 0016.
 
-Tenant-admin tier (get_tenant_context), like stat definitions: a formula
-defines what a stat *means* for every entity that inherits it, not a
-per-character edit.
+Authoring tier (get_tenant_context: any member, an Author too, ADR 0210), like stat
+definitions: a formula defines what a stat *means* for every entity that inherits it,
+not a per-character edit.
 """
 
 from __future__ import annotations

@@ -142,10 +142,11 @@ async def get_me(user: CurrentUser, request: Request, session: SessionDep) -> Me
 @router.get("/me/managed")
 async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> ManagedScopeOut:
     """What the caller runs, across every tenant - see ADR 0086. Tenants
-    where they hold a tenant-wide OWNER/ORGA Membership (with every
-    campaign in them), plus tenants where they only GM (with just the
-    campaigns they GM). Not paginated, like `GET /me`: bounded by the
-    caller's own memberships and GM rows. Authenticated but not
+    where they hold a tenant-wide Membership (with every campaign in them for an
+    OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0210), plus
+    tenants where they only GM (with just the campaigns they GM). Not
+    paginated, like `GET /me`: bounded by the caller's own memberships and GM
+    rows. Authenticated but not
     tenant-scoped.
 
     Resolved tenant by tenant for the same reason `_me_out` is: `membership`
@@ -156,13 +157,19 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
     campaign's *play* visibility (ADR 0034) is irrelevant here: this is the
     administrative axis, so they still see it.
     """
-    admin_role_by_tenant = {
+    role_by_tenant = {
         tenant_id: role
         for tenant_id, role in (
             await session.execute(
                 select(Membership.tenant_id, Membership.role).where(Membership.user_id == user.id)
             )
         ).all()
+    }
+    # An Author (ADR 0210) is listed with the role, but runs no campaign: only an
+    # administrator sees every campaign of the tenant.
+    admin_role_by_tenant = {
+        tenant_id: role
+        for tenant_id, role in role_by_tenant.items()
         if role in (MembershipRole.OWNER, MembershipRole.ORGA)
     }
     gm_campaign_ids_by_tenant: dict[uuid.UUID, set[uuid.UUID]] = {}
@@ -176,7 +183,7 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
         gm_campaign_ids_by_tenant.setdefault(tenant_id, set()).add(campaign_id)
 
     tenants: list[ManagedTenantOut] = []
-    for tenant_id in set(admin_role_by_tenant) | set(gm_campaign_ids_by_tenant):
+    for tenant_id in set(role_by_tenant) | set(gm_campaign_ids_by_tenant):
         await set_tenant_rls_context(session, tenant_id)
         tenant_row = (
             await session.execute(
@@ -197,7 +204,7 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
             )
             for campaign_id, name in (await session.execute(campaign_stmt)).all()
         ]
-        role = admin_role_by_tenant.get(tenant_id)
+        role = role_by_tenant.get(tenant_id)
         tenants.append(
             ManagedTenantOut(
                 tenant_id=tenant_id,
