@@ -14,6 +14,7 @@ import type {
   Page,
   RepositoryEntityOut,
   RepositoryStatGroupOut,
+  SubscriberOut,
   SubscriptionOut,
   UpdatesOut,
 } from './types';
@@ -154,6 +155,38 @@ export async function applyUpdates(
     await client.POST('/tenants/{tenant_id}/repositories/{repository_id}/updates', {
       params: { path: { tenant_id: libraryId, repository_id: repositoryId } },
       body,
+    }),
+  );
+}
+
+// The libraries and repositories a repository is invited to or that copied it, as its members see
+// them (ADR 0204): when each was invited, whether and when it copied and last updated.
+export async function listSubscribers(repositoryId: string): Promise<SubscriberOut[]> {
+  return cached(`subscribers:${repositoryId}`, async () =>
+    fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/subscribers', {
+          params: { path: { tenant_id: repositoryId }, query: { page, size: MAX_PAGE_SIZE } },
+        }),
+      ),
+    ),
+  );
+}
+
+// Invites a library (or another repository) to copy from this one, by its id. An Owner's.
+export async function inviteLibrary(repositoryId: string, libraryId: string): Promise<void> {
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+      params: { path: { tenant_id: repositoryId, subscriber_tenant_id: libraryId } },
+    }),
+  );
+}
+
+// Stops inviting it: what it copied stays with it, and it is told (ADR 0199). An Owner's.
+export async function stopInviting(repositoryId: string, libraryId: string): Promise<void> {
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+      params: { path: { tenant_id: repositoryId, subscriber_tenant_id: libraryId } },
     }),
   );
 }

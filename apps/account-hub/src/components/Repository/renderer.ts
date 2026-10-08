@@ -29,6 +29,7 @@ import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
 import { bindLeaveTenant } from '../Tenant/leaveTenant';
 import { renderTenantEdit } from '../TenantEdit/renderer';
+import { createActivity, createBuiltOn, createUsing } from './sections';
 
 const required = requiredIn('Repository');
 
@@ -83,6 +84,10 @@ export function renderRepository(
     hooks.onChanged,
   );
   const tabs = bindTabs(required<HTMLElement>(root, '[data-tabs]'));
+  // An invitation made or stopped changes only what the Libraries using it tab shows.
+  const using = createUsing(root, () => undefined);
+  const builtOn = createBuiltOn(root);
+  const activity = createActivity(root);
   let lastId: string | null = null;
 
   // The meaning of each role, written once, whoever reads it.
@@ -109,6 +114,9 @@ export function renderRepository(
     overview.hidden = true;
     people.hidden = true;
     live.hidden = true;
+    using.clear();
+    builtOn.clear();
+    activity.clear();
     showLorenzoScript(description, '');
   }
 
@@ -207,6 +215,15 @@ export function renderRepository(
             (entry): entry is MembershipRosterEntryOut => entry.kind === 'membership',
           ) ?? [],
         );
+
+        // The tabs about its place among others each read their own and say their own failure.
+        const current = () => turn === latest;
+
+        await Promise.all([
+          using.load(repository, current, null),
+          builtOn.load(repository, current, null),
+          activity.load(repository, current, roster?.items ?? null),
+        ]);
       } catch (cause) {
         if (turn !== latest) return;
 
