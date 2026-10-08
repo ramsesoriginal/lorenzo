@@ -38,6 +38,7 @@ import {
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
+import { isRepository } from '../../lib/tenantKind';
 import { listMyTenants, tenantPictureUrl } from '../../lib/tenants';
 import type {
   RepositoryEntityOut,
@@ -152,9 +153,11 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     statGroupsError: required<HTMLElement>(detailView, '[data-stat-groups-error]'),
   };
 
-  const libraries = (await listMyTenants('play')).items
+  // A library, or a repository that copies from another (ADR 0205), that the person runs.
+  const libraries = (await listMyTenants()).items
     .filter(isTenantAdmin)
-    .sort((a, b) => byName(a.name, b.name));
+    // Libraries first, so that is what opens when the address names none.
+    .sort((a, b) => Number(isRepository(a)) - Number(isRepository(b)) || byName(a.name, b.name));
 
   if (libraries.length === 0) {
     noLibrary.hidden = false;
@@ -168,7 +171,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       const option = document.createElement('option');
 
       option.value = library.id;
-      option.textContent = library.name;
+      option.textContent = isRepository(library) ? `${library.name} (repository)` : library.name;
 
       return option;
     }),

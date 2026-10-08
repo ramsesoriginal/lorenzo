@@ -915,6 +915,7 @@ A phone is a first-class width for the screens a person uses away from a desk, s
 - **Targets.** Anything pressed is at least 44px tall (`--target-min`) at phone widths and for any coarse pointer. A control already taller is left alone, and a desktop with a fine pointer keeps its sizes. A small mark inside a larger control (a chip's remove mark) grows its pressable area, not its look.
 - **No hover-only controls.** What hover reveals must also be reachable by touch and by keyboard.
 - **Type does not shrink** to fit (§15.5); a long name wraps.
+- **A row of tabs wraps** onto a second line when it does not fit, instead of running off the screen or scrolling sideways.
 - **A bar fixed to the bottom of the screen**, where a screen needs one, is separated by a border, not a shadow (§8.2), and leaves room for the device's safe area.
 
 A chain such as the repositories one is built on is shown as an outline (`.outline`), not a graph, so that it reads in order and works at this width; §18 gives its edges.
