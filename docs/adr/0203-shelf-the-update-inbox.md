@@ -47,7 +47,7 @@ The decisions are plain functions with unit tests (`lib/updates.ts`): a field in
 
 ## Not in scope
 
-- **Release marks** ("part of release 1.3" or "edited since"), which [RFC 0037](0037-releases-and-public-snapshots.md) provides; until then the page shows what the API returns.
+- **Release marks** ("part of release 1.3" or "edited since"), which [RFC 0037](../rfcs/0037-releases-and-public-snapshots.md) provides; until then the page shows what the API returns.
 - **A notification that opens the inbox.** Notifications carry no link yet; "Check its updates" in the text says what to do.
 - **A badge for a whole library**, and a count in the list of repositories, which wait on the scale spike.
 - **Stopping updates** from a repository, which is the Owner's and its own slice.
