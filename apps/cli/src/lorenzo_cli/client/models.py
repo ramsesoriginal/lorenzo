@@ -1000,8 +1000,10 @@ class SubscriberOut(BaseModel):
     tenant_id: UUID = Field(..., title="Tenant Id")
     name: str = Field(..., title="Name")
     slug: str = Field(..., title="Slug")
-    granted_at: AwareDatetime = Field(..., title="Granted At")
+    granted_at: AwareDatetime | None = Field(..., title="Granted At")
     granted_by: UUID | None = Field(..., title="Granted By")
+    copied_at: AwareDatetime | None = Field(..., title="Copied At")
+    synced_at: AwareDatetime | None = Field(..., title="Synced At")
 
 
 class SubscriptionOut(BaseModel):

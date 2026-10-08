@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -29,9 +30,12 @@ from repo_world import (
     row_change,
     runtime,
 )
+from rich.console import Console
 from typer.testing import CliRunner
 
+from lorenzo_cli.client.models import SubscriberOut
 from lorenzo_cli.main import app
+from lorenzo_cli.repo_report import print_subscribers
 
 runner = CliRunner()
 
@@ -164,6 +168,40 @@ def test_subscribers_lists_each_with_its_id(tmp_path: Path) -> None:
     assert str(TARGET_ID) in said(result)
     empty = run(tmp_path, World(granted=False), "subscribers", "-t", "sunken-vale")
     assert "isn't granted to any tenant" in said(empty)
+
+
+def test_subscribers_say_who_copied_it_and_who_kept_a_copy_without_an_invitation() -> None:
+    day = datetime(2026, 10, 3, tzinfo=UTC)
+    rows = [
+        SubscriberOut(
+            tenant_id=uuid.UUID(int=1),
+            name="Invited",
+            slug="invited",
+            granted_at=day,
+            granted_by=None,
+            copied_at=None,
+            synced_at=None,
+        ),
+        SubscriberOut(
+            tenant_id=uuid.UUID(int=2),
+            name="Kept",
+            slug="kept",
+            granted_at=None,
+            granted_by=None,
+            copied_at=day,
+            synced_at=day,
+        ),
+    ]
+    console = Console(width=140, record=True)
+
+    print_subscribers(console, rows)
+    lines = console.export_text().splitlines()
+    invited = next(line for line in lines if "invited" in line and "Invited" in line)
+    kept = next(line for line in lines if "Kept" in line)
+
+    assert "2026-10-03" in invited and "no longer" not in invited
+    assert "no longer" in kept
+    assert "2026-10-03" in kept
 
 
 def test_subscribers_json_is_an_array(tmp_path: Path) -> None:
