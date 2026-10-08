@@ -1,9 +1,10 @@
 // /repositories (ADR 0196, RFC 0036 §3): Shelf. A library's repositories as a list, and one
 // repository's page: what it is, what is inside, what it is built on, and what the library has
-// done with it, and the way to copy it (ADR 0201, ./wizard.ts); updating is a later slice. A page
-// for a library is `?tenant=<library>`, for one of its repositories `&repository=<id>`, and for
-// copying it `&copy=new` or `&copy=again`; all are plain links, so they can be opened, shared and
-// gone back to.
+// done with it, the way to copy it (ADR 0201, ./wizard.ts) and its updates (ADR 0203,
+// ./updatesView.ts, ./inbox.ts). A page for a library is `?tenant=<library>`, for one of its
+// repositories `&repository=<id>`, for copying it `&copy=new` or `&copy=again`, and for updates
+// `&updates=1` (with or without a repository, for its updates or the library's inbox); all are
+// plain links, so they can be opened, shared and gone back to.
 
 import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
@@ -33,6 +34,7 @@ import {
   shelfHref,
   shelfState,
   sortSubscriptions,
+  updatesHref,
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
@@ -43,6 +45,8 @@ import type {
   SubscriptionOut,
   TenantSummaryOut,
 } from '../../lib/types';
+import { createInbox } from './inbox';
+import { createUpdatesView } from './updatesView';
 import { createCopyWizard } from './wizard';
 
 const required = requiredIn('Repositories panel');
@@ -106,8 +110,16 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
   const back = required<HTMLAnchorElement>(root, '[data-back]');
   const copyView = required<HTMLElement>(root, '[data-copy-view]');
   const wizard = createCopyWizard(root, copyView);
+  const updatesViewElement = required<HTMLElement>(root, '[data-updates-view]');
+  const updatesView = createUpdatesView(root, updatesViewElement);
+  const inboxViewElement = required<HTMLElement>(root, '[data-inbox-view]');
+  const inbox = createInbox(root, inboxViewElement);
+  const checkUpdates = required<HTMLElement>(listView, '[data-check-updates]');
+  const inboxLink = required<HTMLAnchorElement>(listView, '[data-inbox-link]');
 
   const detail = {
+    updatesActions: required<HTMLElement>(detailView, '[data-updates-actions]'),
+    updatesLink: required<HTMLAnchorElement>(detailView, '[data-updates-link]'),
     actions: required<HTMLElement>(detailView, '[data-actions]'),
     copyLink: required<HTMLAnchorElement>(detailView, '[data-copy-link]'),
     more: required<HTMLDetailsElement>(detailView, '[data-more]'),
@@ -197,6 +209,9 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       }),
     );
     empty.hidden = subscriptions.length > 0;
+    // The inbox checks every copy, so it is offered where there is one.
+    checkUpdates.hidden = !subscriptions.some((s) => s.copied_at !== null);
+    inboxLink.href = updatesHref(library.slug);
   }
 
   function outlineItem(node: OutlineNode, current: boolean): HTMLElement {
@@ -348,6 +363,10 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     stateElement(detail.state, state);
     detail.explanation.textContent = SHELF_STATE_EXPLANATION[state];
 
+    // Updates: for a copy of what is still offered and published.
+    detail.updatesActions.hidden = state !== 'copied' && state !== 'update-announced';
+    detail.updatesLink.href = updatesHref(library.slug, repository.id);
+
     // Copying: a first copy of what is offered and not yet copied, another of what is copied.
     detail.actions.hidden = state !== 'not-copied';
     detail.copyLink.href = shelfHref(library.slug, repository.id, 'new');
@@ -452,6 +471,10 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
 
       if (opened) {
         shown = null;
+        updatesView.close();
+        inbox.close();
+        updatesViewElement.hidden = true;
+        inboxViewElement.hidden = true;
         listView.hidden = true;
         detailView.hidden = true;
         copyView.hidden = false;
@@ -460,8 +483,39 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       }
     }
 
+    // A repository's updates, or the library's inbox, where the address asks for them: a
+    // repository's only when it can be checked from where it stands.
+    if (location.updates) {
+      let opened = false;
+
+      if (wanted) {
+        opened = await updatesView.open(library, wanted, () => turn === latest);
+      } else if (!location.repository) {
+        inbox.open(library, subscriptions, () => turn === latest);
+        opened = true;
+      }
+
+      if (turn !== latest) return;
+
+      if (opened) {
+        shown = null;
+        wizard.close();
+        copyView.hidden = true;
+        listView.hidden = true;
+        detailView.hidden = true;
+        updatesViewElement.hidden = !wanted;
+        inboxViewElement.hidden = !!wanted;
+
+        return;
+      }
+    }
+
     wizard.close();
+    updatesView.close();
+    inbox.close();
     copyView.hidden = true;
+    updatesViewElement.hidden = true;
+    inboxViewElement.hidden = true;
 
     if (wanted) {
       await paintDetail(library, wanted, turn);

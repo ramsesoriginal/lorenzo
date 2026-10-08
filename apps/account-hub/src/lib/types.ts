@@ -55,6 +55,20 @@ export type CopyRequest = Schema<'CopyRequest'>;
 export type CollisionOut = Schema<'CollisionOut'>;
 export type ResolutionIn = Schema<'ResolutionIn'>;
 export type PreviousCopyOut = Schema<'PreviousCopyOut'>;
+
+// A library's updates from a repository it copied (RFC 0036 S4).
+export type UpdatesOut = Schema<'UpdatesOut'>;
+export type RowChangeOut = Schema<'RowChangeOut'>;
+export type FieldChangeOut = Schema<'FieldChangeOut'>;
+export type RowRefOut = Schema<'RowRefOut'>;
+export type AddedOut = Schema<'AddedOut'>;
+export type AttachmentRefOut = Schema<'AttachmentRefOut'>;
+export type AttachmentAddedOut = Schema<'AttachmentAddedOut'>;
+export type ApplyUpdatesRequest = Schema<'ApplyUpdatesRequest'>;
+export type ApplyUpdatesOut = Schema<'ApplyUpdatesOut'>;
+export type UpdateActionIn = Schema<'UpdateActionIn'>;
+export type AttachmentActionIn = Schema<'AttachmentActionIn'>;
+export type NotAppliedOut = Schema<'NotAppliedOut'>;
 export type RepositoryEntityOut = Schema<'RepositoryEntityOut'>;
 export type RepositoryStatGroupOut = Schema<'RepositoryStatGroupOut'>;
 export type RepositoryStatDefinitionOut = Schema<'RepositoryStatDefinitionOut'>;

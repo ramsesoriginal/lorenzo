@@ -12,6 +12,7 @@ import {
   shelfHref,
   shelfState,
   sortSubscriptions,
+  updatesHref,
 } from '../../src/lib/shelf';
 import type {
   CopyPlanOut,
@@ -135,8 +136,23 @@ describe('shelfHref and readShelfLocation', () => {
       library: 'table-one',
       repository: 'abc',
       copy: null,
+      updates: false,
     });
-    expect(readShelfLocation('')).toEqual({ library: null, repository: null, copy: null });
+    expect(readShelfLocation('')).toEqual({
+      library: null,
+      repository: null,
+      copy: null,
+      updates: false,
+    });
+  });
+
+  it('builds the address of the update inbox, and of the updates of one repository', () => {
+    expect(updatesHref('table-one')).toBe('/repositories/?tenant=table-one&updates=1');
+    expect(updatesHref('table-one', 'abc')).toBe(
+      '/repositories/?tenant=table-one&repository=abc&updates=1',
+    );
+    expect(readShelfLocation('?tenant=t&updates=1').updates).toBe(true);
+    expect(readShelfLocation('?tenant=t&updates=0').updates).toBe(false);
   });
 
   it('reads a copy as a first one unless it says "again"', () => {
