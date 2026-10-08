@@ -12,6 +12,8 @@ import {
   RELEASES_NOTE,
   releaseDate,
   TEXT_NOT_TRACKED,
+  WARNING_TITLE,
+  warningLines,
 } from '../../lib/releases';
 import {
   editRelease,
@@ -362,6 +364,7 @@ export function createReleases(root: HTMLElement): Section {
             const by = release.created_by ? names.get(release.created_by) : undefined;
             const notes = required<HTMLElement>(item, '[data-notes]');
             const breaks = required<HTMLDetailsElement>(item, '[data-breaks]');
+            const warns = required<HTMLDetailsElement>(item, '[data-warns]');
             const actions = required<HTMLElement>(item, '[data-release-actions]');
             const editForm = required<HTMLFormElement>(item, '[data-release-form]');
             const editLabel = required<HTMLInputElement>(item, '[data-edit-label]');
@@ -394,6 +397,13 @@ export function createReleases(root: HTMLElement): Section {
                 ...(reasons.length > 0 ? reasons : ['The author marked it breaking.']).map(line),
               );
             }
+
+            const warned = warningLines(release.warning_rows);
+
+            warns.hidden = warned.length === 0;
+            required<HTMLElement>(item, '[data-warns-heading]').textContent =
+              `${WARNING_TITLE} (${release.warning_rows.length})`;
+            required<HTMLElement>(item, '[data-warns-list]').replaceChildren(...warned.map(line));
 
             // An Owner changes a release's words, nothing more.
             actions.hidden = !canChangePeople(repository.role);

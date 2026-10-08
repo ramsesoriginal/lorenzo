@@ -50,6 +50,7 @@ import {
   releaseMark,
   rowKey,
   todo,
+  warningNotes,
 } from '../../lib/updates';
 import { renderClashCard } from './clash';
 
@@ -271,12 +272,17 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
   function paintMarks(
     item: HTMLElement,
     mine: State,
-    row: { state?: ReleaseState; breaking?: readonly BreakingNoteOut[] },
+    row: {
+      state?: ReleaseState;
+      breaking?: readonly BreakingNoteOut[];
+      warnings?: readonly BreakingNoteOut[];
+    },
   ): void {
     const marks = required<HTMLElement>(item, '[data-marks]');
     const lines = [
       releaseMark(row, mine.updates.release?.label ?? null),
       ...breakingNotes(row.breaking ?? []),
+      ...warningNotes(row.warnings ?? []),
     ].filter((line): line is string => line !== null);
 
     marks.replaceChildren(
@@ -440,15 +446,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
           : '';
       reason.hidden = !(waiting && reason.textContent);
       add.addEventListener('click', () => {
-        if (!confirmed(attachment.breaking)) return;
-
-        void run(
-          {
-            actions: [],
-            attachments: [attachmentAction(attachment, 'add', attachment.breaking.length > 0)],
-          },
-          status,
-        );
+        void run({ actions: [], attachments: [attachmentAction(attachment, 'add')] }, status);
       });
     } else {
       detach.hidden = false;

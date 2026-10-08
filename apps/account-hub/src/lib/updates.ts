@@ -500,13 +500,11 @@ export function detachAction(row: { kind: RowKindName; source_id: string }): Upd
 export function attachmentAction(
   attachment: Pick<AttachmentRefOut, 'child_source_id' | 'parent_source_id'>,
   action: 'add' | 'detach',
-  confirm = false,
 ): AttachmentActionIn {
   return {
     child_source_id: attachment.child_source_id,
     parent_source_id: attachment.parent_source_id,
     action,
-    ...(confirm ? { confirm: true } : {}),
   };
 }
 
@@ -599,6 +597,12 @@ export function releaseMark(row: { state?: ReleaseState }, label: string | null)
 // What the releases the library has not taken say breaks in a row, each as the API words it.
 export function breakingNotes(breaking: readonly BreakingNoteOut[]): string[] {
   return breaking.map((note) => `Breaking in release ${note.release.label}: ${note.detail}`);
+}
+
+// What the releases the library has not taken warn of an attachment: that it changes what the item
+// is, each as the API words it. A note, never a question: the library names the attachment to take it.
+export function warningNotes(warnings: readonly BreakingNoteOut[]): string[] {
+  return warnings.map((note) => `Warning in release ${note.release.label}: ${note.detail}`);
 }
 
 // What applying a row that breaks asks first: each note, and that it is the library's to decide.

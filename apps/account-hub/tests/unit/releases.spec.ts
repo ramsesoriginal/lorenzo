@@ -13,6 +13,7 @@ import {
   publishBody,
   releasePlace,
   TEXT_NOT_TRACKED,
+  warningLines,
 } from '../../src/lib/releases';
 import type {
   BreakingRowOut,
@@ -40,6 +41,7 @@ const release = (over: Partial<ReleaseOut> = {}): ReleaseOut => ({
   digest: 'abc',
   counts: counts(),
   breaking_rows: [],
+  warning_rows: [],
   ...over,
 });
 
@@ -54,6 +56,7 @@ const preview = (over: Partial<ReleasePreviewOut> = {}): ReleasePreviewOut => ({
   changed: [],
   removed: [],
   breaking: [],
+  warnings: [],
   descriptions_edited: 0,
   libraries_told: 2,
   ...over,
@@ -149,6 +152,39 @@ describe('what a release contains', () => {
 
     expect(lines).toEqual(['Entries: 1 added, 1 removed.', 'New: “Buckler”.', 'Removed: “Club”.']);
     expect(contentLines(preview())).toEqual(['Nothing differs from the latest release.']);
+  });
+});
+
+describe('a parent added is a warning', () => {
+  const added = (name: string): BreakingRowOut =>
+    hit({
+      kind: 'attachment',
+      name,
+      reason: 'attachment_added',
+      detail: `“Silvered” was added as a parent of “${name}”.`,
+    });
+
+  it('says how many, and names the first few', () => {
+    expect(warningLines([])).toEqual([]);
+
+    const one = warningLines([added('Dagger')]);
+
+    expect(one[0]).toMatch(/^A parent is added to items libraries may already hold/);
+    expect(one[0]).toMatch(/does not make the release breaking/);
+    expect(one.slice(1)).toEqual(['“Silvered” was added as a parent of “Dagger”.']);
+
+    const many = warningLines(Array.from({ length: 10 }, (_, i) => added(`Item ${i + 1}`)));
+
+    expect(many[0]).toMatch(/^10 parents are added/);
+    expect(many).toHaveLength(1 + 8 + 1);
+    expect(many.at(-1)).toBe('and 2 more.');
+  });
+
+  it('is never something to acknowledge', () => {
+    const form = { label: '', notes: '', breaking: false, acknowledged: false };
+
+    expect(composerProblem(form, [])).toBeNull();
+    expect(publishBody(form, [])).toEqual({ breaking: false, acknowledge_breaking: false });
   });
 });
 

@@ -213,6 +213,10 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           <p class="caption" data-hint hidden></p>
           <p class="caption" data-not-tracked></p>
         </section>
+        <div class="stack-tight" data-warns-box hidden>
+          <strong data-warns-title></strong>
+          <ul class="stack-tight" data-warns-lines></ul>
+        </div>
         <div class="stack-tight" data-breaks-box hidden>
           <strong>This release breaks things</strong>
           <ul class="stack-tight" data-breaks-lines></ul>
@@ -243,6 +247,15 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       <p class="campaign-meta" data-meta></p>
       <p data-notes hidden></p>
       <ul class="stack-tight" data-counts></ul>
+      <details class="stack shelf-section" data-warns hidden>
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          <span data-warns-heading></span>
+        </summary>
+        <ul class="stack-tight" data-warns-list></ul>
+      </details>
       <details class="stack shelf-section" data-breaks hidden>
         <summary>
           <svg class="icon tree-toggle" aria-hidden="true">

@@ -30,6 +30,7 @@ import {
   releaseMark,
   rowKey,
   todo,
+  warningNotes,
 } from '../../src/lib/updates';
 
 const names = {
@@ -637,6 +638,13 @@ describe('apply all clean and the releases', () => {
     expect(releaseMark({ state: 'released' }, null)).toBeNull();
   });
 
+  it('says what a release warned of an attachment, as a note and not as a question', () => {
+    expect(warningNotes([note('1.3', '“Silvered” was added as a parent of “Dagger”.')])).toEqual([
+      'Warning in release 1.3: “Silvered” was added as a parent of “Dagger”.',
+    ]);
+    expect(warningNotes([])).toEqual([]);
+  });
+
   it('says what a release called breaking, and asks before it is applied', () => {
     expect(breakingNotes([note('1.3', '“Club” was removed.')])).toEqual([
       'Breaking in release 1.3: “Club” was removed.',
@@ -655,12 +663,7 @@ describe('apply all clean and the releases', () => {
       confirm: true,
     });
     expect(applyAction(target, new Map())).toEqual({ ...target, action: 'apply' });
-    expect(attachmentAction({ child_source_id: 'c', parent_source_id: 'p' }, 'add', true)).toEqual({
-      child_source_id: 'c',
-      parent_source_id: 'p',
-      action: 'add',
-      confirm: true,
-    });
+    // An attachment is never confirmed: a release only warned of it, and naming it is the decision.
     expect(attachmentAction({ child_source_id: 'c', parent_source_id: 'p' }, 'detach')).toEqual({
       child_source_id: 'c',
       parent_source_id: 'p',

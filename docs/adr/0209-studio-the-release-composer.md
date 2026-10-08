@@ -19,6 +19,7 @@ A publish used to be a timestamp and a message. [ADR 0207](0207-the-release-ledg
 - **"This release is breaking"**: the author's own flag, whatever the detector found.
 - **What this release contains**, read from the API's preview (`GET .../release-preview`, which writes nothing) when the dialog opens: whether the repository matches the latest release or how many rows differ, a line for each kind with what was added, changed and removed, the names of what is new and what is removed (the first eight, and how many more), and, as a hint, how many descriptions were written or edited since the release. Beside it, always: **text edits are not tracked** (descriptions, notes and pictures are copied once, and updates do not carry them).
 - **What it breaks**, where the detector found anything, in the API's own sentences ("“Troll” was removed. Libraries that copied it can only keep their copy, detached."), with a box to say **"I understand that these changes break libraries that already copied this repository, and publish them anyway."** The release cannot be made until it is ticked, and the publish carries `acknowledge_breaking`. If the API finds more than the preview did (the repository changed meanwhile), its refusal's rows replace the list and the box is cleared: the author is never publishing something they were not shown.
+- **What it changes**, where the detector found parents added to items libraries may already hold (RFC 0037 lists these as a warning, [ADR 0208](0208-the-release-digest-and-the-breaking-change-detector.md)): a sentence for how many, and the first eight by name. It asks for nothing and does not make the release breaking: a bridge adds parents in every release, and a box ticked every time is a box nobody reads, which would hide the one that matters.
 - A label already used in the repository, in any case, is refused in the API's words, in the dialog, which stays open.
 
 ### Words for matches and edited since
@@ -27,13 +28,14 @@ On the Overview, under the state: **"Matches release 1.3."**, or **"Edited since
 
 ### Releases, a tab
 
-Newest first: label, whether it is **Breaking**, "Release 3, 2026-10-08" and by whom (named only where the person has a name: an id is not shown as one), its notes, a line for each kind it changed, and for a breaking one, folded, what it breaks. An **Owner** can **change a release's label and notes**, and nothing else of it: the number, the flag, the digest and what it held never change ([ADR 0207](0207-the-release-ledger.md)).
+Newest first: label, whether it is **Breaking**, "Release 3, 2026-10-08" and by whom (named only where the person has a name: an id is not shown as one), its notes, a line for each kind it changed, and for a breaking one, folded, what it breaks, and for one that added parents, folded, what it changed in items libraries may hold. An **Owner** can **change a release's label and notes**, and nothing else of it: the number, the flag, the digest and what it held never change ([ADR 0207](0207-the-release-ledger.md)).
 
 ### In the update inbox
 
 - Every changed and new row says what it is against the library's latest release: **In release 1.3** or **Edited since release 1.3**; and, from the releases the library has not taken, **Breaking in release 1.3: …** with the API's sentence for it. The page says which release is the latest.
 - **Apply all clean takes only released rows that break nothing**, never an attachment, a conflict, a name clash, a removal, a row edited since the release or one a release called breaking (RFC 0037 §2). Rows from before releases existed carry no state and are taken as they were. The sentence before it says what it will take and what it leaves, in words, and the button is not there when nothing is left to take.
 - **A row a release called breaking is applied only after its notes are read**: the button asks first with each note and says that the library takes the change as the repository made it, then sends `confirm`. The API refuses the same action without it (`update-needs-confirmation`), so the page and the API agree. Detaching is exempt, as in the API.
+- **An attachment shows the warning, and is not asked about**: a release that added the parent says so on its row ("Warning in release 1.3: …"), the attachment is never part of "all", and naming it, with its own button, is the decision.
 
 ### Who is on which release
 

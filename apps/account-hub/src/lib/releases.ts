@@ -113,6 +113,25 @@ export function breakingLines(rows: readonly BreakingRowOut[]): string[] {
   return rows.map((row) => row.detail);
 }
 
+// What a publish only says: parents added to items libraries may already hold. Never refused, and
+// nothing to acknowledge; the library names each one before it takes it. The first few are named.
+export const WARNING_TITLE = 'Parents added to items libraries may already hold';
+const WARNING_SHOWN = 8;
+
+export function warningLines(rows: readonly BreakingRowOut[]): string[] {
+  if (rows.length === 0) return [];
+
+  const more = rows.length - WARNING_SHOWN;
+  const lines = rows.slice(0, WARNING_SHOWN).map((row) => row.detail);
+
+  if (more > 0) lines.push(`and ${more} more.`);
+
+  return [
+    `${rows.length === 1 ? 'A parent is' : `${rows.length} parents are`} added to items libraries may already hold. Each changes what its item is in a library that holds it, and a library chooses each one before it takes it. This does not make the release breaking.`,
+    ...lines,
+  ];
+}
+
 export const ACKNOWLEDGE_TEXT =
   'I understand that these changes break libraries that already copied this repository, and publish them anyway.';
 

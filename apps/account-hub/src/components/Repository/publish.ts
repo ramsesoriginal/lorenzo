@@ -18,6 +18,8 @@ import {
   matchesSentence,
   publishBody,
   TEXT_NOT_TRACKED,
+  WARNING_TITLE,
+  warningLines,
 } from '../../lib/releases';
 import {
   getReleasePreview,
@@ -72,10 +74,13 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
   const notTracked = required<HTMLElement>(dialog, '[data-not-tracked]');
   const breaksBox = required<HTMLElement>(dialog, '[data-breaks-box]');
   const breaksLines = required<HTMLElement>(dialog, '[data-breaks-lines]');
+  const warnsBox = required<HTMLElement>(dialog, '[data-warns-box]');
+  const warnsLines = required<HTMLElement>(dialog, '[data-warns-lines]');
   const acknowledge = required<HTMLInputElement>(dialog, '[data-composer-ack]');
 
   required<HTMLElement>(dialog, '[data-ack-text]').textContent = ACKNOWLEDGE_TEXT;
   notTracked.textContent = TEXT_NOT_TRACKED;
+  required<HTMLElement>(dialog, '[data-warns-title]').textContent = WARNING_TITLE;
   label.maxLength = LABEL_MAX;
 
   let shown: TenantSummaryOut | null = null;
@@ -96,6 +101,12 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
     hits = rows;
     breaksLines.replaceChildren(...breakingLines(rows).map(item));
     breaksBox.hidden = rows.length === 0;
+  }
+
+  // What the release only says: said, never refused, nothing to acknowledge.
+  function showWarnings(rows: BreakingRowOut[]): void {
+    warnsLines.replaceChildren(...warningLines(rows).map(item));
+    warnsBox.hidden = rows.length === 0;
   }
 
   function currentForm(): ComposerForm {
@@ -149,6 +160,7 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
         hint.textContent = description ?? '';
         hint.hidden = description === null;
         showHits(preview.breaking);
+        showWarnings(preview.warnings);
       }
 
       say(status, '');
