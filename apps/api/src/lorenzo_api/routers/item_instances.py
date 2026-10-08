@@ -41,6 +41,7 @@ from lorenzo_api.entity_access import (
     can_self_manage_entity,
     containment_paths,
     controlled_holder_entity_ids,
+    entity_id_among,
     group_ids_for_characters,
     reachable_entity_ids,
     recursive_descendants_cte,
@@ -224,7 +225,7 @@ def _owner_predicate_for(reach: frozenset[uuid.UUID] | None) -> ColumnElement[bo
         return true()
     return or_(
         VItemInstance.owner_entity_id.is_(None),
-        VItemInstance.entity_id.in_(reach),
+        entity_id_among(VItemInstance.entity_id, reach),
     )
 
 

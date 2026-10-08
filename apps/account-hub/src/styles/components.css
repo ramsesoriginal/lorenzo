@@ -72,3 +72,73 @@
 .avatar-placeholder[hidden] {
   display: none;
 }
+
+/* A repository's picture in Shelf (ADR 0196): fixed to the size its markup gives, cropped to fill
+   it, and shaped like the placeholder letter that stands in for it. */
+.repository-picture {
+  flex: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  object-fit: cover;
+}
+
+.repository-picture[hidden] {
+  display: none;
+}
+
+.repository-initial {
+  --avatar-size: 64px;
+}
+
+/* The links and section headings that are the way through Shelf (ADR 0196): a card's name, "All
+   repositories", and the openers of Entries and Stat groups. They are pressed, so at phone widths
+   and for a coarse pointer they have the brand's target size (identity.md 8.5), which only covers
+   the controls the brand itself styles. */
+.shelf-section > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .shelf-link,
+  .shelf-section > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+
+  .shelf-section > summary {
+    display: flex;
+  }
+}
+
+/* A stat group in Shelf's list: its name and stats lined up on the left like the entries above it,
+   not centred as a bare column inside the brand's row would have them. */
+.shelf-stat-group {
+  align-items: flex-start;
+}
+
+/* A name clash in the copy wizard (ADR 0201): one card for each (the list item is the card), the
+   fieldset filling it with the question as its legend, in the size of the text and not of a label. The choices are pressed, so each row is
+   the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
+.clash {
+  width: 100%;
+  padding: 0;
+  border: 0;
+}
+
+.clash > legend {
+  padding-inline: var(--space-2);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .clash .field-row,
+  [data-again] .field-row {
+    min-height: var(--target-min);
+  }
+}

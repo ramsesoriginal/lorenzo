@@ -789,7 +789,8 @@ export interface paths {
         /**
          * Revoke Repository
          * @description Revokes a grant. What the tenant already copied stays theirs (RFC
-         *     0024 §6).
+         *     0024 §6). Its members are told (ADR 0199); the subscribing side giving
+         *     its own grant up is not announced.
          */
         delete: operations["revoke_repository"];
         options?: never;
@@ -897,6 +898,31 @@ export interface paths {
          *     before copying (ADR 0118).
          */
         get: operations["browse_repository_stat_groups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repository Dependencies
+         * @description The repositories a granted, published repository is built on, as this
+         *     library stands with each: its id, name and slug, whether the library is
+         *     invited to it, has copied it, and whether it is published (ADR 0198).
+         *     Dependencies first, as `copy-plan` orders them. Plans no copy and returns
+         *     no content: a library that is not invited to a dependency learns whom to
+         *     ask, and nothing more of it.
+         */
+        get: operations["list_repository_dependencies"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6570,6 +6596,28 @@ export interface components {
             prototype_ids: string[];
         };
         /**
+         * RepositoryDependencyOut
+         * @description A repository another one is built on, with the asking library's state
+         *     of it (ADR 0198): who it is, never what it holds.
+         */
+        RepositoryDependencyOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Invited */
+            invited: boolean;
+            /** Copied */
+            copied: boolean;
+            /** Published */
+            published: boolean;
+        };
+        /**
          * RepositoryEntityOut
          * @description An entity in a repository, as browsed before copying: structure,
          *     not text (ADR 0118).
@@ -7153,7 +7201,10 @@ export interface components {
             kind: components["schemas"]["TenantKind"];
             /** Published At */
             published_at: string | null;
-            /** Npcs Shared With Gms */
+            /**
+             * Npcs Shared With Gms
+             * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
+             */
             npcs_shared_with_gms: boolean;
             /** Created By */
             created_by: string | null;
@@ -7200,7 +7251,10 @@ export interface components {
             slug?: string | null;
             /** Description */
             description?: string | null;
-            /** Npcs Shared With Gms */
+            /**
+             * Npcs Shared With Gms
+             * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
+             */
             npcs_shared_with_gms?: boolean | null;
         };
         /**
@@ -10220,6 +10274,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepositoryStatGroupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_repository_dependencies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryDependencyOut"][];
                 };
             };
             /** @description Validation Error */

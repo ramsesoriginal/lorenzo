@@ -38,6 +38,16 @@ MembershipRoleName = Literal["owner", "orga"]
 # explicitly-given slug usable in a URL path segment.
 _SLUG_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 
+# ADR 0152, 0200: one description for the field in both shapes, in the words people read.
+_SHARED_WITH_GMS = (
+    "Whether every GM of the library reads the GM-only text of the entries no campaign owns: "
+    "the beings that are in no campaign, and what a copy of a repository brought, such as its "
+    "catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, "
+    "or who share a campaign with whoever did, read it. An entry a campaign owns, because one "
+    "of its characters holds it or stands in it, is read only by that campaign's GMs either way. "
+    "Owners and Organizers read everything."
+)
+
 
 class TenantCreate(BaseModel):
     """POST /tenants - see ADR 0033/RFC 0012. `name` required - the
@@ -72,9 +82,9 @@ class TenantUpdate(BaseModel):
     name: str | None = None
     slug: Annotated[str | None, Field(pattern=_SLUG_PATTERN)] = None
     description: str | None = None
-    # ADR 0152: false hides the beings in no campaign from every GM but their
-    # author and its co-GMs (and, to read, a scene a player character is in).
-    npcs_shared_with_gms: bool | None = None
+    # ADR 0152, 0200: false hides the entries no campaign owns from every GM but
+    # their author and its co-GMs (and, to read, a scene a player character is in).
+    npcs_shared_with_gms: Annotated[bool | None, Field(description=_SHARED_WITH_GMS)] = None
 
 
 class TenantSummaryOut(BaseModel):
@@ -117,8 +127,8 @@ class TenantOut(BaseModel):
     # repository's draft/published state, always null for a play tenant.
     kind: TenantKind
     published_at: datetime | None
-    # ADR 0152: whether every GM sees the beings in no campaign (the default).
-    npcs_shared_with_gms: bool
+    # ADR 0152, 0200: whether every GM reads the entries no campaign owns (the default).
+    npcs_shared_with_gms: Annotated[bool, Field(description=_SHARED_WITH_GMS)]
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 

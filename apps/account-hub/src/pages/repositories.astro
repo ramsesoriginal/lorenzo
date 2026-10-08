@@ -1,0 +1,23 @@
+---
+import RepositoriesPanel from '../components/RepositoriesPanel/RepositoriesPanel.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Repositories — Lorenzo">
+  <h1 class="display">Repositories</h1>
+  <p class="lede">What your libraries have been invited to copy from, and what they have copied.</p>
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <RepositoriesPanel />
+
+  <script>
+    import { renderRepositoriesPanel } from '../components/RepositoriesPanel/renderer';
+    import { runPage } from '../lib/pageLoad';
+    import { requiredIn } from '../lib/template';
+
+    const panel = requiredIn('Repositories')<HTMLElement>(document, '[data-repositories-panel]');
+
+    await runPage(() => renderRepositoriesPanel(panel));
+  </script>
+</Base>
