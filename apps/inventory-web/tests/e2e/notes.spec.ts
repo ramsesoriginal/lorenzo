@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { ok } from './support/api.ts';
 import { API_URL } from './support/env.ts';
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import type { World } from './support/world.ts';
 
@@ -71,29 +71,29 @@ test("a player's note is private: her character's players and the GMs read it", 
   await expect(information.getByText('note · Private')).toBeVisible();
 });
 
-test("fetches a card's notes once the pointer rests on it, and not again on the click", async ({
-  world,
-  as,
-}) => {
-  const { spellbook } = await packed(world, world.pia);
-  const pia = await as(world.pia);
-  const asked: string[] = [];
-  pia.on('request', (request) => {
-    if (request.url().includes(`/entities/${spellbook}/information`)) asked.push(request.url());
-  });
-  await pia.goto(`/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`);
-  const card = pia
-    .getByRole('region', { name: 'Backpack' })
-    .getByRole('button', { name: 'Ornate Spellbook' });
+readOnly(
+  "fetches a card's notes once the pointer rests on it, and not again on the click",
+  async ({ world, scene, as }) => {
+    const { spellbook } = scene;
+    const pia = await as(world.pia);
+    const asked: string[] = [];
+    pia.on('request', (request) => {
+      if (request.url().includes(`/entities/${spellbook}/information`)) asked.push(request.url());
+    });
+    await pia.goto(`/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`);
+    const card = pia
+      .getByRole('region', { name: 'Backpack' })
+      .getByRole('button', { name: 'Ornate Spellbook' });
 
-  await card.hover();
-  await expect.poll(() => asked.length).toBeGreaterThan(0);
-  const before = asked.length;
+    await card.hover();
+    await expect.poll(() => asked.length).toBeGreaterThan(0);
+    const before = asked.length;
 
-  await card.click();
-  await expect(notes(pia).getByText('No notes yet.')).toBeVisible();
-  expect(asked).toHaveLength(before);
-});
+    await card.click();
+    await expect(notes(pia).getByText('No notes yet.')).toBeVisible();
+    expect(asked).toHaveLength(before);
+  },
+);
 
 test('a note everyone can read', async ({ world, as }) => {
   const { spellbook } = await packed(world, world.pia);
@@ -172,8 +172,8 @@ test("keeps no note its reader couldn't be given", async ({ world, as }) => {
   expect(left.items).toEqual([]);
 });
 
-test('catalog items have no notes section', async ({ world, as }) => {
-  const { items } = await packed(world, world.pia);
+readOnly('catalog items have no notes section', async ({ world, scene, as }) => {
+  const { items } = scene;
   const gm = await as(world.gm);
   await gm.goto(itemPage(world, items.ornate));
   await expect(gm.getByRole('heading', { level: 1, name: 'Ornate Spellbook' })).toBeVisible();

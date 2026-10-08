@@ -140,7 +140,7 @@ Measured with the tests and Postgres pinned to four cores, a shard at a time, as
 
 The slowest shard with two, three and four workers took 105, 97 and 78 s; the whole suite on one runner with four workers 168 s, and 147 s with the bulk read in. Shard 1 did not gain from copies: it is the seed's own tests.
 
-Still open, in this order: the API's per-request SQL and the `app_user` upsert (a decision on ADR 0075); how many runners `cli-e2e` needs now that a shard takes about a minute and a half, with two probably enough; shards balanced by recorded duration; `unseed`'s own item-by-item reads; and, for Playwright, `packed()` built once per worker for the specs that only read.
+Still open, in this order: the API's per-request SQL and the `app_user` upsert (a decision on ADR 0075); how many runners `cli-e2e` needs now that a shard takes about a minute and a half, with two probably enough; shards balanced by recorded duration; `unseed`'s own item-by-item reads.
 
 ## Addendum (2026-10-08): apps/api's tests on parallel workers
 
@@ -158,3 +158,18 @@ Measured with the tests and Postgres pinned to four cores, coverage on:
 | Four workers, `loadfile` / no coverage | 53 s / 48 s |
 
 So `apps/api` is one `test` leg now (`shards = 2` is gone from `.github/ci-graph.toml`): 51 s on one runner against 97 s for the longer of two. `deploy-api.yml` runs `mise run test` too, so its verify job uses the workers as well. CI's own timings are the check.
+
+## Addendum (2026-10-08): inventory-web's end-to-end tests
+
+The suite is 109 Playwright tests, and CI runs them as three shards of two workers each (Playwright's default on a four-vCPU runner). Measured the same way as the others, on four pinned cores:
+
+- **More workers do not help.** The whole suite took 197 s on two workers, 189 s on three and 197 s on four: two already keep the four cores busy (Chromium 216 core-seconds, the API 145, Postgres 124, of about 650), so what is left to take out is work, not waiting.
+- **Half of a worker's time is building worlds.** Every test builds its own world through the API (a tenant, three people, a campaign, two players, the stat definitions: 71 s over the run) and 57 of them the same `packed()` scene on top (135 s, with the catalog inside it), which is about 50% of the 438 worker-seconds. The browser takes the rest.
+- **Two things that did nothing.** Postgres with `fsync`, `synchronous_commit` and `full_page_writes` off (184 s against 182 s) and Chromium with `--disable-gpu` (184 s): the suite is not waiting on a disk or a GPU. They are not in the workflow.
+
+What changed, in `apps/inventory-web`:
+
+- **Tests that only look share a world.** 23 tests open a page and read it (the board's columns and search, an item's page, the notes on hover, the catalog's search, the login). They use `readOnly` in `tests/e2e/support/fixtures.ts`, which builds one world per worker, with Pia carrying the `packed` scene, and hands it to each; `scene` has its ids. The helpers of the world that write (`item`, `instance`, `slug`, `setStat`, `stack`, `group`, `describe`) throw there, so a test that grows a write fails at once and moves to `test`, which still gives every test a world of its own, as the other 86 need: they move, give, edit and slug what is in it, or count on it being empty. Whole suite, two workers, four pinned cores: 182 s to 167 s, the API's CPU 115 to 104 core-seconds and Postgres's 107 to 92.
+- **The API's environment is built while pnpm installs.** Playwright starts the API with `uv run`, which first fetched Python, made the virtual environment and installed the dev tools, about 5 s of a shard's start, inside its sequential web-server start. The `e2e` and `account-hub real-api` jobs now run `uv sync --frozen --no-dev` in the background after mise, wait for it with Postgres, and set `UV_NO_DEV` for the run, so `uv run` finds it ready (0.8 s).
+
+Still open for these tests: shards balanced by recorded duration (shard 2 of 3, with the board and hand-over specs, takes 133 s and the others 109 and 104 s: Playwright splits by test count), and the API's per-request cost that every seeding call and every page pays (the decision on ADR 0075 above).

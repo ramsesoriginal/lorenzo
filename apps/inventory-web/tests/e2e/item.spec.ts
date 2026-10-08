@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test } from './support/fixtures.ts';
-import { catalog, DESCRIPTIONS, packed } from './support/scenes.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
+import { catalog, DESCRIPTIONS } from './support/scenes.ts';
 
 const itemPage = (tenantId: string, id: string) => `/item/?tenant=${tenantId}&id=${id}`;
 
-test('a player reads the whole of an item they carry', async ({ world, as }) => {
-  const { spellbook } = await packed(world, world.pia);
+readOnly('a player reads the whole of an item they carry', async ({ world, scene, as }) => {
+  const { spellbook } = scene;
   const page = await as(world.pia);
   await page.goto(itemPage(world.tenantId, spellbook));
 
@@ -21,19 +21,22 @@ test('a player reads the whole of an item they carry', async ({ world, as }) => 
   await expect(page.getByRole('heading', { name: 'Slug' })).toBeHidden();
 });
 
-test('a GM follows where a description comes from, up the prototypes', async ({ world, as }) => {
-  const { spellbook } = await packed(world, world.pia);
-  const page = await as(world.gm);
-  await page.goto(itemPage(world.tenantId, spellbook));
+readOnly(
+  'a GM follows where a description comes from, up the prototypes',
+  async ({ world, scene, as }) => {
+    const { spellbook } = scene;
+    const page = await as(world.gm);
+    await page.goto(itemPage(world.tenantId, spellbook));
 
-  await page.getByText('From Spellbook').getByRole('link').click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Spellbook' })).toBeVisible();
-  await expect(page.getByText(DESCRIPTIONS.book.slice(0, 30))).toBeVisible();
-  const ancestry = page.getByRole('heading', { name: 'Ancestry' }).locator('..');
-  await expect(ancestry.getByText('Book', { exact: true })).toBeVisible();
-  const usedBy = page.getByRole('region', { name: 'Used as a prototype by' });
-  await expect(usedBy.getByText('Ornate Spellbook')).toBeVisible();
-});
+    await page.getByText('From Spellbook').getByRole('link').click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Spellbook' })).toBeVisible();
+    await expect(page.getByText(DESCRIPTIONS.book.slice(0, 30))).toBeVisible();
+    const ancestry = page.getByRole('heading', { name: 'Ancestry' }).locator('..');
+    await expect(ancestry.getByText('Book', { exact: true })).toBeVisible();
+    const usedBy = page.getByRole('region', { name: 'Used as a prototype by' });
+    await expect(usedBy.getByText('Ornate Spellbook')).toBeVisible();
+  },
+);
 
 test("opens an instance's page by its slug", async ({ world, as }) => {
   const { ornate } = await catalog(world);
@@ -45,8 +48,8 @@ test("opens an instance's page by its slug", async ({ world, as }) => {
   await expect(page.getByText('ashfangs-grimoire')).toBeVisible();
 });
 
-test('copies its own link', async ({ world, as }) => {
-  const { spellbook } = await packed(world, world.pia);
+readOnly('copies its own link', async ({ world, scene, as }) => {
+  const { spellbook } = scene;
   const page = await as(world.pia);
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto(itemPage(world.tenantId, spellbook));
@@ -70,7 +73,7 @@ test('lists the descriptions that link to it, and the link leads here', async ({
   await expect(page.getByRole('heading', { level: 1, name: 'Belt Pouch' })).toBeVisible();
 });
 
-test('says so when its link is incomplete, or leads nowhere', async ({ world, as }) => {
+readOnly('says so when its link is incomplete, or leads nowhere', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/item/?tenant=${world.tenantId}`);
   await expect(

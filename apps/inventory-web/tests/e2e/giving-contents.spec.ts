@@ -1,6 +1,6 @@
 // Giving a container with what's inside it, and giving everything inside (ADR 0125).
 import type { Page } from '@playwright/test';
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import type { Person, Player, World } from './support/world.ts';
 
@@ -82,12 +82,14 @@ test("gives what's inside a backpack, not the backpack", async ({ world, as }) =
   ]);
 });
 
-test("offers what's inside only for a container with something in it", async ({ world, as }) => {
-  await packed(world, world.pia);
-  const page = await boardOf(as, world, world.pia);
+readOnly(
+  "offers what's inside only for a container with something in it",
+  async ({ world, as }) => {
+    const page = await boardOf(as, world, world.pia);
 
-  await card(page, 'Equipped', 'Belt Pouch').click();
-  await expect(page.getByRole('button', { name: "Give what's inside…" })).toBeHidden();
-  await page.getByRole('button', { name: 'Give to…' }).click();
-  await expect(page.getByLabel("Also give what's inside")).toHaveCount(0);
-});
+    await card(page, 'Equipped', 'Belt Pouch').click();
+    await expect(page.getByRole('button', { name: "Give what's inside…" })).toBeHidden();
+    await page.getByRole('button', { name: 'Give to…' }).click();
+    await expect(page.getByLabel("Also give what's inside")).toHaveCount(0);
+  },
+);

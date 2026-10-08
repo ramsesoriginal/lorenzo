@@ -1,16 +1,19 @@
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { person } from './support/world.ts';
 
-test('a player logs in and lands in the only library they play in', async ({ world, logInAs }) => {
-  const page = await logInAs(world.pia);
-  await expect(page.getByText('Signed in as')).toContainText(world.pia.subject);
-  // Her only character, opened by itself (ADR 0134).
-  await expect(page).toHaveURL(
-    `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
-  );
-});
+readOnly(
+  'a player logs in and lands in the only library they play in',
+  async ({ world, logInAs }) => {
+    const page = await logInAs(world.pia);
+    await expect(page.getByText('Signed in as')).toContainText(world.pia.subject);
+    // Her only character, opened by itself (ADR 0134).
+    await expect(page).toHaveURL(
+      `/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`,
+    );
+  },
+);
 
-test('logs out', async ({ world, as }) => {
+readOnly('logs out', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
   await page.getByRole('button', { name: 'Log out' }).click();
