@@ -226,7 +226,10 @@ body:has(.full-width) {
 
 @media (max-width: 720px) {
   .with-sidebar {
-    grid-template-columns: 1fr;
+    /* Not a bare 1fr, which is minmax(auto, 1fr): the column would not shrink below the
+       widest thing in it (a form control's own width), and the page scrolled sideways on a
+       phone. */
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
