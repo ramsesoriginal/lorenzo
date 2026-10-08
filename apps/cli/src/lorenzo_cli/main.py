@@ -1476,6 +1476,14 @@ def repo_publish(
             help="Say that libraries built on this repository should look before they update.",
         ),
     ] = False,
+    acknowledge_breaking: Annotated[
+        bool,
+        typer.Option(
+            "--acknowledge-breaking",
+            help="Publish although the release removes or changes things libraries already hold, "
+            "which is otherwise refused with the list of them.",
+        ),
+    ] = False,
     as_json: JsonOption = False,
 ) -> None:
     """Publish a repository as a release, or as a new one if it already is.
@@ -1484,7 +1492,12 @@ def repo_publish(
     it; every release tells each of them what it is called and what its notes say.
     """
     runtime: Runtime = ctx.obj
-    said = {"label": label, "notes": notes, "breaking": breaking or None}
+    said = {
+        "label": label,
+        "notes": notes,
+        "breaking": breaking or None,
+        "acknowledge_breaking": acknowledge_breaking or None,
+    }
     body = PublishRequest(**{key: value for key, value in said.items() if value is not None})
     with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
@@ -1500,6 +1513,11 @@ def repo_publish(
         return
     release = published.release
     flag = " It is marked breaking." if release.breaking else ""
+    if release.warning_rows:
+        flag += (
+            f" It adds {len(release.warning_rows)} parent(s) to items libraries already hold: "
+            "each library names them before it takes them."
+        )
     if was_published:
         _out.print(
             f"Published release {release.label} of {published.slug}: "
@@ -1811,11 +1829,7 @@ def repo_updates(
                     )
             raise typer.Exit(2 if repos.updates_waiting(updates) else 0)
         chosen = repos.clean_updates(updates)
-        wanted = (
-            explicit
-            if explicit is not None
-            else repos.Decisions(chosen.actions, chosen.attachments)
-        )
+        wanted = explicit if explicit is not None else repos.Decisions(chosen.actions, [])
         if not wanted.count:
             result = None
         else:
@@ -1851,12 +1865,20 @@ def repo_updates(
                         {"kind": a.kind.value, "source_id": str(a.source_id), "name": a.name}
                         for a in chosen.collisions
                     ],
+                    "breaking": [
+                        {"kind": r.kind.value, "source_id": str(r.source_id), "name": r.name}
+                        for r in chosen.breaking
+                    ],
+                    "edited_since_the_release": [
+                        {"kind": r.kind.value, "source_id": str(r.source_id), "name": r.name}
+                        for r in chosen.edited
+                    ],
                     "removed": chosen.removed,
                     "attachments_waiting": [
                         {
                             "child_source_id": str(a.child_source_id),
                             "parent_source_id": str(a.parent_source_id),
-                            "reason": a.reason,
+                            "reason": a.reason or repo_report.ATTACHMENT_REASON,
                         }
                         for a in chosen.attachments_waiting
                     ],

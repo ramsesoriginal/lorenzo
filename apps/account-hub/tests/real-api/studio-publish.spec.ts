@@ -92,7 +92,7 @@ test('publishing says what it will do first, and does nothing until it is confir
   await expect(page.locator('[data-overview] [data-state]')).toHaveText(
     /^Published \d{4}-\d{2}-\d{2}$/,
   );
-  await expect(page.locator('[data-publish-status]')).toHaveText('Published.');
+  await expect(page.locator('[data-publish-status]')).toHaveText('Release published.');
   await expect(page.locator('[data-live]')).toBeVisible();
   expect(await notices(owner.api, 'repository_published')).toBe(before + 2);
   await context.close();
@@ -127,9 +127,7 @@ test('a repository built on one that is not published is warned about before it 
   await context.close();
 });
 
-test('telling libraries about an update is the same publish, said as what it is', async ({
-  browser,
-}) => {
+test('publishing again is a new release, said as what it is', async ({ browser }) => {
   const { owner, repository } = await draftWorld();
 
   await publish(owner.api, repository.id);
@@ -139,10 +137,10 @@ test('telling libraries about an update is the same publish, said as what it is'
 
   await overview(page, repository.slug);
   await expect(page.getByRole('button', { name: 'Publish…', exact: true })).toBeHidden();
-  await page.getByRole('button', { name: 'Tell libraries about an update…' }).click();
-  await expect(dialog(page)).toContainText('only says "look now"');
-  await dialog(page).getByRole('button', { name: 'Tell 2 libraries' }).click();
-  await expect(page.locator('[data-publish-status]')).toHaveText('Libraries were told.');
+  await page.getByRole('button', { name: 'Publish a new release…' }).click();
+  await expect(dialog(page)).toContainText('a label and notes');
+  await dialog(page).getByRole('button', { name: 'Publish release and tell 2 libraries' }).click();
+  await expect(page.locator('[data-publish-status]')).toHaveText('Release published.');
   expect(await notices(owner.api, 'repository_updated')).toBe(before + 2);
   await context.close();
 });

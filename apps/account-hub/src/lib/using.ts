@@ -2,6 +2,7 @@
 // plain functions over what the API returns. No DOM and nothing but ./types, so they run under Node
 // in the unit tests. The words are those of identity.md §14.3.
 
+import { onRelease } from './releases';
 import { dayOf, type ShelfState, shelfState } from './shelf';
 import type { SubscriberOut, SubscriptionOut } from './types';
 
@@ -37,6 +38,9 @@ export function usingLine(row: SubscriberOut): string {
   if (row.synced_at && row.copied_at && dayOf(row.synced_at) !== dayOf(row.copied_at)) {
     parts.push(`last updated ${dayOf(row.synced_at)}`);
   }
+  const release = onRelease(row);
+
+  if (release) parts.push(release);
   if (row.granted_at === null && row.copied_at) {
     return `${parts.join(', ')}. It keeps its copy and gets no more updates unless you invite it again.`;
   }

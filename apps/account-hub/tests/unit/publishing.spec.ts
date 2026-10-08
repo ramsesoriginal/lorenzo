@@ -109,12 +109,12 @@ describe('the publish dialog', () => {
     expect(dialogFor('publish', 'Core', none).warnings).toEqual([]);
   });
 
-  it('is the same for telling libraries about an update, and says it only says "look now"', () => {
+  it('is a new release, with what a release is', () => {
     const dialog = dialogFor('announce', 'Core', { ...none, invited: 2 });
 
-    expect(dialog.title).toBe('Tell libraries about an update to Core');
-    expect(dialog.lines[1]).toMatch(/only says "look now"/);
-    expect(dialog.confirm).toBe('Tell 2 libraries');
+    expect(dialog.title).toBe('Publish a new release of Core');
+    expect(dialog.lines[1]).toMatch(/a label and notes/);
+    expect(dialog.confirm).toBe('Publish release and tell 2 libraries');
   });
 
   it('says what unpublishing does: libraries lose the look, the copy and the updates, and keep what they copied', () => {

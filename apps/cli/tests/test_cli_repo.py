@@ -25,6 +25,7 @@ from repo_world import (
     attachment_ref,
     collision,
     field_change,
+    note,
     problem,
     removed,
     row_change,
@@ -965,7 +966,47 @@ def test_an_attachment_alone_is_something_to_take(tmp_path: Path) -> None:
     assert json.loads(result.stdout)["attachments_added"][0]["parent_name"] == "Economic Object"
 
 
-def test_apply_takes_the_attachments_that_can_be_applied_and_those_whose_row_comes_with_it(
+def test_an_attachment_a_release_warned_about_says_so_beside_it_and_is_not_called_breaking(
+    tmp_path: Path,
+) -> None:
+    world = world_with(
+        {
+            "attachments_added": [
+                attachment(
+                    1, "Weapon", "Economic Object", warnings=[note("attachment_added", "1.2")]
+                )
+            ]
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
+
+    text = said(result)
+    assert "added attachment “Economic Object” on “Weapon”" in text
+    assert "changes what the item is, release 1.2" in text
+    assert "breaking" not in text
+
+
+def test_a_publish_says_how_many_parents_it_adds_to_items_libraries_hold(tmp_path: Path) -> None:
+    world = World()
+    world.publish_warnings = [
+        {
+            "kind": "attachment",
+            "row_id": str(uuid.UUID(int=1)),
+            "parent_id": str(uuid.UUID(int=2)),
+            "name": "Weapon",
+            "reason": "attachment_added",
+            "detail": "“Economic Object” was added as a parent of “Weapon”.",
+        }
+    ]
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale")
+
+    assert result.exit_code == 0, result.output
+    text = said(result)
+    assert "It adds 1 parent(s) to items libraries already hold" in text
+    assert "marked breaking" not in text
+
+
+def test_apply_never_takes_an_attachment_and_leaves_them_for_their_own_decision(
     tmp_path: Path,
 ) -> None:
     world = world_with(
@@ -973,7 +1014,7 @@ def test_apply_takes_the_attachments_that_can_be_applied_and_those_whose_row_com
             "added": [added(1, "Greatsword 5e")],
             "attachments_added": [
                 attachment(1, "Weapon", "Economic Object"),
-                # Its parent is the entity this same call adds.
+                # Its parent is the entity this same call adds, which is still no reason to take it.
                 attachment(
                     2,
                     "Longsword",
@@ -991,33 +1032,24 @@ def test_apply_takes_the_attachments_that_can_be_applied_and_those_whose_row_com
 
     (sent,) = world.bodies("POST", "/updates")
     assert [a["action"] for a in sent["actions"]] == ["add"]
-    assert sent["attachments"] == [
-        {
-            "child_source_id": str(uuid.UUID(int=601)),
-            "parent_source_id": str(uuid.UUID(int=701)),
-            "action": "add",
-        },
-        {
-            "child_source_id": str(uuid.UUID(int=602)),
-            "parent_source_id": str(uuid.UUID(int=301)),
-            "action": "add",
-        },
-    ]
-    assert result.exit_code == 2  # one waits and one is gone upstream
+    assert sent.get("attachments", []) == []
+    assert result.exit_code == 2  # three wait and one is gone upstream
     text = said(result)
     assert "Took 0 changed, 1 added, 0 detached." in text
-    assert "Attachments: 2 added, 0 detached." in text
+    assert (
+        "attachment “Economic Object” on “Weapon” waits: it changes an item you already hold"
+        in text
+    )
     assert "attachment “Dagger 5e” on “Dagger” waits: the prototype it attaches isn't here" in text
     assert "1 attachment(s) gone upstream (detach is a decision)" in text
 
 
-def test_apply_with_only_attachments_to_take_exits_zero_and_asks_once(tmp_path: Path) -> None:
+def test_apply_with_only_attachments_asks_nothing_and_exits_two(tmp_path: Path) -> None:
     world = world_with({"attachments_added": [attachment(1, "Weapon", "Economic Object")]})
     result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
 
-    assert result.exit_code == 0, result.output
-    assert [a["action"] for a in world.bodies("POST", "/updates")[0]["attachments"]] == ["add"]
-    assert world.bodies("POST", "/updates")[0]["actions"] == []
+    assert result.exit_code == 2, result.output
+    assert world.bodies("POST", "/updates") == []
 
 
 def test_apply_json_says_what_it_left_among_the_attachments(tmp_path: Path) -> None:
@@ -1109,7 +1141,32 @@ def test_an_attachment_that_could_not_be_applied_is_said_and_stays_on_offer(
             "label": None,
         }
     ]
-    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
+    decisions = tmp_path / "decisions.json"
+    decisions.write_text(
+        json.dumps(
+            {
+                "actions": [],
+                "attachments": [
+                    {
+                        "child_source_id": str(uuid.UUID(int=601)),
+                        "parent_source_id": str(uuid.UUID(int=701)),
+                        "action": "add",
+                    }
+                ],
+            }
+        )
+    )
+    result = run(
+        tmp_path,
+        world,
+        "updates",
+        "sunken-vale",
+        "-t",
+        "table-one",
+        "--actions",
+        str(decisions),
+        "--yes",
+    )
 
     assert (
         f"Couldn't apply an attachment on {uuid.UUID(int=601)}: "
@@ -1170,3 +1227,144 @@ def test_subscribers_and_repositories_say_which_release_a_copy_last_took() -> No
     )
     assert "is out" not in level and "1.1" in level
     assert "is out" not in old
+
+
+# --- releases that break things, and the marks on updates (ADR 0208) -------------------------
+
+
+def test_a_publish_the_api_refuses_for_breaking_changes_says_which_and_how_to_go_on(
+    tmp_path: Path,
+) -> None:
+    world = World()
+    world.publish_answer = problem(
+        409,
+        "release-has-breaking-changes",
+        "1 of the changes in this release break what libraries built on this repository hold.",
+        breaking_rows=[
+            {
+                "kind": "entity",
+                "row_id": str(uuid.UUID(int=1)),
+                "parent_id": None,
+                "name": "Orc",
+                "reason": "entity_removed",
+                "detail": "“Orc” was removed. Libraries that copied it can only keep their copy.",
+            }
+        ],
+    )
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale")
+
+    assert result.exit_code == 1
+    text = said(result)
+    assert "Orc" in text and "was removed" in text
+    assert "--acknowledge-breaking" in text
+
+
+def test_acknowledging_breaking_changes_is_sent(tmp_path: Path) -> None:
+    world = World()
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale", "--acknowledge-breaking")
+
+    assert result.exit_code == 0, result.output
+    assert world.bodies("PUT", "/published") == [{"acknowledge_breaking": True}]
+
+
+def test_apply_takes_released_rows_and_leaves_what_was_edited_since_or_called_breaking(
+    tmp_path: Path,
+) -> None:
+    world = world_with(
+        {
+            "changed": [
+                row_change(1, "Released", "clean", state="released"),
+                row_change(2, "Edited", "clean", state="edited"),
+                row_change(
+                    3, "Breaking", "clean", state="released", breaking=[note("kinds_changed")]
+                ),
+                row_change(4, "Unmarked", "clean"),
+            ],
+            "added": [
+                added(1, "NewReleased", state="released"),
+                added(2, "NewEdited", state="edited"),
+            ],
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--yes")
+
+    (sent,) = world.bodies("POST", "/updates")
+    assert sorted((a["action"], a["source_id"]) for a in sent["actions"]) == sorted(
+        [
+            ("apply", str(uuid.UUID(int=101))),
+            ("apply", str(uuid.UUID(int=104))),
+            ("add", str(uuid.UUID(int=301))),
+        ]
+    )
+    assert result.exit_code == 2
+    text = said(result)
+    assert "entity “Edited” was edited after the release" in text
+    assert "entity “NewEdited” was edited after the release" in text
+    assert "entity “Breaking” is marked breaking" in text
+    assert "release 1.1" in text
+
+
+def test_apply_json_lists_the_rows_it_left_for_being_breaking_or_edited(tmp_path: Path) -> None:
+    world = world_with(
+        {
+            "changed": [
+                row_change(2, "Edited", "clean", state="edited"),
+                row_change(3, "Breaking", "clean", breaking=[note()]),
+            ]
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one", "--apply", "--json")
+
+    left = json.loads(result.stdout)["left"]
+    assert [r["name"] for r in left["breaking"]] == ["Breaking"]
+    assert [r["name"] for r in left["edited_since_the_release"]] == ["Edited"]
+    assert world.bodies("POST", "/updates") == []
+
+
+def test_updates_show_what_was_edited_after_the_release_and_what_is_breaking(
+    tmp_path: Path,
+) -> None:
+    world = world_with(
+        {
+            "changed": [
+                row_change(1, "Edited", "clean", state="edited"),
+                row_change(2, "Breaking", "clean", breaking=[note("slug_changed", "1.2")]),
+            ]
+        }
+    )
+    world.updates["release"] = {
+        "id": str(uuid.UUID(int=9100)),
+        "number": 3,
+        "label": "1.3",
+        "notes": None,
+        "breaking": False,
+        "created_at": "2026-10-01T12:00:00Z",
+        "digest": "0" * 64,
+        "counts": None,
+        "breaking_rows": [],
+        "warning_rows": [],
+    }
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
+
+    text = said(result)
+    assert "changed entity “Edited” (edited since release 1.3)" in text
+    assert "changed entity “Breaking” (breaking, release 1.2)" in text
+
+
+def test_a_refusal_to_apply_a_breaking_row_names_it_and_says_how_to_confirm() -> None:
+    from lorenzo_cli.client.errors import LorenzoApiError
+    from lorenzo_cli.repos import in_words
+
+    refused = LorenzoApiError(
+        "A release since this library last updated called these changes breaking.",
+        409,
+        {
+            "type": "update-needs-confirmation",
+            "unconfirmed": [
+                {"name": "Speed", "detail": "The type of “Speed” changed from int to text."}
+            ],
+        },
+    )
+    text = str(in_words(refused))
+    assert "Speed" in text and "int to text" in text
+    assert '"confirm": true' in text

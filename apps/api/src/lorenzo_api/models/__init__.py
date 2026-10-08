@@ -49,6 +49,7 @@ from lorenzo_api.models.repository_copy import (
     RepositoryCopyLinkStatGroup,
 )
 from lorenzo_api.models.repository_release import RepositoryRelease
+from lorenzo_api.models.repository_released_row import RepositoryReleasedRow
 from lorenzo_api.models.repository_subscription import RepositorySubscription
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
 from lorenzo_api.models.stat_definition_enum_value import StatDefinitionEnumValue
@@ -114,6 +115,7 @@ __all__ = [
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",
     "RepositoryRelease",
+    "RepositoryReleasedRow",
     "RepositorySubscription",
     "StatDefinition",
     "StatDefinitionEnumValue",

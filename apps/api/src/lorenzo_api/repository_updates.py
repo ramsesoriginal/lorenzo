@@ -28,6 +28,7 @@ from lorenzo_api.exceptions import (
     RepositoryNotCopiedError,
     RepositoryNotFoundError,
     RepositoryUpdateNeedsChoicesError,
+    UpdateNeedsConfirmationError,
 )
 from lorenzo_api.models import (
     ComputedStat,
@@ -76,6 +77,15 @@ from lorenzo_api.repository_copying import (
     write_attachments,
     write_rows,
 )
+from lorenzo_api.repository_digest import (
+    BreakingNote,
+    Key,
+    live_rows,
+    notes_since,
+    state_of,
+    stored_rows,
+)
+from lorenzo_api.repository_digest import State as RowState
 from lorenzo_api.repository_releases import ReleaseRef, latest_release
 
 RowKind = Literal["entity", "stat_group", "stat_definition"]
@@ -129,6 +139,9 @@ class RowChange:
     fields: list[FieldChange]
     base: dict[str, Any]
     upstream: dict[str, Any]
+    # Released or edited since, and what releases since the last update called breaking (ADR 0208).
+    state: RowState | None = None
+    breaking: list[BreakingNote] = field(default_factory=list)
 
 
 @dataclass
@@ -137,6 +150,8 @@ class RowRef:
     source_id: uuid.UUID
     local_id: uuid.UUID | None
     name: str
+    state: RowState | None = None
+    breaking: list[BreakingNote] = field(default_factory=list)
 
 
 @dataclass
@@ -145,6 +160,8 @@ class Added:
     source_id: uuid.UUID
     name: str
     collision: Collision | None
+    state: RowState | None = None
+    breaking: list[BreakingNote] = field(default_factory=list)
 
 
 @dataclass
@@ -160,6 +177,9 @@ class AttachmentRef:
     parent_local_id: uuid.UUID | None
     parent_name: str
     reason: str | None = None
+    state: RowState | None = None
+    breaking: list[BreakingNote] = field(default_factory=list)
+    warnings: list[BreakingNote] = field(default_factory=list)
 
     @property
     def applicable(self) -> bool:
@@ -185,6 +205,10 @@ class Updates:
     # The repository's latest release, which a call to apply takes as the one the tenant has
     # now taken (ADR 0207); none before its first, or for one published before releases.
     release: ReleaseRef | None = None
+    # The rows releases since the tenant last updated called breaking (ADR 0208).
+    breaking: dict[Key, list[BreakingNote]] = field(default_factory=dict)
+    # What they only warned about: the parents added to items the library holds.
+    warnings: dict[Key, list[BreakingNote]] = field(default_factory=dict)
     upstream: Content | None = None
     local: Content | None = None
 
@@ -365,7 +389,8 @@ def _name_the_changes(updates: Updates) -> None:
 async def compute_updates(
     session: AsyncSession, *, tenant_id: uuid.UUID, repository_id: uuid.UUID
 ) -> Updates:
-    if await session.get(RepositoryCopy, (tenant_id, repository_id)) is None:
+    copy = await session.get(RepositoryCopy, (tenant_id, repository_id))
+    if copy is None:
         raise RepositoryNotCopiedError(detail=f"Copy repository {repository_id} first")
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
@@ -374,6 +399,9 @@ async def compute_updates(
             )
         upstream = await load_content(session, repository_id)
         release = await latest_release(session, repository_id)
+        # What the latest release saw, for the marks, when it has a digest to say so.
+        stored = await stored_rows(session, repository_id) if release and release.digest else None
+        noted, warned = await notes_since(session, repository_id, copy.synced_release_id)
     local = await load_content(session, tenant_id)
     links = local.links
     updates = Updates(repository_id=repository_id, release=release, upstream=upstream, local=local)
@@ -445,7 +473,38 @@ async def compute_updates(
             updates.added.append(Added(kind, row_id, name, collision))
     _find_attachment_updates(updates, tenant_id=tenant_id)
     _name_the_changes(updates)
+    updates.breaking = noted
+    updates.warnings = warned
+    _mark(updates, stored)
     return updates
+
+
+def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
+    """Says of each row and attachment whether the repository's is what its latest release saw,
+    and what releases since the tenant last updated called breaking about it (ADR 0208). The
+    state is null for a repository whose latest release has no digest."""
+    assert updates.upstream is not None
+    live = live_rows(updates.upstream) if stored is not None else {}
+
+    def mark(item: Any, key: Key) -> None:
+        item.state = state_of(stored, live, key) if stored is not None else None
+        item.breaking = updates.breaking.get(key, [])
+
+    rows: list[Any] = [
+        *updates.changed,
+        *updates.removed,
+        *updates.deleted_locally,
+        *updates.added,
+    ]
+    for row in rows:
+        mark(row, (row.kind, row.source_id, None))
+    for a in (
+        *updates.attachments_added,
+        *updates.attachments_removed,
+        *updates.attachments_deleted_locally,
+    ):
+        mark(a, ("attachment", a.child_source_id, a.parent_source_id))
+        a.warnings = updates.warnings.get(("attachment", a.child_source_id, a.parent_source_id), [])
 
 
 def _local_entity(
@@ -527,6 +586,7 @@ class UpdateAction:
     keep_local: list[str] = field(default_factory=list)
     take_upstream: list[str] = field(default_factory=list)
     resolution: Resolution | None = None
+    confirm: bool = False
 
 
 @dataclass
@@ -912,6 +972,36 @@ def _next_snapshot(row: RowChange, failed: set[str], kept: set[str]) -> dict[str
     return snapshot
 
 
+def _unconfirmed(updates: Updates, actions: list[UpdateAction]) -> list[dict[str, Any]]:
+    """The rows the actions would take that a release since the tenant last updated called
+    breaking, and that the action does not confirm (ADR 0208). A `detach` changes nothing the
+    tenant holds, so it is not asked about."""
+    named: dict[Key, str] = {}
+    changing: list[Any] = [*updates.changed, *updates.added]
+    for row in changing:
+        named[(row.kind, row.source_id, None)] = row.name
+    found: list[dict[str, Any]] = []
+
+    def ask(key: Key) -> None:
+        for note in updates.breaking.get(key, []):
+            found.append(
+                {
+                    "kind": key[0],
+                    "source_id": str(key[1]),
+                    "parent_source_id": str(key[2]) if key[2] else None,
+                    "name": named.get(key, ""),
+                    "reason": note.reason,
+                    "detail": note.detail,
+                    "release": note.release.label,
+                }
+            )
+
+    for action in actions:
+        if action.action != "detach" and not action.confirm:
+            ask((action.kind, action.source_id, None))
+    return found
+
+
 async def apply_updates(
     session: AsyncSession,
     *,
@@ -937,6 +1027,14 @@ async def apply_updates(
                 detail=f"The attachment of {attachment.parent_source_id} to "
                 f"{attachment.child_source_id} has nothing to {attachment.action}"
             )
+
+    unconfirmed = _unconfirmed(updates, actions)
+    if unconfirmed:
+        raise UpdateNeedsConfirmationError(
+            detail="A release since this library last updated called these changes breaking. "
+            "Look at why, then confirm each one you take.",
+            unconfirmed=unconfirmed,
+        )
 
     unnamed: list[dict[str, Any]] = []
     for action in actions:

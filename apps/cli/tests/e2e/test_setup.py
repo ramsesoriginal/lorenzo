@@ -120,9 +120,38 @@ class Setup:
         code, document = self.json("repo", "updates", repository, "--tenant", table)
         return code, document
 
-    def take(self, repository: str, table: str) -> str:
-        result = self.ok("repo", "updates", repository, "--tenant", table, "--apply", "--yes")
+    def take(self, repository: str, table: str, *, attachments: bool = False) -> str:
+        """`--apply`, which never takes an attachment (RFC 0037): with `attachments`, the ones that can
+        be made are named, and taken, afterwards."""
+        result = self.cli("repo", "updates", repository, "--tenant", table, "--apply", "--yes")
+        wanted = 2 if attachments else 0
+        assert result.exit_code == wanted, f"{repository} -> {table}\n{result.output}"
+        if attachments:
+            self.attach(repository, table)
         return str(result.output)
+
+    def attach(self, repository: str, table: str) -> None:
+        _, document = self.updates(repository, table)
+        decisions = self.work / f"attach-{uuid.uuid4().hex[:6]}.json"
+        decisions.write_text(
+            json.dumps(
+                {
+                    "actions": [],
+                    "attachments": [
+                        {
+                            "child_source_id": a["child_source_id"],
+                            "parent_source_id": a["parent_source_id"],
+                            "action": "add",
+                        }
+                        for a in document["attachments_added"]
+                        if a["applicable"]
+                    ],
+                }
+            )
+        )
+        self.ok(
+            "repo", "updates", repository, "--tenant", table, "--actions", str(decisions), "--yes"
+        )
 
     def waiting(self, table: str, repository: str) -> bool:
         """What `repo list` marks as "updated since": published after the table last synced."""
@@ -265,19 +294,19 @@ def test_what_the_equipment_adds_later_reaches_a_table_with_its_dnd_whichever_is
 
     # The equipment imports more, the bridge takes it and writes D&D's half, and each publishes.
     setup.neutral(GEAR)
-    setup.take(setup.equipment, setup.bridge)  # without it the bridge has no item to attach to
-    setup.system(GEAR)
     assert not setup.waiting(in_order, setup.equipment)
     # A repository's changes are there to be taken as soon as they are made: publishing again
     # announces them (`repo list` says "updated since"), it isn't what lets a table see them.
     assert names(setup.updates(setup.equipment, in_order)[1]["added"]) >= {"Purple lamp"}
     setup.ok("repo", "publish", "--tenant", setup.equipment)
+    setup.take(setup.equipment, setup.bridge)  # without it the bridge has no item to attach to
+    setup.system(GEAR)
     setup.ok("repo", "publish", "--tenant", setup.bridge)
     assert setup.waiting(in_order, setup.equipment) and setup.waiting(in_order, setup.bridge)
 
     # In order: the items, then the prototypes that attach to them.
     setup.take(setup.equipment, in_order)
-    setup.take(setup.bridge, in_order)
+    setup.take(setup.bridge, in_order, attachments=True)
     assert parent_names(setup.entity(in_order, LAMP)) == ["Gear", "Purple lamp (D&D 5e)"]
 
     # The other way round, the prototypes arrive and wait for the item they attach to, and say so...
@@ -296,6 +325,6 @@ def test_what_the_equipment_adds_later_reaches_a_table_with_its_dnd_whichever_is
     assert parent_names(setup.entity(wrong_order, LAMP)) == ["Gear"]
     code, ready = setup.updates(setup.bridge, wrong_order)
     assert code == 2 and all(a["applicable"] for a in ready["attachments_added"])
-    setup.take(setup.bridge, wrong_order)
+    setup.take(setup.bridge, wrong_order, attachments=True)
     assert parent_names(setup.entity(wrong_order, LAMP)) == ["Gear", "Purple lamp (D&D 5e)"]
     assert setup.updates(setup.bridge, wrong_order)[0] == 0

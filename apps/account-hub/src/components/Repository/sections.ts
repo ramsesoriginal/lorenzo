@@ -5,9 +5,23 @@
 import { knownNames } from '../../lib/activityNames';
 import { describeError } from '../../lib/describeError';
 import {
+  breakingLines,
+  countsLines,
+  descriptionsHint,
+  matchesSentence,
+  RELEASES_NOTE,
+  releaseDate,
+  TEXT_NOT_TRACKED,
+  WARNING_TITLE,
+  warningLines,
+} from '../../lib/releases';
+import {
+  editRelease,
+  getReleasePreview,
   getUpdates,
   inviteLibrary,
   listLibraryRepositories,
+  listReleases,
   listSubscribers,
   stopInviting,
 } from '../../lib/repositories';
@@ -280,6 +294,164 @@ export function createActivity(root: HTMLElement): Section {
         line.textContent = describeError(cause);
         slot.replaceChildren(line);
         slot.hidden = false;
+      }
+    },
+  };
+}
+
+// How the Overview says what a repository is against its latest release, and the Releases tab:
+// each release with its label, notes, what it contained and what it broke (ADR 0209). An Owner can
+// change a release's label and notes, and nothing else of it.
+export function createReleases(root: HTMLElement): Section {
+  const state = required<HTMLElement>(root, '[data-release-state]');
+  const matches = required<HTMLElement>(root, '[data-matches]');
+  const hint = required<HTMLElement>(root, '[data-descriptions-hint]');
+  const section = required<HTMLElement>(root, '[data-releases]');
+  const error = required<HTMLElement>(root, '[data-releases-error]');
+  const none = required<HTMLElement>(root, '[data-releases-none]');
+  const list = required<HTMLElement>(root, '[data-releases-list]');
+
+  required<HTMLElement>(root, '[data-text-not-tracked]').textContent = TEXT_NOT_TRACKED;
+  required<HTMLElement>(root, '[data-releases-note]').textContent = RELEASES_NOTE;
+  none.textContent = 'It has no release yet. Publishing it makes the first.';
+
+  function line(text: string): HTMLElement {
+    const li = document.createElement('li');
+
+    li.textContent = text;
+
+    return li;
+  }
+
+  return {
+    clear() {
+      state.hidden = true;
+      section.hidden = true;
+      list.replaceChildren();
+      error.hidden = true;
+    },
+
+    async load(repository, isCurrent, roster) {
+      const names = new Map(
+        (roster ?? []).flatMap((entry) => {
+          const name = entry.display_name ?? entry.nickname;
+
+          return entry.kind === 'membership' && name ? [[entry.user_id, name] as const] : [];
+        }),
+      );
+
+      async function paint(): Promise<void> {
+        const [releases, preview] = await Promise.all([
+          listReleases(repository.id, { fresh: true }),
+          getReleasePreview(repository.id, { fresh: true }),
+        ]);
+
+        if (!isCurrent()) return;
+
+        matches.textContent = matchesSentence(preview);
+
+        const description = descriptionsHint(preview);
+
+        hint.textContent = description ?? '';
+        hint.hidden = description === null;
+        state.hidden = false;
+
+        none.hidden = releases.length > 0;
+        list.replaceChildren(
+          ...releases.map((release) => {
+            const item = cloneRoot(root, '[data-release-template]');
+            // Named where the person has a name; an id is not a name, so it is left out.
+            const by = release.created_by ? names.get(release.created_by) : undefined;
+            const notes = required<HTMLElement>(item, '[data-notes]');
+            const breaks = required<HTMLDetailsElement>(item, '[data-breaks]');
+            const warns = required<HTMLDetailsElement>(item, '[data-warns]');
+            const actions = required<HTMLElement>(item, '[data-release-actions]');
+            const editForm = required<HTMLFormElement>(item, '[data-release-form]');
+            const editLabel = required<HTMLInputElement>(item, '[data-edit-label]');
+            const editNotes = required<HTMLTextAreaElement>(item, '[data-edit-notes]');
+            const editStatus = required<HTMLElement>(item, '[data-edit-status]');
+
+            required<HTMLElement>(item, '[data-label]').textContent = release.label;
+            required<HTMLElement>(item, '[data-breaking]').hidden = !release.breaking;
+            required<HTMLElement>(item, '[data-meta]').textContent =
+              `Release ${release.number}, ${releaseDate(release)}${by ? `, by ${by}` : ''}`;
+            notes.textContent = release.notes ?? '';
+            notes.hidden = !release.notes;
+            required<HTMLElement>(item, '[data-counts]').replaceChildren(
+              ...(release.counts === null
+                ? [line('Made before releases were compared: what it held is not recorded.')]
+                : (countsLines(release.counts).length > 0
+                    ? countsLines(release.counts)
+                    : ['Nothing changed in what libraries copy.']
+                  ).map(line)),
+            );
+
+            const reasons = breakingLines(release.breaking_rows);
+
+            breaks.hidden = !release.breaking;
+
+            if (release.breaking) {
+              required<HTMLElement>(item, '[data-breaks-title]').textContent =
+                reasons.length > 0 ? `What it breaks (${reasons.length})` : 'Marked breaking';
+              required<HTMLElement>(item, '[data-breaks-list]').replaceChildren(
+                ...(reasons.length > 0 ? reasons : ['The author marked it breaking.']).map(line),
+              );
+            }
+
+            const warned = warningLines(release.warning_rows);
+
+            warns.hidden = warned.length === 0;
+            required<HTMLElement>(item, '[data-warns-heading]').textContent =
+              `${WARNING_TITLE} (${release.warning_rows.length})`;
+            required<HTMLElement>(item, '[data-warns-list]').replaceChildren(...warned.map(line));
+
+            // An Owner changes a release's words, nothing more.
+            actions.hidden = !canChangePeople(repository.role);
+            required<HTMLButtonElement>(item, '[data-edit-release]').addEventListener(
+              'click',
+              () => {
+                editLabel.value = release.label;
+                editNotes.value = release.notes ?? '';
+                editForm.hidden = false;
+                actions.hidden = true;
+              },
+            );
+            required<HTMLButtonElement>(item, '[data-edit-cancel]').addEventListener(
+              'click',
+              () => {
+                editForm.hidden = true;
+                actions.hidden = false;
+                say(editStatus, '');
+              },
+            );
+            editForm.addEventListener('submit', async (event) => {
+              event.preventDefault();
+              say(editStatus, 'Saving…');
+
+              try {
+                await editRelease(repository.id, release.id, {
+                  label: editLabel.value.trim(),
+                  notes: editNotes.value.trim() || null,
+                });
+                await paint();
+              } catch (cause) {
+                sayError(editStatus, cause);
+              }
+            });
+
+            return item;
+          }),
+        );
+        section.hidden = false;
+      }
+
+      try {
+        await paint();
+      } catch (cause) {
+        if (!isCurrent()) return;
+
+        section.hidden = false;
+        sayError(error, cause);
       }
     },
   };

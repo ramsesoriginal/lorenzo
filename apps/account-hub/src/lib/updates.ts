@@ -9,7 +9,9 @@ import type {
   ApplyUpdatesOut,
   AttachmentActionIn,
   AttachmentAddedOut,
+  AttachmentChangeOut,
   AttachmentRefOut,
+  BreakingNoteOut,
   FieldChangeOut,
   NotAppliedOut,
   RowChangeOut,
@@ -30,6 +32,8 @@ export const PLAYERS_NOTE = 'Applying an update changes what your players see.';
 export const NEVER_BY_ITSELF = 'Nothing is applied until you apply it.';
 
 export type RowKindName = RowChangeOut['kind'];
+
+export type ReleaseState = 'released' | 'edited' | null;
 
 export const ROW_KIND_LABEL: Record<RowKindName, string> = {
   entity: 'Entry',
@@ -262,6 +266,10 @@ export type RowView = {
   conflicts: FieldView[];
   // Whether there is anything in the row to apply: a row with only a changed value type has not.
   appliable: boolean;
+  // Whether it is part of the latest release or was edited since it (null before releases).
+  state: ReleaseState;
+  // What a release since the library last updated says breaks in it.
+  breaking: BreakingNoteOut[];
 };
 
 export function describeRow(row: RowChangeOut, names: Names): RowView {
@@ -276,6 +284,8 @@ export function describeRow(row: RowChangeOut, names: Names): RowView {
     fields,
     conflicts: fields.filter((field) => field.state === 'conflict'),
     appliable: fields.some((field) => field.state !== 'not_applicable'),
+    state: row.state ?? null,
+    breaking: row.breaking ?? [],
   };
 }
 
@@ -290,8 +300,8 @@ export type UpdateGroups = {
   removed: RowRefOut[];
   deletedLocally: RowRefOut[];
   attachmentsAdded: AttachmentAddedOut[];
-  attachmentsRemoved: AttachmentRefOut[];
-  attachmentsDeletedLocally: AttachmentRefOut[];
+  attachmentsRemoved: AttachmentChangeOut[];
+  attachmentsDeletedLocally: AttachmentChangeOut[];
 };
 
 function hasConflict(row: RowChangeOut): boolean {
@@ -359,12 +369,21 @@ export type CleanSelection = {
   changed: number;
   added: number;
   // What it leaves for a decision of its own.
-  left: { conflicts: number; collisions: number; removed: number; parents: number };
+  left: {
+    conflicts: number;
+    collisions: number;
+    removed: number;
+    parents: number;
+    edited: number;
+    breaking: number;
+  };
 };
 
-// Every row the library has no edit in, and every new row that clashes with nothing. Never a
-// conflict, a name clash, a removal or a parent added: each of those needs its own decision. A row
-// the person skipped is not taken either.
+// Every row the library has no edit in that is part of the latest release (or comes from before
+// releases) and breaks nothing, and every new row of that kind that clashes with nothing. Never a
+// conflict, a name clash, a removal, a parent added, a row edited since the release or one a
+// release called breaking: each of those needs its own decision (RFC 0037 §2). A row the person
+// skipped is not taken either.
 export function cleanSelection(
   updates: UpdatesOut,
   skipped: ReadonlySet<string> = new Set(),
@@ -373,10 +392,21 @@ export function cleanSelection(
   const actions: UpdateActionIn[] = [];
   let changed = 0;
   let added = 0;
+  const left = { edited: 0, breaking: 0 };
+
+  // Why a row is not taken, if it is not: breaking first, since that is the graver.
+  const heldBack = (row: { state?: ReleaseState; breaking?: readonly unknown[] }): boolean => {
+    if ((row.breaking ?? []).length > 0) left.breaking += 1;
+    else if (row.state === 'edited') left.edited += 1;
+    else return false;
+
+    return true;
+  };
 
   for (const row of groups.changed) {
     if (skipped.has(rowKey(row))) continue;
     if (!row.fields.some((field) => field.state === 'clean')) continue;
+    if (heldBack(row)) continue;
 
     actions.push({ kind: row.kind, source_id: row.source_id, action: 'apply' });
     changed += 1;
@@ -384,6 +414,7 @@ export function cleanSelection(
 
   for (const row of groups.added) {
     if (skipped.has(rowKey(row)) || row.collision !== null) continue;
+    if (heldBack(row)) continue;
 
     actions.push({ kind: row.kind, source_id: row.source_id, action: 'add' });
     added += 1;
@@ -398,6 +429,8 @@ export function cleanSelection(
       collisions: groups.added.filter((row) => row.collision !== null).length,
       removed: groups.removed.length,
       parents: groups.attachmentsAdded.length + groups.attachmentsRemoved.length,
+      edited: left.edited,
+      breaking: left.breaking,
     },
   };
 }
@@ -422,6 +455,8 @@ export function cleanSentence(selection: CleanSelection): string {
     selection.left.parents > 0
       ? `${selection.left.parents} ${selection.left.parents === 1 ? 'parent' : 'parents'}`
       : null,
+    selection.left.edited > 0 ? `${selection.left.edited} edited since the release` : null,
+    selection.left.breaking > 0 ? `${selection.left.breaking} marked breaking` : null,
   ].filter((part): part is string => part !== null);
 
   return `Apply ${take.join(' and ')}.${left.length > 0 ? ` Left for you to decide: ${left.join(', ')}.` : ''}`;
@@ -443,6 +478,7 @@ export function conflictsSettled(
 export function applyAction(
   row: { kind: RowKindName; source_id: string },
   choices: ReadonlyMap<string, ConflictChoice>,
+  confirm = false,
 ): UpdateActionIn {
   const keep = [...choices].filter(([, choice]) => choice === 'keep').map(([field]) => field);
   const take = [...choices].filter(([, choice]) => choice === 'take').map(([field]) => field);
@@ -453,6 +489,7 @@ export function applyAction(
     action: 'apply',
     ...(keep.length > 0 ? { keep_local: keep } : {}),
     ...(take.length > 0 ? { take_upstream: take } : {}),
+    ...(confirm ? { confirm: true } : {}),
   };
 }
 
@@ -545,4 +582,30 @@ export function inboxOrder<T extends { name: string; counts: UpdateCounts | null
   return [...rows].sort(
     (a, b) => weight(b) - weight(a) || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
   );
+}
+
+// --- Releases on the update rows (RFC 0037 §2) ----------------------------------------------------
+
+// What a row is against the latest release, in the words of the rule: part of it, or edited since
+// it. Null where there is nothing to say (before releases were compared).
+export function releaseMark(row: { state?: ReleaseState }, label: string | null): string | null {
+  if (label === null || !row.state) return null;
+
+  return row.state === 'released' ? `In release ${label}` : `Edited since release ${label}`;
+}
+
+// What the releases the library has not taken say breaks in a row, each as the API words it.
+export function breakingNotes(breaking: readonly BreakingNoteOut[]): string[] {
+  return breaking.map((note) => `Breaking in release ${note.release.label}: ${note.detail}`);
+}
+
+// What the releases the library has not taken warn of an attachment: that it changes what the item
+// is, each as the API words it. A note, never a question: the library names the attachment to take it.
+export function warningNotes(warnings: readonly BreakingNoteOut[]): string[] {
+  return warnings.map((note) => `Warning in release ${note.release.label}: ${note.detail}`);
+}
+
+// What applying a row that breaks asks first: each note, and that it is the library's to decide.
+export function breakingConfirmation(breaking: readonly BreakingNoteOut[]): string {
+  return `${breakingNotes(breaking).join('\n\n')}\n\nApply it anyway? Your library takes this change as the repository made it.`;
 }
