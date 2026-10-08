@@ -6,8 +6,9 @@ import { AUTHGEAR_URL, SUBJECT_COOKIE } from '../../../inventory-web/tests/e2e/s
 export async function signIn(page: Page, context: BrowserContext, subject: string): Promise<void> {
   await context.addCookies([{ name: SUBJECT_COOKIE, value: subject, url: AUTHGEAR_URL }]);
   await page.goto('/');
-  await page.getByRole('button', { name: 'Log in' }).click();
-  await expect(page.locator('#account-signed-in')).toBeVisible();
+  // The header's button: the home page has a second one, and the header is on every page.
+  await page.getByRole('banner').getByRole('button', { name: 'Log in' }).click();
+  await expect(page.locator('[data-account-signed-in]')).toBeVisible();
 }
 
 /**
@@ -64,13 +65,6 @@ export function libraryCard(page: Page, name: string) {
     .filter({ has: page.getByRole('heading', { name: new RegExp(`^${name}`) }) });
 }
 
-/** A repository's card in "Your repositories" on /tenants, found by the name its heading starts with. */
-export function repositoryCard(page: Page, name: string) {
-  return page
-    .locator('#repository-list > li')
-    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${name}`) }) });
-}
-
 /** A repository, made through the API by an account holding the tenant-creator role. */
 export async function newRepository(owner: Api, name = `Repository ${crypto.randomUUID()}`) {
   return ok(owner.POST('/tenants', { body: { name, kind: 'repository' } }));
@@ -93,4 +87,63 @@ export async function makeGm(owner: Api, tenantId: string, campaignId: string, u
       params: { path: { tenant_id: tenantId, campaign_id: campaignId, user_id: userId } },
     }),
   );
+}
+
+/** Publishes a repository. */
+export async function publish(api: Api, repositoryId: string) {
+  await ok(
+    api.PUT('/tenants/{tenant_id}/published', { params: { path: { tenant_id: repositoryId } } }),
+  );
+}
+
+/** Invites a library to a repository. */
+export async function invite(api: Api, repositoryId: string, libraryId: string) {
+  await ok(
+    api.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+      params: { path: { tenant_id: repositoryId, subscriber_tenant_id: libraryId } },
+    }),
+  );
+}
+
+/** A catalog item, with a link name where one is given. */
+export async function addItem(api: Api, tenantId: string, name: string, slug?: string) {
+  return ok(
+    api.POST('/tenants/{tenant_id}/items', {
+      params: { path: { tenant_id: tenantId } },
+      body: { name, prototype_ids: [], in_public_catalog: false, ...(slug ? { slug } : {}) },
+    }),
+  );
+}
+
+/** A stat group, and the stats (whole numbers) in it. */
+export async function addStatGroup(api: Api, tenantId: string, name: string, stats: string[] = []) {
+  const group = await ok(
+    api.POST('/tenants/{tenant_id}/stat-groups', {
+      params: { path: { tenant_id: tenantId } },
+      body: { name, priority: 0, mandatory: false },
+    }),
+  );
+
+  for (const stat of stats) {
+    await ok(
+      api.POST('/tenants/{tenant_id}/stat-definitions', {
+        params: { path: { tenant_id: tenantId } },
+        body: { name: stat, stat_group_id: group.id, value_type: 'int' },
+      }),
+    );
+  }
+
+  return group;
+}
+
+/** How many items, and how many stat groups, a tenant holds. */
+export async function holdings(api: Api, tenantId: string) {
+  const items = await ok(
+    api.GET('/tenants/{tenant_id}/items', { params: { path: { tenant_id: tenantId } } }),
+  );
+  const groups = await ok(
+    api.GET('/tenants/{tenant_id}/stat-groups', { params: { path: { tenant_id: tenantId } } }),
+  );
+
+  return { items: items.total, statGroups: groups.total };
 }

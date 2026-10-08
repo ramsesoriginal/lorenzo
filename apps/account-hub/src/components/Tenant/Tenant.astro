@@ -1,5 +1,5 @@
 ---
-// One library or repository: its name and kind, and what the signed-in person can do with it.
+// One library: its name, and what the signed-in person can do with it.
 // Rendered by renderTenant. Each part of a tenant is a component, kept here as a <template>: the
 // renderer clones the ones this tenant and this person have a use for into the slots below (a slot
 // stays hidden until it has one), and the campaign's own parts into each campaign's row.
@@ -18,13 +18,11 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
 
 <article class="stack card card-body" data-tenant hidden>
   <header class="stack">
-    <p class="caption" data-status hidden></p>
     <div class="row">
       <div class="row grow">
         <h2 class="" data-name></h2>
         <code data-slug></code>
       </div>
-      <span class="badge" data-kind hidden></span>
       <span class="badge" data-role></span>
     </div>
     <div class="stack">

@@ -241,6 +241,54 @@ jobs:
             apps/inventory-web/test-results/
           retention-days: 7
 
+  # apps/account-hub's browser tests against the real API (ADR 0136, ADR 0196): the same stack as the
+  # job above, started by inventory-web's launchers. The `account-hub-real-api` suite in
+  # .github/ci-graph.toml: it runs when the hub, the API or inventory-web is affected. It runs the
+  # logged-out smoke tests and the specs that are current with the pages; the ones that went stale
+  # when the pages were reworked are left out until they are repaired (see tests/real-api/README.md).
+  account-hub-real-api:
+    name: account-hub real-api
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'account-hub-real-api')
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: lorenzo
+          POSTGRES_PASSWORD: lorenzo
+          POSTGRES_DB: lorenzo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: npm install --global corepack@latest && corepack enable
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/account-hub
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/account-hub
+      - run: pnpm run test:real-api:ci
+        working-directory: apps/account-hub
+        env:
+          E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
+          E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-account-hub
+          path: |
+            apps/account-hub/playwright-report/
+            apps/account-hub/test-results/
+          retention-days: 7
+
   # apps/cli's end-to-end tests (ADR 0137, ADR 0148): the real API on a fresh database behind a fake
   # Authgear, the CLI run against it. The `cli-e2e` suite in .github/ci-graph.toml: it runs when the CLI
   # or the API is affected. Split over three runners, each with its own Postgres; conftest.py's
@@ -278,7 +326,7 @@ jobs:
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, cli-e2e]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, account-hub-real-api, cli-e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:

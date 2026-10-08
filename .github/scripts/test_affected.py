@@ -217,8 +217,13 @@ class ThisRepository(unittest.TestCase):
         result = affected.affected(self.graph, ["apps/api/src/lorenzo_api/main.py"])
         self.assertEqual(result.tests, {"apps/api"})
         self.assertEqual(result.drift, {"apps/cli", "packages/api-client"})
-        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e"})
+        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api"})
         self.assertTrue(result.openapi_diff)
+
+    def test_a_hub_change_runs_the_hubs_real_api_suite(self) -> None:
+        result = affected.affected(self.graph, ["apps/account-hub/src/lib/shelf.ts"])
+        self.assertEqual(result.tests, {"apps/account-hub"})
+        self.assertEqual(result.suites, {"account-hub-real-api"})
 
     def test_documentation_runs_nothing(self) -> None:
         self.assertEqual(affected.affected(self.graph, ["docs/adr/0148-dependency-aware-pr-ci.md"]).tests, set())

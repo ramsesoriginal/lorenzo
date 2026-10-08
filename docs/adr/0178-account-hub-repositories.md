@@ -52,3 +52,5 @@ A second form, "Create a repository", beside "Create a library": name, optional 
 - The latent bug above is fixed for everyone who already owns a repository, in the same slice as the feature.
 - Pages that name a tenant in a sentence (the leave and sole-owner messages of [ADR 0170](0170-account-hub-readable-errors-self-service-exits-and-admin-basics.md)) pick "library" or "repository" from the tenant's kind.
 - Verified in a real browser against the real API with a library and a repository side by side, and the logged-out smoke specs stay green.
+
+*(Addendum, 2026-10-07: what this ADR put on `/tenants` for a repository (its group in the tree, the page of one, "New repository") moved to Studio, `/studio/`, in [ADR 0202](0202-studio-my-repositories.md); an address that names a repository on `/tenants` goes there. The wording, the create form and the gating above stand.)*
