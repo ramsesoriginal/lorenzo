@@ -170,6 +170,8 @@ class Shelf:
                     "slug": f"table-{n}",
                     "granted_at": NOW,
                     "granted_by": None,
+                    "copied_at": None,
+                    "synced_at": None,
                 }
                 for n in range(self.subscribers)
             ]

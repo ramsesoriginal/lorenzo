@@ -295,6 +295,8 @@ class World:
                         "slug": "table-one",
                         "granted_at": PUBLISHED,
                         "granted_by": None,
+                        "copied_at": None,
+                        "synced_at": None,
                     }
                 ]
                 if self.granted
@@ -316,6 +318,8 @@ class World:
                         "slug": "table-one",
                         "granted_at": PUBLISHED,
                         "granted_by": None,
+                        "copied_at": None,
+                        "synced_at": None,
                     },
                 )
             self.granted = False
@@ -339,6 +343,8 @@ class World:
                         "slug": "table-one",
                         "granted_at": PUBLISHED,
                         "granted_by": None,
+                        "copied_at": None,
+                        "synced_at": None,
                     }
                 ]
                 if self.core_granted
@@ -360,6 +366,8 @@ class World:
                     "slug": "table-one",
                     "granted_at": PUBLISHED,
                     "granted_by": None,
+                    "copied_at": None,
+                    "synced_at": None,
                 },
             )
 

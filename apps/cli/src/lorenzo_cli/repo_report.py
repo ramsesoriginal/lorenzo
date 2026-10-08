@@ -54,13 +54,20 @@ def print_repositories(console: Console, rows: Sequence[SubscriptionOut], tenant
 
 def print_subscribers(console: Console, rows: Sequence[SubscriberOut]) -> None:
     if not rows:
-        console.print("This repository isn't granted to any tenant yet.")
+        console.print("This repository isn't granted to any tenant yet, and nobody has copied it.")
         return
     table = Table(box=None, pad_edge=False)
-    for heading in ("slug", "name", "granted", "id"):
-        table.add_column(heading)
+    for heading in ("slug", "name", "granted", "copied", "id"):
+        table.add_column(heading, no_wrap=heading != "name")
     for row in rows:
-        table.add_row(row.slug, row.name, when(row.granted_at), str(row.tenant_id))
+        # A copy that outlived its invitation has no grant date (ADR 0204).
+        table.add_row(
+            row.slug,
+            row.name,
+            when(row.granted_at) if row.granted_at else "no longer",
+            when(row.copied_at),
+            str(row.tenant_id),
+        )
     console.print(table)
 
 
