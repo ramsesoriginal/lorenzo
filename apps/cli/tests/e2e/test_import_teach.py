@@ -121,9 +121,10 @@ def test_a_row_is_not_appended_when_the_map_already_has_that_table(
     )
 
     assert result.exit_code == 0, result.output
-    assert "Not appended" in result.output and "wouldn't be valid TOML" in result.output.replace(
-        "\n", " "
-    )
+    # The output wraps at the terminal's width, and the paths in it differ from run to run (a
+    # parallel worker's is longer), so a phrase can fall across a line break: compare it unwrapped.
+    said = " ".join(result.output.split())
+    assert "Not appended" in said and "wouldn't be valid TOML" in said
     assert map_file.read_text() == original  # never left half-edited
     assert '"legendary"' in (tmp_path / "proposed.map.toml").read_text()
 

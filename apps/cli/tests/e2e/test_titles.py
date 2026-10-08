@@ -8,7 +8,14 @@ from typing import Any
 
 import httpx
 
-from e2e.helpers import FIXTURES, SharedRepository, by_slug, make_tenant, run_cli, tenant_id
+from e2e.helpers import (
+    FIXTURES,
+    SharedRepository,
+    by_slug,
+    copy_of_seeded,
+    run_cli,
+    tenant_id,
+)
 from e2e.stack import Stack
 
 
@@ -25,10 +32,7 @@ def description_titles(detail: dict[str, Any]) -> list[str]:
 
 
 def seeded(stack: Stack, token: str, tmp_path: Path) -> str:
-    tenant = make_tenant(stack, token)
-    result = run_cli(stack, token, tmp_path, "seed", "--tenant", tenant, "--yes")
-    assert result.exit_code == 0, result.output
-    return tenant
+    return copy_of_seeded(stack, token, tmp_path)
 
 
 def import_weapons(stack: Stack, token: str, tmp_path: Path, tenant: str) -> Any:

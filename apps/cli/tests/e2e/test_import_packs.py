@@ -10,7 +10,14 @@ from typing import Any
 
 import httpx
 
-from e2e.helpers import FIXTURES, SharedRepository, by_slug, make_tenant, run_cli, tenant_id
+from e2e.helpers import (
+    FIXTURES,
+    SharedRepository,
+    by_slug,
+    copy_of_seeded,
+    run_cli,
+    tenant_id,
+)
 from e2e.stack import Stack
 from e2e.test_import import apply, plan, seeded_tenant, statuses
 
@@ -148,11 +155,7 @@ def a_party(stack: Stack, token: str, tmp_path: Path) -> tuple[str, str, dict[st
     """A play tenant with the packs imported, and someone to give them to: a campaign, the caller's
     seat in it, their character Alice, and The Company, a group Alice is the one member of.
     (A repository holds no campaigns, so nothing in it can be handed a pack.)"""
-    tenant = make_tenant(stack, token, kind="play")
-    seeded = run_cli(
-        stack, token, tmp_path, "seed", "--tenant", tenant, "--yes", "--allow-play-tenant"
-    )
-    assert seeded.exit_code == 0, seeded.output
+    tenant = copy_of_seeded(stack, token, tmp_path, kind="play")
     applied = apply(stack, token, tmp_path, tenant, PACKS, "--yes", "--allow-play-tenant")
     assert applied.exit_code == 0, applied.output
     with stack.api(token) as api:
