@@ -20,15 +20,21 @@ import type {
 } from './types';
 
 // Every repository offered to a library, and every one it has copied.
-export async function listLibraryRepositories(libraryId: string): Promise<SubscriptionOut[]> {
-  return cached(`repositories:${libraryId}`, async () =>
-    fetchAllPages(async (page) =>
-      unwrap(
-        await client.GET('/tenants/{tenant_id}/repositories', {
-          params: { path: { tenant_id: libraryId }, query: { page, size: MAX_PAGE_SIZE } },
-        }),
+export async function listLibraryRepositories(
+  libraryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<SubscriptionOut[]> {
+  return cached(
+    `repositories:${libraryId}`,
+    async () =>
+      fetchAllPages(async (page) =>
+        unwrap(
+          await client.GET('/tenants/{tenant_id}/repositories', {
+            params: { path: { tenant_id: libraryId }, query: { page, size: MAX_PAGE_SIZE } },
+          }),
+        ),
       ),
-    ),
+    { force: fresh },
   );
 }
 
@@ -161,15 +167,21 @@ export async function applyUpdates(
 
 // The libraries and repositories a repository is invited to or that copied it, as its members see
 // them (ADR 0204): when each was invited, whether and when it copied and last updated.
-export async function listSubscribers(repositoryId: string): Promise<SubscriberOut[]> {
-  return cached(`subscribers:${repositoryId}`, async () =>
-    fetchAllPages(async (page) =>
-      unwrap(
-        await client.GET('/tenants/{tenant_id}/subscribers', {
-          params: { path: { tenant_id: repositoryId }, query: { page, size: MAX_PAGE_SIZE } },
-        }),
+export async function listSubscribers(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<SubscriberOut[]> {
+  return cached(
+    `subscribers:${repositoryId}`,
+    async () =>
+      fetchAllPages(async (page) =>
+        unwrap(
+          await client.GET('/tenants/{tenant_id}/subscribers', {
+            params: { path: { tenant_id: repositoryId }, query: { page, size: MAX_PAGE_SIZE } },
+          }),
+        ),
       ),
-    ),
+    { force: fresh },
   );
 }
 
@@ -187,6 +199,26 @@ export async function stopInviting(repositoryId: string, libraryId: string): Pro
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
       params: { path: { tenant_id: repositoryId, subscriber_tenant_id: libraryId } },
+    }),
+  );
+}
+
+// Publishes a repository, or says "look now" about one that is: the members of every library with
+// an invitation are told (ADR 0118). An Owner's.
+export async function publishRepository(repositoryId: string): Promise<void> {
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/published', {
+      params: { path: { tenant_id: repositoryId } },
+    }),
+  );
+}
+
+// Back to a draft: the libraries invited to it can no longer look inside it, copy it or check for
+// updates, and what they copied stays. Nobody is told. An Owner's.
+export async function unpublishRepository(repositoryId: string): Promise<void> {
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/published', {
+      params: { path: { tenant_id: repositoryId } },
     }),
   );
 }

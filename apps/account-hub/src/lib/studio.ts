@@ -94,10 +94,6 @@ export function repositoryState(publishedAt: string | null): RepositoryState {
 export const LIVE_NOTICE =
   'Libraries that copy from this repository see your edits when they next check for updates.';
 
-// Publishing and inviting stay on the command line until their own screens exist (T2, T3).
-export const COMMAND_LINE_NOTE =
-  'Publishing a repository and inviting libraries to it are done with the lorenzo command line for now: lorenzo repo publish and lorenzo repo offer.';
-
 // Whether the controls that change who works on a repository are shown: an Owner's, as the API
 // has it (and bulk invite, which is gated the same).
 export function canChangePeople(role: TenantRole): boolean {

@@ -7,7 +7,6 @@ import { displayNameFor, isTenantAdmin } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { sayError } from '../../lib/statusLine';
 import {
-  COMMAND_LINE_NOTE,
   canChangePeople,
   LIVE_NOTICE,
   ROLE_MEANINGS,
@@ -29,6 +28,7 @@ import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
 import { bindLeaveTenant } from '../Tenant/leaveTenant';
 import { renderTenantEdit } from '../TenantEdit/renderer';
+import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createUsing } from './sections';
 
 const required = requiredIn('Repository');
@@ -62,7 +62,6 @@ export function renderRepository(
   const state = required<HTMLElement>(root, '[data-state]');
   const stateExplanation = required<HTMLElement>(root, '[data-state-explanation]');
   const live = required<HTMLElement>(root, '[data-live]');
-  const commandLine = required<HTMLElement>(root, '[data-command-line]');
   const people = required<HTMLElement>(root, '[data-people]');
   const roles = required<HTMLElement>(root, '[data-roles]');
   const membershipsSlot = required<HTMLElement>(root, '[data-memberships-slot]');
@@ -85,6 +84,8 @@ export function renderRepository(
   );
   const tabs = bindTabs(required<HTMLElement>(root, '[data-tabs]'));
   // An invitation made or stopped changes only what the Libraries using it tab shows.
+  // A publish or an unpublish changes what the page shows, so it is read again.
+  const publishControls = createPublishControls(root, hooks.onChanged);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
   const activity = createActivity(root);
@@ -114,13 +115,14 @@ export function renderRepository(
     overview.hidden = true;
     people.hidden = true;
     live.hidden = true;
+    publishControls.clear();
     using.clear();
     builtOn.clear();
     activity.clear();
     showLorenzoScript(description, '');
   }
 
-  function paintOverview(detail: TenantOut): void {
+  function paintOverview(repository: TenantSummaryOut, detail: TenantOut): void {
     const current = repositoryState(detail.published_at);
 
     state.className = current.published ? 'pill pill-success' : 'pill';
@@ -128,7 +130,7 @@ export function renderRepository(
     stateExplanation.textContent = current.explanation;
     required<HTMLElement>(live, '[data-live-text]').textContent = LIVE_NOTICE;
     live.hidden = !current.published;
-    commandLine.textContent = COMMAND_LINE_NOTE;
+    publishControls.paint(repository, current.published);
     overview.hidden = false;
   }
 
@@ -208,7 +210,7 @@ export function renderRepository(
           pictureSlot.hidden = false;
         }
 
-        paintOverview(detail);
+        paintOverview(repository, detail);
         paintPeople(
           repository,
           roster?.items.filter(
