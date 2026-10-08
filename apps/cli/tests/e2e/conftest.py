@@ -5,7 +5,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from e2e.helpers import SharedRepository, make_tenant, run_cli, tenant_id
+from e2e.helpers import SharedRepository, golden_repository
 from e2e.stack import Stack, StackUnavailableError, running_stack
 
 
@@ -49,24 +49,19 @@ def stack() -> Iterator[Stack]:
 
 
 @pytest.fixture(scope="session")
-def shared_repository(stack: Stack, tmp_path_factory: pytest.TempPathFactory) -> SharedRepository:
-    """One repository tenant with every seed layer, for the tests that only read it or plan
-    against it, so each doesn't pay for its own `lorenzo seed` (about 170 requests). Built when
-    the first such test of the session asks, so a CI shard without one never makes it.
+def shared_repository(stack: Stack) -> SharedRepository:
+    """The golden repository (helpers.golden_repository): every seed layer, published. Here for the
+    tests that only read it or plan against it, so each doesn't pay for its own seed (about 130
+    requests). Built when the first test of the session asks, so a CI shard without one never
+    makes it.
 
     The rules for a test that uses it:
     - Never write to it: no apply, seed, unseed, publish, rename, delete, copy or grant, not
-      even a command that is expected to refuse. A write left behind changes every other test.
+      even a command that is expected to refuse (the grants that a copy of it
+      needs are the one write it takes). A write left behind changes every other test.
     - Never assert on what is tenant-wide and another test could change, such as counts of
       every item; the seed's own entities and "nothing is imported yet" are fair to assert.
     - Keep files a command writes (review queue, proposed map) in the test's own `tmp_path`.
     - Use its token (`.token`), not the shared "creator": that subject already holds dozens
       of tenants, and `helpers.tenant_id` pages through all of them."""
-    subject = "shared-repository"
-    token = stack.creator_token(subject)
-    slug = make_tenant(stack, token)
-    work = tmp_path_factory.mktemp("shared-repository")
-    seeded = run_cli(stack, token, work, "seed", "--tenant", slug, "--yes")
-    assert seeded.exit_code == 0, seeded.output
-    with stack.api(token) as api:
-        return SharedRepository(stack, subject, slug, tenant_id(api, slug))
+    return golden_repository(stack)

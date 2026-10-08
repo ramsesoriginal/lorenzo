@@ -5,15 +5,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from e2e.helpers import FIXTURES, make_tenant, run_cli, tenant_id
+from e2e.helpers import FIXTURES, copy_of_seeded, run_cli, tenant_id
 from e2e.stack import Stack
 from e2e.test_import_packs import a_party
 
 
 def test_apply_json_is_one_document_and_never_asks(stack: Stack, tmp_path: Path) -> None:
     token = stack.creator_token()
-    tenant = make_tenant(stack, token)
-    assert run_cli(stack, token, tmp_path, "seed", "--tenant", tenant, "--yes").exit_code == 0
+    tenant = copy_of_seeded(stack, token, tmp_path)
     apply = [
         "apply", "--tenant", tenant, str(FIXTURES / "gear.js"),
         "--review-queue", str(tmp_path / "review-queue.json"),

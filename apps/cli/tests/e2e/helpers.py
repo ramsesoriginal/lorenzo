@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -118,3 +119,52 @@ class SharedRepository:
     @property
     def token(self) -> str:
         return self.stack.creator_token(self.subject)
+
+
+_GOLDEN: dict[str, SharedRepository] = {}
+
+
+def golden_repository(stack: Stack) -> SharedRepository:
+    """The session's one seeded repository, published, built the first time something asks.
+
+    It is what a test's tenant starts from (`copy_of_seeded`) and what the tests that only read
+    or plan look at (the `shared_repository` fixture). Nothing writes to it but the grants a
+    copy needs."""
+    found = _GOLDEN.get(stack.api_url)
+    if found is None:
+        subject = "shared-repository"
+        token = stack.creator_token(subject)
+        slug = make_tenant(stack, token)
+        work = Path(tempfile.mkdtemp(prefix="golden-"))
+        for args in (("seed", "--tenant", slug, "--yes"), ("repo", "publish", "--tenant", slug)):
+            built = run_cli(stack, token, work, *args)
+            assert built.exit_code == 0, built.output
+        with stack.api(token) as api:
+            found = SharedRepository(stack, subject, slug, tenant_id(api, slug))
+        _GOLDEN[stack.api_url] = found
+    return found
+
+
+def copy_of_seeded(stack: Stack, token: str, tmp_path: Path, kind: str = "repository") -> str:
+    """A new tenant of the test's owner that starts as a copy of the seeded repository: the way a
+    table gets the seed (ADR 0183), in a few requests where `lorenzo seed` makes about 130. For
+    the tests of what a tenant does with a seed it has, not of the seed itself."""
+    golden = golden_repository(stack)
+    slug = f"e2e-{uuid.uuid4().hex[:10]}"
+    with stack.api(token) as api:
+        response = api.post("/tenants", json={"name": slug, "slug": slug, "kind": kind})
+    assert response.status_code == 201, response.text
+    granted = run_cli(
+        stack,
+        golden.token,
+        tmp_path,
+        "repo",
+        "grant",
+        response.json()["id"],
+        "--tenant",
+        golden.slug,
+    )
+    assert granted.exit_code == 0, granted.output
+    copied = run_cli(stack, token, tmp_path, "repo", "copy", golden.slug, "--tenant", slug, "--yes")
+    assert copied.exit_code == 0, copied.output
+    return slug
