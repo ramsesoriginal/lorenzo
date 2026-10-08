@@ -9,10 +9,14 @@ directly-testable domain-rule module with no HTTP-specific concerns.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Collection
 
-from sqlalchemy import CTE, any_, func, select
+from sqlalchemy import CTE, ColumnElement, any_, func, literal, select
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from lorenzo_api.models import CharacterPlayer, Containment, GroupMember, Ownership, Player
 
@@ -21,6 +25,16 @@ from lorenzo_api.models import CharacterPlayer, Containment, GroupMember, Owners
 # _MAX_CONTAINMENT_DEPTH, moved here so both this module's reachability walk
 # and that router's own container-filtered listing share one definition.
 _MAX_CONTAINMENT_DEPTH = 50
+
+
+def entity_id_among(
+    column: InstrumentedAttribute[uuid.UUID] | ColumnElement[uuid.UUID], ids: Collection[uuid.UUID]
+) -> ColumnElement[bool]:
+    """`column IN ids`, with ids bound as one array parameter. A reach can be a
+    whole library (ADR 0200: a copy puts thousands of entries in a GM's), and
+    `IN` binds one parameter per id, which the driver caps at 32767.
+    """
+    return column == any_(literal(list(ids), ARRAY(PG_UUID(as_uuid=True))))
 
 
 async def controlled_character_entity_ids(
@@ -118,7 +132,7 @@ def recursive_descendants_cte(root_entity_ids: frozenset[uuid.UUID], tenant_id: 
         Containment.child_entity_id.label("child_entity_id"),
         pg_array([Containment.parent_entity_id, Containment.child_entity_id]).label("path"),
     ).where(
-        Containment.parent_entity_id.in_(root_entity_ids),
+        entity_id_among(Containment.parent_entity_id, root_entity_ids),
         Containment.tenant_id == tenant_id,
     )
     cte = base.cte("entity_access_contained", recursive=True)
@@ -147,7 +161,7 @@ def _containing_ancestors_cte(entity_ids: frozenset[uuid.UUID], tenant_id: uuid.
         Containment.parent_entity_id.label("parent_entity_id"),
         pg_array([Containment.child_entity_id, Containment.parent_entity_id]).label("path"),
     ).where(
-        Containment.child_entity_id.in_(entity_ids),
+        entity_id_among(Containment.child_entity_id, entity_ids),
         Containment.tenant_id == tenant_id,
     )
     cte = base.cte("entity_access_containers", recursive=True)
@@ -276,7 +290,7 @@ async def reachable_entity_ids(
         (
             await session.execute(
                 select(Ownership.owned_entity_id).where(
-                    Ownership.owner_character_id.in_(root_entity_ids),
+                    entity_id_among(Ownership.owner_character_id, root_entity_ids),
                     Ownership.tenant_id == tenant_id,
                 )
             )
