@@ -12,12 +12,18 @@ import {
   inviteStatus,
   inviteUrl,
   joinedMessage,
+  joinedMessageFor,
   LINK_SHOWN_ONCE_NOTICE,
   linkKindLabel,
+  NO_SHARE_TARGET_MESSAGE,
+  offerFor,
+  PASTE_ERROR,
   parseMaxUses,
+  pastedInvite,
   readInviteToken,
   rememberInviteToken,
   STATUS_LABELS,
+  shareTargets,
   storedInviteToken,
   usesLabel,
 } from '../../src/lib/inviteLink';
@@ -281,5 +287,107 @@ describe('GM links (ADR 0177)', () => {
     expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain('works once');
     expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain('becomes a GM');
     expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain("won't be shown again");
+  });
+});
+
+describe('the other kinds of link (ADR 0211)', () => {
+  const library = {
+    kind: 'tenant_role',
+    name: 'A table',
+    tenant_kind: 'play',
+    role: 'author',
+  } as const;
+  const repository = {
+    kind: 'tenant_role',
+    name: 'Faerûn',
+    tenant_kind: 'repository',
+    role: 'orga',
+  } as const;
+  const sharing = {
+    kind: 'library_access',
+    name: 'Faerûn',
+    tenant_kind: 'repository',
+    role: null,
+  } as const;
+
+  it('offers a role in a library or a repository in the three names, never the API’s word', () => {
+    expect(offerFor(library)).toEqual({
+      sentence: "You've been invited to join the library A table as an Author.",
+      actionLabel: 'Join as an Author',
+    });
+    expect(offerFor(repository)).toEqual({
+      sentence: "You've been invited to join the repository Faerûn as an Organizer.",
+      actionLabel: 'Join as an Organizer',
+    });
+    expect(offerFor(repository).sentence).not.toMatch(/orga\b/);
+  });
+
+  it('offers a repository to share, and asks which library, without a word of tenant', () => {
+    const { sentence, actionLabel } = offerFor(sharing);
+    expect(sentence).toContain('The repository Faerûn is being shared with a library of yours.');
+    expect(actionLabel).toBe('Share');
+    expect(`${sentence} ${NO_SHARE_TARGET_MESSAGE}`).not.toMatch(/tenant|grant|subscri/i);
+  });
+
+  it('keeps a campaign link as it was', () => {
+    expect(offerFor({ kind: 'campaign', name: 'Zorro', tenant_kind: null, role: 'gm' })).toEqual({
+      sentence: "You've been invited to run this campaign as a GM.",
+      actionLabel: 'Join as a GM',
+    });
+  });
+
+  it('says what happened to a person who used one, and that a link changes no role', () => {
+    expect(joinedMessageFor(library, { already_joined: false, role: 'author' })).toBe(
+      "You're in. A table lists you as an Author.",
+    );
+    expect(joinedMessageFor(library, { already_joined: true, role: 'author' })).toBe(
+      "You already belong to A table. A link doesn't change anyone's role.",
+    );
+    expect(joinedMessageFor(sharing, { already_joined: false, role: null }, 'A table')).toBe(
+      'Faerûn is now shared with A table.',
+    );
+    expect(joinedMessageFor(sharing, { already_joined: true, role: null }, 'A table')).toBe(
+      'Faerûn is already shared with A table.',
+    );
+    expect(
+      joinedMessageFor(
+        { kind: 'campaign', name: 'Zorro', tenant_kind: null, role: 'player' },
+        { already_joined: false, role: 'player' },
+      ),
+    ).toBe("You're in. Zorro lists you as a player.");
+  });
+
+  it('labels every link in the list in the three names', () => {
+    expect(linkKindLabel('author')).toBe('Author link');
+    expect(linkKindLabel('orga')).toBe('Organizer link');
+    expect(linkKindLabel(null)).toBe('Library link');
+  });
+
+  it('offers to share with the libraries and repositories you own, and no other', () => {
+    const managed = {
+      tenants: [
+        { tenant_id: 'a', name: 'Zed table', role: 'owner', kind: 'play' },
+        { tenant_id: 'b', name: 'Run by me', role: 'orga', kind: 'play' },
+        { tenant_id: 'c', name: 'Bridge', role: 'owner', kind: 'repository' },
+        { tenant_id: 'd', name: 'Written by me', role: 'author', kind: 'repository' },
+        { tenant_id: 'e', name: 'GM only', role: null, kind: 'play' },
+      ],
+    } as const;
+    expect(shareTargets(managed)).toEqual([
+      { id: 'c', name: 'Bridge', label: 'Bridge (repository)' },
+      { id: 'a', name: 'Zed table', label: 'Zed table (library)' },
+    ]);
+    expect(shareTargets({ tenants: [] })).toEqual([]);
+  });
+
+  it('opens what was pasted, a whole link or only its code, and says so when it is neither', () => {
+    expect(pastedInvite(`https://hub.example/join/#${TOKEN}`, 'https://other.example')).toEqual({
+      href: `https://other.example/join/#${TOKEN}`,
+    });
+    expect(pastedInvite(`  ${TOKEN}  `, 'https://hub.example')).toEqual({
+      href: `https://hub.example/join/#${TOKEN}`,
+    });
+    expect(pastedInvite('hello', 'https://hub.example')).toEqual({ error: PASTE_ERROR });
+    expect(PASTE_ERROR).not.toMatch(/GM/);
   });
 });

@@ -1389,9 +1389,12 @@ export interface paths {
         };
         /**
          * Preview Invite
-         * @description Unauthenticated - the campaign's name and picture URL, so a landing
-         *     page can say what the visitor is being invited to (ADR 0092) - as a
-         *     player, or as a GM (ADR 0177). Does an indexed read and never writes.
+         * @description Unauthenticated - what the visitor is about to be asked, so a landing page can say so
+         *     before they log in (ADR 0092, 0211): for a campaign link the campaign's name and picture
+         *     URL, as a player or as a GM (ADR 0177); for a role link the library's or repository's name
+         *     and picture and the role, Author or Organizer; for a library link the repository's name and
+         *     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
+         *     an indexed read and never writes, and a dead link is the same 404 whatever the kind.
          */
         get: operations["preview_invite"];
         put?: never;
@@ -1419,9 +1422,65 @@ export interface paths {
          *     membership. A GM link (ADR 0177) gives a GM row instead, and no player
          *     row. Idempotent: someone who already holds the role gets `200` and no
          *     second seat, no use consumed. `201` the first time.
+         *
+         *     The other kinds (ADR 0211): a role link makes the caller an Author or an Organizer of its
+         *     library or repository, and never changes a role they already hold; a library-access link
+         *     grants its repository to the library named in the body.
          */
         post: operations["redeem_invite"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenant Invites
+         * @description This library's or repository's role and library links, newest first, with their use
+         *     counts and never a token. An Owner's, like making them. A campaign's links are listed
+         *     with the campaign.
+         */
+        get: operations["list_tenant_invites"];
+        put?: never;
+        /**
+         * Create Tenant Invite
+         * @description The only response that ever contains the token, shown once. An Owner's alone. A role
+         *     link makes an Author or an Organizer, never an Owner; a library link, for a repository
+         *     (`409` for a library), grants it to a library its redeemer owns. Always ends and is always
+         *     capped: single use unless an Author or library link says more, up to a ceiling; the
+         *     expiry defaults to 3 days for a role link and 7 for a library link, and may not be longer
+         *     than 7 and 30 (ADR 0211).
+         */
+        post: operations["create_tenant_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/invites/{invite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Tenant Invite
+         * @description Instant, and idempotent: revoking an already-revoked link is a no-op (and writes no
+         *     second activity entry). People who already used it keep what it gave them.
+         */
+        delete: operations["revoke_tenant_invite"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5206,7 +5265,8 @@ export interface components {
          *
          *     `role` (ADR 0177) is `player` unless said otherwise. A `gm` link is
          *     single use - `max_uses` omitted or 1 - and its `expires_at` is at most 7
-         *     days out, which the route checks.
+         *     days out, which the route checks. A campaign's links make a player or a GM, and
+         *     nothing else (ADR 0211).
          */
         InviteCreate: {
             /**
@@ -5230,12 +5290,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
-            role: components["schemas"]["InviteRole"];
+            kind: components["schemas"]["InviteKind"];
+            /** Campaign Id */
+            campaign_id: string | null;
+            role: components["schemas"]["InviteRole"] | null;
             /** Created By */
             created_by: string | null;
             /**
@@ -5260,9 +5318,19 @@ export interface components {
             token: string;
         };
         /**
+         * InviteKind
+         * @description What redeeming an invite does (ADR 0211). `campaign` is every link ADR 0092 and 0177
+         *     defined; `tenant_role` makes a membership of its tenant, a library or a repository (ADR
+         *     0210's Author, or an Organizer); `library_access` grants its repository to a library the
+         *     redeemer owns. Never an Owner, by any kind.
+         * @enum {string}
+         */
+        InviteKind: "campaign" | "tenant_role" | "library_access";
+        /**
          * InviteOut
          * @description An invite's metadata - never its token. `is_active` folds revocation,
-         *     expiry and exhaustion into one flag for a management UI.
+         *     expiry and exhaustion into one flag for a management UI. `campaign_id` is null for a
+         *     role or a library link, and `role` for a library link (ADR 0211).
          */
         InviteOut: {
             /**
@@ -5270,12 +5338,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
-            role: components["schemas"]["InviteRole"];
+            kind: components["schemas"]["InviteKind"];
+            /** Campaign Id */
+            campaign_id: string | null;
+            role: components["schemas"]["InviteRole"] | null;
             /** Created By */
             created_by: string | null;
             /**
@@ -5299,51 +5365,70 @@ export interface components {
         };
         /**
          * InvitePreviewOut
-         * @description GET /invites/{token} - unauthenticated. The campaign's name and, if
-         *     it has one, its picture URL. Nothing a holder of a leaked link couldn't
-         *     already learn: no tenant name, no roster. `role` (ADR 0177) says what
-         *     redeeming it makes them, so the page can ask before they log in: it is
-         *     not a secret from someone holding the link.
+         * @description GET /invites/{token} - unauthenticated. What the visitor is about to be asked and
+         *     nothing more: the `kind`, the `name` of what it is for (a campaign, a library or a
+         *     repository, the one a library link shares), its picture URL if it has one, and what
+         *     redeeming makes them (`role`, null for a library link). `campaign_name` is the campaign's
+         *     name for a campaign link, as before, and null for the other kinds. `tenant_kind` says
+         *     whether `name` is a library (`play`) or a repository, null for a campaign. No tenant name
+         *     of a campaign, no roster, nothing a holder of a leaked link couldn't already learn (ADR
+         *     0092, 0211).
          */
         InvitePreviewOut: {
+            kind: components["schemas"]["InviteKind"];
+            /** Name */
+            name: string;
             /** Campaign Name */
-            campaign_name: string;
+            campaign_name: string | null;
+            tenant_kind: components["schemas"]["TenantKind"] | null;
             /** Picture Url */
             picture_url: string | null;
-            role: components["schemas"]["InviteRole"];
+            role: components["schemas"]["InviteRole"] | null;
+        };
+        /**
+         * InviteRedeemIn
+         * @description POST /invites/{token}/redeem. The body is for a library-access link only: the library
+         *     (or, for a bridge, the repository) to share with, which the caller must own. It travels
+         *     here and never in the path, with the token (ADR 0211).
+         */
+        InviteRedeemIn: {
+            /** Library Id */
+            library_id?: string | null;
         };
         /**
          * InviteRedeemOut
          * @description POST /invites/{token}/redeem. `already_joined` is true (and the
-         *     response `200`, not `201`) when the caller already held this role in this
-         *     campaign - no second seat, no use consumed. `player_id` is null for a GM
-         *     link (ADR 0177): redeeming it makes a GM, not a player.
+         *     response `200`, not `201`) when the caller already held what the link gives - the role
+         *     in the campaign, any role in the tenant, the grant - no second seat, no use consumed.
+         *     `player_id` is null for every kind but a player link. `campaign_id` is null for a role or
+         *     a library link, and `role` for a library link. `library_id` is the library a library link
+         *     shared its repository with (ADR 0211).
          */
         InviteRedeemOut: {
+            kind: components["schemas"]["InviteKind"];
             /**
              * Tenant Id
              * Format: uuid
              */
             tenant_id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
-            role: components["schemas"]["InviteRole"];
+            /** Campaign Id */
+            campaign_id: string | null;
+            role: components["schemas"]["InviteRole"] | null;
             /** Player Id */
             player_id: string | null;
+            /** Library Id */
+            library_id?: string | null;
             /** Already Joined */
             already_joined: boolean;
         };
         /**
          * InviteRole
-         * @description What redeeming an invite makes someone in its campaign (ADR 0177).
-         *     `player` is every link ADR 0092 defined; `gm` is the one narrow
-         *     exception, single-use and short-lived.
+         * @description What redeeming an invite makes someone. `player` is every link ADR 0092 defined and
+         *     `gm` the one narrow exception in a campaign (ADR 0177); `author` and `orga` are what a
+         *     `tenant_role` link makes in its tenant (ADR 0211). A `library_access` link has no role.
          * @enum {string}
          */
-        InviteRole: "player" | "gm";
+        InviteRole: "player" | "gm" | "author" | "orga";
         /**
          * ItemCreate
          * @description POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
@@ -7643,6 +7728,25 @@ export interface components {
             /** Description */
             description?: string | null;
             kind?: components["schemas"]["TenantKind"] | null;
+        };
+        /**
+         * TenantInviteCreate
+         * @description POST /tenants/{id}/invites - an Owner's link for their library or repository (ADR 0211).
+         *
+         *     `kind` is `tenant_role`, which makes an Author or an Organizer of the tenant and takes a
+         *     `role`, or `library_access`, which grants a repository to a library the redeemer owns and
+         *     takes none. Never an Owner. Every one ends and is capped: `expires_at` left out is the
+         *     default (3 days for a role link, 7 for a library link) and at most 7 days out for a role
+         *     link, 30 for a library link; `max_uses` left out is 1, an Author link or a library link
+         *     may be raised to a small ceiling, and an Organizer link is single use.
+         */
+        TenantInviteCreate: {
+            kind: components["schemas"]["InviteKind"];
+            role?: components["schemas"]["InviteRole"] | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Max Uses */
+            max_uses?: number | null;
         };
         /**
          * TenantKind
@@ -12570,7 +12674,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InviteRedeemIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -12580,6 +12688,207 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InviteRedeemOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_tenant_invites: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_InviteOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_tenant_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantInviteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteCreatedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    revoke_tenant_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -104,6 +104,10 @@ OWNER = {
     ("PUT", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", REPOSITORY),
+    # An Owner's invite links (ADR 0211): made, listed and revoked.
+    ("POST", T + "/invites"),
+    ("GET", T + "/invites"),
+    ("DELETE", T + "/invites/{invite_id}"),
 }
 
 
@@ -165,6 +169,7 @@ _BODIES: dict[tuple[str, str], object] = {
     ("POST", T + "/memberships/bulk"): [{"user_id": str(uuid.uuid4()), "role": "author"}],
     ("PATCH", T + "/memberships/{user_id}"): {"role": "author"},
     ("PATCH", T + "/releases/{release_id}"): {"notes": "x"},
+    ("POST", T + "/invites"): {"kind": "tenant_role", "role": "author"},
 }
 
 
@@ -174,6 +179,7 @@ def _url(path: str, world: World) -> str:
         "{subscriber_tenant_id}": uuid.uuid4(),
         "{repository_id}": uuid.uuid4(),
         "{release_id}": uuid.uuid4(),
+        "{invite_id}": uuid.uuid4(),
         "{user_id}": uuid.uuid4(),
     }
     for placeholder, value in ids.items():

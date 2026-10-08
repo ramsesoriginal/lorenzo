@@ -25,6 +25,9 @@ __all__ = [
     "CampaignNotEmptyError",
     "CampaignNotFoundError",
     "InvalidInviteExpiryError",
+    "InvalidInviteLibraryError",
+    "InviteLibraryRequiredError",
+    "InviteManagementForbiddenError",
     "InviteNotFoundError",
     "CharacterManagementForbiddenError",
     "CharacterNotFoundError",
@@ -780,6 +783,28 @@ class InvalidInviteExpiryError(UnprocessableProblem):
     """
 
     title = "Invalid invite expiry"
+
+
+class InviteManagementForbiddenError(ForbiddenProblem):
+    """Making, listing or revoking the invite links of a library or repository (ADR 0211) is an
+    Owner's alone: adding a person or a grant already is. 403, not 404: the caller is a member.
+    """
+
+    title = "Only an Owner can make invite links"
+
+
+class InviteLibraryRequiredError(UnprocessableProblem):
+    """Redeeming a library-access link needs the library to share the repository with, in the
+    request body (ADR 0211) - never in the path with the token."""
+
+    title = "Say which library to share with"
+
+
+class InvalidInviteLibraryError(UnprocessableProblem):
+    """The library given for a library-access link is not one the caller owns. The same answer
+    for one that does not exist, so it tells no one which libraries are there (ADR 0211)."""
+
+    title = "Not a library you own"
 
 
 class TooManyRequestsError(StatusProblem):

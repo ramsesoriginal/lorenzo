@@ -163,11 +163,39 @@ export const LINK_SHOWN_ONCE_NOTICE =
 export const GM_LINK_SHOWN_ONCE_NOTICE =
   "This link won't be shown again, and it works once: whoever opens it first becomes a GM of this campaign. Send it only to the person who should run it, or revoke it.";
 
-// What a link makes someone (ADR 0177): `player` for every link before it.
-export type InviteRole = 'player' | 'gm';
+// What a link makes someone: `player` for every link before ADR 0177, `gm`, and (ADR 0211) an
+// `author` or an `orga` of a library or repository. A library-access link makes no one anything.
+export type InviteRole = 'player' | 'gm' | 'author' | 'orga';
 
-export function linkKindLabel(role: InviteRole): 'Player link' | 'GM link' {
-  return role === 'gm' ? 'GM link' : 'Player link';
+export type InviteKind = 'campaign' | 'tenant_role' | 'library_access';
+
+export function linkKindLabel(
+  role: InviteRole | null,
+): 'Player link' | 'GM link' | 'Author link' | 'Organizer link' | 'Library link' {
+  switch (role) {
+    case 'gm':
+      return 'GM link';
+    case 'author':
+      return 'Author link';
+    case 'orga':
+      return 'Organizer link';
+    case null:
+      return 'Library link';
+    default:
+      return 'Player link';
+  }
+}
+
+// A role with its article, as a sentence wants it (ADR 0194's names: never `orga`).
+const ROLE_PHRASES = {
+  player: 'a player',
+  gm: 'a GM',
+  author: 'an Author',
+  orga: 'an Organizer',
+} as const satisfies Record<InviteRole, string>;
+
+export function rolePhrase(role: InviteRole): string {
+  return ROLE_PHRASES[role];
 }
 
 // What the /join page says it offers, and what its button says.
@@ -183,6 +211,44 @@ export function inviteOffer(role: InviteRole): { sentence: string; joinLabel: st
       };
 }
 
+// What GET /invites/{token} says, which is all a visitor knows before they accept.
+export interface InvitePreview {
+  kind: InviteKind;
+  name: string;
+  tenant_kind: 'play' | 'repository' | null;
+  role: InviteRole | null;
+}
+
+function placeWord(tenantKind: InvitePreview['tenant_kind']): 'library' | 'repository' {
+  return tenantKind === 'repository' ? 'repository' : 'library';
+}
+
+// The sentence under the name, and the button: a campaign link as ever, a role link as an offer of
+// a role in a library or repository, a library link as a repository being shared with a library
+// of the visitor's (ADR 0211).
+export function offerFor(preview: InvitePreview): { sentence: string; actionLabel: string } {
+  if (preview.kind === 'library_access') {
+    return {
+      sentence: `The repository ${preview.name} is being shared with a library of yours. Choose which one, and it is yours to browse and copy.`,
+      actionLabel: 'Share',
+    };
+  }
+
+  if (preview.kind === 'tenant_role' && preview.role !== null) {
+    const noun = placeWord(preview.tenant_kind);
+    const phrase = rolePhrase(preview.role);
+
+    return {
+      sentence: `You've been invited to join the ${noun} ${preview.name} as ${phrase}.`,
+      actionLabel: preview.role === 'orga' ? 'Join as an Organizer' : 'Join as an Author',
+    };
+  }
+
+  const campaign = inviteOffer(preview.role ?? 'player');
+
+  return { sentence: campaign.sentence, actionLabel: campaign.joinLabel };
+}
+
 export function joinedMessage(
   campaignName: string,
   alreadyJoined: boolean,
@@ -192,6 +258,72 @@ export function joinedMessage(
   return alreadyJoined
     ? `You're already ${noun} ${role === 'gm' ? 'of' : 'in'} ${campaignName}.`
     : `You're in. ${campaignName} lists you as ${noun}.`;
+}
+
+// What the page says once a link was used (or had already been): `shareTargetName` is the library the
+// repository was shared with.
+export function joinedMessageFor(
+  preview: InvitePreview,
+  joined: { already_joined: boolean; role: InviteRole | null },
+  shareTargetName = '',
+): string {
+  if (preview.kind === 'library_access') {
+    return joined.already_joined
+      ? `${preview.name} is already shared with ${shareTargetName}.`
+      : `${preview.name} is now shared with ${shareTargetName}.`;
+  }
+
+  if (preview.kind === 'tenant_role') {
+    // A link never changes a role someone already has, so it says only that they belong.
+    return joined.already_joined
+      ? `You already belong to ${preview.name}. A link doesn't change anyone's role.`
+      : `You're in. ${preview.name} lists you as ${rolePhrase(joined.role ?? 'author')}.`;
+  }
+
+  return joinedMessage(preview.name, joined.already_joined, joined.role ?? 'player');
+}
+
+// --- Choosing the library to share with ----------------------------------------------------
+
+export interface ShareTarget {
+  id: string;
+  name: string;
+  // With what it is, for a list that holds both: "Faerûn (repository)".
+  label: string;
+}
+
+// What a person may share a repository with: the libraries they are an Owner of, and the
+// repositories too, since a bridge is built on another (ADR 0211). Any other role is not enough.
+export function shareTargets(managed: {
+  tenants: readonly {
+    tenant_id: string;
+    name: string;
+    role: 'owner' | 'orga' | 'author' | null;
+    kind: 'play' | 'repository';
+  }[];
+}): ShareTarget[] {
+  return managed.tenants
+    .filter((tenant) => tenant.role === 'owner')
+    .map((tenant) => ({
+      id: tenant.tenant_id,
+      name: tenant.name,
+      label: `${tenant.name} (${placeWord(tenant.kind)})`,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export const NO_SHARE_TARGET_MESSAGE =
+  "You aren't an Owner of a library yet, so there is nothing to share this repository with.";
+
+// Pasting what someone sent: the whole link or just its code (the token is the code). Returns
+// where to go, or what to say.
+export const PASTE_ERROR =
+  "That doesn't look like an invite link or code. Check it against what you were sent.";
+
+export function pastedInvite(pasted: string, origin: string): { href: string } | { error: string } {
+  const token = inviteTokenFrom(pasted);
+
+  return token === null ? { error: PASTE_ERROR } : { href: inviteUrl(origin, token) };
 }
 
 export function revokeConfirmation(): string {

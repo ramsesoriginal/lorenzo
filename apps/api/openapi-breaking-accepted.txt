@@ -339,3 +339,14 @@ PUT /tenants/{tenant_id}/subscribers/{subscriber_tenant_id} response property `g
 # ADR 0210: a membership role can be `author`, which the two lists that report it can now return.
 GET /me/managed added the new `author` enum value to the `tenants/items/role/anyOf[subschema #1]/` response property for the response status `200`
 GET /tenants added the new `author` enum value to the `items/items/role` response property for the response status `200`
+
+# ADR 0211: one invite table with kinds. A link not made for a campaign has no campaign, and a
+# library-access link has no role, so the two become nullable in what a link reports.
+GET /invites/{token} response property `campaign_name` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+GET /invites/{token} response property `role` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+POST /invites/{token}/redeem response property `campaign_id` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
+POST /invites/{token}/redeem response property `role` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
+GET /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `items/items/campaign_id` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+GET /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `items/items/role` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+POST /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `campaign_id` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
+POST /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `role` list-of-types was widened by adding types `null` to media type `application/json` of response `201`

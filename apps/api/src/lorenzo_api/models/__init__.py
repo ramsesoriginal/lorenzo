@@ -2,7 +2,6 @@ from lorenzo_api.models.audit_log import AuditLog
 from lorenzo_api.models.being import Being
 from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.campaign_gm import CampaignGm
-from lorenzo_api.models.campaign_invite import CampaignInvite, InviteRole
 from lorenzo_api.models.campaign_profile_picture import CampaignProfilePicture
 from lorenzo_api.models.character import Character
 from lorenzo_api.models.character_player import CharacterPlayer
@@ -28,6 +27,7 @@ from lorenzo_api.models.entity_stat_group import EntityStatGroup
 from lorenzo_api.models.group_member import GroupMember
 from lorenzo_api.models.information import Information
 from lorenzo_api.models.information_type import SINGLETON_INFORMATION_TYPES, InformationType
+from lorenzo_api.models.invite import Invite, InviteKind, InviteRole
 from lorenzo_api.models.item import Item
 from lorenzo_api.models.item_instance import ItemInstance
 from lorenzo_api.models.knowledge import Knowledge
@@ -69,8 +69,6 @@ __all__ = [
     "Being",
     "Campaign",
     "CampaignGm",
-    "CampaignInvite",
-    "InviteRole",
     "CampaignProfilePicture",
     "Character",
     "CharacterPlayer",
@@ -94,6 +92,9 @@ __all__ = [
     "GroupMember",
     "Information",
     "InformationType",
+    "Invite",
+    "InviteKind",
+    "InviteRole",
     "SINGLETON_INFORMATION_TYPES",
     "Item",
     "ItemInstance",

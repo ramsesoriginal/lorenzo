@@ -1,4 +1,4 @@
-"""Keeps campaign invite tokens out of logs and traces - ADR 0092.
+"""Keeps invite tokens, of every kind, out of logs and traces - ADR 0092, ADR 0211.
 
 A token is a bearer credential and it lives in a URL *path*
 (`GET /invites/{token}`, `POST /invites/{token}/redeem`), which is exactly
@@ -15,11 +15,14 @@ from typing import Any
 from opentelemetry.trace import Span
 from structlog.types import EventDict, WrappedLogger
 
-# The segment after a root-level `/invites/`. The lookbehind exempts the
-# management path `.../campaigns/{campaign_id}/invites/{invite_id}`, whose
-# last segment is an id, not a secret - scrubbing it would make an audit log
-# useless. (Both lookbehind pieces are fixed-width, which `re` requires.)
-_INVITE_TOKEN_PATTERN = re.compile(r"(?<!/campaigns/[0-9a-fA-F-]{36})/invites/[^/\s?#\"']+")
+# The segment after a root-level `/invites/`. The lookbehinds exempt the management paths
+# `.../campaigns/{campaign_id}/invites/{invite_id}` and (ADR 0211)
+# `.../tenants/{tenant_id}/invites/{invite_id}`, whose last segment is an id, not a secret -
+# scrubbing it would make an audit log useless. (Every lookbehind piece is fixed-width, which
+# `re` requires.)
+_INVITE_TOKEN_PATTERN = re.compile(
+    r"(?<!/campaigns/[0-9a-fA-F-]{36})(?<!/tenants/[0-9a-fA-F-]{36})/invites/[^/\s?#\"']+"
+)
 
 REDACTED = "/invites/[redacted]"
 

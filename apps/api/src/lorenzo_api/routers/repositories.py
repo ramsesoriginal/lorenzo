@@ -61,7 +61,6 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
-from lorenzo_api.notifications import create_tenant_admins_notification
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -74,6 +73,7 @@ from lorenzo_api.repository_copying import (
     plan_copy,
 )
 from lorenzo_api.repository_digest import BreakingNote, Row, assess, replace_stored_rows
+from lorenzo_api.repository_grants import grant_repository_access, notify_tenant_admins
 from lorenzo_api.repository_releases import (
     ReleaseRef,
     latest_release,
@@ -164,30 +164,6 @@ async def _require_repository(session: SessionDep, tenant_id: uuid.UUID) -> Tena
     return tenant
 
 
-async def _notify_members_of(
-    session: SessionDep,
-    *,
-    recipient_tenant_ids: Sequence[uuid.UUID],
-    current_tenant_id: uuid.UUID,
-    type: str,
-    title: str,
-    body: str,
-    user: CurrentUser,
-) -> None:
-    """Tells each tenant's administrators, reading each one's Membership under its
-    own RLS context, then puts the current tenant's context back. Flushes
-    first: anything still pending belongs to the current tenant, and would
-    fail RLS if autoflush wrote it under another tenant's context.
-    """
-    await session.flush()
-    for recipient in recipient_tenant_ids:
-        await set_tenant_rls_context(session, recipient)
-        await create_tenant_admins_notification(
-            session, tenant_id=recipient, type=type, title=title, body=body, created_by=user.id
-        )
-    await set_tenant_rls_context(session, current_tenant_id)
-
-
 # --- The repository's own side ----------------------------------------------
 
 
@@ -262,14 +238,14 @@ async def publish_repository(
     title, notice = release_notice(
         repository_name=tenant.name, release=release, first=not was_published
     )
-    await _notify_members_of(
+    await notify_tenant_admins(
         session,
         recipient_tenant_ids=subscribers,
         current_tenant_id=tenant_id,
         type="repository_updated" if was_published else "repository_published",
         title=title,
         body=notice,
-        user=user,
+        created_by=user.id,
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -562,33 +538,8 @@ async def grant_repository(
             subscriber, subscription, held, await _releases_taken_by(session, tenant_id, [held])
         )
 
-    session.add(
-        RepositorySubscription(
-            repository_tenant_id=tenant_id,
-            subscriber_tenant_id=subscriber_tenant_id,
-            created_by=user.id,
-        )
-    )
-    await record_activity(
-        session,
-        tenant_id=tenant_id,
-        actor_id=user.id,
-        action="repository.granted",
-        target_type="tenant",
-        target_id=subscriber_tenant_id,
-    )
-    await _notify_members_of(
-        session,
-        recipient_tenant_ids=[subscriber_tenant_id],
-        current_tenant_id=tenant_id,
-        type="repository_granted",
-        title=f"{repository.name} is available to {subscriber.name}",
-        body=(
-            "You can browse it and copy it into your tenant."
-            if repository.published_at is not None
-            else "It isn't published yet. You'll be told when it is."
-        ),
-        user=user,
+    await grant_repository_access(
+        session, repository=repository, subscriber=subscriber, granted_by=user.id
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -629,7 +580,7 @@ async def revoke_repository(
         target_type="tenant",
         target_id=subscriber_tenant_id,
     )
-    await _notify_members_of(
+    await notify_tenant_admins(
         session,
         recipient_tenant_ids=[subscriber_tenant_id],
         current_tenant_id=tenant_id,
@@ -639,7 +590,7 @@ async def revoke_repository(
             "What your library already copied from it stays yours. It will not get"
             " updates from it unless it is invited again."
         ),
-        user=user,
+        created_by=user.id,
     )
     await session.commit()
 

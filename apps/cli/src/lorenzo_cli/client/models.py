@@ -486,9 +486,21 @@ class InformationUpdate(BaseModel):
     order: int | None = Field(None, title="Order")
 
 
+class InviteKind(StrEnum):
+    campaign = "campaign"
+    tenant_role = "tenant_role"
+    library_access = "library_access"
+
+
+class InviteRedeemIn(BaseModel):
+    library_id: UUID | None = Field(None, title="Library Id")
+
+
 class InviteRole(StrEnum):
     player = "player"
     gm = "gm"
+    author = "author"
+    orga = "orga"
 
 
 class ItemCreate(BaseModel):
@@ -1132,6 +1144,13 @@ class TagValueOut(BaseModel):
     value: bool | None = Field(..., title="Value")
 
 
+class TenantInviteCreate(BaseModel):
+    kind: InviteKind
+    role: InviteRole | None = None
+    expires_at: AwareDatetime | None = Field(None, title="Expires At")
+    max_uses: conint(ge=1, le=10) | None = Field(None, title="Max Uses")
+
+
 class TenantKind(StrEnum):
     play = "play"
     repository = "repository"
@@ -1345,8 +1364,9 @@ class InviteCreate(BaseModel):
 
 class InviteCreatedOut(BaseModel):
     id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    role: InviteRole
+    kind: InviteKind
+    campaign_id: UUID | None = Field(..., title="Campaign Id")
+    role: InviteRole | None
     created_by: UUID | None = Field(..., title="Created By")
     created_at: AwareDatetime = Field(..., title="Created At")
     expires_at: AwareDatetime = Field(..., title="Expires At")
@@ -1359,8 +1379,9 @@ class InviteCreatedOut(BaseModel):
 
 class InviteOut(BaseModel):
     id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    role: InviteRole
+    kind: InviteKind
+    campaign_id: UUID | None = Field(..., title="Campaign Id")
+    role: InviteRole | None
     created_by: UUID | None = Field(..., title="Created By")
     created_at: AwareDatetime = Field(..., title="Created At")
     expires_at: AwareDatetime = Field(..., title="Expires At")
@@ -1371,16 +1392,21 @@ class InviteOut(BaseModel):
 
 
 class InvitePreviewOut(BaseModel):
-    campaign_name: str = Field(..., title="Campaign Name")
+    kind: InviteKind
+    name: str = Field(..., title="Name")
+    campaign_name: str | None = Field(..., title="Campaign Name")
+    tenant_kind: TenantKind | None
     picture_url: str | None = Field(..., title="Picture Url")
-    role: InviteRole
+    role: InviteRole | None
 
 
 class InviteRedeemOut(BaseModel):
+    kind: InviteKind
     tenant_id: UUID = Field(..., title="Tenant Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    role: InviteRole
+    campaign_id: UUID | None = Field(..., title="Campaign Id")
+    role: InviteRole | None
     player_id: UUID | None = Field(..., title="Player Id")
+    library_id: UUID | None = Field(None, title="Library Id")
     already_joined: bool = Field(..., title="Already Joined")
 
 
