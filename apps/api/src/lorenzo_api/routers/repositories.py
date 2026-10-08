@@ -231,13 +231,17 @@ async def unpublish_repository(
     return TenantOut.model_validate(await session.get_one(Tenant, tenant_id))
 
 
-def _subscriber_out(subscription: RepositorySubscription, tenant: Tenant) -> SubscriberOut:
+def _subscriber_out(
+    tenant: Tenant, subscription: RepositorySubscription | None, copy: RepositoryCopy | None
+) -> SubscriberOut:
     return SubscriberOut(
         tenant_id=tenant.id,
         name=tenant.name,
         slug=tenant.slug,
-        granted_at=subscription.created_at,
-        granted_by=subscription.created_by,
+        granted_at=subscription.created_at if subscription else None,
+        granted_by=subscription.created_by if subscription else None,
+        copied_at=copy.copied_at if copy else None,
+        synced_at=copy.synced_at if copy else None,
     )
 
 
@@ -247,17 +251,34 @@ async def list_subscribers(
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[SubscriberOut]:
-    """The tenants this repository is granted to, for any of its members."""
+    """The tenants this repository is granted to or that have copied it, for any
+    of its members (ADR 0204): whether and when each copied it and last
+    updated, and, for one whose invitation is gone but whose copy stays, no
+    `granted_at`."""
     await _require_repository(session, tenant_id)
     stmt = (
-        select(RepositorySubscription, Tenant)
-        .join(Tenant, Tenant.id == RepositorySubscription.subscriber_tenant_id)
-        .where(RepositorySubscription.repository_tenant_id == tenant_id)
+        select(Tenant, RepositorySubscription, RepositoryCopy)
+        .outerjoin(
+            RepositorySubscription,
+            (RepositorySubscription.subscriber_tenant_id == Tenant.id)
+            & (RepositorySubscription.repository_tenant_id == tenant_id),
+        )
+        .outerjoin(
+            RepositoryCopy,
+            (RepositoryCopy.tenant_id == Tenant.id)
+            & (RepositoryCopy.repository_tenant_id == tenant_id),
+        )
+        .where(
+            RepositorySubscription.subscriber_tenant_id.is_not(None)
+            | RepositoryCopy.tenant_id.is_not(None)
+        )
         .order_by(Tenant.name, Tenant.id)
     )
 
-    def _rows_out(rows: Sequence[tuple[RepositorySubscription, Tenant]]) -> list[SubscriberOut]:
-        return [_subscriber_out(subscription, tenant) for subscription, tenant in rows]
+    def _rows_out(
+        rows: Sequence[tuple[Tenant, RepositorySubscription | None, RepositoryCopy | None]],
+    ) -> list[SubscriberOut]:
+        return [_subscriber_out(tenant, sub, copy) for tenant, sub, copy in rows]
 
     return cast(
         Page[SubscriberOut],
@@ -315,7 +336,11 @@ async def grant_repository(
         raise TenantNotFoundError(detail=f"No tenant with id {subscriber_tenant_id}")
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
     if subscription is not None:
-        return _subscriber_out(subscription, subscriber)
+        return _subscriber_out(
+            subscriber,
+            subscription,
+            await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id)),
+        )
 
     session.add(
         RepositorySubscription(
@@ -349,8 +374,9 @@ async def grant_repository(
     await set_tenant_rls_context(session, tenant_id)
     response.status_code = 201
     return _subscriber_out(
-        await session.get_one(RepositorySubscription, (tenant_id, subscriber_tenant_id)),
         subscriber,
+        await session.get_one(RepositorySubscription, (tenant_id, subscriber_tenant_id)),
+        await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id)),
     )
 
 

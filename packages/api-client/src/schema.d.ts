@@ -734,7 +734,10 @@ export interface paths {
         };
         /**
          * List Subscribers
-         * @description The tenants this repository is granted to, for any of its members.
+         * @description The tenants this repository is granted to or that have copied it, for any
+         *     of its members (ADR 0204): whether and when each copied it and last
+         *     updated, and, for one whose invitation is gone but whose copy stays, no
+         *     `granted_at`.
          */
         get: operations["list_subscribers"];
         put?: never;
@@ -7018,7 +7021,10 @@ export interface components {
         StatValueType: "int" | "text" | "float" | "bool" | "enum";
         /**
          * SubscriberOut
-         * @description A tenant granted a repository, as its owners see it - ADR 0118.
+         * @description A tenant granted a repository or holding a copy of it, as its owners
+         *     see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is
+         *     gone and whose copy stays; `copied_at` and `synced_at` are null until it
+         *     copies.
          */
         SubscriberOut: {
             /**
@@ -7030,13 +7036,14 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
-            /**
-             * Granted At
-             * Format: date-time
-             */
-            granted_at: string;
+            /** Granted At */
+            granted_at: string | null;
             /** Granted By */
             granted_by: string | null;
+            /** Copied At */
+            copied_at: string | null;
+            /** Synced At */
+            synced_at: string | null;
         };
         /**
          * SubscriptionOut

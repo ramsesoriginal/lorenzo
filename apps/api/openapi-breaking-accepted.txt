@@ -331,3 +331,7 @@ PUT /tenants/{tenant_id}/items/{entity_id}/prototypes response property `weight`
 
 # ADR 0177: a GM invite link has no player row, so redeeming it returns no player_id.
 POST /invites/{token}/redeem response property `player_id` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
+
+# ADR 0204: a tenant that copied a repository and is no longer invited is listed, with no granted_at.
+GET /tenants/{tenant_id}/subscribers response property `items/items/granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+PUT /tenants/{tenant_id}/subscribers/{subscriber_tenant_id} response property `granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`

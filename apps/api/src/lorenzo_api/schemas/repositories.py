@@ -45,13 +45,18 @@ EntityKindName = Literal["item", "item_instance", "being", "character"]
 
 
 class SubscriberOut(BaseModel):
-    """A tenant granted a repository, as its owners see it - ADR 0118."""
+    """A tenant granted a repository or holding a copy of it, as its owners
+    see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is
+    gone and whose copy stays; `copied_at` and `synced_at` are null until it
+    copies."""
 
     tenant_id: uuid.UUID
     name: str
     slug: str
-    granted_at: datetime
+    granted_at: datetime | None
     granted_by: uuid.UUID | None
+    copied_at: datetime | None
+    synced_at: datetime | None
 
 
 class RepositorySummaryOut(BaseModel):
