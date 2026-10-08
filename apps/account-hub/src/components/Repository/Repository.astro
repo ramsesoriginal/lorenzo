@@ -1,0 +1,97 @@
+---
+// One repository in Studio (ADR 0202): its name, picture and description with the Edit button,
+// and two tabs, Overview and People. Rendered by renderRepository. The parts that are the same as a
+// library's (the picture, the form that edits the name, the people) are components, kept here as
+// <template>s or in place, and bound by their own renderers.
+import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
+import PictureUpload from '../PictureUpload/PictureUpload.astro';
+import TenantEdit from '../TenantEdit/TenantEdit.astro';
+---
+
+<article class="stack card card-body" data-repository data-tenant hidden>
+  <header class="stack">
+    <div class="row">
+      <div class="row grow">
+        <h2 data-name></h2>
+        <code data-slug></code>
+      </div>
+      <span class="badge" data-role></span>
+    </div>
+    <div class="row sticky-top">
+      <div class="stack grow" data-tenant-edit>
+        <div class="ls-content" data-tenant-description hidden></div>
+        <div class="row">
+          <button type="button" data-edit hidden>
+            Edit <span data-noun></span>
+          </button>
+        </div>
+        <span class="status-text" role="status" data-edit-status hidden></span>
+      </div>
+      <div data-picture-slot hidden></div>
+    </div>
+    <TenantEdit />
+  </header>
+
+  <p data-loading hidden>
+    Loading&hellip;
+  </p>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <div class="stack" data-tabs>
+    <div class="tabs" role="tablist" aria-label="This repository">
+      <button type="button" class="tab" role="tab">
+        Overview
+      </button>
+      <button type="button" class="tab" role="tab">
+        People
+      </button>
+    </div>
+
+    <div class="stack" role="tabpanel">
+      <section class="stack" data-overview hidden>
+        <h3>State</h3>
+        <p class="row">
+          <span data-state></span>
+          <span data-state-explanation></span>
+        </p>
+        <p class="row" data-live hidden>
+          <span class="pill pill-warning">Live</span>
+          <span data-live-text></span>
+        </p>
+        <p class="caption" data-command-line></p>
+      </section>
+    </div>
+
+    <div class="stack" role="tabpanel">
+      <section class="stack" data-people hidden>
+        <h3>Who works on it</h3>
+        <ul class="stack-tight" data-roles></ul>
+        <p class="caption" data-roles-note></p>
+
+        <!-- An Owner changes people: the membership panel. Everyone else reads the list. -->
+        <div data-memberships-slot hidden></div>
+        <ul class="list" data-people-list hidden></ul>
+
+        <div data-leave hidden>
+          <button type="button" class="btn-danger" data-leave-button>
+            Leave this <span data-noun></span>
+          </button>
+          <span class="status-text" role="status" data-leave-status hidden></span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <template data-picture-upload-template>
+    <PictureUpload />
+  </template>
+  <template data-membership-admin-template>
+    <MembershipAdmin />
+  </template>
+  <template data-person-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <span class="badge" data-person-role></span>
+    </li>
+  </template>
+</article>

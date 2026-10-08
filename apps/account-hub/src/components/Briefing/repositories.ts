@@ -1,11 +1,11 @@
+import { studioHref } from '../../lib/studio';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
-import { tenantHref } from '../../lib/tenantKind';
 
 const required = requiredIn('Briefing');
 
 export type RepositoryCard = {
   name: string;
-  // What /tenants names it by.
+  // What Studio names it by.
   slug: string;
   role: string;
   // Draft or when it was published; unknown when the detail couldn't be read.
@@ -26,7 +26,7 @@ export function showRepositories(root: HTMLElement, repositories: RepositoryCard
       const link = required<HTMLAnchorElement>(fragment, '[data-link]');
 
       link.textContent = repository.name;
-      link.href = tenantHref(repository.slug);
+      link.href = studioHref(repository.slug);
       required<HTMLElement>(fragment, '[data-role]').textContent = repository.role;
       status.textContent = repository.status ?? '';
       status.hidden = repository.status === null;

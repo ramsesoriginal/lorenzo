@@ -21,17 +21,8 @@ import {
 } from './tenants';
 import type { MeOut, TenantSummaryOut } from './types';
 
-// One library or repository, as opening it asks for it.
+// One library, as opening it asks for it.
 async function warmTenant(tenant: TenantSummaryOut, me: MeOut): Promise<void> {
-  if (isRepository(tenant)) {
-    await Promise.all([
-      getTenant(tenant.id),
-      tenant.role === 'owner' ? listTenantRoster(tenant.id) : null,
-    ]);
-
-    return;
-  }
-
   await readLibrary(tenant, me);
 }
 
@@ -81,6 +72,16 @@ const WARMERS: Record<string, (params: URLSearchParams) => Promise<unknown>> = {
     const library = libraries.find((l) => l.slug === wanted || l.id === wanted) ?? libraries[0];
 
     if (library) await listLibraryRepositories(library.id);
+  },
+  // Studio: the repository in the address (or the first), as opening it asks for it.
+  '/studio/': async (params) => {
+    const tenants = await listMyTenants();
+    const repositories = tenants.items.filter(isRepository);
+    const wanted = params.get('repository');
+    const repository =
+      repositories.find((r) => r.slug === wanted || r.id === wanted) ?? repositories[0];
+
+    if (repository) await Promise.all([getTenant(repository.id), listTenantRoster(repository.id)]);
   },
   '/beings/': async () => {
     const [, tenants] = await Promise.all([getMe(), listMyTenants()]);
