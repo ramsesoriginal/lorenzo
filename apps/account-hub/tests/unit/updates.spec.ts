@@ -363,6 +363,7 @@ describe('the groups and what they count', () => {
         reason: null,
         state: null,
         breaking: [],
+        warnings: [],
       },
     ],
   });
