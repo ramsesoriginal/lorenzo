@@ -391,6 +391,10 @@ class EntityChangeOut(BaseModel):
     occurred_at: AwareDatetime = Field(..., title="Occurred At")
 
 
+class EntityParentsRequest(BaseModel):
+    parent_ids: list[UUID] | None = Field([], title="Parent Ids")
+
+
 class EntitySlugOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     slug: str = Field(..., title="Slug")

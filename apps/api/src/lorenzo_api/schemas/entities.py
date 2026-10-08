@@ -38,6 +38,14 @@ class ResolvedSlugOut(BaseModel):
     kinds: list[EntityKind]
 
 
+class EntityParentsRequest(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/parents - see ADR 0216. The complete new set
+    of the entry's direct parents; empty clears it. Same shape as SetPrototypesRequest, which
+    names the same thing as the item route does."""
+
+    parent_ids: list[uuid.UUID] = []
+
+
 class BacklinkOut(BaseModel):
     """One entry of GET .../entities/{id}/backlinks - see ADR 0110: a piece
     of information, visible to the caller, whose description links to the
