@@ -8,12 +8,26 @@ import uuid
 from itertools import product
 
 from _admin_db import admin_session_factory
+from _library_scene import (
+    CAMPAIGN_ENTRIES,
+    HELD_BY_X,
+    HELD_BY_Y,
+    UNOWNED,
+    USER_ROLES,
+    build_library,
+    set_sharing,
+)
 from conftest import delete_tenant, make_campaign, make_character, make_tenant
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from lorenzo_api.information_visibility import InformationVisibility, visible_information_clause
+from lorenzo_api.entity_access import reachable_entity_ids
+from lorenzo_api.information_visibility import (
+    InformationVisibility,
+    resolve_information_visibility,
+    visible_information_clause,
+)
 from lorenzo_api.models import (
     AuditLog,
     CharacterPlayer,
@@ -114,6 +128,62 @@ async def test_visible_information_clause_matches_can_see() -> None:
     finally:
         await delete_tenant(tenant_id)
         await _delete_user(owner_id)
+
+
+async def test_the_clause_matches_can_see_for_the_reach_of_entries_no_campaign_owns() -> None:
+    """ADR 0200: the same parity, over a real library, for callers whose GM reach is resolved by
+    resolve_information_visibility - a GM of either campaign, a player, an administrator - with
+    the tenant's setting on and off, over every note in it (what each campaign holds, the
+    catalog item and the loose inventory item no campaign owns)."""
+    users = {role: await _user() for role in USER_ROLES}
+    scene = await build_library(users)
+    gm_reads: dict[tuple[str, bool], set[str]] = {}
+    try:
+        for shared in (True, False):
+            await set_sharing(scene.tenant_id, shared)
+            async with admin_session_factory() as session:
+                loaded = (
+                    (
+                        await session.execute(
+                            select(Information)
+                            .where(Information.tenant_id == scene.tenant_id)
+                            .options(selectinload(Information.knowledge_links))
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                for label, user_id in users.items():
+                    vis = await resolve_information_visibility(
+                        session, user_id=user_id, tenant_id=scene.tenant_id
+                    )
+                    python_side = {info.title for info in loaded if vis.can_see(info)}
+                    sql_side = set(
+                        (
+                            await session.execute(
+                                select(Information.title).where(
+                                    Information.tenant_id == scene.tenant_id,
+                                    visible_information_clause(vis),
+                                )
+                            )
+                        ).scalars()
+                    )
+                    assert sql_side == python_side, (label, shared)
+                    gm_reads[(label, shared)] = python_side
+        # Not vacuous: the reach is what ADR 0200 says it is.
+        assert {"Lantern", "Crate", "Xan", "Staff"} <= gm_reads[("gm_x", True)]
+        assert not gm_reads[("gm_x", True)] & set(HELD_BY_Y)
+        assert not gm_reads[("gm_x", False)] & set(HELD_BY_Y)
+        assert not gm_reads[("gm_x", True)] & set(CAMPAIGN_ENTRIES)
+        assert gm_reads[("gm_x", False)] >= {"Lantern", "Xan", "Staff"}
+        assert "Crate" not in gm_reads[("gm_x", False)]
+        assert set(HELD_BY_Y) <= gm_reads[("gm_y", False)]
+        assert gm_reads[("player_x", True)] == set() == gm_reads[("player_y", True)]
+        assert gm_reads[("owner", False)] == set(HELD_BY_X + HELD_BY_Y + UNOWNED + CAMPAIGN_ENTRIES)
+    finally:
+        await delete_tenant(scene.tenant_id)
+        for user_id in users.values():
+            await _delete_user(user_id)
 
 
 async def _user() -> uuid.UUID:
@@ -351,3 +421,18 @@ async def test_entity_information_list_counts_only_visible_rows(
     assert as_player.json()["total"] == 2
     assert [i["title"] for i in as_player.json()["items"]] == ["Public", "Told"]
     await delete_tenant(tenant_id)
+
+
+async def test_a_reach_of_a_whole_library_is_one_parameter() -> None:
+    """ADR 0200: a copy puts thousands of entries in a GM's reach, more than the driver binds as
+    one parameter each."""
+    reach = frozenset(uuid.uuid4() for _ in range(40_000))
+    vis = InformationVisibility(False, False, frozenset(), frozenset(), reach)
+    async with admin_session_factory() as session:
+        assert (
+            await session.execute(select(Information.id).where(visible_information_clause(vis)))
+        ).all() == []
+        assert (
+            await reachable_entity_ids(session, root_entity_ids=reach, tenant_id=uuid.uuid4())
+            == reach
+        )

@@ -220,6 +220,10 @@ A GM's view of the beings in no campaign became a tenant setting ([ADR 0152](../
 - **One rule for reading and acting.** `campaign_access.campaignless_holders_for` is the set, used both as roots of a GM's reach and by `can_manage_owner`, so a GM can't give to what they can't see. A scene gives reading only.
 - Authorship is `entity.created_by`: a deleted account leaves a being unauthored, and a copy or an import credits whoever ran it.
 
+The same setting now covers the GM-only text a copy brings ([ADR 0200](../adr/0200-a-gm-reads-the-gm-only-text-a-copy-brings.md), slice A4 of [RFC 0036](../rfcs/0036-repository-tooling.md), closing assumption A9 of [RFC 0024](../rfcs/0024-repositories.md)):
+
+- **Every entry no campaign owns.** A campaign owns what a seated character owns, carries or stands in, the groups of such characters, and the entry each campaign carries; a GM's reach gains every other entry of the library (a copied catalog item, a place, a loose inventory item), minus anything a campaign owns, so nothing of another campaign's characters comes with it. With the setting off it is the entries the GM or a co-GM authored. `campaign_access.unowned_entry_reach_for` is the set; acting is unchanged. No migration, and the setting keeps its name.
+
 The CLI grew the commands a stranger needs to use it, and the ones that finish a repository's life ([ADR 0153](../adr/0153-lorenzo-version.md) to [0161](../adr/0161-lorenzo-api-passthrough.md), decided together on 2026-10-03):
 
 - **Everyday.** `lorenzo --version`, `lorenzo tenant list`, `lorenzo whoami` (the check that a login works), and Typer's shell completion switched on. `--json` now prints exactly one document on `apply` and `pack give` too, and never asks ([ADR 0156](../adr/0156-json-on-apply-and-pack-give.md)).

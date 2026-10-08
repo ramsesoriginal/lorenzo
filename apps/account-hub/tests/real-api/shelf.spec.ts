@@ -54,7 +54,9 @@ test('a library admin sees what is offered, what a repository holds and what it 
   const { page, context } = await signedInPage(browser, owner.subject);
 
   // The header offers Shelf to someone who runs a library.
-  await expect(page.getByRole('banner').getByRole('link', { name: 'Repositories' })).toBeVisible();
+  await expect(
+    page.getByRole('banner').getByRole('link', { name: 'Repositories', exact: true }),
+  ).toBeVisible();
   await page.goto(`/repositories/?tenant=${library.slug}`);
 
   // The list: each repository with its state in words.

@@ -47,4 +47,10 @@ export async function showAllowedLinks(root: HTMLElement): Promise<void> {
     tenants.value.items.some((tenant) => !isRepository(tenant) && isTenantAdmin(tenant));
 
   if (administersLibrary) show('library-admin');
+
+  // Studio is where a repository is run: for anyone who works on one, and for an account that may
+  // make one (ADR 0175).
+  const mayCreate = me.status === 'fulfilled' && canCreateTenants(me.value);
+
+  if (inRepository || mayCreate) show('repository-work');
 }

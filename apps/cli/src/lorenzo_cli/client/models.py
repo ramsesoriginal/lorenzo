@@ -842,6 +842,15 @@ class PrototypeAncestorOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
+class RepositoryDependencyOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str = Field(..., title="Slug")
+    invited: bool = Field(..., title="Invited")
+    copied: bool = Field(..., title="Copied")
+    published: bool = Field(..., title="Published")
+
+
 class Kind7(StrEnum):
     item = "item"
     item_instance = "item_instance"
@@ -1044,7 +1053,11 @@ class TenantOut(BaseModel):
     description: str = Field(..., title="Description")
     kind: TenantKind
     published_at: AwareDatetime | None = Field(..., title="Published At")
-    npcs_shared_with_gms: bool = Field(..., title="Npcs Shared With Gms")
+    npcs_shared_with_gms: bool = Field(
+        ...,
+        description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
+        title="Npcs Shared With Gms",
+    )
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
 
@@ -1067,7 +1080,11 @@ class TenantUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     slug: constr(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$") | None = Field(None, title="Slug")
     description: str | None = Field(None, title="Description")
-    npcs_shared_with_gms: bool | None = Field(None, title="Npcs Shared With Gms")
+    npcs_shared_with_gms: bool | None = Field(
+        None,
+        description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
+        title="Npcs Shared With Gms",
+    )
 
 
 class Action1(StrEnum):

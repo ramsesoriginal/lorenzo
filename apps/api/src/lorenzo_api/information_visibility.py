@@ -49,9 +49,11 @@ from lorenzo_api.campaign_access import (
     campaignless_holders_for,
     is_tenant_admin,
     is_tenant_orga,
+    unowned_entry_reach_for,
 )
 from lorenzo_api.entity_access import (
     containing_ancestors_ids,
+    entity_id_among,
     group_ids_for_characters,
     reachable_entity_ids,
 )
@@ -131,7 +133,7 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
         knower_matches.append(Knowledge.knower_entity_id.in_(vis.knower_entity_ids))
     clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
     if vis.gm_reachable_entity_ids:
-        clauses.append(Information.entity_id.in_(vis.gm_reachable_entity_ids))
+        clauses.append(entity_id_among(Information.entity_id, vis.gm_reachable_entity_ids))
     if knower_matches:
         clauses.append(
             exists().where(Knowledge.information_id == Information.id, or_(*knower_matches))
@@ -176,7 +178,10 @@ async def resolve_information_visibility(
     include every being and group in no campaign this GM has standing over
     (campaign_access.campaignless_holders_for, ADR 0152): all of them when the
     tenant shares them with its GMs, else those authored by the caller or a
-    co-GM. Tenant OWNER is
+    co-GM. And the set takes in every other entry no campaign owns, of any
+    kind (campaign_access.unowned_entry_reach_for, ADR 0200: a catalog item a
+    copy brought), the same way, minus whatever any campaign owns - so a GM
+    gains nothing about another campaign's characters. Tenant OWNER is
     still not folded into this GM-reachable set - it does not need to be:
     as of ADR 0096 an OWNER already bypasses everything through is_admin
     (until they opt out, in which case they see what any non-admin sees).
@@ -294,6 +299,13 @@ async def resolve_information_visibility(
     if gm_root_ids:
         gm_reachable_ids = await reachable_entity_ids(
             session, root_entity_ids=gm_root_ids, tenant_id=tenant_id
+        )
+    # ADR 0200: and every other entry no campaign owns, minus what a campaign owns,
+    # so a copy's GM-only text is read by the library's GMs and nothing of another
+    # campaign's characters is.
+    if gm_campaign_ids:
+        gm_reachable_ids |= await unowned_entry_reach_for(
+            session, user_id=user_id, tenant_id=tenant_id
         )
 
     return InformationVisibility(
