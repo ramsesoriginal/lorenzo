@@ -43,6 +43,8 @@ from lorenzo_cli.client.models import (
     PageSubscriberOut,
     PageSubscriptionOut,
     PageTenantSummaryOut,
+    PublishedOut,
+    PublishRequest,
     ResolvedSlugOut,
     SetContainerRequest,
     SetEntityStatRequest,
@@ -243,8 +245,12 @@ REPLACE_ITEM_PROTOTYPES: Op[ItemOut] = Op(
 # A repository's own side (an owner publishes and grants) and a granted tenant's (any member
 # lists, plans, copies and takes updates): ADR 0118 to 0121, the CLI's side in ADR 0159.
 _REPOSITORY = f"{_TENANT}/repositories/{{repository_id}}"
-PUBLISH_REPOSITORY: Op[TenantOut] = Op(
-    "publish_repository", "PUT", f"{_TENANT}/published", response_type=TenantOut
+PUBLISH_REPOSITORY: Op[PublishedOut] = Op(
+    "publish_repository",
+    "PUT",
+    f"{_TENANT}/published",
+    request_type=PublishRequest,
+    response_type=PublishedOut,
 )
 UNPUBLISH_REPOSITORY: Op[TenantOut] = Op(
     "unpublish_repository", "DELETE", f"{_TENANT}/published", response_type=TenantOut

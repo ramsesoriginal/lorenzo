@@ -66,17 +66,59 @@ def test_publishing_a_draft_says_it_is_published(tmp_path: Path) -> None:
     assert "sunken-vale is published" in said(result)
 
 
-def test_publishing_again_says_it_announced_an_update(tmp_path: Path) -> None:
-    result = run(tmp_path, World(), "publish", "-t", "sunken-vale")
+def test_publishing_again_says_which_release_it_made_and_that_libraries_were_told(
+    tmp_path: Path,
+) -> None:
+    world = World()
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale")
 
     assert result.exit_code == 0, result.output
-    assert "update" in said(result)
+    assert "Published release 1 of sunken-vale" in said(result)
+    assert "libraries it is invited to have been told" in said(result)
+    # No options, no body: the API calls the release by its number.
+    assert world.bodies("PUT", "/published") == [{}]
 
 
-def test_publish_json_is_the_tenant(tmp_path: Path) -> None:
-    result = run(tmp_path, World(), "publish", "-t", "sunken-vale", "--json")
+def test_a_release_can_be_given_a_label_notes_and_the_breaking_flag(tmp_path: Path) -> None:
+    world = World()
+    result = run(
+        tmp_path,
+        world,
+        "publish",
+        "-t",
+        "sunken-vale",
+        "--label",
+        "Spring errata",
+        "--notes",
+        "Prices fixed.",
+        "--breaking",
+    )
 
-    assert json.loads(result.stdout)["slug"] == "sunken-vale"
+    assert result.exit_code == 0, result.output
+    assert world.bodies("PUT", "/published") == [
+        {"label": "Spring errata", "notes": "Prices fixed.", "breaking": True}
+    ]
+    assert "Published release Spring errata of sunken-vale" in said(result)
+    assert "marked breaking" in said(result)
+
+
+def test_publishing_a_draft_with_a_label_says_it_is_published_as_that_release(
+    tmp_path: Path,
+) -> None:
+    world = World(published_at=None)
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale", "--label", "1.0")
+
+    assert result.exit_code == 0, result.output
+    assert world.bodies("PUT", "/published") == [{"label": "1.0"}]
+    assert "sunken-vale is published as release 1.0" in said(result)
+
+
+def test_publish_json_is_the_tenant_and_its_release(tmp_path: Path) -> None:
+    result = run(tmp_path, World(), "publish", "-t", "sunken-vale", "--label", "2.0", "--json")
+
+    answer = json.loads(result.stdout)
+    assert answer["slug"] == "sunken-vale"
+    assert answer["release"]["label"] == "2.0"
 
 
 def test_a_play_tenant_cannot_be_published_and_nothing_is_sent(tmp_path: Path) -> None:
@@ -181,6 +223,7 @@ def test_subscribers_say_who_copied_it_and_who_kept_a_copy_without_an_invitation
             granted_by=None,
             copied_at=None,
             synced_at=None,
+            synced_release=None,
         ),
         SubscriberOut(
             tenant_id=uuid.UUID(int=2),
@@ -190,6 +233,7 @@ def test_subscribers_say_who_copied_it_and_who_kept_a_copy_without_an_invitation
             granted_by=None,
             copied_at=day,
             synced_at=day,
+            synced_release=None,
         ),
     ]
     console = Console(width=140, record=True)
@@ -1071,3 +1115,58 @@ def test_an_attachment_that_could_not_be_applied_is_said_and_stays_on_offer(
         f"Couldn't apply an attachment on {uuid.UUID(int=601)}: "
         "it would make a prototype loop here. It stays on offer." in said(result)
     )
+
+
+def test_subscribers_and_repositories_say_which_release_a_copy_last_took() -> None:
+    from lorenzo_cli.client.models import ReleaseRefOut, RepositorySummaryOut, SubscriptionOut
+    from lorenzo_cli.repo_report import print_repositories
+
+    day = datetime(2026, 10, 3, tzinfo=UTC)
+    taken = ReleaseRefOut(id=uuid.UUID(int=11), number=1, label="1.0")
+    latest = ReleaseRefOut(id=uuid.UUID(int=12), number=2, label="1.1")
+    subscribers = [
+        SubscriberOut(
+            tenant_id=uuid.UUID(int=1),
+            name="On One",
+            slug="on-one",
+            granted_at=day,
+            granted_by=None,
+            copied_at=day,
+            synced_at=day,
+            synced_release=taken,
+        )
+    ]
+    console = Console(width=140, record=True)
+    print_subscribers(console, subscribers)
+    assert (
+        "1.0"
+        in next(line for line in console.export_text().splitlines() if "on-one" in line).split()
+    )
+
+    def row(slug: str, synced: ReleaseRefOut | None, current: ReleaseRefOut | None):  # noqa: ANN202
+        return SubscriptionOut(
+            repository=RepositorySummaryOut(
+                id=uuid.UUID(int=21), name=slug, slug=slug, description="", published_at=day
+            ),
+            granted_at=day,
+            copied_at=day,
+            synced_at=day,
+            contributed=None,
+            synced_release=synced,
+            current_release=current,
+        )
+
+    console = Console(width=140, record=True)
+    print_repositories(
+        console,
+        [row("behind", taken, latest), row("level", latest, latest), row("old", None, latest)],
+        "table-one",
+    )
+    text = console.export_text()
+    assert "1.0 (1.1 is out)" in text
+    behind, level, old = (
+        next(line for line in text.splitlines() if line.startswith(slug))
+        for slug in ("behind", "level", "old")
+    )
+    assert "is out" not in level and "1.1" in level
+    assert "is out" not in old

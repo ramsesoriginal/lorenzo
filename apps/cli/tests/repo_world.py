@@ -180,6 +180,8 @@ class World:
     granted: bool = False
     copied: bool = False
     synced_at: str | None = None
+    # How many releases the repository has made, and so the number of the next.
+    releases: int = 0
     # Collisions a copy has to be given a choice for, until it is.
     collisions: list[dict[str, Any]] = field(default_factory=list)
     updates: dict[str, Any] = field(
@@ -228,6 +230,8 @@ class World:
             "granted_at": PUBLISHED if granted else None,
             "copied_at": COPIED if copied else None,
             "synced_at": self.synced_at,
+            "synced_release": None,
+            "current_release": None,
             "contributed": None,
         }
 
@@ -243,6 +247,8 @@ class World:
             "granted_at": PUBLISHED if granted else None,
             "copied_at": COPIED if copied else None,
             "synced_at": None,
+            "synced_release": None,
+            "current_release": None,
             "contributed": None,
         }
 
@@ -283,9 +289,20 @@ class World:
         # The repository's own side.
         if path == f"{repo}/published":
             self.published_at = LATER if method == "PUT" else None
-            return httpx.Response(
-                200, json=tenant(REPO_ID, "sunken-vale", self.repo_kind, self.published_at)
-            )
+            answer = tenant(REPO_ID, "sunken-vale", self.repo_kind, self.published_at)
+            if method == "PUT":
+                self.releases += 1
+                said = json.loads(request.content) if request.content else {}
+                answer["release"] = {
+                    "id": str(uuid.UUID(int=9000 + self.releases)),
+                    "number": self.releases,
+                    "label": said.get("label") or str(self.releases),
+                    "notes": said.get("notes"),
+                    "breaking": bool(said.get("breaking")),
+                    "created_at": LATER,
+                    "created_by": None,
+                }
+            return httpx.Response(200, json=answer)
         if path == f"{repo}/subscribers" and method == "GET":
             rows = (
                 [
@@ -297,6 +314,7 @@ class World:
                         "granted_by": None,
                         "copied_at": None,
                         "synced_at": None,
+                        "synced_release": None,
                     }
                 ]
                 if self.granted
@@ -320,6 +338,7 @@ class World:
                         "granted_by": None,
                         "copied_at": None,
                         "synced_at": None,
+                        "synced_release": None,
                     },
                 )
             self.granted = False
@@ -345,6 +364,7 @@ class World:
                         "granted_by": None,
                         "copied_at": None,
                         "synced_at": None,
+                        "synced_release": None,
                     }
                 ]
                 if self.core_granted
@@ -368,6 +388,7 @@ class World:
                     "granted_by": None,
                     "copied_at": None,
                     "synced_at": None,
+                    "synced_release": None,
                 },
             )
 

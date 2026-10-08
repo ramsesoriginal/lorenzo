@@ -32,6 +32,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     InvalidSubscriberError,
     NotARepositoryError,
+    ReleaseNotFoundError,
     RepositoryManagementForbiddenError,
     RepositoryNotCopiedError,
     RepositoryNotFoundError,
@@ -50,6 +51,7 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryRelease,
     RepositorySubscription,
     StatDefinition,
     StatGroup,
@@ -67,6 +69,14 @@ from lorenzo_api.repository_copying import (
     dependencies_of,
     forget_copy,
     plan_copy,
+)
+from lorenzo_api.repository_releases import (
+    ReleaseRef,
+    latest_release,
+    make_release,
+    relabel,
+    release_notice,
+    releases_named,
 )
 from lorenzo_api.repository_updates import (
     COLLISION_KIND,
@@ -94,6 +104,12 @@ from lorenzo_api.schemas.repositories import (
     FieldChangeOut,
     NotAppliedOut,
     PreviousCopyOut,
+    PublishedOut,
+    PublishRequest,
+    ReleaseAuthoredOut,
+    ReleaseOut,
+    ReleaseRefOut,
+    ReleaseUpdate,
     RepositoryDependencyOut,
     RepositoryEntityOut,
     RepositoryStatDefinitionOut,
@@ -156,17 +172,32 @@ async def publish_repository(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     user: CurrentUser,
-) -> TenantOut:
+    body: PublishRequest | None = None,
+) -> PublishedOut:
     """Publishes a repository, or announces an update to one already
-    published: either way `published_at` becomes now, and every granted
-    tenant's members are told (ADR 0118). Until the first publish, no
-    subscriber can see anything of it.
+    published: either way it makes a release (ADR 0207), `published_at`
+    becomes now, and every granted tenant's members are told (ADR 0118). The
+    body is optional: without a label the release is called by its number.
+    `409` if the label is taken. Until the first publish, no subscriber can
+    see anything of it.
     """
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await _require_repository(session, tenant_id)
+    body = body or PublishRequest()
     was_published = tenant.published_at is not None
+    release = await make_release(
+        session,
+        repository=tenant,
+        user_id=user.id,
+        label=body.label,
+        notes=body.notes,
+        breaking=body.breaking,
+    )
+    release_out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
     tenant.published_at = datetime.now(UTC)
     tenant.updated_by = user.id
+    # The label is in the log, which only the repository's own members read, as it is in
+    # the list of releases the libraries read: words the author chose to publish.
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -174,6 +205,10 @@ async def publish_repository(
         action="repository.published",
         target_type="tenant",
         target_id=tenant_id,
+        detail=(
+            f"release={release.number},breaking={str(release.breaking).lower()},"
+            f"label={release.label}"
+        ),
     )
     subscribers = (
         await session.scalars(
@@ -182,26 +217,24 @@ async def publish_repository(
             )
         )
     ).all()
+    title, notice = release_notice(
+        repository_name=tenant.name, release=release, first=not was_published
+    )
     await _notify_members_of(
         session,
         recipient_tenant_ids=subscribers,
         current_tenant_id=tenant_id,
         type="repository_updated" if was_published else "repository_published",
-        title=(
-            f"{tenant.name} has published an update"
-            if was_published
-            else f"{tenant.name} is published"
-        ),
-        body=(
-            "Check its updates to see what changed."
-            if was_published
-            else "You can browse it and copy it into your tenant."
-        ),
+        title=title,
+        body=notice,
         user=user,
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
-    return TenantOut.model_validate(await session.get_one(Tenant, tenant_id))
+    return PublishedOut(
+        **TenantOut.model_validate(await session.get_one(Tenant, tenant_id)).model_dump(),
+        release=release_out,
+    )
 
 
 @router.delete("/published")
@@ -231,8 +264,85 @@ async def unpublish_repository(
     return TenantOut.model_validate(await session.get_one(Tenant, tenant_id))
 
 
+@router.get("/releases")
+async def list_releases(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    params: ParamsDep,
+) -> Page[ReleaseAuthoredOut]:
+    """What this repository has published, newest first (ADR 0207), for any of its
+    members. A library reads the same list through
+    `/tenants/{id}/repositories/{repository_id}/releases`. `409` for a play tenant."""
+    await _require_repository(session, tenant_id)
+    stmt = (
+        select(RepositoryRelease)
+        .where(RepositoryRelease.tenant_id == tenant_id)
+        .order_by(RepositoryRelease.number.desc())
+    )
+
+    def _out(rows: Sequence[RepositoryRelease]) -> list[ReleaseAuthoredOut]:
+        return [ReleaseAuthoredOut.model_validate(r, from_attributes=True) for r in rows]
+
+    return cast(
+        Page[ReleaseAuthoredOut],
+        await apaginate(session, stmt, params, transformer=_out),
+    )
+
+
+@router.patch("/releases/{release_id}")
+async def edit_release(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    release_id: uuid.UUID,
+    body: ReleaseUpdate,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ReleaseAuthoredOut:
+    """Corrects a release's label or notes, which are the author's words about it
+    (ADR 0207); its number, its breaking flag and what was published are not
+    editable. Owner only. `409` if the label is taken, `404` for a release this
+    repository did not make."""
+    await _require_owner(session, tenant_id=tenant_id, user=user)
+    await _require_repository(session, tenant_id)
+    release = await session.scalar(
+        select(RepositoryRelease).where(
+            RepositoryRelease.tenant_id == tenant_id, RepositoryRelease.id == release_id
+        )
+    )
+    if release is None:
+        raise ReleaseNotFoundError(detail=f"This repository has no release {release_id}")
+    changed: list[str] = []
+    if "label" in body.model_fields_set and body.label is not None:
+        await relabel(session, release, body.label)
+        changed.append("label")
+    if "notes" in body.model_fields_set:
+        release.notes = body.notes
+        changed.append("notes")
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="repository.release_edited",
+        target_type="tenant",
+        target_id=tenant_id,
+        detail=f"release={release.number},fields={'+'.join(changed) or 'none'}",
+    )
+    await session.flush()
+    out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
+    await session.commit()
+    return out
+
+
+def _release_ref(release: ReleaseRef | None) -> ReleaseRefOut | None:
+    if release is None:
+        return None
+    return ReleaseRefOut(id=release.id, number=release.number, label=release.label)
+
+
 def _subscriber_out(
-    tenant: Tenant, subscription: RepositorySubscription | None, copy: RepositoryCopy | None
+    tenant: Tenant,
+    subscription: RepositorySubscription | None,
+    copy: RepositoryCopy | None,
+    releases: dict[uuid.UUID, ReleaseRef],
 ) -> SubscriberOut:
     return SubscriberOut(
         tenant_id=tenant.id,
@@ -242,6 +352,18 @@ def _subscriber_out(
         granted_by=subscription.created_by if subscription else None,
         copied_at=copy.copied_at if copy else None,
         synced_at=copy.synced_at if copy else None,
+        synced_release=_release_ref(
+            releases.get(copy.synced_release_id) if copy and copy.synced_release_id else None
+        ),
+    )
+
+
+async def _releases_taken_by(
+    session: SessionDep, repository_id: uuid.UUID, copies: Sequence[RepositoryCopy | None]
+) -> dict[uuid.UUID, ReleaseRef]:
+    """The repository's releases that these copies say they last took."""
+    return await releases_named(
+        session, repository_id, [c.synced_release_id for c in copies if c and c.synced_release_id]
     )
 
 
@@ -275,10 +397,11 @@ async def list_subscribers(
         .order_by(Tenant.name, Tenant.id)
     )
 
-    def _rows_out(
+    async def _rows_out(
         rows: Sequence[tuple[Tenant, RepositorySubscription | None, RepositoryCopy | None]],
     ) -> list[SubscriberOut]:
-        return [_subscriber_out(tenant, sub, copy) for tenant, sub, copy in rows]
+        releases = await _releases_taken_by(session, tenant_id, [copy for _, _, copy in rows])
+        return [_subscriber_out(tenant, sub, copy, releases) for tenant, sub, copy in rows]
 
     return cast(
         Page[SubscriberOut],
@@ -336,10 +459,9 @@ async def grant_repository(
         raise TenantNotFoundError(detail=f"No tenant with id {subscriber_tenant_id}")
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
     if subscription is not None:
+        held = await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id))
         return _subscriber_out(
-            subscriber,
-            subscription,
-            await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id)),
+            subscriber, subscription, held, await _releases_taken_by(session, tenant_id, [held])
         )
 
     session.add(
@@ -373,10 +495,12 @@ async def grant_repository(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.status_code = 201
+    held = await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id))
     return _subscriber_out(
         subscriber,
         await session.get_one(RepositorySubscription, (tenant_id, subscriber_tenant_id)),
-        await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id)),
+        held,
+        await _releases_taken_by(session, tenant_id, [held]),
     )
 
 
@@ -504,6 +628,23 @@ async def list_repositories(
         r.id: r for r in await session.scalars(select(Tenant).where(Tenant.id.in_(ids)))
     }
     counts = await _contribution_counts(session, tenant_id)
+    synced: dict[uuid.UUID, ReleaseRef] = {}
+    current: dict[uuid.UUID, ReleaseRef] = {}
+    for repository_id, offered in repositories.items():
+        if offered.published_at is None or offered.kind is not TenantKind.REPOSITORY:
+            continue
+        # What a library may read of a repository's releases it reads through the gated
+        # read: an invitation withdrawn, or a repository back in draft, leaves it none.
+        async with reading_repository(session, repository_id) as allowed:
+            if not allowed:
+                continue
+            if latest := await latest_release(session, repository_id):
+                current[repository_id] = latest
+            held = copies.get(repository_id)
+            if held and held.synced_release_id:
+                taken = await releases_named(session, repository_id, [held.synced_release_id])
+                if held.synced_release_id in taken:
+                    synced[repository_id] = taken[held.synced_release_id]
     rows: list[SubscriptionOut] = []
     for repository_id in ids:
         repository, grant, copy = (
@@ -538,6 +679,8 @@ async def list_repositories(
                     if copy
                     else None
                 ),
+                synced_release=_release_ref(synced.get(repository_id)),
+                current_release=_release_ref(current.get(repository_id)),
             )
         )
     rows.sort(key=lambda r: (r.repository.name, str(r.repository.id)))
@@ -627,6 +770,32 @@ def _not_found(tenant_id: uuid.UUID, repository_id: uuid.UUID) -> RepositoryNotF
     return RepositoryNotFoundError(
         detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
     )
+
+
+@router.get("/repositories/{repository_id}/releases")
+async def list_repository_releases(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+    params: ParamsDep,
+) -> Page[ReleaseOut]:
+    """What a granted, published repository has released, newest first (ADR 0207),
+    through the gated read: the same list its own members have, without who
+    published it."""
+    async with reading_repository(session, repository_id) as allowed:
+        if not allowed:
+            raise _not_found(tenant_id, repository_id)
+        stmt = (
+            select(RepositoryRelease)
+            .where(RepositoryRelease.tenant_id == repository_id)
+            .order_by(RepositoryRelease.number.desc())
+        )
+
+        def _out(rows: Sequence[RepositoryRelease]) -> list[ReleaseOut]:
+            return [ReleaseOut.model_validate(r, from_attributes=True) for r in rows]
+
+        page = cast(Page[ReleaseOut], await apaginate(session, stmt, params, transformer=_out))
+    return page
 
 
 @router.get("/repositories/{repository_id}/entities")

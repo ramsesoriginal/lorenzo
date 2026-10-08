@@ -22,7 +22,7 @@ function subscriber(overrides: Partial<SubscriberOut> = {}): SubscriberOut {
     copied_at: null,
     synced_at: null,
     ...overrides,
-  };
+  } as SubscriberOut;
 }
 
 describe('where a library stands with a repository', () => {
@@ -131,7 +131,7 @@ describe('built on', () => {
       synced_at: null,
       contributed: null,
       ...rest,
-    };
+    } as SubscriptionOut;
   }
 
   it('lists what a repository copied or is invited to copy, by name, with its state in words', () => {

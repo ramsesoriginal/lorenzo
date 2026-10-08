@@ -30,7 +30,13 @@ from lorenzo_cli.client.errors import (
     LorenzoConnectionError,
     LorenzoResponseError,
 )
-from lorenzo_cli.client.models import TenantCreate, TenantKind, TenantOut, TenantSummaryOut
+from lorenzo_cli.client.models import (
+    PublishRequest,
+    TenantCreate,
+    TenantKind,
+    TenantOut,
+    TenantSummaryOut,
+)
 from lorenzo_cli.client.ops import (
     CREATE_TENANT,
     DELETE_TENANT,
@@ -1448,27 +1454,62 @@ def _echo_json(value: object) -> None:
 
 
 @repo_app.command("publish")
-def repo_publish(ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False) -> None:
-    """Publish a repository, or announce an update to one already published.
+def repo_publish(
+    ctx: typer.Context,
+    tenant: RepositoryTenant,
+    label: Annotated[
+        str | None,
+        typer.Option(
+            "--label",
+            help="What to call this release, in your own words (1.3, Spring errata). "
+            "Without one it is called by its number.",
+        ),
+    ] = None,
+    notes: Annotated[
+        str | None,
+        typer.Option("--notes", help="What this release is, for the people who read about it."),
+    ] = None,
+    breaking: Annotated[
+        bool,
+        typer.Option(
+            "--breaking",
+            help="Say that libraries built on this repository should look before they update.",
+        ),
+    ] = False,
+    as_json: JsonOption = False,
+) -> None:
+    """Publish a repository as a release, or as a new one if it already is.
 
-    Only its owners can. Until the first publish no tenant it is granted to can see anything of
-    it; publishing again tells each of them it has changed.
+    Only its owners can. Until the first publish no library it is invited to can see anything of
+    it; every release tells each of them what it is called and what its notes say.
     """
     runtime: Runtime = ctx.obj
+    said = {"label": label, "notes": notes, "breaking": breaking or None}
+    body = PublishRequest(**{key: value for key, value in said.items() if value is not None})
     with _reporting_errors(), _client(runtime, writes=True) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="published")
         was_published = repository.published_at is not None
-        published = client.call(PUBLISH_REPOSITORY, path={"tenant_id": repository.id}).value
+        published = client.call(
+            PUBLISH_REPOSITORY,
+            path={"tenant_id": repository.id},
+            body=body if body.model_fields_set else None,
+        ).value
     if as_json:
         typer.echo(published.model_dump_json(indent=2))
         return
+    release = published.release
+    flag = " It is marked breaking." if release.breaking else ""
     if was_published:
         _out.print(
-            f"Published an update to {published.slug}: every tenant it is granted to has been told."
+            f"Published release {release.label} of {published.slug}: "
+            f"the libraries it is invited to have been told.{flag}"
         )
     else:
-        _out.print(f"{published.slug} is published. Tenants it is granted to have been told.")
+        _out.print(
+            f"{published.slug} is published as release {release.label}. "
+            f"The libraries it is invited to have been told.{flag}"
+        )
 
 
 @repo_app.command("unpublish")

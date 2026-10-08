@@ -19,7 +19,7 @@ function subscriber(overrides: Partial<SubscriberOut> = {}): SubscriberOut {
     copied_at: null,
     synced_at: null,
     ...overrides,
-  };
+  } as SubscriberOut;
 }
 
 function copiedFrom(name: string, published: boolean): SubscriptionOut {
@@ -35,7 +35,7 @@ function copiedFrom(name: string, published: boolean): SubscriptionOut {
     copied_at: '2026-10-02T10:00:00Z',
     synced_at: null,
     contributed: null,
-  };
+  } as SubscriptionOut;
 }
 
 const none: PublishFacts = { invited: 0, copied: 0, builtOn: [] };

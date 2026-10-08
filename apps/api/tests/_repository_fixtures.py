@@ -38,6 +38,7 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryRelease,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -219,6 +220,7 @@ async def seed_every_content_table(
             Knowledge(tenant_id=tenant_id, knower_entity_id=elminster.id, information_id=info.id),
         ]
     )
+    session.add(RepositoryRelease(tenant_id=tenant_id, number=1, label="Seed", notes="Seeded."))
     if not with_copy_records:
         await session.flush()
         return

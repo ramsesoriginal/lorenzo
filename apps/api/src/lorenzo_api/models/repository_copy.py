@@ -35,6 +35,10 @@ class RepositoryCopy(Base):
         ForeignKey("app_user.id", ondelete="SET NULL"), index=True
     )
     synced_at: Mapped[datetime] = mapped_column(server_default=text("now()"))
+    # The repository's release that was its latest when this tenant last copied or
+    # applied updates (ADR 0207): a plain id, like `repository_tenant_id`, since the
+    # release is the repository's row. Null for a copy made before there was a ledger.
+    synced_release_id: Mapped[uuid.UUID | None]
 
 
 class _CopyLink:

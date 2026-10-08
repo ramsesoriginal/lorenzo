@@ -84,6 +84,7 @@ from lorenzo_api.repository_content import (
     stat_definition_snapshot,
     stat_group_snapshot,
 )
+from lorenzo_api.repository_releases import latest_release
 
 CollisionKind = Literal["stat_group", "stat_definition", "slug"]
 Action = Literal["rename", "merge", "skip"]
@@ -138,6 +139,8 @@ class Step:
     published: bool
     already_copied: bool
     content: Content | None = None
+    # The repository's latest release when it is planned: what the copy records as taken (ADR 0207).
+    release_id: uuid.UUID | None = None
     entities: int = 0
     stat_groups: int = 0
     stat_definitions: int = 0
@@ -791,6 +794,7 @@ class _Planner:
                     "repository_tenant_id": repository_id,
                     "repository_name": step.name,
                     "copied_by": user_id,
+                    "synced_release_id": step.release_id,
                 }
             )
 
@@ -881,6 +885,8 @@ async def plan_copy(
         async with reading_repository(session, step.repository_id) as allowed:
             assert allowed  # manifest already checked grant and publication
             step.content = await load_content(session, step.repository_id)
+            latest = await latest_release(session, step.repository_id)
+            step.release_id = latest.id if latest else None
         planner.plan_step(step)
     plan.collisions = planner.collisions
     plan.rows = planner.rows

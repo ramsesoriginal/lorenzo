@@ -100,6 +100,8 @@ __all__ = [
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
+    "ReleaseLabelTakenError",
+    "ReleaseNotFoundError",
 ]
 
 
@@ -871,6 +873,19 @@ class RepositoryUpdateNeedsChoicesError(ConflictProblem):
     `take_upstream`."""
 
     title = "Some changes conflict with your own edits"
+
+
+class ReleaseLabelTakenError(ConflictProblem):
+    """Publishing, or relabelling, a release with a label the repository has used
+    already, whatever its case - ADR 0207."""
+
+    title = "That release label is taken"
+
+
+class ReleaseNotFoundError(NotFoundProblem):
+    """Editing a release the repository has not made - ADR 0207."""
+
+    title = "Release not found"
 
 
 class InvalidRepositoryUpdateError(UnprocessableProblem):
