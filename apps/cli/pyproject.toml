@@ -24,6 +24,7 @@ dev = [
   "datamodel-code-generator>=0.28",
   "psycopg[binary]>=3.2",
   "pyjwt[crypto]>=2.9",
+  "pytest-xdist>=3.8.0",
 ]
 
 [tool.ruff]

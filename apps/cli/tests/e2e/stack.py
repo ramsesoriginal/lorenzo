@@ -7,13 +7,14 @@ own token verification runs. Postgres, the migrations, and the API are the real 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import socket
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -133,12 +134,62 @@ def _postgres_parts() -> tuple[str, int]:
     return "127.0.0.1", int(os.environ.get("E2E_POSTGRES_PORT", "55432"))
 
 
-def _recreate_database(host: str, port: int) -> None:
+# Held on the server while the template is made and while a database is cloned from it, so that
+# parallel workers (pytest-xdist, one stack each) migrate once and clone one at a time.
+_LOCK = 727401
+
+
+def _migrations_fingerprint() -> str:
+    """Names the template: it changes when a migration is added or edited, so a template made by
+    an earlier run of other migrations is never cloned."""
+    digest = hashlib.sha1(usedforsecurity=False)
+    for path in sorted((API_DIR / "migrations" / "versions").glob("*.py")):
+        digest.update(f"{path.name}:{path.stat().st_size};".encode())
+    return digest.hexdigest()[:10]
+
+
+def _migrate(env: dict[str, str]) -> None:
+    try:
+        subprocess.run(
+            ["uv", "run", "alembic", "upgrade", "head"],  # noqa: S607 - uv on PATH
+            cwd=API_DIR,
+            env=env,
+            check=True,
+            capture_output=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        detail = getattr(exc, "stderr", b"")[-400:].decode(errors="replace")
+        raise StackUnavailableError(f"couldn't migrate the API's database: {exc} {detail}") from exc
+
+
+def _prepare_database(
+    host: str, port: int, database: str, env_for: Callable[[str], dict[str, str]]
+) -> None:
+    """A fresh, migrated database of this name, cloned from a template that is migrated once.
+
+    Migrating takes seconds and creates the restricted role, which belongs to the whole server, so
+    workers running it side by side would race. One migrates a template while the rest wait on an
+    advisory lock; each then clones its own database from it in a fraction of a second."""
+    template = f"{DATABASE}_tpl_{_migrations_fingerprint()}"
     dsn = f"postgresql://lorenzo:lorenzo@{host}:{port}/postgres"
     try:
         with psycopg.connect(dsn, autocommit=True, connect_timeout=3) as connection:
-            connection.execute(f'DROP DATABASE IF EXISTS "{DATABASE}" WITH (FORCE)')
-            connection.execute(f'CREATE DATABASE "{DATABASE}"')
+            connection.execute("SELECT pg_advisory_lock(%s)", (_LOCK,))
+            try:
+                found = connection.execute(
+                    "SELECT 1 FROM pg_database WHERE datname = %s", (template,)
+                ).fetchone()
+                if found is None:
+                    connection.execute(f'CREATE DATABASE "{template}"')
+                    try:
+                        _migrate(env_for(template))
+                    except BaseException:
+                        connection.execute(f'DROP DATABASE IF EXISTS "{template}" WITH (FORCE)')
+                        raise
+                connection.execute(f'DROP DATABASE IF EXISTS "{database}" WITH (FORCE)')
+                connection.execute(f'CREATE DATABASE "{database}" TEMPLATE "{template}"')
+            finally:
+                connection.execute("SELECT pg_advisory_unlock(%s)", (_LOCK,))
     except psycopg.OperationalError as exc:
         raise StackUnavailableError(f"no Postgres at {host}:{port} ({exc})") from exc
 
@@ -152,35 +203,29 @@ def _free_port() -> int:
 @contextmanager
 def running_stack() -> Iterator[Stack]:
     host, port = _postgres_parts()
-    _recreate_database(host, port)
+    # One database per pytest-xdist worker, so the workers' stacks never share a row.
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    database = f"{DATABASE}_{worker}" if worker else DATABASE
     authgear = FakeAuthgear()
-    env = {
-        **os.environ,
-        "DATABASE_URL": f"postgresql+asyncpg://lorenzo_app:lorenzo_app@{host}:{port}/{DATABASE}",
-        "MIGRATIONS_DATABASE_URL": f"postgresql+asyncpg://lorenzo:lorenzo@{host}:{port}/{DATABASE}",
-        "AUTHGEAR_ISSUER": authgear.url,
-        "AUTHGEAR_AUDIENCE": authgear.url,
-        "AUTHGEAR_JWKS_URL": f"{authgear.url}/oauth2/jwks",
-        "AUTHGEAR_USERINFO_URL": f"{authgear.url}/oauth2/userinfo",
-        # The API prints every trace span to the console, which would bury the test output.
-        "OTEL_SDK_DISABLED": "true",
-    }
+
+    def env_for(name: str) -> dict[str, str]:
+        return {
+            **os.environ,
+            "DATABASE_URL": f"postgresql+asyncpg://lorenzo_app:lorenzo_app@{host}:{port}/{name}",
+            "MIGRATIONS_DATABASE_URL": f"postgresql+asyncpg://lorenzo:lorenzo@{host}:{port}/{name}",
+            "AUTHGEAR_ISSUER": authgear.url,
+            "AUTHGEAR_AUDIENCE": authgear.url,
+            "AUTHGEAR_JWKS_URL": f"{authgear.url}/oauth2/jwks",
+            "AUTHGEAR_USERINFO_URL": f"{authgear.url}/oauth2/userinfo",
+            # The API prints every trace span to the console, which would bury the test output.
+            "OTEL_SDK_DISABLED": "true",
+        }
+
     api_port = _free_port()
     server: subprocess.Popen[bytes] | None = None
     try:
-        try:
-            subprocess.run(
-                ["uv", "run", "alembic", "upgrade", "head"],  # noqa: S607 - uv on PATH
-                cwd=API_DIR,
-                env=env,
-                check=True,
-                capture_output=True,
-            )
-        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-            detail = getattr(exc, "stderr", b"")[-400:].decode(errors="replace")
-            raise StackUnavailableError(
-                f"couldn't migrate the API's database: {exc} {detail}"
-            ) from exc
+        _prepare_database(host, port, database, env_for)
+        env = env_for(database)
         server = subprocess.Popen(  # noqa: S603 - our own tooling
             [
                 "uv",
