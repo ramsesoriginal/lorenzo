@@ -129,6 +129,11 @@ Playwright starts all three:
 Each test builds its own tenant through the API (`tests/e2e/support/world.ts`),
 so tests run in parallel and never share data.
 
+A test's browser starts out signed in: `as(person)` puts a refresh token from the fake Authgear
+where the Authgear SDK keeps one, so the first page it loads is the one the test goes to. One
+test (`logInAs`, in `login.spec.ts`) goes through the login button and the fake's PKCE round
+trip instead, so that flow stays covered.
+
 Locally, start Postgres first
 (`docker compose -f infra/docker-compose.yml up -d`). Then run:
 

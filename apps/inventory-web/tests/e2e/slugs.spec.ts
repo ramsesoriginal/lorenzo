@@ -59,9 +59,13 @@ test('stops following the title once the slug is edited', async ({ world, as }) 
   await form.getByLabel('Name', { exact: true }).fill('Lantern');
   await expect(form.getByLabel('Slug')).toHaveValue('lantern');
   await form.getByLabel('Slug').fill('the-lamp');
+  // A moment after the name is typed, the form asks which slug is free for it, and ignores the
+  // answer: wait for the answer before looking.
+  const asked = page.waitForResponse((response) => response.url().includes('/entities/resolve'));
   await form.getByLabel('Name', { exact: true }).fill('Storm Lantern');
   await expect(form.getByLabel('Display name')).toHaveValue('Storm Lantern');
-  await page.waitForTimeout(500);
+  await (await asked).finished();
+  await page.evaluate(() => new Promise(requestAnimationFrame));
   await expect(form.getByLabel('Slug')).toHaveValue('the-lamp');
 });
 
