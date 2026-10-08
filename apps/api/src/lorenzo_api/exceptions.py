@@ -100,6 +100,7 @@ __all__ = [
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
+    "PublicRepositoriesNotAvailableError",
     "ReleaseLabelTakenError",
     "ReleaseHasBreakingChangesError",
     "ReleaseNotFoundError",
@@ -974,3 +975,11 @@ class BindingNotLiftableError(UnprocessableProblem):
     for it - ADR 0129."""
 
     title = "That binding can't be lifted"
+
+
+class PublicRepositoriesNotAvailableError(UnprocessableProblem):
+    """Setting a repository's visibility to `public` - ADR 0213, RFC 0038 section 1. Refused until
+    the gates that come before it (the read, copying, delisting, quotas) are built, so that nothing
+    can be made public before they exist."""
+
+    title = "Public repositories are not available yet"

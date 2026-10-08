@@ -48,6 +48,7 @@ from lorenzo_api.models.repository_copy import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
 )
+from lorenzo_api.models.repository_profile import RepositoryProfile
 from lorenzo_api.models.repository_release import RepositoryRelease
 from lorenzo_api.models.repository_released_row import RepositoryReleasedRow
 from lorenzo_api.models.repository_subscription import RepositorySubscription
@@ -114,6 +115,7 @@ __all__ = [
     "RepositoryCopyLinkEntity",
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",
+    "RepositoryProfile",
     "RepositoryRelease",
     "RepositoryReleasedRow",
     "RepositorySubscription",

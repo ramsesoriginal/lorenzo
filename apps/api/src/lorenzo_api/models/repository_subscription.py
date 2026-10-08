@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy
@@ -26,6 +26,7 @@ class RepositorySubscription(Base):
             "repository_tenant_id <> subscriber_tenant_id",
             name="repository_subscription_not_self",
         ),
+        CheckConstraint("source IN ('invited', 'public')", name="repository_subscription_source"),
     )
 
     repository_tenant_id: Mapped[uuid.UUID] = mapped_column(
@@ -36,3 +37,7 @@ class RepositorySubscription(Base):
     )
     created_at: Mapped[CreatedAt]
     created_by: Mapped[CreatedBy]
+    # How the grant came about (ADR 0213, RFC 0038 §1): `invited` when the repository's Owner
+    # made it, `public` when a library copied a public repository by itself. Every grant
+    # made so far is an invited one.
+    source: Mapped[str] = mapped_column(server_default=text("'invited'"))

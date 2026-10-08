@@ -44,6 +44,7 @@ from lorenzo_api.models import (
     Membership,
     MembershipRole,
     Player,
+    RepositoryProfile,
     RepositorySubscription,
     Tenant,
     TenantKind,
@@ -58,6 +59,7 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_tenant_profile_picture,
 )
+from lorenzo_api.repository_profiles import delete_repository_cover
 from lorenzo_api.schemas.common import ProblemOut
 from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 from lorenzo_api.schemas.tenants import (
@@ -264,6 +266,11 @@ async def create_tenant(
     session.add(tenant)
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role=MembershipRole.OWNER))
+    if tenant.kind is TenantKind.REPOSITORY:
+        # A repository says what it is about from the start: private, and nothing else (ADR 0213).
+        await session.flush()
+        await set_tenant_rls_context(session, tenant.id)
+        session.add(RepositoryProfile(tenant_id=tenant.id, updated_by=user.id))
     await session.commit()
     # tenant itself carries no RLS policy (it *is* the RLS boundary, ADR
     # 0002/0022) - re-reading it below needs no scoping. Still follows ADR
@@ -357,6 +364,9 @@ async def delete_tenant(
         raise RepositoryStillGrantedError(
             detail=f"Tenant {tenant_id} is still granted to {grants} tenant(s)"
         )
+
+    # A repository's cover is a row of the blob table, which the tenant's deletion does not reach.
+    await delete_repository_cover(session, tenant_id=tenant_id)
 
     name, slug = tenant.name, tenant.slug
     await create_tenant_deleted_notifications(

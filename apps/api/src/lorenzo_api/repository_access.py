@@ -65,6 +65,9 @@ REPOSITORY_CONTENT_TABLES = frozenset(
         "repository_release",
         # The hashes of what it released, which a library marks its updates against (ADR 0208).
         "repository_released_row",
+        # What the repository says about itself (ADR 0213): a copy never carries it, but
+        # the libraries it is granted to read it.
+        "repository_profile",
     }
 )
 

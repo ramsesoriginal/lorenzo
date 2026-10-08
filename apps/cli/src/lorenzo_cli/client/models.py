@@ -91,6 +91,12 @@ class BeingSummaryOut(BaseModel):
     is_pc: bool | None = Field(..., title="Is Pc")
 
 
+class BodySetCover(BaseModel):
+    file: str = Field(
+        ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
+    )
+
+
 class BodyUploadCampaignPicture(BaseModel):
     file: str = Field(
         ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
@@ -369,6 +375,21 @@ class Again(StrEnum):
     purge = "purge"
 
 
+class CreditIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str = Field(..., title="Name")
+    role: str | None = Field(None, title="Role")
+    url: str | None = Field(None, title="Url")
+
+
+class CreditOut(BaseModel):
+    name: str = Field(..., title="Name")
+    role: str | None = Field(..., title="Role")
+    url: str | None = Field(..., title="Url")
+
+
 class DroppedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -548,6 +569,19 @@ class KnowledgeEntryOut(BaseModel):
     knower_entity_id: UUID | None = Field(..., title="Knower Entity Id")
     knower_player_id: UUID | None = Field(..., title="Knower Player Id")
     created_at: AwareDatetime = Field(..., title="Created At")
+
+
+class LicenceIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    label: str = Field(..., title="Label")
+    url: str | None = Field(None, title="Url")
+
+
+class LicenceOut(BaseModel):
+    label: str = Field(..., title="Label")
+    url: str | None = Field(..., title="Url")
 
 
 class ManagedCampaignOut(BaseModel):
@@ -937,6 +971,44 @@ class RepositoryEntityOut(BaseModel):
     name: str = Field(..., title="Name")
     kinds: list[Kind8] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
+
+
+class Visibility(StrEnum):
+    private = "private"
+    public = "public"
+
+
+class Preview(StrEnum):
+    off = "off"
+    showcase = "showcase"
+    public = "public"
+
+
+class RepositoryProfileOut(BaseModel):
+    visibility: Visibility = Field(..., title="Visibility")
+    preview: Preview = Field(..., title="Preview")
+    summary: str = Field(..., title="Summary")
+    licence: LicenceOut | None
+    credits: list[CreditOut] = Field(..., title="Credits")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class RepositoryProfileUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    visibility: Visibility | None = Field(None, title="Visibility")
+    preview: Preview | None = Field(None, title="Preview")
+    summary: constr(max_length=2000) | None = Field(None, title="Summary")
+    licence: LicenceIn | None = None
+    credits: list[CreditIn] | None = Field(None, title="Credits")
+    tags: list[str] | None = Field(None, title="Tags")
+    system: constr(max_length=2000) | None = Field(None, title="System")
+    languages: list[str] | None = Field(None, title="Languages")
 
 
 class RepositorySummaryOut(BaseModel):
