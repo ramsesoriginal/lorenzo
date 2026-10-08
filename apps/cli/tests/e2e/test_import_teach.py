@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from e2e.helpers import FIXTURES, by_slug, parent_names, run_cli, tenant_id
+from e2e.helpers import FIXTURES, SharedRepository, by_slug, parent_names, run_cli, tenant_id
 from e2e.stack import Stack
 from e2e.test_import import seeded_tenant
 
@@ -128,9 +128,10 @@ def test_a_row_is_not_appended_when_the_map_already_has_that_table(
     assert '"legendary"' in (tmp_path / "proposed.map.toml").read_text()
 
 
-def test_without_a_terminal_teach_asks_nothing(stack: Stack, tmp_path: Path) -> None:
-    token = stack.creator_token()
-    tenant = seeded_tenant(stack, token, tmp_path)
+def test_without_a_terminal_teach_asks_nothing(
+    stack: Stack, tmp_path: Path, shared_repository: SharedRepository
+) -> None:
+    token, tenant = shared_repository.token, shared_repository.slug
 
     result = run_cli(
         stack,
