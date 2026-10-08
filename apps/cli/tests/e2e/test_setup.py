@@ -142,7 +142,6 @@ class Setup:
                             "child_source_id": a["child_source_id"],
                             "parent_source_id": a["parent_source_id"],
                             "action": "add",
-                            "confirm": True,
                         }
                         for a in document["attachments_added"]
                         if a["applicable"]
@@ -302,7 +301,7 @@ def test_what_the_equipment_adds_later_reaches_a_table_with_its_dnd_whichever_is
     setup.ok("repo", "publish", "--tenant", setup.equipment)
     setup.take(setup.equipment, setup.bridge)  # without it the bridge has no item to attach to
     setup.system(GEAR)
-    setup.ok("repo", "publish", "--tenant", setup.bridge, "--acknowledge-breaking")
+    setup.ok("repo", "publish", "--tenant", setup.bridge)
     assert setup.waiting(in_order, setup.equipment) and setup.waiting(in_order, setup.bridge)
 
     # In order: the items, then the prototypes that attach to them.

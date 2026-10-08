@@ -25,19 +25,19 @@ One row for each key (a unique index on `tenant_id, kind, row_id, coalesce(paren
 
 Only the repository's **own** rows are hashed (`Content.own`): a stat group, stat definition or entry that is a copy of another repository's, or merged into from one, is not what this repository offers its libraries, and `compute_updates` skips it for the same reason. A bridge's parent added to a copy is the one thing of a copy that travels, and is an `attachment` row (from `attachments_of`, one hash for a pair of origin ids). So "matches" is blind to a bridge editing its own copy of another repository's row, as the engine is.
 
-`repository_release` gains `digest` (a hash over the sorted `kind:row_id:parent_id:hash` lines of every released row, which survives the rows being replaced), `counts` and `breaking_rows`.
+`repository_release` gains `digest` (a hash over the sorted `kind:row_id:parent_id:hash` lines of every released row, which survives the rows being replaced), `counts`, `breaking_rows` and `warning_rows`.
 
 ### Released and edited
 
 A row is **released** when its hash now equals the stored one, **edited** otherwise; absent on both sides is equal. A removal that was published is released, one made since is edited, a row new since is edited.
 
-- **`GET .../repositories/{id}/updates`** gains `release` (the repository's latest release, as `GET .../releases` has it, null before its first) and, on every row of `changed`, `added`, `removed` and `deleted_locally` and every attachment of `attachments_added`, `attachments_removed` and `attachments_deleted_locally`, `state` (`released` or `edited`) and `breaking` (below). `attachments_removed` and `attachments_deleted_locally` are now of a type that carries them (`AttachmentChangeOut`), as `attachments_added` is.
+- **`GET .../repositories/{id}/updates`** gains `release` (the repository's latest release, as `GET .../releases` has it, null before its first) and, on every row of `changed`, `added`, `removed` and `deleted_locally` and every attachment of `attachments_added`, `attachments_removed` and `attachments_deleted_locally`, `state` (`released` or `edited`) and `breaking` (below); an attachment also carries `warnings`. `attachments_removed` and `attachments_deleted_locally` are now of a type that carries them (`AttachmentChangeOut`), as `attachments_added` is.
 - **`state` is null** when the repository's latest release has no digest: the repository has no release yet, or its latest was made before digests ([ADR 0207](0207-the-release-ledger.md) backfills nothing). Everything then behaves as before, the next publish is a baseline, and `matches` stays null.
 - A text edit is not seen: descriptions, notes and pictures are not in a snapshot, and "matches" says nothing about them.
 
 ### The detector
 
-At publish the live rows are compared with the stored ones. These are **breaking**, as RFC 0037 §3 lists them:
+At publish the live rows are compared with the stored ones. These are **breaking**, as RFC 0037 §3 lists them, and one more change is a **warning**:
 
 | `reason` | Row | When |
 | --- | --- | --- |
@@ -48,7 +48,9 @@ At publish the live rows are compared with the stored ones. These are **breaking
 | `enum_value_removed` | the stat | an enum value the release had is gone (the detail names them) |
 | `kinds_changed` | the entry | its set of kinds differs |
 | `slug_changed` | the entry | it had a link name and now has another, or none |
-| `attachment_added` | the pair | a parent added to a copy since the release |
+| `attachment_added` | the pair | a parent added to a copy since the release: **a warning**, not breaking (below) |
+
+**An added attachment is a warning, not a breaking change.** RFC 0037 §3 listed it among the breaking ones: it changes what an item is in every library that holds it. Built, that made every release of a bridge ask for an acknowledgement, because adding parents to the items it copied is what a bridge is for, and a warning that is always there is not read, so the one that matters (an entry removed) was lost in it. The detector still finds it, as the reason `attachment_added`, and says it in its own list: `warnings` on the preview, `warning_rows` on the release. Nothing refuses it and `acknowledge_breaking` is not needed for it, a release that only adds parents is not marked breaking, and the library still decides, since an attachment is never taken with the rest and is named one by one. The wording of the sentence is unchanged: “Silvered” was added as a parent of “Dagger”. It changes what “Dagger” is in every library that holds it.
 
 **A changed link name is listed** (the question RFC 0037 left open). The engine compares and applies a slug, but `[[slug]]` references in text that was copied once are not rewritten, so a rename can break a library's links without any row saying so; the only moment anyone can say so is the publish. A slug given to an entry that had none is not listed (nothing referred to it). The alternative, leaving it to the author's own `breaking` flag, was rejected because the detector is a floor and this is a known way to fall through it.
 
@@ -59,9 +61,9 @@ At publish the live rows are compared with the stored ones. These are **breaking
 
 ### Libraries: marks and confirmation
 
-`breaking` on a row of `updates` is a list of `{reason, detail, release: {id, number, label}}`: why each release **after the one the library last took** (`repository_copy.synced_release_id`) called the row breaking, oldest first, so the library sees the union of what it skipped. A copy with no release on record is owed every breaking release. The key is the row's origin id (and the parent's, for an attachment), which is what a library's copy link holds, so a removed entry's hit lands on the `removed` row, a retyped or enum hit on the stat's `changed` row, and an attachment hit on the pair.
+`breaking` on a row of `updates` is a list of `{reason, detail, release: {id, number, label}}`: why each release **after the one the library last took** (`repository_copy.synced_release_id`) called the row breaking, oldest first, so the library sees the union of what it skipped. A copy with no release on record is owed every breaking release. The key is the row's origin id (and the parent's, for an attachment), which is what a library's copy link holds, so a removed entry's hit lands on the `removed` row, a retyped or enum hit on the stat's `changed` row, and a warning on an attachment lands on the pair.
 
-**`POST .../updates` answers `409 update-needs-confirmation`** for an action on a row with such a note unless the action carries `confirm: true` (a field of an update action and of an attachment action, as of the request). The problem body has `unconfirmed`: the row, `reason`, `detail` and the release's label. Nothing is applied, a dry run asks too, and a call that confirms every such row applies as before. **`detach` is not asked about**, and neither is an attachment's: it changes nothing the library holds, and a removed entry's only action is to detach it; RFC 0037 words the rule for "an action", and this reads it as the ones that change content. The library that took the release is on it, so is not asked about it again.
+**`POST .../updates` answers `409 update-needs-confirmation`** for an action on a row with such a note unless the action carries `confirm: true` (a field of an update action). The problem body has `unconfirmed`: the row, `reason`, `detail` and the release's label. Nothing is applied, a dry run asks too, and a call that confirms every such row applies as before. **`detach` is not asked about**: it changes nothing the library holds, and a removed entry's only action is to detach it; RFC 0037 words the rule for "an action", and this reads it as the ones that change content. **An attachment is not asked about either**: it is never part of "all", it is named one by one, and its row says in the library's own list that a release warned of it (`warnings`, the same note as `breaking` has), which is where it is read. The library that took the release is on it, so is not asked about it again.
 
 ### The preview, for the author
 
@@ -85,18 +87,19 @@ At publish the live rows are compared with the stored ones. These are **breaking
   "changed": [{"kind": "...", "row_id": "...", "parent_id": null, "name": "...", "parent_name": null}],
   "removed": [{"kind": "...", "row_id": "...", "parent_id": null, "name": "...", "parent_name": null}],
   "breaking": [{"kind": "entity", "row_id": "...", "parent_id": null, "name": "Orc", "reason": "entity_removed", "detail": "..."}],
+  "warnings": [{"kind": "attachment", "row_id": "...", "parent_id": "...", "name": "Dagger", "reason": "attachment_added", "detail": "..."}],
   "descriptions_edited": 3,
   "libraries_told": 12
 }
 ```
 
-`release` is the latest release (null before the first); `baseline` whether it has a digest to compare with; `matches` whether the live content hashes to its `digest` ("Matches release 1.3" or "Edited since 1.3"), null without a baseline, and `differing_rows` how many rows differ from it. `live_digest` is the hash itself. `counts` is what a publish would record. `added`, `changed` and `removed` name at most **200** rows each, ordered stat groups, stats, entries, attachments, then by name; the counts are complete, and an attachment's `name` is its item and `parent_name` its parent. `breaking` is what a publish would refuse. `descriptions_edited` is the hint: description texts written or edited after the release's `created_at` (`payload.updated_at`, which `write_description` moves), null with no release; it counts a text edited twice once and never sees a deletion. `libraries_told` is how many libraries hold an invitation. The wording rule of RFC 0037 §1 stands: the composer says "text edits are not tracked" beside the hint.
+`release` is the latest release (null before the first); `baseline` whether it has a digest to compare with; `matches` whether the live content hashes to its `digest` ("Matches release 1.3" or "Edited since 1.3"), null without a baseline, and `differing_rows` how many rows differ from it. `live_digest` is the hash itself. `counts` is what a publish would record. `added`, `changed` and `removed` name at most **200** rows each, ordered stat groups, stats, entries, attachments, then by name; the counts are complete, and an attachment's `name` is its item and `parent_name` its parent. `breaking` is what a publish would refuse; `warnings` is what it would say and never refuse. `descriptions_edited` is the hint: description texts written or edited after the release's `created_at` (`payload.updated_at`, which `write_description` moves), null with no release; it counts a text edited twice once and never sees a deletion. `libraries_told` is how many libraries hold an invitation. The wording rule of RFC 0037 §1 stands: the composer says "text edits are not tracked" beside the hint.
 
 **"Matches" is computed on demand, in the request.** It is the same load a publish makes; nothing is cached, because the only cache that is exact is one invalidated by every write to the dozens of tables a repository holds.
 
 ### Release fields
 
-`GET .../releases` and the answer of `PUT .../published` gain `digest`, `counts` (as above, the first release counting everything as added; null for a release made before digests) and `breaking_rows` (empty when none). A library reads the same through the gated read.
+`GET .../releases` and the answer of `PUT .../published` gain `digest`, `counts` (as above, the first release counting everything as added; null for a release made before digests), `breaking_rows` and `warning_rows` (empty when none). A library reads the same through the gated read.
 
 ### Publish stays in the request
 
@@ -113,7 +116,7 @@ A publish costs about what one `updates` check does, and grows linearly. It stay
 
 ### The command line
 
-`lorenzo repo publish --acknowledge-breaking`; a refusal names each row and says how to go on. **`repo updates --apply` and `repo offer --apply-updates` follow the rule of RFC 0037**: they take only **released** rows (a row with no state, from a repository without digests, is taken as before) that no release since the last update called breaking; a row edited since the release or called breaking is left and said, and **an attachment is never taken**, however applicable, since it changes what an item is in the library. This replaces the clean selection of [ADR 0174](0174-the-cli-shows-attachments.md), which took an attachment whose ends were here; it is named in an `--actions` file, with `"confirm": true` where a release called it breaking. `repo updates` marks a row "edited since release 1.3" or "breaking, release 1.2".
+`lorenzo repo publish --acknowledge-breaking`; a refusal names each row and says how to go on. **`repo updates --apply` and `repo offer --apply-updates` follow the rule of RFC 0037**: they take only **released** rows (a row with no state, from a repository without digests, is taken as before) that no release since the last update called breaking; a row edited since the release or called breaking is left and said, and **an attachment is never taken**, however applicable, since it changes what an item is in the library. This replaces the clean selection of [ADR 0174](0174-the-cli-shows-attachments.md), which took an attachment whose ends were here; it is named in an `--actions` file. `repo updates` marks a row "edited since release 1.3" or "breaking, release 1.2", and an attachment "changes what the item is, release 1.2"; `repo publish` says how many parents the release adds to items libraries hold.
 
 ## Not in scope
 
@@ -125,7 +128,7 @@ A publish costs about what one `updates` check does, and grows linearly. It stay
 ## Consequences
 
 - Studio can say, before a publish is made, what it releases, what it would refuse and how many libraries it tells; a library can say, for each row, whether the author published it, and which rows to be careful with.
-- API changes: `ReleaseOut` and `ReleaseAuthoredOut` gain `digest`, `counts` and `breaking_rows`; `UpdatesOut` gains `release`; its rows and attachments gain `state` and `breaking`; the apply actions gain an optional `confirm`; `PUT /published` can answer a new `409`, and `POST .../updates` another. All are additive for a client that does not send what is new, and a client that applies breaking rows must now confirm them. The generated clients take them; no accepted break is needed.
+- API changes: `ReleaseOut` and `ReleaseAuthoredOut` gain `digest`, `counts`, `breaking_rows` and `warning_rows`; `ReleasePreviewOut` has `breaking` and `warnings`; `UpdatesOut` gains `release`; its rows and attachments gain `state` and `breaking`, and its attachments `warnings`; the apply actions gain an optional `confirm`; `PUT /published` can answer a new `409`, and `POST .../updates` another. All are additive for a client that does not send what is new, and a client that applies breaking rows must now confirm them. The generated clients take them; no accepted break is needed.
 - The command line's "apply all clean" changes meaning, as RFC 0037 says it would: it takes less. A script that relied on it taking attachments names them in a file now.
 - A repository that has been publishing for a while compares with nothing at its next publish, and from then on has a baseline; its libraries see no marks until then.
-- A bridge that builds up its attachments between releases is asked to acknowledge each release that adds one, since an attachment added to an item libraries already hold changes it. That is noisy for a bridge's second release; it is the price of not guessing which items libraries hold.
+- A bridge that builds up its attachments between releases is not asked to acknowledge them: the composer says how many parents the release adds to items libraries may already hold, in a warning of its own, and the acknowledgement is kept for what breaks. The detector cannot tell an item a library holds from one it does not (it sees the repository, not its libraries), so the warning is given for every added parent, including one on an item no library has taken yet.

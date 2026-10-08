@@ -71,7 +71,7 @@ class Levels:
             economic = make_item(api, bridge, "Economic Object", "economic-object", root)
             set_parents(api, bridge, longsword, weapon, longsword_5e)
             set_parents(api, bridge, weapon, economic, root)
-        self.ok("repo", "publish", "--tenant", self.bridge, "--acknowledge-breaking")
+        self.ok("repo", "publish", "--tenant", self.bridge)
 
     def cli(self, *args: str) -> Any:
         return run_cli(self.stack, self.token, self.tmp_path, *args)
@@ -149,7 +149,7 @@ def test_updates_take_an_attachment_with_the_row_it_points_at_and_detach_only_wh
             longsword["id"],
             *[p["id"] for p in longsword["prototypes"] if p["name"] != "Longsword 5e"],
         )
-    levels.ok("repo", "publish", "--tenant", levels.bridge, "--acknowledge-breaking")
+    levels.ok("repo", "publish", "--tenant", levels.bridge)
 
     code, shown = levels.json("repo", "updates", levels.bridge, "--tenant", table)
     assert code == 2
@@ -193,7 +193,6 @@ def test_updates_take_an_attachment_with_the_row_it_points_at_and_detach_only_wh
                         "child_source_id": waiting["child_source_id"],
                         "parent_source_id": waiting["parent_source_id"],
                         "action": "add",
-                        "confirm": True,
                     },
                     {
                         "child_source_id": gone["child_source_id"],

@@ -40,6 +40,15 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
+    op.add_column(
+        "repository_release",
+        sa.Column(
+            "warning_rows",
+            postgresql.JSONB(),
+            server_default=sa.text("'[]'::jsonb"),
+            nullable=False,
+        ),
+    )
 
     op.create_table(
         "repository_released_row",
@@ -90,6 +99,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("repository_released_row")
+    op.drop_column("repository_release", "warning_rows")
     op.drop_column("repository_release", "breaking_rows")
     op.drop_column("repository_release", "counts")
     op.drop_column("repository_release", "digest")

@@ -51,7 +51,8 @@ _COUNT_KEY = {
     "attachment": "attachments",
 }
 
-# What the detector calls breaking, by reason (RFC 0037 §3, ADR 0208).
+# What the detector finds, by reason (RFC 0037 §3, ADR 0208): changes that break a library that
+# copied the repository, and the one that only changes what an item is in it.
 REASONS = (
     "entity_removed",
     "stat_definition_removed",
@@ -62,6 +63,9 @@ REASONS = (
     "slug_changed",
     "attachment_added",
 )
+# A warning is said and never refused: a parent added to an item libraries hold changes the item
+# there, but it is a bridge's ordinary work, and every library names it before taking it.
+WARNING_REASONS = frozenset({"attachment_added"})
 
 
 @dataclass(frozen=True)
@@ -84,7 +88,8 @@ class Row:
 
 @dataclass(frozen=True)
 class Breaking:
-    """A change the engine cannot carry, as it is kept on a release (`breaking_rows`)."""
+    """A change the detector found, as it is kept on a release: in `breaking_rows` when the
+    engine cannot carry it, in `warning_rows` when it only changes what an item is."""
 
     kind: str
     row_id: uuid.UUID
@@ -300,8 +305,8 @@ def detect(found: Comparison) -> list[Breaking]:
     """The changes in `found` the update engine cannot carry to a library that already copied
     the repository, or carries so that the library differs from a fresh copy: a removed entry,
     stat or stat group, a stat whose type changed, an enum value taken away, an entry whose
-    kind or link name changed, and an attachment added. Added rows, changed values, formulas
-    and parents are what updates are for, and are not listed."""
+    kind or link name changed, and (as a warning, `WARNING_REASONS`) an attachment added. Added
+    rows, changed values, formulas and parents are what updates are for, and are not listed."""
     hits: list[Breaking] = []
 
     def hit(row: Row, reason: str, detail: str) -> None:
@@ -379,6 +384,15 @@ def detect(found: Comparison) -> list[Breaking]:
     return hits
 
 
+def split(found: Iterable[Breaking]) -> tuple[list[Breaking], list[Breaking]]:
+    """What breaks, and what only warns, each in order."""
+    sorted_ = ordered(found)
+    return (
+        [b for b in sorted_ if b.reason not in WARNING_REASONS],
+        [b for b in sorted_ if b.reason in WARNING_REASONS],
+    )
+
+
 def ordered(hits: Iterable[Breaking]) -> list[Breaking]:
     return sorted(hits, key=lambda b: (KINDS.index(b.kind), b.name, b.reason, str(b.row_id)))
 
@@ -420,16 +434,17 @@ class BreakingNote:
     release: ReleaseRef
 
 
-async def breaking_since(
+async def notes_since(
     session: AsyncSession, repository_id: uuid.UUID, synced_release_id: uuid.UUID | None
-) -> dict[Key, list[BreakingNote]]:
-    """The rows any release after the one a library last took listed as breaking, the latest
-    release's word for a row listed more than once: the union of what the library skipped.
-    A library with no release on record (a copy from before releases) is owed all of them.
-    Read inside the gated read of the repository."""
+) -> tuple[dict[Key, list[BreakingNote]], dict[Key, list[BreakingNote]]]:
+    """The rows any release after the one a library last took listed as breaking, and as a
+    warning: the union of what the library skipped, oldest release first. A library with no
+    release on record (a copy from before releases) is owed all of them. Read inside the gated
+    read of the repository."""
     stmt = select(RepositoryRelease).where(
         RepositoryRelease.tenant_id == repository_id,
-        func.jsonb_array_length(RepositoryRelease.breaking_rows) > 0,
+        (func.jsonb_array_length(RepositoryRelease.breaking_rows) > 0)
+        | (func.jsonb_array_length(RepositoryRelease.warning_rows) > 0),
     )
     if synced_release_id is not None:
         synced = await session.scalar(
@@ -440,13 +455,15 @@ async def breaking_since(
         )
         if synced is not None:
             stmt = stmt.where(RepositoryRelease.number > synced)
-    notes: dict[Key, list[BreakingNote]] = {}
+    breaking: dict[Key, list[BreakingNote]] = {}
+    warnings: dict[Key, list[BreakingNote]] = {}
     releases = (await session.scalars(stmt.order_by(RepositoryRelease.number))).all()
     for ref, release in zip(releases_as_refs(releases), releases, strict=True):
-        for value in release.breaking_rows:
-            row = Breaking.from_json(value)
-            notes.setdefault(row.key, []).append(BreakingNote(row.reason, row.detail, ref))
-    return notes
+        for into, found in ((breaking, release.breaking_rows), (warnings, release.warning_rows)):
+            for value in found:
+                row = Breaking.from_json(value)
+                into.setdefault(row.key, []).append(BreakingNote(row.reason, row.detail, ref))
+    return breaking, warnings
 
 
 # --- Assessing a repository --------------------------------------------------------------
@@ -464,6 +481,7 @@ class Assessment:
     matches: bool | None
     comparison: Comparison
     hits: list[Breaking]
+    warnings: list[Breaking]
     descriptions_edited: int | None
     counts: dict[str, Any]
 
@@ -479,6 +497,7 @@ async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
     baseline = release is not None and release.digest is not None
     stored = await stored_rows(session, repository_id) if baseline else {}
     comparison = compare(stored, live)
+    hits, warnings = split(detect(comparison)) if baseline else ([], [])
     digest = digest_of(live.values())
     edited = (
         await descriptions_edited_since(session, repository_id, release.created_at)
@@ -492,7 +511,8 @@ async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
         digest=digest,
         matches=(release is not None and release.digest == digest) if baseline else None,
         comparison=comparison,
-        hits=ordered(detect(comparison)) if baseline else [],
+        hits=hits,
+        warnings=warnings,
         descriptions_edited=edited,
         counts=counts_of(comparison, edited or 0),
     )

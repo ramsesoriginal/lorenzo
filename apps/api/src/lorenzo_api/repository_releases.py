@@ -33,7 +33,7 @@ FIRST_PUBLISH_BODY = "You can browse it and copy it into your tenant."
 @dataclass(frozen=True)
 class ReleaseRef:
     """A release as a copy and an update check name it, with what the ledger holds of it
-    (ADR 0208): its digest, counts and breaking rows, as the JSON they are stored as."""
+    (ADR 0208): its digest, counts, breaking and warning rows, as the JSON they are stored as."""
 
     id: uuid.UUID
     number: int
@@ -44,6 +44,7 @@ class ReleaseRef:
     digest: str | None = None
     counts: dict[str, Any] | None = None
     breaking_rows: list[dict[str, Any]] = field(default_factory=list)
+    warning_rows: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _ref(release: RepositoryRelease) -> ReleaseRef:
@@ -57,6 +58,7 @@ def _ref(release: RepositoryRelease) -> ReleaseRef:
         release.digest,
         release.counts,
         list(release.breaking_rows or []),
+        list(release.warning_rows or []),
     )
 
 
@@ -130,6 +132,7 @@ async def make_release(
     digest: str | None = None,
     counts: dict[str, Any] | None = None,
     breaking_rows: list[dict[str, Any]] | None = None,
+    warning_rows: list[dict[str, Any]] | None = None,
 ) -> RepositoryRelease:
     """The repository's next release, flushed. Locks the repository's row first, so two
     publishes at once get two numbers. `409` if the label is in use: the default one,
@@ -154,6 +157,7 @@ async def make_release(
         digest=digest,
         counts=counts,
         breaking_rows=breaking_rows or [],
+        warning_rows=warning_rows or [],
     )
     session.add(release)
     await session.flush()

@@ -509,7 +509,7 @@ async def test_a_repository_published_before_digests_is_compared_with_nothing(
 # --- Attachments --------------------------------------------------------------------------
 
 
-async def test_an_attachment_added_after_a_release_is_a_breaking_change(
+async def test_an_attachment_added_after_a_release_is_a_warning_and_not_a_breaking_change(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
     w = await release_world(raw_client, fake_jwks_server, published=True)
@@ -548,15 +548,19 @@ async def test_an_attachment_added_after_a_release_is_a_breaking_change(
         assert [(r["kind"], r["name"], r["parent_name"]) for r in preview["added"]] == [
             ("attachment", "Dagger", "Silvered")
         ]
-        assert [(b["kind"], b["reason"]) for b in preview["breaking"]] == [
+        # It says so, and refuses nothing: a bridge's ordinary work is not breaking.
+        assert preview["breaking"] == []
+        assert [(b["kind"], b["reason"]) for b in preview["warnings"]] == [
             ("attachment", "attachment_added")
         ]
-        assert "Silvered" in preview["breaking"][0]["detail"]
-        refused = await w.author.put(f"/tenants/{bridge}/published", json={})
-        assert refused.status_code == 409
-        ok = await w.author.put(f"/tenants/{bridge}/published", json={"acknowledge_breaking": True})
+        assert "Silvered" in preview["warnings"][0]["detail"]
+        ok = await w.author.put(f"/tenants/{bridge}/published", json={})
         assert ok.status_code == 200, ok.text
-        assert ok.json()["release"]["breaking"] is True
+        release = ok.json()["release"]
+        assert release["breaking"] is False and release["breaking_rows"] == []
+        assert [(b["kind"], b["reason"]) for b in release["warning_rows"]] == [
+            ("attachment", "attachment_added")
+        ]
 
         # And taking it away is listed as removed, and is not breaking: the library only detaches.
         async with admin_session_factory() as session:
@@ -566,7 +570,7 @@ async def test_an_attachment_added_after_a_release_is_a_breaking_change(
             await session.commit()
         gone = (await w.author.get(f"/tenants/{bridge}/release-preview")).json()
         assert gone["counts"]["attachments"] == {"added": 0, "removed": 1}
-        assert gone["breaking"] == []
+        assert gone["breaking"] == [] and gone["warnings"] == []
     finally:
         await w.done()
 
@@ -676,15 +680,14 @@ async def test_attachments_on_updates_are_marked_too(
         assert [(a["child_name"], a["state"]) for a in edited["attachments_added"]] == [
             ("Dagger", "edited")
         ]
-        assert (
-            await w.author.put(f"/tenants/{bridge}/published", json={"acknowledge_breaking": True})
-        ).status_code == 200
+        assert (await w.author.put(f"/tenants/{bridge}/published", json={})).status_code == 200
         released = (await w.gm.get(listing)).json()
         assert [(a["child_name"], a["state"]) for a in released["attachments_added"]] == [
             ("Dagger", "released")
         ]
-        # The release it was listed as breaking in is on the row, in words.
-        (note,) = released["attachments_added"][0]["breaking"]
+        # The release that warned of it is on the row, in words, and none called it breaking.
+        assert released["attachments_added"][0]["breaking"] == []
+        (note,) = released["attachments_added"][0]["warnings"]
         assert note["reason"] == "attachment_added"
         assert "Silvered" in note["detail"]
     finally:
@@ -843,7 +846,7 @@ async def test_detaching_a_row_that_was_removed_needs_no_confirmation(
         await w.done()
 
 
-async def test_taking_an_attachment_the_release_called_breaking_needs_confirming(
+async def test_taking_an_attachment_a_release_warned_about_needs_naming_and_no_confirming(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
     w = await release_world(raw_client, fake_jwks_server)
@@ -883,9 +886,7 @@ async def test_taking_an_attachment_the_release_called_breaking_needs_confirming
                 )
             )
             await session.commit()
-        assert (
-            await w.author.put(f"/tenants/{bridge}/published", json={"acknowledge_breaking": True})
-        ).status_code == 200
+        assert (await w.author.put(f"/tenants/{bridge}/published", json={})).status_code == 200
         updates = (await w.gm.get(f"/tenants/{w.table}/repositories/{bridge}/updates")).json()
         pair = updates["attachments_added"][0]
         attachment = {
@@ -894,13 +895,9 @@ async def test_taking_an_attachment_the_release_called_breaking_needs_confirming
             "action": "add",
         }
         url = f"/tenants/{w.table}/repositories/{bridge}/updates"
-        refused = await w.gm.post(url, json={"actions": [], "attachments": [attachment]})
-        assert refused.status_code == 409, refused.text
-        assert refused.json()["type"] == "update-needs-confirmation"
-        assert refused.json()["unconfirmed"][0]["reason"] == "attachment_added"
-        ok = await w.gm.post(
-            url, json={"actions": [], "attachments": [{**attachment, "confirm": True}]}
-        )
+        # The warning is on the row for the library to read; naming the attachment is the decision.
+        assert [n["reason"] for n in pair["warnings"]] == ["attachment_added"]
+        ok = await w.gm.post(url, json={"actions": [], "attachments": [attachment]})
         assert ok.status_code == 200, ok.text
         assert ok.json()["attachments_added"] == 1
     finally:

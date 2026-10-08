@@ -49,3 +49,7 @@ class RepositoryRelease(Base):
     breaking_rows: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb")
     )
+    # What it changed in an item libraries hold without breaking anything (a parent added).
+    warning_rows: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb")
+    )

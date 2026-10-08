@@ -899,6 +899,7 @@ class ReleaseOut(BaseModel):
     digest: str | None = Field(..., title="Digest")
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
+    warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
 
 
 class ReleaseRefOut(BaseModel):
@@ -1228,7 +1229,6 @@ class AttachmentActionIn(BaseModel):
     child_source_id: UUID = Field(..., title="Child Source Id")
     parent_source_id: UUID = Field(..., title="Parent Source Id")
     action: AttachmentActionName
-    confirm: bool | None = Field(None, title="Confirm")
 
 
 class BreakingNoteOut(BaseModel):
@@ -1620,6 +1620,7 @@ class ReleaseAuthoredOut(BaseModel):
     digest: str | None = Field(..., title="Digest")
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
+    warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
     created_by: UUID | None = Field(..., title="Created By")
 
 
@@ -1634,6 +1635,7 @@ class ReleasePreviewOut(BaseModel):
     changed: list[RowNameOut] = Field(..., title="Changed")
     removed: list[RowNameOut] = Field(..., title="Removed")
     breaking: list[BreakingRowOut] = Field(..., title="Breaking")
+    warnings: list[BreakingRowOut] = Field(..., title="Warnings")
     descriptions_edited: int | None = Field(..., title="Descriptions Edited")
     libraries_told: int = Field(..., title="Libraries Told")
 
@@ -1752,6 +1754,7 @@ class AttachmentAddedOut(BaseModel):
     parent_name: str = Field(..., title="Parent Name")
     state: State | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
+    warnings: list[BreakingNoteOut] = Field(..., title="Warnings")
     applicable: bool = Field(..., title="Applicable")
     reason: str | None = Field(..., title="Reason")
 
@@ -1765,6 +1768,7 @@ class AttachmentChangeOut(BaseModel):
     parent_name: str = Field(..., title="Parent Name")
     state: State | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
+    warnings: list[BreakingNoteOut] = Field(..., title="Warnings")
 
 
 class BulkAddPrototypeResultItem(BaseModel):

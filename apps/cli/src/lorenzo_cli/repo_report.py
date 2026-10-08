@@ -158,13 +158,17 @@ ATTACHMENT_REASON = (
 
 def _marks(row: Any, updates: UpdatesOut) -> str:
     """What the repository says of a row beside its name: edited since its latest release, and
-    called breaking by a release since this tenant last updated (ADR 0208)."""
+    called breaking by a release since this tenant last updated, or, of an attachment, said to
+    change what the item is (ADR 0208)."""
     said: list[str] = []
     if row.state is not None and row.state.value == "edited":
         release = f" {updates.release.label}" if updates.release else ""
         said.append(f"edited since release{release}")
     if row.breaking:
         said.append(f"breaking, release {row.breaking[0].release.label}")
+    warnings = getattr(row, "warnings", None)
+    if warnings:
+        said.append(f"changes what the item is, release {warnings[0].release.label}")
     return f" ({'; '.join(said)})" if said else ""
 
 

@@ -1513,6 +1513,11 @@ def repo_publish(
         return
     release = published.release
     flag = " It is marked breaking." if release.breaking else ""
+    if release.warning_rows:
+        flag += (
+            f" It adds {len(release.warning_rows)} parent(s) to items libraries already hold: "
+            "each library names them before it takes them."
+        )
     if was_published:
         _out.print(
             f"Published release {release.label} of {published.slug}: "

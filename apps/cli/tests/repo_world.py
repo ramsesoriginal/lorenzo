@@ -167,6 +167,7 @@ def attachment(
     parent_source: uuid.UUID | None = None,
     child_here: bool = True,
     parent_here: bool = True,
+    warnings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """An attachment the repository has and the tenant took no record of (ADR 0172). An end that
     isn't here has no local id, and the reason the API gives for it."""
@@ -187,6 +188,7 @@ def attachment(
         "applicable": reason is None,
         "reason": reason,
         **marks(),
+        "warnings": warnings or [],
     }
 
 
@@ -211,6 +213,8 @@ class World:
     releases: int = 0
     # What PUT .../published answers instead of publishing, e.g. a problem.
     publish_answer: httpx.Response | None = None
+    # What the release it makes says it warns of (a parent added to an item libraries hold).
+    publish_warnings: list[dict[str, Any]] = field(default_factory=list)
     # Collisions a copy has to be given a choice for, until it is.
     collisions: list[dict[str, Any]] = field(default_factory=list)
     updates: dict[str, Any] = field(
@@ -335,6 +339,7 @@ class World:
                     "digest": None,
                     "counts": None,
                     "breaking_rows": [],
+                    "warning_rows": self.publish_warnings,
                 }
             return httpx.Response(200, json=answer)
         if path == f"{repo}/subscribers" and method == "GET":

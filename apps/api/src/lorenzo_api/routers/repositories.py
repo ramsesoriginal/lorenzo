@@ -218,6 +218,7 @@ async def publish_repository(
         digest=assessed.digest,
         counts=assessed.counts,
         breaking_rows=[b.as_json() for b in assessed.hits],
+        warning_rows=[b.as_json() for b in assessed.warnings],
     )
     await replace_stored_rows(session, tenant_id, assessed.live.values())
     release_out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
@@ -324,6 +325,7 @@ async def preview_release(
         changed=_row_names([now for _, now in found.changed]),
         removed=_row_names(found.removed),
         breaking=[BreakingRowOut.model_validate(b.as_json()) for b in assessed.hits],
+        warnings=[BreakingRowOut.model_validate(b.as_json()) for b in assessed.warnings],
         descriptions_edited=assessed.descriptions_edited,
         libraries_told=told or 0,
     )
@@ -1193,7 +1195,10 @@ def _row_ref_out(r: RowRef) -> RowRefOut:
 
 def _attachment_change_out(a: AttachmentRef) -> AttachmentChangeOut:
     return AttachmentChangeOut(
-        **_attachment_ref_out(a).model_dump(), state=a.state, breaking=_notes_out(a.breaking)
+        **_attachment_ref_out(a).model_dump(),
+        state=a.state,
+        breaking=_notes_out(a.breaking),
+        warnings=_notes_out(a.warnings),
     )
 
 
@@ -1313,7 +1318,6 @@ async def apply_repository_updates(
                 child_source_id=a.child_source_id,
                 parent_source_id=a.parent_source_id,
                 action=a.action.value,
-                confirm=bool(a.confirm),
             )
             for a in body.attachments or []
         ],

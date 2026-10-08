@@ -142,6 +142,8 @@ class ReleaseOut(ReleaseRefOut):
     digest: str | None
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut]
+    # What it changed in items libraries hold without breaking them: a parent added.
+    warning_rows: list[BreakingRowOut]
 
 
 class ReleaseAuthoredOut(ReleaseOut):
@@ -221,7 +223,8 @@ class ReleasePreviewOut(BaseModel):
     differ when it does not. `counts` is what a publish would record; `added`, `changed` and
     `removed` name at most 200 rows each, in the order stat groups, stats, entries,
     attachments, and the counts are always complete. `breaking` is what a publish refuses without
-    `acknowledge_breaking`. `descriptions_edited` is the hint of texts written or edited since the
+    `acknowledge_breaking`; `warnings` is what it says and never refuses, a parent added to an
+    item libraries hold. `descriptions_edited` is the hint of texts written or edited since the
     release, which `matches` does not see: text edits are not tracked. `libraries_told` is how many
     libraries hold an invitation, whom a publish would tell."""
 
@@ -235,6 +238,7 @@ class ReleasePreviewOut(BaseModel):
     changed: list[RowNameOut]
     removed: list[RowNameOut]
     breaking: list[BreakingRowOut]
+    warnings: list[BreakingRowOut]
     descriptions_edited: int | None
     libraries_told: int
 
@@ -528,10 +532,13 @@ class AttachmentRefOut(BaseModel):
 
 
 class AttachmentChangeOut(AttachmentRefOut):
-    """An attachment in a library's updates, marked as a row is (ADR 0208)."""
+    """An attachment in a library's updates, marked as a row is (ADR 0208). `warnings` are the
+    releases since the library last updated that said, of this parent, that it changes what the
+    item is: a note, which the library does not confirm."""
 
     state: RowState | None
     breaking: list[BreakingNoteOut]
+    warnings: list[BreakingNoteOut]
 
 
 class AttachmentAddedOut(AttachmentChangeOut):
@@ -611,7 +618,6 @@ class AttachmentActionIn(BaseModel):
     child_source_id: uuid.UUID
     parent_source_id: uuid.UUID
     action: AttachmentActionName
-    confirm: bool | None = None
 
 
 class ApplyUpdatesRequest(BaseModel):

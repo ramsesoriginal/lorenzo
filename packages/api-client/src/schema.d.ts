@@ -3507,8 +3507,6 @@ export interface components {
              */
             parent_source_id: string;
             action: components["schemas"]["AttachmentActionName"];
-            /** Confirm */
-            confirm?: boolean | null;
         };
         /**
          * AttachmentActionName
@@ -3547,6 +3545,8 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+            /** Warnings */
+            warnings: components["schemas"]["BreakingNoteOut"][];
             /** Applicable */
             applicable: boolean;
             /** Reason */
@@ -3554,7 +3554,9 @@ export interface components {
         };
         /**
          * AttachmentChangeOut
-         * @description An attachment in a library's updates, marked as a row is (ADR 0208).
+         * @description An attachment in a library's updates, marked as a row is (ADR 0208). `warnings` are the
+         *     releases since the library last updated that said, of this parent, that it changes what the
+         *     item is: a note, which the library does not confirm.
          */
         AttachmentChangeOut: {
             /**
@@ -3579,6 +3581,8 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+            /** Warnings */
+            warnings: components["schemas"]["BreakingNoteOut"][];
         };
         /** AttachmentCountsOut */
         AttachmentCountsOut: {
@@ -6903,6 +6907,8 @@ export interface components {
             counts: components["schemas"]["ReleaseCountsOut"] | null;
             /** Breaking Rows */
             breaking_rows: components["schemas"]["BreakingRowOut"][];
+            /** Warning Rows */
+            warning_rows: components["schemas"]["BreakingRowOut"][];
             /** Created By */
             created_by: string | null;
         };
@@ -6951,6 +6957,8 @@ export interface components {
             counts: components["schemas"]["ReleaseCountsOut"] | null;
             /** Breaking Rows */
             breaking_rows: components["schemas"]["BreakingRowOut"][];
+            /** Warning Rows */
+            warning_rows: components["schemas"]["BreakingRowOut"][];
         };
         /**
          * ReleasePreviewOut
@@ -6964,7 +6972,8 @@ export interface components {
          *     differ when it does not. `counts` is what a publish would record; `added`, `changed` and
          *     `removed` name at most 200 rows each, in the order stat groups, stats, entries,
          *     attachments, and the counts are always complete. `breaking` is what a publish refuses without
-         *     `acknowledge_breaking`. `descriptions_edited` is the hint of texts written or edited since the
+         *     `acknowledge_breaking`; `warnings` is what it says and never refuses, a parent added to an
+         *     item libraries hold. `descriptions_edited` is the hint of texts written or edited since the
          *     release, which `matches` does not see: text edits are not tracked. `libraries_told` is how many
          *     libraries hold an invitation, whom a publish would tell.
          */
@@ -6987,6 +6996,8 @@ export interface components {
             removed: components["schemas"]["RowNameOut"][];
             /** Breaking */
             breaking: components["schemas"]["BreakingRowOut"][];
+            /** Warnings */
+            warnings: components["schemas"]["BreakingRowOut"][];
             /** Descriptions Edited */
             descriptions_edited: number | null;
             /** Libraries Told */

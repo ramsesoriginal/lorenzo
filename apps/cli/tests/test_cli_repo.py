@@ -966,6 +966,46 @@ def test_an_attachment_alone_is_something_to_take(tmp_path: Path) -> None:
     assert json.loads(result.stdout)["attachments_added"][0]["parent_name"] == "Economic Object"
 
 
+def test_an_attachment_a_release_warned_about_says_so_beside_it_and_is_not_called_breaking(
+    tmp_path: Path,
+) -> None:
+    world = world_with(
+        {
+            "attachments_added": [
+                attachment(
+                    1, "Weapon", "Economic Object", warnings=[note("attachment_added", "1.2")]
+                )
+            ]
+        }
+    )
+    result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
+
+    text = said(result)
+    assert "added attachment “Economic Object” on “Weapon”" in text
+    assert "changes what the item is, release 1.2" in text
+    assert "breaking" not in text
+
+
+def test_a_publish_says_how_many_parents_it_adds_to_items_libraries_hold(tmp_path: Path) -> None:
+    world = World()
+    world.publish_warnings = [
+        {
+            "kind": "attachment",
+            "row_id": str(uuid.UUID(int=1)),
+            "parent_id": str(uuid.UUID(int=2)),
+            "name": "Weapon",
+            "reason": "attachment_added",
+            "detail": "“Economic Object” was added as a parent of “Weapon”.",
+        }
+    ]
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale")
+
+    assert result.exit_code == 0, result.output
+    text = said(result)
+    assert "It adds 1 parent(s) to items libraries already hold" in text
+    assert "marked breaking" not in text
+
+
 def test_apply_never_takes_an_attachment_and_leaves_them_for_their_own_decision(
     tmp_path: Path,
 ) -> None:
@@ -1302,6 +1342,7 @@ def test_updates_show_what_was_edited_after_the_release_and_what_is_breaking(
         "digest": "0" * 64,
         "counts": None,
         "breaking_rows": [],
+        "warning_rows": [],
     }
     result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
 
