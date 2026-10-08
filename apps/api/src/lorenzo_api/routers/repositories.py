@@ -64,6 +64,7 @@ from lorenzo_api.repository_copying import (
     Resolution,
     Step,
     apply_plan,
+    dependencies_of,
     forget_copy,
     plan_copy,
 )
@@ -93,6 +94,7 @@ from lorenzo_api.schemas.repositories import (
     FieldChangeOut,
     NotAppliedOut,
     PreviousCopyOut,
+    RepositoryDependencyOut,
     RepositoryEntityOut,
     RepositoryStatDefinitionOut,
     RepositoryStatGroupOut,
@@ -360,9 +362,11 @@ async def revoke_repository(
     user: CurrentUser,
 ) -> None:
     """Revokes a grant. What the tenant already copied stays theirs (RFC
-    0024 §6)."""
+    0024 §6). Its members are told (ADR 0199); the subscribing side giving
+    its own grant up is not announced.
+    """
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    repository = await _require_repository(session, tenant_id)
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
     if subscription is None:
         raise SubscriptionNotFoundError(
@@ -376,6 +380,18 @@ async def revoke_repository(
         action="repository.revoked",
         target_type="tenant",
         target_id=subscriber_tenant_id,
+    )
+    await _notify_members_of(
+        session,
+        recipient_tenant_ids=[subscriber_tenant_id],
+        current_tenant_id=tenant_id,
+        type="repository_revoked",
+        title=f"{repository.name} is no longer shared with your library",
+        body=(
+            "What your library already copied from it stays yours. It will not get"
+            " updates from it unless it is invited again."
+        ),
+        user=user,
     )
     await session.commit()
 
@@ -693,6 +709,41 @@ async def browse_repository_stat_groups(
             definitions=by_group[g.id],
         )
         for g in groups
+    ]
+
+
+@router.get("/repositories/{repository_id}/dependencies")
+async def list_repository_dependencies(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+) -> list[RepositoryDependencyOut]:
+    """The repositories a granted, published repository is built on, as this
+    library stands with each: its id, name and slug, whether the library is
+    invited to it, has copied it, and whether it is published (ADR 0198).
+    Dependencies first, as `copy-plan` orders them. Plans no copy and returns
+    no content: a library that is not invited to a dependency learns whom to
+    ask, and nothing more of it.
+    """
+    steps = await dependencies_of(session, tenant_id=tenant_id, repository_id=repository_id)
+    slugs = {
+        id_: slug
+        for id_, slug in await session.execute(
+            select(Tenant.id, Tenant.slug).where(Tenant.id.in_([s.repository_id for s in steps]))
+        )
+    }
+    return [
+        RepositoryDependencyOut(
+            id=step.repository_id,
+            name=step.name,
+            slug=slugs[step.repository_id],
+            invited=step.granted,
+            copied=step.already_copied,
+            published=step.published,
+        )
+        for step in steps
+        # One whose tenant is gone has nothing to ask, invite or copy.
+        if step.repository_id in slugs
     ]
 
 

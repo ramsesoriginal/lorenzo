@@ -1,0 +1,48 @@
+---
+// Everything on /studio (ADR 0202): the repositories someone works on, as a list beside whichever
+// one is open, and "New repository" for an account that may create one. Rendered by
+// renderStudioPanel.
+import { BRANDING_CSS_URL } from '../../lib/config';
+import CreateTenant from '../CreateTenant/CreateTenant.astro';
+import Repository from '../Repository/Repository.astro';
+---
+
+<div class="with-sidebar full-width" data-studio-panel hidden>
+  <nav class="sidebar" aria-label="My repositories">
+    <ul class="tree" data-list></ul>
+    <p class="caption" data-create-unavailable hidden></p>
+  </nav>
+
+  <div class="stack" data-main>
+    <p class="error-text" role="alert" data-error hidden></p>
+
+    <Repository />
+
+    <div data-create hidden></div>
+
+    <p data-empty hidden>
+      You do not work on a repository yet. The Owner of a repository can add you to it.
+    </p>
+  </div>
+
+  <template data-item-template>
+    <li>
+      <a data-link></a>
+    </li>
+  </template>
+
+  <template data-new-template>
+    <li>
+      <a class="row-tight" data-link>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
+        </svg>
+        <span>New repository</span>
+      </a>
+    </li>
+  </template>
+
+  <template data-create-template>
+    <CreateTenant />
+  </template>
+</div>

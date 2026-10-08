@@ -1,0 +1,305 @@
+---
+// Everything on /repositories (ADR 0196): Shelf, the repositories a library has been invited to or
+// has copied. A list, and one repository's page, both for the library chosen at the top. Rendered
+// by renderRepositoriesPanel.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<div class="stack" data-repositories-panel hidden>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <p data-no-library hidden>
+    Repositories are copied into a library, and you do not run one yet.
+    <a href="/tenants/">Your libraries</a>
+  </p>
+
+  <div class="field" data-library-picker hidden>
+    <label class="field-label" for="shelf-library">
+      Library
+    </label>
+    <select id="shelf-library" class="text-input" data-library></select>
+  </div>
+
+  <section class="stack" data-list-view hidden>
+    <p data-empty hidden>
+      No repository is offered to this library yet. The owner of a repository invites a library to
+      it; ask them to invite this one.
+    </p>
+    <ul class="list" data-list></ul>
+  </section>
+
+  <article class="stack" data-detail-view hidden>
+    <p>
+      <a class="shelf-link" href="/repositories/" data-back>
+        All repositories
+      </a>
+    </p>
+
+    <header class="row">
+      <img class="repository-picture" alt="" width="64" height="64" data-picture hidden />
+      <span class="avatar-placeholder repository-initial" aria-hidden="true" data-initial></span>
+      <h2 class="grow" data-name></h2>
+      <span data-state></span>
+    </header>
+
+    <p data-explanation></p>
+
+    <div class="stack-tight" data-actions hidden>
+      <p>
+        <a class="btn btn-primary" href="/repositories/" data-link data-copy-link>
+          Copy this repository
+        </a>
+      </p>
+      <p class="caption">
+        You see what it brings, and what it would clash with, before anything is copied.
+      </p>
+    </div>
+    <details class="stack shelf-section" data-more hidden>
+      <summary>
+        <svg class="icon tree-toggle" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+        </svg>
+        More
+      </summary>
+      <a class="shelf-link" href="/repositories/" data-link data-copy-again-link>
+        Copy again&hellip;
+      </a>
+    </details>
+
+    <div class="ls-content" data-description hidden></div>
+
+    <section class="stack" data-inside-section hidden>
+      <h3>What is inside</h3>
+      <dl class="key-values" data-inside></dl>
+      <p data-inside-unknown hidden></p>
+      <p class="caption" data-attachments hidden></p>
+      <p class="caption">
+        Only names show until your library copies this repository: entries with their kinds and
+        parents, and stat groups with their stats.
+      </p>
+    </section>
+
+    <section class="stack" data-built-on-section hidden>
+      <h3>Built on</h3>
+      <ul class="outline" aria-label="Built on" data-outline></ul>
+      <p data-built-on-none hidden>
+        It is not built on other repositories.
+      </p>
+    </section>
+
+    <section class="stack" data-history-section hidden>
+      <h3>Your library and this repository</h3>
+      <dl class="key-values" data-history></dl>
+      <p data-brought hidden></p>
+    </section>
+
+    <details class="stack shelf-section" data-entries-section hidden>
+      <summary>
+        <svg class="icon tree-toggle" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+        </svg>
+        Entries
+      </summary>
+      <label class="field-label" for="shelf-entry-search">
+        Find an entry
+      </label>
+      <input id="shelf-entry-search" class="text-input" type="search" data-entry-search />
+      <ul class="list" data-entries></ul>
+      <p data-entries-empty hidden>
+        No entry matches.
+      </p>
+      <button type="button" class="btn btn-secondary" data-entries-more hidden>
+        Show more
+      </button>
+      <p class="error-text" role="alert" data-entries-error hidden></p>
+    </details>
+
+    <details class="stack shelf-section" data-stat-groups-section hidden>
+      <summary>
+        <svg class="icon tree-toggle" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+        </svg>
+        Stat groups
+      </summary>
+      <ul class="list" data-stat-groups></ul>
+      <p data-stat-groups-empty hidden>
+        It has no stat groups.
+      </p>
+      <p class="error-text" role="alert" data-stat-groups-error hidden></p>
+    </details>
+  </article>
+
+  <section class="stack" data-copy-view hidden>
+    <p>
+      <a class="shelf-link" href="/repositories/" data-link data-copy-back>
+        Back to the repository
+      </a>
+    </p>
+    <h2 data-copy-title></h2>
+    <p class="caption" role="status" tabindex="-1" data-copy-step></p>
+    <p class="error-text" role="alert" data-copy-error hidden></p>
+    <p data-copy-working hidden>
+      Checking&hellip;
+    </p>
+
+    <section class="stack" data-step="check" hidden>
+      <h3>Before you copy</h3>
+      <ul class="stack-tight" data-limits></ul>
+
+      <fieldset data-again hidden>
+        <legend>What happens to the copy you already have?</legend>
+        <label class="field-row">
+          <input type="radio" name="copy-again" value="keep" checked />
+          Keep it as your own, and copy again beside it
+        </label>
+        <p class="caption" data-again-keep>
+          What the earlier copy created stays as your own entries and stat groups, no longer linked
+          to the repository. Their names will clash with the new copy, so expect choices to make.
+        </p>
+        <label class="field-row">
+          <input type="radio" name="copy-again" value="purge" />
+          Replace it
+        </label>
+        <p class="caption" data-again-purge>
+          What the earlier copy created is removed first, together with what your library added to
+          it.
+        </p>
+      </fieldset>
+
+      <section class="stack" data-brings-section hidden>
+        <h3>What it brings</h3>
+        <ul class="stack-tight" data-brings></ul>
+        <p class="caption" data-attachments hidden></p>
+        <p data-clash-count hidden></p>
+      </section>
+
+      <section class="stack" data-blocked hidden>
+        <h3>It cannot be copied yet</h3>
+        <p data-blocked-reason></p>
+        <ul class="stack-tight" data-missing></ul>
+      </section>
+
+      <div class="row">
+        <button type="button" class="btn btn-primary" data-check-next>
+          Continue
+        </button>
+      </div>
+    </section>
+
+    <section class="stack" data-step="clashes" hidden>
+      <p data-clash-intro></p>
+      <p>
+        <button type="button" class="btn btn-secondary" data-recommended-all>
+          Do what is recommended for all
+        </button>
+      </p>
+      <p class="caption" role="status" data-clash-progress></p>
+      <ol class="list" data-clashes></ol>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-clashes-back>
+          Back
+        </button>
+        <button type="button" class="btn btn-primary" data-clashes-next>
+          Review the copy
+        </button>
+      </div>
+    </section>
+
+    <section class="stack" data-step="review" hidden>
+      <p class="lede" data-receipt></p>
+      <p data-previous hidden></p>
+      <ul class="stack-tight" data-dropped hidden></ul>
+      <details class="stack shelf-section">
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          Everything it would bring
+        </summary>
+        <ul class="stack-tight" data-step-lines></ul>
+      </details>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-review-back>
+          Back
+        </button>
+        <button type="button" class="btn btn-primary" data-copy-now>
+          Copy now
+        </button>
+      </div>
+    </section>
+
+    <section class="stack" data-step="done" hidden>
+      <p class="lede" data-done-receipt></p>
+      <ul class="stack-tight" data-done-dropped hidden></ul>
+      <p>
+        <a class="btn btn-primary" href="/repositories/" data-link data-done-open>
+          Open the repository
+        </a>
+      </p>
+    </section>
+
+    <template data-clash-template>
+      <li>
+        <fieldset class="clash">
+          <legend data-sentence></legend>
+          <div class="stack" data-choices></div>
+          <label class="field" data-name-field hidden>
+            <span class="field-label" data-name-label></span>
+            <input class="text-input" type="text" autocomplete="off" spellcheck="false" data-name />
+          </label>
+          <p class="error-text" role="alert" data-problem hidden></p>
+        </fieldset>
+      </li>
+    </template>
+
+    <template data-choice-template>
+      <div class="stack-tight">
+        <label class="field-row">
+          <input type="radio" data-radio />
+          <span data-label></span>
+          <span class="pill" data-recommended hidden>
+            Recommended
+          </span>
+        </label>
+        <p class="caption" data-explanation></p>
+      </div>
+    </template>
+  </section>
+
+  <template data-card-template>
+    <li class="row repository-card">
+      <img class="repository-picture" alt="" width="48" height="48" data-picture hidden />
+      <span class="avatar-placeholder" aria-hidden="true" data-initial></span>
+      <div class="grow stack-tight">
+        <a class="shelf-link" href="/repositories/" data-link></a>
+        <span class="campaign-meta" data-description></span>
+      </div>
+      <span data-state></span>
+    </li>
+  </template>
+
+  <template data-outline-node-template>
+    <li>
+      <div class="outline-node">
+        <span class="outline-name" data-name></span>
+        <span data-state></span>
+        <p class="outline-hint" data-hint hidden></p>
+      </div>
+    </li>
+  </template>
+
+  <template data-entry-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <span class="badge" data-kinds></span>
+      <span class="campaign-meta" data-parents></span>
+    </li>
+  </template>
+
+  <template data-stat-group-template>
+    <li class="stack-tight shelf-stat-group">
+      <strong data-name></strong>
+      <span class="campaign-meta" data-stats></span>
+    </li>
+  </template>
+</div>

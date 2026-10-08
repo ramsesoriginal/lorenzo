@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — outline and phone widths</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="outline.html" aria-current="page">Outline</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html">Full width</a>
+          <a href="scrolling.html">Scrolling</a>
+          <a href="item.html">Item</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Outline and phone widths</h1>
+        <p class="lede">
+          Narrow this window below 720px, or open the page on a phone, to see
+          the phone rules: one column, a gutter that is not doubled, a header
+          that wraps, and everything you press at least 44px tall.
+        </p>
+
+        <section>
+          <h2>A chain, as an outline</h2>
+          <p>
+            What a repository is built on. A solid rule is a direct
+            relationship, a dashed one is derived; every node also says its
+            state in words, so nothing depends on the line or on colour.
+          </p>
+
+          <ul class="outline" aria-label="Built on">
+            <li>
+              <div class="outline-node" aria-current="true">
+                <span class="outline-name">D&amp;D 5e equipment</span>
+                <span class="outline-state">This repository</span>
+              </div>
+              <ul>
+                <li>
+                  <div class="outline-node">
+                    <a class="outline-name" href="#">Equipment</a>
+                    <span class="pill pill-success">Copied</span>
+                  </div>
+                  <ul>
+                    <li>
+                      <div class="outline-node">
+                        <a class="outline-name" href="#">Core</a>
+                        <span class="pill pill-success">Copied</span>
+                      </div>
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  <div class="outline-node">
+                    <a class="outline-name" href="#">D&amp;D 5e</a>
+                    <span class="pill pill-warning">Invited, not copied</span>
+                  </div>
+                  <ul class="outline-derived">
+                    <li>
+                      <div class="outline-node outline-node--muted">
+                        <span class="outline-name">Core</span>
+                        <span class="outline-state"
+                          >Copied through Equipment</span
+                        >
+                      </div>
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  <div class="outline-node outline-node--muted">
+                    <span class="outline-name">Faerûn</span>
+                    <span class="pill">Not invited</span>
+                    <p class="outline-hint">
+                      Ask the owner of Faerûn to invite your library.
+                    </p>
+                  </div>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Names and values</h2>
+          <p>
+            One column on a phone: the name above its value. Two columns when
+            there is room.
+          </p>
+          <dl class="key-values">
+            <dt>Entries</dt>
+            <dd>312</dd>
+            <dt>Stat groups</dt>
+            <dd>12</dd>
+            <dt>Last updated</dt>
+            <dd>2026-10-03</dd>
+          </dl>
+        </section>
+
+        <section>
+          <h2>Things you press</h2>
+          <div class="row">
+            <button class="btn btn-primary" type="button">Copy</button>
+            <button class="btn btn-secondary" type="button">Check first</button>
+            <input
+              class="text-input"
+              type="text"
+              aria-label="Search repositories"
+              placeholder="Search repositories"
+            />
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+      })();
+    </script>
+  </body>
+</html>

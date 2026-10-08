@@ -32,6 +32,7 @@ __all__ = [
     "DroppedOut",
     "EntityKindName",
     "ResolutionIn",
+    "RepositoryDependencyOut",
     "RepositoryEntityOut",
     "RepositoryStatDefinitionOut",
     "RepositoryStatGroupOut",
@@ -100,6 +101,19 @@ class ContributionOut(BaseModel):
     source_id: uuid.UUID
     name: str
     mode: Literal["copied", "merged"] | None
+
+
+class RepositoryDependencyOut(BaseModel):
+    """A repository another one is built on, with the asking library's state
+    of it (ADR 0198): who it is, never what it holds."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    # The asking library holds an invitation to it / has copied it.
+    invited: bool
+    copied: bool
+    published: bool
 
 
 class RepositoryEntityOut(BaseModel):
