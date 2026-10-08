@@ -58,6 +58,17 @@ describe('a row in a line', () => {
     ).toBe('Invited 2026-10-01, copied 2026-10-02, last updated 2026-10-05.');
   });
 
+  it('says which release a library is on', () => {
+    expect(
+      usingLine(
+        subscriber({
+          copied_at: '2026-10-02T10:00:00Z',
+          synced_release: { id: 'r1', number: 1, label: '1.2' },
+        }),
+      ),
+    ).toBe('Invited 2026-10-01, copied 2026-10-02, on release 1.2.');
+  });
+
   it('does not say "last updated" for the day it copied', () => {
     expect(
       usingLine(

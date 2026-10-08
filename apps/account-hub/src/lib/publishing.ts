@@ -100,15 +100,18 @@ export function dialogFor(mode: PublishMode, name: string, facts: PublishFacts):
       };
     case 'announce':
       return {
-        title: `Tell libraries about an update to ${name}`,
+        title: `Publish a new release of ${name}`,
         lines: [
-          toldLine(facts.invited, 'announce it'),
-          'Publishing again changes nothing in what libraries read: they read the repository as it is. It only says "look now".',
+          toldLine(facts.invited, 'publish it'),
+          'A release says what you meant to publish at this point, in a label and notes. It changes nothing in what libraries read: they read the repository as it is.',
           LIVE_LINE,
           GM_ONLY_LINE,
         ],
         warnings: builtOnWarnings(facts.builtOn),
-        confirm: facts.invited === 0 ? 'Publish again' : `Tell ${libraries(facts.invited)}`,
+        confirm:
+          facts.invited === 0
+            ? 'Publish release'
+            : `Publish release and tell ${libraries(facts.invited)}`,
         careful: facts.invited > 0,
       };
     case 'unpublish':

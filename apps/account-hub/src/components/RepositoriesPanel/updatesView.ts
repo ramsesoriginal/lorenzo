@@ -15,7 +15,8 @@ import type {
   ApplyUpdatesOut,
   ApplyUpdatesRequest,
   AttachmentAddedOut,
-  AttachmentRefOut,
+  AttachmentChangeOut,
+  BreakingNoteOut,
   RowChangeOut,
   RowRefOut,
   SubscriptionOut,
@@ -28,6 +29,8 @@ import {
   attachmentAction,
   attachmentAddedSentence,
   attachmentRemovedSentence,
+  breakingConfirmation,
+  breakingNotes,
   type ConflictChoice,
   cleanSelection,
   cleanSentence,
@@ -42,7 +45,9 @@ import {
   NOT_COMPARED_NOTE,
   notAppliedSentence,
   PLAYERS_NOTE,
+  type ReleaseState,
   ROW_KIND_LABEL,
+  releaseMark,
   rowKey,
   todo,
 } from '../../lib/updates';
@@ -261,6 +266,37 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     return block;
   }
 
+  // What a row is against the latest release, and what a release since the library last updated says
+  // breaks in it, each in words.
+  function paintMarks(
+    item: HTMLElement,
+    mine: State,
+    row: { state?: ReleaseState; breaking?: readonly BreakingNoteOut[] },
+  ): void {
+    const marks = required<HTMLElement>(item, '[data-marks]');
+    const lines = [
+      releaseMark(row, mine.updates.release?.label ?? null),
+      ...breakingNotes(row.breaking ?? []),
+    ].filter((line): line is string => line !== null);
+
+    marks.replaceChildren(
+      ...lines.map((text) => {
+        const li = document.createElement('li');
+
+        li.className = 'caption';
+        li.textContent = text;
+
+        return li;
+      }),
+    );
+    marks.hidden = lines.length === 0;
+  }
+
+  // A row a release called breaking is applied only after the notes are read and confirmed.
+  function confirmed(breaking: readonly BreakingNoteOut[] | undefined): boolean {
+    return !breaking || breaking.length === 0 || window.confirm(breakingConfirmation(breaking));
+  }
+
   function changeRow(mine: State, row: RowChangeOut): HTMLElement {
     const item = cloneRoot(panel, '[data-change-template]');
     const described = describeRow(row, mine.updates.names);
@@ -272,6 +308,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
 
     mine.conflictChoices.set(key, choices);
     required<HTMLElement>(item, '[data-kind]').textContent = described.kindLabel;
+    paintMarks(item, mine, row);
     required<HTMLElement>(item, '[data-name]').textContent = described.name;
     required<HTMLElement>(item, '[data-fields]').replaceChildren(
       ...described.fields.map((field, index) => fieldBlock(mine, row, field, index)),
@@ -289,7 +326,9 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     apply.hidden = !described.appliable;
     item.addEventListener('conflict-chosen', refresh);
     apply.addEventListener('click', () => {
-      void run({ actions: [applyAction(row, choices)] }, status);
+      if (!confirmed(row.breaking)) return;
+
+      void run({ actions: [applyAction(row, choices, row.breaking.length > 0)] }, status);
     });
     skipButton(item, key);
 
@@ -305,6 +344,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
 
     mine.clashChoices.set(key, choices);
     required<HTMLElement>(item, '[data-kind]').textContent = ROW_KIND_LABEL[added.kind];
+    paintMarks(item, mine, added);
     required<HTMLElement>(item, '[data-name]').textContent = added.name;
 
     const { collision } = added;
@@ -332,6 +372,8 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     add.addEventListener('click', () => {
       const choice = collision ? choices.get(collisionKey(collision)) : undefined;
 
+      if (!confirmed(added.breaking)) return;
+
       void run(
         {
           actions: [
@@ -339,6 +381,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
               kind: added.kind,
               source_id: added.source_id,
               action: 'add',
+              ...(added.breaking.length > 0 ? { confirm: true } : {}),
               ...(choice
                 ? {
                     resolution: {
@@ -372,7 +415,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
   }
 
   function parentRow(
-    attachment: AttachmentRefOut | AttachmentAddedOut,
+    attachment: AttachmentChangeOut | AttachmentAddedOut,
     adding: boolean,
   ): HTMLElement {
     const item = cloneRoot(panel, '[data-parent-template]');
@@ -384,6 +427,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     required<HTMLElement>(item, '[data-sentence]').textContent = adding
       ? attachmentAddedSentence(attachment)
       : attachmentRemovedSentence(attachment);
+    paintMarks(item, state as State, attachment);
 
     if (adding) {
       const waiting = 'applicable' in attachment && !attachment.applicable;
@@ -396,7 +440,15 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
           : '';
       reason.hidden = !(waiting && reason.textContent);
       add.addEventListener('click', () => {
-        void run({ actions: [], attachments: [attachmentAction(attachment, 'add')] }, status);
+        if (!confirmed(attachment.breaking)) return;
+
+        void run(
+          {
+            actions: [],
+            attachments: [attachmentAction(attachment, 'add', attachment.breaking.length > 0)],
+          },
+          status,
+        );
       });
     } else {
       detach.hidden = false;
@@ -454,7 +506,9 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
       todo(counts) === 0
         ? 'Up to date: the repository has changed nothing your library has not taken.'
         : countsSentence(counts);
-    notes.textContent = `${NOT_COMPARED_NOTE} ${NEVER_BY_ITSELF} ${PLAYERS_NOTE}`;
+    const latest = updates.release ? `Latest release: ${updates.release.label}. ` : '';
+
+    notes.textContent = `${latest}${NOT_COMPARED_NOTE} ${NEVER_BY_ITSELF} ${PLAYERS_NOTE}`;
 
     const selection = cleanSelection(updates, skipped);
 

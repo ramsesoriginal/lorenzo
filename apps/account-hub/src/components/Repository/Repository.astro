@@ -3,6 +3,7 @@
 // and its tabs: Overview, People, Libraries using it, Built on and Activity. Rendered by renderRepository. The parts that are the same as a
 // library's (the picture, the form that edits the name, the people) are components, kept here as
 // <template>s or in place, and bound by their own renderers.
+import { BRANDING_CSS_URL } from '../../lib/config';
 import ActivityLog from '../ActivityLog/ActivityLog.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
@@ -47,6 +48,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
         People
       </button>
       <button type="button" class="tab" role="tab">
+        Releases
+      </button>
+      <button type="button" class="tab" role="tab">
         Libraries using it
       </button>
       <button type="button" class="tab" role="tab">
@@ -68,13 +72,18 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           <span class="pill pill-warning">Live</span>
           <span data-live-text></span>
         </p>
+        <div class="stack-tight" data-release-state hidden>
+          <p data-matches></p>
+          <p class="caption" data-descriptions-hint hidden></p>
+          <p class="caption" data-text-not-tracked></p>
+        </div>
         <div class="stack-tight" data-publish-actions>
           <div class="row" data-publish-buttons hidden>
             <button type="button" class="btn btn-primary" data-publish hidden>
               Publish&hellip;
             </button>
             <button type="button" class="btn btn-secondary" data-announce hidden>
-              Tell libraries about an update&hellip;
+              Publish a new release&hellip;
             </button>
             <button type="button" class="btn btn-secondary" data-unpublish hidden>
               Unpublish&hellip;
@@ -102,6 +111,16 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </button>
           <span class="status-text" role="status" data-leave-status hidden></span>
         </div>
+      </section>
+    </div>
+
+    <div class="stack" role="tabpanel">
+      <section class="stack" data-releases hidden>
+        <h3>Releases</h3>
+        <p class="caption" data-releases-note></p>
+        <p class="error-text" role="alert" data-releases-error hidden></p>
+        <p data-releases-none hidden></p>
+        <ul class="stack" data-releases-list></ul>
       </section>
     </div>
 
@@ -165,6 +184,44 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
         <ul class="stack-tight" data-dialog-warning-list></ul>
       </div>
       <ul class="stack-tight" data-dialog-lines></ul>
+
+      <!-- What a release is called and says, and what it will contain (ADR 0209). -->
+      <div class="stack" data-composer hidden>
+        <label class="field">
+          <span class="field-label">Label</span>
+          <input
+            type="text"
+            class="text-input"
+            maxlength="80"
+            autocomplete="off"
+            data-composer-label
+          />
+          <span class="caption" data-label-help></span>
+        </label>
+        <label class="field">
+          <span class="field-label">Notes</span>
+          <textarea class="text-input" rows="4" data-composer-notes></textarea>
+        </label>
+        <label class="field-row">
+          <input type="checkbox" data-composer-breaking />
+          This release is breaking: libraries should read its notes before they update
+        </label>
+        <section class="stack-tight" data-changes>
+          <strong>What this release contains</strong>
+          <p data-matches-line></p>
+          <ul class="stack-tight" data-content-lines></ul>
+          <p class="caption" data-hint hidden></p>
+          <p class="caption" data-not-tracked></p>
+        </section>
+        <div class="stack-tight" data-breaks-box hidden>
+          <strong>This release breaks things</strong>
+          <ul class="stack-tight" data-breaks-lines></ul>
+          <label class="field-row">
+            <input type="checkbox" data-composer-ack />
+            <span data-ack-text></span>
+          </label>
+        </div>
+      </div>
       <p class="error-text" role="alert" data-dialog-error hidden></p>
       <div class="row">
         <button type="button" class="btn btn-secondary" data-dialog-cancel autofocus>
@@ -175,6 +232,52 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
     </form>
   </dialog>
 
+  <template data-release-template>
+    <li class="card card-body stack">
+      <header class="row">
+        <strong class="grow" data-label></strong>
+        <span class="pill pill-warning" data-breaking hidden>
+          Breaking
+        </span>
+      </header>
+      <p class="campaign-meta" data-meta></p>
+      <p data-notes hidden></p>
+      <ul class="stack-tight" data-counts></ul>
+      <details class="stack shelf-section" data-breaks hidden>
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          <span data-breaks-title></span>
+        </summary>
+        <ul class="stack-tight" data-breaks-list></ul>
+      </details>
+      <div class="row" data-release-actions hidden>
+        <button type="button" class="btn btn-secondary" data-edit-release>
+          Edit label and notes
+        </button>
+      </div>
+      <form class="stack" data-release-form hidden>
+        <label class="field">
+          <span class="field-label">Label</span>
+          <input type="text" class="text-input" maxlength="80" required data-edit-label />
+        </label>
+        <label class="field">
+          <span class="field-label">Notes</span>
+          <textarea class="text-input" rows="4" data-edit-notes></textarea>
+        </label>
+        <div class="row">
+          <button type="submit" class="btn btn-primary">
+            Save
+          </button>
+          <button type="button" class="btn btn-secondary" data-edit-cancel>
+            Cancel
+          </button>
+        </div>
+        <p class="status-text" role="status" data-edit-status hidden></p>
+      </form>
+    </li>
+  </template>
   <template data-using-template>
     <li class="row">
       <div class="grow stack-tight">

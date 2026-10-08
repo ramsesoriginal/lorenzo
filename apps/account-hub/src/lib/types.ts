@@ -47,6 +47,17 @@ export type InviteRedeemOut = Schema<'InviteRedeemOut'>;
 // A library's repositories (RFC 0036, Shelf).
 export type SubscriptionOut = Schema<'SubscriptionOut'>;
 export type SubscriberOut = Schema<'SubscriberOut'>;
+
+// Releases (RFC 0037).
+export type ReleaseOut = Schema<'ReleaseOut'>;
+export type ReleaseAuthoredOut = Schema<'ReleaseAuthoredOut'>;
+export type ReleaseRefOut = Schema<'ReleaseRefOut'>;
+export type ReleaseCountsOut = Schema<'ReleaseCountsOut'>;
+export type ReleasePreviewOut = Schema<'ReleasePreviewOut'>;
+export type ReleaseUpdate = Schema<'ReleaseUpdate'>;
+export type BreakingRowOut = Schema<'BreakingRowOut'>;
+export type BreakingNoteOut = Schema<'BreakingNoteOut'>;
+export type PublishRequest = Schema<'PublishRequest'>;
 export type RepositorySummaryOut = Schema<'RepositorySummaryOut'>;
 export type ContributionCountsOut = Schema<'ContributionCountsOut'>;
 export type CopyPlanOut = Schema<'CopyPlanOut'>;
@@ -65,6 +76,7 @@ export type RowRefOut = Schema<'RowRefOut'>;
 export type AddedOut = Schema<'AddedOut'>;
 export type AttachmentRefOut = Schema<'AttachmentRefOut'>;
 export type AttachmentAddedOut = Schema<'AttachmentAddedOut'>;
+export type AttachmentChangeOut = Schema<'AttachmentChangeOut'>;
 export type ApplyUpdatesRequest = Schema<'ApplyUpdatesRequest'>;
 export type ApplyUpdatesOut = Schema<'ApplyUpdatesOut'>;
 export type UpdateActionIn = Schema<'UpdateActionIn'>;

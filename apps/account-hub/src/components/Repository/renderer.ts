@@ -29,7 +29,7 @@ import { renderPictureUpload } from '../PictureUpload/renderer';
 import { bindLeaveTenant } from '../Tenant/leaveTenant';
 import { renderTenantEdit } from '../TenantEdit/renderer';
 import { createPublishControls } from './publish';
-import { createActivity, createBuiltOn, createUsing } from './sections';
+import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 
 const required = requiredIn('Repository');
 
@@ -86,6 +86,7 @@ export function renderRepository(
   // An invitation made or stopped changes only what the Libraries using it tab shows.
   // A publish or an unpublish changes what the page shows, so it is read again.
   const publishControls = createPublishControls(root, hooks.onChanged);
+  const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
   const activity = createActivity(root);
@@ -116,6 +117,7 @@ export function renderRepository(
     people.hidden = true;
     live.hidden = true;
     publishControls.clear();
+    releases.clear();
     using.clear();
     builtOn.clear();
     activity.clear();
@@ -222,6 +224,7 @@ export function renderRepository(
         const current = () => turn === latest;
 
         await Promise.all([
+          releases.load(repository, current, roster?.items ?? null),
           using.load(repository, current, null),
           builtOn.load(repository, current, null),
           activity.load(repository, current, roster?.items ?? null),
