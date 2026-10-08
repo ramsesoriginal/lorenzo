@@ -43,3 +43,13 @@ export type InviteCreatedOut = Schema<'InviteCreatedOut'>;
 export type InviteOut = Schema<'InviteOut'>;
 export type InvitePreviewOut = Schema<'InvitePreviewOut'>;
 export type InviteRedeemOut = Schema<'InviteRedeemOut'>;
+
+// A library's repositories (RFC 0036, Shelf).
+export type SubscriptionOut = Schema<'SubscriptionOut'>;
+export type RepositorySummaryOut = Schema<'RepositorySummaryOut'>;
+export type ContributionCountsOut = Schema<'ContributionCountsOut'>;
+export type CopyPlanOut = Schema<'CopyPlanOut'>;
+export type CopyStepOut = Schema<'CopyStepOut'>;
+export type RepositoryEntityOut = Schema<'RepositoryEntityOut'>;
+export type RepositoryStatGroupOut = Schema<'RepositoryStatGroupOut'>;
+export type RepositoryStatDefinitionOut = Schema<'RepositoryStatDefinitionOut'>;

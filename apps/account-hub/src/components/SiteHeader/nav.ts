@@ -1,3 +1,4 @@
+import { isTenantAdmin } from '../../lib/format';
 import { getMe } from '../../lib/me';
 import { canCreateTenants, isRepository } from '../../lib/tenantKind';
 import { listMyTenants } from '../../lib/tenants';
@@ -39,4 +40,11 @@ export async function showAllowedLinks(root: HTMLElement): Promise<void> {
   const inRepository = tenants.status === 'fulfilled' && tenants.value.items.some(isRepository);
 
   if (gms || inRepository) show('beings');
+
+  // Shelf is where a library's owners and organizers see the repositories it may copy from.
+  const administersLibrary =
+    tenants.status === 'fulfilled' &&
+    tenants.value.items.some((tenant) => !isRepository(tenant) && isTenantAdmin(tenant));
+
+  if (administersLibrary) show('library-admin');
 }
