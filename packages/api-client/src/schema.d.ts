@@ -789,7 +789,8 @@ export interface paths {
         /**
          * Revoke Repository
          * @description Revokes a grant. What the tenant already copied stays theirs (RFC
-         *     0024 §6).
+         *     0024 §6). Its members are told (ADR 0199); the subscribing side giving
+         *     its own grant up is not announced.
          */
         delete: operations["revoke_repository"];
         options?: never;

@@ -362,9 +362,11 @@ async def revoke_repository(
     user: CurrentUser,
 ) -> None:
     """Revokes a grant. What the tenant already copied stays theirs (RFC
-    0024 §6)."""
+    0024 §6). Its members are told (ADR 0199); the subscribing side giving
+    its own grant up is not announced.
+    """
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    repository = await _require_repository(session, tenant_id)
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
     if subscription is None:
         raise SubscriptionNotFoundError(
@@ -378,6 +380,18 @@ async def revoke_repository(
         action="repository.revoked",
         target_type="tenant",
         target_id=subscriber_tenant_id,
+    )
+    await _notify_members_of(
+        session,
+        recipient_tenant_ids=[subscriber_tenant_id],
+        current_tenant_id=tenant_id,
+        type="repository_revoked",
+        title=f"{repository.name} is no longer shared with your library",
+        body=(
+            "What your library already copied from it stays yours. It will not get"
+            " updates from it unless it is invited again."
+        ),
+        user=user,
     )
     await session.commit()
 
