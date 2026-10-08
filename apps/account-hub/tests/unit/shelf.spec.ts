@@ -120,12 +120,29 @@ describe('shelfHref and readShelfLocation', () => {
     expect(shelfHref('table-one', 'abc')).toBe('/repositories/?tenant=table-one&repository=abc');
   });
 
+  it('builds the address of the copy wizard, only for a repository', () => {
+    expect(shelfHref('table-one', 'abc', 'new')).toBe(
+      '/repositories/?tenant=table-one&repository=abc&copy=new',
+    );
+    expect(shelfHref('table-one', 'abc', 'again')).toBe(
+      '/repositories/?tenant=table-one&repository=abc&copy=again',
+    );
+    expect(shelfHref('table-one', undefined, 'new')).toBe('/repositories/?tenant=table-one');
+  });
+
   it('reads them back, and says nothing for what the address leaves out', () => {
     expect(readShelfLocation('?tenant=table-one&repository=abc')).toEqual({
       library: 'table-one',
       repository: 'abc',
+      copy: null,
     });
-    expect(readShelfLocation('')).toEqual({ library: null, repository: null });
+    expect(readShelfLocation('')).toEqual({ library: null, repository: null, copy: null });
+  });
+
+  it('reads a copy as a first one unless it says "again"', () => {
+    expect(readShelfLocation('?tenant=t&repository=r&copy=again').copy).toBe('again');
+    expect(readShelfLocation('?tenant=t&repository=r&copy=new').copy).toBe('new');
+    expect(readShelfLocation('?tenant=t&repository=r&copy=').copy).toBe('new');
   });
 });
 

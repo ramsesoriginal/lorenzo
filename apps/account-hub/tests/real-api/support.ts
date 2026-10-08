@@ -95,3 +95,62 @@ export async function makeGm(owner: Api, tenantId: string, campaignId: string, u
     }),
   );
 }
+
+/** Publishes a repository. */
+export async function publish(api: Api, repositoryId: string) {
+  await ok(
+    api.PUT('/tenants/{tenant_id}/published', { params: { path: { tenant_id: repositoryId } } }),
+  );
+}
+
+/** Invites a library to a repository. */
+export async function invite(api: Api, repositoryId: string, libraryId: string) {
+  await ok(
+    api.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+      params: { path: { tenant_id: repositoryId, subscriber_tenant_id: libraryId } },
+    }),
+  );
+}
+
+/** A catalog item, with a link name where one is given. */
+export async function addItem(api: Api, tenantId: string, name: string, slug?: string) {
+  return ok(
+    api.POST('/tenants/{tenant_id}/items', {
+      params: { path: { tenant_id: tenantId } },
+      body: { name, prototype_ids: [], in_public_catalog: false, ...(slug ? { slug } : {}) },
+    }),
+  );
+}
+
+/** A stat group, and the stats (whole numbers) in it. */
+export async function addStatGroup(api: Api, tenantId: string, name: string, stats: string[] = []) {
+  const group = await ok(
+    api.POST('/tenants/{tenant_id}/stat-groups', {
+      params: { path: { tenant_id: tenantId } },
+      body: { name, priority: 0, mandatory: false },
+    }),
+  );
+
+  for (const stat of stats) {
+    await ok(
+      api.POST('/tenants/{tenant_id}/stat-definitions', {
+        params: { path: { tenant_id: tenantId } },
+        body: { name: stat, stat_group_id: group.id, value_type: 'int' },
+      }),
+    );
+  }
+
+  return group;
+}
+
+/** How many items, and how many stat groups, a tenant holds. */
+export async function holdings(api: Api, tenantId: string) {
+  const items = await ok(
+    api.GET('/tenants/{tenant_id}/items', { params: { path: { tenant_id: tenantId } } }),
+  );
+  const groups = await ok(
+    api.GET('/tenants/{tenant_id}/stat-groups', { params: { path: { tenant_id: tenantId } } }),
+  );
+
+  return { items: items.total, statGroups: groups.total };
+}

@@ -19,7 +19,7 @@
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "test:real-api": "playwright test --config playwright.real-api.config.ts",
-    "test:real-api:ci": "playwright test --config playwright.real-api.config.ts tests/e2e tests/real-api/shelf.spec.ts"
+    "test:real-api:ci": "playwright test --config playwright.real-api.config.ts tests/e2e tests/real-api/shelf.spec.ts tests/real-api/copy.spec.ts"
   },
   "dependencies": {
     "@authgear/web": "^6.0.0",

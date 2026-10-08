@@ -119,3 +119,26 @@
 .shelf-stat-group {
   align-items: flex-start;
 }
+
+/* A name clash in the copy wizard (ADR 0201): one card for each (the list item is the card), the
+   fieldset filling it with the question as its legend, in the size of the text and not of a label. The choices are pressed, so each row is
+   the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
+.clash {
+  width: 100%;
+  padding: 0;
+  border: 0;
+}
+
+.clash > legend {
+  padding-inline: var(--space-2);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .clash .field-row,
+  [data-again] .field-row {
+    min-height: var(--target-min);
+  }
+}

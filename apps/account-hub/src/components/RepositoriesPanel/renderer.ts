@@ -1,8 +1,9 @@
 // /repositories (ADR 0196, RFC 0036 §3): Shelf. A library's repositories as a list, and one
 // repository's page: what it is, what is inside, what it is built on, and what the library has
-// done with it. Read only; copying and updating are later slices. A page for a library is
-// `?tenant=<library>`, and for one of its repositories `&repository=<id>`; both are plain links, so
-// they can be opened, shared and gone back to.
+// done with it, and the way to copy it (ADR 0201, ./wizard.ts); updating is a later slice. A page
+// for a library is `?tenant=<library>`, for one of its repositories `&repository=<id>`, and for
+// copying it `&copy=new` or `&copy=again`; all are plain links, so they can be opened, shared and
+// gone back to.
 
 import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
@@ -42,6 +43,7 @@ import type {
   SubscriptionOut,
   TenantSummaryOut,
 } from '../../lib/types';
+import { createCopyWizard } from './wizard';
 
 const required = requiredIn('Repositories panel');
 
@@ -102,8 +104,14 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
   const list = required<HTMLElement>(root, '[data-list]');
   const detailView = required<HTMLElement>(root, '[data-detail-view]');
   const back = required<HTMLAnchorElement>(root, '[data-back]');
+  const copyView = required<HTMLElement>(root, '[data-copy-view]');
+  const wizard = createCopyWizard(root, copyView);
 
   const detail = {
+    actions: required<HTMLElement>(detailView, '[data-actions]'),
+    copyLink: required<HTMLAnchorElement>(detailView, '[data-copy-link]'),
+    more: required<HTMLDetailsElement>(detailView, '[data-more]'),
+    copyAgainLink: required<HTMLAnchorElement>(detailView, '[data-copy-again-link]'),
     picture: required<HTMLImageElement>(detailView, '[data-picture]'),
     initial: required<HTMLElement>(detailView, '[data-initial]'),
     name: required<HTMLElement>(detailView, '[data-name]'),
@@ -339,6 +347,13 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     detail.name.textContent = repository.name;
     stateElement(detail.state, state);
     detail.explanation.textContent = SHELF_STATE_EXPLANATION[state];
+
+    // Copying: a first copy of what is offered and not yet copied, another of what is copied.
+    detail.actions.hidden = state !== 'not-copied';
+    detail.copyLink.href = shelfHref(library.slug, repository.id, 'new');
+    detail.more.hidden = subscription.copied_at === null;
+    detail.more.open = false;
+    detail.copyAgainLink.href = shelfHref(library.slug, repository.id, 'again');
     showLorenzoScript(detail.description, repository.description);
 
     // What is inside, from the plan's step for this repository.
@@ -427,6 +442,26 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       : undefined;
 
     error.hidden = true;
+
+    // The copy wizard, where the address asks for it and the repository can be copied from where
+    // it stands; otherwise the repository's own page.
+    if (wanted && location.copy) {
+      const opened = await wizard.open(library, wanted, location.copy, () => turn === latest);
+
+      if (turn !== latest) return;
+
+      if (opened) {
+        shown = null;
+        listView.hidden = true;
+        detailView.hidden = true;
+        copyView.hidden = false;
+
+        return;
+      }
+    }
+
+    wizard.close();
+    copyView.hidden = true;
 
     if (wanted) {
       await paintDetail(library, wanted, turn);
