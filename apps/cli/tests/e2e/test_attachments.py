@@ -71,7 +71,7 @@ class Levels:
             economic = make_item(api, bridge, "Economic Object", "economic-object", root)
             set_parents(api, bridge, longsword, weapon, longsword_5e)
             set_parents(api, bridge, weapon, economic, root)
-        self.ok("repo", "publish", "--tenant", self.bridge)
+        self.ok("repo", "publish", "--tenant", self.bridge, "--acknowledge-breaking")
 
     def cli(self, *args: str) -> Any:
         return run_cli(self.stack, self.token, self.tmp_path, *args)
@@ -149,7 +149,7 @@ def test_updates_take_an_attachment_with_the_row_it_points_at_and_detach_only_wh
             longsword["id"],
             *[p["id"] for p in longsword["prototypes"] if p["name"] != "Longsword 5e"],
         )
-    levels.ok("repo", "publish", "--tenant", levels.bridge)
+    levels.ok("repo", "publish", "--tenant", levels.bridge, "--acknowledge-breaking")
 
     code, shown = levels.json("repo", "updates", levels.bridge, "--tenant", table)
     assert code == 2
@@ -169,18 +169,19 @@ def test_updates_take_an_attachment_with_the_row_it_points_at_and_detach_only_wh
     )
     assert "gone upstream: attachment “Longsword 5e” on “Longsword”" in text
 
-    # --apply takes the new prototype and, in the same call, the attachment to it. The one gone
-    # upstream is left.
+    # --apply takes the new prototype, and leaves every attachment: a new parent changes what the item
+    # is, so taking it is a decision (RFC 0037). The one gone upstream is left too.
     applied = levels.cli("repo", "updates", levels.bridge, "--tenant", table, "--apply", "--yes")
     assert applied.exit_code == 2, applied.output
     text = said(applied)
     assert "Took 0 changed, 1 added, 0 detached." in text
-    assert "Attachments: 1 added, 0 detached." in text
+    assert "attachment “Heavy Object” on “Weapon” waits" in text
     assert "1 attachment(s) gone upstream (detach is a decision)" in text
-    assert levels.parents(table, "weapon") == ["D&D 5e", "Economic Object", "Heavy Object"]
+    assert levels.parents(table, "weapon") == ["D&D 5e", "Economic Object"]
     assert levels.parents(table, "longsword") == ["Longsword 5e", "Weapon"]
 
-    # Naming it detaches it, and the table keeps the parent: updating never takes one away.
+    # Naming them takes the one and detaches the other, and the table keeps the parent it had: updating
+    # never takes one away.
     gone = shown["attachments_removed"][0]
     decisions = tmp_path / "decisions.json"
     decisions.write_text(
@@ -189,10 +190,16 @@ def test_updates_take_an_attachment_with_the_row_it_points_at_and_detach_only_wh
                 "actions": [],
                 "attachments": [
                     {
+                        "child_source_id": waiting["child_source_id"],
+                        "parent_source_id": waiting["parent_source_id"],
+                        "action": "add",
+                        "confirm": True,
+                    },
+                    {
                         "child_source_id": gone["child_source_id"],
                         "parent_source_id": gone["parent_source_id"],
                         "action": "detach",
-                    }
+                    },
                 ],
             }
         )
@@ -201,6 +208,7 @@ def test_updates_take_an_attachment_with_the_row_it_points_at_and_detach_only_wh
         "repo", "updates", levels.bridge, "--tenant", table, "--actions", str(decisions), "--yes"
     )
     assert detached.exit_code == 0, detached.output
-    assert "Attachments: 0 added, 1 detached." in said(detached)
+    assert "Attachments: 1 added, 1 detached." in said(detached)
+    assert levels.parents(table, "weapon") == ["D&D 5e", "Economic Object", "Heavy Object"]
     assert levels.parents(table, "longsword") == ["Longsword 5e", "Weapon"]
     assert levels.json("repo", "updates", levels.bridge, "--tenant", table)[0] == 0
