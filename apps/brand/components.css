@@ -590,6 +590,19 @@ dialog::backdrop {
   font-size: 13px;
 }
 
+/* One column on a phone: the name above its value, each pair set apart
+   from the next (§8.5). */
+@media (max-width: 720px) {
+  .key-values {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .key-values dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
 /* A wrapping row of pictures, each at most 240px: a <div class="gallery"> of <figure>s. */
 .gallery {
   display: flex;
@@ -632,12 +645,79 @@ dialog::backdrop {
 /* .tree-toggle, not the generic .icon - a summary row often carries a
    second, semantic icon (a type marker) alongside the disclosure chevron,
    and only the chevron itself should rotate open. */
-.tree summary .tree-toggle {
-  transition: transform 150ms ease;
+@media (prefers-reduced-motion: no-preference) {
+  .tree summary .tree-toggle {
+    transition: transform 150ms ease;
+  }
 }
 
 .tree details[open] > summary .tree-toggle {
   transform: rotate(90deg);
+}
+
+/* Outline: a chain whose links say what they are, such as the repositories
+   a repository is built on (identity.md §18). It is a plain nested list, so
+   it reads in order with a screen reader and needs no script; a node that
+   can be opened holds a link or a button.
+
+   The rule down the left of a nested list is the edge. Solid is a direct
+   relationship; .outline-derived is dashed for one that is derived or
+   passes through another (§18.2). The line is never the only thing saying
+   so: every node carries its state as words in .outline-state, so the
+   outline reads the same in grayscale. The current selection is a fill,
+   separate from meaning (§18.1). */
+.outline,
+.outline ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.outline ul {
+  margin-inline-start: var(--space-3);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--border-strong);
+}
+
+.outline ul.outline-derived {
+  border-inline-start-style: dashed;
+}
+
+.outline-node {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+}
+
+.outline-node[aria-current="true"] {
+  background: var(--surface-selected);
+}
+
+.outline-name {
+  font-weight: 600;
+}
+
+/* Something that cannot be read (not invited, not published) stays in the
+   outline, quieter: its state says why, so the fade is not the message. */
+.outline-node--muted .outline-name {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.outline-state {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* What to do about a node, on a line of its own beneath it. */
+.outline-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* Form fields beyond .text-input */
@@ -1067,4 +1147,45 @@ fieldset:disabled {
 .ls-content .ls-fnref a,
 .ls-content .ls-backref {
   text-decoration: none;
+}
+
+/* Touch targets (identity.md §8.5): at phone widths and for a coarse
+   pointer, anything pressed is at least --target-min tall. The same rule
+   serves a narrowed desktop window and a tablet in landscape, which is why
+   it is two conditions and not a guess about the device. It only raises a
+   minimum: a control already taller is untouched, and desktop sizes with a
+   fine pointer are exactly what they were. Placed last so nothing above it
+   can set a smaller height after it. */
+@media (max-width: 720px), (pointer: coarse) {
+  button,
+  .btn,
+  .text-input,
+  .tab,
+  .sidebar a,
+  .tree summary,
+  .tree li:not(:has(summary)),
+  .outline-node {
+    min-height: var(--target-min);
+  }
+
+  /* An inline link in a header is not a block, so min-height would be
+     ignored; make it one that centres its text. */
+  .site-header nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+
+  /* A chip's remove mark is 16px and sits inside a 25px chip; making the
+     mark 44px would change the chip. Its pressable area grows instead,
+     past its edges and under neighbouring text, not its look. */
+  .chip-remove {
+    position: relative;
+  }
+
+  .chip-remove::after {
+    content: "";
+    position: absolute;
+    inset: calc((var(--target-min) - 16px) / -2);
+  }
 }

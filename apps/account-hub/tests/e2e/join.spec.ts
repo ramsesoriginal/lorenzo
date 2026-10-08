@@ -10,7 +10,7 @@ test('join page with no link settles on one neutral message', async ({ page }) =
   await page.goto('/join/');
   await expect(page).toHaveTitle(/Lorenzo/);
   await expect(page.locator('#loading')).toBeHidden();
-  await expect(page.locator('#dead-link')).toContainText("This link doesn't work any more.");
+  await expect(page.locator('[data-dead]')).toContainText("This link doesn't work any more.");
 });
 
 test('join page asks for no referrer, and removes the token from the address bar', async ({
@@ -26,7 +26,7 @@ test('join page asks for no referrer, and removes the token from the address bar
   );
   await page.goto(`/join/#${TOKEN}`);
   await expect(page.locator('#loading')).toBeHidden();
-  await expect(page.locator('#dead-link')).toContainText("This link doesn't work any more.");
+  await expect(page.locator('[data-dead]')).toContainText("This link doesn't work any more.");
   expect(page.url()).not.toContain(TOKEN);
   expect(new URL(page.url()).hash).toBe('');
   await expect(page.locator('meta[name="referrer"]')).toHaveAttribute('content', 'no-referrer');

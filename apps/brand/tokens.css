@@ -144,6 +144,11 @@
   --space-6: 48px;
   --space-7: 64px;
 
+  /* The smallest size of anything pressed with a finger (§8.5): used as a
+     minimum height at phone widths and for coarse pointers, never as a
+     fixed size on a desktop. */
+  --target-min: 44px;
+
   /* Radius — canonical values (§8.3); a different radius is a deliberate,
      named exception, not a rounding choice */
   --radius-control: 8px;

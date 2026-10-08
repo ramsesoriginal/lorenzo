@@ -1,13 +1,14 @@
-// /tenants: a tree of the libraries and repositories someone belongs to, and whichever one is
-// open beside it. What is open is in the address (`?tenant=` a slug, or `?new=library` and
-// `?new=repository` for the create forms), so a link, Back and a reload all land where they were.
-// Only the open one is loaded.
+// /tenants: a tree of the libraries someone belongs to, and whichever one is open beside it. What
+// is open is in the address (`?tenant=` a slug, or `?new=library` for the create form), so a link,
+// Back and a reload all land where they were. Only the open one is loaded. A repository is run in
+// Studio (ADR 0202), so an address that names one, or asks to make one, goes there.
 
 import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
 import { sayError } from '../../lib/statusLine';
+import { STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
 import { cloneRoot, fromTemplate, requiredIn, rootElement } from '../../lib/template';
-import { canCreateTenants, splitByKind, type TenantKind } from '../../lib/tenantKind';
+import { canCreateTenants, isRepository, type TenantKind } from '../../lib/tenantKind';
 import { listMyTenants } from '../../lib/tenants';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
 import { renderCreateTenant } from '../CreateTenant/renderer';
@@ -36,9 +37,6 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   const librariesGroup = required<HTMLElement>(root, '[data-libraries-group]');
   const librariesList = required<HTMLElement>(root, '[data-libraries]');
   const librariesDetails = required<HTMLDetailsElement>(root, '[data-libraries-details]');
-  const repositoriesGroup = required<HTMLElement>(root, '[data-repositories-group]');
-  const repositoriesList = required<HTMLElement>(root, '[data-repositories]');
-  const repositoriesDetails = required<HTMLDetailsElement>(root, '[data-repositories-details]');
   const createUnavailable = required<HTMLElement>(root, '[data-create-unavailable]');
   const error = required<HTMLElement>(root, '[data-error]');
   const createView = required<HTMLElement>(root, '[data-create]');
@@ -49,6 +47,8 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   const links = new Map<string, HTMLAnchorElement>();
 
   let tenants: TenantSummaryOut[] = [];
+  // The repositories, only to send an address that names one to Studio.
+  let repositories: TenantSummaryOut[] = [];
   let current: View = { type: 'empty' };
 
   const tenantRoot = required<HTMLElement>(root, '[data-tenant]');
@@ -62,7 +62,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
 
     if (view.type === 'tenant') params.set('tenant', view.tenant.slug);
     if (view.type === 'new') {
-      params.set('new', view.tenantKind === 'repository' ? 'repository' : 'library');
+      params.set('new', 'library');
     }
 
     const query = params.toString();
@@ -78,19 +78,24 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
 
     if (tenant) return { type: 'tenant', tenant };
 
+    // A repository is run in Studio (ADR 0202): an address that names one, or asks to make one,
+    // goes there.
+    const repository = wanted
+      ? repositories.find((r) => r.slug === wanted || r.id === wanted)
+      : undefined;
     const make = params.get('new');
 
-    if (mayCreate && (make === 'library' || make === 'repository')) {
-      return { type: 'new', tenantKind: make === 'repository' ? 'repository' : 'play' };
-    }
+    if (repository) window.location.replace(studioHref(repository.slug));
+    else if (mayCreate && make === 'repository') window.location.replace(STUDIO_NEW_HREF);
+
+    if (mayCreate && make === 'library') return { type: 'new', tenantKind: 'play' };
 
     return null;
   }
 
-  // The first library, else the first repository, else somewhere to start.
+  // The first library, else somewhere to start.
   function defaultView(): View {
-    const { libraries, repositories } = splitByKind(tenants);
-    const first = libraries[0] ?? repositories[0];
+    const first = tenants[0];
 
     if (first) return { type: 'tenant', tenant: first };
 
@@ -135,36 +140,26 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   }
 
   function buildTree() {
-    const { libraries, repositories } = splitByKind(tenants);
-
     links.clear();
     librariesList.replaceChildren(
-      ...libraries.map((tenant) => renderItem({ type: 'tenant', tenant }, tenant.name, false)),
+      ...tenants.map((tenant) => renderItem({ type: 'tenant', tenant }, tenant.name, false)),
       ...(mayCreate ? [renderItem({ type: 'new', tenantKind: 'play' }, 'New library', true)] : []),
     );
-    repositoriesList.replaceChildren(
-      ...repositories.map((tenant) => renderItem({ type: 'tenant', tenant }, tenant.name, false)),
-      ...(mayCreate
-        ? [renderItem({ type: 'new', tenantKind: 'repository' }, 'New repository', true)]
-        : []),
-    );
-    librariesGroup.hidden = libraries.length === 0 && !mayCreate;
-    repositoriesGroup.hidden = repositories.length === 0 && !mayCreate;
+    librariesGroup.hidden = tenants.length === 0 && !mayCreate;
     markSelected();
   }
 
   async function refresh() {
-    tenants = (await listMyTenants()).items;
+    const all = (await listMyTenants()).items;
+
+    tenants = all.filter((tenant) => !isRepository(tenant));
+    repositories = all.filter(isRepository);
     buildTree();
   }
 
-  // Opens the group the view belongs to, once it is selected, and leaves the other as it was.
+  // Opens the group of libraries once one is selected.
   function openGroupOf(view: View) {
-    const kind =
-      view.type === 'tenant' ? view.tenant.kind : view.type === 'new' ? view.tenantKind : null;
-
-    if (kind === 'repository') repositoriesDetails.open = true;
-    else if (kind === 'play') librariesDetails.open = true;
+    if (view.type !== 'empty') librariesDetails.open = true;
   }
 
   async function show(view: View) {

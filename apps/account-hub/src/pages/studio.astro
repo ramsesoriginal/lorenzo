@@ -1,0 +1,25 @@
+---
+import StudioPanel from '../components/StudioPanel/StudioPanel.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="My repositories — Lorenzo">
+  <h1 class="display">My repositories</h1>
+  <p class="lede">The repositories you work on: their state, and who works on them.</p>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <StudioPanel />
+
+  <script>
+    import { renderStudioPanel } from '../components/StudioPanel/renderer';
+    import { getMe } from '../lib/me';
+    import { runPage } from '../lib/pageLoad';
+    import { requiredIn } from '../lib/template';
+
+    const panel = requiredIn('Studio')<HTMLElement>(document, '[data-studio-panel]');
+
+    await runPage(async () => renderStudioPanel(panel, await getMe()));
+  </script>
+</Base>
