@@ -10,6 +10,7 @@ import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
 import { avatarInitial, byName, isTenantAdmin } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import { releasePlace } from '../../lib/releases';
 import {
   getCopyPlan,
   listLibraryRepositories,
@@ -427,6 +428,11 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     if (subscription.granted_at) pair(detail.history, 'Invited', dayOf(subscription.granted_at));
     if (subscription.copied_at) pair(detail.history, 'Copied', dayOf(subscription.copied_at));
     if (subscription.synced_at) pair(detail.history, 'Last updated', dayOf(subscription.synced_at));
+    // Which release it took, and which is the latest (RFC 0037): said in words, never as "up to date".
+    const place = releasePlace(subscription);
+
+    if (place?.took) pair(detail.history, 'Last updated from release', place.took);
+    if (place) pair(detail.history, 'Latest release', place.latest);
     if (repository.published_at) pair(detail.history, 'Published', dayOf(repository.published_at));
 
     detail.brought.textContent = subscription.contributed

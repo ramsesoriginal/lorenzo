@@ -57,6 +57,9 @@ export function bindTabs(root: HTMLElement): BoundTabs {
     panel.setAttribute('aria-labelledby', tab.id);
   });
 
+  // What the person chose, kept while its panel is empty (a page loading again), and what is shown:
+  // the chosen tab if there is one, else the first there is.
+  let wanted = 0;
   let selected = 0;
 
   function open(): boolean[] {
@@ -66,8 +69,8 @@ export function bindTabs(root: HTMLElement): BoundTabs {
   function refresh(): void {
     const available = open();
 
-    // The selected tab went away: the first one there is takes over.
-    if (!available[selected]) selected = Math.max(available.indexOf(true), 0);
+    // The chosen tab is not there (yet): the first one there is takes its place, for now.
+    selected = available[wanted] ? wanted : Math.max(available.indexOf(true), 0);
 
     tabs.forEach((tab, index) => {
       const on = index === selected;
@@ -87,7 +90,7 @@ export function bindTabs(root: HTMLElement): BoundTabs {
 
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => {
-      selected = index;
+      wanted = index;
       refresh();
     });
     tab.addEventListener('keydown', (event) => {
@@ -108,7 +111,7 @@ export function bindTabs(root: HTMLElement): BoundTabs {
       if (target === undefined) return;
 
       event.preventDefault();
-      selected = target;
+      wanted = target;
       refresh();
       tabs[target]?.focus();
     });
@@ -119,7 +122,7 @@ export function bindTabs(root: HTMLElement): BoundTabs {
   return {
     refresh,
     reset() {
-      selected = 0;
+      wanted = 0;
       refresh();
     },
   };

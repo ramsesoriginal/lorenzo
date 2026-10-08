@@ -12,6 +12,10 @@ import type {
   CopyPlanOut,
   CopyRequest,
   Page,
+  PublishRequest,
+  ReleaseAuthoredOut,
+  ReleasePreviewOut,
+  ReleaseUpdate,
   RepositoryEntityOut,
   RepositoryStatGroupOut,
   SubscriberOut,
@@ -203,12 +207,16 @@ export async function stopInviting(repositoryId: string, libraryId: string): Pro
   );
 }
 
-// Publishes a repository, or says "look now" about one that is: the members of every library with
-// an invitation are told (ADR 0118). An Owner's.
-export async function publishRepository(repositoryId: string): Promise<void> {
+// Publishes a release of a repository (the first publish makes it public to its invited libraries):
+// the members of every library with an invitation are told (ADR 0118, 0207). An Owner's.
+export async function publishRepository(
+  repositoryId: string,
+  body: PublishRequest = { breaking: false, acknowledge_breaking: false },
+): Promise<void> {
   await unwrap(
     await client.PUT('/tenants/{tenant_id}/published', {
       params: { path: { tenant_id: repositoryId } },
+      body,
     }),
   );
 }
@@ -219,6 +227,56 @@ export async function unpublishRepository(repositoryId: string): Promise<void> {
   await unwrap(
     await client.DELETE('/tenants/{tenant_id}/published', {
       params: { path: { tenant_id: repositoryId } },
+    }),
+  );
+}
+
+// A repository's releases, newest first, for whoever works on it (RFC 0037).
+export async function listReleases(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<ReleaseAuthoredOut[]> {
+  return cached(
+    `releases:${repositoryId}`,
+    async () =>
+      fetchAllPages(async (page) =>
+        unwrap(
+          await client.GET('/tenants/{tenant_id}/releases', {
+            params: { path: { tenant_id: repositoryId }, query: { page, size: MAX_PAGE_SIZE } },
+          }),
+        ),
+      ),
+    { force: fresh },
+  );
+}
+
+// What a publish would release now: the live content against the latest release (writes nothing).
+export async function getReleasePreview(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<ReleasePreviewOut> {
+  return cached(
+    `release-preview:${repositoryId}`,
+    async () =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/release-preview', {
+          params: { path: { tenant_id: repositoryId } },
+        }),
+      ),
+    { force: fresh },
+  );
+}
+
+// Changes a release's label or notes: an Owner's. Nothing else of a release can change.
+export async function editRelease(
+  repositoryId: string,
+  releaseId: string,
+  body: ReleaseUpdate,
+): Promise<void> {
+  await unwrap(
+    await client.PATCH('/tenants/{tenant_id}/releases/{release_id}', {
+      params: { path: { tenant_id: repositoryId, release_id: releaseId } },
+      body,
     }),
   );
 }

@@ -156,3 +156,17 @@
     min-height: var(--target-min);
   }
 }
+
+/* The release composer in the publish dialog (ADR 0209): its checkboxes are pressed, so each row is
+   the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
+@media (max-width: 720px), (pointer: coarse) {
+  [data-publish-dialog] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+[data-publish-dialog] {
+  /* A long composer scrolls inside the dialog, not off the screen. */
+  max-height: 90vh;
+  overflow-y: auto;
+}

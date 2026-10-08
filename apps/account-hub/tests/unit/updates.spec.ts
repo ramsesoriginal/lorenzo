@@ -12,6 +12,8 @@ import {
   attachmentAction,
   attachmentAddedSentence,
   attachmentRemovedSentence,
+  breakingConfirmation,
+  breakingNotes,
   cleanSelection,
   cleanSentence,
   conflictsSettled,
@@ -25,8 +27,10 @@ import {
   inboxOrder,
   nameOrWord,
   notAppliedSentence,
+  releaseMark,
   rowKey,
   todo,
+  warningNotes,
 } from '../../src/lib/updates';
 
 const names = {
@@ -434,7 +438,14 @@ describe('apply all clean', () => {
       { kind: 'entity', source_id: 'new-Free', action: 'add' },
     ]);
     expect(selection).toMatchObject({ changed: 1, added: 1 });
-    expect(selection.left).toEqual({ conflicts: 1, collisions: 1, removed: 1, parents: 0 });
+    expect(selection.left).toEqual({
+      conflicts: 1,
+      collisions: 1,
+      removed: 1,
+      parents: 0,
+      edited: 0,
+      breaking: 0,
+    });
   });
 
   it('never takes a conflict, a clash, a removal or a parent, and not what was skipped', () => {
@@ -568,5 +579,95 @@ describe('what an apply did', () => {
     ).toBe(
       'Axe: the value of Strength was left as it is. its stat was not copied. It is offered again next time.',
     );
+  });
+});
+
+describe('apply all clean and the releases', () => {
+  const note = (label: string, detail = 'A parent was added.') => ({
+    reason: 'attachment_added' as const,
+    detail,
+    release: { id: `r-${label}`, number: 1, label },
+  });
+  const clean = (name: string, over: Partial<RowChangeOut> = {}) =>
+    row(name, [field({ field: 'name', base: 'a', upstream: 'b', local: 'a' })], over);
+
+  it('takes rows of the latest release and rows from before releases, not rows edited since', () => {
+    const selection = cleanSelection(
+      updates({
+        changed: [
+          clean('Released', { state: 'released' }),
+          clean('Before'),
+          clean('Edited', { state: 'edited' }),
+        ],
+      }),
+    );
+
+    expect(selection.actions.map((a) => a.source_id)).toEqual(['src-Released', 'src-Before']);
+    expect(selection.left).toMatchObject({ edited: 1, breaking: 0 });
+  });
+
+  it('never takes a row a release called breaking, whether or not it is released', () => {
+    const selection = cleanSelection(
+      updates({
+        changed: [clean('Breaks', { state: 'released', breaking: [note('1.3')] })],
+        added: [{ ...added('NewBreaks'), breaking: [note('1.3')] }, added('Fine')],
+      }),
+    );
+
+    expect(selection.actions.map((a) => a.source_id)).toEqual(['new-Fine']);
+    expect(selection.left).toMatchObject({ edited: 0, breaking: 2 });
+  });
+
+  it('says what it leaves for the release rule, in words', () => {
+    const selection = cleanSelection(
+      updates({
+        changed: [clean('Fine'), clean('Edited', { state: 'edited' })],
+        added: [{ ...added('NewBreaks'), breaking: [note('1.3')] }],
+      }),
+    );
+
+    expect(cleanSentence(selection)).toBe(
+      'Apply 1 change. Left for you to decide: 1 edited since the release, 1 marked breaking.',
+    );
+  });
+
+  it('marks a row against the latest release, in the words of the rule', () => {
+    expect(releaseMark({ state: 'released' }, '1.3')).toBe('In release 1.3');
+    expect(releaseMark({ state: 'edited' }, '1.3')).toBe('Edited since release 1.3');
+    expect(releaseMark({ state: null }, '1.3')).toBeNull();
+    expect(releaseMark({ state: 'released' }, null)).toBeNull();
+  });
+
+  it('says what a release warned of an attachment, as a note and not as a question', () => {
+    expect(warningNotes([note('1.3', '“Silvered” was added as a parent of “Dagger”.')])).toEqual([
+      'Warning in release 1.3: “Silvered” was added as a parent of “Dagger”.',
+    ]);
+    expect(warningNotes([])).toEqual([]);
+  });
+
+  it('says what a release called breaking, and asks before it is applied', () => {
+    expect(breakingNotes([note('1.3', '“Club” was removed.')])).toEqual([
+      'Breaking in release 1.3: “Club” was removed.',
+    ]);
+    expect(breakingConfirmation([note('1.3', '“Club” was removed.')])).toBe(
+      'Breaking in release 1.3: “Club” was removed.\n\nApply it anyway? Your library takes this change as the repository made it.',
+    );
+  });
+
+  it('confirms only where asked to, and only an action that can break', () => {
+    const target = { kind: 'entity' as const, source_id: 'src-1' };
+
+    expect(applyAction(target, new Map(), true)).toEqual({
+      ...target,
+      action: 'apply',
+      confirm: true,
+    });
+    expect(applyAction(target, new Map())).toEqual({ ...target, action: 'apply' });
+    // An attachment is never confirmed: a release only warned of it, and naming it is the decision.
+    expect(attachmentAction({ child_source_id: 'c', parent_source_id: 'p' }, 'detach')).toEqual({
+      child_source_id: 'c',
+      parent_source_id: 'p',
+      action: 'detach',
+    });
   });
 });
