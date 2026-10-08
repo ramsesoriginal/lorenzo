@@ -4,6 +4,7 @@ import sys
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable, Generator
 
+import _workers  # first: points the settings at this worker's database, before any reads them
 import pytest
 from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
@@ -55,6 +56,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     kept_ids = {id(item) for item in kept}
     config.hook.pytest_deselected(items=[item for item in items if id(item) not in kept_ids])
     items[:] = kept
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """A pytest-xdist worker drops the database it was given (tests/_workers.py)."""
+    _workers.drop_worker_database()
 
 
 @pytest.fixture(scope="session", autouse=True)
