@@ -62,6 +62,8 @@ function row(
     local_id: `loc-${name}`,
     name,
     fields,
+    state: null,
+    breaking: [],
     ...overrides,
   };
 }
@@ -77,12 +79,13 @@ function updates(overrides: Partial<UpdatesOut> = {}): UpdatesOut {
     attachments_removed: [],
     attachments_deleted_locally: [],
     names: {},
+    release: null,
     ...overrides,
   };
 }
 
 function added(name: string, collision: AddedOut['collision'] = null): AddedOut {
-  return { kind: 'entity', source_id: `new-${name}`, name, collision };
+  return { kind: 'entity', source_id: `new-${name}`, name, collision, state: null, breaking: [] };
 }
 
 describe('names', () => {
@@ -345,7 +348,9 @@ describe('the groups and what they count', () => {
   const all = updates({
     changed: [clean, conflicted],
     added: [added('One'), added('Two')],
-    removed: [{ kind: 'entity', source_id: 'r', local_id: 'l', name: 'Gone' }],
+    removed: [
+      { kind: 'entity', source_id: 'r', local_id: 'l', name: 'Gone', state: null, breaking: [] },
+    ],
     attachments_added: [
       {
         child_source_id: 'c',
@@ -356,6 +361,9 @@ describe('the groups and what they count', () => {
         parent_name: 'Weapon',
         applicable: true,
         reason: null,
+        state: null,
+        breaking: [],
+        warnings: [],
       },
     ],
   });
@@ -413,7 +421,9 @@ describe('apply all clean', () => {
   const all = updates({
     changed: [clean, conflicted, onlyType],
     added: [added('Free'), clash],
-    removed: [{ kind: 'entity', source_id: 'r', local_id: 'l', name: 'Gone' }],
+    removed: [
+      { kind: 'entity', source_id: 'r', local_id: 'l', name: 'Gone', state: null, breaking: [] },
+    ],
   });
 
   it('takes the rows nothing is chosen about, and leaves the rest', () => {

@@ -51,7 +51,8 @@ async def _share(author: Actor, repository: uuid.UUID, *subscribers: uuid.UUID) 
     for subscriber in subscribers:
         response = await author.put(f"/tenants/{repository}/subscribers/{subscriber}")
         assert response.status_code in (200, 201), response.text
-    assert (await author.put(f"/tenants/{repository}/published")).status_code == 200
+    published = await author.put(f"/tenants/{repository}/published")
+    assert published.status_code == 200, published.text
 
 
 async def _by_name(tenant: uuid.UUID) -> dict[str, uuid.UUID]:
@@ -427,6 +428,10 @@ async def test_an_attachment_the_bridge_adds_later_is_offered_and_applied(
                 "parent_name": "Economic Object",
                 "applicable": True,
                 "reason": None,
+                # Added after the bridge's release: edited since it.
+                "state": "edited",
+                "breaking": [],
+                "warnings": [],
             }
         ]
         # Nothing about the bridge's entities changed, only its parents.

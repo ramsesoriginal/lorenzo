@@ -89,10 +89,13 @@ export async function makeGm(owner: Api, tenantId: string, campaignId: string, u
   );
 }
 
-/** Publishes a repository. */
+/** Publishes a release of a repository, acknowledging whatever it breaks: a test world wants it out. */
 export async function publish(api: Api, repositoryId: string) {
   await ok(
-    api.PUT('/tenants/{tenant_id}/published', { params: { path: { tenant_id: repositoryId } } }),
+    api.PUT('/tenants/{tenant_id}/published', {
+      params: { path: { tenant_id: repositoryId } },
+      body: { breaking: false, acknowledge_breaking: true },
+    }),
   );
 }
 

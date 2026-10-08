@@ -94,6 +94,10 @@ async function updatesWorld() {
   await addItem(owner.api, repository.id, 'Buckler', 'buckler');
   await addItem(owner.api, library.id, 'My buckler', 'buckler');
 
+  // What the repository did is released: a library takes a release, and apply all clean takes only
+  // what a release holds (RFC 0037).
+  await publish(owner.api, repository.id);
+
   return { owner, library, repository, longsword, tag };
 }
 

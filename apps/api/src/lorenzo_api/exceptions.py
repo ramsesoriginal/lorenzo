@@ -101,7 +101,9 @@ __all__ = [
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
     "ReleaseLabelTakenError",
+    "ReleaseHasBreakingChangesError",
     "ReleaseNotFoundError",
+    "UpdateNeedsConfirmationError",
 ]
 
 
@@ -880,6 +882,21 @@ class ReleaseLabelTakenError(ConflictProblem):
     already, whatever its case - ADR 0207."""
 
     title = "That release label is taken"
+
+
+class ReleaseHasBreakingChangesError(ConflictProblem):
+    """Publishing a release that holds changes the update engine cannot carry to a library that
+    already copied the repository, without `acknowledge_breaking` - ADR 0208, RFC 0037 §3.
+    Carries `breaking_rows`: each row, with the reason it breaks, in words."""
+
+    title = "This release would break things"
+
+
+class UpdateNeedsConfirmationError(ConflictProblem):
+    """Applying an update to a row a release since the library last updated called breaking,
+    without `confirm` - ADR 0208. Carries `unconfirmed`: each such row and why."""
+
+    title = "Some changes are marked breaking"
 
 
 class ReleaseNotFoundError(NotFoundProblem):

@@ -14,6 +14,11 @@ class Kind(StrEnum):
     stat_definition = "stat_definition"
 
 
+class State(StrEnum):
+    released = "released"
+    edited = "edited"
+
+
 class AdminNotificationCreate(BaseModel):
     recipient_user_id: UUID = Field(..., title="Recipient User Id")
     type: str = Field(..., title="Type")
@@ -40,15 +45,9 @@ class AttachmentActionName(StrEnum):
     detach = "detach"
 
 
-class AttachmentAddedOut(BaseModel):
-    child_source_id: UUID = Field(..., title="Child Source Id")
-    child_local_id: UUID | None = Field(..., title="Child Local Id")
-    child_name: str = Field(..., title="Child Name")
-    parent_source_id: UUID = Field(..., title="Parent Source Id")
-    parent_local_id: UUID | None = Field(..., title="Parent Local Id")
-    parent_name: str = Field(..., title="Parent Name")
-    applicable: bool = Field(..., title="Applicable")
-    reason: str | None = Field(..., title="Reason")
+class AttachmentCountsOut(BaseModel):
+    added: int = Field(..., title="Added")
+    removed: int = Field(..., title="Removed")
 
 
 class AttachmentRefOut(BaseModel):
@@ -108,6 +107,33 @@ class BodyUploadTenantPicture(BaseModel):
     file: str = Field(
         ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
     )
+
+
+class Reason(StrEnum):
+    entity_removed = "entity_removed"
+    stat_definition_removed = "stat_definition_removed"
+    stat_definition_retyped = "stat_definition_retyped"
+    stat_group_removed = "stat_group_removed"
+    enum_value_removed = "enum_value_removed"
+    kinds_changed = "kinds_changed"
+    slug_changed = "slug_changed"
+    attachment_added = "attachment_added"
+
+
+class Kind2(StrEnum):
+    entity = "entity"
+    stat_group = "stat_group"
+    stat_definition = "stat_definition"
+    attachment = "attachment"
+
+
+class BreakingRowOut(BaseModel):
+    kind: Kind2 = Field(..., title="Kind")
+    row_id: UUID = Field(..., title="Row Id")
+    parent_id: UUID | None = Field(..., title="Parent Id")
+    name: str = Field(..., title="Name")
+    reason: Reason = Field(..., title="Reason")
+    detail: str = Field(..., title="Detail")
 
 
 class BulkAddPrototypeRequest(BaseModel):
@@ -208,7 +234,7 @@ class CharacterUpdate(BaseModel):
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
 
 
-class Kind2(StrEnum):
+class Kind3(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -222,7 +248,7 @@ class Choice(StrEnum):
 
 class CollisionOut(BaseModel):
     repository_id: UUID = Field(..., title="Repository Id")
-    kind: Kind2 = Field(..., title="Kind")
+    kind: Kind3 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     name: str = Field(..., title="Name")
     local_id: UUID | None = Field(..., title="Local Id")
@@ -268,7 +294,7 @@ class ComparisonFormulaBodyOutput(BaseModel):
     false_value: str | None = Field(None, title="False Value")
 
 
-class Kind3(StrEnum):
+class Kind4(StrEnum):
     linear = "linear"
     comparison = "comparison"
     sum = "sum"
@@ -278,7 +304,7 @@ class Kind3(StrEnum):
 class ComputedStatDependentOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
-    kind: Kind3 = Field(..., title="Kind")
+    kind: Kind4 = Field(..., title="Kind")
 
 
 class Source(StrEnum):
@@ -306,7 +332,7 @@ class ContributionCountsOut(BaseModel):
     attachments: int = Field(..., title="Attachments")
 
 
-class Kind4(StrEnum):
+class Kind5(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -318,14 +344,14 @@ class Mode(StrEnum):
 
 
 class ContributionOut(BaseModel):
-    kind: Kind4 = Field(..., title="Kind")
+    kind: Kind5 = Field(..., title="Kind")
     local_id: UUID | None = Field(..., title="Local Id")
     source_id: UUID = Field(..., title="Source Id")
     name: str = Field(..., title="Name")
     mode: Mode | None = Field(..., title="Mode")
 
 
-class Kind5(StrEnum):
+class Kind6(StrEnum):
     equipped = "equipped"
     not_carried = "not_carried"
     container = "container"
@@ -386,7 +412,7 @@ class EntitySummary(BaseModel):
     quantity: int | None = Field(None, title="Quantity")
 
 
-class State(StrEnum):
+class State3(StrEnum):
     clean = "clean"
     conflict = "conflict"
     not_applicable = "not_applicable"
@@ -395,7 +421,7 @@ class State(StrEnum):
 class FieldChangeOut(BaseModel):
     field: str = Field(..., title="Field")
     label: str | None = Field(..., title="Label")
-    state: State = Field(..., title="State")
+    state: State3 = Field(..., title="State")
     base: Any = Field(..., title="Base")
     upstream: Any = Field(..., title="Upstream")
     local: Any = Field(..., title="Local")
@@ -496,13 +522,19 @@ class ItemUpdate(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
 
 
-class Kind6(StrEnum):
+class KindCountsOut(BaseModel):
+    added: int = Field(..., title="Added")
+    changed: int = Field(..., title="Changed")
+    removed: int = Field(..., title="Removed")
+
+
+class Kind7(StrEnum):
     entity = "entity"
     player = "player"
 
 
 class KnowerOut(BaseModel):
-    kind: Kind6 = Field(..., title="Kind")
+    kind: Kind7 = Field(..., title="Kind")
     knower_entity_id: UUID | None = Field(None, title="Knower Entity Id")
     player_id: UUID | None = Field(None, title="Player Id")
     name: str | None = Field(..., title="Name")
@@ -846,16 +878,15 @@ class PublishRequest(BaseModel):
     label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
     notes: constr(max_length=4000) | None = Field(None, title="Notes")
     breaking: bool | None = Field(False, title="Breaking")
+    acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
 
 
-class ReleaseAuthoredOut(BaseModel):
-    id: UUID = Field(..., title="Id")
-    number: int = Field(..., title="Number")
-    label: str = Field(..., title="Label")
-    notes: str | None = Field(..., title="Notes")
-    breaking: bool = Field(..., title="Breaking")
-    created_at: AwareDatetime = Field(..., title="Created At")
-    created_by: UUID | None = Field(..., title="Created By")
+class ReleaseCountsOut(BaseModel):
+    entities: KindCountsOut
+    stat_groups: KindCountsOut
+    stat_definitions: KindCountsOut
+    attachments: AttachmentCountsOut
+    descriptions_edited: int = Field(..., title="Descriptions Edited")
 
 
 class ReleaseOut(BaseModel):
@@ -865,6 +896,10 @@ class ReleaseOut(BaseModel):
     notes: str | None = Field(..., title="Notes")
     breaking: bool = Field(..., title="Breaking")
     created_at: AwareDatetime = Field(..., title="Created At")
+    digest: str | None = Field(..., title="Digest")
+    counts: ReleaseCountsOut | None
+    breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
+    warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
 
 
 class ReleaseRefOut(BaseModel):
@@ -890,7 +925,7 @@ class RepositoryDependencyOut(BaseModel):
     published: bool = Field(..., title="Published")
 
 
-class Kind7(StrEnum):
+class Kind8(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -900,7 +935,7 @@ class Kind7(StrEnum):
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind7] = Field(..., title="Kinds")
+    kinds: list[Kind8] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
@@ -912,7 +947,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind8(StrEnum):
+class Kind9(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -925,13 +960,13 @@ class Action(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind8 = Field(..., title="Kind")
+    kind: Kind9 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind9(StrEnum):
+class Kind10(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -942,7 +977,7 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind9] = Field(..., title="Kinds")
+    kinds: list[Kind10] = Field(..., title="Kinds")
 
 
 class RoundMode(StrEnum):
@@ -953,25 +988,36 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind10(StrEnum):
+class Kind11(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
 
 
-class RowChangeOut(BaseModel):
-    kind: Kind10 = Field(..., title="Kind")
-    source_id: UUID = Field(..., title="Source Id")
-    local_id: UUID = Field(..., title="Local Id")
-    name: str = Field(..., title="Name")
-    fields: list[FieldChangeOut] = Field(..., title="Fields")
+class State4(StrEnum):
+    released = "released"
+    edited = "edited"
 
 
-class RowRefOut(BaseModel):
-    kind: Kind10 = Field(..., title="Kind")
-    source_id: UUID = Field(..., title="Source Id")
-    local_id: UUID | None = Field(..., title="Local Id")
+class Kind12(StrEnum):
+    entity = "entity"
+    stat_group = "stat_group"
+    stat_definition = "stat_definition"
+    attachment = "attachment"
+
+
+class RowNameOut(BaseModel):
+    kind: Kind12 = Field(..., title="Kind")
+    row_id: UUID = Field(..., title="Row Id")
+    parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
+    parent_name: str | None = Field(..., title="Parent Name")
+
+
+class Kind13(StrEnum):
+    entity = "entity"
+    stat_group = "stat_group"
+    stat_definition = "stat_definition"
 
 
 class SetContainerRequest(BaseModel):
@@ -1169,13 +1215,6 @@ class Problem(BaseModel):
     detail: str | None = Field(None, title="Problem detail")
 
 
-class AddedOut(BaseModel):
-    kind: Kind = Field(..., title="Kind")
-    source_id: UUID = Field(..., title="Source Id")
-    name: str = Field(..., title="Name")
-    collision: CollisionOut | None
-
-
 class ApplyUpdatesOut(BaseModel):
     dry_run: bool = Field(..., title="Dry Run")
     applied: int = Field(..., title="Applied")
@@ -1190,6 +1229,12 @@ class AttachmentActionIn(BaseModel):
     child_source_id: UUID = Field(..., title="Child Source Id")
     parent_source_id: UUID = Field(..., title="Parent Source Id")
     action: AttachmentActionName
+
+
+class BreakingNoteOut(BaseModel):
+    reason: Reason = Field(..., title="Reason")
+    detail: str = Field(..., title="Detail")
+    release: ReleaseRefOut
 
 
 class BulkMembershipResultItem(BaseModel):
@@ -1509,14 +1554,6 @@ class PagePlayerSummaryOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
-class PageReleaseAuthoredOut(BaseModel):
-    items: list[ReleaseAuthoredOut] = Field(..., title="Items")
-    total: conint(ge=0) = Field(..., title="Total")
-    page: conint(ge=1) = Field(..., title="Page")
-    size: conint(ge=1) = Field(..., title="Size")
-    pages: conint(ge=0) = Field(..., title="Pages")
-
-
 class PageReleaseOut(BaseModel):
     items: list[ReleaseOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1573,21 +1610,34 @@ class PageTenantSummaryOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
-class PublishedOut(BaseModel):
+class ReleaseAuthoredOut(BaseModel):
     id: UUID = Field(..., title="Id")
-    slug: str = Field(..., title="Slug")
-    name: str = Field(..., title="Name")
-    description: str = Field(..., title="Description")
-    kind: TenantKind
-    published_at: AwareDatetime | None = Field(..., title="Published At")
-    npcs_shared_with_gms: bool = Field(
-        ...,
-        description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
-        title="Npcs Shared With Gms",
-    )
+    number: int = Field(..., title="Number")
+    label: str = Field(..., title="Label")
+    notes: str | None = Field(..., title="Notes")
+    breaking: bool = Field(..., title="Breaking")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    digest: str | None = Field(..., title="Digest")
+    counts: ReleaseCountsOut | None
+    breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
+    warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
     created_by: UUID | None = Field(..., title="Created By")
-    updated_by: UUID | None = Field(..., title="Updated By")
-    release: ReleaseAuthoredOut
+
+
+class ReleasePreviewOut(BaseModel):
+    release: ReleaseOut | None
+    baseline: bool = Field(..., title="Baseline")
+    matches: bool | None = Field(..., title="Matches")
+    live_digest: str = Field(..., title="Live Digest")
+    differing_rows: int = Field(..., title="Differing Rows")
+    counts: ReleaseCountsOut
+    added: list[RowNameOut] = Field(..., title="Added")
+    changed: list[RowNameOut] = Field(..., title="Changed")
+    removed: list[RowNameOut] = Field(..., title="Removed")
+    breaking: list[BreakingRowOut] = Field(..., title="Breaking")
+    warnings: list[BreakingRowOut] = Field(..., title="Warnings")
+    descriptions_edited: int | None = Field(..., title="Descriptions Edited")
+    libraries_told: int = Field(..., title="Libraries Told")
 
 
 class RepositoryStatDefinitionOut(BaseModel):
@@ -1603,6 +1653,25 @@ class RepositoryStatGroupOut(BaseModel):
     priority: int = Field(..., title="Priority")
     mandatory: bool = Field(..., title="Mandatory")
     definitions: list[RepositoryStatDefinitionOut] = Field(..., title="Definitions")
+
+
+class RowChangeOut(BaseModel):
+    kind: Kind11 = Field(..., title="Kind")
+    source_id: UUID = Field(..., title="Source Id")
+    local_id: UUID = Field(..., title="Local Id")
+    name: str = Field(..., title="Name")
+    fields: list[FieldChangeOut] = Field(..., title="Fields")
+    state: State4 | None = Field(..., title="State")
+    breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
+
+
+class RowRefOut(BaseModel):
+    kind: Kind13 = Field(..., title="Kind")
+    source_id: UUID = Field(..., title="Source Id")
+    local_id: UUID | None = Field(..., title="Local Id")
+    name: str = Field(..., title="Name")
+    state: State4 | None = Field(..., title="State")
+    breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
 class StatDefinitionCreate(BaseModel):
@@ -1652,32 +1721,54 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind10 = Field(..., title="Kind")
+    kind: Kind13 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
     take_upstream: list[str] | None = Field(None, title="Take Upstream")
     resolution: UpdateResolutionIn | None = None
+    confirm: bool | None = Field(None, title="Confirm")
 
 
-class UpdatesOut(BaseModel):
-    repository_id: UUID = Field(..., title="Repository Id")
-    changed: list[RowChangeOut] = Field(..., title="Changed")
-    removed: list[RowRefOut] = Field(..., title="Removed")
-    deleted_locally: list[RowRefOut] = Field(..., title="Deleted Locally")
-    added: list[AddedOut] = Field(..., title="Added")
-    attachments_added: list[AttachmentAddedOut] = Field(..., title="Attachments Added")
-    attachments_removed: list[AttachmentRefOut] = Field(..., title="Attachments Removed")
-    attachments_deleted_locally: list[AttachmentRefOut] = Field(
-        ..., title="Attachments Deleted Locally"
-    )
-    names: dict[str, str] = Field(..., title="Names")
+class AddedOut(BaseModel):
+    kind: Kind = Field(..., title="Kind")
+    source_id: UUID = Field(..., title="Source Id")
+    name: str = Field(..., title="Name")
+    collision: CollisionOut | None
+    state: State | None = Field(..., title="State")
+    breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
 class ApplyUpdatesRequest(BaseModel):
     actions: list[UpdateActionIn] = Field(..., title="Actions")
     attachments: list[AttachmentActionIn] | None = Field(None, title="Attachments")
     dry_run: bool | None = Field(None, title="Dry Run")
+
+
+class AttachmentAddedOut(BaseModel):
+    child_source_id: UUID = Field(..., title="Child Source Id")
+    child_local_id: UUID | None = Field(..., title="Child Local Id")
+    child_name: str = Field(..., title="Child Name")
+    parent_source_id: UUID = Field(..., title="Parent Source Id")
+    parent_local_id: UUID | None = Field(..., title="Parent Local Id")
+    parent_name: str = Field(..., title="Parent Name")
+    state: State | None = Field(..., title="State")
+    breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
+    warnings: list[BreakingNoteOut] = Field(..., title="Warnings")
+    applicable: bool = Field(..., title="Applicable")
+    reason: str | None = Field(..., title="Reason")
+
+
+class AttachmentChangeOut(BaseModel):
+    child_source_id: UUID = Field(..., title="Child Source Id")
+    child_local_id: UUID | None = Field(..., title="Child Local Id")
+    child_name: str = Field(..., title="Child Name")
+    parent_source_id: UUID = Field(..., title="Parent Source Id")
+    parent_local_id: UUID | None = Field(..., title="Parent Local Id")
+    parent_name: str = Field(..., title="Parent Name")
+    state: State | None = Field(..., title="State")
+    breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
+    warnings: list[BreakingNoteOut] = Field(..., title="Warnings")
 
 
 class BulkAddPrototypeResultItem(BaseModel):
@@ -1817,6 +1908,14 @@ class PackGivenOut(BaseModel):
     created: list[PackItemOut] = Field(..., title="Created")
 
 
+class PageReleaseAuthoredOut(BaseModel):
+    items: list[ReleaseAuthoredOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageStatDefinitionOut(BaseModel):
     items: list[StatDefinitionOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1825,8 +1924,40 @@ class PageStatDefinitionOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PublishedOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    slug: str = Field(..., title="Slug")
+    name: str = Field(..., title="Name")
+    description: str = Field(..., title="Description")
+    kind: TenantKind
+    published_at: AwareDatetime | None = Field(..., title="Published At")
+    npcs_shared_with_gms: bool = Field(
+        ...,
+        description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
+        title="Npcs Shared With Gms",
+    )
+    created_by: UUID | None = Field(..., title="Created By")
+    updated_by: UUID | None = Field(..., title="Updated By")
+    release: ReleaseAuthoredOut
+
+
+class UpdatesOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    changed: list[RowChangeOut] = Field(..., title="Changed")
+    removed: list[RowRefOut] = Field(..., title="Removed")
+    deleted_locally: list[RowRefOut] = Field(..., title="Deleted Locally")
+    added: list[AddedOut] = Field(..., title="Added")
+    attachments_added: list[AttachmentAddedOut] = Field(..., title="Attachments Added")
+    attachments_removed: list[AttachmentChangeOut] = Field(..., title="Attachments Removed")
+    attachments_deleted_locally: list[AttachmentChangeOut] = Field(
+        ..., title="Attachments Deleted Locally"
+    )
+    names: dict[str, str] = Field(..., title="Names")
+    release: ReleaseOut | None
+
+
 class ControlledColumnOut(BaseModel):
-    kind: Kind5 = Field(..., title="Kind")
+    kind: Kind6 = Field(..., title="Kind")
     container: EntitySummary | None
     container_kind: ContainerKind | None = Field(..., title="Container Kind")
     path: list[EntitySummary] = Field(..., title="Path")
