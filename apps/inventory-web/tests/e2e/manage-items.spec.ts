@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { ok } from './support/api.ts';
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { catalog, packed } from './support/scenes.ts';
 import type { World } from './support/world.ts';
 
@@ -179,8 +179,7 @@ test('edits an item: the name field holds its name, not its display title', asyn
   expect(saved.information[0]?.payloads[0]).toMatchObject({ content: 'Shuttered, and oiled.' });
 });
 
-test('shows what is built on an item', async ({ world, as }) => {
-  await catalog(world);
+readOnly('shows what is built on an item', async ({ world, as }) => {
   const page = await manageItems(as, world);
 
   const bookRow = row(catalogList(page), 'Book');
@@ -190,8 +189,7 @@ test('shows what is built on an item', async ({ world, as }) => {
   await expect(usedBy.getByText('Ornate Spellbook', { exact: true })).toBeVisible();
 });
 
-test('searches the catalog', async ({ world, as }) => {
-  await catalog(world);
+readOnly('searches the catalog', async ({ world, as }) => {
   const page = await manageItems(as, world);
 
   await expect(row(catalogList(page), 'Arrow')).toBeVisible();

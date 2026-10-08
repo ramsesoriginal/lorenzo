@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import { type Person, type Player, person, type World } from './support/world.ts';
 
@@ -25,8 +25,7 @@ async function pickBeing(page: Page, name: string) {
   await page.getByRole('option').getByRole('button', { name }).click();
 }
 
-test('shows each container as a column of cards', async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly('shows each container as a column of cards', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
 
   await expect(card(page, 'Equipped', 'Backpack')).toBeVisible();
@@ -35,8 +34,7 @@ test('shows each container as a column of cards', async ({ world, as }) => {
   await expect(card(page, 'Backpack', 'Arrow ×3')).toBeVisible();
 });
 
-test('picks a character from the list', async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly('picks a character from the list', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
   await page.getByRole('link', { name: 'Ashfang' }).click();
@@ -46,7 +44,7 @@ test('picks a character from the list', async ({ world, as }) => {
   );
 });
 
-test('shows Equipped even when a character carries nothing', async ({ world, as }) => {
+readOnly('shows Equipped even when a character carries nothing', async ({ world, as }) => {
   const page = await boardOf(as, world, world.oskar);
   await expect(column(page, 'Equipped')).toContainText('Nothing equipped.');
 });
@@ -86,8 +84,7 @@ test("says who has a thing of hers that she doesn't carry", async ({ world, as }
   await expect(column(page, 'Treasure Chest')).toContainText('Not carried, with Brisk');
 });
 
-test("opens a player's only character by itself", async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly("opens a player's only character by itself", async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/board/?tenant=${world.tenantId}`);
 
@@ -147,32 +144,33 @@ test("marks what isn't hers, and shows his things held elsewhere", async ({ worl
   await expect(oskar.getByRole('button', { name: 'Move to…' })).toBeHidden();
 });
 
-test('opens an item to show all of it, with what it inherits labelled', async ({ world, as }) => {
-  await packed(world, world.pia);
-  const page = await boardOf(as, world, world.pia);
+readOnly(
+  'opens an item to show all of it, with what it inherits labelled',
+  async ({ world, as }) => {
+    const page = await boardOf(as, world, world.pia);
 
-  // A card is a button, so the keyboard opens it too.
-  await card(page, 'Backpack', 'Ornate Spellbook').focus();
-  await page.keyboard.press('Enter');
-  const detail = page.getByRole('dialog');
-  await expect(detail.getByRole('heading', { name: 'Ornate Spellbook' })).toBeVisible();
-  await expect(detail.getByText('Gilded edges, a silver clasp')).toBeVisible();
-  await expect(detail.getByText('From Spellbook')).toBeVisible();
-  await expect(detail.getByText("written in the caster's own notation")).toBeVisible();
-  await expect(detail.getByText('From Book')).toBeVisible();
-  await expect(detail.getByText('Pages bound between two covers')).toBeVisible();
-  await expect(detail.getByRole('term').filter({ hasText: 'Price' })).toBeVisible();
-  await expect(detail.getByRole('definition').filter({ hasText: '250' })).toBeVisible();
-  await expect(detail.getByRole('term').filter({ hasText: 'Weight' })).toBeVisible();
-  await expect(detail.getByRole('listitem').filter({ hasText: 'Magical' })).toBeVisible();
+    // A card is a button, so the keyboard opens it too.
+    await card(page, 'Backpack', 'Ornate Spellbook').focus();
+    await page.keyboard.press('Enter');
+    const detail = page.getByRole('dialog');
+    await expect(detail.getByRole('heading', { name: 'Ornate Spellbook' })).toBeVisible();
+    await expect(detail.getByText('Gilded edges, a silver clasp')).toBeVisible();
+    await expect(detail.getByText('From Spellbook')).toBeVisible();
+    await expect(detail.getByText("written in the caster's own notation")).toBeVisible();
+    await expect(detail.getByText('From Book')).toBeVisible();
+    await expect(detail.getByText('Pages bound between two covers')).toBeVisible();
+    await expect(detail.getByRole('term').filter({ hasText: 'Price' })).toBeVisible();
+    await expect(detail.getByRole('definition').filter({ hasText: '250' })).toBeVisible();
+    await expect(detail.getByRole('term').filter({ hasText: 'Weight' })).toBeVisible();
+    await expect(detail.getByRole('listitem').filter({ hasText: 'Magical' })).toBeVisible();
 
-  // Any participant opens a catalog item (ADR 0116), so where it comes from is a link.
-  await detail.getByText('From Spellbook').getByRole('link').click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Spellbook' })).toBeVisible();
-});
+    // Any participant opens a catalog item (ADR 0116), so where it comes from is a link.
+    await detail.getByText('From Spellbook').getByRole('link').click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Spellbook' })).toBeVisible();
+  },
+);
 
-test('closes the item with Escape', async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly('closes the item with Escape', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -266,15 +264,13 @@ test('splits a stack, then merges it back', async ({ world, as }) => {
   expect(await world.carried(world.pia)).toContain('Backpack: Arrow ×3');
 });
 
-test('offers no split for a single item', async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly('offers no split for a single item', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
   await card(page, 'Backpack', 'Ornate Spellbook').click();
   await expect(page.getByRole('button', { name: 'Split…' })).toBeDisabled();
 });
 
-test('searches the board by name', async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly('searches the board by name', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
 
   await expect(card(page, 'Backpack', 'Arrow ×3')).toBeVisible();
@@ -327,7 +323,7 @@ test('moves a selection by dragging one of it', async ({ world, as }) => {
     ]);
 });
 
-test('a player gets no GM tools', async ({ world, as }) => {
+readOnly('a player gets no GM tools', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
   await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();
   await expect(itemsLink(page)).toBeVisible();

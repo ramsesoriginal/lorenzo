@@ -1,6 +1,6 @@
 // Handing things over when giving, and stacks leaving containers whole (ADR 0115).
 import type { Locator, Page } from '@playwright/test';
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { packed } from './support/scenes.ts';
 import type { Person, Player, World } from './support/world.ts';
 
@@ -70,8 +70,7 @@ test('hands over part of a stack', async ({ world, as }) => {
   expect(await world.carried(world.oskar)).toEqual(['(none): Arrow ×2']);
 });
 
-test('offers no hand-over for what is in no container', async ({ world, as }) => {
-  await packed(world, world.pia);
+readOnly('offers no hand-over for what is in no container', async ({ world, as }) => {
   const page = await boardOf(as, world, world.pia);
 
   await card(page, 'Equipped', 'Backpack').click();

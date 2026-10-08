@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { ok } from './support/api.ts';
-import { expect, test } from './support/fixtures.ts';
+import { expect, readOnly, test } from './support/fixtures.ts';
 import { DESCRIPTIONS } from './support/scenes.ts';
 import type { World } from './support/world.ts';
 
@@ -51,7 +51,7 @@ test('a new item gets the slug its wikilinks look for', async ({ world, as }) =>
   await expect(page.getByText('belt-pouch', { exact: true })).toBeVisible();
 });
 
-test('stops following the title once the slug is edited', async ({ world, as }) => {
+readOnly('stops following the title once the slug is edited', async ({ world, as }) => {
   const page = await as(world.gm);
   await page.goto(`/items/?tenant=${world.tenantId}`);
   const form = page.getByRole('region', { name: 'New item' });
@@ -69,7 +69,7 @@ test('stops following the title once the slug is edited', async ({ world, as }) 
   await expect(form.getByLabel('Slug')).toHaveValue('the-lamp');
 });
 
-test("refuses a slug that can't be one before creating anything", async ({ world, as }) => {
+readOnly("refuses a slug that can't be one before creating anything", async ({ world, as }) => {
   const page = await as(world.gm);
   await page.goto(`/items/?tenant=${world.tenantId}`);
   const form = page.getByRole('region', { name: 'New item' });
