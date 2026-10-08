@@ -707,9 +707,11 @@ export interface paths {
         /**
          * Publish Repository
          * @description Publishes a repository, or announces an update to one already
-         *     published: either way `published_at` becomes now, and every granted
-         *     tenant's members are told (ADR 0118). Until the first publish, no
-         *     subscriber can see anything of it.
+         *     published: either way it makes a release (ADR 0207), `published_at`
+         *     becomes now, and every granted tenant's members are told (ADR 0118). The
+         *     body is optional: without a label the release is called by its number.
+         *     `409` if the label is taken. Until the first publish, no subscriber can
+         *     see anything of it.
          */
         put: operations["publish_repository"];
         post?: never;
@@ -723,6 +725,51 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Releases
+         * @description What this repository has published, newest first (ADR 0207), for any of its
+         *     members. A library reads the same list through
+         *     `/tenants/{id}/repositories/{repository_id}/releases`. `409` for a play tenant.
+         */
+        get: operations["list_releases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/releases/{release_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit Release
+         * @description Corrects a release's label or notes, which are the author's words about it
+         *     (ADR 0207); its number, its breaking flag and what was published are not
+         *     editable. Owner only. `409` if the label is taken, `404` for a release this
+         *     repository did not make.
+         */
+        patch: operations["edit_release"];
         trace?: never;
     };
     "/tenants/{tenant_id}/subscribers": {
@@ -861,6 +908,28 @@ export interface paths {
          *     already copied is touched (RFC 0024 §6).
          */
         delete: operations["remove_repository"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Repository Releases
+         * @description What a granted, published repository has released, newest first (ADR 0207),
+         *     through the gated read: the same list its own members have, without who
+         *     published it.
+         */
+        get: operations["list_repository_releases"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6077,6 +6146,32 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[ReleaseAuthoredOut] */
+        Page_ReleaseAuthoredOut_: {
+            /** Items */
+            items: components["schemas"]["ReleaseAuthoredOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[ReleaseOut] */
+        Page_ReleaseOut_: {
+            /** Items */
+            items: components["schemas"]["ReleaseOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[RepositoryEntityOut] */
         Page_RepositoryEntityOut_: {
             /** Items */
@@ -6599,6 +6694,136 @@ export interface components {
             prototype_ids: string[];
         };
         /**
+         * PublishRequest
+         * @description `PUT .../published`, every field optional (ADR 0207). Without a `label` the
+         *     release is called by its number. `breaking` is the author's statement that
+         *     libraries built on the repository should look before they update.
+         */
+        PublishRequest: {
+            /** Label */
+            label?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Breaking
+             * @default false
+             */
+            breaking: boolean;
+        };
+        /**
+         * PublishedOut
+         * @description `PUT .../published`: the repository, as `GET /tenants/{id}` has it, and the
+         *     release the publish made (ADR 0207).
+         */
+        PublishedOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            kind: components["schemas"]["TenantKind"];
+            /** Published At */
+            published_at: string | null;
+            /**
+             * Npcs Shared With Gms
+             * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
+             */
+            npcs_shared_with_gms: boolean;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            release: components["schemas"]["ReleaseAuthoredOut"];
+        };
+        /**
+         * ReleaseAuthoredOut
+         * @description A release as the repository's own members see it: `created_by` is the user who
+         *     published it, null once their account is gone. A library never reads it.
+         */
+        ReleaseAuthoredOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Label */
+            label: string;
+            /** Notes */
+            notes: string | null;
+            /** Breaking */
+            breaking: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+        };
+        /**
+         * ReleaseOut
+         * @description One release as any reader of the repository sees it - `GET
+         *     .../releases`, ADR 0207: the repository's members, and the libraries it is
+         *     granted to through the gated read. `notes` is null when the author wrote
+         *     none.
+         */
+        ReleaseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Label */
+            label: string;
+            /** Notes */
+            notes: string | null;
+            /** Breaking */
+            breaking: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ReleaseRefOut
+         * @description A release by its number and its label: what a copy says it last took, and
+         *     what a list of libraries shows (ADR 0207).
+         */
+        ReleaseRefOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: number;
+            /** Label */
+            label: string;
+        };
+        /**
+         * ReleaseUpdate
+         * @description `PATCH .../releases/{id}`: the author's words about a release, which they may
+         *     correct. What was announced (`breaking`, the number, and what was published) is
+         *     not editable, and an unknown field is refused (ADR 0207).
+         */
+        ReleaseUpdate: {
+            /** Label */
+            label?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /**
          * RepositoryDependencyOut
          * @description A repository another one is built on, with the asking library's state
          *     of it (ADR 0198): who it is, never what it holds.
@@ -7044,6 +7269,7 @@ export interface components {
             copied_at: string | null;
             /** Synced At */
             synced_at: string | null;
+            synced_release: components["schemas"]["ReleaseRefOut"] | null;
         };
         /**
          * SubscriptionOut
@@ -7063,6 +7289,8 @@ export interface components {
             /** Synced At */
             synced_at: string | null;
             contributed: components["schemas"]["ContributionCountsOut"] | null;
+            synced_release: components["schemas"]["ReleaseRefOut"] | null;
+            current_release: components["schemas"]["ReleaseRefOut"] | null;
         };
         /**
          * SumFormulaBody
@@ -9603,7 +9831,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -9611,7 +9843,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TenantOut"];
+                    "application/json": components["schemas"]["PublishedOut"];
                 };
             };
             /** @description Validation Error */
@@ -9677,6 +9909,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_releases: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ReleaseAuthoredOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    edit_release: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                release_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseAuthoredOut"];
                 };
             };
             /** @description Validation Error */
@@ -10146,6 +10516,75 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_repository_releases: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ReleaseOut_"];
+                };
             };
             /** @description Validation Error */
             422: {

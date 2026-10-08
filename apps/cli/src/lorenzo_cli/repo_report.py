@@ -32,12 +32,21 @@ def when(value: datetime | None) -> str:
     return "-" if value is None else value.strftime("%Y-%m-%d")
 
 
+def _release_taken(row: SubscriptionOut) -> str:
+    """The release a copy last took, and the repository's latest if it has moved on."""
+    if row.synced_release is None:
+        return "-"
+    if row.current_release and row.current_release.id != row.synced_release.id:
+        return f"{row.synced_release.label} ({row.current_release.label} is out)"
+    return row.synced_release.label
+
+
 def print_repositories(console: Console, rows: Sequence[SubscriptionOut], tenant: str) -> None:
     if not rows:
         console.print(f"No repository is granted to “{tenant}” or copied by it yet.")
         return
     table = Table(box=None, pad_edge=False)
-    for heading in ("repository", "name", "published", "granted", "copied", ""):
+    for heading in ("repository", "name", "published", "granted", "copied", "release", ""):
         table.add_column(heading, no_wrap=heading != "name")
     for row in rows:
         repository = row.repository
@@ -47,6 +56,7 @@ def print_repositories(console: Console, rows: Sequence[SubscriptionOut], tenant
             "yes" if repository.published_at else "no",
             when(row.granted_at),
             when(row.copied_at),
+            _release_taken(row),
             "[yellow]updated since[/yellow]" if has_published_since(row) else "",
         )
     console.print(table)
@@ -57,7 +67,7 @@ def print_subscribers(console: Console, rows: Sequence[SubscriberOut]) -> None:
         console.print("This repository isn't granted to any tenant yet, and nobody has copied it.")
         return
     table = Table(box=None, pad_edge=False)
-    for heading in ("slug", "name", "granted", "copied", "id"):
+    for heading in ("slug", "name", "granted", "copied", "release", "id"):
         table.add_column(heading, no_wrap=heading != "name")
     for row in rows:
         # A copy that outlived its invitation has no grant date (ADR 0204).
@@ -66,6 +76,7 @@ def print_subscribers(console: Console, rows: Sequence[SubscriberOut]) -> None:
             row.name,
             when(row.granted_at) if row.granted_at else "no longer",
             when(row.copied_at),
+            row.synced_release.label if row.synced_release else "-",
             str(row.tenant_id),
         )
     console.print(table)

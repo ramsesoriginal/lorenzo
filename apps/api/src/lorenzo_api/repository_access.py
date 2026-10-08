@@ -61,6 +61,8 @@ REPOSITORY_CONTENT_TABLES = frozenset(
         "repository_copy_link_entity",
         "repository_copy_link_stat_group",
         "repository_copy_link_stat_definition",
+        # What a repository published (ADR 0207), which the libraries it is granted to read.
+        "repository_release",
     }
 )
 

@@ -63,6 +63,8 @@ def subscription(
         "granted_at": NOW,
         "copied_at": copied,
         "synced_at": synced,
+        "synced_release": None,
+        "current_release": None,
         "contributed": None,
     }
 
@@ -172,6 +174,7 @@ class Shelf:
                     "granted_by": None,
                     "copied_at": None,
                     "synced_at": None,
+                    "synced_release": None,
                 }
                 for n in range(self.subscribers)
             ]

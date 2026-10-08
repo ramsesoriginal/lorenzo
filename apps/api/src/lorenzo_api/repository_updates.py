@@ -76,6 +76,7 @@ from lorenzo_api.repository_copying import (
     write_attachments,
     write_rows,
 )
+from lorenzo_api.repository_releases import ReleaseRef, latest_release
 
 RowKind = Literal["entity", "stat_group", "stat_definition"]
 _ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
@@ -181,6 +182,9 @@ class Updates:
     attachments_deleted_locally: list[AttachmentRef] = field(default_factory=list)
     # Id -> name, for every id the changed fields mention (ADR 0197).
     names: dict[str, str] = field(default_factory=dict)
+    # The repository's latest release, which a call to apply takes as the one the tenant has
+    # now taken (ADR 0207); none before its first, or for one published before releases.
+    release: ReleaseRef | None = None
     upstream: Content | None = None
     local: Content | None = None
 
@@ -369,9 +373,10 @@ async def compute_updates(
                 detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
             )
         upstream = await load_content(session, repository_id)
+        release = await latest_release(session, repository_id)
     local = await load_content(session, tenant_id)
     links = local.links
-    updates = Updates(repository_id=repository_id, upstream=upstream, local=local)
+    updates = Updates(repository_id=repository_id, release=release, upstream=upstream, local=local)
     up_namer, local_namer = origin_namer(upstream), _local_namer(local, repository_id)
     up_index, local_index = index_entities(upstream), index_entities(local)
     labels = {
@@ -1005,6 +1010,7 @@ async def apply_updates(
         )
         .values(
             synced_at=datetime.now(UTC),
+            synced_release_id=updates.release.id if updates.release else None,
             repository_name=(await session.get_one(Tenant, repository_id)).name,
         )
     )

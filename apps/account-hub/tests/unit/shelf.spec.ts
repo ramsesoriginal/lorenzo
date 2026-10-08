@@ -40,6 +40,8 @@ function subscription(overrides: {
     granted_at: overrides.granted_at === undefined ? '2026-10-01T10:00:00Z' : overrides.granted_at,
     copied_at: overrides.copied_at === undefined ? null : overrides.copied_at,
     synced_at: overrides.synced_at === undefined ? null : overrides.synced_at,
+    synced_release: null,
+    current_release: null,
     contributed: null,
   };
 }

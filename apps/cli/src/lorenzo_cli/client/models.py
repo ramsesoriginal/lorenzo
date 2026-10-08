@@ -842,6 +842,45 @@ class PrototypeAncestorOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
+class PublishRequest(BaseModel):
+    label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
+    notes: constr(max_length=4000) | None = Field(None, title="Notes")
+    breaking: bool | None = Field(False, title="Breaking")
+
+
+class ReleaseAuthoredOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    number: int = Field(..., title="Number")
+    label: str = Field(..., title="Label")
+    notes: str | None = Field(..., title="Notes")
+    breaking: bool = Field(..., title="Breaking")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    created_by: UUID | None = Field(..., title="Created By")
+
+
+class ReleaseOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    number: int = Field(..., title="Number")
+    label: str = Field(..., title="Label")
+    notes: str | None = Field(..., title="Notes")
+    breaking: bool = Field(..., title="Breaking")
+    created_at: AwareDatetime = Field(..., title="Created At")
+
+
+class ReleaseRefOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    number: int = Field(..., title="Number")
+    label: str = Field(..., title="Label")
+
+
+class ReleaseUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
+    notes: constr(max_length=4000) | None = Field(None, title="Notes")
+
+
 class RepositoryDependencyOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -1004,6 +1043,7 @@ class SubscriberOut(BaseModel):
     granted_by: UUID | None = Field(..., title="Granted By")
     copied_at: AwareDatetime | None = Field(..., title="Copied At")
     synced_at: AwareDatetime | None = Field(..., title="Synced At")
+    synced_release: ReleaseRefOut | None
 
 
 class SubscriptionOut(BaseModel):
@@ -1012,6 +1052,8 @@ class SubscriptionOut(BaseModel):
     copied_at: AwareDatetime | None = Field(..., title="Copied At")
     synced_at: AwareDatetime | None = Field(..., title="Synced At")
     contributed: ContributionCountsOut | None
+    synced_release: ReleaseRefOut | None
+    current_release: ReleaseRefOut | None
 
 
 class SumTermBodyInput(BaseModel):
@@ -1467,6 +1509,22 @@ class PagePlayerSummaryOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageReleaseAuthoredOut(BaseModel):
+    items: list[ReleaseAuthoredOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageReleaseOut(BaseModel):
+    items: list[ReleaseOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageRepositoryEntityOut(BaseModel):
     items: list[RepositoryEntityOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1513,6 +1571,23 @@ class PageTenantSummaryOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PublishedOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    slug: str = Field(..., title="Slug")
+    name: str = Field(..., title="Name")
+    description: str = Field(..., title="Description")
+    kind: TenantKind
+    published_at: AwareDatetime | None = Field(..., title="Published At")
+    npcs_shared_with_gms: bool = Field(
+        ...,
+        description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
+        title="Npcs Shared With Gms",
+    )
+    created_by: UUID | None = Field(..., title="Created By")
+    updated_by: UUID | None = Field(..., title="Updated By")
+    release: ReleaseAuthoredOut
 
 
 class RepositoryStatDefinitionOut(BaseModel):

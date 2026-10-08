@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator, model_validator
 
 from lorenzo_api.models import StatValueType
+from lorenzo_api.schemas.tenants import TenantOut
 
 __all__ = [
     "AttachmentActionIn",
@@ -15,6 +16,12 @@ __all__ = [
     "ContributionCountsOut",
     "ContributionOut",
     "PreviousCopyOut",
+    "PublishRequest",
+    "PublishedOut",
+    "ReleaseAuthoredOut",
+    "ReleaseOut",
+    "ReleaseRefOut",
+    "ReleaseUpdate",
     "AddedOut",
     "ApplyUpdatesOut",
     "ApplyUpdatesRequest",
@@ -43,6 +50,87 @@ __all__ = [
 
 EntityKindName = Literal["item", "item_instance", "being", "character"]
 
+# A release's words (ADR 0207). The label is free text, never parsed as a version.
+ReleaseLabel = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+
+
+def _blank_is_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+class ReleaseRefOut(BaseModel):
+    """A release by its number and its label: what a copy says it last took, and
+    what a list of libraries shows (ADR 0207)."""
+
+    id: uuid.UUID
+    number: int
+    label: str
+
+
+class ReleaseOut(ReleaseRefOut):
+    """One release as any reader of the repository sees it - `GET
+    .../releases`, ADR 0207: the repository's members, and the libraries it is
+    granted to through the gated read. `notes` is null when the author wrote
+    none."""
+
+    notes: str | None
+    breaking: bool
+    created_at: datetime
+
+
+class ReleaseAuthoredOut(ReleaseOut):
+    """A release as the repository's own members see it: `created_by` is the user who
+    published it, null once their account is gone. A library never reads it."""
+
+    created_by: uuid.UUID | None
+
+
+class PublishedOut(TenantOut):
+    """`PUT .../published`: the repository, as `GET /tenants/{id}` has it, and the
+    release the publish made (ADR 0207)."""
+
+    release: ReleaseAuthoredOut
+
+
+class PublishRequest(BaseModel):
+    """`PUT .../published`, every field optional (ADR 0207). Without a `label` the
+    release is called by its number. `breaking` is the author's statement that
+    libraries built on the repository should look before they update."""
+
+    label: ReleaseLabel | None = None
+    notes: Annotated[str | None, StringConstraints(max_length=4000)] = None
+    breaking: bool = False
+
+    @field_validator("notes")
+    @classmethod
+    def _notes(cls, value: str | None) -> str | None:
+        return _blank_is_none(value)
+
+
+class ReleaseUpdate(BaseModel):
+    """`PATCH .../releases/{id}`: the author's words about a release, which they may
+    correct. What was announced (`breaking`, the number, and what was published) is
+    not editable, and an unknown field is refused (ADR 0207)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: ReleaseLabel | None = None
+    notes: Annotated[str | None, StringConstraints(max_length=4000)] = None
+
+    @field_validator("notes")
+    @classmethod
+    def _notes(cls, value: str | None) -> str | None:
+        return _blank_is_none(value)
+
+    @model_validator(mode="after")
+    def _label_is_not_cleared(self) -> Self:
+        if "label" in self.model_fields_set and self.label is None:
+            raise ValueError("A release always has a label")
+        return self
+
 
 class SubscriberOut(BaseModel):
     """A tenant granted a repository or holding a copy of it, as its owners
@@ -57,6 +145,9 @@ class SubscriberOut(BaseModel):
     granted_by: uuid.UUID | None
     copied_at: datetime | None
     synced_at: datetime | None
+    # The release it last took: null before it copies, and for a copy made before releases
+    # existed (ADR 0207).
+    synced_release: ReleaseRefOut | None
 
 
 class RepositorySummaryOut(BaseModel):
@@ -94,6 +185,10 @@ class SubscriptionOut(BaseModel):
     copied_at: datetime | None
     synced_at: datetime | None
     contributed: ContributionCountsOut | None
+    # The release it last took, and the repository's latest, where the repository can be read
+    # (ADR 0207): their labels are what "you are on 1.2, 1.4 is out" says.
+    synced_release: ReleaseRefOut | None
+    current_release: ReleaseRefOut | None
 
 
 class ContributionOut(BaseModel):
