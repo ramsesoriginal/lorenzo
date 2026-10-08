@@ -66,17 +66,18 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.discover.outputs.test_matrix) }}
     steps:
-      - uses: actions/checkout@v7
       # Only nodes marked `postgres = true` in .github/ci-graph.toml touch Postgres (apps/api's tests,
       # apps/cli's end-to-end stack, apps/loot-bot's own schema); a service container on every leg
-      # cost the others 15-25 s each (ADR 0148).
+      # cost the others 15-25 s each (ADR 0148). It starts in the background, first of all, so its
+      # image pull and boot overlap the checkout and the toolchain (ADR 0148, addendum of 2026-10-08);
+      # the step before the tests waits for it.
       - name: Start Postgres
         if: matrix.postgres
         run: |
-          docker run -d --name postgres -p 5432:5432 \
+          nohup docker run -d --name postgres -p 5432:5432 \
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
-            postgres:17-alpine
-          timeout 60 sh -c 'until docker exec postgres pg_isready -U lorenzo; do sleep 1; done'
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
@@ -88,6 +89,13 @@ jobs:
       - run: mise run lint
         if: matrix.shard == '' || startsWith(matrix.shard, '1/')
         working-directory: ${{ matrix.app }}
+      # Asks over TCP: while the image first starts, a server that only listens on its socket answers
+      # too, and is then restarted.
+      - name: Wait for Postgres
+        if: matrix.postgres
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
       - run: mise run test
         working-directory: ${{ matrix.app }}
         env:
@@ -203,21 +211,14 @@ jobs:
       fail-fast: false
       matrix:
         shard: ["1/3", "2/3", "3/3"]
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: lorenzo
-          POSTGRES_PASSWORD: lorenzo
-          POSTGRES_DB: lorenzo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
+      # In the background and first of all, instead of a `services:` container that held the whole job
+      # back for 10-20 s before its first step: the pull and boot overlap everything up to the wait.
+      - name: Start Postgres
+        run: |
+          nohup docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
@@ -225,11 +226,16 @@ jobs:
       - run: npm install --global corepack@latest && corepack enable
       - run: pnpm install --frozen-lockfile
         working-directory: apps/inventory-web
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: apps/inventory-web
+      - name: Wait for Postgres
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
+      # The runner's own Google Chrome (E2E_BROWSER_CHANNEL, read by playwright.config.ts), instead of
+      # downloading Playwright's Chromium and its system libraries on every shard (21-33 s each).
       - run: pnpm exec playwright test --shard=${{ matrix.shard }}
         working-directory: apps/inventory-web
         env:
+          E2E_BROWSER_CHANNEL: chrome
           E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
           E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
       - uses: actions/upload-artifact@v7
@@ -251,21 +257,13 @@ jobs:
     needs: discover
     if: contains(fromJson(needs.discover.outputs.suites), 'account-hub-real-api')
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: lorenzo
-          POSTGRES_PASSWORD: lorenzo
-          POSTGRES_DB: lorenzo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
+      # Postgres in the background and the runner's own Chrome: see the job above.
+      - name: Start Postgres
+        run: |
+          nohup docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
@@ -273,11 +271,14 @@ jobs:
       - run: npm install --global corepack@latest && corepack enable
       - run: pnpm install --frozen-lockfile
         working-directory: apps/account-hub
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: apps/account-hub
+      - name: Wait for Postgres
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
       - run: pnpm run test:real-api:ci
         working-directory: apps/account-hub
         env:
+          E2E_BROWSER_CHANNEL: chrome
           E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
           E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
       - uses: actions/upload-artifact@v7
@@ -303,16 +304,19 @@ jobs:
       matrix:
         shard: ["1/3", "2/3", "3/3"]
     steps:
-      - uses: actions/checkout@v7
       - name: Start Postgres
         run: |
-          docker run -d --name postgres -p 5432:5432 \
+          nohup docker run -d --name postgres -p 5432:5432 \
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
-            postgres:17-alpine
-          timeout 60 sh -c 'until docker exec postgres pg_isready -U lorenzo; do sleep 1; done'
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
         with:
           version: ${{ env.MISE_VERSION }}
+      - name: Wait for Postgres
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
       - run: mise run test-e2e
         working-directory: apps/cli
         env:
