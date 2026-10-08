@@ -71,7 +71,7 @@ async def list_beings(
         .join(Entity, Entity.id == Being.entity_id)
         .where(Being.tenant_id == tenant_id)
         .options(selectinload(Being.entity), selectinload(Being.character))
-        .order_by(Being.entity_id)
+        .order_by(Entity.name, Being.entity_id)
     )
     if reach is not None:
         stmt = stmt.where(entity_id_among(Being.entity_id, reach))
