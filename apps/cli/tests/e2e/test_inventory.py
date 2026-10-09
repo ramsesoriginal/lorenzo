@@ -363,6 +363,12 @@ def test_a_gm_imports_into_a_players_character_by_name_and_can_replace_what_is_t
     table = _table(stack)
     _library(stack, table)
     gm, slug = table["gm"], table["slug"]
+    # What a caller sees of someone's belongings is what they reach (ADR 0040): the library's
+    # owner who runs the table must also GM its campaign, or `owned-by` shows them nothing.
+    with stack.api(gm) as api:
+        me = api.get("/me").json()["id"]
+        made = api.put(f"/tenants/{table['tenant_id']}/campaigns/{table['campaign_id']}/gms/{me}")
+        assert made.status_code in (200, 201), made.text
     first = _write(
         tmp_path,
         "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n"
