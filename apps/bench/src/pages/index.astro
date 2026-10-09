@@ -1,0 +1,60 @@
+---
+import '@lorenzo/brand/normalize.css';
+import '@lorenzo/brand/tokens.css';
+import '@lorenzo/brand/fonts.css';
+import '@lorenzo/brand/base.css';
+import '../styles/bench.css';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Brand tokens turn dark only via [data-theme="dark"]; set it before first paint. -->
+    <script is:inline>
+      try {
+        var t = localStorage.getItem('bench:theme') || 'system';
+        var dark =
+          t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) {}
+    </script>
+    <title>Lorenzo Bench</title>
+  </head>
+  <body>
+    <header class="top" id="titlebar">
+      <strong>Lorenzo Bench</strong>
+    </header>
+    <main id="bench"></main>
+    <script>
+      import { loadSession, signOut } from '../shell/session';
+      import { Shell } from '../shell/shell';
+      import { renderTitleBar } from '../shell/titlebar';
+
+      const root = document.getElementById('bench');
+      const bar = document.getElementById('titlebar');
+      if (root && bar) {
+        const shell = new Shell(root);
+        (window as unknown as { bench: Shell }).bench = shell;
+        const session = await loadSession();
+        renderTitleBar(bar, session, () => {});
+        if (session.kind === 'signed-in') {
+          shell.extra = [
+            ...session.repositories.map((r) => ({
+              label: `Open repository ${r.name}`,
+              run: () => {
+                const select = bar.querySelector('select');
+                if (select) {
+                  select.value = r.id;
+                  select.dispatchEvent(new Event('change'));
+                }
+              },
+            })),
+            { label: 'Sign out', run: () => void signOut() },
+          ];
+        }
+      }
+    </script>
+  </body>
+</html>

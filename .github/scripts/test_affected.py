@@ -209,9 +209,9 @@ class ThisRepository(unittest.TestCase):
     def test_a_loot_bot_change_runs_loot_bot_only(self) -> None:
         self.assertEqual(affected.affected(self.graph, ["apps/loot-bot/src/x.ts"]).tests, {"apps/loot-bot"})
 
-    def test_api_client_reaches_the_three_apps(self) -> None:
+    def test_api_client_reaches_the_four_apps(self) -> None:
         tests = affected.affected(self.graph, ["packages/api-client/src/index.ts"]).tests
-        self.assertEqual(tests, {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub"})
+        self.assertEqual(tests, {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench"})
 
     def test_an_api_change_does_not_retest_the_typescript_apps(self) -> None:
         result = affected.affected(self.graph, ["apps/api/src/lorenzo_api/main.py"])
