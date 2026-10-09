@@ -435,3 +435,14 @@ test('with no connection a stat is saved here, and a change elsewhere is a confl
   await expect(status(page)).toHaveText('Synced');
   expect(await writes(page)).toEqual([{ id: 'monster', field: 'stat:armor', value: 15 }]);
 });
+
+test('the LIVE banner says libraries see the edits of a published repository, and can be hidden', async ({
+  page,
+}) => {
+  const live = page.locator('#live');
+  await expect(live).toBeHidden();
+  await palette(page, 'publish the repository');
+  await expect(live).toContainText('Libraries that copied this repository see your edits');
+  await live.getByRole('button', { name: 'Hide' }).click();
+  await expect(live).toBeHidden();
+});

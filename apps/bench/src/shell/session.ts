@@ -13,6 +13,8 @@ export type Session =
       name: string;
       repositories: TenantSummary[];
       current: TenantSummary | null;
+      /** The open repository is published, so libraries that copied it see its edits. */
+      published: boolean;
     };
 
 const REPO_KEY = 'bench:repo:';
@@ -41,15 +43,33 @@ export async function loadSession(): Promise<Session> {
         ),
     );
     const repositories = authoredRepositories(tenants);
+    const current = repositoryToOpen(repositories, read(REPO_KEY + me.id));
     return {
       kind: 'signed-in',
       userId: me.id,
       name: me.display_name ?? me.nickname ?? me.email ?? 'You',
       repositories,
-      current: repositoryToOpen(repositories, read(REPO_KEY + me.id)),
+      current,
+      published: current ? await isPublished(current.id) : false,
     };
   } catch (e) {
     return { kind: 'error', message: e instanceof Error ? e.message : 'Could not sign in.' };
+  }
+}
+
+/**
+ * Whether a repository is published. A failed read says no: the banner is a notice, and a
+ * missing one must not stop the editor from opening.
+ */
+async function isPublished(tenantId: string): Promise<boolean> {
+  try {
+    const { client, unwrap } = await import('../lib/api');
+    const tenant = await unwrap(
+      await client.GET('/tenants/{tenant_id}', { params: { path: { tenant_id: tenantId } } }),
+    );
+    return tenant.published_at !== null;
+  } catch {
+    return false;
   }
 }
 
