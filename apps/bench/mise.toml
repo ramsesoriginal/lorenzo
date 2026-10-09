@@ -1,0 +1,30 @@
+# Same contract as the other static apps: every task installs first, so CI needs no separate step.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.dev]
+description = "Run the Astro dev server"
+depends = ["install"]
+run = "pnpm run dev"
+
+[tasks.lint]
+description = "Biome (ts/js/json/css) + astro check + Prettier check (.astro) — see ADR 0004"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome autoformat + Prettier autoformat (.astro)"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run the test suite"
+depends = ["install"]
+run = "pnpm run test"
+
+[tasks.build]
+description = "Build the static site to dist/"
+depends = ["install"]
+run = "pnpm run build"

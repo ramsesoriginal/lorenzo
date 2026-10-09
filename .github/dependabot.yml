@@ -89,6 +89,7 @@ updates:
     directories:
       - "/"
       - "/apps/account-hub"
+      - "/apps/bench"
       - "/apps/inventory-web"
       - "/apps/loot-bot"
       - "/packages/api-client"
