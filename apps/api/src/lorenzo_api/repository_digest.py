@@ -21,6 +21,7 @@ from typing import Any, Literal
 from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.entity_kinds import unpublishable_entries
 from lorenzo_api.models import (
     Payload,
     PayloadDescription,
@@ -484,6 +485,9 @@ class Assessment:
     warnings: list[Breaking]
     descriptions_edited: int | None
     counts: dict[str, Any]
+    # The entries whose combination of kinds no round-trip matrix covers (ADR 0217): a publish is
+    # refused while there are any.
+    unproven_kinds: list[dict[str, Any]]
 
 
 async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
@@ -515,4 +519,9 @@ async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
         warnings=warnings,
         descriptions_edited=edited,
         counts=counts_of(comparison, edited or 0),
+        unproven_kinds=unpublishable_entries(
+            (row.row_id, row.name, row.facts.get("kinds") or [])
+            for row in live.values()
+            if row.kind == "entity"
+        ),
     )

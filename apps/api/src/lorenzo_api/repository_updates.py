@@ -22,6 +22,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.entity_kinds import inventory_items_inherit
 from lorenzo_api.exceptions import (
     InvalidRepositoryUpdateError,
     RepositoryCopyNeedsChoicesError,
@@ -31,6 +32,8 @@ from lorenzo_api.exceptions import (
     UpdateNeedsConfirmationError,
 )
 from lorenzo_api.models import (
+    Being,
+    Character,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
@@ -43,6 +46,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     Item,
+    ItemInstance,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -94,13 +98,17 @@ _ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
 _ADD_ORDER: tuple[RowKind, ...] = ("stat_group", "stat_definition", "entity")
 State = Literal["clean", "conflict", "not_applicable"]
 
-_SETS = {"prototypes", "stat_groups", "enum_values"}
+# `kinds` is a set like the others: an entry gaining or losing a kind is shown, and a kind is added
+# or removed element by element (ADR 0217). Before, an entry's kinds were not compared.
+_SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
 _KEYED = {"stats", "formulas"}
 # Shown when they change, never applied: converting every value is a
 # person's job.
 _NOT_APPLICABLE = {"value_type"}
-# Not compared: an entity's kinds are what it is, not content that drifts.
-_IGNORED = {"kinds"}
+
+# The markers an update may add or remove: an inventory item and a character are made in the
+# library, not by an update.
+_MARKER_MODELS: dict[str, Any] = {"item": Item, "being": Being}
 
 _LINK_MODELS: dict[str, Any] = {
     "entity": (RepositoryCopyLinkEntity, RepositoryCopyLinkEntity.entity_id),
@@ -234,8 +242,6 @@ def diff(
     named `stats:<origin id>`."""
     changes: list[FieldChange] = []
     for key in sorted(set(base) | set(upstream)):
-        if key in _IGNORED:
-            continue
         b, u, loc = base.get(key), upstream.get(key), local.get(key)
         if key in _SETS:
             bs, us, ls = set(b or []), set(u or []), set(loc or [])
@@ -675,7 +681,13 @@ class _Applier:
                 .values(name=change.upstream)
             )
             return True
+        if name == "kinds":
+            return await self._kinds(row, change)
         if name == "in_public_catalog":
+            if change.upstream is None:
+                # The entry stopped being an item upstream: the kind is what is removed, or
+                # refused, and a refusal must not make the item private on the way.
+                return True
             await s.execute(
                 update(Item)
                 .where(Item.entity_id == e, Item.tenant_id == t)
@@ -852,6 +864,41 @@ class _Applier:
                 )
             )
         return True
+
+    async def _kinds(self, row: RowChange, change: FieldChange) -> bool:
+        """Adds and removes the markers of an entry's kinds (ADR 0217). A kind the library's copy
+        does not allow to go is skipped with the reason and is offered again, as an enum value
+        still in use is."""
+        e, t, s = row.local_id, self.tenant_id, self.session
+        ok = True
+        for kind in change.removed or []:
+            if kind not in _MARKER_MODELS:
+                self.skip(
+                    row, "kinds", f"a {kind.replace('_', ' ')} is changed in the library itself"
+                )
+                ok = False
+            elif kind == "item" and await inventory_items_inherit(s, tenant_id=t, entity_id=e):
+                self.skip(row, "kinds", "an inventory item still inherits from it here")
+                ok = False
+            elif kind == "being" and await s.get(Character, e) is not None:
+                self.skip(row, "kinds", "it is a character here")
+                ok = False
+            else:
+                marker = _MARKER_MODELS[kind]
+                await s.execute(delete(marker).where(marker.entity_id == e, marker.tenant_id == t))
+        for kind in change.added or []:
+            if kind not in _MARKER_MODELS:
+                self.skip(row, "kinds", f"a {kind.replace('_', ' ')} is made in the library itself")
+                ok = False
+            elif kind == "item" and await s.get(ItemInstance, e) is not None:
+                self.skip(row, "kinds", "it is an inventory item here, and never a catalog item")
+                ok = False
+            elif await s.get(_MARKER_MODELS[kind], e) is None:
+                values: dict[str, Any] = {"entity_id": e, "tenant_id": t}
+                if kind == "item":
+                    values["in_public_catalog"] = bool(row.upstream.get("in_public_catalog"))
+                await s.execute(insert(_MARKER_MODELS[kind]).values(**values))
+        return ok
 
     # stat group -------------------------------------------------------------
 
