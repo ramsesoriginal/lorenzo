@@ -13,7 +13,7 @@ from e2e.test_self_service import _table
 from lorenzo_cli.inventory.format import parse
 
 FILE = """\
-format: lorenzo-inventory/1
+format: lorenzo-ledger/1
 owner: Ashfang
 
 ## Equipped
@@ -158,7 +158,7 @@ def test_a_line_that_cannot_be_made_stops_everything(stack: Stack, tmp_path: Pat
     _library(stack, table)
     path = _write(
         tmp_path,
-        "format: lorenzo-inventory/1\nowner: Ashfang\n\n## Equipped\n- Dagger\n- 9 x Rope\n",
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Equipped\n- Dagger\n- 9 x Rope\n",
     )
 
     done = run_cli(
@@ -278,7 +278,7 @@ def test_the_json_form_goes_both_ways(stack: Stack, tmp_path: Path) -> None:
     _library(stack, table)
     player, slug = table["player"], table["slug"]
     document = {
-        "format": "lorenzo-inventory/1",
+        "format": "lorenzo-ledger/1",
         "owner": "Ashfang",
         "equipped": [{"name": "Backpack", "contents": [{"name": "Rope", "quantity": 3}]}],
         "not_carried": [{"name": "Trophy", "note": "a skull", "weight": 1}],
@@ -303,7 +303,7 @@ def test_a_file_for_another_library_is_refused(stack: Stack, tmp_path: Path) -> 
     _library(stack, table)
     path = _write(
         tmp_path,
-        "format: lorenzo-inventory/1\nowner: Ashfang\nlibrary: somewhere-else-" + uuid.uuid4().hex[:6]
+        "format: lorenzo-ledger/1\nowner: Ashfang\nlibrary: somewhere-else-" + uuid.uuid4().hex[:6]
         + "\n\n## Equipped\n- Dagger\n",
     )  # fmt: skip
 
@@ -322,3 +322,36 @@ def test_a_file_for_another_library_is_refused(stack: Stack, tmp_path: Path) -> 
     assert done.exit_code == 1
     assert "was written for" in " ".join(done.output.split())
     assert _instances(stack, table) == {}
+
+
+def test_a_description_is_a_note_the_player_reads_and_an_export_writes_back(
+    stack: Stack, tmp_path: Path
+) -> None:
+    table = _table(stack)
+    _library(stack, table)
+    player, slug = table["player"], table["slug"]
+    text = (
+        "format: lorenzo-inventory/1\nowner: Ashfang\n\n## Equipped\n"
+        "- Hydra Zahn | note: from the cave\n"
+        "  > A **curved** tooth.\n  >\n  > Warm to the touch.\n"
+    )  # the format's old name is still read (ADR 0226)
+
+    done = run_cli(
+        stack, player, tmp_path, "inventory", "import", str(_write(tmp_path, text)), "-t", slug,
+        "--yes",
+    )  # fmt: skip
+
+    assert done.exit_code == 0, done.output
+    made = _instances(stack, table)
+    assert _notes(stack, table, made["Hydra Zahn"]["entity_id"]) == {
+        "Note": "from the cave",
+        "Description": "A **curved** tooth.\n\nWarm to the touch.",
+    }
+    exported = run_cli(stack, player, tmp_path, "inventory", "export", "-t", slug)
+    assert exported.exit_code == 0, exported.output
+    assert exported.stdout.startswith("format: lorenzo-ledger/1\n")
+    inventory = parse(exported.stdout)
+    assert inventory.problems == []
+    tooth = inventory.equipped[0]
+    assert tooth.name == "Hydra Zahn"
+    assert tooth.description == "A **curved** tooth.\n\nWarm to the touch."
