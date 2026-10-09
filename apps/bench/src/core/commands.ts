@@ -2,7 +2,14 @@
 // (RFC 0039 section 2). Each names the field it changes, with the value the person saw (its base)
 // next to the new one, so a conflict can be told from a plain write, and so it can be undone.
 
-import type { EntryState, StatScalar, StatType, TextDoc, Transport } from './transport';
+import type {
+  EditableKind,
+  EntryState,
+  StatScalar,
+  StatType,
+  TextDoc,
+  Transport,
+} from './transport';
 
 /** `null` is no value of its own, for a stat: the entry inherits. */
 export type Value = StatScalar | string[] | null;
@@ -10,6 +17,7 @@ export type CommandType =
   | 'entry.create'
   | 'entry.set-name'
   | 'entry.set-parents'
+  | 'entry.set-kind'
   | 'stat.set'
   | 'description.set-text'
   | 'note.add'
@@ -40,6 +48,8 @@ export interface Command {
    * there yet, and for a new note, an id the client made (ADR 0222).
    */
   textId?: string;
+  /** For a kind: which one. The value is whether the entry has it. */
+  kind?: EditableKind;
   /** For a stat: which one, and its type, which decides how it is sent. */
   stat?: { id: string; name: string; type: StatType };
   /** What the server has now, when that is a conflict. */
@@ -151,11 +161,26 @@ const statDef: Definition = {
     ),
 };
 
+const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
+
+const kindDef: Definition = {
+  label: 'kind',
+  read: (entry, c) => entry.kinds.includes(c.kind as string),
+  apply: (entry, value, c) => {
+    const rest = entry.kinds.filter((k) => k !== c.kind);
+    const kinds = value === true ? [...rest, c.kind as string] : rest;
+    return { ...entry, kinds: kinds.sort((a, b) => KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b)) };
+  },
+  send: (t, entry, value, c) =>
+    t.setKind(entry.id, c.kind as EditableKind, value === true, entry.etag),
+};
+
 export const REGISTRY: Record<CommandType, Definition> = {
   'description.set-text': descriptionDef,
   'note.add': noteAddDef,
   'note.set-text': noteSetDef,
   'stat.set': statDef,
+  'entry.set-kind': kindDef,
   // A create is sent by the runner itself, which has the whole command; this is how it shows.
   'entry.create': {
     label: 'name',
@@ -189,7 +214,7 @@ export function compare(base: Value, mine: Value, theirs: Value): Verdict {
 /** The command that puts back what this one changed (a create has none: nothing is deleted here). */
 export function inverseOf(
   c: Command,
-): Pick<Command, 'type' | 'entryId' | 'base' | 'mine' | 'textId' | 'stat'> | null {
+): Pick<Command, 'type' | 'entryId' | 'base' | 'mine' | 'textId' | 'stat' | 'kind'> | null {
   if (c.type === 'entry.create' || c.type === 'note.add') return null;
   return {
     type: c.type,
@@ -198,6 +223,7 @@ export function inverseOf(
     mine: c.base,
     textId: c.textId,
     stat: c.stat,
+    kind: c.kind,
   };
 }
 

@@ -6,6 +6,7 @@
 import {
   canRename,
   canSetParents,
+  type EditableKind,
   type EntryState,
   type EntrySummary,
   type NewEntry,
@@ -40,9 +41,12 @@ interface Text {
 
 export type SampleWrite =
   | { id: string; field: 'name' | 'parents'; value: string | string[] }
+  | { id: string; field: `kind:${EditableKind}`; value: boolean }
   | { id: string; field: 'create'; value: string }
   | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
   | { id: string; field: `stat:${string}`; value: StatScalar | null };
+
+const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
 const doc = (t: Text): TextDoc => ({
   id: t.id,
@@ -137,7 +141,12 @@ export class SampleTransport implements Transport {
 
   async listEntries(): Promise<EntrySummary[]> {
     this.need();
-    return [...this.rows.values()].map(({ id, name, kinds }) => ({ id, name, kinds: [...kinds] }));
+    return [...this.rows.values()].map(({ id, name, kinds, parents }) => ({
+      id,
+      name,
+      kinds: [...kinds],
+      parentIds: [...parents],
+    }));
   }
   async listStatDefinitions(): Promise<StatDef[]> {
     this.need();
@@ -226,6 +235,22 @@ export class SampleTransport implements Transport {
     return this.state(id);
   }
 
+  async setKind(id: string, kind: EditableKind, on: boolean, etag: string | null) {
+    this.need();
+    this.guard(id, etag);
+    const row = this.row(id);
+    if (on && kind === 'item' && row.kinds.includes('item_instance'))
+      throw new RefusedError('An inventory item is not an item of the catalog.');
+    if (on !== row.kinds.includes(kind)) {
+      row.kinds = on
+        ? [...row.kinds, kind].sort((a, b) => KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b))
+        : row.kinds.filter((k) => k !== kind);
+      row.version++;
+      this.writes.push({ id, field: `kind:${kind}`, value: on });
+    }
+    return this.state(id);
+  }
+
   private findText(payloadId: string): { text: Text; label: 'description' | 'note.text' } {
     const id = payloadId.replace(/^p-/, '');
     for (const row of this.rows.values()) {
@@ -277,6 +302,13 @@ export class SampleTransport implements Transport {
     const row = this.row(id);
     if (value === null) row.stats.delete(statId);
     else row.stats.set(statId, value);
+    row.version++;
+  }
+
+  /** Someone else gives (or takes away) a kind, behind the person's back. */
+  setKindElsewhere(id: string, kind: EditableKind, on: boolean) {
+    const row = this.row(id);
+    row.kinds = on ? [...new Set([...row.kinds, kind])] : row.kinds.filter((k) => k !== kind);
     row.version++;
   }
 
