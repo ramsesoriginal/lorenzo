@@ -611,3 +611,31 @@ dd {
   gap: 8px;
   padding: 2px 0;
 }
+
+.link-notes {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.ls-content a.ls-entity {
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.link-card {
+  position: fixed;
+  z-index: 50;
+  max-width: 320px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  pointer-events: none;
+}
+.link-card strong {
+  margin-right: 8px;
+}
+.link-card p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}

@@ -552,3 +552,66 @@ test('a kind change is undone from the entry', async ({ page }) => {
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('checkbox', { name: /Item/ })).not.toBeChecked();
 });
+
+test.describe('links to entries in text', () => {
+  const preview = (page: Page) =>
+    page.getByLabel('Description, as it reads').locator('a.ls-entity');
+
+  test('a [[Name]] in a description shows as a link to the entry, and opening it opens the entry', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await page
+      .getByLabel('Description', { exact: true })
+      .fill('Fears the [[Wolf]] and [[Dire wolf]].');
+    await expect(preview(page)).toHaveText(['Wolf', 'Dire wolf']);
+    await preview(page).first().click();
+    await expect(name(page)).toHaveValue('Wolf');
+  });
+
+  test('pointing at a link shows the entry: what it is and the start of its description', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
+    await preview(page).hover();
+    const card = page.locator('.link-card');
+    await expect(card).toContainText('Wolf');
+    await expect(card).toContainText('item');
+    await expect(card).toContainText('Hunts in packs.');
+    await page.mouse.move(5, 5);
+    await expect(card).toHaveCount(0);
+  });
+
+  test('a link can be reached with the keyboard, and Escape puts the card away', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
+    await preview(page).focus();
+    await expect(page.locator('.link-card')).toContainText('Wolf');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.link-card')).toHaveCount(0);
+  });
+
+  test('a name nothing holds stays text, and the author is told', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await page.getByLabel('Description', { exact: true }).fill('Haunts [[Lost Crown]].');
+    await expect(page.getByLabel('Description, as it reads')).toContainText('Lost Crown');
+    await expect(preview(page)).toHaveCount(0);
+    await expect(page.locator('.link-notes')).toContainText('Nothing is called “lost-crown” yet');
+  });
+
+  test('links work in notes too, and a link to an entry made here shows once it is sent', async ({
+    page,
+  }) => {
+    await page.getByLabel('Name of the new entry').fill('Winter wolf');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(page.locator('[data-entry]', { hasText: 'Winter wolf' })).toBeVisible();
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Note: Note', { exact: true }).fill('Cousin of [[Winter wolf]].');
+    await expect(page.getByLabel('Note: Note, as it reads').locator('a.ls-entity')).toHaveText(
+      'Winter wolf',
+    );
+  });
+});

@@ -25,6 +25,14 @@ export interface TextDoc {
   version: string | null;
 }
 
+/** An entry a link name stands for (`GET .../entities/resolve`). */
+export interface ResolvedEntry {
+  slug: string;
+  id: string;
+  name: string;
+  kinds: string[];
+}
+
 /** How a stat's value is typed (the API's `value_type`). */
 export type StatType = 'int' | 'float' | 'text' | 'bool' | 'enum';
 export type StatScalar = string | number | boolean;
@@ -93,6 +101,8 @@ export const canSetParents = (kinds: readonly string[]): boolean =>
 export interface Transport {
   listEntries(): Promise<EntrySummary[]>;
   listStatDefinitions(): Promise<StatDef[]>;
+  /** The entries these link names stand for; a name nothing holds is left out. */
+  resolveSlugs(slugs: string[]): Promise<ResolvedEntry[]>;
   getEntry(id: string): Promise<EntryState>;
   /** Makes the entry (or, if it is already there under this id, returns it) and answers with it. */
   createEntry(entry: NewEntry): Promise<EntryState>;
