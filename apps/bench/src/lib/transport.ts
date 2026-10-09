@@ -16,6 +16,7 @@ import {
   type NewText,
   OfflineError,
   RefusedError,
+  type ResolvedEntry,
   type StatDef,
   type StatType,
   type TextDoc,
@@ -138,6 +139,22 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
       }),
 
     listStatDefinitions: () => guarded(loadDefinitions),
+
+    resolveSlugs: (slugs) =>
+      guarded(async (): Promise<ResolvedEntry[]> => {
+        if (!slugs.length) return [];
+        const rows = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/resolve', {
+            params: { path, query: { slug: slugs } },
+          }),
+        );
+        return rows.map((r) => ({
+          slug: r.slug,
+          id: r.entity_id,
+          name: r.name,
+          kinds: [...r.kinds],
+        }));
+      }),
 
     getEntry: (id) => guarded(() => read(id)),
 
