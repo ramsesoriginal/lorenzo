@@ -611,3 +611,19 @@ dd {
   gap: 8px;
   padding: 2px 0;
 }
+
+.explorer-filter {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 3px 8px;
+}
+.explorer .pad {
+  padding: 0 12px;
+}

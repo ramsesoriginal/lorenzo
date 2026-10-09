@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EntrySummary } from '../core/transport';
-import { buildRows, counts } from './explorerRows';
+import { buildRows, counts, filterEntries } from './explorerRows';
 
 const e = (id: string, name: string, kinds: string[], parentIds: string[] = []): EntrySummary => ({
   id,
@@ -85,5 +85,25 @@ describe('the other orders', () => {
       '# Bare entries',
       '  node',
     ]);
+  });
+});
+
+describe('the filter', () => {
+  it('keeps the entries whose name has what was typed, in any case', () => {
+    expect(filterEntries(entries, 'ST').map((x) => x.id)).toEqual(['root', 'beast']);
+    expect(filterEntries(entries, '  ghou ').map((x) => x.id)).toEqual(['ghoul']);
+  });
+
+  it('keeps everything when nothing is typed, and nothing when nothing matches', () => {
+    expect(filterEntries(entries, '')).toHaveLength(entries.length);
+    expect(filterEntries(entries, '   ')).toHaveLength(entries.length);
+    expect(filterEntries(entries, 'zzz')).toEqual([]);
+  });
+
+  it('does not mind accents', () => {
+    const accented = [e('a', 'Écu', ['item']), e('b', 'Naïve', [])];
+    expect(filterEntries(accented, 'ecu').map((x) => x.id)).toEqual(['a']);
+    expect(filterEntries(accented, 'naive').map((x) => x.id)).toEqual(['b']);
+    expect(filterEntries(accented, 'Éc').map((x) => x.id)).toEqual(['a']);
   });
 });
