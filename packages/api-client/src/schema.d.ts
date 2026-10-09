@@ -1812,6 +1812,10 @@ export interface paths {
          *     taken, `422` for a parent that is not an entry of the library. An inventory item and a
          *     character are not made here: an inventory item is made from a catalog item, a being becomes a
          *     character through `PUT /characters/{id}`.
+         *
+         *     A body with an `id` makes the entry under that id (ADR 0222): if the library already has an
+         *     entry with it, the create was already done, and that entry is returned with `200` and nothing
+         *     is written; an id that is taken by something the caller cannot see is a generic `409`.
          */
         post: operations["create_entity"];
         delete?: never;
@@ -2601,6 +2605,10 @@ export interface paths {
          * @description Authoring the shared catalog vocabulary is a tenant-admin concern
          *     (get_tenant_context, unchanged, per ADR 0032/RFC 0005) - not
          *     self-or-managed, unlike item-instances below.
+         *
+         *     A body with an `id` makes the item under that id (ADR 0222): an item the library already has
+         *     under it means the create was done, and it is returned with `200`, writing nothing; an id that
+         *     belongs to something else, or to something the caller cannot see, is a generic `409`.
          */
         post: operations["create_item"];
         delete?: never;
@@ -4867,6 +4875,8 @@ export interface components {
          *     entry, which is what a group is. `in_public_catalog` is only for an `item`.
          */
         EntityCreate: {
+            /** Id */
+            id?: string | null;
             /** Name */
             name: string;
             /** Slug */
@@ -5281,6 +5291,8 @@ export interface components {
          *     information; omitted, the server appends it after the last one.
          */
         InformationCreate: {
+            /** Id */
+            id?: string | null;
             /** Title */
             title: string;
             /** Type */
@@ -5503,6 +5515,8 @@ export interface components {
          *     taken, so creating the same thing twice is a conflict, not a duplicate.
          */
         ItemCreate: {
+            /** Id */
+            id?: string | null;
             /** Name */
             name: string;
             /**

@@ -213,6 +213,7 @@ class ItemCreate(BaseModel):
     taken, so creating the same thing twice is a conflict, not a duplicate.
     """
 
+    id: uuid.UUID | None = None
     name: str
     prototype_ids: list[uuid.UUID] = []
     in_public_catalog: bool = False

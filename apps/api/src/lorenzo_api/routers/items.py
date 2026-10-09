@@ -14,6 +14,7 @@ from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -28,6 +29,7 @@ from lorenzo_api.entity_access import prototype_descendants_cte
 from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    ClientIdUnavailableError,
     EntityPrototypeCycleError,
     EntitySlugConflictError,
     InvalidPrototypeError,
@@ -349,7 +351,22 @@ async def create_item(
     """Authoring the shared catalog vocabulary is a tenant-admin concern
     (get_tenant_context, unchanged, per ADR 0032/RFC 0005) - not
     self-or-managed, unlike item-instances below.
+
+    A body with an `id` makes the item under that id (ADR 0222): an item the library already has
+    under it means the create was done, and it is returned with `200`, writing nothing; an id that
+    belongs to something else, or to something the caller cannot see, is a generic `409`.
     """
+    if (
+        body.id is not None
+        and (await existing_in_tenant(session, Entity, body.id, tenant_id)) is not None
+    ):
+        if await session.get(Item, body.id) is None:
+            raise ClientIdUnavailableError(detail="That id is not available.")
+        response.status_code = 200
+        response.headers["Location"] = str(
+            request.url_for("get_item", tenant_id=tenant_id, entity_id=body.id)
+        )
+        return await _item_out(tenant_id, body.id, request, response, session, user)
     if body.slug is not None:
         # Every entity's slug lives in entity_slug (ADR 0107), so this is unique across the
         # tenant, not only among items. Checked first, as PUT .../slug does, so a taken slug is
@@ -362,8 +379,12 @@ async def create_item(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
     entity = Entity(tenant_id=tenant_id, name=body.name, created_by=user.id, updated_by=user.id)
-    session.add(entity)
-    await session.flush()
+    if body.id is None:
+        session.add(entity)
+        await session.flush()
+    else:
+        entity.id = body.id
+        await insert_with_client_id(session, entity)
     if body.slug is not None:
         session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(

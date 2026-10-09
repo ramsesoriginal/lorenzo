@@ -132,6 +132,15 @@ class EntitySlugNotFoundError(NotFoundProblem):
     title = "Entity not found"
 
 
+class ClientIdUnavailableError(ConflictProblem):
+    """A create that carried its own `id` (ADR 0222) named an id that cannot be used: it belongs
+    to a row the caller cannot see, or to a row of another kind or another entry. The same
+    answer for each, so it does not say which, and never names another tenant.
+    """
+
+    title = "Id not available"
+
+
 class EntitySlugConflictError(ConflictProblem):
     """PUT .../entities/{id}/slug - another entity in this tenant already
     has the slug (UNIQUE(tenant_id, slug), ADR 0107). Pre-checked, rather
