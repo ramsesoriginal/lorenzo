@@ -93,9 +93,11 @@ export class Shell {
   /** Commands the page adds to the palette, such as switching repository. */
   extra: { label: string; run: () => void }[] = [];
 
+  private unsubscribe: (() => void) | null = null;
+
   constructor(
     root: HTMLElement,
-    readonly bench: Bench,
+    public bench: Bench,
   ) {
     this.root = root;
     let saved: Workspace | null = null;
@@ -114,7 +116,16 @@ export class Shell {
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('keydown', (e) => this.onKey(e));
-    bench.subscribe(() => this.render());
+    this.unsubscribe = bench.subscribe(() => this.render());
+    this.render();
+  }
+
+  /** Hands the shell the bench to show, once the session has said which repository it is. */
+  use(bench: Bench) {
+    this.unsubscribe?.();
+    this.bench = bench;
+    this.selected = null;
+    this.unsubscribe = bench.subscribe(() => this.render());
     this.render();
   }
 

@@ -40,6 +40,9 @@ import '../styles/bench.css';
       const root = document.getElementById('bench');
       const bar = document.getElementById('titlebar');
       if (root && bar) {
+        // The workbench and its shortcuts exist at once, empty; the session fills it in.
+        const shell = new Shell(root, new Bench(new SampleTransport([])));
+        (window as unknown as { bench: Shell }).bench = shell;
         const session = await loadSession();
 
         // Signed in: the chosen repository, through the API. Otherwise a small sample one held
@@ -55,8 +58,7 @@ import '../styles/bench.css';
         }
 
         const bench = new Bench(transport);
-        const shell = new Shell(root, bench);
-        (window as unknown as { bench: Shell }).bench = shell;
+        shell.use(bench);
         renderTitleBar(bar, session, () => location.reload());
 
         const extra = [];

@@ -28,6 +28,21 @@ test.describe('with sign-in configured', () => {
     );
   });
 
+  test('the workbench and its shortcuts work before sign-in has finished loading', async ({
+    page,
+  }) => {
+    // The sign-in code arrives slowly; the page must not wait for it before it can be used.
+    await page.route('**/_astro/auth.*.js', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await route.continue();
+    });
+    await page.goto('/');
+    await page.keyboard.press('Control+k');
+    await expect(page.getByLabel('Command palette')).toBeVisible();
+    await expect(page.locator('#titlebar')).not.toContainText('Not signed in');
+    await expect(page.locator('[data-tab="explorer"]')).toBeVisible();
+  });
+
   test('a signed-out visitor is offered Sign in', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#titlebar')).toContainText('Not signed in');
