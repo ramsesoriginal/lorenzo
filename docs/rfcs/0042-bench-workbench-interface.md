@@ -1,6 +1,6 @@
 # RFC 0042: Bench's interface: a docked workbench, and the order to build it in
 
-- **Status:** proposed, from a prototype agreed with the maintainer (2026-10-09). To be accepted, with ADRs, once the maintainer has read it.
+- **Status:** accepted, decided with the maintainer (2026-10-09), from a prototype agreed with them. The open questions below stay open; each is settled in the ADR of the slice that needs it.
 - **Builds on:** [RFC 0039](0039-bench-authoring-offline-and-extensibility.md) (what Bench is, offline, commands), [RFC 0041](0041-entity-kinds-and-author-freedom.md) (kinds, parents, K-slices), [RFC 0026](0026-world-model-axes-and-address.md), [RFC 0028](0028-time-causality-and-calendars.md), [RFC 0027](0027-lorenzoscript.md).
 - **Picture:** [docs/design/bench](../design/bench/README.md) and its clickable prototype.
 
