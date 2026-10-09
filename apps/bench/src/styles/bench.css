@@ -655,3 +655,24 @@ dd {
 .explorer .pad {
   padding: 0 12px;
 }
+
+.entry-picker {
+  position: fixed;
+  z-index: 60;
+  max-height: 240px;
+  margin: 0;
+  padding: 2px 0;
+  overflow: auto;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+}
+.entry-picker li {
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.entry-picker li.on {
+  background: var(--bar);
+  font-weight: 600;
+}

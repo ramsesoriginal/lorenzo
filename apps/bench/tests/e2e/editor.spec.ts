@@ -645,3 +645,68 @@ test.describe('links to entries in text', () => {
     );
   });
 });
+
+test.describe('the entry picker', () => {
+  const area = (page: Page) => page.getByLabel('Description', { exact: true });
+  const picker = (page: Page) => page.getByRole('listbox', { name: 'Entries to link' });
+
+  test.beforeEach(async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await area(page).focus();
+  });
+
+  test('typing [[ offers the entries by name, those that start with it first', async ({ page }) => {
+    await area(page).pressSequentially('See [[wo');
+    await expect(picker(page).getByRole('option')).toHaveText(['Wolf', 'Dire wolf', 'Longsword']);
+  });
+
+  test('Enter writes the link for the one chosen, and the preview shows it', async ({ page }) => {
+    await area(page).pressSequentially('See [[wo');
+    await page.keyboard.press('Enter');
+    await expect(area(page)).toHaveValue('See [[Wolf]]');
+    await expect(picker(page)).toHaveCount(0);
+    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
+      'Wolf',
+    );
+  });
+
+  test('the arrows choose another, and Tab chooses too', async ({ page }) => {
+    await area(page).pressSequentially('[[wo');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Tab');
+    await expect(area(page)).toHaveValue('[[Dire wolf]]');
+    await expect(area(page)).toBeFocused();
+  });
+
+  test('a click chooses, and the text keeps the focus', async ({ page }) => {
+    await area(page).pressSequentially('[[ash');
+    await picker(page).getByRole('option', { name: 'Ashfang' }).click();
+    await expect(area(page)).toHaveValue('[[Ashfang]]');
+    await expect(area(page)).toBeFocused();
+  });
+
+  test('Escape puts it away and leaves the text', async ({ page }) => {
+    await area(page).pressSequentially('[[wo');
+    await page.keyboard.press('Escape');
+    await expect(picker(page)).toHaveCount(0);
+    await expect(area(page)).toHaveValue('[[wo');
+  });
+
+  test('offers nothing for a name nobody has, and nothing once the link is closed', async ({
+    page,
+  }) => {
+    await area(page).pressSequentially('[[zzz');
+    await expect(picker(page)).toHaveCount(0);
+    await area(page).fill('');
+    await area(page).pressSequentially('[[Wolf]] and wo');
+    await expect(picker(page)).toHaveCount(0);
+  });
+
+  test('works in a new note too', async ({ page }) => {
+    const note = page.getByLabel('A new note');
+    await note.focus();
+    await note.pressSequentially('see [[mon');
+    await page.keyboard.press('Enter');
+    await expect(note).toHaveValue('see [[Monster]]');
+  });
+});
