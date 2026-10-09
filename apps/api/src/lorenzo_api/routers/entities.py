@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
@@ -20,6 +20,7 @@ from lorenzo_api.dependencies import (
     ParamsDep,
     SessionDep,
     get_entity_or_404,
+    get_tenant_context,
     get_tenant_or_404,
     require_tenant_participant,
     set_tenant_rls_context,
@@ -30,6 +31,15 @@ from lorenzo_api.entity_access import (
     entity_id_among,
     prototype_descendants_cte,
 )
+from lorenzo_api.entity_kinds import (
+    Kind,
+    add_kind,
+    create_entry,
+    remove_kind,
+    require_deletable,
+)
+from lorenzo_api.entity_parents import replace_parents
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
     EntitySlugConflictError,
@@ -39,6 +49,8 @@ from lorenzo_api.exceptions import (
     InformationManagementForbiddenError,
     InformationNotFoundError,
     InformationOrderConflictError,
+    InvalidKindRequestError,
+    InventoryItemParentsError,
 )
 from lorenzo_api.information_visibility import (
     resolve_information_visibility,
@@ -63,9 +75,12 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
+    EntityCreate,
     EntityDetailOut,
     EntityKind,
+    EntityKindPut,
     EntityListOut,
+    EntityParentsRequest,
     EntitySlugOut,
     EntitySlugUpdate,
     InformationCreate,
@@ -199,6 +214,175 @@ async def list_entities(
     return page
 
 
+@router.post("", status_code=201, dependencies=[Depends(get_tenant_context)])
+async def create_entity(
+    tenant_id: uuid.UUID,
+    body: EntityCreate,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> EntityDetailOut:
+    """Makes an entry whatever it is (ADR 0217, RFC 0041 section 2): the entry, its link name, its
+    kinds (`item`, `being`, both, or none for a bare entry) and its parents, in one transaction.
+    The gate is the one `POST /items` has, a member of the library. `409` for a link name already
+    taken, `422` for a parent that is not an entry of the library. An inventory item and a
+    character are not made here: an inventory item is made from a catalog item, a being becomes a
+    character through `PUT /characters/{id}`.
+    """
+    kinds = sorted(set(body.kinds))
+    entity = await create_entry(
+        session,
+        tenant_id=tenant_id,
+        user_id=user.id,
+        name=body.name,
+        slug=body.slug,
+        kinds=kinds,
+        parents=body.parents,
+        in_public_catalog=bool(body.in_public_catalog),
+    )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="entity.created",
+        target_type="entity",
+        target_id=entity.id,
+        detail=f"kinds={'+'.join(kinds) or 'none'},parents={len(set(body.parents))}",
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity.id, user=user
+    )
+    response.headers["Location"] = str(
+        request.url_for("get_entity", tenant_id=tenant_id, entity_id=entity.id)
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.put("/{entity_id}/kinds/{kind}", dependencies=[Depends(get_tenant_context)])
+async def add_entity_kind(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    kind: Kind,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    body: EntityKindPut | None = None,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Gives the entry a kind (ADR 0217): `201` the first time, `200` when it already had it, as
+    `PUT /characters/{id}` does. `item` may carry its own column, `in_public_catalog`. An
+    inventory item never takes `item` (`409`); it may take `being`. Touches the entry, so its
+    ETag moves, and is one activity entry. Both honour `If-Match`.
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    in_public_catalog = body.in_public_catalog if body is not None else None
+    if in_public_catalog is not None and kind != "item":
+        raise InvalidKindRequestError(detail=f"in_public_catalog is a column of item, not {kind}")
+    result = await add_kind(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        kind=kind,
+        user_id=user.id,
+        in_public_catalog=in_public_catalog,
+    )
+    if result != "unchanged":
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.kind_added",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"kind={kind}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.status_code = 201 if result == "created" else 200
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.delete("/{entity_id}/kinds/{kind}", dependencies=[Depends(get_tenant_context)])
+async def remove_entity_kind(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    kind: Kind,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Takes a kind away from the entry and answers `200` with the entry, which survives
+    (ADR 0217), whether or not it had the kind. `409` for `item` while an inventory item inherits
+    from the entry directly, and for `being` while the entry is a character: demote it first.
+    Honours `If-Match`, touches the entry and is one activity entry.
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    removed = await remove_kind(
+        session, tenant_id=tenant_id, entity=entity, kind=kind, user_id=user.id
+    )
+    if removed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.kind_removed",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"kind={kind}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.delete("/{entity_id}", status_code=204, dependencies=[Depends(get_tenant_context)])
+async def delete_entity(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> None:
+    """Deletes the entry, with the guards of every kind it has composed (ADR 0217, RFC 0041
+    section 2): `409` for an inventory item (its own route moves what it holds back out), a
+    character (demote it first), a campaign's own entry, and a catalog item an inventory item
+    inherits from. An entry that is also a being goes with its being; the kind-specific deletes
+    keep working and delete the whole entry as they do now. Nothing a library copied is touched:
+    it sees the entry as removed upstream.
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    kinds = await require_deletable(session, tenant_id=tenant_id, entity_id=entity_id)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="entity.deleted",
+        target_type="entity",
+        target_id=entity_id,
+        detail=f"kinds={'+'.join(sorted(kinds)) or 'none'}",
+    )
+    await session.delete(entity)
+    await session.commit()
+
+
 async def get_entity_detail_or_404(
     session: SessionDep, entity_id: uuid.UUID, tenant_id: uuid.UUID
 ) -> Entity:
@@ -250,6 +434,10 @@ async def get_entity_detail_or_404(
             selectinload(Entity.containment).selectinload(Containment.parent),
             selectinload(Entity.contained_links).selectinload(Containment.child),
             selectinload(Entity.slug),
+            # What the entry is (ADR 0217).
+            selectinload(Entity.item),
+            selectinload(Entity.item_instance),
+            selectinload(Entity.being).selectinload(Being.character),
         )
     )
     entity = await session.scalar(stmt)
@@ -314,6 +502,7 @@ async def get_entity_by_slug(
     tenant_id: uuid.UUID,
     slug: str,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> EntityDetailOut:
@@ -326,9 +515,11 @@ async def get_entity_by_slug(
     )
     if entity_id is None:
         raise EntitySlugNotFoundError(detail=f"No entity with slug {slug!r} in tenant {tenant_id}")
-    return await entity_detail_out(
+    out = await entity_detail_out(
         session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
     )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
 
 
 @router.get("/{entity_id}")
@@ -336,14 +527,17 @@ async def get_entity(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    return await entity_detail_out(
+    out = await entity_detail_out(
         session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
     )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
 
 
 @router.get("/{entity_id}/backlinks")
@@ -403,6 +597,64 @@ async def list_backlinks(
                 )
     # paginate is typed to return Any (fastapi_pagination's own signature).
     return cast(Page[BacklinkOut], paginate(backlinks, params))
+
+
+@router.put("/{entity_id}/parents", dependencies=[Depends(get_tenant_context)])
+async def replace_entity_parents(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: EntityParentsRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Replaces the entry's own direct parents (ADR 0216, RFC 0041 §3): the list becomes the
+    complete set, an empty list clears it, as PUT /items/{id}/prototypes does for an item, whose
+    route runs the same code. Works for an item, a being, a character and a bare entry. A change
+    touches the entry (`updated_by`, so its ETag) and is one activity entry; the same set again
+    changes and logs nothing.
+
+    The gate is the one the item route has: a member of the library. 404 for an unknown entry, 412
+    for a stale If-Match, 409 for an inventory item (its one parent changes through PATCH
+    /item-instances/{id}, ADR 0192), 422 for itself, an id that is not an entry of the library, or
+    a loop. Nothing inherited is stored, so nothing else changes: stats and descriptions resolve
+    through the new parents the next time they are read (ADR 0037, 0111).
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    if await session.get(ItemInstance, entity_id) is not None:
+        raise InventoryItemParentsError(
+            detail=(
+                f"Entry {entity_id} is an inventory item: change its parent with "
+                f"PATCH /tenants/{tenant_id}/item-instances/{entity_id}"
+            )
+        )
+    changed = await replace_parents(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        parent_ids=body.parent_ids,
+        user_id=user.id,
+    )
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.parents_replaced",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"parents={len(set(body.parent_ids))}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
 
 
 @router.put("/{entity_id}/slug")

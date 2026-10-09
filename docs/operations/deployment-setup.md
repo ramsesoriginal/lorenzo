@@ -144,6 +144,23 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
 5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — `apps/api`'s dev-token client and `apps/loot-bot`'s client may already account for two applications, which could block registering this one on a strict per-project reading. Confirm directly in the console rather than assuming either way.
 
+## Cloudflare Pages (apps/bench)
+
+`apps/bench` deploys as a plain static build, as the other two static apps, by Cloudflare's own Git integration ([ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md), [ADR 0211](../adr/0211-bench-sign-in-and-the-repository-picker.md)). Project name `lorenzo-bench` (`https://lorenzo-bench.pages.dev`), production branch `main`.
+
+- **Root directory** `apps/bench`; **build command** `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`; **output** `dist`; `NODE_VERSION` the major in `mise.toml` (26).
+- **Environment variables** (Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` from the application below. `PUBLIC_API_BASE_URL` is optional (it defaults to the deployed API).
+- **Build watch paths**: `apps/bench/**`, `packages/brand/**`, `packages/api-client/**`; add the LorenzoScript packages when Bench uses them.
+- **CORS**: add `https://lorenzo-bench.pages.dev` to the API's `CORS_ALLOWED_ORIGINS` and redeploy the API (see the Cloud Run section's note on that variable). Without it sign-in works but every API call fails with "Failed to fetch".
+
+### `apps/bench`'s own Authgear application
+
+A **Single Page Application** (public, PKCE), distinct from every other app's client: Applications, New Application, Single Page Application.
+
+1. **Authorized Redirect URIs**: `https://lorenzo-bench.pages.dev/auth/redirect/` and, for local dev, `http://127.0.0.1:4321/auth/redirect/`. The trailing slash is required (see `apps/account-hub`'s note above).
+2. **Authorized Post-Logout Redirect URIs**: the same two origins, no path.
+3. Copy the issuer (Endpoints) and the Client ID into the two variables above.
+
 ## Cloudflare Pages (apps/inventory-web)
 
 `apps/inventory-web` deploys as a plain static build (`astro build` → `dist/`) — no container, no database, per [ADR 0004](../adr/0004-static-astro-frontend.md). Same mechanism as `apps/account-hub` above, **Cloudflare's own Git integration, not a GitHub Actions deploy step** — see [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload), which names this app explicitly: its own `deploy-inventory-web.yml` (forked around the same `wrangler-action` token-upload flow, never actually completed) is removed for the same reason. `ci.yml`'s own auto-discovered matrix already covers `mise run lint`/`test` for it on every PR.
@@ -213,7 +230,7 @@ Create a `production` [Environment](https://docs.github.com/en/actions/deploymen
 
 - **Secrets**: `DATABASE_URL` — the Neon connection string from above, with `+asyncpg`.
 - **Variables**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER` — the four values printed in step 6. `AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE`, `AUTHGEAR_USERINFO_URL` — the values from the Authgear Cloud section above (`apps/api`'s own client — separate from `apps/account-hub`'s own application, which lives in Cloudflare Pages' own environment variables instead, not here). None of these are secrets (they're identifiers/public URLs, not credentials), but scoping them to the same environment keeps everything deploy-related in one place.
-- **Variable**: `CORS_ALLOWED_ORIGINS` — needed for any deployed static frontend to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). **Space-separated** exact origins, e.g. `https://lorenzo.example.com https://other.example.com` — deliberately not a JSON array or comma-separated list (see ADR 0048's own addendum for why: a JSON array's internal commas collided with how the deploy workflow joins environment variables, and crashed a real deploy). Currently set to local-dev origins only (`http://localhost:4321 http://127.0.0.1:4321 http://127.0.0.1:4322`) — add `https://lorenzo-account-hub.pages.dev` and `https://lorenzo-inventory-web.pages.dev` to this same space-separated value once each is deployed, don't replace it.
+- **Variable**: `CORS_ALLOWED_ORIGINS` — needed for any deployed static frontend to call the deployed API from a browser ([ADR 0048](../adr/0048-cors-configuration.md)). **Space-separated** exact origins, e.g. `https://lorenzo.example.com https://other.example.com` — deliberately not a JSON array or comma-separated list (see ADR 0048's own addendum for why: a JSON array's internal commas collided with how the deploy workflow joins environment variables, and crashed a real deploy). Currently set to local-dev origins only (`http://localhost:4321 http://127.0.0.1:4321 http://127.0.0.1:4322`) — add `https://lorenzo-account-hub.pages.dev`, `https://lorenzo-inventory-web.pages.dev` and `https://lorenzo-bench.pages.dev` to this same space-separated value once each is deployed, don't replace it. Then run Actions, "Deploy API", "Run workflow" once: changing a variable does not trigger it, and until it runs the browser says "blocked by CORS policy" (no `Access-Control-Allow-Origin`) on every call, `/me` first. A Pages preview URL (`<branch>.lorenzo-bench.pages.dev`) is a different origin and is not allowed unless added.
 
 - **Set by the workflow itself, not a variable you create**: `INVITE_RATE_LIMIT_TRUSTED_PROXY_HOPS=1` ([ADR 0092](../adr/0092-campaign-invite-links.md)). Cloud Run's front end is one trusted proxy; without this, every caller would look like the same address and share a single rate-limit bucket on the public invite-link routes. Separately, the invite-link feature needs an **edge rate-limit rule** before the project goes live (deferred until there is a domain and hosting to put it on; the in-process backstop is all there is until then) - see [Rate-limiting the invite-link endpoints](invite-link-rate-limiting.md).
 

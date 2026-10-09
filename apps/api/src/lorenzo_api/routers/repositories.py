@@ -29,11 +29,13 @@ from lorenzo_api.dependencies import (
     get_tenant_context,
     set_tenant_rls_context,
 )
+from lorenzo_api.entity_kinds import unpublishable_sentence
 from lorenzo_api.exceptions import (
     InvalidSubscriberError,
     NotARepositoryError,
     ReleaseHasBreakingChangesError,
     ReleaseNotFoundError,
+    RepositoryHasUnprovenKindsError,
     RepositoryManagementForbiddenError,
     RepositoryNotCopiedError,
     RepositoryNotFoundError,
@@ -129,6 +131,7 @@ from lorenzo_api.schemas.repositories import (
     RowRefOut,
     SubscriberOut,
     SubscriptionOut,
+    UnprovenKindOut,
     UpdatesOut,
 )
 from lorenzo_api.schemas.tenants import TenantOut
@@ -201,6 +204,14 @@ async def publish_repository(
     was_published = tenant.published_at is not None
     await lock_repository(session, tenant_id)
     assessed = await assess(session, tenant_id)
+    if assessed.unproven_kinds:
+        raise RepositoryHasUnprovenKindsError(
+            detail=unpublishable_sentence(assessed.unproven_kinds),
+            entries=[
+                {"id": str(e["id"]), "name": e["name"], "kinds": e["kinds"]}
+                for e in assessed.unproven_kinds
+            ],
+        )
     if assessed.hits and not body.acknowledge_breaking:
         raise ReleaseHasBreakingChangesError(
             detail=f"{len(assessed.hits)} of the changes in this release break what libraries "
@@ -326,6 +337,7 @@ async def preview_release(
         removed=_row_names(found.removed),
         breaking=[BreakingRowOut.model_validate(b.as_json()) for b in assessed.hits],
         warnings=[BreakingRowOut.model_validate(b.as_json()) for b in assessed.warnings],
+        unproven_kinds=[UnprovenKindOut.model_validate(e) for e in assessed.unproven_kinds],
         descriptions_edited=assessed.descriptions_edited,
         libraries_told=told or 0,
     )

@@ -192,6 +192,7 @@ class Shelf:
             "created_at": NOW,
             "updated_at": NOW,
             "stats": [],
+            "kinds": [],
             "stat_groups": [],
             "information": [],
             "prototypes": [

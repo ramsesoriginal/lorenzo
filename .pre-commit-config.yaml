@@ -116,6 +116,24 @@ repos:
         language: system
         files: ^apps/account-hub/.*\.astro$
         pass_filenames: false
+      - id: biome-bench
+        name: biome (apps/bench)
+        entry: pnpm --dir apps/bench exec biome check --write
+        language: system
+        files: ^apps/bench/.*\.(ts|js|json|css)$
+        pass_filenames: false
+      - id: astro-check-bench
+        name: astro check (apps/bench)
+        entry: pnpm --dir apps/bench exec astro check
+        language: system
+        files: ^apps/bench/.*\.(astro|ts)$
+        pass_filenames: false
+      - id: prettier-bench
+        name: prettier --write (apps/bench, .astro)
+        entry: pnpm --dir apps/bench exec prettier --write
+        language: system
+        files: ^apps/bench/.*\.astro$
+        pass_filenames: false
       - id: biome-inventory-web
         name: biome (apps/inventory-web)
         entry: pnpm --dir apps/inventory-web exec biome check --write
