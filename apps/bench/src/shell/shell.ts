@@ -1,6 +1,7 @@
 // The workbench shell: draws a Workspace (workspace/model.ts) and turns pointer and keyboard
 // input into changes to it. The layout rules live in the model; this file is the DOM.
 
+import type { Bench } from '../core/bench';
 import { type HitResult, hitTest } from '../workspace/hit';
 import {
   addTab,
@@ -29,7 +30,8 @@ import {
   treeGroups,
   type Workspace,
 } from '../workspace/model';
-import { ENTRIES, PANE_IDS, PANES, type StubEntry } from './stub';
+import { redraw, renderEntry, renderLinks, statusText } from './entryPane';
+import { PANE_IDS, PANES } from './stub';
 
 const BAR = 30;
 const STORE = 'bench:workspace';
@@ -65,7 +67,7 @@ const titleOf = (id: string) => PANES.find((p) => p.id === id)?.title ?? id;
 export class Shell {
   ws: Workspace;
   home: Home = {};
-  selected = 'wolf';
+  selected: string | null = null;
   focus = 'entry';
   private root: HTMLElement;
   private surface = el('div', 'surface');
@@ -91,7 +93,12 @@ export class Shell {
   /** Commands the page adds to the palette, such as switching repository. */
   extra: { label: string; run: () => void }[] = [];
 
-  constructor(root: HTMLElement) {
+  private unsubscribe: (() => void) | null = null;
+
+  constructor(
+    root: HTMLElement,
+    public bench: Bench,
+  ) {
     this.root = root;
     let saved: Workspace | null = null;
     try {
@@ -109,6 +116,16 @@ export class Shell {
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('keydown', (e) => this.onKey(e));
+    this.unsubscribe = bench.subscribe(() => this.render());
+    this.render();
+  }
+
+  /** Hands the shell the bench to show, once the session has said which repository it is. */
+  use(bench: Bench) {
+    this.unsubscribe?.();
+    this.bench = bench;
+    this.selected = null;
+    this.unsubscribe = bench.subscribe(() => this.render());
     this.render();
   }
 
@@ -148,6 +165,7 @@ export class Shell {
 
   select(id: string) {
     this.selected = id;
+    void this.bench.open(id);
     this.set(showPane(this.ws, 'entry'));
   }
 
@@ -165,7 +183,15 @@ export class Shell {
 
   private render() {
     const s = this.surface;
+    // Keep what a person is typing when something else changes the page.
+    const active = document.activeElement;
+    const kept =
+      active instanceof HTMLInputElement && active.dataset.key && s.contains(active)
+        ? { key: active.dataset.key, value: active.value, at: active.selectionStart }
+        : null;
+    redraw.active = true;
     s.replaceChildren();
+    redraw.active = false;
     const L = layout(this.ws.tree);
     for (const q of L.groups)
       s.append(this.groupEl(q.g, false, { l: q.x, t: q.y, w: q.w, h: q.h }));
@@ -174,6 +200,14 @@ export class Shell {
     if (!L.groups.length && !this.ws.floats.length) {
       const empty = el('div', 'empty', 'Nothing open. Press Ctrl+K to open something.');
       s.append(empty);
+    }
+    if (kept) {
+      const input = s.querySelector<HTMLInputElement>(`input[data-key="${kept.key}"]`);
+      if (input) {
+        input.value = kept.value;
+        input.focus();
+        if (kept.at !== null) input.setSelectionRange(kept.at, kept.at);
+      }
     }
   }
 
@@ -266,59 +300,28 @@ export class Shell {
   }
 
   private paneEl(id: string): HTMLElement {
+    const bench = this.bench;
+    if (id === 'entry') return renderEntry(bench, this.selected, (x) => this.select(x));
+    if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     const c = el('div', `pane pane-${id}`);
-    const entry = ENTRIES.find((x) => x.id === this.selected) ?? ENTRIES[0];
     if (id === 'explorer') {
+      if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));
       const list = el('ul', 'list');
-      for (const e of ENTRIES) {
+      for (const e of bench.entries) {
         const li = el('li');
-        const b = el('button', e.id === this.selected ? 'row on' : 'row', e.name);
+        const b = el('button', e.id === this.selected ? 'row on' : 'row', bench.displayName(e.id));
         b.type = 'button';
+        b.dataset.entry = e.id;
+        if (bench.status(e.id) !== 'synced') b.title = statusText(bench, e.id);
         b.addEventListener('click', () => this.select(e.id));
         li.append(b);
         list.append(li);
       }
       c.append(list);
-    } else if (id === 'entry') {
-      c.append(
-        el('h1', undefined, entry.name),
-        el('p', 'kind', entry.kind),
-        el('p', undefined, entry.text),
-      );
     } else if (id === 'props') {
-      const dl = el('dl');
-      for (const [k, v] of Object.entries(entry.stats))
-        dl.append(el('dt', undefined, k), el('dd', undefined, String(v)));
-      c.append(
-        Object.keys(entry.stats).length ? dl : el('p', 'muted', 'No stats. A bare entry is fine.'),
-      );
-    } else if (id === 'links') {
-      const name = (i: string) => ENTRIES.find((x) => x.id === i)?.name ?? i;
-      const kids = ENTRIES.filter((x) => x.parents.includes(entry.id));
-      c.append(
-        el('h2', undefined, 'Parents'),
-        this.linkList(entry.parents.map((p) => ({ id: p, name: name(p) }))),
-      );
-      c.append(
-        el('h2', undefined, 'Children'),
-        this.linkList(kids.map((k: StubEntry) => ({ id: k.id, name: k.name }))),
-      );
+      c.append(el('p', 'muted', 'Stats are not editable yet.'));
     }
     return c;
-  }
-
-  private linkList(items: { id: string; name: string }[]) {
-    const ul = el('ul', 'list');
-    if (!items.length) ul.append(el('li', 'muted', 'none'));
-    for (const i of items) {
-      const li = el('li');
-      const b = el('button', 'row', i.name);
-      b.type = 'button';
-      b.addEventListener('click', () => this.select(i.id));
-      li.append(b);
-      ul.append(li);
-    }
-    return ul;
   }
 
   // ---- pointer --------------------------------------------------------------------------------
@@ -578,7 +581,11 @@ export class Shell {
   private commands(): { label: string; run: () => void }[] {
     const c: { label: string; run: () => void }[] = [];
     for (const p of PANES) c.push({ label: `Open ${p.title}`, run: () => this.open(p.id) });
-    for (const e of ENTRIES) c.push({ label: `Go to ${e.name}`, run: () => this.select(e.id) });
+    for (const e of this.bench.entries)
+      c.push({ label: `Go to ${this.bench.displayName(e.id)}`, run: () => this.select(e.id) });
+    const sel = this.selected;
+    if (sel && this.bench.canUndo(sel))
+      c.push({ label: 'Undo the last change to this entry', run: () => this.bench.undo(sel) });
     const focus = this.focus;
     c.push({ label: `Float ${titleOf(focus)}`, run: () => this.floatPane(focus) });
     for (const s of ['right', 'bottom', 'left', 'top'] as const)

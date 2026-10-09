@@ -28,19 +28,42 @@ import '../styles/bench.css';
     </header>
     <main id="bench"></main>
     <script>
+      import { Bench } from '../core/bench';
+      import { SampleTransport } from '../core/sample';
+      import type { Transport } from '../core/transport';
+      import { apiTransport } from '../lib/transport';
       import { loadSession, signOut } from '../shell/session';
       import { Shell } from '../shell/shell';
+      import { SAMPLE_ENTRIES } from '../shell/stub';
       import { renderTitleBar } from '../shell/titlebar';
 
       const root = document.getElementById('bench');
       const bar = document.getElementById('titlebar');
       if (root && bar) {
-        const shell = new Shell(root);
+        // The workbench and its shortcuts exist at once, empty; the session fills it in.
+        const shell = new Shell(root, new Bench(new SampleTransport([])));
         (window as unknown as { bench: Shell }).bench = shell;
         const session = await loadSession();
-        renderTitleBar(bar, session, () => {});
+
+        // Signed in: the chosen repository, through the API. Otherwise a small sample one held
+        // in memory, so the page can still be tried.
+        let transport: Transport;
+        let sample: SampleTransport | null = null;
+        if (session.kind === 'signed-in' && session.current) {
+          const { client } = await import('../lib/api');
+          transport = apiTransport(client, session.current.id);
+        } else {
+          sample = new SampleTransport(session.kind === 'signed-in' ? [] : SAMPLE_ENTRIES);
+          transport = sample;
+        }
+
+        const bench = new Bench(transport);
+        shell.use(bench);
+        renderTitleBar(bar, session, () => location.reload());
+
+        const extra = [];
         if (session.kind === 'signed-in') {
-          shell.extra = [
+          extra.push(
             ...session.repositories.map((r) => ({
               label: `Open repository ${r.name}`,
               run: () => {
@@ -52,8 +75,33 @@ import '../styles/bench.css';
               },
             })),
             { label: 'Sign out', run: () => void signOut() },
-          ];
+          );
         }
+        if (sample) {
+          const s = sample;
+          // Exposed so the browser tests can play the server's part.
+          (window as unknown as { sample: SampleTransport }).sample = s;
+          extra.push(
+            {
+              label: 'Sample: lose the connection',
+              run: () => {
+                s.offline = true;
+              },
+            },
+            {
+              label: 'Sample: get the connection back',
+              run: () => {
+                s.offline = false;
+                void bench.run();
+              },
+            },
+          );
+        }
+        shell.extra = extra;
+
+        await bench.loadEntries();
+        const first = bench.entries.find((e) => e.kinds.includes('item'));
+        if (first) shell.select(first.id);
       }
     </script>
   </body>

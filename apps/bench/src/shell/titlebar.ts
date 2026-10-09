@@ -21,7 +21,7 @@ export function renderTitleBar(
       bar.append(el('span', 'note', 'Sample data. Sign-in is not set up for this build.'));
       break;
     case 'signed-out': {
-      bar.append(el('span', 'note', 'Not signed in'));
+      bar.append(el('span', 'note', 'Not signed in. Sample data.'));
       const b = el('button', 'btn', 'Sign in');
       b.type = 'button';
       b.addEventListener('click', () => void signIn());
@@ -47,7 +47,7 @@ export function renderTitleBar(
         onRepository(select.value);
       });
       label.append(select);
-      bar.append(label, el('span', 'note', 'Sample entries until the editor is connected'));
+      bar.append(label);
       right.append(el('span', 'name', session.name));
       break;
     }

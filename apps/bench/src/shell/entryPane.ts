@@ -1,0 +1,201 @@
+// The entry pane and the parents pane: what a person sees and edits of one entry, every change
+// going through the command layer (core/bench.ts).
+
+import type { Bench, EntryStatus } from '../core/bench';
+import type { Command } from '../core/commands';
+
+/** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
+export const redraw = { active: false };
+
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
+
+const button = (label: string, onClick: () => void, cls = 'btn') => {
+  const b = el('button', cls, label);
+  b.type = 'button';
+  b.addEventListener('click', onClick);
+  return b;
+};
+
+const STATUS_TEXT: Record<EntryStatus, (n: number) => string> = {
+  synced: () => 'Synced',
+  waiting: (n) => `Waiting to sync (${n})`,
+  offline: () => 'Saved on this device',
+  conflict: () => 'Conflict',
+  attention: () => 'Needs attention',
+};
+
+export function statusText(bench: Bench, id: string): string {
+  return STATUS_TEXT[bench.status(id)](bench.commandsFor(id).length);
+}
+
+export function renderEntry(
+  bench: Bench,
+  id: string | null,
+  go: (id: string) => void,
+): HTMLElement {
+  const c = el('div', 'pane pane-entry');
+  if (bench.loadError && !bench.entries.length) {
+    c.append(el('p', 'bad', bench.loadError));
+    return c;
+  }
+  const row = id ? bench.entries.find((e) => e.id === id) : undefined;
+  if (!id || !row) {
+    c.append(el('p', 'muted', 'Choose an entry in the explorer.'));
+    return c;
+  }
+  if (!row.kinds.includes('item')) {
+    c.append(
+      el('h1', undefined, row.name),
+      el('p', 'kind', row.kinds.length ? row.kinds.join(', ') : 'bare entry'),
+      el('p', 'muted', 'Only items can be edited so far.'),
+    );
+    return c;
+  }
+  const item = bench.view(id);
+  if (!item) {
+    c.append(el('p', 'muted', bench.loadError ?? 'Loading…'));
+    return c;
+  }
+
+  const head = el('div', 'entry-head');
+  const name = el('input', 'entry-name');
+  name.type = 'text';
+  name.value = item.name;
+  name.dataset.key = `name:${id}`;
+  name.setAttribute('aria-label', 'Name');
+  name.addEventListener('change', () => {
+    if (redraw.active) return;
+    const next = name.value.trim();
+    if (next) bench.change('entry.set-name', id, next);
+    else name.value = item.name;
+  });
+  const status = bench.status(id);
+  const chip = el('span', `status status-${status}`, statusText(bench, id));
+  chip.setAttribute('role', 'status');
+  head.append(
+    name,
+    chip,
+    (() => {
+      const undo = button('Undo', () => bench.undo(id));
+      undo.disabled = !bench.canUndo(id);
+      return undo;
+    })(),
+  );
+  c.append(head, el('p', 'kind', 'item'));
+
+  for (const cmd of bench.commandsFor(id)) {
+    if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));
+    else if (cmd.state === 'attention') c.append(attentionRow(bench, cmd));
+  }
+
+  c.append(el('h2', undefined, 'Parents'), parentsEditor(bench, id, item.parentIds, go));
+  return c;
+}
+
+const show = (v: unknown, bench: Bench): string =>
+  Array.isArray(v) ? v.map((p) => bench.displayName(p)).join(', ') || 'none' : `“${String(v)}”`;
+
+function conflictRow(bench: Bench, cmd: Command): HTMLElement {
+  const label = cmd.type === 'entry.set-name' ? 'name' : 'parents';
+  const box = el('div', 'problem problem-conflict');
+  box.setAttribute('role', 'alert');
+  box.append(
+    el('strong', undefined, 'Conflict. '),
+    document.createTextNode(
+      `The ${label} was changed elsewhere to ${show(cmd.theirs, bench)}. Yours: ${show(cmd.mine, bench)}.`,
+    ),
+  );
+  const actions = el('span', 'actions');
+  actions.append(
+    button('Keep mine', () => bench.keepMine(cmd.id)),
+    button('Use theirs', () => bench.discard(cmd.id)),
+  );
+  box.append(actions);
+  return box;
+}
+
+function attentionRow(bench: Bench, cmd: Command): HTMLElement {
+  const box = el('div', 'problem problem-attention');
+  box.setAttribute('role', 'alert');
+  box.append(
+    el('strong', undefined, 'Needs attention. '),
+    document.createTextNode(cmd.error ?? 'The server refused this change.'),
+  );
+  const actions = el('span', 'actions');
+  actions.append(
+    button('Try again', () => bench.retry(cmd.id)),
+    button('Discard', () => bench.discard(cmd.id)),
+  );
+  box.append(actions);
+  return box;
+}
+
+function parentsEditor(
+  bench: Bench,
+  id: string,
+  parentIds: string[],
+  go: (id: string) => void,
+): HTMLElement {
+  const wrap = el('div', 'parents');
+  const list = el('ul', 'list');
+  if (!parentIds.length) list.append(el('li', 'muted', 'No parents.'));
+  for (const p of parentIds) {
+    const li = el('li', 'parent');
+    const open = el('button', 'row', bench.displayName(p));
+    open.type = 'button';
+    open.addEventListener('click', () => go(p));
+    const remove = el('button', 'x', '×');
+    remove.type = 'button';
+    remove.title = `Remove parent ${bench.displayName(p)}`;
+    remove.setAttribute('aria-label', `Remove parent ${bench.displayName(p)}`);
+    remove.addEventListener('click', () =>
+      bench.change(
+        'entry.set-parents',
+        id,
+        parentIds.filter((x) => x !== p),
+      ),
+    );
+    li.append(open, remove);
+    list.append(li);
+  }
+  const add = el('select', 'add-parent');
+  add.setAttribute('aria-label', 'Add a parent');
+  add.append(new Option('Add a parent…', ''));
+  for (const e of bench.entries)
+    if (e.kinds.includes('item') && e.id !== id && !parentIds.includes(e.id))
+      add.append(new Option(bench.displayName(e.id), e.id));
+  add.addEventListener('change', () => {
+    if (add.value) bench.change('entry.set-parents', id, [...parentIds, add.value]);
+  });
+  wrap.append(list, add);
+  return wrap;
+}
+
+/** The "Parents and children" pane: where this entry comes from. */
+export function renderLinks(
+  bench: Bench,
+  id: string | null,
+  go: (id: string) => void,
+): HTMLElement {
+  const c = el('div', 'pane pane-links');
+  const item = id ? bench.view(id) : null;
+  c.append(el('h2', undefined, 'Parents'));
+  const ul = el('ul', 'list');
+  if (!item) ul.append(el('li', 'muted', 'none'));
+  else if (!item.parentIds.length) ul.append(el('li', 'muted', 'none'));
+  for (const p of item?.parentIds ?? []) {
+    const li = el('li');
+    const b = el('button', 'row', bench.displayName(p));
+    b.type = 'button';
+    b.addEventListener('click', () => go(p));
+    li.append(b);
+    ul.append(li);
+  }
+  c.append(ul, el('p', 'muted', 'Children are shown when the whole repository is loaded.'));
+  return c;
+}
