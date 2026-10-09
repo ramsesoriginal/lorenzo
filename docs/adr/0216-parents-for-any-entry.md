@@ -25,7 +25,7 @@ Nothing is written for a refused request. A repeated id in the list is one paren
 
 **Loops are `422`, not the `409` RFC 0041 §3 says.** The RFC asks for the route to behave "exactly as `PUT /items/{id}/prototypes` does", and that route answers a loop `422` (`EntityPrototypeCycleError`, [ADR 0072](0072-item-catalog-prototype-set-editing.md)). Two routes that run one rule answer it one way, and changing the item route's status would break its clients for no gain; the RFC's number was a slip.
 
-**The gate is the item route's: a member of the library.** The RFC leaves which routes an Author may use to [RFC 0040](0040-authors-and-invites.md), and this route is gated as the route it generalises.
+**The gate is the item route's: a member of the library.** The RFC leaves which routes an Author may use to [RFC 0040](../rfcs/0040-authors-and-invites.md), and this route is gated as the route it generalises.
 
 ### One write path
 
@@ -49,7 +49,7 @@ Nothing is stored, so nothing has to move. Effective stats resolve through the e
 
 ## Consequences
 
-- A race, a class or a category node can be a being or a bare entry that others inherit from, and a group can sit under a category: the API obstacle to beings joining a rules repository ([RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md)) is gone.
+- A race, a class or a category node can be a being or a bare entry that others inherit from, and a group can sit under a category: the API obstacle to beings joining a rules repository ([RFC 0033](../rfcs/0033-item-repositories-common-equipment-rules-and-bridge.md)) is gone.
 - API additions only: a route, a request schema, a problem type, an `ETag` header on two reads. The generated clients take them; the check for breaking changes finds none.
 - `PUT /items/{id}/prototypes` is no longer a delete-and-reinsert: an unchanged parent keeps its row, and an identical request is a no-op, which is the one behaviour change.
 - Nothing in the engine, the registry or the migrations changes.
