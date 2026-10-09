@@ -1,0 +1,13 @@
+{"name":"export.700","entries":700,"gmNotes":143,"full":{"rawKB":884.8,"gzipKB":208.4,"ratio":4.2},"namesOnly":{"rawKB":122.9,"gzipKB":20.5,"ratio":6},"pageOf100":{"rawKB":129.8,"gzipKB":32,"ratio":4.1},"doubledText":{"rawKB":1264.6,"gzipKB":348.5,"ratio":3.6},"realProseSentences":3152,"realProse":{"rawKB":930.7,"gzipKB":229.3,"ratio":4.1},"device":{"parseMs":3,"writeMs":82,"readMs":36,"count":700,"usageKB":671,"quotaMB":1036},"transferSeconds":{"slow3g_400kbps":4.2,"fourG_5Mbps":0.3,"wifi_50Mbps":0}}
+{"name":"export.7000","entries":7000,"gmNotes":1477,"full":{"rawKB":8920,"gzipKB":2088.8,"ratio":4.3},"namesOnly":{"rawKB":1245.9,"gzipKB":202.2,"ratio":6.2},"pageOf100":{"rawKB":131.5,"gzipKB":32.4,"ratio":4.1},"doubledText":{"rawKB":12676.6,"gzipKB":3480.7,"ratio":3.6},"realProseSentences":3152,"realProse":{"rawKB":9116.4,"gzipKB":2207.4,"ratio":4.1},"device":{"parseMs":86,"writeMs":2183,"readMs":325,"count":7000,"usageKB":12238,"quotaMB":1125},"transferSeconds":{"slow3g_400kbps":41.8,"fourG_5Mbps":3.3,"wifi_50Mbps":0.3}}
+{"name":"grid.boot","loadMs":9.20000000006985,"renderMs":16.199999999953434,"exported":{"notModified":false,"bytes":34298,"ms":49.29999999993015}}
+{"name":"grid.isolation","changedRows":[5]}
+{"name":"grid.typing","text":"The quick brown fox jumps over the lazy dog","commandsQueued":200,"selection":[4,9,true,"The quick brown fox jumps over the lazy dog"]}
+{"name":"grid.updateCost","p50":0,"p95":0.2000000000698492,"max":0.7000000000698492}
+{"name":"offline.roundtrip","log":["POST 867a0191-f131-44f9-8ffb-65facd81f89c created","PATCH 867a0191-f131-44f9-8ffb-65facd81f89c name=Made offline","PATCH 867a0191-f131-44f9-8ffb-65facd81f89c a=42","PATCH 00000000-0000-4000-8000-000000000002 b=77"]}
+{"name":"offline.etag","firstBytesChars":34298,"firstMs":35.5,"secondMs":3.800000000046566}
+{"name":"outbox.conflict","pausedOnlyDisputed":true,"resolvedBothWays":true}
+{"name":"storage.default","persistedBefore":false,"persistGranted":false,"quotaMB":1100,"usageKB":76,"locks":true,"secure":true}
+{"name":"storage.ephemeralContext","persistGranted":false,"quotaMB":957}
+{"name":"tabs","tabs":3,"singleRunner":true,"takeoverOnClose":true}
+{"name":"tabs.sameFieldConflict","winnerOnServer":"tab B (typed)","loserShownAsConflict":true}

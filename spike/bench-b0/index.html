@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bench B0 spike</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 1rem; }
+  bench-row { display: grid; grid-template-columns: 14rem repeat(3, 5rem) 11rem 1fr; gap: 4px; padding: 2px 0; }
+  bench-row[data-state="conflict"] { background: #fff3cd; }
+  bench-row[data-state="waiting"], bench-row[data-state="saved-on-device"] { background: #eef4ff; }
+  input { font: inherit; min-width: 0; }
+</style>
+<h1>Bench B0 spike (throwaway)</h1>
+<p><button id="sync">Sync</button> <button id="new">New entry</button></p>
+<bench-grid></bench-grid>
+<script type="module" src="/app.js"></script>

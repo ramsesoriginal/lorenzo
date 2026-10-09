@@ -1,0 +1,20 @@
+{
+  "name": "bench-b0-spike",
+  "private": true,
+  "type": "module",
+  "description": "RFC 0039 B0: throwaway spike. Never merged; findings go to the RFC.",
+  "scripts": {
+    "build": "esbuild src/app.ts --bundle --format=esm --outfile=dist/app.js --target=es2022",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && playwright test",
+    "export-size": "node scripts/export-size.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@types/node": "^26.6.4"
+  }
+}
