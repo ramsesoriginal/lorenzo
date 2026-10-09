@@ -30,7 +30,7 @@ import {
   treeGroups,
   type Workspace,
 } from '../workspace/model';
-import { redraw, renderEntry, renderLinks, statusText } from './entryPane';
+import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { PANE_IDS, PANES } from './stub';
 
 const BAR = 30;
@@ -306,13 +306,14 @@ export class Shell {
     const c = el('div', `pane pane-${id}`);
     if (id === 'explorer') {
       if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));
+      c.append(this.newEntryForm());
       const list = el('ul', 'list');
-      for (const e of bench.entries) {
+      for (const e of bench.listing()) {
         const li = el('li');
-        const b = el('button', e.id === this.selected ? 'row on' : 'row', bench.displayName(e.id));
+        const b = el('button', e.id === this.selected ? 'row on' : 'row', e.name);
         b.type = 'button';
         b.dataset.entry = e.id;
-        if (bench.status(e.id) !== 'synced') b.title = statusText(bench, e.id);
+        b.title = bench.status(e.id) === 'synced' ? kindsText(e.kinds) : statusText(bench, e.id);
         b.addEventListener('click', () => this.select(e.id));
         li.append(b);
         list.append(li);
@@ -322,6 +323,47 @@ export class Shell {
       c.append(el('p', 'muted', 'Stats are not editable yet.'));
     }
     return c;
+  }
+
+  /** Name, kind and parent of an entry to make; it shows in the list at once. */
+  private newEntryForm(): HTMLElement {
+    const bench = this.bench;
+    const form = el('form', 'new-entry');
+    const name = el('input');
+    name.type = 'text';
+    name.placeholder = 'New entry';
+    name.dataset.key = 'new-entry-name';
+    name.setAttribute('aria-label', 'Name of the new entry');
+    const kind = el('select');
+    kind.setAttribute('aria-label', 'Kind of the new entry');
+    for (const [value, label] of [
+      ['item', 'Item'],
+      ['being', 'Being'],
+      ['item,being', 'Item and being'],
+      ['', 'Bare entry'],
+    ] as const)
+      kind.append(new Option(label, value));
+    const parent = el('select');
+    parent.setAttribute('aria-label', 'Parent of the new entry');
+    parent.append(new Option('No parent', ''));
+    for (const e of bench.listing())
+      parent.append(new Option(e.name, e.id, false, e.id === this.selected));
+    const add = el('button', 'btn', 'Add');
+    add.type = 'submit';
+    form.append(name, kind, parent, add);
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const text = name.value.trim();
+      if (!text) return;
+      const id = bench.create({
+        name: text,
+        kinds: kind.value ? kind.value.split(',') : [],
+        parents: parent.value ? [parent.value] : [],
+      });
+      name.value = '';
+      this.select(id);
+    });
+    return form;
   }
 
   // ---- pointer --------------------------------------------------------------------------------
@@ -581,8 +623,8 @@ export class Shell {
   private commands(): { label: string; run: () => void }[] {
     const c: { label: string; run: () => void }[] = [];
     for (const p of PANES) c.push({ label: `Open ${p.title}`, run: () => this.open(p.id) });
-    for (const e of this.bench.entries)
-      c.push({ label: `Go to ${this.bench.displayName(e.id)}`, run: () => this.select(e.id) });
+    for (const e of this.bench.listing())
+      c.push({ label: `Go to ${e.name}`, run: () => this.select(e.id) });
     const sel = this.selected;
     if (sel && this.bench.canUndo(sel))
       c.push({ label: 'Undo the last change to this entry', run: () => this.bench.undo(sel) });

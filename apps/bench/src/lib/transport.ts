@@ -8,8 +8,9 @@ import {
   unwrap,
 } from '@lorenzo/api-client';
 import {
+  type EntryState,
   type EntrySummary,
-  type ItemState,
+  type NewEntry,
   OfflineError,
   RefusedError,
   type Transport,
@@ -28,15 +29,17 @@ function translate(e: unknown): never {
 export function apiTransport(client: LorenzoClient, tenantId: string): Transport {
   const path = { tenant_id: tenantId };
 
-  async function read(id: string): Promise<ItemState> {
-    const res = await client.GET('/tenants/{tenant_id}/items/{entity_id}', {
+  async function read(id: string): Promise<EntryState> {
+    const res = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path: { ...path, entity_id: id } },
     });
-    const item = await unwrap(res);
+    const entry = await unwrap(res);
     return {
       id,
-      name: item.title,
-      parentIds: item.prototype_ids,
+      name: entry.name,
+      kinds: [...entry.kinds],
+      parentIds: entry.prototypes.map((p) => p.id),
+      childIds: entry.children.map((c) => c.id),
       etag: res.response.headers.get('etag'),
     };
   }
@@ -64,7 +67,26 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
         return rows.map((r) => ({ id: r.id, name: r.name, kinds: [...r.kinds] }));
       }),
 
-    getItem: (id) => guarded(() => read(id)),
+    getEntry: (id) => guarded(() => read(id)),
+
+    // 201 when made, 200 when the id was already this library's (ADR 0222): both are done.
+    createEntry: (entry: NewEntry) =>
+      guarded(async () => {
+        await unwrap(
+          await client.POST('/tenants/{tenant_id}/entities', {
+            params: { path },
+            body: {
+              id: entry.id,
+              name: entry.name,
+              kinds: entry.kinds.filter(
+                (k): k is 'item' | 'being' => k === 'item' || k === 'being',
+              ),
+              parents: entry.parents,
+            },
+          }),
+        );
+        return read(entry.id);
+      }),
 
     setName: (id, name, etag) =>
       guarded(async () => {
@@ -80,9 +102,9 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
     setParents: (id, parentIds, etag) =>
       guarded(async () => {
         await unwrap(
-          await client.PUT('/tenants/{tenant_id}/items/{entity_id}/prototypes', {
+          await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/parents', {
             params: { path: { ...path, entity_id: id }, header: ifMatch(etag) },
-            body: { prototype_ids: parentIds },
+            body: { parent_ids: parentIds },
           }),
         );
         return read(id);

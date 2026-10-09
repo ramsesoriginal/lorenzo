@@ -3,6 +3,7 @@
 
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
+import { canRename, canSetParents } from '../core/transport';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
 export const redraw = { active: false };
@@ -43,17 +44,8 @@ export function renderEntry(
     c.append(el('p', 'bad', bench.loadError));
     return c;
   }
-  const row = id ? bench.entries.find((e) => e.id === id) : undefined;
-  if (!id || !row) {
+  if (!id || !bench.listing().some((e) => e.id === id)) {
     c.append(el('p', 'muted', 'Choose an entry in the explorer.'));
-    return c;
-  }
-  if (!row.kinds.includes('item')) {
-    c.append(
-      el('h1', undefined, row.name),
-      el('p', 'kind', row.kinds.length ? row.kinds.join(', ') : 'bare entry'),
-      el('p', 'muted', 'Only items can be edited so far.'),
-    );
     return c;
   }
   const item = bench.view(id);
@@ -66,6 +58,10 @@ export function renderEntry(
   const name = el('input', 'entry-name');
   name.type = 'text';
   name.value = item.name;
+  if (!canRename(item.kinds)) {
+    name.disabled = true;
+    name.title = 'Only an item can be renamed so far.';
+  }
   name.dataset.key = `name:${id}`;
   name.setAttribute('aria-label', 'Name');
   name.addEventListener('change', () => {
@@ -86,16 +82,23 @@ export function renderEntry(
       return undo;
     })(),
   );
-  c.append(head, el('p', 'kind', 'item'));
+  c.append(head, el('p', 'kind', kindsText(item.kinds)));
 
   for (const cmd of bench.commandsFor(id)) {
     if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));
     else if (cmd.state === 'attention') c.append(attentionRow(bench, cmd));
   }
 
-  c.append(el('h2', undefined, 'Parents'), parentsEditor(bench, id, item.parentIds, go));
+  c.append(
+    el('h2', undefined, 'Parents'),
+    parentsEditor(bench, id, item.parentIds, canSetParents(item.kinds), go),
+  );
   return c;
 }
+
+/** What an entry is, in words: its kinds, or a bare entry. */
+export const kindsText = (kinds: readonly string[]): string =>
+  kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
 const show = (v: unknown, bench: Bench): string =>
   Array.isArray(v) ? v.map((p) => bench.displayName(p)).join(', ') || 'none' : `“${String(v)}”`;
@@ -139,6 +142,7 @@ function parentsEditor(
   bench: Bench,
   id: string,
   parentIds: string[],
+  editable: boolean,
   go: (id: string) => void,
 ): HTMLElement {
   const wrap = el('div', 'parents');
@@ -163,12 +167,15 @@ function parentsEditor(
     li.append(open, remove);
     list.append(li);
   }
+  if (!editable) {
+    wrap.append(list, el('p', 'muted', 'An inventory item changes its parent in its own way.'));
+    return wrap;
+  }
   const add = el('select', 'add-parent');
   add.setAttribute('aria-label', 'Add a parent');
   add.append(new Option('Add a parent…', ''));
-  for (const e of bench.entries)
-    if (e.kinds.includes('item') && e.id !== id && !parentIds.includes(e.id))
-      add.append(new Option(bench.displayName(e.id), e.id));
+  for (const e of bench.listing())
+    if (e.id !== id && !parentIds.includes(e.id)) add.append(new Option(e.name, e.id));
   add.addEventListener('change', () => {
     if (add.value) bench.change('entry.set-parents', id, [...parentIds, add.value]);
   });
@@ -176,7 +183,7 @@ function parentsEditor(
   return wrap;
 }
 
-/** The "Parents and children" pane: where this entry comes from. */
+/** The "Parents and children" pane: where this entry comes from, and what comes from it. */
 export function renderLinks(
   bench: Bench,
   id: string | null,
@@ -184,18 +191,24 @@ export function renderLinks(
 ): HTMLElement {
   const c = el('div', 'pane pane-links');
   const item = id ? bench.view(id) : null;
-  c.append(el('h2', undefined, 'Parents'));
-  const ul = el('ul', 'list');
-  if (!item) ul.append(el('li', 'muted', 'none'));
-  else if (!item.parentIds.length) ul.append(el('li', 'muted', 'none'));
-  for (const p of item?.parentIds ?? []) {
-    const li = el('li');
-    const b = el('button', 'row', bench.displayName(p));
-    b.type = 'button';
-    b.addEventListener('click', () => go(p));
-    li.append(b);
-    ul.append(li);
-  }
-  c.append(ul, el('p', 'muted', 'Children are shown when the whole repository is loaded.'));
+  const list = (ids: string[]) => {
+    const ul = el('ul', 'list');
+    if (!ids.length) ul.append(el('li', 'muted', 'none'));
+    for (const other of ids) {
+      const li = el('li');
+      const b = el('button', 'row', bench.displayName(other));
+      b.type = 'button';
+      b.addEventListener('click', () => go(other));
+      li.append(b);
+      ul.append(li);
+    }
+    return ul;
+  };
+  c.append(
+    el('h2', undefined, 'Parents'),
+    list(item?.parentIds ?? []),
+    el('h2', undefined, 'Children'),
+    list(id ? bench.childrenOf(id) : []),
+  );
   return c;
 }
