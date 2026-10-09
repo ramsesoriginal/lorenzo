@@ -2086,7 +2086,21 @@ export interface paths {
          */
         put: operations["set_entity_stat"];
         post?: never;
-        delete?: never;
+        /**
+         * Clear Entity Stat
+         * @description Removes this entry's own, direct value for a stat that is not a bool, so it is inherited
+         *     through its parents again (ADR 0225, RFC 0039 W1). What the tag route `DELETE .../tags/{id}`
+         *     does for a bool; this is its counterpart for the rest, and what undoing "I set the damage on
+         *     this weapon" is. Idempotent: no own value is still 200, with `previous.had_own_value`
+         *     false, and moves nothing. Returns the entry as the stat PUT does, so the caller sees the
+         *     inherited value it now resolves to, and `previous`, the value that was removed.
+         *
+         *     422 for a bool (use the tag route); 409 if the entry holds a formula for the stat, which is
+         *     not a direct value: delete it with `DELETE .../computed-stats/{id}`. The entry's own
+         *     group acquisition is left alone, as the tag route leaves it. Check order as the stat PUT:
+         *     entry and stat definition (404), authorization (403), the stat's type (422), If-Match (412).
+         */
+        delete: operations["clear_entity_stat"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5015,6 +5029,51 @@ export interface components {
             own: boolean;
         };
         /**
+         * EntityStatWriteOut
+         * @description The entry as the routes that write one of its stats return it, plus `previous`: what the
+         *     write replaced. Everything an `EntityDetailOut` has, so a caller of these routes before
+         *     `previous` existed is unaffected (ADR 0225).
+         */
+        EntityStatWriteOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Stats */
+            stats: components["schemas"]["EntityStatValueOut"][];
+            /** Stat Groups */
+            stat_groups: components["schemas"]["EntitySummary"][];
+            /** Information */
+            information: components["schemas"]["InformationOut"][];
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /** Prototypes */
+            prototypes: components["schemas"]["EntitySummary"][];
+            /** Instances */
+            instances: components["schemas"]["EntitySummary"][];
+            parent: components["schemas"]["EntitySummary"] | null;
+            /** Quantity */
+            quantity: number | null;
+            /** Children */
+            children: components["schemas"]["EntitySummary"][];
+            previous: components["schemas"]["PreviousOwnStat"];
+        };
+        /**
          * EntitySummary
          * @description A lightweight entity reference - used anywhere an entity is pointed
          *     at generically (a container, a prototype, an owner) rather than fully
@@ -6927,6 +6986,18 @@ export interface components {
             also_removed: {
                 [key: string]: number;
             };
+        };
+        /**
+         * PreviousOwnStat
+         * @description What an entry's own direct value for a stat was before a write (ADR 0225, RFC 0039 W1).
+         *     `had_own_value` false means the entry had none and inherited, so `value` is null and
+         *     undoing the write is clearing the value; true means `value` is what to put back.
+         */
+        PreviousOwnStat: {
+            /** Had Own Value */
+            had_own_value: boolean;
+            /** Value */
+            value?: number | string | boolean | null;
         };
         /**
          * ProblemOut
@@ -15190,7 +15261,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EntityDetailOut"];
+                    "application/json": components["schemas"]["EntityStatWriteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_entity_stat: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityStatWriteOut"];
                 };
             };
             /** @description Validation Error */
@@ -15259,7 +15399,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EntityDetailOut"];
+                    "application/json": components["schemas"]["EntityStatWriteOut"];
                 };
             };
             /** @description Validation Error */
@@ -15328,7 +15468,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EntityDetailOut"];
+                    "application/json": components["schemas"]["EntityStatWriteOut"];
                 };
             };
             /** @description Validation Error */
@@ -15397,7 +15537,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EntityDetailOut"];
+                    "application/json": components["schemas"]["EntityStatWriteOut"];
                 };
             };
             /** @description Validation Error */

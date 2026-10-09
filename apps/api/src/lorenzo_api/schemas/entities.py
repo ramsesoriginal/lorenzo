@@ -319,3 +319,20 @@ class EntityDetailOut(BaseModel):
                 for link in entity.contained_links
             ],
         )
+
+
+class PreviousOwnStat(BaseModel):
+    """What an entry's own direct value for a stat was before a write (ADR 0225, RFC 0039 W1).
+    `had_own_value` false means the entry had none and inherited, so `value` is null and
+    undoing the write is clearing the value; true means `value` is what to put back."""
+
+    had_own_value: bool
+    value: int | str | float | bool | None = None
+
+
+class EntityStatWriteOut(EntityDetailOut):
+    """The entry as the routes that write one of its stats return it, plus `previous`: what the
+    write replaced. Everything an `EntityDetailOut` has, so a caller of these routes before
+    `previous` existed is unaffected (ADR 0225)."""
+
+    previous: PreviousOwnStat
