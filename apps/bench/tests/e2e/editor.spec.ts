@@ -510,6 +510,33 @@ test.describe('the explorer', () => {
     );
   });
 
+  test('the filter lists what matches by name, flat, and Escape clears it', async ({ page }) => {
+    const filter = page.getByLabel('Filter entries');
+    await filter.fill('WOL');
+    await expect(rows(page)).toHaveText(['Dire wolf', 'Wolf']);
+    await expect(page.locator('.pane-explorer')).toContainText('2 of 11 entries');
+    // typing goes on: the field keeps the focus and the text through each redraw
+    await filter.pressSequentially('f');
+    await expect(filter).toBeFocused();
+    await expect(filter).toHaveValue('WOLf');
+    await expect(rows(page)).toHaveText(['Dire wolf', 'Wolf']);
+    await filter.press('Escape');
+    await expect(filter).toHaveValue('');
+    await expect(page.locator('.pane-explorer')).toContainText('11 entries · 12 places');
+  });
+
+  test('says when nothing matches, and an entry found can be opened', async ({ page }) => {
+    const filter = page.getByLabel('Filter entries');
+    await filter.fill('zzz');
+    await expect(page.locator('.pane-explorer')).toContainText('No entry matches that filter.');
+    await filter.fill('ashf');
+    await rows(page)
+      .filter({ hasText: /^Ashfang$/ })
+      .click();
+    await expect(name(page)).toHaveValue('Ashfang');
+    await expect(filter).toHaveValue('ashf');
+  });
+
   test('a new entry shows under its parent at once', async ({ page }) => {
     await page.getByLabel('Name of the new entry').fill('Pup');
     await page.getByLabel('Parent of the new entry').selectOption({ label: 'Wolf' });
