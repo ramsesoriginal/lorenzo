@@ -33,6 +33,7 @@ from lorenzo_api.entity_kinds import (
     remove_kind,
     require_deletable,
 )
+from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
@@ -44,6 +45,7 @@ from lorenzo_api.exceptions import (
     InformationNotFoundError,
     InformationOrderConflictError,
     InvalidKindRequestError,
+    InventoryItemParentsError,
 )
 from lorenzo_api.information_visibility import (
     resolve_information_visibility,
@@ -72,6 +74,7 @@ from lorenzo_api.schemas.entities import (
     EntityDetailOut,
     EntityKind,
     EntityKindPut,
+    EntityParentsRequest,
     EntitySlugOut,
     EntitySlugUpdate,
     InformationCreate,
@@ -504,6 +507,64 @@ async def list_backlinks(
                 )
     # paginate is typed to return Any (fastapi_pagination's own signature).
     return cast(Page[BacklinkOut], paginate(backlinks, params))
+
+
+@router.put("/{entity_id}/parents", dependencies=[Depends(get_tenant_context)])
+async def replace_entity_parents(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: EntityParentsRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Replaces the entry's own direct parents (ADR 0216, RFC 0041 §3): the list becomes the
+    complete set, an empty list clears it, as PUT /items/{id}/prototypes does for an item, whose
+    route runs the same code. Works for an item, a being, a character and a bare entry. A change
+    touches the entry (`updated_by`, so its ETag) and is one activity entry; the same set again
+    changes and logs nothing.
+
+    The gate is the one the item route has: a member of the library. 404 for an unknown entry, 412
+    for a stale If-Match, 409 for an inventory item (its one parent changes through PATCH
+    /item-instances/{id}, ADR 0192), 422 for itself, an id that is not an entry of the library, or
+    a loop. Nothing inherited is stored, so nothing else changes: stats and descriptions resolve
+    through the new parents the next time they are read (ADR 0037, 0111).
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    if await session.get(ItemInstance, entity_id) is not None:
+        raise InventoryItemParentsError(
+            detail=(
+                f"Entry {entity_id} is an inventory item: change its parent with "
+                f"PATCH /tenants/{tenant_id}/item-instances/{entity_id}"
+            )
+        )
+    changed = await replace_parents(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        parent_ids=body.parent_ids,
+        user_id=user.id,
+    )
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.parents_replaced",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"parents={len(set(body.parent_ids))}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
 
 
 @router.put("/{entity_id}/slug")

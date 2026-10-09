@@ -49,6 +49,7 @@ __all__ = [
     "InvalidStatValueTypeError",
     "InvalidTokenError",
     "InvalidUserError",
+    "InventoryItemParentsError",
     "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
     "ItemInstanceSlugConflictError",
@@ -260,6 +261,14 @@ class EntityPrototypeCycleError(UnprocessableProblem):
     """
 
     title = "Prototype set would create an inheritance cycle"
+
+
+class InventoryItemParentsError(ConflictProblem):
+    """PUT /entities/{id}/parents - the entry is an inventory item (item_instance), whose one
+    parent changes through PATCH /item-instances/{id} (ADR 0192). See ADR 0216.
+    """
+
+    title = "An inventory item's parent is changed through its own route"
 
 
 class InvalidSplitQuantityError(UnprocessableProblem):

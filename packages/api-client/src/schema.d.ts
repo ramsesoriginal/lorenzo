@@ -1940,6 +1940,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/parents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace Entity Parents
+         * @description Replaces the entry's own direct parents (ADR 0216, RFC 0041 §3): the list becomes the
+         *     complete set, an empty list clears it, as PUT /items/{id}/prototypes does for an item, whose
+         *     route runs the same code. Works for an item, a being, a character and a bare entry. A change
+         *     touches the entry (`updated_by`, so its ETag) and is one activity entry; the same set again
+         *     changes and logs nothing.
+         *
+         *     The gate is the one the item route has: a member of the library. 404 for an unknown entry, 412
+         *     for a stale If-Match, 409 for an inventory item (its one parent changes through PATCH
+         *     /item-instances/{id}, ADR 0192), 422 for itself, an id that is not an entry of the library, or
+         *     a loop. Nothing inherited is stored, so nothing else changes: stats and descriptions resolve
+         *     through the new parents the next time they are read (ADR 0037, 0111).
+         */
+        put: operations["replace_entity_parents"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/slug": {
         parameters: {
             query?: never;
@@ -4901,6 +4931,19 @@ export interface components {
         EntityKindPut: {
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+        };
+        /**
+         * EntityParentsRequest
+         * @description PUT /tenants/{tenant_id}/entities/{entity_id}/parents - see ADR 0216. The complete new set
+         *     of the entry's direct parents; empty clears it. Same shape as SetPrototypesRequest, which
+         *     names the same thing as the item route does.
+         */
+        EntityParentsRequest: {
+            /**
+             * Parent Ids
+             * @default []
+             */
+            parent_ids: string[];
         };
         /** EntitySlugOut */
         EntitySlugOut: {
@@ -14667,6 +14710,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_BacklinkOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_entity_parents: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntityParentsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
                 };
             };
             /** @description Validation Error */

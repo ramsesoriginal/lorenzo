@@ -417,6 +417,10 @@ class EntityKindPut(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
 
 
+class EntityParentsRequest(BaseModel):
+    parent_ids: list[UUID] | None = Field([], title="Parent Ids")
+
+
 class EntitySlugOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     slug: str = Field(..., title="Slug")

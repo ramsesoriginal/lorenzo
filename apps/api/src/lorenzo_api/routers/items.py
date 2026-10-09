@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import CTE, delete, func, select
+from sqlalchemy import CTE, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
@@ -24,6 +24,7 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
+from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityPrototypeCycleError,
@@ -488,56 +489,25 @@ async def replace_item_prototypes(
     entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
 
-    prototype_ids = set(body.prototype_ids)
-    if entity_id in prototype_ids:
-        raise EntityPrototypeCycleError(detail=f"Item {entity_id} cannot be its own prototype")
-
-    if prototype_ids:
-        found_stmt = select(Entity.id).where(
-            Entity.id.in_(prototype_ids), Entity.tenant_id == tenant_id
-        )
-        found_ids = set((await session.execute(found_stmt)).scalars().all())
-        missing_ids = prototype_ids - found_ids
-        if missing_ids:
-            raise InvalidPrototypeError(
-                detail=(
-                    f"Prototype id(s) {sorted(str(i) for i in missing_ids)} do not exist "
-                    f"in tenant {tenant_id}"
-                )
-            )
-
-    await session.execute(
-        delete(EntityPrototype).where(
-            EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
-        )
-    )
-    for prototype_id in prototype_ids:
-        session.add(
-            EntityPrototype(entity_id=entity_id, prototype_id=prototype_id, tenant_id=tenant_id)
-        )
-    entity.updated_by = user.id
-
-    try:
-        await session.flush()
-    except DBAPIError as exc:
-        # entity_prototype's own BEFORE INSERT trigger (ADR 0015) - the
-        # first write path able to actually reach it through client input,
-        # since every prototype id up to now only ever appeared on a
-        # brand-new entity (POST /items/POST /item-instances), which can't
-        # yet be anyone's ancestor. Translated rather than left as a 500.
-        raise EntityPrototypeCycleError(
-            detail=f"Replacing item {entity_id}'s prototypes would create an inheritance cycle"
-        ) from exc
-
-    await record_activity(
+    # The one write path every kind of entry shares (ADR 0216), so a rule is made once.
+    changed = await replace_parents(
         session,
         tenant_id=tenant_id,
-        actor_id=user.id,
-        action="item.prototypes_replaced",
-        target_type="item",
-        target_id=entity_id,
-        detail=f"prototypes={len(prototype_ids)}",
+        entity=entity,
+        parent_ids=body.prototype_ids,
+        user_id=user.id,
     )
+
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item.prototypes_replaced",
+            target_type="item",
+            target_id=entity_id,
+            detail=f"prototypes={len(set(body.prototype_ids))}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_out(tenant_id, entity_id, request, response, session, user)
