@@ -5,6 +5,7 @@ import {
   LorenzoApiError,
   type LorenzoClient,
   MAX_PAGE_SIZE,
+  type Schema,
   unwrap,
 } from '@lorenzo/api-client';
 import {
@@ -14,6 +15,8 @@ import {
   type NewText,
   OfflineError,
   RefusedError,
+  type StatDef,
+  type StatType,
   type TextDoc,
   type Transport,
 } from '../core/transport';
@@ -30,14 +33,41 @@ function translate(e: unknown): never {
   throw e;
 }
 
+type EntityDetail = Schema<'EntityDetailOut'>;
+
 export function apiTransport(client: LorenzoClient, tenantId: string): Transport {
   const path = { tenant_id: tenantId };
 
-  async function read(id: string): Promise<EntryState> {
-    const res = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
-      params: { path: { ...path, entity_id: id } },
+  // The stat vocabulary, read once: an entry names its stats, and a write needs their ids.
+  let definitions: Promise<StatDef[]> | null = null;
+  const loadDefinitions = (): Promise<StatDef[]> => {
+    definitions ??= fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/stat-definitions', {
+          params: { path, query: { page, size: MAX_PAGE_SIZE } },
+        }),
+      ),
+    ).then((rows) =>
+      rows.map((d) => ({
+        id: d.id,
+        name: d.name,
+        type: d.value_type as StatType,
+        enumValues: [...d.enum_values],
+      })),
+    );
+    // A failed read is tried again next time, not remembered.
+    definitions.catch(() => {
+      definitions = null;
     });
-    const entry = await unwrap(res);
+    return definitions;
+  };
+
+  async function toState(
+    id: string,
+    entry: EntityDetail,
+    etag: string | null,
+  ): Promise<EntryState> {
+    const defs = await loadDefinitions();
     const docs = (type: string): TextDoc[] =>
       entry.information
         .filter((info) => info.type === type)
@@ -63,8 +93,19 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
       childIds: entry.children.map((c) => c.id),
       description: docs('description')[0] ?? null,
       notes: docs('note'),
-      etag: res.response.headers.get('etag'),
+      stats: entry.stats.flatMap((st) => {
+        const def = defs.find((d) => d.name === st.name);
+        return def ? [{ statId: def.id, name: st.name, value: st.value, own: st.own }] : [];
+      }),
+      etag,
     };
+  }
+
+  async function read(id: string): Promise<EntryState> {
+    const res = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+      params: { path: { ...path, entity_id: id } },
+    });
+    return toState(id, await unwrap(res), res.response.headers.get('etag'));
   }
 
   const guarded = async <T>(work: () => Promise<T>): Promise<T> => {
@@ -90,7 +131,50 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
         return rows.map((r) => ({ id: r.id, name: r.name, kinds: [...r.kinds] }));
       }),
 
+    listStatDefinitions: () => guarded(loadDefinitions),
+
     getEntry: (id) => guarded(() => read(id)),
+
+    setStat: (id, stat, value, etag) =>
+      guarded(async () => {
+        const params = {
+          path: { ...path, entity_id: id, stat_definition_id: stat.id },
+          header: ifMatch(etag),
+        };
+        let res: { data?: EntityDetail; response: Response };
+        if (value === null) {
+          // A bool is cleared through its tag route, the rest through the stat route.
+          res =
+            stat.type === 'bool'
+              ? await client.DELETE(
+                  '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
+                  { params },
+                )
+              : await client.DELETE(
+                  '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+                  { params },
+                );
+        } else if (typeof value === 'boolean') {
+          res = value
+            ? await client.PUT(
+                '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
+                { params },
+              )
+            : await client.PATCH(
+                '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
+                { params },
+              );
+        } else {
+          res = await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+            {
+              params,
+              body: { value, acquire_group: true },
+            },
+          );
+        }
+        return toState(id, await unwrap(res as never), res.response.headers.get('etag'));
+      }),
 
     // 201 when made, 200 when the id was already this library's (ADR 0222): both are done.
     createEntry: (entry: NewEntry) =>

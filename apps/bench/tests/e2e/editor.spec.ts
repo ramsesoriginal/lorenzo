@@ -9,6 +9,7 @@ type SampleWindow = {
     writes: { id: string; field: string; value: unknown }[];
     renameElsewhere(id: string, name: string): void;
     editTextElsewhere(id: string, which: string, text: string): void;
+    setStatElsewhere(id: string, statId: string, value: unknown): void;
   };
 };
 
@@ -366,4 +367,71 @@ test('what is typed in a description survives another change arriving', async ({
   await expect(page.locator('[data-entry="zombie"]')).toHaveText('Walker');
   await expect(description(page)).toHaveValue('Half a sentence');
   await expect(description(page)).toBeFocused();
+});
+
+const stats = (page: Page) => page.locator('.pane-props');
+
+test("an inherited stat is shown as inherited; writing it makes it the entry's own", async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  const armor = stats(page).getByLabel('Armor class (inherited)');
+  await expect(armor).toHaveValue('10');
+  await armor.fill('13');
+  await armor.press('Enter');
+  await expect(stats(page).getByLabel('Armor class', { exact: true })).toHaveValue('13');
+  await expect(stats(page).locator('[data-stat="armor"]')).toHaveClass(/own/);
+  await expect(status(page)).toHaveText('Synced');
+  expect(await writes(page)).toEqual([{ id: 'wolf', field: 'stat:armor', value: 13 }]);
+});
+
+test('removing an own value makes the entry inherit again, and undo puts it back', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await stats(page).getByLabel('Armor class (inherited)').fill('13');
+  await stats(page).getByLabel('Armor class (inherited)').press('Enter');
+  await stats(page).getByRole('button', { name: 'Remove Armor class' }).click();
+  await expect(stats(page).getByLabel('Armor class (inherited)')).toHaveValue('10');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(stats(page).getByLabel('Armor class', { exact: true })).toHaveValue('13');
+  await expect(status(page)).toHaveText('Synced');
+});
+
+test('a tag is a checkbox, a stat can be added, and an enum is a choice', async ({ page }) => {
+  await page.locator('[data-entry="zombie"]').click();
+  await expect(stats(page).getByLabel('Undead (inherited)')).toBeChecked();
+  await stats(page).getByLabel('Undead (inherited)').click();
+  await expect(stats(page).getByLabel('Undead', { exact: true })).not.toBeChecked();
+  await stats(page).getByLabel('Add a stat').selectOption({ label: 'Size' });
+  await stats(page).getByLabel('Size', { exact: true }).selectOption('large');
+  await expect(status(page)).toHaveText('Synced');
+  expect(await writes(page)).toEqual([
+    { id: 'zombie', field: 'stat:undead', value: false },
+    { id: 'zombie', field: 'stat:size', value: 'tiny' },
+    { id: 'zombie', field: 'stat:size', value: 'large' },
+  ]);
+});
+
+test('a decimal stat is shown but not editable yet', async ({ page }) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await expect(stats(page).getByLabel('Add a stat')).not.toContainText('Weight');
+});
+
+test('with no connection a stat is saved here, and a change elsewhere is a conflict', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="monster"]').click();
+  await palette(page, 'lose the connection');
+  await stats(page).getByLabel('Armor class', { exact: true }).fill('15');
+  await stats(page).getByLabel('Armor class', { exact: true }).press('Enter');
+  await expect(status(page)).toHaveText('Saved on this device');
+  await page.evaluate(() =>
+    (window as unknown as SampleWindow).sample.setStatElsewhere('monster', 'armor', 18),
+  );
+  await palette(page, 'get the connection back');
+  await expect(page.getByRole('alert')).toContainText('Armor class was changed elsewhere to 18');
+  await page.getByRole('button', { name: 'Keep mine' }).click();
+  await expect(status(page)).toHaveText('Synced');
+  expect(await writes(page)).toEqual([{ id: 'monster', field: 'stat:armor', value: 15 }]);
 });

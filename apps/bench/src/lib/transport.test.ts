@@ -6,6 +6,16 @@ import { apiTransport } from './transport';
 const T = '11111111-1111-1111-1111-111111111111';
 const E = '22222222-2222-2222-2222-222222222222';
 const P = '33333333-3333-3333-3333-333333333333';
+const S_INT = '44444444-4444-4444-4444-444444444444';
+const S_BOOL = '55555555-5555-5555-5555-555555555555';
+const definition = (id: string, name: string, value_type: string) => ({
+  id,
+  name,
+  value_type,
+  enum_values: [],
+  stat_group_id: P,
+});
+const definitions = [definition(S_INT, 'armor', 'int'), definition(S_BOOL, 'magical', 'bool')];
 
 type Call = { method: string; url: string; ifMatch: string | null; body: unknown };
 
@@ -15,13 +25,17 @@ function setup(answer: (r: Request, calls: Call[]) => Response | Promise<Respons
     baseUrl: 'http://api.test',
     getAccessToken: () => 'token',
     fetch: async (request) => {
-      const body = request.method === 'GET' ? undefined : await request.clone().json();
+      const text = request.method === 'GET' ? '' : await request.clone().text();
+      const body = text ? JSON.parse(text) : undefined;
       calls.push({
         method: request.method,
         url: new URL(request.url).pathname + new URL(request.url).search,
         ifMatch: request.headers.get('if-match'),
         body,
       });
+      if (request.url.includes('/stat-definitions')) {
+        return json({ items: definitions, total: 2, page: 1, size: 100, pages: 1 });
+      }
       return answer(request, calls);
     },
   });
@@ -38,6 +52,10 @@ const entry = {
   id: E,
   name: 'Wolf',
   kinds: ['item'],
+  stats: [
+    { name: 'armor', value: 12, own: false },
+    { name: 'magical', value: true, own: true },
+  ],
   prototypes: [{ id: P, name: 'Beast' }],
   children: [{ id: T, name: 'Pup' }],
   information: [
@@ -116,6 +134,10 @@ describe('apiTransport', () => {
           text: 'A ranger note.',
           version: 'W/"2026-10-09T11:00:00Z"',
         },
+      ],
+      stats: [
+        { statId: S_INT, name: 'armor', value: 12, own: false },
+        { statId: S_BOOL, name: 'magical', value: true, own: true },
       ],
       etag: '"abc"',
     });
@@ -236,5 +258,65 @@ describe('apiTransport', () => {
       throw new TypeError('Failed to fetch');
     });
     await expect(transport.getEntry(E)).rejects.toBeInstanceOf(OfflineError);
+  });
+  describe('stats', () => {
+    const base = `/tenants/${T}/entities/${E}`;
+    const written = { ...entry, previous: { had_own_value: false, value: null } };
+    const sent = async (
+      stat: { id: string; type: 'int' | 'bool' | 'text' },
+      value: string | number | boolean | null,
+    ) => {
+      const { transport, calls } = setup(() => json(written, { etag: '"n"' }));
+      const state = await transport.setStat(E, stat, value, '"old"');
+      return { state, call: calls[0] };
+    };
+
+    it('lists the definitions with their types', async () => {
+      const { transport } = setup(() => json({}));
+      expect(await transport.listStatDefinitions()).toEqual([
+        { id: S_INT, name: 'armor', type: 'int', enumValues: [] },
+        { id: S_BOOL, name: 'magical', type: 'bool', enumValues: [] },
+      ]);
+    });
+
+    it('writes a number to the stat route, with If-Match, and keeps the group', async () => {
+      const { call, state } = await sent({ id: S_INT, type: 'int' }, 14);
+      expect(call).toMatchObject({
+        method: 'PUT',
+        url: `${base}/stats/${S_INT}`,
+        ifMatch: '"old"',
+        body: { value: 14, acquire_group: true },
+      });
+      expect(state.etag).toBe('"n"');
+    });
+
+    it('sets a tag on, and off, through the tag routes', async () => {
+      expect((await sent({ id: S_BOOL, type: 'bool' }, true)).call).toMatchObject({
+        method: 'PUT',
+        url: `${base}/tags/${S_BOOL}`,
+      });
+      expect((await sent({ id: S_BOOL, type: 'bool' }, false)).call).toMatchObject({
+        method: 'PATCH',
+        url: `${base}/tags/${S_BOOL}`,
+      });
+    });
+
+    it('clears an own value: a bool through its tag, the rest through the stat', async () => {
+      expect((await sent({ id: S_BOOL, type: 'bool' }, null)).call).toMatchObject({
+        method: 'DELETE',
+        url: `${base}/tags/${S_BOOL}`,
+      });
+      expect((await sent({ id: S_INT, type: 'int' }, null)).call).toMatchObject({
+        method: 'DELETE',
+        url: `${base}/stats/${S_INT}`,
+      });
+    });
+
+    it('a stale If-Match on a stat is a precondition failure', async () => {
+      const { transport } = setup(() => json({ detail: 'Stale.' }, { status: 412 }));
+      await expect(
+        transport.setStat(E, { id: S_INT, type: 'int' }, 1, '"old"'),
+      ).rejects.toMatchObject({ precondition: true });
+    });
   });
 });
