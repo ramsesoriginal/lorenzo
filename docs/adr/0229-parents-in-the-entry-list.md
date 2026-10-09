@@ -1,6 +1,6 @@
 # 0229 - Parents in the entry list
 
-Status: accepted, decided with the maintainer on 2026-10-09. A small addition to [ADR 0215](0215-finding-entries-filters-kinds-and-name-order.md) (the entry list), asked for by slice W-D of [RFC 0042](../rfcs/0042-bench-workbench-interface.md) (the explorer as a tree). [ADR 0230](0230-bench-the-explorer-tree-and-kinds.md) is the Bench side.
+Status: accepted, decided with the maintainer on 2026-10-09. A small addition to [ADR 0215](0215-finding-entries-filters-kinds-and-name-order.md) (the entry list), asked for by slice W-D of [RFC 0042](../rfcs/0042-bench-workbench-interface.md) (the explorer as a tree). The Bench side, the explorer as a tree, is its own ADR (0230).
 
 ## Context
 
