@@ -144,6 +144,22 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 4. From that application's **Endpoints** section, copy the issuer URL and the application's **Client ID** — these are what go into `PUBLIC_AUTHGEAR_ENDPOINT`/`PUBLIC_AUTHGEAR_CLIENT_ID` in step 5 above.
 5. **Check the free tier's "2 Applications" cap first** (see the Authgear Cloud section above) — `apps/api`'s dev-token client and `apps/loot-bot`'s client may already account for two applications, which could block registering this one on a strict per-project reading. Confirm directly in the console rather than assuming either way.
 
+## Cloudflare Pages (apps/bench)
+
+`apps/bench` deploys as a plain static build, as the other two static apps, by Cloudflare's own Git integration ([ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md), [ADR 0211](../adr/0211-bench-sign-in-and-the-repository-picker.md)). Project name `lorenzo-bench` (`https://lorenzo-bench.pages.dev`), production branch `main`.
+
+- **Root directory** `apps/bench`; **build command** `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`; **output** `dist`; `NODE_VERSION` the major in `mise.toml` (26).
+- **Environment variables** (Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` from the application below. `PUBLIC_API_BASE_URL` is optional (it defaults to the deployed API).
+- **Build watch paths**: `apps/bench/**`, `packages/brand/**`, `packages/api-client/**`; add the LorenzoScript packages when Bench uses them.
+
+### `apps/bench`'s own Authgear application
+
+A **Single Page Application** (public, PKCE), distinct from every other app's client: Applications, New Application, Single Page Application.
+
+1. **Authorized Redirect URIs**: `https://lorenzo-bench.pages.dev/auth/redirect/` and, for local dev, `http://127.0.0.1:4321/auth/redirect/`. The trailing slash is required (see `apps/account-hub`'s note above).
+2. **Authorized Post-Logout Redirect URIs**: the same two origins, no path.
+3. Copy the issuer (Endpoints) and the Client ID into the two variables above.
+
 ## Cloudflare Pages (apps/inventory-web)
 
 `apps/inventory-web` deploys as a plain static build (`astro build` → `dist/`) — no container, no database, per [ADR 0004](../adr/0004-static-astro-frontend.md). Same mechanism as `apps/account-hub` above, **Cloudflare's own Git integration, not a GitHub Actions deploy step** — see [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload), which names this app explicitly: its own `deploy-inventory-web.yml` (forked around the same `wrangler-action` token-upload flow, never actually completed) is removed for the same reason. `ci.yml`'s own auto-discovered matrix already covers `mise run lint`/`test` for it on every PR.

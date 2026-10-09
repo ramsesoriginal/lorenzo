@@ -19,6 +19,8 @@
     "build-branding-package": "pnpm --filter @lorenzo/brand run build"
   },
   "dependencies": {
+    "@authgear/web": "^6.0.0",
+    "@lorenzo/api-client": "workspace:*",
     "@lorenzo/brand": "workspace:*",
     "astro": "^7.3.5"
   },
