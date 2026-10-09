@@ -57,6 +57,7 @@ const preview = (over: Partial<ReleasePreviewOut> = {}): ReleasePreviewOut => ({
   removed: [],
   breaking: [],
   warnings: [],
+  unproven_kinds: [],
   descriptions_edited: 0,
   libraries_told: 2,
   ...over,

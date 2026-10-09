@@ -23,6 +23,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.copyable_tables import COPIED_TABLES, COPY_LINKS, LINK_MODELS, PURGE_COUNTED
 from lorenzo_api.description_payloads import reference_values
 from lorenzo_api.exceptions import (
     InvalidRepositoryCopyChoiceError,
@@ -33,16 +34,12 @@ from lorenzo_api.exceptions import (
     RepositoryNotFoundError,
 )
 from lorenzo_api.models import (
-    Being,
-    Character,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
     ComputedStatLinear,
-    ComputedStatSum,
     ComputedStatSumTerm,
     Containment,
-    ContentReference,
     Entity,
     EntityPrototype,
     EntitySlug,
@@ -50,15 +47,8 @@ from lorenzo_api.models import (
     EntityStatGroup,
     GroupMember,
     Information,
-    Item,
-    ItemInstance,
     Knowledge,
     Ownership,
-    Payload,
-    PayloadDescription,
-    PayloadDocument,
-    PayloadNumber,
-    PayloadPicture,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -901,43 +891,9 @@ async def plan_copy(
 
 # --- Writing -------------------------------------------------------------------
 
-_TABLES: list[tuple[str, Any]] = [
-    ("stat_group", StatGroup),
-    ("stat_definition", StatDefinition),
-    ("stat_definition_enum_value", StatDefinitionEnumValue),
-    ("entity", Entity),
-    ("item", Item),
-    ("item_instance", ItemInstance),
-    ("being", Being),
-    ("character", Character),
-    ("entity_slug", EntitySlug),
-    ("entity_prototype", EntityPrototype),
-    ("entity_stat_group", EntityStatGroup),
-    ("entity_stat", EntityStat),
-    ("computed_stat", ComputedStat),
-    ("computed_stat_linear", ComputedStatLinear),
-    ("computed_stat_comparison", ComputedStatComparison),
-    ("computed_stat_sum", ComputedStatSum),
-    ("computed_stat_sum_term", ComputedStatSumTerm),
-    ("computed_stat_contents", ComputedStatContents),
-    ("containment", Containment),
-    ("ownership", Ownership),
-    ("group_member", GroupMember),
-    ("information", Information),
-    ("payload", Payload),
-    ("payload_description", PayloadDescription),
-    ("payload_number", PayloadNumber),
-    ("payload_picture", PayloadPicture),
-    ("payload_document", PayloadDocument),
-    ("knowledge", Knowledge),
-    ("content_reference", ContentReference),
-    ("repository_copy", RepositoryCopy),
-]
-_LINKS: list[tuple[str, Any, str]] = [
-    ("link_entity", RepositoryCopyLinkEntity, "entity_id"),
-    ("link_stat_group", RepositoryCopyLinkStatGroup, "stat_group_id"),
-    ("link_stat_definition", RepositoryCopyLinkStatDefinition, "stat_definition_id"),
-]
+# What a copy writes, and in what order, is the registry of copyable tables (ADR 0218).
+_TABLES = COPIED_TABLES
+_LINKS = COPY_LINKS
 
 
 async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]]) -> None:
@@ -1268,6 +1224,8 @@ async def forget_copy(
                 ),
             ),
         }
+        # The counts above are hand-written; the registry says which tables they are for.
+        assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
         # Formula inputs don't cascade (ADR 0104), so the tenant's own
         # formulas reading a purged definition go first; everything else
@@ -1304,12 +1262,7 @@ async def forget_copy(
             delete(StatGroup).where(StatGroup.tenant_id == t, StatGroup.id.in_(groups))
         )
 
-    for model in (
-        RepositoryCopyLinkEntity,
-        RepositoryCopyLinkStatGroup,
-        RepositoryCopyLinkStatDefinition,
-        RepositoryCopyLinkAttachment,
-    ):
+    for model in LINK_MODELS:
         await session.execute(
             delete(model).where(model.tenant_id == t, model.source_tenant_id == repository_id)
         )

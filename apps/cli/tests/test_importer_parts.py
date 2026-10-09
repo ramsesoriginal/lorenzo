@@ -410,6 +410,7 @@ class FakeTenant:
             "created_at": NOW,
             "updated_at": NOW,
             "stats": [],
+            "kinds": [],
             "stat_groups": [],
             "information": [],
             "prototypes": [{"id": str(self.ids[p]), "name": p} for p in self.parents.get(slug, [])],

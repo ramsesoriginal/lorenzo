@@ -1,0 +1,332 @@
+:root {
+  /* The shell's own names, mapped onto @lorenzo/brand's tokens (ADR 0098), which also switch
+     with [data-theme="dark"]. */
+  --bg: var(--surface-canvas);
+  --panel: var(--surface-default);
+  --bar: var(--surface-muted);
+  --line: var(--border-subtle);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --accent: var(--action);
+  --accent-soft: var(--action-surface);
+  --shadow: 0 6px 24px color-mix(in srgb, var(--brand-ink) 22%, transparent);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px / 1.45 system-ui,
+    sans-serif;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+}
+.top strong {
+  letter-spacing: 0.02em;
+}
+.top .hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#bench {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.surface {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.grp {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  min-width: 0;
+  min-height: 0;
+}
+.grp.float {
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+.bar {
+  display: flex;
+  align-items: stretch;
+  flex: none;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.grp.float .bar {
+  cursor: grab;
+}
+.tab {
+  display: flex;
+  align-items: stretch;
+  border-right: 1px solid var(--line);
+  cursor: grab;
+  user-select: none;
+}
+.tab.on {
+  background: var(--panel);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.tab .name,
+.tab .x,
+.icon {
+  background: none;
+  border: 0;
+  padding: 0 10px;
+  cursor: inherit;
+  border-radius: 0;
+}
+.tab .x {
+  padding: 0 8px 0 0;
+  color: var(--muted);
+}
+.tab .x:hover {
+  color: var(--text);
+}
+.bar.solo .tab {
+  border-right: 0;
+}
+.bar.solo .tab .name {
+  font-weight: 600;
+}
+.bar .grow {
+  flex: 1;
+}
+.icon {
+  color: var(--muted);
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.pane {
+  padding: 12px;
+}
+.pane h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+.pane h2 {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.kind,
+.muted {
+  color: var(--muted);
+}
+.pane-explorer {
+  padding: 4px 0;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 3px 12px;
+  cursor: pointer;
+  border-radius: 0;
+}
+.row:hover {
+  background: var(--accent-soft);
+}
+.row.on {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  position: absolute;
+  z-index: 3;
+  background: transparent;
+}
+.divider-row {
+  width: 8px;
+  margin-left: -4px;
+  cursor: col-resize;
+}
+.divider-col {
+  height: 8px;
+  margin-top: -4px;
+  cursor: row-resize;
+}
+.divider:hover {
+  background: var(--accent-soft);
+}
+.grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.drop {
+  position: absolute;
+  z-index: 20;
+  background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.mark {
+  position: absolute;
+  z-index: 21;
+  width: 3px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.ghost {
+  position: absolute;
+  z-index: 30;
+  padding: 2px 8px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  pointer-events: none;
+}
+#bench.dragging,
+#bench.dragging * {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.palette {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+  background: rgb(0 0 0 / 0.25);
+}
+.palette .box {
+  align-self: flex-start;
+  width: min(560px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.palette input {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+.results li {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.results li.on {
+  background: var(--accent-soft);
+}
+
+.top .note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.top .note.bad {
+  color: var(--danger);
+}
+.top .who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.top .picker select {
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  border-radius: 0;
+}
+.top .btn {
+  font: inherit;
+  padding: 2px 10px;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  cursor: pointer;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

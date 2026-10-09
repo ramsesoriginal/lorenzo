@@ -271,6 +271,46 @@ jobs:
             apps/inventory-web/test-results/
           retention-days: 7
 
+  # apps/bench's browser tests (ADR 0210): the built static page in a browser, with no API or
+  # database yet. The `bench-e2e` suite in .github/ci-graph.toml: it runs when bench or anything it
+  # depends on is affected.
+  e2e-bench:
+    name: e2e (bench)
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'bench-e2e')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: npm install --global corepack@latest && corepack enable
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/bench
+      # The same cached headless shell as the inventory-web job, installed without `--with-deps`.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        working-directory: apps/bench
+      - uses: actions/cache@v6
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-headless-shell-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install chromium-headless-shell
+        if: steps.browsers.outputs.cache-hit != 'true'
+        working-directory: apps/bench
+      - run: pnpm exec playwright test
+        working-directory: apps/bench
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-bench
+          path: |
+            apps/bench/playwright-report/
+            apps/bench/test-results/
+          retention-days: 7
+
   # apps/account-hub's browser tests against the real API (ADR 0136, ADR 0196): the same stack as the
   # job above, started by inventory-web's launchers. The `account-hub-real-api` suite in
   # .github/ci-graph.toml: it runs when the hub, the API or inventory-web is affected. It runs the
@@ -373,7 +413,7 @@ jobs:
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, account-hub-real-api, cli-e2e]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-bench, account-hub-real-api, cli-e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:

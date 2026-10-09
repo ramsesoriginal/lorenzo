@@ -1,0 +1,23 @@
+---
+import '@lorenzo/brand/normalize.css';
+import '@lorenzo/brand/tokens.css';
+import '@lorenzo/brand/fonts.css';
+import '@lorenzo/brand/base.css';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signing in - Lorenzo Bench</title>
+  </head>
+  <body>
+    <p>Signing you in&hellip;</p>
+    <script>
+      import { completeLogin } from '../../lib/auth';
+
+      await completeLogin();
+      window.location.replace('/');
+    </script>
+  </body>
+</html>

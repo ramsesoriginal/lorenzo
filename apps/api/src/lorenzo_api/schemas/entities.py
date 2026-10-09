@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import Request
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Entity, Information
@@ -36,6 +36,32 @@ class ResolvedSlugOut(BaseModel):
     entity_id: uuid.UUID
     name: str
     kinds: list[EntityKind]
+
+
+class EntityCreate(BaseModel):
+    """POST /tenants/{tenant_id}/entities - see ADR 0217. The entry, its link name, its kinds
+    and its parents, in one transaction. `kinds` is `item` and/or `being`; empty makes a bare
+    entry, which is what a group is. `in_public_catalog` is only for an `item`.
+    """
+
+    name: str
+    slug: Slug | None = None
+    kinds: list[Literal["item", "being"]] = []
+    parents: list[uuid.UUID] = []
+    in_public_catalog: bool | None = None
+
+    @model_validator(mode="after")
+    def _catalog_needs_item(self) -> EntityCreate:
+        if self.in_public_catalog is not None and "item" not in self.kinds:
+            raise ValueError("in_public_catalog is only for an entry of the kind item")
+        return self
+
+
+class EntityKindPut(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} - the kind's own columns. Only
+    `item` has one, `in_public_catalog`; the body may be left out."""
+
+    in_public_catalog: bool | None = None
 
 
 class EntityParentsRequest(BaseModel):
@@ -184,6 +210,20 @@ class KnowerOut(BaseModel):
     granted_at: datetime
 
 
+def _kinds_out(entity: Entity) -> list[EntityKind]:
+    """Needs entity.item, item_instance and being loaded, and being.character."""
+    kinds: list[EntityKind] = []
+    if entity.item is not None:
+        kinds.append("item")
+    if entity.item_instance is not None:
+        kinds.append("item_instance")
+    if entity.being is not None:
+        kinds.append("being")
+        if entity.being.character is not None:
+            kinds.append("character")
+    return kinds
+
+
 class EntityDetailOut(BaseModel):
     """The full shape of a single entity - every relationship resolved and
     inlined. See ADR 0020. Deliberately not reused for the list endpoint,
@@ -200,6 +240,8 @@ class EntityDetailOut(BaseModel):
     stats: list[EntityStatValueOut]
     stat_groups: list[EntitySummary]
     information: list[InformationOut]
+    # What the entry is (ADR 0217): the marker rows it has, in the order of EntityKind.
+    kinds: list[EntityKind]
     prototypes: list[EntitySummary]
     instances: list[EntitySummary]
     parent: EntitySummary | None
@@ -216,6 +258,7 @@ class EntityDetailOut(BaseModel):
             slug=entity.slug.slug if entity.slug is not None else None,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
+            kinds=_kinds_out(entity),
             stats=_stats_out(entity),
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which

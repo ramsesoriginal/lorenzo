@@ -103,6 +103,10 @@ __all__ = [
     "RepositoryUpdateNeedsChoicesError",
     "ReleaseLabelTakenError",
     "ReleaseHasBreakingChangesError",
+    "EntityKindInUseError",
+    "InvalidKindRequestError",
+    "InventoryItemKindError",
+    "RepositoryHasUnprovenKindsError",
     "ReleaseNotFoundError",
     "UpdateNeedsConfirmationError",
 ]
@@ -983,3 +987,32 @@ class BindingNotLiftableError(UnprocessableProblem):
     for it - ADR 0129."""
 
     title = "That binding can't be lifted"
+
+
+class EntityKindInUseError(ConflictProblem):
+    """DELETE /entities/{id}/kinds/{kind} and DELETE /entities/{id} - the entry is a character,
+    which hangs off its being (its key would cascade away: demote it first), or belongs to a
+    campaign. See ADR 0217."""
+
+    title = "Another part of the entry depends on this"
+
+
+class InventoryItemKindError(ConflictProblem):
+    """PUT /entities/{id}/kinds/item and DELETE /entities/{id} - the entry is an inventory item
+    (item_instance), which is made from a catalog item, deleted with its own route and never
+    takes the kind `item`. See ADR 0217."""
+
+    title = "An inventory item is changed through its own routes"
+
+
+class RepositoryHasUnprovenKindsError(ConflictProblem):
+    """PUT .../published - an entry has a combination of kinds no round-trip matrix covers
+    (ADR 0217, RFC 0041 section 2). Carries `entries`: each entry, with its kinds."""
+
+    title = "Some entries have a combination of kinds that cannot be published yet"
+
+
+class InvalidKindRequestError(UnprocessableProblem):
+    """PUT /entities/{id}/kinds/{kind} - a column the kind does not have (ADR 0217)."""
+
+    title = "That column does not belong to this kind"

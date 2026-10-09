@@ -217,6 +217,54 @@ In this order, each a slice in [Slices](#slices):
 
 What would change the decision: a grid that cannot keep focus or keep up is reported as in [§9](#9-ui-layer-rules); an export too large for a phone lowers the cap, makes names-first the only way to a first screen, or moves the delta feed out of "deferred"; storage a phone browser drops makes "available offline" a promise the app cannot keep and changes how it is worded. Findings go into a "What was tried" section here, as in [RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md).
 
+## What was tried
+
+B0 was run on 2026-10-09 on the throwaway branch `feat/bench-spike-b0` (`spike/bench-b0/`, tracked in #555): about 750 lines of TypeScript on the small helpers of [§9](#9-ui-layer-rules) (a signal helper of under 70 lines, light-DOM custom elements, an IndexedDB wrapper), a stub of W1 to W3, and 18 Playwright tests in headless Chromium on Linux. **What it was not:** a phone, another browser engine, the real API, a service worker, or the real seed (no Docker or Postgres was available, so the export sizes below are from a **simulated** repository of the shape W3 describes, with generated and with real-prose text).
+
+**The grid held, with no dependency.** None of the failure conditions of [Spikes](#spikes) was met.
+
+- 300 editable rows were built in 16 ms on warm runs and 127 ms on the first, cold one (reading them from the store took 9 to 28 ms). One edit re-rendered one row: the render counters of the other 299 did not move.
+- 100 single-row edits took 0 ms (median), 0.2 ms (95th percentile) and 0.7 ms (worst) from the edit to the end of the row's update. That measures the model and the effects, not layout or paint.
+- 43 characters were typed into a row while another row was edited every 3 ms (200 commands queued, the typed-in row's own state changing too): every character arrived, focus stayed, and a selection set in the middle of it survived 150 further changes.
+
+**What the tests found in the design** (each is now in the spike, none yet in the RFC's text):
+
+1. **Folding edits into a waiting command must stay within one tab.** The first version folded keystrokes into any waiting command on the same field, so a second tab's edit was silently replaced and no conflict was raised. A command now names the tab that wrote it (§2); with that, the same two edits surface as a Conflict and neither value is lost.
+2. **Reading the store back must merge, not replace.** A command whose write is still queued is newer than the store's copy of it; replacing the in-memory outbox with the store's drops a keystroke typed a moment earlier.
+3. **A row never writes into the input being typed in.** Without that guard, another tab's change to the same field turned "typed in tab B while…" into "A says 24le tab A…". Writing only when the value differs is not enough: a browser already keeps the caret when the value is unchanged.
+4. **An edit made while its command is in flight stays queued**, with the value just sent as its new base; otherwise it is lost when the command is deleted.
+5. **Typing is one command per field**, not one per keystroke: 17 characters typed gave one command and one `PATCH`.
+6. **Chromium retries a `POST` itself when the connection drops with no answer**, so W2's replay rule is needed on the server whatever the client does. A lost answer has to be simulated in the browser (the server applies the request, the page sees a network error); the client-made id then made the second send a `200` for the row that already existed, and exactly one row was made.
+
+**The rest of the spike, as asked.**
+
+- **Conflict row.** With four edited rows, two of them changed on the server meanwhile, the runner sent the two undisputed edits, paused the two disputed entries, and wrote nothing over the server's values. Keep mine and Use theirs both resolved. This is one field per entry; chains between several commands on one entry were not tried. It leans towards the proposed "independent entries carry on" answer to the [FIFO question](#open-questions), without settling it.
+- **Offline create, edit and sync.** With the connection gone the rows said "Saved on this device"; after a reload with the shell reachable and the API not, the new entry, its edits and an edit to an existing entry were all still there and nothing had reached the server; after "Sync" the server saw the create first, then the edits, in the order written. A later visit found the new entry in the export. A visit with nothing changed was a `304`: 0 bytes of body, 4 ms against 36 ms for the first.
+- **Tabs.** With three tabs, one held the Web Locks lock and sent; the other two followed the store through `BroadcastChannel` and showed Synced when the runner had sent. Closing the runner's tab handed the lock to another. Only Chromium was tried.
+- **Per user.** Two accounts on one device got two databases; the second saw none of the first's commands; deleting one database (logout) left the other.
+- **Storage.** `persist()` was **not granted** in headless Chromium (nothing is learned about a real profile from that) and its quota was about 1 GB here, which is a property of this machine's disk, not of a phone. Playwright's contexts are ephemeral, so a real private window was **not** tried. **Whether a phone browser keeps an unvisited site's data is still unknown**, and until someone tries it on a device "Available offline" should not be worded as a promise.
+
+**Export size (simulated; 700 entries is about the size of the importer's standard equipment, 7,000 is ten times that).**
+
+| | 700 entries | 7,000 entries |
+| --- | --- | --- |
+| Whole export, raw | 0.9 MB | 8.9 MB |
+| Whole export, gzip (4.1 to 4.3 times smaller here) | 208 to 229 KB | 2.1 to 2.2 MB |
+| The same at 2.5 times, a cautious ratio for unique prose | about 350 KB | about 3.6 MB |
+| Names only (id, kinds, name, link name, parents), gzip | 21 KB | 202 KB |
+| One page of 100 entries, gzip | 32 KB | 34 KB |
+| Transfer of the gzip export at 5 Mbit/s, at 400 kbit/s | 0.4 s, 4.6 s | 3.5 s, 44 s |
+| On the device: parse, write in one transaction, read back | 3, 82, 36 ms | 86, 2,183, 325 ms |
+| IndexedDB usage after the write | 0.7 MB | 12 MB |
+
+**What this suggests, for the maintainer to decide:**
+
+- **Names first is worth building**, and full refetch behind the `ETag` looks workable at the importer's scale (a few hundred KB, under a second on 4G). At ten times that it is 3 to 4 seconds on 4G and tens of seconds on a poor link, which is the case the `304` exists for. The delta feed can stay deferred.
+- **The cap's value is still open.** Even the ten-times repository takes about 12 MB on the device, so any ceiling in the tens of megabytes holds several; the number should wait for the real seed and for a phone's quota. A write of 7,000 entries in one transaction took two seconds, which matters for the first pin.
+- **The revision's cost under concurrent writers** was not measured: the stub's revision is a plain counter.
+
+**Not tried:** the real API and seed; a service worker and which navigations it answers; a phone, Safari, Firefox; layout and paint cost and the on-screen keyboard; names-first with bodies filled lazily; how encryption would change the numbers; the long refresh token (needs Authgear).
+
 ## Slices
 
 Each its own ADR when it lands, on its own short-lived branch off `main`. The ids are those of [RFC 0036](0036-repository-tooling.md)'s index.
@@ -237,6 +285,8 @@ Each its own ADR when it lands, on its own short-lived branch off `main`. The id
 | B8 | Pictures | B3; RFC 0041 K8 | bench |
 | B9 | Structured pack editor | B3, B6 | bench |
 | B10 | SVG ancestry graph | B3 | bench |
+
+The interface (docking, views over entries) and its build order are in [RFC 0042](0042-bench-workbench-interface.md); its slices W-A to W-H sit on top of these.
 
 Not slices yet: a **delta feed with tombstones**, only if the spike or use shows full refetch does not scale; and the **registries** of [§8](#8-room-for-new-kinds), when the first place, clock or calendar kind exists.
 
