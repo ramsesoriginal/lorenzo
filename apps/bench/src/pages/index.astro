@@ -1,0 +1,25 @@
+---
+import '../styles/bench.css';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lorenzo Bench</title>
+  </head>
+  <body>
+    <header class="top">
+      <strong>Lorenzo Bench</strong>
+      <span class="hint">Ctrl+K for commands. Drag a tab to dock, split or float it.</span>
+    </header>
+    <main id="bench"></main>
+    <script>
+      import { Shell } from '../shell/shell';
+      const root = document.getElementById('bench');
+      if (root) {
+        (window as unknown as { bench: Shell }).bench = new Shell(root);
+      }
+    </script>
+  </body>
+</html>

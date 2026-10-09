@@ -9,6 +9,10 @@
       "release-type": "python",
       "component": "api"
     },
+    "apps/bench": {
+      "release-type": "node",
+      "component": "bench"
+    },
     "apps/cli": {
       "release-type": "python",
       "component": "cli"
