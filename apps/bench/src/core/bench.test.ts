@@ -672,3 +672,28 @@ describe('kinds', () => {
     expect(bench.entries.find((e) => e.id === 'c')?.parentIds).toEqual(['a', 'b']);
   });
 });
+
+describe('what is not sent', () => {
+  it('lists the changes not sent, by entry, and gives them up', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    bench.change('entry.set-name', 'c', 'Hound');
+    bench.setDescription('c', 'Barks.');
+    bench.create({ name: 'Pup', kinds: ['item'], parents: ['c'] });
+    expect(bench.unsent()).toEqual([
+      { id: 'c', name: 'Hound', count: 2 },
+      { id: 'new1', name: 'Pup', count: 1 },
+    ]);
+    await bench.discardUnsent();
+    expect(bench.unsent()).toEqual([]);
+    expect(bench.view('c')?.name).toBe('Wolf');
+    expect(server.writes).toEqual([]);
+  });
+
+  it('has nothing to list once it is sent', async () => {
+    const { bench } = await setup();
+    bench.change('entry.set-name', 'c', 'Hound');
+    await settle(bench);
+    expect(bench.unsent()).toEqual([]);
+  });
+});
