@@ -7,17 +7,19 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "dev": "pnpm run build-branding-package && astro dev",
+    "build": "pnpm run build-branding-package && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
     "lint": "biome check . && astro check && prettier --check \"**/*.astro\"",
     "format": "biome check --write . && prettier --write \"**/*.astro\"",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build-branding-package": "pnpm --filter @lorenzo/brand run build"
   },
   "dependencies": {
+    "@lorenzo/brand": "workspace:*",
     "astro": "^7.3.5"
   },
   "devDependencies": {

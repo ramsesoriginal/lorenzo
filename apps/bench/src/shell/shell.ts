@@ -99,6 +99,9 @@ export class Shell {
     }
     this.ws = saved ?? defaultWorkspace();
     this.applyTheme(this.theme());
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () =>
+      this.applyTheme(this.theme()),
+    );
     root.append(this.surface, this.overlay, this.ghost, this.mark);
     this.overlay.hidden = this.ghost.hidden = this.mark.hidden = true;
     window.addEventListener('pointermove', (e) => this.onMove(e));
@@ -128,8 +131,9 @@ export class Shell {
     }
   }
   private applyTheme(t: string) {
-    if (t === 'system') document.documentElement.removeAttribute('data-theme');
-    else document.documentElement.dataset.theme = t;
+    const dark =
+      t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   }
   setTheme(t: string) {
     try {

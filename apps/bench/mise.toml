@@ -29,7 +29,7 @@ description = "Build the static site to dist/"
 depends = ["install"]
 run = "pnpm run build"
 
-# Not part of `test`: needs a browser. Not yet a CI job (ADR 0210).
+# Not part of `test`: needs a browser. CI runs it as the `e2e-bench` job.
 [tasks.test-e2e]
 description = "Browser tests of the built page (Playwright)"
 depends = ["install"]
