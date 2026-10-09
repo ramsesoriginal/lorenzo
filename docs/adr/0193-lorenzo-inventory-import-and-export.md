@@ -1,6 +1,6 @@
 # 0193 - `lorenzo inventory import` and `export`
 
-Status: accepted, decided with the maintainer on 2026-10-06.
+Status: accepted, decided with the maintainer on 2026-10-06. Amended by [ADR 0226](0226-lorenzoledger.md): the file is a LorenzoLedger, and an import writes and an export reads a “Description” note.
 
 Slice 3 of [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md): the commands that read and write the [inventory file](0191-inventory-file-format-v1.md), over what the API already does and the placeholder of [ADR 0192](0192-the-placeholder-item-the-api-and-the-seed.md). No API change.
 
