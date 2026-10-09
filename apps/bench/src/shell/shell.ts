@@ -186,7 +186,9 @@ export class Shell {
     // Keep what a person is typing when something else changes the page.
     const active = document.activeElement;
     const kept =
-      active instanceof HTMLInputElement && active.dataset.key && s.contains(active)
+      (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
+      active.dataset.key &&
+      s.contains(active)
         ? { key: active.dataset.key, value: active.value, at: active.selectionStart }
         : null;
     redraw.active = true;
@@ -202,9 +204,12 @@ export class Shell {
       s.append(empty);
     }
     if (kept) {
-      const input = s.querySelector<HTMLInputElement>(`input[data-key="${kept.key}"]`);
+      const input = s.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        `[data-key="${kept.key}"]`,
+      );
       if (input) {
         input.value = kept.value;
+        input.dispatchEvent(new Event('input')); // the preview follows what is typed
         input.focus();
         if (kept.at !== null) input.setSelectionRange(kept.at, kept.at);
       }

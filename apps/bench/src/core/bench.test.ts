@@ -6,7 +6,14 @@ import { type SampleEntry, SampleTransport } from './sample';
 const entries: SampleEntry[] = [
   { id: 'a', name: 'Monster', kinds: ['item'], parents: [] },
   { id: 'b', name: 'Beast', kinds: ['item'], parents: ['a'] },
-  { id: 'c', name: 'Wolf', kinds: ['item'], parents: ['b'] },
+  {
+    id: 'c',
+    name: 'Wolf',
+    kinds: ['item'],
+    parents: ['b'],
+    description: 'Hunts in packs.',
+    notes: [{ id: 'n1', text: 'A ranger note.' }],
+  },
   { id: 'p', name: 'The Hollow', kinds: ['being'], parents: [] },
 ];
 
@@ -336,5 +343,142 @@ describe('creating an entry', () => {
     server.offline = false;
     await bench.run();
     expect(bench.status(id)).toBe('synced');
+  });
+});
+
+describe('description and notes', () => {
+  it('the description shows at once, and goes to the server on the same payload', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    bench.setDescription('c', 'Hunts in **packs**, at night.');
+    expect(bench.view('c')?.description?.text).toBe('Hunts in **packs**, at night.');
+    server.offline = false;
+    await bench.run();
+    expect(server.writes).toEqual([
+      { id: 'c-description', field: 'description', value: 'Hunts in **packs**, at night.' },
+    ]);
+    expect(bench.status('c')).toBe('synced');
+  });
+
+  it('an entry without a description gets one, made under an id of the client', async () => {
+    const { bench, server } = await setup();
+    await bench.open('b');
+    bench.setDescription('b', 'The beast.');
+    await bench.run();
+    expect(server.writes).toEqual([{ id: 'b', field: 'description', value: 'The beast.' }]);
+    expect(bench.view('b')?.description).toMatchObject({ id: 'new1', text: 'The beast.' });
+    // and the next change writes to it, not to a second one
+    bench.setDescription('b', 'The beast, again.');
+    await bench.run();
+    expect(server.writes.at(-1)).toEqual({
+      id: 'new1',
+      field: 'description',
+      value: 'The beast, again.',
+    });
+  });
+
+  it('two changes to a description not there yet make it once, and write the second', async () => {
+    const { bench, server } = await setup();
+    await bench.open('b');
+    server.offline = true;
+    bench.setDescription('b', 'One.');
+    bench.setDescription('b', 'Two.');
+    server.offline = false;
+    await bench.run();
+    expect(server.writes.map((w) => [w.field, w.value])).toEqual([
+      ['description', 'One.'],
+      ['description', 'Two.'],
+    ]);
+  });
+
+  it('a description changed elsewhere is a conflict, and keeping mine sends it', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    bench.setDescription('c', 'Mine.');
+    server.offline = false;
+    server.editTextElsewhere('c', 'description', 'Theirs.');
+    await bench.run();
+    expect(bench.status('c')).toBe('conflict');
+    expect(bench.outbox[0].theirs).toBe('Theirs.');
+    expect(server.writes).toEqual([]);
+    bench.keepMine(bench.outbox[0].id);
+    await bench.run();
+    expect(server.writes.at(-1)).toMatchObject({ field: 'description', value: 'Mine.' });
+  });
+
+  it('a note is added at once, under an id of the client, and sent', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    const id = bench.addNote('c', 'Check the den.');
+    expect(bench.view('c')?.notes.map((n) => n.text)).toEqual(['A ranger note.', 'Check the den.']);
+    server.offline = false;
+    await bench.run();
+    expect(server.writes).toEqual([{ id: 'c', field: 'note.add', value: 'Check the den.' }]);
+    expect((await server.getEntry('c')).notes.map((n) => n.id)).toEqual(['n1', id]);
+  });
+
+  it('a note edited before it was sent goes after it', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    const id = bench.addNote('c', 'Draft.') as string;
+    bench.setNoteText('c', id, 'Final.');
+    server.offline = false;
+    await bench.run();
+    expect(server.writes.map((w) => [w.field, w.value])).toEqual([
+      ['note.add', 'Draft.'],
+      ['note.text', 'Final.'],
+    ]);
+  });
+
+  it('cancelling a note that was not sent takes its edits with it', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    const id = bench.addNote('c', 'Draft.') as string;
+    bench.setNoteText('c', id, 'Final.');
+    bench.cancel(bench.outbox[0].id);
+    expect(bench.outbox).toHaveLength(0);
+    expect(bench.view('c')?.notes.map((n) => n.id)).toEqual(['n1']);
+  });
+
+  it('a note that was sent is not undone here, but an edit of one is', async () => {
+    const { bench, server } = await setup();
+    const id = bench.addNote('c', 'Draft.') as string;
+    await bench.run();
+    expect(bench.canUndo('c')).toBe(false);
+    bench.setNoteText('c', id, 'Final.');
+    await bench.run();
+    expect(bench.canUndo('c')).toBe(true);
+    bench.undo('c');
+    await bench.run();
+    expect(server.writes.map((w) => w.value)).toEqual(['Draft.', 'Final.', 'Draft.']);
+  });
+
+  it('a note edited elsewhere is a conflict; one that is gone needs attention', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    bench.setNoteText('c', 'n1', 'Mine.');
+    server.offline = false;
+    server.editTextElsewhere('c', 'n1', 'Theirs.');
+    await bench.run();
+    expect(bench.status('c')).toBe('conflict');
+    bench.discard(bench.outbox[0].id);
+    expect(bench.view('c')?.notes[0].text).toBe('Theirs.');
+  });
+
+  it('an empty note is not added', async () => {
+    const { bench } = await setup();
+    expect(bench.addNote('c', '   ')).toBeNull();
+    expect(bench.outbox).toHaveLength(0);
+  });
+
+  it('a note id the server refuses needs attention, and what waits on it waits', async () => {
+    const { bench, server } = await setup();
+    server.heldElsewhere.add('new1');
+    const id = bench.addNote('c', 'Draft.') as string;
+    bench.setNoteText('c', id, 'Final.');
+    await bench.run();
+    expect(bench.outbox.map((c) => c.state)).toEqual(['attention', 'waiting']);
+    bench.discard(bench.outbox[0].id);
+    expect(bench.outbox).toHaveLength(0);
   });
 });

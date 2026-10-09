@@ -436,3 +436,35 @@ dd {
   color: inherit;
   opacity: 0.8;
 }
+
+.text-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.text-edit {
+  width: 100%;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 6px;
+  border-radius: 0;
+  resize: vertical;
+}
+.text-preview {
+  min-width: 0;
+  padding: 0 4px;
+  overflow-wrap: anywhere;
+}
+.new-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.new-note .btn {
+  justify-self: start;
+}
