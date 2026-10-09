@@ -140,7 +140,7 @@ app.add_typer(pack_app, name="pack")
 item_app = typer.Typer(help="Find the items you may add, and add one.", no_args_is_help=True)
 app.add_typer(item_app, name="item")
 inventory_app = typer.Typer(
-    help="Bring a character's inventory in from a file, or write it out as one.",
+    help="Bring a character's inventory in from a LorenzoLedger file, or write it out as one.",
     no_args_is_help=True,
 )
 app.add_typer(inventory_app, name="inventory")
@@ -2068,7 +2068,7 @@ def _inventory_summary(plan: Plan) -> None:
 def inventory_import(
     ctx: typer.Context,
     file: Annotated[
-        Path, typer.Argument(help="The inventory file (Markdown or JSON), or - for stdin.")
+        Path, typer.Argument(help="The ledger file (Markdown or JSON), or - for stdin.")
     ],
     tenant: ItemTenant,
     owner: Annotated[
@@ -2151,7 +2151,7 @@ def inventory_export(
         Path | None, typer.Option("--output", "-o", help="Write to this file, not the terminal.")
     ] = None,
 ) -> None:
-    """Write a character's inventory as a file: what they own, where it is, and what is noted."""
+    """Write a character's inventory as a LorenzoLedger: what they own, where, what is noted."""
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:
         target = resolve_tenant(client, tenant)
