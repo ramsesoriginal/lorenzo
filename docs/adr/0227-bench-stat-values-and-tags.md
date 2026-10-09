@@ -1,4 +1,4 @@
-# 0226 - Bench: stat values and tags
+# 0227 - Bench: stat values and tags
 
 Status: accepted, decided with the maintainer on 2026-10-09. The second slice of B3 in [RFC 0039](../rfcs/0039-bench-authoring-offline-and-extensibility.md) (section 6), after [ADR 0224](0224-bench-description-and-notes.md). Builds on [ADR 0221](0221-bench-the-command-layer-and-the-first-editor.md) (the command layer) and [ADR 0225](0225-stat-writes-that-can-be-checked-and-undone.md) (the API side).
 

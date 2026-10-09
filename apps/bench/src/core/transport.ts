@@ -43,7 +43,7 @@ export interface StatValue {
 
 /**
  * A float is not edited yet: the API wants `3.0` for a float stat, and JSON written by the browser
- * says `3` (ADR 0226).
+ * says `3` (ADR 0227).
  */
 export const canEditStat = (type: StatType): boolean => type !== 'float';
 
