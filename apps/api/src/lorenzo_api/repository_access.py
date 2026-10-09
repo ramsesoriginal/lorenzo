@@ -16,80 +16,21 @@ from contextlib import asynccontextmanager
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.copyable_tables import CONTENT_TABLES, EXCLUDED_TABLES
+
 __all__ = [
     "REPOSITORY_CONTENT_TABLES",
     "REPOSITORY_EXCLUDED_TABLES",
     "reading_repository",
 ]
 
-# Every tenant table that can hold a repository's own content, and so
-# carries the repository_read policy (RFC 0024 §4, amendment A3).
-REPOSITORY_CONTENT_TABLES = frozenset(
-    {
-        "entity",
-        "item",
-        "item_instance",
-        "being",
-        "character",
-        "entity_prototype",
-        "entity_slug",
-        "stat_group",
-        "stat_definition",
-        "stat_definition_enum_value",
-        "entity_stat_group",
-        "entity_stat",
-        "computed_stat",
-        "computed_stat_linear",
-        "computed_stat_comparison",
-        "computed_stat_sum",
-        "computed_stat_sum_term",
-        "computed_stat_contents",
-        "containment",
-        "ownership",
-        "group_member",
-        "information",
-        "payload",
-        "payload_description",
-        "payload_number",
-        "payload_picture",
-        "payload_document",
-        "knowledge",
-        "content_reference",
-        # ADR 0119's copy records, which a bridge's subscribers read (ADR
-        # 0120).
-        "repository_copy",
-        "repository_copy_link_entity",
-        "repository_copy_link_stat_group",
-        "repository_copy_link_stat_definition",
-        # What a repository published (ADR 0207), which the libraries it is granted to read.
-        "repository_release",
-        # The hashes of what it released, which a library marks its updates against (ADR 0208).
-        "repository_released_row",
-    }
-)
-
-# Every other tenant table: relative to a player, a campaign, or tenant
-# administration, none of which a repository has (RFC 0024 §4), or the copying
-# tenant's own bookkeeping. A test fails if a tenant table is in neither set.
-REPOSITORY_EXCLUDED_TABLES = frozenset(
-    {
-        "audit_log",
-        "campaign",
-        "campaign_gm",
-        "campaign_invite",
-        "campaign_profile_picture",
-        "character_player",
-        "entity_change",
-        "membership",
-        "notification",
-        "player",
-        # Copy bookkeeping of the tenant that copied (ADR 0172), not content a
-        # repository holds: what a bridge attached is read from its entities.
-        "repository_copy_link_attachment",
-        "tenant_admin_campaign_opt_out",
-        "tenant_profile_picture",
-    }
-)
+# Every tenant table that can hold a repository's own content, and so carries the repository_read
+# policy (RFC 0024 section 4, amendment A3), and every other one: relative to a player, a campaign
+# or tenant administration, none of which a repository has, or the copying tenant's own
+# bookkeeping. Both come from the registry of copyable tables (ADR 0218), which a test holds to the
+# database: a tenant table in neither set, or a policy on the wrong one, fails it.
+REPOSITORY_CONTENT_TABLES = CONTENT_TABLES
+REPOSITORY_EXCLUDED_TABLES = EXCLUDED_TABLES
 
 
 @asynccontextmanager
