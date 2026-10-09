@@ -1,40 +1,15 @@
 :root {
-  --bg: #f4f2ee;
-  --panel: #ffffff;
-  --bar: #e9e5de;
-  --line: #cfc9bf;
-  --text: #211f1c;
-  --muted: #736c61;
-  --accent: #6a4c93;
-  --accent-soft: #e6dcf1;
-  --shadow: 0 6px 24px rgb(0 0 0 / 0.18);
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #17151a;
-    --panel: #201d25;
-    --bar: #2a262f;
-    --line: #3a3541;
-    --text: #ece8f0;
-    --muted: #a49cb0;
-    --accent: #b394e0;
-    --accent-soft: #3a2f4d;
-    --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #17151a;
-  --panel: #201d25;
-  --bar: #2a262f;
-  --line: #3a3541;
-  --text: #ece8f0;
-  --muted: #a49cb0;
-  --accent: #b394e0;
-  --accent-soft: #3a2f4d;
-  --shadow: 0 6px 24px rgb(0 0 0 / 0.5);
-  color-scheme: dark;
+  /* The shell's own names, mapped onto @lorenzo/brand's tokens (ADR 0098), which also switch
+     with [data-theme="dark"]. */
+  --bg: var(--surface-canvas);
+  --panel: var(--surface-default);
+  --bar: var(--surface-muted);
+  --line: var(--border-subtle);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --accent: var(--action);
+  --accent-soft: var(--action-surface);
+  --shadow: 0 6px 24px color-mix(in srgb, var(--brand-ink) 22%, transparent);
 }
 
 * {
