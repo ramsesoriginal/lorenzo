@@ -5,7 +5,13 @@ export interface EntrySummary {
   id: string;
   name: string;
   kinds: string[];
+  /** Its direct parents: where it shows in the tree. */
+  parentIds: string[];
 }
+
+/** The kinds an author can give or take away so far; the others are made by their own routes. */
+export type EditableKind = 'item' | 'being';
+export const EDITABLE_KINDS: readonly EditableKind[] = ['item', 'being'];
 
 /** A piece of text on an entry: its description, or a note. LorenzoScript, kept as written. */
 export interface TextDoc {
@@ -103,6 +109,8 @@ export interface Transport {
     value: StatScalar | null,
     etag: string | null,
   ): Promise<EntryState>;
+  /** Gives the entry a kind, or takes it away. Answers with the entry as it is after. */
+  setKind(id: string, kind: EditableKind, on: boolean, etag: string | null): Promise<EntryState>;
   /** Makes a description or a note on the entry under its own id, or finds it already there. */
   createText(entryId: string, text: NewText): Promise<void>;
   /** Replaces the text of a payload. `version` is its `If-Match`. */

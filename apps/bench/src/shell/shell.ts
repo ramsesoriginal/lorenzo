@@ -31,12 +31,19 @@ import {
   type Workspace,
 } from '../workspace/model';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
+import { buildRows, counts, ORDERS, type Order } from './explorerRows';
 import { renderStats } from './statsPane';
 import { PANE_IDS, PANES } from './stub';
 
 const BAR = 30;
 const STORE = 'bench:workspace';
 const THEME = 'bench:theme';
+const ORDER = 'bench:explorer-order';
+const ORDER_LABEL: Record<Order, string> = {
+  inherits: 'Inherits',
+  kind: 'Kind',
+  name: 'A to Z',
+};
 
 export function defaultWorkspace(): Workspace {
   const rail = group('g-rail', ['explorer']);
@@ -91,6 +98,9 @@ export class Shell {
     label: string;
   } = null;
   private palette: HTMLElement | null = null;
+  /** How the explorer lists entries, and which entries in the tree are folded shut. */
+  private order: Order = Shell.savedOrder();
+  private collapsed = new Set<string>();
   /** Commands the page adds to the palette, such as switching repository. */
   extra: { label: string; run: () => void }[] = [];
 
@@ -305,6 +315,99 @@ export class Shell {
     return e;
   }
 
+  private static savedOrder(): Order {
+    try {
+      const saved = localStorage.getItem(ORDER);
+      return ORDERS.find((o) => o === saved) ?? 'inherits';
+    } catch {
+      return 'inherits';
+    }
+  }
+
+  private setOrder(order: Order) {
+    this.order = order;
+    try {
+      localStorage.setItem(ORDER, order);
+    } catch {
+      /* not remembered */
+    }
+    this.render();
+  }
+
+  /** The entries, as a tree of what they inherit from, by kind, or A to Z. */
+  private explorerList(): HTMLElement {
+    const bench = this.bench;
+    const box = el('div', 'explorer');
+    const rows = buildRows(bench.listing(), this.order, this.collapsed);
+    const n = counts(rows);
+
+    const head = el('div', 'explorer-head');
+    head.append(
+      el(
+        'span',
+        'muted',
+        n.places > n.entries
+          ? `${n.entries} entries · ${n.places} places in the list`
+          : `${n.entries} entries`,
+      ),
+    );
+    const seg = el('div', 'seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Order');
+    for (const o of ORDERS) {
+      const b = el('button', 'btn', ORDER_LABEL[o]);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(o === this.order));
+      b.addEventListener('click', () => this.setOrder(o));
+      seg.append(b);
+    }
+    box.append(head, seg);
+
+    const list = el('ul', 'list');
+    for (const row of rows) {
+      const li = el('li', row.type === 'header' ? 'group-head' : 'place');
+      if (row.type === 'header') {
+        li.textContent = row.label;
+        list.append(li);
+        continue;
+      }
+      const e = bench.listing().find((x) => x.id === row.id);
+      if (!e) continue;
+      li.style.paddingLeft = `${row.depth * 14}px`;
+      if (this.order === 'inherits') {
+        if (row.hasChildren) {
+          const fold = el('button', 'fold', row.open ? '▾' : '▸');
+          fold.type = 'button';
+          fold.setAttribute('aria-label', `${row.open ? 'Fold' : 'Unfold'} ${e.name}`);
+          fold.setAttribute('aria-expanded', String(row.open));
+          fold.addEventListener('click', () => {
+            if (this.collapsed.has(row.id)) this.collapsed.delete(row.id);
+            else this.collapsed.add(row.id);
+            this.render();
+          });
+          li.append(fold);
+        } else li.append(el('span', 'fold'));
+      }
+      const b = el('button', row.id === this.selected ? 'row on' : 'row', e.name);
+      b.type = 'button';
+      b.dataset.entry = row.id;
+      b.dataset.place = row.key;
+      b.title = bench.status(row.id) === 'synced' ? kindsText(e.kinds) : statusText(bench, row.id);
+      b.addEventListener('click', () => this.select(row.id));
+      li.append(b);
+      if (row.parentCount) {
+        const multi = el('span', 'multi', '⑂');
+        multi.title = `Has ${row.parentCount} parents: it is in each of those places`;
+        multi.setAttribute('role', 'img');
+        multi.setAttribute('aria-label', `Has ${row.parentCount} parents`);
+        li.append(multi);
+      }
+      list.append(li);
+    }
+    box.append(list);
+    return box;
+  }
+
   private paneEl(id: string): HTMLElement {
     const bench = this.bench;
     if (id === 'entry') return renderEntry(bench, this.selected, (x) => this.select(x));
@@ -314,18 +417,7 @@ export class Shell {
     if (id === 'explorer') {
       if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));
       c.append(this.newEntryForm());
-      const list = el('ul', 'list');
-      for (const e of bench.listing()) {
-        const li = el('li');
-        const b = el('button', e.id === this.selected ? 'row on' : 'row', e.name);
-        b.type = 'button';
-        b.dataset.entry = e.id;
-        b.title = bench.status(e.id) === 'synced' ? kindsText(e.kinds) : statusText(bench, e.id);
-        b.addEventListener('click', () => this.select(e.id));
-        li.append(b);
-        list.append(li);
-      }
-      c.append(list);
+      c.append(this.explorerList());
     }
     return c;
   }

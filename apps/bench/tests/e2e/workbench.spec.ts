@@ -16,7 +16,8 @@ test('opens with the explorer, an entry, and stats and parents', async ({ page }
 });
 
 test('picking an entry in the explorer shows it', async ({ page }) => {
-  await page.getByRole('button', { name: 'Ghoul' }).click();
+  // Ghoul has two parents, so the tree has a row for it in each place.
+  await page.getByRole('button', { name: 'Ghoul' }).first().click();
   await page.getByRole('tab', { name: 'Parents and children' }).click();
   await expect(page.locator('.entry-name')).toHaveValue('Ghoul');
   await expect(page.locator('.pane-links')).toContainText('Undead');

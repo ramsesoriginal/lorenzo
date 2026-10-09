@@ -9,6 +9,7 @@ import {
   unwrap,
 } from '@lorenzo/api-client';
 import {
+  type EditableKind,
   type EntryState,
   type EntrySummary,
   type NewEntry,
@@ -128,12 +129,32 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
             }),
           ),
         );
-        return rows.map((r) => ({ id: r.id, name: r.name, kinds: [...r.kinds] }));
+        return rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          kinds: [...r.kinds],
+          parentIds: [...r.parent_ids],
+        }));
       }),
 
     listStatDefinitions: () => guarded(loadDefinitions),
 
     getEntry: (id) => guarded(() => read(id)),
+
+    // 201 when the kind was given, 200 when it already was: both are done.
+    setKind: (id, kind: EditableKind, on, etag) =>
+      guarded(async () => {
+        const params = {
+          path: { ...path, entity_id: id, kind },
+          header: ifMatch(etag),
+        };
+        const res = on
+          ? await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/kinds/{kind}', { params })
+          : await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}/kinds/{kind}', {
+              params,
+            });
+        return toState(id, await unwrap(res), res.response.headers.get('etag'));
+      }),
 
     setStat: (id, stat, value, etag) =>
       guarded(async () => {

@@ -603,3 +603,72 @@ describe('stats', () => {
     expect(bench.outbox[0].error).toMatch(/enum value for Size/);
   });
 });
+
+describe('kinds', () => {
+  const kind = (bench: Bench, id: string) => bench.view(id)?.kinds;
+
+  it('gives an entry a kind at once, and writes it', async () => {
+    const { bench, server } = await setup();
+    await bench.open('p');
+    bench.setKind('p', 'item', true);
+    expect(kind(bench, 'p')).toEqual(['item', 'being']);
+    expect(bench.listing().find((e) => e.id === 'p')?.kinds).toEqual(['item', 'being']);
+    await settle(bench);
+    expect(server.writes).toEqual([{ id: 'p', field: 'kind:item', value: true }]);
+    expect(bench.status('p')).toBe('synced');
+  });
+
+  it('takes a kind away, so the entry may become a bare entry, and undoes it', async () => {
+    const { bench, server } = await setup();
+    await bench.open('p');
+    bench.setKind('p', 'being', false);
+    await settle(bench);
+    expect(kind(bench, 'p')).toEqual([]);
+    expect(bench.undo('p')).toBe(true);
+    await settle(bench);
+    expect(kind(bench, 'p')).toEqual(['being']);
+    expect(server.writes.map((w) => w.value)).toEqual([false, true]);
+  });
+
+  it('writes nothing when the entry already is that', async () => {
+    const { bench } = await setup();
+    await bench.open('p');
+    expect(bench.setKind('p', 'being', true)).toBeNull();
+  });
+
+  it('is already there when someone else made the same change (a yes or no cannot conflict)', async () => {
+    const { bench, server } = await setup();
+    await bench.open('p');
+    server.offline = true;
+    bench.setKind('p', 'being', false);
+    server.offline = false;
+    server.setKindElsewhere('p', 'being', false);
+    await settle(bench);
+    // the server already has what was asked: nothing to send
+    expect(bench.status('p')).toBe('synced');
+    expect(server.writes).toEqual([]);
+  });
+
+  it('is refused for an inventory item taking item', async () => {
+    const server = new SampleTransport([
+      { id: 'x', name: 'Sword #1', kinds: ['item_instance'], parents: [] },
+    ]);
+    const bench = new Bench(server, () => 'n');
+    await bench.loadEntries();
+    await bench.open('x');
+    bench.setKind('x', 'item', true);
+    await settle(bench);
+    expect(bench.status('x')).toBe('attention');
+    expect(bench.outbox[0].error).toMatch(/inventory item/);
+  });
+
+  it('lists where entries are: the parents the server says, then the ones just set', async () => {
+    const { bench } = await setup();
+    expect(bench.listing().find((e) => e.id === 'c')?.parentIds).toEqual(['b']);
+    await bench.open('c');
+    bench.change('entry.set-parents', 'c', ['a', 'b']);
+    expect(bench.listing().find((e) => e.id === 'c')?.parentIds).toEqual(['a', 'b']);
+    await settle(bench);
+    expect(bench.entries.find((e) => e.id === 'c')?.parentIds).toEqual(['a', 'b']);
+  });
+});
