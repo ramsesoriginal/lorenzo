@@ -11,8 +11,10 @@ import {
   type EntryState,
   type EntrySummary,
   type NewEntry,
+  type NewText,
   OfflineError,
   RefusedError,
+  type TextDoc,
   type Transport,
 } from '../core/transport';
 
@@ -21,8 +23,10 @@ function translate(e: unknown): never {
   if (e instanceof LorenzoApiError) {
     throw new RefusedError(e.message, e.status === 412);
   }
-  // fetch rejects with a TypeError when there is no connection (or the request was blocked).
-  if (e instanceof TypeError) throw new OfflineError();
+  // fetch rejects with a TypeError when there is no connection (or the request was blocked), and
+  // says so in its own words in each browser. Any other TypeError is a bug, not a lost connection.
+  if (e instanceof TypeError && /fetch|network|load failed/i.test(e.message))
+    throw new OfflineError();
   throw e;
 }
 
@@ -34,12 +38,31 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
       params: { path: { ...path, entity_id: id } },
     });
     const entry = await unwrap(res);
+    const docs = (type: string): TextDoc[] =>
+      entry.information
+        .filter((info) => info.type === type)
+        .flatMap((info) => {
+          const text = info.payloads.find((p) => p.kind === 'description');
+          if (!text || text.kind !== 'description') return [];
+          return [
+            {
+              id: info.id,
+              payloadId: text.id,
+              title: info.title,
+              text: text.content,
+              // The payload's own `updated_at`, as a weak ETag (ADR 0108).
+              version: `W/"${text.updated_at}"`,
+            },
+          ];
+        });
     return {
       id,
       name: entry.name,
       kinds: [...entry.kinds],
       parentIds: entry.prototypes.map((p) => p.id),
       childIds: entry.children.map((c) => c.id),
+      description: docs('description')[0] ?? null,
+      notes: docs('note'),
       etag: res.response.headers.get('etag'),
     };
   }
@@ -97,6 +120,34 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
           }),
         );
         return read(id);
+      }),
+
+    // 201 when made, 200 when the id was already this entry's (ADR 0222): both are done.
+    createText: (entryId, text: NewText) =>
+      guarded(async () => {
+        await unwrap(
+          await client.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+            params: { path: { ...path, entity_id: entryId } },
+            body: {
+              id: text.id,
+              title: text.title,
+              type: text.type,
+              is_public: false,
+              content: text.text,
+              locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language || 'en-US',
+            },
+          }),
+        );
+      }),
+
+    setText: (payloadId, text, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
+            params: { path: { ...path, payload_id: payloadId }, header: ifMatch(version) },
+            body: { content: text },
+          }),
+        );
       }),
 
     setParents: (id, parentIds, etag) =>

@@ -2,10 +2,16 @@
 // (RFC 0039 section 2). Each names the field it changes, with the value the person saw (its base)
 // next to the new one, so a conflict can be told from a plain write, and so it can be undone.
 
-import type { EntryState, Transport } from './transport';
+import type { EntryState, TextDoc, Transport } from './transport';
 
 export type Value = string | string[];
-export type CommandType = 'entry.create' | 'entry.set-name' | 'entry.set-parents';
+export type CommandType =
+  | 'entry.create'
+  | 'entry.set-name'
+  | 'entry.set-parents'
+  | 'description.set-text'
+  | 'note.add'
+  | 'note.set-text';
 export type CommandState = 'waiting' | 'sending' | 'synced' | 'conflict' | 'attention';
 
 /** What a create makes besides its name. */
@@ -27,6 +33,11 @@ export interface Command {
   state: CommandState;
   /** A create's kinds and parents. */
   args?: CreateArgs;
+  /**
+   * For a description or a note: the information it is about. For a description that is not
+   * there yet, and for a new note, an id the client made (ADR 0222).
+   */
+  textId?: string;
   /** What the server has now, when that is a conflict. */
   theirs?: Value;
   /** What the server said, when the command needs attention. */
@@ -36,8 +47,8 @@ export interface Command {
 interface Definition {
   /** The field in a person's words, for messages. */
   label: string;
-  read(entry: EntryState): Value;
-  apply(entry: EntryState, value: Value): EntryState;
+  read(entry: EntryState, c: Command): Value;
+  apply(entry: EntryState, value: Value, c: Command): EntryState;
   send(transport: Transport, entry: EntryState, value: Value): Promise<EntryState>;
 }
 
@@ -50,7 +61,58 @@ export function sameValue(a: Value, b: Value): boolean {
   return x.length === y.length && x.every((v, i) => v === y[i]);
 }
 
+const sent = (): Promise<EntryState> => Promise.reject(new Error('This is sent by the runner.'));
+
+/** The text of a piece of information on the entry, or '' when it is not there. */
+export function docOf(entry: EntryState, c: Command): TextDoc | undefined {
+  return c.type === 'description.set-text'
+    ? (entry.description ?? undefined)
+    : entry.notes.find((n) => n.id === c.textId);
+}
+
+const withText = (doc: TextDoc | undefined, c: Command, text: string, title: string): TextDoc => ({
+  id: doc?.id ?? (c.textId as string),
+  payloadId: doc?.payloadId ?? '',
+  title: doc?.title ?? title,
+  text,
+  version: doc?.version ?? null,
+});
+
+const descriptionDef: Definition = {
+  label: 'description',
+  read: (entry) => entry.description?.text ?? '',
+  apply: (entry, value, c) => ({
+    ...entry,
+    description: withText(entry.description ?? undefined, c, value as string, 'Description'),
+  }),
+  send: sent,
+};
+const noteAddDef: Definition = {
+  label: 'note',
+  read: (entry, c) => entry.notes.find((n) => n.id === c.textId)?.text ?? '',
+  apply: (entry, value, c) =>
+    entry.notes.some((n) => n.id === c.textId)
+      ? {
+          ...entry,
+          notes: entry.notes.map((n) => (n.id === c.textId ? { ...n, text: value as string } : n)),
+        }
+      : { ...entry, notes: [...entry.notes, withText(undefined, c, value as string, 'Note')] },
+  send: sent,
+};
+const noteSetDef: Definition = {
+  label: 'note',
+  read: (entry, c) => entry.notes.find((n) => n.id === c.textId)?.text ?? '',
+  apply: (entry, value, c) => ({
+    ...entry,
+    notes: entry.notes.map((n) => (n.id === c.textId ? { ...n, text: value as string } : n)),
+  }),
+  send: sent,
+};
+
 export const REGISTRY: Record<CommandType, Definition> = {
+  'description.set-text': descriptionDef,
+  'note.add': noteAddDef,
+  'note.set-text': noteSetDef,
   // A create is sent by the runner itself, which has the whole command; this is how it shows.
   'entry.create': {
     label: 'name',
@@ -81,13 +143,24 @@ export function compare(base: Value, mine: Value, theirs: Value): Verdict {
   return 'conflict';
 }
 
-/** The command that puts back what this one changed (a create has none: an entry is not deleted here). */
-export function inverseOf(c: Command): Pick<Command, 'type' | 'entryId' | 'base' | 'mine'> | null {
-  if (c.type === 'entry.create') return null;
-  return { type: c.type, entryId: c.entryId, base: c.mine, mine: c.base };
+/** The command that puts back what this one changed (a create has none: nothing is deleted here). */
+export function inverseOf(
+  c: Command,
+): Pick<Command, 'type' | 'entryId' | 'base' | 'mine' | 'textId'> | null {
+  if (c.type === 'entry.create' || c.type === 'note.add') return null;
+  return { type: c.type, entryId: c.entryId, base: c.mine, mine: c.base, textId: c.textId };
 }
 
-/** Every entry this command needs to exist before it can be sent: its own, and its parents'. */
+/** The id this command makes, when it makes one: an entry, or a note. */
+export function makesId(c: Command): string | undefined {
+  if (c.type === 'entry.create') return c.entryId;
+  if (c.type === 'note.add') return c.textId;
+  return undefined;
+}
+
+/** Every id this command needs to exist before it can be sent: its entry, its parents, its note. */
 export function usedIds(c: Command): string[] {
-  return [c.entryId, ...(Array.isArray(c.mine) ? c.mine : []), ...(c.args?.parents ?? [])];
+  const ids = [c.entryId, ...(Array.isArray(c.mine) ? c.mine : []), ...(c.args?.parents ?? [])];
+  if (c.type === 'note.set-text' && c.textId) ids.push(c.textId);
+  return ids;
 }

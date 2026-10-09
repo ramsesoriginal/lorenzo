@@ -40,6 +40,40 @@ const entry = {
   kinds: ['item'],
   prototypes: [{ id: P, name: 'Beast' }],
   children: [{ id: T, name: 'Pup' }],
+  information: [
+    {
+      id: 'i1',
+      type: 'description',
+      title: 'Description',
+      payloads: [
+        {
+          id: 'p1',
+          kind: 'description',
+          content: 'Hunts in packs.',
+          updated_at: '2026-10-09T10:00:00Z',
+        },
+      ],
+    },
+    {
+      id: 'i2',
+      type: 'note',
+      title: 'Note',
+      payloads: [
+        {
+          id: 'p2',
+          kind: 'description',
+          content: 'A ranger note.',
+          updated_at: '2026-10-09T11:00:00Z',
+        },
+      ],
+    },
+    {
+      id: 'i3',
+      type: 'rumor',
+      title: 'Rumor',
+      payloads: [{ id: 'p3', kind: 'description', content: 'ignored', updated_at: 'x' }],
+    },
+  ],
 };
 
 describe('apiTransport', () => {
@@ -67,6 +101,22 @@ describe('apiTransport', () => {
       kinds: ['item'],
       parentIds: [P],
       childIds: [T],
+      description: {
+        id: 'i1',
+        payloadId: 'p1',
+        title: 'Description',
+        text: 'Hunts in packs.',
+        version: 'W/"2026-10-09T10:00:00Z"',
+      },
+      notes: [
+        {
+          id: 'i2',
+          payloadId: 'p2',
+          title: 'Note',
+          text: 'A ranger note.',
+          version: 'W/"2026-10-09T11:00:00Z"',
+        },
+      ],
       etag: '"abc"',
     });
     expect(calls[0].url).toBe(`/tenants/${T}/entities/${E}`);
@@ -133,6 +183,39 @@ describe('apiTransport', () => {
       ifMatch: null,
       body: { parent_ids: [P, T] },
     });
+  });
+
+  it('makes a description or a note under the id the client made, restricted by default', async () => {
+    const { transport, calls } = setup(() => json({}, { status: 201 }));
+    await transport.createText(E, { id: P, type: 'note', title: 'Note', text: 'Hello' });
+    expect(calls[0]).toMatchObject({
+      method: 'POST',
+      url: `/tenants/${T}/entities/${E}/information`,
+      body: { id: P, type: 'note', title: 'Note', is_public: false, content: 'Hello' },
+    });
+  });
+
+  it("writes the text of a payload with the payload's own If-Match", async () => {
+    const { transport, calls } = setup(() => json({}));
+    await transport.setText('p1', 'New', 'W/"2026-10-09T10:00:00Z"');
+    expect(calls[0]).toMatchObject({
+      method: 'PATCH',
+      url: `/tenants/${T}/payloads/p1`,
+      ifMatch: 'W/"2026-10-09T10:00:00Z"',
+      body: { content: 'New' },
+    });
+  });
+
+  it('a stale text version is a precondition failure', async () => {
+    const { transport } = setup(() => json({ detail: 'Stale.' }, { status: 412 }));
+    await expect(transport.setText('p1', 'x', 'W/"old"')).rejects.toMatchObject({
+      precondition: true,
+    });
+  });
+
+  it('a bug is not a lost connection', async () => {
+    const { transport } = setup(() => json({ nonsense: true }));
+    await expect(transport.getEntry(E)).rejects.toBeInstanceOf(TypeError);
   });
 
   it('a stale If-Match is a precondition failure; another refusal is not', async () => {

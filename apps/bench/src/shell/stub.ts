@@ -6,7 +6,14 @@ import type { SampleEntry } from '../core/sample';
 export const SAMPLE_ENTRIES: SampleEntry[] = [
   { id: 'monster', name: 'Monster', kinds: ['item'], parents: [] },
   { id: 'beast', name: 'Beast', kinds: ['item'], parents: ['monster'] },
-  { id: 'wolf', name: 'Wolf', kinds: ['item'], parents: ['beast'] },
+  {
+    id: 'wolf',
+    name: 'Wolf',
+    kinds: ['item'],
+    parents: ['beast'],
+    description: 'Hunts in **packs**.',
+    notes: [{ id: 'wolf-note', text: 'Pairs well with a ranger.' }],
+  },
   { id: 'dire-wolf', name: 'Dire wolf', kinds: ['item'], parents: ['wolf'] },
   { id: 'undead', name: 'Undead', kinds: ['item'], parents: ['monster'] },
   { id: 'zombie', name: 'Zombie', kinds: ['item'], parents: ['undead'] },

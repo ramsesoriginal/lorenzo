@@ -8,6 +8,7 @@ type SampleWindow = {
     offline: boolean;
     writes: { id: string; field: string; value: unknown }[];
     renameElsewhere(id: string, name: string): void;
+    editTextElsewhere(id: string, which: string, text: string): void;
   };
 };
 
@@ -246,4 +247,123 @@ test('a new entry that was sent cannot be undone here', async ({ page }) => {
   await make(page, 'Kept', 'Item', 'No parent');
   await expect(status(page)).toHaveText('Synced');
   await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+});
+
+// --- description and notes -------------------------------------------------------------------
+
+const description = (page: Page) => page.getByLabel('Description', { exact: true });
+const blur = async (page: Page) => page.locator('.pane-entry h2', { hasText: 'Notes' }).click();
+
+test('the description is shown as it reads, and edited with a preview that follows the typing', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await expect(description(page)).toHaveValue('Hunts in **packs**.');
+  await expect(page.getByLabel('Description, as it reads').locator('strong')).toHaveText('packs');
+  await description(page).fill('Hunts in *pairs*.');
+  // before it is written down, the preview already shows it
+  await expect(page.getByLabel('Description, as it reads').locator('em')).toHaveText('pairs');
+  expect(await writes(page)).toEqual([]);
+  await blur(page);
+  await expect(status(page)).toHaveText('Synced');
+  expect(await writes(page)).toEqual([
+    { id: 'wolf-description', field: 'description', value: 'Hunts in *pairs*.' },
+  ]);
+});
+
+test('an entry with no description gets one when text is written', async ({ page }) => {
+  await page.locator('[data-entry="beast"]').click();
+  await expect(description(page)).toHaveValue('');
+  await description(page).fill('Natural creatures.');
+  await blur(page);
+  await expect(status(page)).toHaveText('Synced');
+  await page.locator('[data-entry="wolf"]').click();
+  await page.locator('[data-entry="beast"]').click();
+  await expect(description(page)).toHaveValue('Natural creatures.');
+});
+
+test('with no connection a description is saved here, and sent when it is back', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await palette(page, 'lose the connection');
+  await description(page).fill('Offline text.');
+  await blur(page);
+  await expect(status(page)).toHaveText('Saved on this device');
+  await palette(page, 'get the connection back');
+  await expect(status(page)).toHaveText('Synced');
+  expect((await writes(page)).map((w) => w.value)).toEqual(['Offline text.']);
+});
+
+test('a description changed elsewhere is a conflict', async ({ page }) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await palette(page, 'lose the connection');
+  await description(page).fill('Mine.');
+  await blur(page);
+  await page.evaluate(() =>
+    (window as unknown as SampleWindow).sample.editTextElsewhere('wolf', 'description', 'Theirs.'),
+  );
+  await palette(page, 'get the connection back');
+  await expect(status(page)).toHaveText('Conflict');
+  await expect(page.getByRole('alert')).toContainText('Theirs.');
+  await page.getByRole('button', { name: 'Keep mine' }).click();
+  await expect(status(page)).toHaveText('Synced');
+  await expect(description(page)).toHaveValue('Mine.');
+});
+
+test('notes are listed, added, and edited', async ({ page }) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await expect(page.getByLabel('Note: Note', { exact: true })).toHaveValue(
+    'Pairs well with a ranger.',
+  );
+  await page.getByLabel('A new note').fill('Check the den.');
+  await page.getByRole('button', { name: 'Add note' }).click();
+  await expect(page.getByLabel('Note: Note', { exact: true })).toHaveCount(2);
+  await expect(status(page)).toHaveText('Synced');
+  await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Check the east den.');
+  await blur(page);
+  await expect(status(page)).toHaveText('Synced');
+  expect((await writes(page)).map((w) => [w.field, w.value])).toEqual([
+    ['note.add', 'Check the den.'],
+    ['note.text', 'Check the east den.'],
+  ]);
+});
+
+test('a note added with no connection can be edited, then both are sent in order', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await palette(page, 'lose the connection');
+  await page.getByLabel('A new note').fill('Draft.');
+  await page.getByRole('button', { name: 'Add note' }).click();
+  await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Final.');
+  await blur(page);
+  await palette(page, 'get the connection back');
+  await expect(status(page)).toHaveText('Synced');
+  expect((await writes(page)).map((w) => [w.field, w.value])).toEqual([
+    ['note.add', 'Draft.'],
+    ['note.text', 'Final.'],
+  ]);
+});
+
+test('what is typed in a description survives another change arriving', async ({ page }) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await description(page).focus();
+  await description(page).fill('Half a sentence');
+  await page.evaluate(() => {
+    const b = (
+      window as unknown as {
+        bench: {
+          bench: {
+            change(t: string, id: string, v: unknown): void;
+            open(id: string): Promise<void>;
+          };
+        };
+      }
+    ).bench.bench;
+    return b.open('zombie').then(() => b.change('entry.set-name', 'zombie', 'Walker'));
+  });
+  await expect(page.locator('[data-entry="zombie"]')).toHaveText('Walker');
+  await expect(description(page)).toHaveValue('Half a sentence');
+  await expect(description(page)).toBeFocused();
 });

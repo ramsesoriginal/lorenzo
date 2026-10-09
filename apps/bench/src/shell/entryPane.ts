@@ -1,6 +1,7 @@
 // The entry pane and the parents pane: what a person sees and edits of one entry, every change
 // going through the command layer (core/bench.ts).
 
+import { parse, render } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
 import { canRename, canSetParents } from '../core/transport';
@@ -93,7 +94,79 @@ export function renderEntry(
     el('h2', undefined, 'Parents'),
     parentsEditor(bench, id, item.parentIds, canSetParents(item.kinds), go),
   );
+
+  c.append(
+    el('h2', undefined, 'Description'),
+    textEditor({
+      key: `description:${id}`,
+      label: 'Description',
+      text: item.description?.text ?? '',
+      onChange: (text) => bench.setDescription(id, text),
+    }),
+  );
+
+  c.append(el('h2', undefined, 'Notes'));
+  for (const note of item.notes)
+    c.append(
+      textEditor({
+        key: `note:${note.id}`,
+        label: `Note: ${note.title}`,
+        text: note.text,
+        onChange: (text) => bench.setNoteText(id, note.id, text),
+      }),
+    );
+  c.append(newNote(bench, id));
   return c;
+}
+
+/** LorenzoScript as the reader sees it, without links to other entries resolved yet. */
+const preview = (text: string): string => render(parse(text), {});
+
+/**
+ * A text and its preview. The preview follows what is typed; the change is written down, as a
+ * command, when the field loses focus (so a half-typed sentence is never sent).
+ */
+function textEditor(o: {
+  key: string;
+  label: string;
+  text: string;
+  onChange: (text: string) => void;
+}): HTMLElement {
+  const wrap = el('div', 'text-editor');
+  const area = el('textarea', 'text-edit');
+  area.value = o.text;
+  area.rows = 4;
+  area.dataset.key = o.key;
+  area.setAttribute('aria-label', o.label);
+  const shown = el('div', 'ls-content text-preview');
+  shown.setAttribute('aria-label', `${o.label}, as it reads`);
+  shown.innerHTML = preview(o.text);
+  area.addEventListener('input', () => {
+    shown.innerHTML = preview(area.value);
+  });
+  area.addEventListener('change', () => {
+    if (redraw.active) return;
+    o.onChange(area.value);
+  });
+  wrap.append(area, shown);
+  return wrap;
+}
+
+function newNote(bench: Bench, entryId: string): HTMLElement {
+  const form = el('form', 'new-note');
+  const area = el('textarea', 'text-edit');
+  area.rows = 2;
+  area.placeholder = 'A new note';
+  area.dataset.key = `new-note:${entryId}`;
+  area.setAttribute('aria-label', 'A new note');
+  const add = el('button', 'btn', 'Add note');
+  add.type = 'submit';
+  form.append(area, add);
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    if (bench.addNote(entryId, area.value)) area.value = '';
+  });
+  return form;
 }
 
 /** What an entry is, in words: its kinds, or a bare entry. */

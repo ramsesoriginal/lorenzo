@@ -8,7 +8,9 @@ import {
   type CommandType,
   type CreateArgs,
   compare,
+  docOf,
   inverseOf,
+  makesId,
   REGISTRY,
   sameValue,
   usedIds,
@@ -99,12 +101,14 @@ export class Bench {
         kinds: create.args?.kinds ?? [],
         parentIds: create.args?.parents ?? [],
         childIds: [],
+        description: null,
+        notes: [],
         etag: null,
       };
     }
     return this.outbox
       .filter((c) => c.entryId === id)
-      .reduce((entry, c) => REGISTRY[c.type].apply(entry, c.mine), base);
+      .reduce((entry, c) => REGISTRY[c.type].apply(entry, c.mine, c), base);
   }
 
   /** Every entry, the server's and those not made yet, by name. */
@@ -169,37 +173,76 @@ export class Bench {
   }
 
   /** Writes a change down and starts sending. Nothing happens if it changes nothing. */
-  change(type: Exclude<CommandType, 'entry.create'>, entryId: string, mine: Value): Command | null {
+  change(
+    type: Exclude<CommandType, 'entry.create' | 'note.add'>,
+    entryId: string,
+    mine: Value,
+    textId?: string,
+  ): Command | null {
     const entry = this.view(entryId);
     if (!entry) return null;
-    const base = REGISTRY[type].read(entry);
-    if (sameValue(base, mine)) return null;
     const command: Command = {
       id: this.nextId++,
       type,
       version: 1,
       entryId,
-      base,
+      base: '',
       mine,
       state: 'waiting',
     };
+    if (type === 'description.set-text') {
+      // A description not there yet is made under an id of the client's own (ADR 0222).
+      command.textId = entry.description?.id ?? this.makeId();
+    } else if (type === 'note.set-text') {
+      if (!textId || !entry.notes.some((n) => n.id === textId)) return null;
+      command.textId = textId;
+    }
+    const base = REGISTRY[type].read(entry, command);
+    if (sameValue(base, mine)) return null;
+    command.base = base;
     this.outbox.push(command);
     this.emit();
     queueMicrotask(() => void this.run());
     return command;
   }
 
+  /** Changes the text of the entry's description, making the description if there is none. */
+  setDescription(entryId: string, text: string): Command | null {
+    return this.change('description.set-text', entryId, text);
+  }
+
+  /** Changes the text of one of the entry's notes. */
+  setNoteText(entryId: string, noteId: string, text: string): Command | null {
+    return this.change('note.set-text', entryId, text, noteId);
+  }
+
+  /** Adds a note to the entry, under an id of its own. It shows at once. */
+  addNote(entryId: string, text: string): string | null {
+    if (!this.view(entryId) || !text.trim()) return null;
+    const noteId = this.makeId();
+    this.outbox.push({
+      id: this.nextId++,
+      type: 'note.add',
+      version: 1,
+      entryId,
+      base: '',
+      mine: text,
+      state: 'waiting',
+      textId: noteId,
+    });
+    this.emit();
+    queueMicrotask(() => void this.run());
+    return noteId;
+  }
+
   /**
    * Takes a command that has not been sent out of the outbox. Cancelling a create takes with it
-   * everything that waits on the entry it would have made.
+   * everything that waits on what it would have made.
    */
   cancel(commandId: number) {
     const c = this.outbox.find((x) => x.id === commandId);
     if (!c || c.state === 'sending') return;
-    const gone =
-      c.type === 'entry.create'
-        ? this.outbox.filter((x) => x === c || usedIds(x).includes(c.entryId))
-        : [c];
+    const gone = this.withDependants(c);
     if (gone.some((x) => x.state === 'sending')) return;
     this.outbox = this.outbox.filter((x) => !gone.includes(x));
     this.emit();
@@ -217,9 +260,9 @@ export class Bench {
     if (this.commandsFor(entryId).length) return false;
     const last = [...this.history].reverse().find((c) => c.entryId === entryId);
     const inv = last && inverseOf(last);
-    if (!last || !inv || inv.type === 'entry.create') return false;
+    if (!last || !inv || inv.type === 'entry.create' || inv.type === 'note.add') return false;
     this.history.splice(this.history.indexOf(last), 1);
-    this.change(inv.type, inv.entryId, inv.mine);
+    this.change(inv.type, inv.entryId, inv.mine, inv.textId);
     return true;
   }
 
@@ -246,12 +289,15 @@ export class Bench {
     const c = this.outbox.find((x) => x.id === commandId);
     if (!c || c.state === 'sending' || c.state === 'waiting') return;
     // A create given up takes what waits on it with it.
-    const gone =
-      c.type === 'entry.create'
-        ? this.outbox.filter((x) => x === c || usedIds(x).includes(c.entryId))
-        : [c];
+    const gone = this.withDependants(c);
     this.outbox = this.outbox.filter((x) => !gone.includes(x));
     this.emit();
+  }
+
+  /** The command, and, if it makes an id, every command that waits on that id. */
+  private withDependants(c: Command): Command[] {
+    const made = makesId(c);
+    return made ? this.outbox.filter((x) => x === c || usedIds(x).includes(made)) : [c];
   }
 
   retry(commandId: number) {
@@ -303,7 +349,10 @@ export class Bench {
         (p) => p.entryId === c.entryId && (p.state === 'conflict' || p.state === 'attention'),
       );
       const needs = usedIds(c);
-      const unmade = before.some((p) => p.type === 'entry.create' && needs.includes(p.entryId));
+      const unmade = before.some((p) => {
+        const made = makesId(p);
+        return made !== undefined && needs.includes(made);
+      });
       return !stuck && !unmade;
     });
   }
@@ -314,6 +363,7 @@ export class Bench {
     this.emit();
     try {
       if (c.type === 'entry.create') await this.sendCreate(c);
+      else if (c.type === 'note.add') await this.sendNote(c);
       else await this.sendChange(c);
       return false;
     } catch (e) {
@@ -349,20 +399,60 @@ export class Bench {
     this.finish(c);
   }
 
+  private async sendNote(c: Command) {
+    await this.transport.createText(c.entryId, {
+      id: c.textId as string,
+      type: 'note',
+      title: 'Note',
+      text: c.mine as string,
+    });
+    this.mirror.set(c.entryId, await this.transport.getEntry(c.entryId));
+    this.finish(c);
+  }
+
+  /** What the server has for the field this command changes: a text, or a name or parents. */
+  private theirsOf(c: Command, server: EntryState): Value {
+    if (c.type === 'description.set-text' || c.type === 'note.set-text')
+      return docOf(server, c)?.text ?? '';
+    return REGISTRY[c.type].read(server, c);
+  }
+
+  /** Sends a change of text: the three-way compare, then a write of the payload or a create. */
+  private async writeText(c: Command, server: EntryState): Promise<void> {
+    const doc = docOf(server, c);
+    if (doc) {
+      await this.transport.setText(doc.payloadId, c.mine as string, doc.version);
+    } else if (c.type === 'description.set-text') {
+      await this.transport.createText(c.entryId, {
+        id: c.textId as string,
+        type: 'description',
+        title: 'Description',
+        text: c.mine as string,
+      });
+    } else {
+      throw new RefusedError('That note is no longer there.');
+    }
+    this.mirror.set(c.entryId, await this.transport.getEntry(c.entryId));
+  }
+
   private async sendChange(c: Command) {
     const def = REGISTRY[c.type];
+    const isText = c.type === 'description.set-text' || c.type === 'note.set-text';
     for (let attempt = 0; attempt < 2; attempt++) {
       const server = await this.transport.getEntry(c.entryId);
       this.mirror.set(c.entryId, server);
-      const verdict = compare(c.base, c.mine, def.read(server));
+      if (c.type === 'note.set-text' && !docOf(server, c))
+        throw new RefusedError('That note is no longer there.');
+      const verdict = compare(c.base, c.mine, this.theirsOf(c, server));
       if (verdict === 'conflict') {
         c.state = 'conflict';
-        c.theirs = def.read(server);
+        c.theirs = this.theirsOf(c, server);
         return;
       }
       if (verdict === 'send') {
         try {
-          this.mirror.set(c.entryId, await def.send(this.transport, server, c.mine));
+          if (isText) await this.writeText(c, server);
+          else this.mirror.set(c.entryId, await def.send(this.transport, server, c.mine));
         } catch (e) {
           // The entry changed between the read and the write: read it again once.
           if (e instanceof RefusedError && e.precondition && attempt === 0) continue;
