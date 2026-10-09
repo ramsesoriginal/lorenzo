@@ -423,6 +423,7 @@ class EntityListOut(BaseModel):
     name: str = Field(..., title="Name")
     quantity: int | None = Field(None, title="Quantity")
     kinds: list[Kind8] = Field(..., title="Kinds")
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
 
 
 class EntityParentsRequest(BaseModel):
