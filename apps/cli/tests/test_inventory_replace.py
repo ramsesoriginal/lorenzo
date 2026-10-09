@@ -26,17 +26,28 @@ BRISK_TWIN = uuid.UUID(int=22)
 
 
 def thing(
-    n: int, title: str, *, container: uuid.UUID | None = None, quantity: int | None = None
+    n: int,
+    title: str,
+    *,
+    container: uuid.UUID | None = None,
+    quantity: int | None = None,
+    owner: uuid.UUID = BRISK,
+    holds: bool | None = None,
 ) -> dict[str, Any]:
     made = item(uuid.UUID(int=1000 + n), title)
     made.update(
-        owner_entity_id=str(BRISK),
+        owner_entity_id=str(owner),
         container_entity_id=None if container is None else str(container),
         quantity=quantity,
         slug=None,
         bound=False,
+        is_container=holds,
     )
     return made
+
+
+def id_of(n: int) -> uuid.UUID:
+    return uuid.UUID(int=1000 + n)
 
 
 class Table(World):
@@ -49,8 +60,12 @@ class Table(World):
         owns: list[dict[str, Any]] | None = None,
         undeletable: set[uuid.UUID] | None = None,
         twins: bool = False,
+        strangers: dict[uuid.UUID, list[dict[str, Any]]] | None = None,
+        container_names: dict[uuid.UUID, str] | None = None,
     ) -> None:
         super().__init__()
+        self.strangers = strangers or {}  # what others own, in a container of the being's
+        self.container_names = container_names or {}
         self.gm = gm
         self.owns = owns or []
         self.undeletable = undeletable or set()
@@ -75,8 +90,29 @@ class Table(World):
             return httpx.Response(200, json=page(rows))
         if path.startswith(f"{BASE}/item-instances/owned-by/"):
             self.seen.append(request)
-            group = {"container": None, "item_instances": self.owns}
-            return httpx.Response(200, json={"groups": [group] if self.owns else []})
+            groups: dict[str | None, list[dict[str, Any]]] = {}
+            for row in self.owns:
+                holder = row["container_entity_id"]
+                groups.setdefault(None if holder in (None, str(BRISK)) else holder, []).append(row)
+            out = [
+                {
+                    "container": None
+                    if holder is None
+                    else {
+                        "id": holder,
+                        "name": self.container_names.get(uuid.UUID(holder), "a container"),
+                    },
+                    "item_instances": rows,
+                }
+                for holder, rows in groups.items()
+            ]
+            return httpx.Response(200, json={"groups": out})
+        if path == f"{BASE}/item-instances" and method == "GET":
+            self.seen.append(request)
+            wanted = request.url.params.get("container_id")
+            inside = [r for r in self.owns if r["container_entity_id"] == wanted]
+            others = self.strangers.get(uuid.UUID(wanted), []) if wanted else []
+            return httpx.Response(200, json=page([*inside, *others]))
         if path.startswith(f"{BASE}/item-instances/") and method == "DELETE":
             self.seen.append(request)
             target = uuid.UUID(path.rsplit("/", 1)[1])
@@ -411,3 +447,111 @@ def test_deletion_order_survives_a_loop() -> None:
 
 
 _ = (ROPE, TORCH)  # the base world's catalog, matched by title
+
+
+# --- what is left alone -------------------------------------------------------------------------
+
+ALICE = ASHFANG  # someone else's character, owning what sits in the being's things
+FRIENDS_CHEST = uuid.UUID(int=9001)
+
+
+def deleted_ids(world: Table) -> set[uuid.UUID]:
+    return {uuid.UUID(r.url.path.rsplit("/", 1)[1]) for r in world.seen if r.method == "DELETE"}
+
+
+def test_a_container_holding_someone_elses_thing_is_kept_with_what_is_around_it(
+    tmp_path: Path,
+) -> None:
+    chest, bag = id_of(1), id_of(2)
+    world = Table(
+        owns=[
+            thing(1, "Chest", holds=True),
+            thing(2, "Bag", container=chest, holds=True),
+            thing(3, "Rope", container=bag),
+            thing(4, "Coin"),
+        ],
+        strangers={bag: [thing(50, "Alice's potion", container=bag, owner=ALICE)]},
+    )
+
+    done = run(
+        world, tmp_path, str(ledger(tmp_path, "- Torch")), "-t", "table-one", "--owner", "Brisk",
+        "--replace", "--yes",
+    )  # fmt: skip
+
+    text = plain(done.output)
+    assert done.exit_code == 0, done.output
+    assert deleted_ids(world) == {
+        id_of(3),
+        id_of(4),
+    }  # the rope in the bag goes; bag and chest stay
+    assert {t["title"] for t in world.owns} == {"Chest", "Bag"}
+    assert "2 left alone" in text and "Bag: holds Alice's potion, which isn't theirs" in text
+    assert "Chest: holds something that stays" in text
+    assert "Deleted 2, made 1" in text
+
+
+def test_a_thing_of_the_beings_in_someone_elses_container_is_kept_with_what_is_in_it(
+    tmp_path: Path,
+) -> None:
+    pouch = id_of(2)
+    world = Table(
+        owns=[
+            thing(1, "Sword", container=FRIENDS_CHEST),
+            thing(2, "Pouch", container=FRIENDS_CHEST, holds=True),
+            thing(3, "Coin", container=pouch),
+            thing(4, "Loose rope"),
+        ],
+        container_names={FRIENDS_CHEST: "Alice's chest"},
+    )
+
+    done = run(
+        world, tmp_path, str(ledger(tmp_path, "- Torch")), "-t", "table-one", "--owner", "Brisk",
+        "--replace", "--yes",
+    )  # fmt: skip
+
+    text = plain(done.output)
+    assert done.exit_code == 0, done.output
+    assert deleted_ids(world) == {id_of(4)}  # only what is wholly the being's own
+    assert text.count("is in Alice's chest, which isn't theirs") == 3  # sword, pouch, coin
+    assert "3 left alone" in text
+
+
+def test_a_dry_run_names_what_it_would_leave_alone_and_deletes_nothing(tmp_path: Path) -> None:
+    world = Table(
+        owns=[thing(1, "Sword", container=FRIENDS_CHEST), thing(2, "Coin")],
+        container_names={FRIENDS_CHEST: "Alice's chest"},
+    )
+
+    done = run(
+        world, tmp_path, str(ledger(tmp_path, "- Torch")), "-t", "table-one", "--owner", "Brisk",
+        "--replace", "--dry-run",
+    )  # fmt: skip
+
+    text = plain(done.output)
+    assert done.exit_code == 0 and "1 to delete first" in text
+    assert "Sword: is in Alice's chest, which isn't theirs" in text
+    assert world.verbs() == []
+
+
+def test_split_keeps_everything_around_a_kept_container_and_survives_a_loop() -> None:
+    from lorenzo_cli.inventory.plan import split_replacement
+
+    box, bag = id_of(1), id_of(2)
+    things = [
+        as_out(thing(1, "Box", holds=True)),
+        as_out(thing(2, "Bag", container=box, holds=True)),
+        as_out(thing(3, "Loose")),
+    ]
+    doomed, kept = split_replacement(BRISK, things, {}, {bag: ["Potion"]})
+
+    assert [d.name for d in doomed] == ["Loose"]
+    assert [(k.name, k.why) for k in kept] == [
+        ("Bag", "holds Potion, which isn't theirs"),
+        ("Box", "holds something that stays"),
+    ]
+    loop = [
+        as_out(thing(1, "A", container=id_of(2), holds=True)),
+        as_out(thing(2, "B", container=id_of(1), holds=True)),
+    ]
+    doomed, kept = split_replacement(BRISK, loop, {}, {id_of(1): ["Potion"]})
+    assert doomed == [] and {k.name for k in kept} == {"A", "B"}

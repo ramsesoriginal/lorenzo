@@ -2081,6 +2081,16 @@ def _inventory_summary(plan: Plan) -> None:
             highlight=False,
             style="bold" if plan.deleting else None,
         )
+        if plan.keeping:
+            _out.print(
+                f"  {len(plan.keeping)} left alone, since they are tied up with what is someone "
+                "else's:",
+                highlight=False,
+            )
+            for kept in plan.keeping[:25]:
+                _out.print(f"    {kept.name}: {kept.why}", highlight=False)
+            if len(plan.keeping) > 25:
+                _out.print(f"    … and {len(plan.keeping) - 25} more", highlight=False)
 
 
 def _inventory_tree(plan: Plan) -> Tree:

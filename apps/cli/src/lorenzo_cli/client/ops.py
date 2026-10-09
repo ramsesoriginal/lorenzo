@@ -39,6 +39,7 @@ from lorenzo_cli.client.models import (
     PageBeingSummaryOut,
     PageCharacterSummaryOut,
     PageInformationOut,
+    PageItemInstanceOut,
     PageItemOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
@@ -213,6 +214,9 @@ ADD_INFORMATION_KNOWER: Op[InformationOut] = Op(
     f"{_TENANT}/information/{{information_id}}/knowers/{{knower_entity_id}}",
     response_type=InformationOut,
 )
+LIST_ITEM_INSTANCES: Op[PageItemInstanceOut] = Op(
+    "list_item_instances", "GET", f"{_TENANT}/item-instances", response_type=PageItemInstanceOut
+)
 LIST_ITEM_INSTANCES_OWNED_BY: Op[OwnedByResponse] = Op(
     "list_item_instances_owned_by",
     "GET",
@@ -333,6 +337,7 @@ ALL_OPS: tuple[Op[Any], ...] = (
     CREATE_ITEM_INSTANCE,
     LIST_ENTITY_INFORMATION,
     ADD_INFORMATION_KNOWER,
+    LIST_ITEM_INSTANCES,
     LIST_ITEM_INSTANCES_OWNED_BY,
     DELETE_ITEM_INSTANCE,
     SET_ITEM_INSTANCE_CONTAINER,
