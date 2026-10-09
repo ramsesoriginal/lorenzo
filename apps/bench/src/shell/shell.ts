@@ -88,6 +88,8 @@ export class Shell {
     label: string;
   } = null;
   private palette: HTMLElement | null = null;
+  /** Commands the page adds to the palette, such as switching repository. */
+  extra: { label: string; run: () => void }[] = [];
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -586,7 +588,7 @@ export class Shell {
     c.push({ label: 'Reset layout', run: () => this.reset() });
     for (const t of ['system', 'light', 'dark'])
       c.push({ label: `Appearance: ${t}`, run: () => this.setTheme(t) });
-    return c;
+    return c.concat(this.extra);
   }
 
   openPalette() {

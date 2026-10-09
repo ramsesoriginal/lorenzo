@@ -23,16 +23,37 @@ import '../styles/bench.css';
     <title>Lorenzo Bench</title>
   </head>
   <body>
-    <header class="top">
+    <header class="top" id="titlebar">
       <strong>Lorenzo Bench</strong>
-      <span class="hint">Ctrl+K for commands. Drag a tab to dock, split or float it.</span>
     </header>
     <main id="bench"></main>
     <script>
+      import { loadSession, signOut } from '../shell/session';
       import { Shell } from '../shell/shell';
+      import { renderTitleBar } from '../shell/titlebar';
+
       const root = document.getElementById('bench');
-      if (root) {
-        (window as unknown as { bench: Shell }).bench = new Shell(root);
+      const bar = document.getElementById('titlebar');
+      if (root && bar) {
+        const shell = new Shell(root);
+        (window as unknown as { bench: Shell }).bench = shell;
+        const session = await loadSession();
+        renderTitleBar(bar, session, () => {});
+        if (session.kind === 'signed-in') {
+          shell.extra = [
+            ...session.repositories.map((r) => ({
+              label: `Open repository ${r.name}`,
+              run: () => {
+                const select = bar.querySelector('select');
+                if (select) {
+                  select.value = r.id;
+                  select.dispatchEvent(new Event('change'));
+                }
+              },
+            })),
+            { label: 'Sign out', run: () => void signOut() },
+          ];
+        }
       }
     </script>
   </body>

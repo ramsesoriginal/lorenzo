@@ -293,3 +293,40 @@ dd {
 .results li.on {
   background: var(--accent-soft);
 }
+
+.top .note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.top .note.bad {
+  color: var(--danger);
+}
+.top .who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.top .picker select {
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  border-radius: 0;
+}
+.top .btn {
+  font: inherit;
+  padding: 2px 10px;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  cursor: pointer;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

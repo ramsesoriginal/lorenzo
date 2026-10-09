@@ -214,6 +214,12 @@ importers:
 
   apps/bench:
     dependencies:
+      '@authgear/web':
+        specifier: ^6.0.0
+        version: 6.0.0
+      '@lorenzo/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand

@@ -5,6 +5,8 @@ import { defineConfig } from 'astro/config';
 // time, ever.
 export default defineConfig({
   output: 'static',
+  // The browser tests build a second copy with sign-in configured, beside the plain one.
+  outDir: process.env.BENCH_OUT_DIR || './dist',
   vite: {
     server: {
       // WSL2 on a /mnt/ drive doesn't deliver file-change events - poll instead.
