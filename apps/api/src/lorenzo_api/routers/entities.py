@@ -15,6 +15,7 @@ from lorenzo_api.campaign_access import (
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
+from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -41,6 +42,7 @@ from lorenzo_api.entity_kinds import (
 from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    ClientIdUnavailableError,
     EntityNotFoundError,
     EntitySlugConflictError,
     EntitySlugManagementForbiddenError,
@@ -229,7 +231,24 @@ async def create_entity(
     taken, `422` for a parent that is not an entry of the library. An inventory item and a
     character are not made here: an inventory item is made from a catalog item, a being becomes a
     character through `PUT /characters/{id}`.
+
+    A body with an `id` makes the entry under that id (ADR 0222): if the library already has an
+    entry with it, the create was already done, and that entry is returned with `200` and nothing
+    is written; an id that is taken by something the caller cannot see is a generic `409`.
     """
+    if (
+        body.id is not None
+        and (await existing_in_tenant(session, Entity, body.id, tenant_id)) is not None
+    ):
+        out = await entity_detail_out(
+            session, request, tenant_id=tenant_id, entity_id=body.id, user=user
+        )
+        response.status_code = 200
+        response.headers["Location"] = str(
+            request.url_for("get_entity", tenant_id=tenant_id, entity_id=body.id)
+        )
+        response.headers["ETag"] = etag_for(out.updated_at)
+        return out
     kinds = sorted(set(body.kinds))
     entity = await create_entry(
         session,
@@ -240,6 +259,7 @@ async def create_entity(
         kinds=kinds,
         parents=body.parents,
         in_public_catalog=bool(body.in_public_catalog),
+        entity_id=body.id,
     )
     await record_activity(
         session,
@@ -933,6 +953,21 @@ async def create_information(
 
     await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
+    if body.id is not None:
+        # An id the client chose (ADR 0222): already made on this entry means the create was
+        # done; the same id on another entry, or one the caller cannot see, is a generic 409.
+        known = await existing_in_tenant(session, Information, body.id, tenant_id)
+        if known is not None:
+            if known.entity_id != entity_id:
+                raise ClientIdUnavailableError(detail="That id is not available.")
+            response.status_code = 200
+            response.headers["Location"] = str(
+                request.url_for("get_information", tenant_id=tenant_id, information_id=body.id)
+            )
+            return await information_out_or_404(
+                tenant_id, body.id, request, session, user=user, require_visible=False
+            )
+
     await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
     await require_singleton_type_free(
         session, entity_id=entity_id, tenant_id=tenant_id, type_=body.type
@@ -956,8 +991,12 @@ async def create_information(
     # read back from the INSERT's RETURNING.
     if body.order is not None:
         information.order = body.order
-    session.add(information)
-    await session.flush()
+    if body.id is None:
+        session.add(information)
+        await session.flush()
+    else:
+        information.id = body.id
+        await insert_with_client_id(session, information)
     payload = Payload(tenant_id=tenant_id, information_id=information.id)
     await write_description(session, payload=payload, content=body.content, locale=body.locale)
     # Entity and visibility tier only - never the title, type, or content,

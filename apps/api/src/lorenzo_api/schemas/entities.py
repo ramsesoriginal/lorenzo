@@ -44,6 +44,7 @@ class EntityCreate(BaseModel):
     entry, which is what a group is. `in_public_catalog` is only for an `item`.
     """
 
+    id: uuid.UUID | None = None
     name: str
     slug: Slug | None = None
     kinds: list[Literal["item", "being"]] = []
@@ -113,6 +114,7 @@ class InformationCreate(BaseModel):
     information; omitted, the server appends it after the last one.
     """
 
+    id: uuid.UUID | None = None
     title: str
     type: str
     is_public: bool = False

@@ -16,6 +16,7 @@ from typing import Any, Literal
 from sqlalchemy import delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.client_ids import insert_with_client_id
 from lorenzo_api.exceptions import (
     EntityKindInUseError,
     EntitySlugConflictError,
@@ -66,6 +67,7 @@ async def create_entry(
     kinds: Collection[Kind],
     parents: Collection[uuid.UUID],
     in_public_catalog: bool,
+    entity_id: uuid.UUID | None = None,
 ) -> Entity:
     """The entry, its link name, its marker rows and its parent edges, flushed in the caller's
     transaction. A taken link name is a 409 and a parent that is not an entry of the tenant a
@@ -95,8 +97,13 @@ async def create_entry(
                 )
             )
     entity = Entity(tenant_id=tenant_id, name=name, created_by=user_id, updated_by=user_id)
-    session.add(entity)
-    await session.flush()
+    if entity_id is None:
+        session.add(entity)
+        await session.flush()
+    else:
+        # The client made the id (ADR 0222): a clash on it is the generic 409.
+        entity.id = entity_id
+        await insert_with_client_id(session, entity)
     if slug is not None:
         session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=slug))
     if "item" in kinds:

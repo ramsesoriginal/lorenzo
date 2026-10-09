@@ -397,6 +397,7 @@ class Kind7(StrEnum):
 
 
 class EntityCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
     name: str = Field(..., title="Name")
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"
@@ -508,6 +509,7 @@ class GroupUpdate(BaseModel):
 
 
 class InformationCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
     title: str = Field(..., title="Title")
     type: str = Field(..., title="Type")
     is_public: bool | None = Field(False, title="Is Public")
@@ -529,6 +531,7 @@ class InviteRole(StrEnum):
 
 
 class ItemCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
     name: str = Field(..., title="Name")
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
     in_public_catalog: bool | None = Field(False, title="In Public Catalog")
