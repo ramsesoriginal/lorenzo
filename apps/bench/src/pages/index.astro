@@ -1,4 +1,5 @@
 ---
+import '../styles/bench.css';
 ---
 
 <html lang="en">
@@ -8,6 +9,17 @@
     <title>Lorenzo Bench</title>
   </head>
   <body>
-    <main id="bench">Bench</main>
+    <header class="top">
+      <strong>Lorenzo Bench</strong>
+      <span class="hint">Ctrl+K for commands. Drag a tab to dock, split or float it.</span>
+    </header>
+    <main id="bench"></main>
+    <script>
+      import { Shell } from '../shell/shell';
+      const root = document.getElementById('bench');
+      if (root) {
+        (window as unknown as { bench: Shell }).bench = new Shell(root);
+      }
+    </script>
   </body>
 </html>
