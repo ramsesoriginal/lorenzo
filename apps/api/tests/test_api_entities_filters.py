@@ -102,7 +102,7 @@ async def test_the_list_stays_ordered_by_name_and_keeps_its_shape(
     body = response.json()
     assert [row["name"] for row in body["items"]] == ["Alpha", "Bravo"]
     assert body["total"] == 3
-    assert set(body["items"][0]) == {"id", "name", "quantity", "kinds"}
+    assert set(body["items"][0]) == {"id", "name", "quantity", "kinds", "parent_ids"}
     await delete_tenant(tenant_id)
 
 
@@ -349,4 +349,37 @@ async def test_the_catalog_a_player_reads_is_ordered_by_name_too(
 
     response = await client.get(f"/tenants/{tenant_id}/items", params={"size": 100})
     assert [row["title"] for row in response.json()["items"]] == ["Axe", "Mace", "Zither"]
+    await delete_tenant(tenant_id)
+
+
+async def test_rows_name_their_parents_so_the_tree_can_be_drawn_from_the_list(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await _tenant(test_user_id)
+    made = await _entries(tenant_id, ("Root", []), ("Left", []), ("Right", []), ("Both", ["item"]))
+    async with admin_session_factory() as session:
+        for child, parent in (
+            ("Left", "Root"),
+            ("Right", "Root"),
+            ("Both", "Left"),
+            ("Both", "Right"),
+        ):
+            session.add(
+                EntityPrototype(
+                    entity_id=made[child], prototype_id=made[parent], tenant_id=tenant_id
+                )
+            )
+        await session.commit()
+
+    rows = (await client.get(f"/tenants/{tenant_id}/entities")).json()["items"]
+    parents = {row["name"]: row["parent_ids"] for row in rows}
+    assert parents == {
+        "Root": [],
+        "Left": [str(made["Root"])],
+        "Right": [str(made["Root"])],
+        "Both": sorted([str(made["Left"]), str(made["Right"])]),
+    }
+    # A filtered list names them too.
+    child = (await client.get(f"/tenants/{tenant_id}/entities", params={"q": "left"})).json()
+    assert child["items"][0]["parent_ids"] == [str(made["Root"])]
     await delete_tenant(tenant_id)

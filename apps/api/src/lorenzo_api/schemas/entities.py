@@ -76,9 +76,12 @@ class EntityParentsRequest(BaseModel):
 class EntityListOut(EntitySummary):
     """One row of GET .../entities - an EntitySummary and what the entry is (ADR 0215):
     `kinds`, in the order of `EntityKind`, empty for a bare entry (a group, or a category node).
+    `parent_ids` (ADR 0229) are the entry's direct parents, in id order, so a client can draw the
+    whole tree from the list without reading every entry.
     """
 
     kinds: list[EntityKind]
+    parent_ids: list[uuid.UUID]
 
 
 class BacklinkOut(BaseModel):

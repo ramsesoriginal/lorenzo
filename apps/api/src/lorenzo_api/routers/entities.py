@@ -117,6 +117,23 @@ _KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], 
 )
 
 
+async def parents_of(
+    session: SessionDep, entity_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """The direct parents of each of entity_ids, in id order, one query for all of them (ADR
+    0229): an entry with none has an empty list."""
+    found: dict[uuid.UUID, list[uuid.UUID]] = {entity_id: [] for entity_id in entity_ids}
+    if entity_ids:
+        edges = (
+            select(EntityPrototype.entity_id, EntityPrototype.prototype_id)
+            .where(entity_id_among(EntityPrototype.entity_id, entity_ids))
+            .order_by(EntityPrototype.entity_id, EntityPrototype.prototype_id)
+        )
+        for entity_id, parent_id in (await session.execute(edges)).tuples():
+            found[entity_id].append(parent_id)
+    return found
+
+
 async def kinds_of(
     session: SessionDep, entity_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, list[EntityKind]]:
@@ -206,9 +223,16 @@ async def list_entities(
             )
 
     async def _rows(entities: Sequence[Entity]) -> list[EntityListOut]:
-        kinds = await kinds_of(session, [entity.id for entity in entities])
+        ids = [entity.id for entity in entities]
+        kinds = await kinds_of(session, ids)
+        parents = await parents_of(session, ids)
         return [
-            EntityListOut(id=entity.id, name=entity.name, kinds=kinds[entity.id])
+            EntityListOut(
+                id=entity.id,
+                name=entity.name,
+                kinds=kinds[entity.id],
+                parent_ids=parents[entity.id],
+            )
             for entity in entities
         ]
 
