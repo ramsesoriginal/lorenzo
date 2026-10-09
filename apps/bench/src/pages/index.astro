@@ -26,12 +26,14 @@ import '../styles/bench.css';
     <header class="top" id="titlebar">
       <strong>Lorenzo Bench</strong>
     </header>
+    <div class="live" id="live" role="status" hidden></div>
     <main id="bench"></main>
     <script>
       import { Bench } from '../core/bench';
       import { SampleTransport } from '../core/sample';
       import type { Transport } from '../core/transport';
       import { apiTransport } from '../lib/transport';
+      import { LiveBanner } from '../shell/liveBanner';
       import { loadSession, signOut } from '../shell/session';
       import { Shell } from '../shell/shell';
       import { SAMPLE_ENTRIES, SAMPLE_STATS } from '../shell/stub';
@@ -43,7 +45,9 @@ import '../styles/bench.css';
         // The workbench and its shortcuts exist at once, empty; the session fills it in.
         const shell = new Shell(root, new Bench(new SampleTransport([])));
         (window as unknown as { bench: Shell }).bench = shell;
+        const live = new LiveBanner(document.getElementById('live') as HTMLElement);
         const session = await loadSession();
+        live.set(session.kind === 'signed-in' && session.published);
 
         // Signed in: the chosen repository, through the API. Otherwise a small sample one held
         // in memory, so the page can still be tried.
@@ -85,6 +89,10 @@ import '../styles/bench.css';
           // Exposed so the browser tests can play the server's part.
           (window as unknown as { sample: SampleTransport }).sample = s;
           extra.push(
+            {
+              label: 'Sample: publish the repository',
+              run: () => live.set(true),
+            },
             {
               label: 'Sample: lose the connection',
               run: () => {

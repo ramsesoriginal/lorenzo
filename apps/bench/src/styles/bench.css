@@ -520,3 +520,30 @@ dd {
   padding: 2px 6px;
   border-radius: 0;
 }
+
+.live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 12px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+.live[hidden] {
+  display: none;
+}
+.live .pill {
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.live .btn {
+  margin-left: auto;
+  padding: 1px 12px;
+}
