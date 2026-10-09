@@ -31,7 +31,7 @@ import {
   type Workspace,
 } from '../workspace/model';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
-import { buildRows, counts, ORDERS, type Order } from './explorerRows';
+import { buildRows, counts, filterEntries, ORDERS, type Order } from './explorerRows';
 import { renderStats } from './statsPane';
 import { PANE_IDS, PANES } from './stub';
 
@@ -101,6 +101,8 @@ export class Shell {
   /** How the explorer lists entries, and which entries in the tree are folded shut. */
   private order: Order = Shell.savedOrder();
   private collapsed = new Set<string>();
+  /** What is typed in the explorer's filter: entries with a name that has it are listed. */
+  private filter = '';
   /** Commands the page adds to the palette, such as switching repository. */
   extra: { label: string; run: () => void }[] = [];
 
@@ -340,17 +342,46 @@ export class Shell {
   private explorerList(): HTMLElement {
     const bench = this.bench;
     const box = el('div', 'explorer');
-    const rows = buildRows(bench.listing(), this.order, this.collapsed);
+    const all = bench.listing();
+    const filtering = this.filter.trim() !== '';
+    // A filter lists what matches, flat and by name: where an entry sits matters less than finding it.
+    const matches = filterEntries(all, this.filter);
+    const rows = buildRows(matches, filtering ? 'name' : this.order, this.collapsed);
     const n = counts(rows);
+
+    const search = el('input', 'explorer-filter');
+    search.type = 'search';
+    search.placeholder = 'Filter entries';
+    search.value = this.filter;
+    search.dataset.key = 'explorer-filter';
+    search.setAttribute('aria-label', 'Filter entries');
+    search.addEventListener('input', () => {
+      // The redraw puts the typed text back and says "input" again: that is not a change.
+      if (search.value === this.filter) return;
+      this.filter = search.value;
+      this.render();
+    });
+    search.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && this.filter) {
+        ev.stopPropagation();
+        // The redraw keeps what is in the field, so the field is emptied first.
+        search.value = '';
+        this.filter = '';
+        this.render();
+      }
+    });
+    box.append(search);
 
     const head = el('div', 'explorer-head');
     head.append(
       el(
         'span',
         'muted',
-        n.places > n.entries
-          ? `${n.entries} entries · ${n.places} places in the list`
-          : `${n.entries} entries`,
+        filtering
+          ? `${n.entries} of ${all.length} entries`
+          : n.places > n.entries
+            ? `${n.entries} entries · ${n.places} places in the list`
+            : `${n.entries} entries`,
       ),
     );
     const seg = el('div', 'seg');
@@ -364,6 +395,8 @@ export class Shell {
       seg.append(b);
     }
     box.append(head, seg);
+    if (filtering && !rows.length)
+      box.append(el('p', 'muted pad', 'No entry matches that filter.'));
 
     const list = el('ul', 'list');
     for (const row of rows) {
@@ -376,7 +409,7 @@ export class Shell {
       const e = bench.listing().find((x) => x.id === row.id);
       if (!e) continue;
       li.style.paddingLeft = `${row.depth * 14}px`;
-      if (this.order === 'inherits') {
+      if (this.order === 'inherits' && !filtering) {
         if (row.hasChildren) {
           const fold = el('button', 'fold', row.open ? '▾' : '▸');
           fold.type = 'button';
