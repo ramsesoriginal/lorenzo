@@ -72,6 +72,14 @@ class EntityParentsRequest(BaseModel):
     parent_ids: list[uuid.UUID] = []
 
 
+class EntityListOut(EntitySummary):
+    """One row of GET .../entities - an EntitySummary and what the entry is (ADR 0215):
+    `kinds`, in the order of `EntityKind`, empty for a bare entry (a group, or a category node).
+    """
+
+    kinds: list[EntityKind]
+
+
 class BacklinkOut(BaseModel):
     """One entry of GET .../entities/{id}/backlinks - see ADR 0110: a piece
     of information, visible to the caller, whose description links to the

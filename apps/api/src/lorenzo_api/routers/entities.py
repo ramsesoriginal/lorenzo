@@ -1,11 +1,12 @@
 import uuid
+from collections.abc import Sequence
 from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, literal, or_, select, union_all
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -25,7 +26,11 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.description_payloads import write_description
-from lorenzo_api.entity_access import can_self_manage_entity
+from lorenzo_api.entity_access import (
+    can_self_manage_entity,
+    entity_id_among,
+    prototype_descendants_cte,
+)
 from lorenzo_api.entity_kinds import (
     Kind,
     add_kind,
@@ -57,6 +62,7 @@ from lorenzo_api.models import (
     Containment,
     ContentReference,
     Entity,
+    EntityPrototype,
     EntitySlug,
     Information,
     InformationType,
@@ -67,13 +73,13 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
-from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
     EntityCreate,
     EntityDetailOut,
     EntityKind,
     EntityKindPut,
+    EntityListOut,
     EntityParentsRequest,
     EntitySlugOut,
     EntitySlugUpdate,
@@ -100,19 +106,111 @@ router = APIRouter(
 )
 
 
+# What an entry is: the marker rows it has (ADR 0012), in this order.
+_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], ...] = (
+    ("item", Item),
+    ("item_instance", ItemInstance),
+    ("being", Being),
+    ("character", Character),
+)
+
+
+async def kinds_of(
+    session: SessionDep, entity_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[EntityKind]]:
+    """The kinds of each of entity_ids, in the order of `_KINDS`, one query for all of them: an
+    entry that is none of them is a bare entry and has an empty list (ADR 0215)."""
+    found: dict[uuid.UUID, set[EntityKind]] = {entity_id: set() for entity_id in entity_ids}
+    if entity_ids:
+        marked = union_all(
+            *(
+                select(model.entity_id.label("entity_id"), literal(kind).label("kind")).where(
+                    entity_id_among(model.entity_id, entity_ids)
+                )
+                for kind, model in _KINDS
+            )
+        )
+        for entity_id, kind in (await session.execute(marked)).tuples():
+            found[entity_id].add(kind)
+    return {
+        entity_id: [kind for kind, _ in _KINDS if kind in has] for entity_id, has in found.items()
+    }
+
+
 @router.get("")
 async def list_entities(
     tenant_id: uuid.UUID,
     params: ParamsDep,
     session: SessionDep,
     user: CurrentUser,
-) -> Page[EntitySummary]:
-    """A lightweight listing - EntitySummary rather than EntityDetailOut, to
-    avoid an N+1-heavy response when listing many entities.
+    q: Annotated[
+        str | None,
+        Query(description="Case-insensitive substring match against the entry's name."),
+    ] = None,
+    kind: Annotated[
+        list[EntityKind] | None,
+        Query(description="Only entries of these kinds (repeatable): any of them, not all."),
+    ] = None,
+    parent_id: Annotated[
+        uuid.UUID | None,
+        Query(description="Only entries that have this entry as a parent."),
+    ] = None,
+    recursive: Annotated[
+        bool,
+        Query(
+            description=(
+                "With parent_id, also include entries that inherit from it transitively, "
+                "not just directly."
+            )
+        ),
+    ] = False,
+) -> Page[EntityListOut]:
+    """Every entry of the tenant by name, then id, with what each is (`kinds`), narrowed by any
+    of q, kind and parent_id (ADR 0215, RFC 0041 §5). EntityListOut rather than EntityDetailOut,
+    to avoid an N+1-heavy response when listing many entities.
+
+    q is a substring of the name, case-insensitive, with `%` and `_` meaning themselves. kind is
+    repeatable and matches an entry that is any of the kinds given. parent_id lists the entries
+    that name this one as a parent, and with recursive every descendant, as `prototype_id` and
+    `recursive` do on GET /items (an unknown id, or one of another tenant, is a 404).
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = select(Entity).where(Entity.tenant_id == tenant_id).order_by(Entity.name, Entity.id)
-    page: Page[EntitySummary] = await apaginate(session, stmt, params)
+    if q is not None:
+        stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
+    if kind:
+        wanted = set(kind)
+        stmt = stmt.where(
+            or_(
+                *(
+                    exists().where(model.entity_id == Entity.id)
+                    for k, model in _KINDS
+                    if k in wanted
+                )
+            )
+        )
+    if parent_id is not None:
+        await get_entity_or_404(session, parent_id, tenant_id)
+        if recursive:
+            descendants = prototype_descendants_cte(parent_id, tenant_id)
+            stmt = stmt.where(Entity.id.in_(select(descendants.c.descendant_id)))
+        else:
+            stmt = stmt.where(
+                exists().where(
+                    EntityPrototype.entity_id == Entity.id,
+                    EntityPrototype.prototype_id == parent_id,
+                    EntityPrototype.tenant_id == tenant_id,
+                )
+            )
+
+    async def _rows(entities: Sequence[Entity]) -> list[EntityListOut]:
+        kinds = await kinds_of(session, [entity.id for entity in entities])
+        return [
+            EntityListOut(id=entity.id, name=entity.name, kinds=kinds[entity.id])
+            for entity in entities
+        ]
+
+    page: Page[EntityListOut] = await apaginate(session, stmt, params, transformer=_rows)
     return page
 
 
@@ -367,14 +465,6 @@ async def entity_detail_out(
 
 # Registered before /{entity_id}: that route's path would otherwise match
 # "resolve" and "by-slug" as an entity id (ADR 0043's routing-order note).
-_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], ...] = (
-    ("item", Item),
-    ("item_instance", ItemInstance),
-    ("being", Being),
-    ("character", Character),
-)
-
-
 @router.get("/resolve")
 async def resolve_slugs(
     tenant_id: uuid.UUID,

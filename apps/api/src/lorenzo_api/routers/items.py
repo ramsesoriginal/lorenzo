@@ -24,6 +24,7 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
+from lorenzo_api.entity_access import prototype_descendants_cte
 from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
@@ -142,35 +143,9 @@ _ITEM_OPTIONS = (
 )
 
 
-def _prototype_descendants_cte(prototype_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
-    """Every entity that transitively depends on prototype_id (has it as a
-    direct or indirect prototype) - see ADR 0073. Plain UNION, not UNION
-    ALL: entity_prototype allows multiple inheritance, so the same
-    descendant can be reached via more than one path, and UNION's own
-    de-duplication is what makes "keep walking until nothing new appears"
-    correct here - the exact technique entity_prototype's own BEFORE INSERT
-    cycle-check trigger (ADR 0015, migration 8fd1b287598a) already uses for
-    its ancestor walk, mirrored in the opposite direction. No path-array
-    cycle guard the way entity_access.py's containment walk needs one -
-    that graph can legitimately cycle (ADR 0016), this one cannot (the
-    trigger already guarantees it), so plain UNION alone is sufficient and
-    always terminates.
-    """
-    base = select(EntityPrototype.entity_id.label("descendant_id")).where(
-        EntityPrototype.prototype_id == prototype_id, EntityPrototype.tenant_id == tenant_id
-    )
-    cte = base.cte("item_prototype_descendants", recursive=True)
-    recursive_term = (
-        select(EntityPrototype.entity_id.label("descendant_id"))
-        .select_from(cte.join(EntityPrototype, EntityPrototype.prototype_id == cte.c.descendant_id))
-        .where(EntityPrototype.tenant_id == tenant_id)
-    )
-    return cte.union(recursive_term)
-
-
 def _prototype_ancestors_cte(entity_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
     """Every one of entity_id's own transitive ancestors (direct and
-    indirect prototypes) - the exact mirror of _prototype_descendants_cte's
+    indirect prototypes) - the exact mirror of entity_access.prototype_descendants_cte's
     downward walk. See that function's own docstring for why plain UNION
     (no path-array guard) is correct here.
     """
@@ -235,7 +210,7 @@ async def list_items(
         .join(Entity, Entity.id == VItem.entity_id)
         .where(VItem.tenant_id == tenant_id)
         .options(*_ITEM_OPTIONS)
-        .order_by(VItem.entity_id)
+        .order_by(Entity.name, VItem.entity_id)
     )
     if not await _is_member(session, tenant_id=tenant_id, user=user):
         stmt = stmt.join(Item, Item.entity_id == VItem.entity_id).where(
@@ -249,7 +224,7 @@ async def list_items(
         # container_id already gets on the item-instances list route.
         await get_entity_or_404(session, prototype_id, tenant_id)
         if recursive:
-            descendants_cte = _prototype_descendants_cte(prototype_id, tenant_id)
+            descendants_cte = prototype_descendants_cte(prototype_id, tenant_id)
             stmt = stmt.where(VItem.entity_id.in_(select(descendants_cte.c.descendant_id)))
         else:
             stmt = stmt.join(EntityPrototype, EntityPrototype.entity_id == VItem.entity_id).where(

@@ -1793,8 +1793,14 @@ export interface paths {
         };
         /**
          * List Entities
-         * @description A lightweight listing - EntitySummary rather than EntityDetailOut, to
-         *     avoid an N+1-heavy response when listing many entities.
+         * @description Every entry of the tenant by name, then id, with what each is (`kinds`), narrowed by any
+         *     of q, kind and parent_id (ADR 0215, RFC 0041 §5). EntityListOut rather than EntityDetailOut,
+         *     to avoid an N+1-heavy response when listing many entities.
+         *
+         *     q is a substring of the name, case-insensitive, with `%` and `_` meaning themselves. kind is
+         *     repeatable and matches an entry that is any of the kinds given. parent_id lists the entries
+         *     that name this one as a parent, and with recursive every descendant, as `prototype_id` and
+         *     `recursive` do on GET /items (an unknown id, or one of another tenant, is a 404).
          */
         get: operations["list_entities"];
         put?: never;
@@ -4933,6 +4939,24 @@ export interface components {
             in_public_catalog?: boolean | null;
         };
         /**
+         * EntityListOut
+         * @description One row of GET .../entities - an EntitySummary and what the entry is (ADR 0215):
+         *     `kinds`, in the order of `EntityKind`, empty for a bare entry (a group, or a category node).
+         */
+        EntityListOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity?: number | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+        };
+        /**
          * EntityParentsRequest
          * @description PUT /tenants/{tenant_id}/entities/{entity_id}/parents - see ADR 0216. The complete new set
          *     of the entry's direct parents; empty clears it. Same shape as SetPrototypesRequest, which
@@ -6291,6 +6315,19 @@ export interface components {
         Page_EntityChangeOut_: {
             /** Items */
             items: components["schemas"]["EntityChangeOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[EntityListOut] */
+        Page_EntityListOut_: {
+            /** Items */
+            items: components["schemas"]["EntityListOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -14147,6 +14184,14 @@ export interface operations {
     list_entities: {
         parameters: {
             query?: {
+                /** @description Case-insensitive substring match against the entry's name. */
+                q?: string | null;
+                /** @description Only entries of these kinds (repeatable): any of them, not all. */
+                kind?: ("item" | "item_instance" | "being" | "character")[] | null;
+                /** @description Only entries that have this entry as a parent. */
+                parent_id?: string | null;
+                /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
+                recursive?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -14164,7 +14209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_EntitySummary_"];
+                    "application/json": components["schemas"]["Page_EntityListOut_"];
                 };
             };
             /** @description Validation Error */
