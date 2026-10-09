@@ -99,7 +99,7 @@ describe('apiTransport', () => {
     const { transport, calls } = setup((r) => {
       const page = Number(new URL(r.url).searchParams.get('page'));
       return json({
-        items: [{ id: `id${page}`, name: `Entry ${page}`, kinds: ['item'] }],
+        items: [{ id: `id${page}`, name: `Entry ${page}`, kinds: ['item'], parent_ids: [P] }],
         total: 2,
         page,
         size: 100,
@@ -108,6 +108,7 @@ describe('apiTransport', () => {
     });
     const rows = await transport.listEntries();
     expect(rows.map((r) => r.name)).toEqual(['Entry 1', 'Entry 2']);
+    expect(rows.map((r) => r.parentIds)).toEqual([[P], [P]]);
     expect(calls.every((c) => c.url.startsWith(`/tenants/${T}/entities?`))).toBe(true);
   });
 
@@ -259,6 +260,39 @@ describe('apiTransport', () => {
     });
     await expect(transport.getEntry(E)).rejects.toBeInstanceOf(OfflineError);
   });
+  describe('kinds', () => {
+    const base = `/tenants/${T}/entities/${E}`;
+    const send = async (kind: 'item' | 'being', on: boolean) => {
+      const { transport, calls } = setup(() => json(entry, { etag: '"n"' }));
+      const state = await transport.setKind(E, kind, on, '"old"');
+      return { state, call: calls[0] };
+    };
+
+    it('gives a kind with PUT, with If-Match', async () => {
+      const { call, state } = await send('being', true);
+      expect(call).toMatchObject({ method: 'PUT', url: `${base}/kinds/being`, ifMatch: '"old"' });
+      expect(state.etag).toBe('"n"');
+    });
+
+    it('takes a kind away with DELETE', async () => {
+      expect((await send('item', false)).call).toMatchObject({
+        method: 'DELETE',
+        url: `${base}/kinds/item`,
+        ifMatch: '"old"',
+      });
+    });
+
+    it("a kind the entry cannot lose is a refusal with the server's words", async () => {
+      const { transport } = setup(() =>
+        json({ detail: 'Inventory items inherit from it.' }, { status: 409 }),
+      );
+      await expect(transport.setKind(E, 'item', false, null)).rejects.toMatchObject({
+        name: 'RefusedError',
+        message: 'Inventory items inherit from it.',
+      });
+    });
+  });
+
   describe('stats', () => {
     const base = `/tenants/${T}/entities/${E}`;
     const written = { ...entry, previous: { had_own_value: false, value: null } };

@@ -18,6 +18,7 @@ import {
 } from './commands';
 import {
   canEditStat,
+  type EditableKind,
   type EntryState,
   type EntrySummary,
   OfflineError,
@@ -123,9 +124,14 @@ export class Bench {
     const made = new Set(this.entries.map((e) => e.id));
     const pending = this.outbox
       .filter((c) => c.type === 'entry.create' && !made.has(c.entryId))
-      .map((c) => ({ id: c.entryId, name: '', kinds: c.args?.kinds ?? [] }));
+      .map((c) => ({ id: c.entryId, name: '', kinds: c.args?.kinds ?? [], parentIds: [] }));
     return [...this.entries, ...pending]
-      .map((e) => ({ ...e, name: this.displayName(e.id) }))
+      .map((e) => ({
+        ...e,
+        name: this.displayName(e.id),
+        kinds: this.kindsOf(e.id),
+        parentIds: this.view(e.id)?.parentIds ?? e.parentIds,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }
 
@@ -203,6 +209,9 @@ export class Bench {
     } else if (type === 'note.set-text') {
       if (!ref || !entry.notes.some((n) => n.id === ref)) return null;
       command.textId = ref;
+    } else if (type === 'entry.set-kind') {
+      if (ref !== 'item' && ref !== 'being') return null;
+      command.kind = ref;
     } else if (type === 'stat.set') {
       const def = this.statDefs.find((d) => d.id === ref);
       if (!def || !canEditStat(def.type)) return null;
@@ -225,6 +234,11 @@ export class Bench {
   /** Changes the text of one of the entry's notes. */
   setNoteText(entryId: string, noteId: string, text: string): Command | null {
     return this.change('note.set-text', entryId, text, noteId);
+  }
+
+  /** Gives the entry a kind (an item, a being), or takes it away. */
+  setKind(entryId: string, kind: EditableKind, on: boolean): Command | null {
+    return this.change('entry.set-kind', entryId, on, kind);
   }
 
   /** Sets the entry's own value for a stat, or with `null` removes it so the entry inherits. */
@@ -278,7 +292,7 @@ export class Bench {
     const inv = last && inverseOf(last);
     if (!last || !inv || inv.type === 'entry.create' || inv.type === 'note.add') return false;
     this.history.splice(this.history.indexOf(last), 1);
-    this.change(inv.type, inv.entryId, inv.mine, inv.textId ?? inv.stat?.id);
+    this.change(inv.type, inv.entryId, inv.mine, inv.textId ?? inv.stat?.id ?? inv.kind);
     return true;
   }
 
@@ -405,7 +419,7 @@ export class Bench {
     // The server's list now has it, and its parents have a new child.
     this.entries = [
       ...this.entries.filter((e) => e.id !== c.entryId),
-      { id: made.id, name: made.name, kinds: made.kinds },
+      { id: made.id, name: made.name, kinds: made.kinds, parentIds: made.parentIds },
     ];
     for (const parentId of made.parentIds) {
       const parent = this.mirror.get(parentId);
@@ -490,7 +504,11 @@ export class Bench {
     // A rename is in the list too.
     const entry = this.mirror.get(c.entryId);
     const row = this.entries.find((e) => e.id === c.entryId);
-    if (entry && row) row.name = entry.name;
+    if (entry && row) {
+      row.name = entry.name;
+      row.kinds = entry.kinds;
+      row.parentIds = entry.parentIds;
+    }
     this.emit();
   }
 }

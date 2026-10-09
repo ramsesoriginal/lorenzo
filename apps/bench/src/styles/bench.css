@@ -547,3 +547,67 @@ dd {
   margin-left: auto;
   padding: 1px 12px;
 }
+
+.explorer-head {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px 0;
+  font-size: 12px;
+}
+.explorer .seg {
+  display: flex;
+  margin: 6px 12px;
+}
+.explorer .seg .btn {
+  flex: 1;
+  padding: 1px 6px;
+}
+.explorer .seg .btn[aria-pressed="true"] {
+  background: var(--bar);
+  font-weight: 600;
+}
+.group-head {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.place {
+  display: flex;
+  align-items: center;
+}
+.place .row {
+  flex: 1;
+  min-width: 0;
+}
+.place .fold {
+  flex: none;
+  width: 18px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+.place .multi {
+  flex: none;
+  padding: 0 8px;
+  color: var(--muted);
+}
+.kinds {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+}
+.kinds legend {
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kind-choice {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}

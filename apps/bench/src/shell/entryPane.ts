@@ -4,7 +4,7 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
-import { canRename, canSetParents } from '../core/transport';
+import { canRename, canSetParents, type EditableKind } from '../core/transport';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
 export const redraw = { active: false };
@@ -83,7 +83,7 @@ export function renderEntry(
       return undo;
     })(),
   );
-  c.append(head, el('p', 'kind', kindsText(item.kinds)));
+  c.append(head, el('p', 'kind', kindsText(item.kinds)), kindsEditor(bench, id, item.kinds));
 
   for (const cmd of bench.commandsFor(id)) {
     if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));
@@ -117,6 +117,37 @@ export function renderEntry(
     );
   c.append(newNote(bench, id));
   return c;
+}
+
+const KIND_CHOICES: { kind: EditableKind; label: string; help: string }[] = [
+  { kind: 'item', label: 'Item', help: 'Something you can hold, carry or give.' },
+  { kind: 'being', label: 'Being', help: 'Someone or something that acts: a person, a creature.' },
+];
+
+/** What an entry is: item, being, both or neither (a bare entry, which is what a group is). */
+function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLElement {
+  const box = el('fieldset', 'kinds');
+  box.append(el('legend', undefined, 'What is this entry?'));
+  for (const choice of KIND_CHOICES) {
+    const label = el('label', 'kind-choice');
+    const input = el('input');
+    input.type = 'checkbox';
+    input.checked = kinds.includes(choice.kind);
+    input.dataset.key = `kind:${id}:${choice.kind}`;
+    // An inventory item is of the inventory, not of the catalog.
+    if (choice.kind === 'item' && kinds.includes('item_instance')) {
+      input.disabled = true;
+      input.title = 'An inventory item is not an item of the catalog.';
+    }
+    input.addEventListener('change', () => {
+      if (!redraw.active) bench.setKind(id, choice.kind, input.checked);
+    });
+    const text = el('span');
+    text.append(el('strong', undefined, choice.label), document.createTextNode(` ${choice.help}`));
+    label.append(input, text);
+    box.append(label);
+  }
+  return box;
 }
 
 /** LorenzoScript as the reader sees it, without links to other entries resolved yet. */
@@ -176,11 +207,14 @@ export const kindsText = (kinds: readonly string[]): string =>
 const show = (v: unknown, bench: Bench): string => {
   if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
   if (v === null) return 'nothing of its own (inherited)';
+  if (typeof v === 'boolean') return v ? 'on' : 'off';
   return typeof v === 'string' ? `“${v}”` : String(v);
 };
 
 function conflictRow(bench: Bench, cmd: Command): HTMLElement {
-  const label = cmd.stat?.name ?? (cmd.type === 'entry.set-name' ? 'name' : 'parents');
+  const label =
+    cmd.stat?.name ??
+    (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents');
   const box = el('div', 'problem problem-conflict');
   box.setAttribute('role', 'alert');
   box.append(

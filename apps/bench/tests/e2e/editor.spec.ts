@@ -28,6 +28,8 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await expect(name(page)).toHaveValue('Monster');
+  // These tests pick entries by id from a flat list; the tree has its own tests below.
+  await page.getByRole('button', { name: 'A to Z' }).click();
 });
 
 test('lists the repository and opens an entry', async ({ page }) => {
@@ -445,4 +447,108 @@ test('the LIVE banner says libraries see the edits of a published repository, an
   await expect(live).toContainText('Libraries that copied this repository see your edits');
   await live.getByRole('button', { name: 'Hide' }).click();
   await expect(live).toBeHidden();
+});
+
+test.describe('the explorer', () => {
+  test.beforeEach(async ({ page }) => {
+    // the default order, which the tests above leave
+    await page.evaluate(() => localStorage.removeItem('bench:explorer-order'));
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Inherits' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+  const rows = (page: Page) => page.locator('.pane-explorer .place .row');
+
+  test('is a tree of what entries inherit from, one row for each place', async ({ page }) => {
+    await expect(rows(page).filter({ hasText: /^Ghoul$/ })).toHaveCount(2);
+    await expect(page.locator('.pane-explorer')).toContainText(
+      '11 entries · 12 places in the list',
+    );
+    await expect(page.getByRole('img', { name: 'Has 2 parents' })).toHaveCount(2);
+  });
+
+  test('selecting an entry marks every place it is in', async ({ page }) => {
+    await rows(page)
+      .filter({ hasText: /^Ghoul$/ })
+      .first()
+      .click();
+    await expect(name(page)).toHaveValue('Ghoul');
+    await expect(page.locator('.pane-explorer .row.on')).toHaveCount(2);
+  });
+
+  test('folding an entry hides what is under it, and unfolding brings it back', async ({
+    page,
+  }) => {
+    const wolf = rows(page).filter({ hasText: /^Wolf$/ });
+    await expect(wolf).toBeVisible();
+    await page.getByRole('button', { name: 'Fold Monster' }).click();
+    await expect(wolf).toHaveCount(0);
+    await page.getByRole('button', { name: 'Unfold Monster' }).click();
+    await expect(wolf).toBeVisible();
+  });
+
+  test('can be grouped by kind, and listed A to Z', async ({ page }) => {
+    await page.getByRole('button', { name: 'Kind', exact: true }).click();
+    await expect(page.locator('.pane-explorer .group-head')).toHaveText([
+      'Items',
+      'Beings',
+      'Bare entries',
+    ]);
+    await page.getByRole('button', { name: 'A to Z' }).click();
+    await expect(rows(page).first()).toHaveText('Ashfang');
+    await expect(page.locator('.pane-explorer')).toContainText('11 entries');
+  });
+
+  test('the order is remembered', async ({ page }) => {
+    await page.getByRole('button', { name: 'Kind', exact: true }).click();
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Kind', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  test('a new entry shows under its parent at once', async ({ page }) => {
+    await page.getByLabel('Name of the new entry').fill('Pup');
+    await page.getByLabel('Parent of the new entry').selectOption({ label: 'Wolf' });
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(rows(page).filter({ hasText: /^Pup$/ })).toHaveCount(1);
+  });
+
+  test('changing parents moves the entry in the tree', async ({ page }) => {
+    await rows(page)
+      .filter({ hasText: /^Zombie$/ })
+      .click();
+    await page.getByLabel('Add a parent').selectOption({ label: 'Beast' });
+    await expect(rows(page).filter({ hasText: /^Zombie$/ })).toHaveCount(2);
+  });
+});
+
+test('an entry can be an item, a being, both or neither', async ({ page }) => {
+  await page.locator('[data-entry="ashfang"]').click();
+  const being = page.getByRole('checkbox', { name: /Being/ });
+  const item = page.getByRole('checkbox', { name: /Item/ });
+  await expect(being).toBeChecked();
+  await expect(item).not.toBeChecked();
+  await item.check();
+  await being.uncheck();
+  await expect(status(page)).toHaveText('Synced');
+  await expect(page.locator('.pane-entry .kind')).toHaveText('item');
+  expect(await writes(page)).toEqual([
+    { id: 'ashfang', field: 'kind:item', value: true },
+    { id: 'ashfang', field: 'kind:being', value: false },
+  ]);
+  // the entry may be neither: a bare entry is what a group is
+  await item.uncheck();
+  await expect(page.locator('.pane-entry .kind')).toHaveText('bare entry');
+});
+
+test('a kind change is undone from the entry', async ({ page }) => {
+  await page.locator('[data-entry="ashfang"]').click();
+  await page.getByRole('checkbox', { name: /Item/ }).check();
+  await expect(status(page)).toHaveText('Synced');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('checkbox', { name: /Item/ })).not.toBeChecked();
 });
