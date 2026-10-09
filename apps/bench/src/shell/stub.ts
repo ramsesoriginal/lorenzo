@@ -13,6 +13,7 @@ export const SAMPLE_ENTRIES: SampleEntry[] = [
   { id: 'ghoul', name: 'Ghoul', kinds: ['item'], parents: ['undead', 'beast'] },
   { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [] },
   { id: 'hollow', name: 'The Hollow', kinds: [], parents: [] },
+  { id: 'ashfang', name: 'Ashfang', kinds: ['being'], parents: ['hollow'] },
   { id: 'mill', name: 'The old mill', kinds: [], parents: ['hollow'] },
 ];
 

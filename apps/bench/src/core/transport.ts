@@ -7,20 +7,39 @@ export interface EntrySummary {
   kinds: string[];
 }
 
-/** An item as the server last said it was. `etag` is what `If-Match` wants on a write. */
-export interface ItemState {
+/** An entry as the server last said it was. `etag` is what `If-Match` wants on a write. */
+export interface EntryState {
   id: string;
   name: string;
+  kinds: string[];
   parentIds: string[];
+  childIds: string[];
   etag: string | null;
 }
 
+/** What a create sends. The id is the client's own (ADR 0222): sent twice, it is made once. */
+export interface NewEntry {
+  id: string;
+  name: string;
+  kinds: string[];
+  parents: string[];
+}
+
+/** Only an item has a name that can be changed so far. */
+export const canRename = (kinds: readonly string[]): boolean => kinds.includes('item');
+
+/** An inventory item's one parent changes through its own route, not here. */
+export const canSetParents = (kinds: readonly string[]): boolean =>
+  !kinds.includes('item_instance');
+
 export interface Transport {
   listEntries(): Promise<EntrySummary[]>;
-  getItem(id: string): Promise<ItemState>;
-  /** Writes, and answers with the item as it is after (a fresh `etag` included). */
-  setName(id: string, name: string, etag: string | null): Promise<ItemState>;
-  setParents(id: string, parentIds: string[], etag: string | null): Promise<ItemState>;
+  getEntry(id: string): Promise<EntryState>;
+  /** Makes the entry (or, if it is already there under this id, returns it) and answers with it. */
+  createEntry(entry: NewEntry): Promise<EntryState>;
+  /** Writes, and answers with the entry as it is after (a fresh `etag` included). */
+  setName(id: string, name: string, etag: string | null): Promise<EntryState>;
+  setParents(id: string, parentIds: string[], etag: string | null): Promise<EntryState>;
 }
 
 /** There is no connection: the command stays waiting and is tried again. */
@@ -31,7 +50,7 @@ export class OfflineError extends Error {
   }
 }
 
-/** The server said no. `precondition` is a stale `If-Match`: the item changed since it was read. */
+/** The server said no. `precondition` is a stale `If-Match`: the entry changed since it was read. */
 export class RefusedError extends Error {
   readonly precondition: boolean;
   constructor(message: string, precondition = false) {

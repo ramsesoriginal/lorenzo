@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('lists the repository and opens an entry', async ({ page }) => {
-  await expect(page.locator('[data-entry]')).toHaveCount(10);
+  await expect(page.locator('[data-entry]')).toHaveCount(11);
   await page.locator('[data-entry="wolf"]').click();
   await expect(name(page)).toHaveValue('Wolf');
   await expect(status(page)).toHaveText('Synced');
@@ -165,7 +165,85 @@ test('what is being typed survives another change arriving', async ({ page }) =>
   await expect(name(page)).toBeFocused();
 });
 
-test('a being or a bare entry is shown, not edited', async ({ page }) => {
+test('a bare entry or a being is shown with what it is; only an item can be renamed', async ({
+  page,
+}) => {
   await page.locator('[data-entry="hollow"]').click();
-  await expect(page.locator('.pane-entry')).toContainText('Only items can be edited so far');
+  await expect(page.locator('.pane-entry')).toContainText('bare entry');
+  await expect(name(page)).toBeDisabled();
+  await page.locator('[data-entry="ashfang"]').click();
+  await expect(page.locator('.pane-entry')).toContainText('being');
+  await expect(name(page)).toBeDisabled();
+});
+
+test('the parents of a being can be changed', async ({ page }) => {
+  await page.locator('[data-entry="ashfang"]').click();
+  await page.getByLabel('Add a parent').selectOption({ label: 'Wolf' });
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['The Hollow×', 'Wolf×']);
+  await expect(status(page)).toHaveText('Synced');
+});
+
+// --- making entries --------------------------------------------------------------------------
+
+const make = async (page: Page, text: string, kind: string, parent: string) => {
+  await page.getByLabel('Name of the new entry').fill(text);
+  await page.getByLabel('Kind of the new entry').selectOption({ label: kind });
+  await page.getByLabel('Parent of the new entry').selectOption({ label: parent });
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+};
+
+test('a new item shows at once under its parent, and is sent with its own id', async ({ page }) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await make(page, 'Winter wolf', 'Item', 'Wolf');
+  await expect(name(page)).toHaveValue('Winter wolf');
+  await expect(page.locator('[data-entry]', { hasText: 'Winter wolf' })).toBeVisible();
+  await expect(status(page)).toHaveText('Synced');
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['Wolf×']);
+  const writes = await page.evaluate(() => (window as unknown as SampleWindow).sample.writes);
+  expect(writes).toEqual([
+    { id: expect.stringMatching(/^[0-9a-f-]{36}$/), field: 'create', value: 'Winter wolf' },
+  ]);
+  // and the parent lists it as a child
+  await page.locator('[data-entry="wolf"]').click();
+  await page.getByRole('tab', { name: 'Parents and children' }).click();
+  await expect(page.locator('.pane-links')).toContainText('Winter wolf');
+});
+
+test('with no connection a new entry is saved here, edited, and all of it sent in order', async ({
+  page,
+}) => {
+  await palette(page, 'lose the connection');
+  await make(page, 'Frost giant', 'Being', 'No parent');
+  await expect(status(page)).toHaveText('Saved on this device');
+  await expect(page.locator('.pane-entry')).toContainText('being');
+  await page.getByLabel('Add a parent').selectOption({ label: 'Monster' });
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['Monster×']);
+  expect(await writes(page)).toEqual([]);
+  await palette(page, 'get the connection back');
+  await expect(status(page)).toHaveText('Synced');
+  expect((await writes(page)).map((w) => w.field)).toEqual(['create', 'parents']);
+});
+
+test('an entry made under one that is not sent yet goes after it', async ({ page }) => {
+  await palette(page, 'lose the connection');
+  await make(page, 'Pack', 'Item', 'No parent');
+  await make(page, 'Pup', 'Item', 'Pack');
+  await palette(page, 'get the connection back');
+  await expect(status(page)).toHaveText('Synced');
+  expect((await writes(page)).map((w) => w.value)).toEqual(['Pack', 'Pup']);
+});
+
+test('undo of a new entry that was not sent takes it away', async ({ page }) => {
+  await palette(page, 'lose the connection');
+  await make(page, 'Mistake', 'Item', 'No parent');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('[data-entry]', { hasText: 'Mistake' })).toHaveCount(0);
+  await palette(page, 'get the connection back');
+  expect(await writes(page)).toEqual([]);
+});
+
+test('a new entry that was sent cannot be undone here', async ({ page }) => {
+  await make(page, 'Kept', 'Item', 'No parent');
+  await expect(status(page)).toHaveText('Synced');
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
 });

@@ -34,7 +34,13 @@ const json = (body: unknown, init: ResponseInit & { etag?: string } = {}) =>
     headers: { 'content-type': 'application/json', ...(init.etag ? { etag: init.etag } : {}) },
   });
 
-const item = { title: 'Wolf', prototype_ids: [P] };
+const entry = {
+  id: E,
+  name: 'Wolf',
+  kinds: ['item'],
+  prototypes: [{ id: P, name: 'Beast' }],
+  children: [{ id: T, name: 'Pup' }],
+};
 
 describe('apiTransport', () => {
   it('lists the entries, every page', async () => {
@@ -53,19 +59,58 @@ describe('apiTransport', () => {
     expect(calls.every((c) => c.url.startsWith(`/tenants/${T}/entities?`))).toBe(true);
   });
 
-  it('reads an item with its parents and its etag', async () => {
-    const { transport } = setup(() => json(item, { etag: '"abc"' }));
-    expect(await transport.getItem(E)).toEqual({
+  it('reads an entry with its kinds, parents, children and etag', async () => {
+    const { transport, calls } = setup(() => json(entry, { etag: '"abc"' }));
+    expect(await transport.getEntry(E)).toEqual({
       id: E,
       name: 'Wolf',
+      kinds: ['item'],
       parentIds: [P],
+      childIds: [T],
       etag: '"abc"',
     });
+    expect(calls[0].url).toBe(`/tenants/${T}/entities/${E}`);
+  });
+
+  it('creates under the id the client made, with kinds and parents, and reads it back', async () => {
+    const { transport, calls } = setup((r) =>
+      r.method === 'POST' ? json(entry, { status: 201 }) : json(entry, { etag: '"n"' }),
+    );
+    const made = await transport.createEntry({
+      id: E,
+      name: 'Wolf',
+      kinds: ['item'],
+      parents: [P],
+    });
+    expect(calls[0]).toMatchObject({
+      method: 'POST',
+      url: `/tenants/${T}/entities`,
+      body: { id: E, name: 'Wolf', kinds: ['item'], parents: [P] },
+    });
+    expect(made.etag).toBe('"n"');
+  });
+
+  it('a replay (200) is as good as a create (201)', async () => {
+    const { transport } = setup((r) =>
+      r.method === 'POST' ? json(entry, { status: 200 }) : json(entry, { etag: '"n"' }),
+    );
+    await expect(
+      transport.createEntry({ id: E, name: 'Wolf', kinds: [], parents: [] }),
+    ).resolves.toMatchObject({ id: E });
+  });
+
+  it("an id that is not available is a refusal with the API's words", async () => {
+    const { transport } = setup(() =>
+      json({ detail: 'That id is not available.' }, { status: 409 }),
+    );
+    await expect(
+      transport.createEntry({ id: E, name: 'x', kinds: [], parents: [] }),
+    ).rejects.toMatchObject({ name: 'RefusedError', message: 'That id is not available.' });
   });
 
   it('renames with If-Match, then reads the item again for the new etag', async () => {
     const { transport, calls } = setup((r) =>
-      r.method === 'PATCH' ? json(item) : json({ ...item, title: 'Dire wolf' }, { etag: '"def"' }),
+      r.method === 'PATCH' ? json({}) : json({ ...entry, name: 'Dire wolf' }, { etag: '"def"' }),
     );
     const after = await transport.setName(E, 'Dire wolf', '"abc"');
     expect(calls[0]).toMatchObject({
@@ -79,14 +124,14 @@ describe('apiTransport', () => {
 
   it('sets parents as the complete new list', async () => {
     const { transport, calls } = setup((r) =>
-      r.method === 'PUT' ? json({}) : json(item, { etag: '"x"' }),
+      r.method === 'PUT' ? json({}) : json(entry, { etag: '"x"' }),
     );
     await transport.setParents(E, [P, T], null);
     expect(calls[0]).toMatchObject({
       method: 'PUT',
-      url: `/tenants/${T}/items/${E}/prototypes`,
+      url: `/tenants/${T}/entities/${E}/parents`,
       ifMatch: null,
-      body: { prototype_ids: [P, T] },
+      body: { parent_ids: [P, T] },
     });
   });
 
@@ -97,7 +142,7 @@ describe('apiTransport', () => {
       precondition: true,
     });
     const other = setup(() => json({ detail: 'No such item.' }, { status: 404 }));
-    const error = await other.transport.getItem(E).catch((e) => e);
+    const error = await other.transport.getEntry(E).catch((e) => e);
     expect(error).toBeInstanceOf(RefusedError);
     expect(error.precondition).toBe(false);
     expect(error.message).toBe('No such item.');
@@ -107,6 +152,6 @@ describe('apiTransport', () => {
     const { transport } = setup(() => {
       throw new TypeError('Failed to fetch');
     });
-    await expect(transport.getItem(E)).rejects.toBeInstanceOf(OfflineError);
+    await expect(transport.getEntry(E)).rejects.toBeInstanceOf(OfflineError);
   });
 });
