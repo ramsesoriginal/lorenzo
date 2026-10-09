@@ -268,10 +268,11 @@ test('the description is shown as it reads, and edited with a preview that follo
   await expect(page.getByLabel('Description, as it reads').locator('em')).toHaveText('pairs');
   expect(await writes(page)).toEqual([]);
   await blur(page);
+  // written down once the focus has moved on, so the write is waited for, not the status
+  await expect
+    .poll(() => writes(page))
+    .toEqual([{ id: 'wolf-description', field: 'description', value: 'Hunts in *pairs*.' }]);
   await expect(status(page)).toHaveText('Synced');
-  expect(await writes(page)).toEqual([
-    { id: 'wolf-description', field: 'description', value: 'Hunts in *pairs*.' },
-  ]);
 });
 
 test('an entry with no description gets one when text is written', async ({ page }) => {
@@ -325,11 +326,13 @@ test('notes are listed, added, and edited', async ({ page }) => {
   await expect(status(page)).toHaveText('Synced');
   await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Check the east den.');
   await blur(page);
+  await expect
+    .poll(async () => (await writes(page)).map((w) => [w.field, w.value]))
+    .toEqual([
+      ['note.add', 'Check the den.'],
+      ['note.text', 'Check the east den.'],
+    ]);
   await expect(status(page)).toHaveText('Synced');
-  expect((await writes(page)).map((w) => [w.field, w.value])).toEqual([
-    ['note.add', 'Check the den.'],
-    ['note.text', 'Check the east den.'],
-  ]);
 });
 
 test('a note added with no connection can be edited, then both are sent in order', async ({
