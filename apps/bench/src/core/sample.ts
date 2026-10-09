@@ -3,6 +3,7 @@
 // `If-Match` is stale, an id the client chose that is a replay when it is already there, and no
 // connection when `offline` is set.
 
+import { slugify } from '@lorenzo/lorenzoscript';
 import {
   canRename,
   canSetParents,
@@ -13,6 +14,7 @@ import {
   type NewText,
   OfflineError,
   RefusedError,
+  type ResolvedEntry,
   type StatDef,
   type StatScalar,
   type StatType,
@@ -148,6 +150,20 @@ export class SampleTransport implements Transport {
       parentIds: [...parents],
     }));
   }
+  /** The sample entries have no link names of their own: each has the slug of its name. */
+  async resolveSlugs(slugs: string[]): Promise<ResolvedEntry[]> {
+    this.need();
+    const byName = new Map<string, ResolvedEntry>();
+    for (const row of this.rows.values())
+      byName.set(slugify(row.name), {
+        slug: slugify(row.name),
+        id: row.id,
+        name: row.name,
+        kinds: [...row.kinds],
+      });
+    return slugs.flatMap((s) => byName.get(s) ?? []);
+  }
+
   async listStatDefinitions(): Promise<StatDef[]> {
     this.need();
     return this.defs.map((d) => ({ ...d, enumValues: [...d.enumValues] }));

@@ -198,11 +198,15 @@ export class Shell {
     const s = this.surface;
     // Keep what a person is typing when something else changes the page.
     const active = document.activeElement;
+    const typing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
     const kept =
-      (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
-      active.dataset.key &&
-      s.contains(active)
-        ? { key: active.dataset.key, value: active.value, at: active.selectionStart }
+      active instanceof HTMLElement && active.dataset.key && s.contains(active)
+        ? {
+            key: active.dataset.key,
+            // Only a field has what is typed in it; a link is only found again.
+            value: typing ? active.value : null,
+            at: typing ? active.selectionStart : null,
+          }
         : null;
     redraw.active = true;
     s.replaceChildren();
@@ -217,15 +221,13 @@ export class Shell {
       s.append(empty);
     }
     if (kept) {
-      const input = s.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-        `[data-key="${kept.key}"]`,
-      );
-      if (input) {
-        input.value = kept.value;
-        input.dispatchEvent(new Event('input')); // the preview follows what is typed
-        input.focus();
-        if (kept.at !== null) input.setSelectionRange(kept.at, kept.at);
-      }
+      const found = s.querySelector<HTMLElement>(`[data-key="${kept.key}"]`);
+      if (found instanceof HTMLInputElement || found instanceof HTMLTextAreaElement) {
+        if (kept.value !== null) found.value = kept.value;
+        found.dispatchEvent(new Event('input')); // the preview follows what is typed
+        found.focus();
+        if (kept.at !== null) found.setSelectionRange(kept.at, kept.at);
+      } else found?.focus();
     }
   }
 

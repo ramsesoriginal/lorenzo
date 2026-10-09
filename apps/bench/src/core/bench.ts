@@ -16,6 +16,7 @@ import {
   usedIds,
   type Value,
 } from './commands';
+import { LinkResolver } from './links';
 import {
   canEditStat,
   type EditableKind,
@@ -46,6 +47,8 @@ export class Bench {
   /** The last send found no connection. */
   offline = false;
   loadError: string | null = null;
+  /** What the entry links in text lead to. */
+  readonly links: LinkResolver;
   private nextId = 1;
   private listeners = new Set<() => void>();
   private current: Promise<void> | null = null;
@@ -54,7 +57,9 @@ export class Bench {
   constructor(
     readonly transport: Transport,
     private readonly makeId: () => string = () => crypto.randomUUID(),
-  ) {}
+  ) {
+    this.links = new LinkResolver(transport);
+  }
 
   subscribe(fn: () => void): () => void {
     this.listeners.add(fn);
@@ -83,8 +88,12 @@ export class Bench {
     return this.outbox.find((c) => c.type === 'entry.create' && c.entryId === id);
   }
 
-  /** Brings an entry's detail into the mirror, unless it is there or not made yet. */
-  async open(id: string): Promise<void> {
+  /**
+   * Brings an entry's detail into the mirror, unless it is there or not made yet. `quiet` says
+   * nothing about it to the screen: for reading an entry that is only being looked at in passing
+   * (a card for a link), which must not redraw the page under a focus or a pointer.
+   */
+  async open(id: string, quiet = false): Promise<void> {
     if (this.mirror.has(id) || this.pendingCreate(id)) return;
     if (!this.entries.some((e) => e.id === id)) return;
     try {
@@ -93,7 +102,7 @@ export class Bench {
     } catch (e) {
       this.loadError = e instanceof Error ? e.message : 'Could not load this entry.';
     }
-    this.emit();
+    if (!quiet) this.emit();
   }
 
   /** The entry as the person sees it: the mirror with its pending commands applied. */
