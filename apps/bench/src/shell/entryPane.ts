@@ -1,10 +1,12 @@
 // The entry pane and the parents pane: what a person sees and edits of one entry, every change
 // going through the command layer (core/bench.ts).
 
-import { parse, render } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
+import { entryIdOfHref } from '../core/links';
 import { canRename, canSetParents, type EditableKind } from '../core/transport';
+
+import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
 export const redraw = { active: false };
@@ -97,7 +99,7 @@ export function renderEntry(
 
   c.append(
     el('h2', undefined, 'Description'),
-    textEditor({
+    textEditor(bench, go, {
       key: `description:${id}`,
       label: 'Description',
       text: item.description?.text ?? '',
@@ -108,7 +110,7 @@ export function renderEntry(
   c.append(el('h2', undefined, 'Notes'));
   for (const note of item.notes)
     c.append(
-      textEditor({
+      textEditor(bench, go, {
         key: `note:${note.id}`,
         label: `Note: ${note.title}`,
         text: note.text,
@@ -150,19 +152,21 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
   return box;
 }
 
-/** LorenzoScript as the reader sees it, without links to other entries resolved yet. */
-const preview = (text: string): string => render(parse(text), {});
-
 /**
- * A text and its preview. The preview follows what is typed; the change is written down, as a
- * command, when the field loses focus (so a half-typed sentence is never sent).
+ * A text and its preview. The preview follows what is typed, with the entry links it names shown
+ * as links (looked up as they appear); the change is written down, as a command, when the field
+ * loses focus (so a half-typed sentence is never sent).
  */
-function textEditor(o: {
-  key: string;
-  label: string;
-  text: string;
-  onChange: (text: string) => void;
-}): HTMLElement {
+function textEditor(
+  bench: Bench,
+  go: (id: string) => void,
+  o: {
+    key: string;
+    label: string;
+    text: string;
+    onChange: (text: string) => void;
+  },
+): HTMLElement {
   const wrap = el('div', 'text-editor');
   const area = el('textarea', 'text-edit');
   area.value = o.text;
@@ -171,15 +175,71 @@ function textEditor(o: {
   area.setAttribute('aria-label', o.label);
   const shown = el('div', 'ls-content text-preview');
   shown.setAttribute('aria-label', `${o.label}, as it reads`);
-  shown.innerHTML = preview(o.text);
-  area.addEventListener('input', () => {
-    shown.innerHTML = preview(area.value);
-  });
+  const notes = el('p', 'muted link-notes');
+  notes.hidden = true;
+
+  const draw = (r: { html: string; missing: string[] }) => {
+    shown.innerHTML = r.html; // escaped by the renderer (ADR 0100)
+    // A link keeps the focus when the page is drawn again.
+    shown.querySelectorAll<HTMLElement>('a.ls-entity').forEach((a, i) => {
+      a.dataset.key = `${o.key}:link:${i}`;
+    });
+    notes.hidden = !r.missing.length;
+    notes.textContent = r.missing.length
+      ? `Nothing is called ${r.missing.map((s) => `“${s}”`).join(', ')} yet, so ${r.missing.length === 1 ? 'that link stays' : 'those links stay'} as text.`
+      : '';
+  };
+  // What is already known shows at once; what is not is asked, and shown when it arrives (unless
+  // the text has moved on by then).
+  let turn = 0;
+  const paint = async () => {
+    const mine = ++turn;
+    const text = area.value;
+    const quick = bench.links.renderNow(text);
+    draw(quick);
+    const full = await bench.links.render(text);
+    if (mine === turn && (full.html !== quick.html || full.missing.join() !== quick.missing.join()))
+      draw(full);
+  };
+  void paint();
+  area.addEventListener('input', () => void paint());
   area.addEventListener('change', () => {
     if (redraw.active) return;
-    o.onChange(area.value);
+    // After the focus has moved on: writing it down draws the page again, which puts the focus
+    // back where it was a moment ago, and that is not where the person went (a link, say).
+    setTimeout(() => o.onChange(area.value), 0);
   });
-  wrap.append(area, shown);
+
+  // A link opens the entry in this workbench; pointing at one shows what it is.
+  const linkId = (ev: Event) => {
+    const link = ev.target instanceof Element ? ev.target.closest('a.ls-entity') : null;
+    return entryIdOfHref(link?.getAttribute('href') ?? null);
+  };
+  // Pressing a link must not take the focus from the text: that would write the text down and
+  // draw the page again between the press and the release, and the click would be lost.
+  shown.addEventListener('mousedown', (ev) => {
+    if (linkId(ev)) ev.preventDefault();
+  });
+  shown.addEventListener('click', (ev) => {
+    const id = linkId(ev);
+    if (!id) return;
+    ev.preventDefault();
+    hideCard();
+    // What was typed is kept before going elsewhere.
+    if (area.value !== o.text) o.onChange(area.value);
+    go(id);
+  });
+  attachLinkPreviews(shown, async (id) => {
+    await bench.open(id, true);
+    const entry = bench.view(id);
+    if (!entry) return null;
+    return {
+      name: entry.name,
+      what: kindsText(entry.kinds),
+      excerpt: entry.description ? excerptOf(entry.description.text) : '',
+    };
+  });
+  wrap.append(area, shown, notes);
   return wrap;
 }
 

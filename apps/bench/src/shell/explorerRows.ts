@@ -21,6 +21,15 @@ export type Row =
       parentCount: number;
     };
 
+/** Lower case, without accents, so "ecu" finds "Écu". */
+const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
+/** The entries whose name contains what was typed; all of them when nothing was. */
+export function filterEntries(entries: readonly EntrySummary[], query: string): EntrySummary[] {
+  const q = plain(query.trim());
+  return q ? entries.filter((e) => plain(e.name).includes(q)) : [...entries];
+}
+
 const byName = (a: EntrySummary, b: EntrySummary) =>
   a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id);
 
