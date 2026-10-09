@@ -1,13 +1,13 @@
-# The inventory file (format v1)
+# The LorenzoLedger (format v1)
 
-A plain text file that lists what one character carries and owns: what it is, how many, and what it is in. Lorenzo reads it to fill in a character's inventory, and writes the same file back out when you ask it to. You can write one by hand, or have anything (a spreadsheet export, a script, an assistant) produce it from this page.
+A plain text file that lists what one character carries and owns: what it is, how many, what it is in, and what is known about it. Lorenzo reads it to fill in a character's inventory, and writes the same file back out when you ask it to. You can write one by hand, or have anything (a spreadsheet export, a script, an assistant) produce it from this page. The format is called **LorenzoLedger**, a file is a *ledger*, and the suggested names are `name.ledger.md` and `name.ledger.json`.
 
-> **Status: proposed** in [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md) and recorded in [ADR 0191](../adr/0191-inventory-file-format-v1.md). The format is stable enough to write files against; the commands that read and write it (`lorenzo inventory import` and `export`) are not built yet. Converters from spreadsheets (CSV) and LaTeX lists are planned and will come, but may take a while. Until then, write the file by hand or make a small script of your own.
+> **Status:** proposed in [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md), recorded in [ADR 0191](../adr/0191-inventory-file-format-v1.md), named and given descriptions by [ADR 0226](../adr/0226-lorenzoledger.md). `lorenzo inventory import` and `export` read and write it ([ADR 0193](../adr/0193-lorenzo-inventory-import-and-export.md)). Converters from other sources live outside this repository; the first, for D&D Beyond, is planned as `lorenzo-beyond`. Until the one you need exists, write the file by hand or make a small script of your own.
 
 ## The shortest useful file
 
 ```markdown
-format: lorenzo-inventory/1
+format: lorenzo-ledger/1
 owner: Mira
 
 ## Equipped
@@ -31,7 +31,7 @@ Two lines before the first `##` section, as `key: value`:
 
 | Key | Meaning |
 | --- | --- |
-| `format` | Always `lorenzo-inventory/1`. Required, so a reader knows what it is looking at. |
+| `format` | Always `lorenzo-ledger/1`. Required, so a reader knows what it is looking at. The format's earlier name, `lorenzo-inventory/1`, is still read and means the same. |
 | `owner` | The character's name (or its id) whose inventory this is. **One owner per file.** Required. |
 | `library` | Optional hint: the library (tenant) the file was written for, as its slug or name. If it does not match the one you import into, you are told before anything is made. |
 
@@ -65,6 +65,23 @@ The match is not case-sensitive. Any other `##` heading is **ignored, together w
 | `place` | Where a container is kept, when it is not on the character (`place: the inn at Pal Vaz`). Only used for containers under `## Not carried`. |
 
 A `|` inside a name or a note is written `\|`.
+
+### Descriptions
+
+A line quoted with `>` right under an item is that item's **description**: longer text than a `note` can hold, written in [LorenzoScript](../../packages/lorenzoscript/SPEC.md), Lorenzo's Markdown.
+
+```markdown
+- Quarterstaff | weight: 4 | kind: weapon
+  > A simple melee weapon, **1d6** bludgeoning.
+  >
+  > Versatile (1d8).
+```
+
+- A quoted line belongs to the nearest item line above it in the same section, at any indentation. Write it two spaces in from its item.
+- One optional space after the `>` is dropped. A bare `>` is a blank line. Several quoted lines are one description.
+- A quoted line before the first item of a section is ignored, with a warning. Anything quoted outside the sections, or under an ignored heading, is free text, like the rest of what is there.
+- A description is at most **20,000 characters**. More is a problem; nothing is cut to fit.
+- A reader that predates descriptions ignores the quoted lines, so such a ledger still reads there, without the text.
 
 ### Containers
 
@@ -109,7 +126,7 @@ Two things to know:
 - **What you may use is what you may see.** A player matches against the public catalog; a GM matches against everything. A line that finds nothing visible to you becomes an unsorted item, not an error.
 - **Import only creates.** It refuses a character that already has things, unless you pass `--add`. With `--add`, a line whose `ref` is the id of one of the character's own existing items does not make a copy: it moves that item to where the file puts it. This is how an export, edited and read back in, works.
 
-Weight, value, kind and place are kept as a note on the item, so a GM sorting it later has them in front of them.
+A line's `note` is kept as a note titled “Note”, its description as one titled “Description”, and its weight, value, kind and place as one titled “Details”, so a GM sorting the item later has them in front of them. The player can read all three; export reads them back.
 
 ## The JSON form
 
@@ -117,7 +134,7 @@ The same file as JSON, for scripts. `lorenzo inventory export --json` writes it,
 
 ```json
 {
-  "format": "lorenzo-inventory/1",
+  "format": "lorenzo-ledger/1",
   "owner": "Mira",
   "equipped": [
     {
@@ -138,7 +155,7 @@ The same file as JSON, for scripts. `lorenzo inventory export --json` writes it,
 }
 ```
 
-An item has `name` (required), `quantity` (default 1), `ref`, `item`, `weight` (a number, pounds), `value`, `kind`, `note`, `place`, and `contents` (a list of items, which makes it a container). Unknown keys are ignored. A script that writes this and a person who writes the Markdown form are producing the same thing.
+An item has `name` (required), `quantity` (default 1), `ref`, `item`, `weight` (a number, pounds), `value`, `kind`, `note`, `place`, `description` (the text of the quoted lines above, with line breaks), and `contents` (a list of items, which makes it a container). Unknown keys are ignored. A script that writes this and a person who writes the Markdown form are producing the same thing.
 
 ## Examples
 
@@ -147,7 +164,7 @@ An item has `name` (required), `quantity` (default 1), `ref`, `item`, `weight` (
 A sheet with the columns *Name, Count, Weight, Value, Container, Type, Description* (one row per stack, containers on their own sheet, "holding" for what is in the hand) becomes:
 
 ```markdown
-format: lorenzo-inventory/1
+format: lorenzo-ledger/1
 owner: Mira
 
 ## Equipped
@@ -198,8 +215,8 @@ where the quiver had to be written in, because a stack of 98 needs something to 
 
 ## Converters
 
-Turning a spreadsheet or a document into this format is a conversion step, not part of Lorenzo itself, and `lorenzo inventory import` only ever reads this format. Converters are planned, first for CSV and then for LaTeX lists, and will be published when ready. If you want to write one yourself, this page is the specification, and the examples above are a test you can check yours against.
+Turning a spreadsheet, a document or a character sheet into this format is a conversion step, not part of Lorenzo itself, and `lorenzo inventory import` only ever reads this format. A converter for public D&D Beyond characters, `lorenzo-beyond`, is planned as a package of its own. Converters for CSV and for LaTeX lists are planned and will be published when ready. If you want to write one yourself, this page is the specification, and the examples above are a test you can check yours against.
 
 ## Versions
 
-`format: lorenzo-inventory/1` is version 1. Later versions add fields and sections; they will not change what a v1 file means. A reader that meets a version it does not know says so and stops.
+`format: lorenzo-ledger/1` is version 1 (before [ADR 0226](../adr/0226-lorenzoledger.md) it was written `lorenzo-inventory/1`, which is still read and means the same). Later versions add fields and sections; they will not change what a v1 file means. A reader that meets a version it does not know says so and stops.

@@ -1,4 +1,4 @@
-"""Making what a plan says (ADR 0193): each line as an instance, notes written and told to the
+"""Making what a plan says (ADR 0193, 0226): each line as an instance, notes written and told to the
 owner's character, what the file puts in the hands picked up, and what it names by id moved.
 
 A line that fails does not stop the rest: it is reported, and what was to go inside it is skipped.
@@ -115,7 +115,11 @@ def apply(
             done.placeholders += step.match.via == "placeholder"
         # A note that cannot be written leaves the item made, which is worth reporting but not
         # worth undoing.
-        for title, content in (("Note", line.note), ("Details", details(line))):
+        for title, content in (
+            ("Note", line.note),
+            ("Description", line.description),
+            ("Details", details(line)),
+        ):
             if content is None or step.match.via == "instance":
                 continue
             try:
