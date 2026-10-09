@@ -12,13 +12,13 @@ test.beforeEach(async ({ page }) => {
 test('opens with the explorer, an entry, and stats and parents', async ({ page }) => {
   for (const p of ['explorer', 'entry', 'props', 'links'])
     await expect(page.locator(`[data-tab="${p}"]`)).toBeVisible();
-  await expect(page.locator('.pane-entry h1')).toHaveText('Wolf');
+  await expect(page.locator('.entry-name')).toHaveValue('Monster');
 });
 
 test('picking an entry in the explorer shows it', async ({ page }) => {
   await page.getByRole('button', { name: 'Ghoul' }).click();
   await page.getByRole('tab', { name: 'Parents and children' }).click();
-  await expect(page.locator('.pane-entry h1')).toHaveText('Ghoul');
+  await expect(page.locator('.entry-name')).toHaveValue('Ghoul');
   await expect(page.locator('.pane-links')).toContainText('Undead');
   await expect(page.locator('.pane-links')).toContainText('Beast');
 });
@@ -91,7 +91,7 @@ test('the palette opens panes and entries, and Reset layout restores', async ({ 
   await page.keyboard.press('Control+k');
   await page.getByLabel('Command palette').fill('zombie');
   await page.keyboard.press('Enter');
-  await expect(page.locator('.pane-entry h1')).toHaveText('Zombie');
+  await expect(page.locator('.entry-name')).toHaveValue('Zombie');
   await page.keyboard.press('Control+k');
   await page.getByLabel('Command palette').fill('reset layout');
   await page.keyboard.press('Enter');

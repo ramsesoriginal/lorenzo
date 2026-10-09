@@ -1,95 +1,19 @@
-// Stand-in content for the workbench until the API is wired in (B2, B3). Made-up entries.
+// Stand-in content for the page without sign-in: a small made-up repository, held in memory by
+// the sample transport (core/sample.ts), so the editor can be tried and tested with no server.
 
-export interface StubEntry {
-  id: string;
-  name: string;
-  parents: string[];
-  kind: string;
-  text: string;
-  stats: Record<string, number>;
-}
+import type { SampleEntry } from '../core/sample';
 
-export const ENTRIES: StubEntry[] = [
-  {
-    id: 'monster',
-    name: 'Monster',
-    parents: [],
-    kind: 'item',
-    text: 'The root of everything that bites.',
-    stats: { hp: 10, ac: 10 },
-  },
-  {
-    id: 'beast',
-    name: 'Beast',
-    parents: ['monster'],
-    kind: 'item',
-    text: 'Natural creatures.',
-    stats: { hp: 15 },
-  },
-  {
-    id: 'wolf',
-    name: 'Wolf',
-    parents: ['beast'],
-    kind: 'item',
-    text: 'Hunts in packs.',
-    stats: { hp: 11, ac: 13, speed: 40 },
-  },
-  {
-    id: 'dire-wolf',
-    name: 'Dire wolf',
-    parents: ['wolf'],
-    kind: 'item',
-    text: 'A wolf, only more.',
-    stats: { hp: 37, ac: 14 },
-  },
-  {
-    id: 'undead',
-    name: 'Undead',
-    parents: ['monster'],
-    kind: 'item',
-    text: 'Not done yet.',
-    stats: { ac: 8 },
-  },
-  {
-    id: 'zombie',
-    name: 'Zombie',
-    parents: ['undead'],
-    kind: 'item',
-    text: 'Slow and certain.',
-    stats: { hp: 22, speed: 20 },
-  },
-  {
-    id: 'ghoul',
-    name: 'Ghoul',
-    parents: ['undead', 'beast'],
-    kind: 'item',
-    text: 'Two parents: undead, and beast.',
-    stats: { hp: 22, ac: 12 },
-  },
-  {
-    id: 'sword',
-    name: 'Longsword',
-    parents: [],
-    kind: 'item',
-    text: 'A sword.',
-    stats: { damage: 8 },
-  },
-  {
-    id: 'hollow',
-    name: 'The Hollow',
-    parents: [],
-    kind: 'place',
-    text: 'A village that stopped.',
-    stats: {},
-  },
-  {
-    id: 'mill',
-    name: 'The old mill',
-    parents: ['hollow'],
-    kind: 'place',
-    text: 'Burned down.',
-    stats: {},
-  },
+export const SAMPLE_ENTRIES: SampleEntry[] = [
+  { id: 'monster', name: 'Monster', kinds: ['item'], parents: [] },
+  { id: 'beast', name: 'Beast', kinds: ['item'], parents: ['monster'] },
+  { id: 'wolf', name: 'Wolf', kinds: ['item'], parents: ['beast'] },
+  { id: 'dire-wolf', name: 'Dire wolf', kinds: ['item'], parents: ['wolf'] },
+  { id: 'undead', name: 'Undead', kinds: ['item'], parents: ['monster'] },
+  { id: 'zombie', name: 'Zombie', kinds: ['item'], parents: ['undead'] },
+  { id: 'ghoul', name: 'Ghoul', kinds: ['item'], parents: ['undead', 'beast'] },
+  { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [] },
+  { id: 'hollow', name: 'The Hollow', kinds: [], parents: [] },
+  { id: 'mill', name: 'The old mill', kinds: [], parents: ['hollow'] },
 ];
 
 export interface PaneDef {
