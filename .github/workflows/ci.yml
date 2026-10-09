@@ -78,7 +78,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       # pnpm itself ships via corepack, not as a mise [tools] entry (ADR
@@ -151,7 +151,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: mise run openapi-schema
@@ -190,7 +190,7 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.drift_matrix) }}
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -220,7 +220,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -281,7 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -329,7 +329,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -393,7 +393,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - name: Wait for Postgres
