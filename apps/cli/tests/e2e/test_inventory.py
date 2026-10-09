@@ -355,3 +355,49 @@ def test_a_description_is_a_note_the_player_reads_and_an_export_writes_back(
     tooth = inventory.equipped[0]
     assert tooth.name == "Hydra Zahn"
     assert tooth.description == "A **curved** tooth.\n\nWarm to the touch."
+
+
+def test_a_gm_imports_into_a_players_character_by_name_and_can_replace_what_is_there(
+    stack: Stack, tmp_path: Path
+) -> None:
+    table = _table(stack)
+    _library(stack, table)
+    gm, slug = table["gm"], table["slug"]
+    first = _write(
+        tmp_path,
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n"
+        "- Dagger\n- Chest\n  - Spare cloak\n",
+        "first.md",
+    )
+
+    # The GM does not play Ashfang and names it, as the file does (ADR 0232).
+    done = run_cli(stack, gm, tmp_path, "inventory", "import", str(first), "-t", slug, "--yes")
+
+    assert done.exit_code == 0, done.output
+    before = _instances(stack, table)
+    assert set(before) == {"Dagger", "Chest", "Spare cloak"}
+
+    second = _write(
+        tmp_path,
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n"
+        "- Rope\n- Backpack\n  - Dagger\n",
+        "second.md",
+    )
+    refused = run_cli(stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--yes")
+    assert refused.exit_code == 1 and "--replace" in " ".join(refused.output.split())
+    assert set(_instances(stack, table)) == {"Dagger", "Chest", "Spare cloak"}
+
+    backup = tmp_path / "before.ledger.md"
+    replaced = run_cli(
+        stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--replace",
+        "--backup", str(backup), "--yes",
+    )  # fmt: skip
+
+    assert replaced.exit_code == 0, replaced.output
+    assert "Deleted 3, made 3" in " ".join(replaced.output.split())
+    after = _instances(stack, table)
+    assert set(after) == {"Rope", "Backpack", "Dagger"}
+    assert after["Dagger"]["entity_id"] != before["Dagger"]["entity_id"]  # made again, not moved
+    saved = backup.read_text(encoding="utf-8")
+    assert "Chest" in saved and "Spare cloak" in saved  # what was there, to put back
+    assert after["Dagger"]["container_entity_id"] == after["Backpack"]["entity_id"]

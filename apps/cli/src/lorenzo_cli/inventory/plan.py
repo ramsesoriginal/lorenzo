@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
 
-from lorenzo_cli.client.models import TenantOut
+from lorenzo_cli.client.models import ItemInstanceOut, TenantOut
 from lorenzo_cli.client.ops import LIST_ITEM_INSTANCES_OWNED_BY
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.inventory.format import Inventory, Line, Remark
@@ -31,6 +31,14 @@ class Step:
     parent: Step | None = None
 
 
+@dataclass(frozen=True)
+class Doomed:
+    """A thing `--replace` deletes (ADR 0232)."""
+
+    entity_id: UUID
+    name: str
+
+
 @dataclass
 class Plan:
     tenant: TenantOut
@@ -41,6 +49,8 @@ class Plan:
     warnings: list[Remark] = field(default_factory=list)
     existing: int = 0
     add: bool = False
+    replace: bool = False
+    deleting: list[Doomed] = field(default_factory=list)  # deepest first, so a container is empty
     placeholder_id: UUID | None = None
 
     @property
@@ -56,11 +66,31 @@ class Plan:
         return [s for s in self.steps if s.match.via != "instance"]
 
 
-def owned_instances(client: LorenzoClient, tenant_id: UUID, owner_id: UUID) -> set[UUID]:
+def owned_things(client: LorenzoClient, tenant_id: UUID, owner_id: UUID) -> list[ItemInstanceOut]:
     found = client.call(
         LIST_ITEM_INSTANCES_OWNED_BY, path={"tenant_id": tenant_id, "owner_entity_id": owner_id}
     ).value
-    return {item.entity_id for group in found.groups for item in group.item_instances}
+    return [item for group in found.groups for item in group.item_instances]
+
+
+def owned_instances(client: LorenzoClient, tenant_id: UUID, owner_id: UUID) -> set[UUID]:
+    return {item.entity_id for item in owned_things(client, tenant_id, owner_id)}
+
+
+def deletion_order(things: list[ItemInstanceOut]) -> list[Doomed]:
+    """What `--replace` deletes, deepest first: a container goes after what is in it, so it is
+    deleted empty and the API has nothing to move out (ADR 0232)."""
+    by_id = {thing.entity_id: thing for thing in things}
+
+    def depth(thing: ItemInstanceOut) -> int:
+        level, here = 0, thing
+        while level <= len(by_id) and here.container_entity_id in by_id:  # bounded: a loop ends
+            here = by_id[here.container_entity_id]
+            level += 1
+        return level
+
+    ordered = sorted(things, key=lambda t: (-depth(t), t.title.lower(), str(t.entity_id)))
+    return [Doomed(thing.entity_id, thing.title) for thing in ordered]
 
 
 def _library_hint(inventory: Inventory, tenant: TenantOut) -> Remark | None:
@@ -82,8 +112,11 @@ def build_plan(
     owner: str | None,
     add: bool,
     table: Table,
+    replace: bool = False,
 ) -> Plan:
     """Raises `SelfServiceError` when the owner cannot be picked."""
+    if add and replace:
+        raise SelfServiceError("--add and --replace are alternatives: choose one.")
     reference = owner or inventory.owner
     if reference is None:
         raise SelfServiceError(
@@ -91,7 +124,7 @@ def build_plan(
             "or in the file's “owner:” line."
         )
     owner_id, owner_name = resolve_owner(client, tenant.id, reference)
-    plan = Plan(tenant, owner_id, owner_name, add=add)
+    plan = Plan(tenant, owner_id, owner_name, add=add, replace=replace)
     plan.problems.extend(inventory.problems)
     plan.warnings.extend(inventory.warnings)
     hint = _library_hint(inventory, tenant)
@@ -100,17 +133,22 @@ def build_plan(
     if plan.problems:
         return plan
 
-    instances = owned_instances(client, tenant.id, owner_id)
+    things = owned_things(client, tenant.id, owner_id)
+    instances = {thing.entity_id for thing in things}
     plan.existing = len(instances)
-    if instances and not add:
+    if instances and not (add or replace):
         plan.problems.append(
             Remark(
                 0,
-                f"{owner_name} already has {len(instances)} thing(s): "
-                "import only makes, so add --add to bring more in",
+                f"{owner_name} already has {len(instances)} thing(s): import only makes, so add "
+                "--add to bring more in, or --replace to start over",
             )
         )
         return plan
+    if replace:
+        # What is deleted cannot be moved, so no line may name one by its id (ADR 0232).
+        plan.deleting = deletion_order(things)
+        instances = set()
 
     top: list[tuple[Line, Section]] = [(line, "equipped") for line in inventory.equipped]
     top += [(line, "not_carried") for line in inventory.not_carried]
