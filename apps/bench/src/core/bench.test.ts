@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Bench } from './bench';
 import { compare, inverseOf, sameValue } from './commands';
 import { type SampleEntry, SampleTransport } from './sample';
+import type { StatDef } from './transport';
 
 const entries: SampleEntry[] = [
   { id: 'a', name: 'Monster', kinds: ['item'], parents: [] },
@@ -15,6 +16,13 @@ const entries: SampleEntry[] = [
     notes: [{ id: 'n1', text: 'A ranger note.' }],
   },
   { id: 'p', name: 'The Hollow', kinds: ['being'], parents: [] },
+];
+
+const defs: StatDef[] = [
+  { id: 'armor', name: 'Armor', type: 'int', enumValues: [] },
+  { id: 'magical', name: 'Magical', type: 'bool', enumValues: [] },
+  { id: 'size', name: 'Size', type: 'enum', enumValues: ['small', 'medium', 'large'] },
+  { id: 'weight', name: 'Weight', type: 'float', enumValues: [] },
 ];
 
 async function setup() {
@@ -480,5 +488,118 @@ describe('description and notes', () => {
     expect(bench.outbox.map((c) => c.state)).toEqual(['attention', 'waiting']);
     bench.discard(bench.outbox[0].id);
     expect(bench.outbox).toHaveLength(0);
+  });
+});
+
+describe('stats', () => {
+  async function withStats() {
+    const server = new SampleTransport(
+      entries.map((e) => (e.id === 'b' ? { ...e, stats: { armor: 12 } } : e)),
+      defs,
+    );
+    const bench = new Bench(server, () => 'x');
+    await bench.loadEntries();
+    await bench.open('b');
+    await bench.open('c');
+    return { server, bench };
+  }
+  const stat = (bench: Bench, id: string, statId: string) =>
+    bench.view(id)?.stats.find((x) => x.statId === statId);
+
+  it('reads the definitions, and an inherited value is not own', async () => {
+    const { bench } = await withStats();
+    expect(bench.statDefs.map((d) => d.id)).toEqual(['armor', 'magical', 'size', 'weight']);
+    expect(stat(bench, 'c', 'armor')).toMatchObject({ value: 12, own: false });
+    expect(stat(bench, 'b', 'armor')).toMatchObject({ value: 12, own: true });
+  });
+
+  it('shows an own value at once, and writes it', async () => {
+    const { bench, server } = await withStats();
+    server.offline = true;
+    bench.setStat('c', 'armor', 14);
+    expect(stat(bench, 'c', 'armor')).toMatchObject({ value: 14, own: true });
+    server.offline = false;
+    await bench.run();
+    expect(server.writes).toEqual([{ id: 'c', field: 'stat:armor', value: 14 }]);
+    expect(bench.status('c')).toBe('synced');
+    expect(stat(bench, 'c', 'armor')).toMatchObject({ value: 14, own: true });
+  });
+
+  it('a tag is a bool stat: on, then off', async () => {
+    const { bench, server } = await withStats();
+    bench.setStat('c', 'magical', true);
+    await bench.run();
+    bench.setStat('c', 'magical', false);
+    await bench.run();
+    expect(server.writes.map((w) => w.value)).toEqual([true, false]);
+  });
+
+  it('undoes a write exactly: the old own value, or none', async () => {
+    const { bench, server } = await withStats();
+    bench.setStat('b', 'armor', 15);
+    await bench.run();
+    expect(bench.undo('b')).toBe(true);
+    await bench.run();
+    expect(stat(bench, 'b', 'armor')).toMatchObject({ value: 12, own: true });
+    bench.setStat('c', 'armor', 9);
+    await bench.run();
+    bench.undo('c');
+    await bench.run();
+    // The undo of a first value is clearing it: the entry inherits again.
+    expect(stat(bench, 'c', 'armor')).toMatchObject({ value: 12, own: false });
+    expect(server.writes.at(-1)).toEqual({ id: 'c', field: 'stat:armor', value: null });
+  });
+
+  it('removing an own value makes the entry inherit', async () => {
+    const { bench, server } = await withStats();
+    bench.setStat('b', 'armor', null);
+    expect(stat(bench, 'b', 'armor')).toMatchObject({ own: false });
+    await bench.run();
+    expect(server.writes).toEqual([{ id: 'b', field: 'stat:armor', value: null }]);
+  });
+
+  it('writes nothing when nothing changes', async () => {
+    const { bench } = await withStats();
+    expect(bench.setStat('b', 'armor', 12)).toBeNull();
+    expect(bench.setStat('c', 'armor', null)).toBeNull();
+  });
+
+  it('does not edit a float yet, nor a stat that is not defined', async () => {
+    const { bench } = await withStats();
+    expect(bench.setStat('c', 'weight', 3)).toBeNull();
+    expect(bench.setStat('c', 'nothing', 3)).toBeNull();
+  });
+
+  it('is a conflict when the stat was changed elsewhere', async () => {
+    const { bench, server } = await withStats();
+    server.offline = true;
+    bench.setStat('b', 'armor', 15);
+    server.setStatElsewhere('b', 'armor', 18);
+    server.offline = false;
+    await bench.run();
+    const [cmd] = bench.outbox;
+    expect(cmd).toMatchObject({ state: 'conflict', theirs: 18, base: 12, mine: 15 });
+    bench.keepMine(cmd.id);
+    await bench.run();
+    expect(server.writes.at(-1)).toEqual({ id: 'b', field: 'stat:armor', value: 15 });
+  });
+
+  it('is already there when the server has the same value', async () => {
+    const { bench, server } = await withStats();
+    server.offline = true;
+    bench.setStat('b', 'armor', 15);
+    server.setStatElsewhere('b', 'armor', 15);
+    server.offline = false;
+    await bench.run();
+    expect(server.writes).toEqual([]);
+    expect(bench.status('b')).toBe('synced');
+  });
+
+  it('keeps an enum to its values', async () => {
+    const { bench } = await withStats();
+    bench.setStat('c', 'size', 'huge');
+    await bench.run();
+    expect(bench.status('c')).toBe('attention');
+    expect(bench.outbox[0].error).toMatch(/enum value for Size/);
   });
 });

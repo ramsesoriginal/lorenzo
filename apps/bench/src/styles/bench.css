@@ -468,3 +468,55 @@ dd {
 .new-note .btn {
   justify-self: start;
 }
+
+.stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px;
+}
+.stat-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stat.inherited .stat-name {
+  color: var(--muted);
+}
+.stat input[type="text"],
+.stat input[type="number"],
+.stat select {
+  width: 9em;
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 2px 6px;
+}
+.stat.inherited input,
+.stat.inherited select {
+  font-style: italic;
+}
+.stat .x {
+  background: none;
+  border: 0;
+  padding: 0 4px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.add-stat {
+  margin: 6px 12px;
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 2px 6px;
+  border-radius: 0;
+}

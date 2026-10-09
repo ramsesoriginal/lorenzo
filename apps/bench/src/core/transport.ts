@@ -19,6 +19,34 @@ export interface TextDoc {
   version: string | null;
 }
 
+/** How a stat's value is typed (the API's `value_type`). */
+export type StatType = 'int' | 'float' | 'text' | 'bool' | 'enum';
+export type StatScalar = string | number | boolean;
+
+/** A stat the repository defines: what an entry can have a value for. */
+export interface StatDef {
+  id: string;
+  name: string;
+  type: StatType;
+  /** The allowed values of an enum stat, in order. */
+  enumValues: string[];
+}
+
+/** One stat on an entry, as the server resolved it. `own` false means it is inherited. */
+export interface StatValue {
+  statId: string;
+  name: string;
+  /** The effective value; null for an own value just cleared, whose inherited one is not known here. */
+  value: StatScalar | null;
+  own: boolean;
+}
+
+/**
+ * A float is not edited yet: the API wants `3.0` for a float stat, and JSON written by the browser
+ * says `3` (ADR 0227).
+ */
+export const canEditStat = (type: StatType): boolean => type !== 'float';
+
 /** An entry as the server last said it was. `etag` is what `If-Match` wants on a write. */
 export interface EntryState {
   id: string;
@@ -29,6 +57,7 @@ export interface EntryState {
   /** The one description, if it has one the caller may read. */
   description: TextDoc | null;
   notes: TextDoc[];
+  stats: StatValue[];
   etag: string | null;
 }
 
@@ -57,12 +86,23 @@ export const canSetParents = (kinds: readonly string[]): boolean =>
 
 export interface Transport {
   listEntries(): Promise<EntrySummary[]>;
+  listStatDefinitions(): Promise<StatDef[]>;
   getEntry(id: string): Promise<EntryState>;
   /** Makes the entry (or, if it is already there under this id, returns it) and answers with it. */
   createEntry(entry: NewEntry): Promise<EntryState>;
   /** Writes, and answers with the entry as it is after (a fresh `etag` included). */
   setName(id: string, name: string, etag: string | null): Promise<EntryState>;
   setParents(id: string, parentIds: string[], etag: string | null): Promise<EntryState>;
+  /**
+   * Sets the entry's own value for a stat, or with `null` removes it so the entry inherits again.
+   * Answers with the entry as it is after (a fresh `etag` included).
+   */
+  setStat(
+    id: string,
+    stat: { id: string; type: StatType },
+    value: StatScalar | null,
+    etag: string | null,
+  ): Promise<EntryState>;
   /** Makes a description or a note on the entry under its own id, or finds it already there. */
   createText(entryId: string, text: NewText): Promise<void>;
   /** Replaces the text of a payload. `version` is its `If-Match`. */

@@ -2,13 +2,15 @@
 // (RFC 0039 section 2). Each names the field it changes, with the value the person saw (its base)
 // next to the new one, so a conflict can be told from a plain write, and so it can be undone.
 
-import type { EntryState, TextDoc, Transport } from './transport';
+import type { EntryState, StatScalar, StatType, TextDoc, Transport } from './transport';
 
-export type Value = string | string[];
+/** `null` is no value of its own, for a stat: the entry inherits. */
+export type Value = StatScalar | string[] | null;
 export type CommandType =
   | 'entry.create'
   | 'entry.set-name'
   | 'entry.set-parents'
+  | 'stat.set'
   | 'description.set-text'
   | 'note.add'
   | 'note.set-text';
@@ -38,6 +40,8 @@ export interface Command {
    * there yet, and for a new note, an id the client made (ADR 0222).
    */
   textId?: string;
+  /** For a stat: which one, and its type, which decides how it is sent. */
+  stat?: { id: string; name: string; type: StatType };
   /** What the server has now, when that is a conflict. */
   theirs?: Value;
   /** What the server said, when the command needs attention. */
@@ -49,13 +53,13 @@ interface Definition {
   label: string;
   read(entry: EntryState, c: Command): Value;
   apply(entry: EntryState, value: Value, c: Command): EntryState;
-  send(transport: Transport, entry: EntryState, value: Value): Promise<EntryState>;
+  send(transport: Transport, entry: EntryState, value: Value, c: Command): Promise<EntryState>;
 }
 
-const asList = (v: Value): string[] => (Array.isArray(v) ? v : [v]);
+const asList = (v: Value): string[] => (Array.isArray(v) ? v : [String(v)]);
 
 export function sameValue(a: Value, b: Value): boolean {
-  if (typeof a === 'string' || typeof b === 'string') return a === b;
+  if (!Array.isArray(a) || !Array.isArray(b)) return a === b;
   const x = [...asList(a)].sort();
   const y = [...asList(b)].sort();
   return x.length === y.length && x.every((v, i) => v === y[i]);
@@ -109,10 +113,49 @@ const noteSetDef: Definition = {
   send: sent,
 };
 
+/** The entry's own value for the command's stat, or null when it has none of its own. */
+export function ownStat(entry: EntryState, c: Command): StatScalar | null {
+  const s = entry.stats.find((x) => x.statId === c.stat?.id);
+  return s?.own ? s.value : null;
+}
+
+const statDef: Definition = {
+  label: 'stat',
+  read: (entry, c) => ownStat(entry, c),
+  apply: (entry, value, c) => {
+    const stat = c.stat as NonNullable<Command['stat']>;
+    const has = entry.stats.some((x) => x.statId === stat.id);
+    if (value === null) {
+      // Cleared: what it inherits is not known until the server says, so it shows as inherited.
+      return {
+        ...entry,
+        stats: entry.stats.map((x) =>
+          x.statId === stat.id ? { ...x, own: false, value: null } : x,
+        ),
+      };
+    }
+    const next = { statId: stat.id, name: stat.name, value: value as StatScalar, own: true };
+    return {
+      ...entry,
+      stats: has
+        ? entry.stats.map((x) => (x.statId === stat.id ? next : x))
+        : [...entry.stats, next],
+    };
+  },
+  send: (t, entry, value, c) =>
+    t.setStat(
+      entry.id,
+      c.stat as NonNullable<Command['stat']>,
+      value as StatScalar | null,
+      entry.etag,
+    ),
+};
+
 export const REGISTRY: Record<CommandType, Definition> = {
   'description.set-text': descriptionDef,
   'note.add': noteAddDef,
   'note.set-text': noteSetDef,
+  'stat.set': statDef,
   // A create is sent by the runner itself, which has the whole command; this is how it shows.
   'entry.create': {
     label: 'name',
@@ -146,9 +189,16 @@ export function compare(base: Value, mine: Value, theirs: Value): Verdict {
 /** The command that puts back what this one changed (a create has none: nothing is deleted here). */
 export function inverseOf(
   c: Command,
-): Pick<Command, 'type' | 'entryId' | 'base' | 'mine' | 'textId'> | null {
+): Pick<Command, 'type' | 'entryId' | 'base' | 'mine' | 'textId' | 'stat'> | null {
   if (c.type === 'entry.create' || c.type === 'note.add') return null;
-  return { type: c.type, entryId: c.entryId, base: c.mine, mine: c.base, textId: c.textId };
+  return {
+    type: c.type,
+    entryId: c.entryId,
+    base: c.mine,
+    mine: c.base,
+    textId: c.textId,
+    stat: c.stat,
+  };
 }
 
 /** The id this command makes, when it makes one: an entry, or a note. */

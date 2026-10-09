@@ -173,11 +173,14 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
 export const kindsText = (kinds: readonly string[]): string =>
   kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
-const show = (v: unknown, bench: Bench): string =>
-  Array.isArray(v) ? v.map((p) => bench.displayName(p)).join(', ') || 'none' : `“${String(v)}”`;
+const show = (v: unknown, bench: Bench): string => {
+  if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
+  if (v === null) return 'nothing of its own (inherited)';
+  return typeof v === 'string' ? `“${v}”` : String(v);
+};
 
 function conflictRow(bench: Bench, cmd: Command): HTMLElement {
-  const label = cmd.type === 'entry.set-name' ? 'name' : 'parents';
+  const label = cmd.stat?.name ?? (cmd.type === 'entry.set-name' ? 'name' : 'parents');
   const box = el('div', 'problem problem-conflict');
   box.setAttribute('role', 'alert');
   box.append(

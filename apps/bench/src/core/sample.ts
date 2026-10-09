@@ -12,6 +12,10 @@ import {
   type NewText,
   OfflineError,
   RefusedError,
+  type StatDef,
+  type StatScalar,
+  type StatType,
+  type StatValue,
   type TextDoc,
   type Transport,
 } from './transport';
@@ -23,6 +27,8 @@ export interface SampleEntry {
   parents: string[];
   description?: string;
   notes?: { id: string; title?: string; text: string }[];
+  /** Its own stat values, by the stat's id. */
+  stats?: Record<string, StatScalar>;
 }
 
 interface Text {
@@ -35,7 +41,8 @@ interface Text {
 export type SampleWrite =
   | { id: string; field: 'name' | 'parents'; value: string | string[] }
   | { id: string; field: 'create'; value: string }
-  | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string };
+  | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
+  | { id: string; field: `stat:${string}`; value: StatScalar | null };
 
 const doc = (t: Text): TextDoc => ({
   id: t.id,
@@ -53,14 +60,18 @@ export class SampleTransport implements Transport {
   heldElsewhere = new Set<string>();
   private rows = new Map<
     string,
-    Omit<SampleEntry, 'description' | 'notes'> & {
+    Omit<SampleEntry, 'description' | 'notes' | 'stats'> & {
       version: number;
+      stats: Map<string, StatScalar>;
       description: Text | null;
       notes: Text[];
     }
   >();
 
-  constructor(entries: SampleEntry[]) {
+  constructor(
+    entries: SampleEntry[],
+    private readonly defs: StatDef[] = [],
+  ) {
     for (const e of entries)
       this.rows.set(e.id, {
         id: e.id,
@@ -68,6 +79,7 @@ export class SampleTransport implements Transport {
         kinds: e.kinds,
         parents: [...e.parents],
         version: 1,
+        stats: new Map(Object.entries(e.stats ?? {})),
         description:
           e.description === undefined
             ? null
@@ -89,6 +101,21 @@ export class SampleTransport implements Transport {
     if (!row) throw new RefusedError(`No entry with id ${id}.`);
     return row;
   }
+  /** Own values first, then what the parents have, as the API resolves them (first parent wins). */
+  private effective(id: string, seen = new Set<string>()): StatValue[] {
+    const row = this.row(id);
+    seen.add(id);
+    const out = new Map<string, StatValue>();
+    for (const [statId, value] of row.stats) {
+      const def = this.defs.find((d) => d.id === statId);
+      if (def) out.set(statId, { statId, name: def.name, value, own: true });
+    }
+    for (const p of row.parents)
+      if (!seen.has(p))
+        for (const v of this.effective(p, seen))
+          if (!out.has(v.statId)) out.set(v.statId, { ...v, own: false });
+    return [...out.values()];
+  }
   private state(id: string): EntryState {
     const row = this.row(id);
     return {
@@ -99,6 +126,7 @@ export class SampleTransport implements Transport {
       childIds: [...this.rows.values()].filter((r) => r.parents.includes(id)).map((r) => r.id),
       description: row.description ? doc(row.description) : null,
       notes: row.notes.map(doc),
+      stats: this.effective(id),
       etag: `"v${row.version}"`,
     };
   }
@@ -110,6 +138,10 @@ export class SampleTransport implements Transport {
   async listEntries(): Promise<EntrySummary[]> {
     this.need();
     return [...this.rows.values()].map(({ id, name, kinds }) => ({ id, name, kinds: [...kinds] }));
+  }
+  async listStatDefinitions(): Promise<StatDef[]> {
+    this.need();
+    return this.defs.map((d) => ({ ...d, enumValues: [...d.enumValues] }));
   }
   async getEntry(id: string) {
     this.need();
@@ -127,6 +159,7 @@ export class SampleTransport implements Transport {
       kinds: [...entry.kinds],
       parents: [...new Set(entry.parents)],
       version: 1,
+      stats: new Map(),
       description: null,
       notes: [],
     });
@@ -155,6 +188,41 @@ export class SampleTransport implements Transport {
     row.parents = [...parentIds];
     row.version++;
     this.writes.push({ id, field: 'parents', value: [...parentIds] });
+    return this.state(id);
+  }
+
+  async setStat(
+    id: string,
+    stat: { id: string; type: StatType },
+    value: StatScalar | null,
+    etag: string | null,
+  ) {
+    this.need();
+    this.guard(id, etag);
+    const row = this.row(id);
+    const def = this.defs.find((d) => d.id === stat.id);
+    if (!def) throw new RefusedError(`No stat with id ${stat.id}.`);
+    if (value === null) {
+      if (row.stats.delete(stat.id)) {
+        row.version++;
+        this.writes.push({ id, field: `stat:${stat.id}`, value: null });
+      }
+      return this.state(id);
+    }
+    const fits =
+      def.type === 'bool'
+        ? typeof value === 'boolean'
+        : def.type === 'int'
+          ? Number.isInteger(value)
+          : def.type === 'text'
+            ? typeof value === 'string'
+            : typeof value === 'string' && def.enumValues.includes(value);
+    if (!fits) throw new RefusedError(`That is not a ${def.type} value for ${def.name}.`);
+    if (row.stats.get(stat.id) !== value) {
+      row.stats.set(stat.id, value);
+      row.version++;
+      this.writes.push({ id, field: `stat:${stat.id}`, value });
+    }
     return this.state(id);
   }
 
@@ -202,6 +270,14 @@ export class SampleTransport implements Transport {
     if (!target) throw new Error(`No ${which} on ${entryId}.`);
     target.text = text;
     target.version++;
+  }
+
+  /** Someone else sets (or with null clears) an entry's own value for a stat, behind its back. */
+  setStatElsewhere(id: string, statId: string, value: StatScalar | null) {
+    const row = this.row(id);
+    if (value === null) row.stats.delete(statId);
+    else row.stats.set(statId, value);
+    row.version++;
   }
 
   /** Someone else renames the entry, behind the person's back. */

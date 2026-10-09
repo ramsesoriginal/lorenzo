@@ -31,6 +31,7 @@ import {
   type Workspace,
 } from '../workspace/model';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
+import { renderStats } from './statsPane';
 import { PANE_IDS, PANES } from './stub';
 
 const BAR = 30;
@@ -307,6 +308,7 @@ export class Shell {
   private paneEl(id: string): HTMLElement {
     const bench = this.bench;
     if (id === 'entry') return renderEntry(bench, this.selected, (x) => this.select(x));
+    if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     const c = el('div', `pane pane-${id}`);
     if (id === 'explorer') {
@@ -324,8 +326,6 @@ export class Shell {
         list.append(li);
       }
       c.append(list);
-    } else if (id === 'props') {
-      c.append(el('p', 'muted', 'Stats are not editable yet.'));
     }
     return c;
   }

@@ -17,10 +17,13 @@ import {
   type Value,
 } from './commands';
 import {
+  canEditStat,
   type EntryState,
   type EntrySummary,
   OfflineError,
   RefusedError,
+  type StatDef,
+  type StatScalar,
   type Transport,
 } from './transport';
 
@@ -31,6 +34,8 @@ const HISTORY_LIMIT = 50;
 export class Bench {
   /** The server's list of entries, as last read. */
   entries: EntrySummary[] = [];
+  /** The stats the repository defines, as last read: what an entry can have a value for. */
+  statDefs: StatDef[] = [];
   /** The mirror: entries as the server last said, by id. */
   private mirror = new Map<string, EntryState>();
   /** Every command that is not synced, in the order written. */
@@ -63,6 +68,7 @@ export class Bench {
   async loadEntries(): Promise<void> {
     try {
       this.entries = await this.transport.listEntries();
+      this.statDefs = await this.transport.listStatDefinitions();
       this.loadError = null;
       this.offline = false;
     } catch (e) {
@@ -103,6 +109,7 @@ export class Bench {
         childIds: [],
         description: null,
         notes: [],
+        stats: [],
         etag: null,
       };
     }
@@ -177,7 +184,7 @@ export class Bench {
     type: Exclude<CommandType, 'entry.create' | 'note.add'>,
     entryId: string,
     mine: Value,
-    textId?: string,
+    ref?: string,
   ): Command | null {
     const entry = this.view(entryId);
     if (!entry) return null;
@@ -194,8 +201,12 @@ export class Bench {
       // A description not there yet is made under an id of the client's own (ADR 0222).
       command.textId = entry.description?.id ?? this.makeId();
     } else if (type === 'note.set-text') {
-      if (!textId || !entry.notes.some((n) => n.id === textId)) return null;
-      command.textId = textId;
+      if (!ref || !entry.notes.some((n) => n.id === ref)) return null;
+      command.textId = ref;
+    } else if (type === 'stat.set') {
+      const def = this.statDefs.find((d) => d.id === ref);
+      if (!def || !canEditStat(def.type)) return null;
+      command.stat = { id: def.id, name: def.name, type: def.type };
     }
     const base = REGISTRY[type].read(entry, command);
     if (sameValue(base, mine)) return null;
@@ -214,6 +225,11 @@ export class Bench {
   /** Changes the text of one of the entry's notes. */
   setNoteText(entryId: string, noteId: string, text: string): Command | null {
     return this.change('note.set-text', entryId, text, noteId);
+  }
+
+  /** Sets the entry's own value for a stat, or with `null` removes it so the entry inherits. */
+  setStat(entryId: string, statId: string, value: StatScalar | null): Command | null {
+    return this.change('stat.set', entryId, value, statId);
   }
 
   /** Adds a note to the entry, under an id of its own. It shows at once. */
@@ -262,7 +278,7 @@ export class Bench {
     const inv = last && inverseOf(last);
     if (!last || !inv || inv.type === 'entry.create' || inv.type === 'note.add') return false;
     this.history.splice(this.history.indexOf(last), 1);
-    this.change(inv.type, inv.entryId, inv.mine, inv.textId);
+    this.change(inv.type, inv.entryId, inv.mine, inv.textId ?? inv.stat?.id);
     return true;
   }
 
@@ -452,7 +468,7 @@ export class Bench {
       if (verdict === 'send') {
         try {
           if (isText) await this.writeText(c, server);
-          else this.mirror.set(c.entryId, await def.send(this.transport, server, c.mine));
+          else this.mirror.set(c.entryId, await def.send(this.transport, server, c.mine, c));
         } catch (e) {
           // The entry changed between the read and the write: read it again once.
           if (e instanceof RefusedError && e.precondition && attempt === 0) continue;
