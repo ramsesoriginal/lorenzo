@@ -286,6 +286,8 @@ Each its own ADR when it lands, on its own short-lived branch off `main`. The id
 | B9 | Structured pack editor | B3, B6 | bench |
 | B10 | SVG ancestry graph | B3 | bench |
 
+The interface (docking, views over entries) and its build order are in [RFC 0042](0042-bench-workbench-interface.md); its slices W-A to W-H sit on top of these.
+
 Not slices yet: a **delta feed with tombstones**, only if the spike or use shows full refetch does not scale; and the **registries** of [§8](#8-room-for-new-kinds), when the first place, clock or calendar kind exists.
 
 ## Open questions
