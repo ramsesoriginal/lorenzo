@@ -418,6 +418,7 @@ class FakeTenant:
             "parent": None,
             "quantity": None,
             "children": [],
+            "previous": {"had_own_value": False, "value": None},
         }
 
     def slug_of(self, entity_id: str) -> str:

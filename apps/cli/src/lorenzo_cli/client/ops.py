@@ -22,6 +22,7 @@ from lorenzo_cli.client.models import (
     CopyPlanOut,
     CopyRequest,
     EntityDetailOut,
+    EntityStatWriteOut,
     GivePackRequest,
     InformationCreate,
     InformationOut,
@@ -139,11 +140,11 @@ DELETE_STAT_GROUP: Op[None] = Op(
 CREATE_ITEM: Op[ItemOut] = Op(
     "create_item", "POST", f"{_TENANT}/items", request_type=ItemCreate, response_type=ItemOut
 )
-SET_ENTITY_TAG: Op[EntityDetailOut] = Op(
+SET_ENTITY_TAG: Op[EntityStatWriteOut] = Op(
     "set_entity_tag",
     "PUT",
     f"{_TENANT}/entities/{{entity_id}}/tags/{{stat_definition_id}}",
-    response_type=EntityDetailOut,
+    response_type=EntityStatWriteOut,
 )
 LIST_ENTITY_COMPUTED_STATS: Op[list[ComputedStatOut]] = Op(
     "list_entity_computed_stats",
@@ -162,12 +163,12 @@ SET_COMPUTED_STAT: Op[ComputedStatOut] = Op(
 GET_ENTITY: Op[EntityDetailOut] = Op(
     "get_entity", "GET", f"{_TENANT}/entities/{{entity_id}}", response_type=EntityDetailOut
 )
-SET_ENTITY_STAT: Op[EntityDetailOut] = Op(
+SET_ENTITY_STAT: Op[EntityStatWriteOut] = Op(
     "set_entity_stat",
     "PUT",
     f"{_TENANT}/entities/{{entity_id}}/stats/{{stat_definition_id}}",
     request_type=SetEntityStatRequest,
-    response_type=EntityDetailOut,
+    response_type=EntityStatWriteOut,
 )
 CREATE_INFORMATION: Op[InformationOut] = Op(
     "create_information",
