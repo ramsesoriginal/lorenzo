@@ -42,7 +42,7 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: mise run lint
