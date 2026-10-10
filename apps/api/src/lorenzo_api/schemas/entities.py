@@ -73,6 +73,14 @@ class EntityParentsRequest(BaseModel):
     parent_ids: list[uuid.UUID] = []
 
 
+class InformationOrderRequest(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/information/order - see ADR 0237. Every
+    piece of information the caller can see on the entry, each once, in the order it should
+    have. Information the caller cannot see keeps its own position."""
+
+    information_ids: list[uuid.UUID]
+
+
 class EntityListOut(EntitySummary):
     """One row of GET .../entities - an EntitySummary and what the entry is (ADR 0215):
     `kinds`, in the order of `EntityKind`, empty for a bare entry (a group, or a category node).

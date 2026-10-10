@@ -1,8 +1,9 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Request, Response, UploadFile
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
@@ -12,8 +13,13 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.etag import check_if_match, etag_for
-from lorenzo_api.exceptions import EntityNotFoundError, PlayerNotFoundError
-from lorenzo_api.models import Entity, Knowledge, Player, User
+from lorenzo_api.exceptions import (
+    EntityNotFoundError,
+    MainPictureThroughEntityError,
+    PlayerNotFoundError,
+)
+from lorenzo_api.models import Entity, Knowledge, Payload, Player, User
+from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.entities import (
     authorize_information_edit,
     get_information_or_404,
@@ -23,6 +29,7 @@ from lorenzo_api.routers.entities import (
     require_singleton_type_free,
 )
 from lorenzo_api.schemas.entities import InformationOut, InformationUpdate, KnowerOut
+from lorenzo_api.schemas.payloads import PayloadPictureOut, payload_to_schema
 
 # get_tenant_or_404, not get_tenant_context (ADR 0038/RFC 0011, matching
 # routers/entities.py's identical revision): GET here is gated by the
@@ -152,6 +159,64 @@ async def delete_information(
         detail=f"entity={information.entity_id}",
     )
     await session.commit()
+
+
+@router.post("/{information_id}/payloads", status_code=201)
+async def add_information_picture(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+    file: UploadFile,
+) -> PayloadPictureOut:
+    """Adds a picture to the information, as one more payload after the ones it has (ADR 0237,
+    K8 of RFC 0041). A multipart upload of a PNG, JPEG, WebP or GIF of at most
+    `picture_max_bytes` (422 otherwise). Check order: sight of the row (404), standing over its
+    entry (403), then the upload. The entry's `main_picture` is not added to this way (409):
+    it is one picture, set with PUT .../entities/{id}/picture. Logged, with the information's id
+    only (ADR 0084).
+    """
+    information = await get_information_or_404(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    if information.type == "main_picture":
+        raise MainPictureThroughEntityError(
+            detail="The main picture is one picture: set it with PUT .../entities/{id}/picture"
+        )
+    data, file_type = await read_picture_upload(file)
+
+    await lock_entity_information(session, entity_id=information.entity_id, tenant_id=tenant_id)
+    payload = await add_picture_payload(
+        session, tenant_id=tenant_id, information_id=information_id, data=data, file_type=file_type
+    )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="payload.picture_added",
+        target_type="payload",
+        target_id=payload.id,
+        detail=f"information={information_id}",
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    stmt = (
+        select(Payload)
+        .where(Payload.id == payload.id)
+        .options(
+            selectinload(Payload.description),
+            selectinload(Payload.number),
+            selectinload(Payload.picture),
+            selectinload(Payload.document),
+        )
+        .execution_options(populate_existing=True)
+    )
+    stored = (await session.execute(stmt)).scalar_one()
+    out = payload_to_schema(stored, request)
+    assert isinstance(out, PayloadPictureOut)
+    return out
 
 
 async def _require_knower_entity_exists(

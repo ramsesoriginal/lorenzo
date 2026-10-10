@@ -1740,7 +1740,15 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Payload
+         * @description Removes a picture from its information (ADR 0237, K8 of RFC 0041). Same gate as editing
+         *     the information (sight of the row 404, standing over its entry 403). Only a picture can be
+         *     removed (409): a description is edited, and numbers and documents are not authored through
+         *     the API yet. The entry's `main_picture` goes with its one picture, since it is nothing
+         *     without it. Logged, with the payload's id only (ADR 0084).
+         */
+        delete: operations["delete_payload"];
         options?: never;
         head?: never;
         /**
@@ -2042,6 +2050,67 @@ export interface paths {
          */
         post: operations["create_information"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/information/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Entity Information
+         * @description Puts the entry's information in a new order in one request (ADR 0237, K8 of RFC 0041; the
+         *     reorder ADR 0101 and RFC 0015 left open). The body lists every piece of information the
+         *     caller can see on the entry, each once, in the order wanted; anything else is a 409 (a note
+         *     added meanwhile, one removed, one named twice), and the caller reads the entry again. There
+         *     is no `If-Match`: naming every row is the check. Information the caller cannot see keeps its
+         *     own position, so a player reorders only their view and a GM everything.
+         *
+         *     The positions the visible rows held are handed out again in the new order, in two steps
+         *     under the entry's lock, since `order` is unique and each row is checked as it is written.
+         *     Same gate as creating information (404 for an unknown entry, 403). Not logged: order is
+         *     descriptive (ADR 0084).
+         */
+        put: operations["reorder_entity_information"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Entity Picture
+         * @description Sets the entry's one main picture (ADR 0237, K8 of RFC 0041): writes the singleton
+         *     `main_picture` information and its one picture payload, and answers with the information:
+         *     `201` the first time, `200` when it replaces the picture it had. A multipart upload (PNG,
+         *     JPEG, WebP or GIF, at most `picture_max_bytes`, 422 otherwise). `is_public` is a form field;
+         *     left out, a new picture is not public (as every new information is) and a replaced one keeps
+         *     what it was. Same gate as creating information (404, 403). Logged with the entry's id only
+         *     (ADR 0084).
+         */
+        put: operations["set_entity_picture"];
+        post?: never;
+        /**
+         * Clear Entity Picture
+         * @description Removes the entry's main picture, with its information (ADR 0237, K8 of RFC 0041): `204`
+         *     whether or not it had one. Same gate as setting it. Logged when something was removed.
+         */
+        delete: operations["clear_entity_picture"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2491,6 +2560,31 @@ export interface paths {
          *     the row); title/type/order edits are descriptive content.
          */
         patch: operations["update_information"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/payloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Information Picture
+         * @description Adds a picture to the information, as one more payload after the ones it has (ADR 0237,
+         *     K8 of RFC 0041). A multipart upload of a PNG, JPEG, WebP or GIF of at most
+         *     `picture_max_bytes` (422 otherwise). Check order: sight of the row (404), standing over its
+         *     entry (403), then the upload. The entry's `main_picture` is not added to this way (409):
+         *     it is one picture, set with PUT .../entities/{id}/picture. Logged, with the information's id
+         *     only (ADR 0084).
+         */
+        post: operations["add_information_picture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}": {
@@ -3806,6 +3900,18 @@ export interface components {
             name: string;
             /** Is Pc */
             is_pc: boolean | null;
+        };
+        /** Body_add_information_picture */
+        Body_add_information_picture: {
+            /** File */
+            file: string;
+        };
+        /** Body_set_entity_picture */
+        Body_set_entity_picture: {
+            /** File */
+            file: string;
+            /** Is Public */
+            is_public?: boolean | null;
         };
         /** Body_upload_campaign_picture */
         Body_upload_campaign_picture: {
@@ -5374,6 +5480,16 @@ export interface components {
             locale: string;
             /** Order */
             order?: number | null;
+        };
+        /**
+         * InformationOrderRequest
+         * @description PUT /tenants/{tenant_id}/entities/{entity_id}/information/order - see ADR 0237. Every
+         *     piece of information the caller can see on the entry, each once, in the order it should
+         *     have. Information the caller cannot see keeps its own position.
+         */
+        InformationOrderRequest: {
+            /** Information Ids */
+            information_ids: string[];
         };
         /**
          * InformationOut
@@ -14133,6 +14249,70 @@ export interface operations {
             };
         };
     };
+    delete_payload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     update_payload: {
         parameters: {
             query?: never;
@@ -15194,6 +15374,210 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InformationOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reorder_entity_information: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformationOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_entity_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_set_entity_picture"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    clear_entity_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -16840,6 +17224,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_information_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_information_picture"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayloadPictureOut"];
                 };
             };
             /** @description Validation Error */
