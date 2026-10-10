@@ -1,5 +1,68 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.7.0...api-v1.0.0) (2026-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** POST /invites/{token}/redeem's player_id is null for a GM link; clients that assume a player seat must read the new role field.
+
+### Features
+
+* **api,cli:** the placeholder item, changing an instance's prototype ([02ebcb2](https://github.com/ramsesoriginal/lorenzo/commit/02ebcb240f6b75fbea321334357d1821c04a7f76))
+* **api,cli:** the placeholder item, changing an instance's prototype ([4934310](https://github.com/ramsesoriginal/lorenzo/commit/493431046420b10919de3fce7ae182e2452d9f47))
+* **api:** a campaign's GMs read the GM-only text a copy brings ([4238e81](https://github.com/ramsesoriginal/lorenzo/commit/4238e81da7796681838e7a3dbab426c2ba7c4689))
+* **api:** a campaign's GMs read the GM-only text a copy brings (ADR 0200) ([5b4342b](https://github.com/ramsesoriginal/lorenzo/commit/5b4342b21aea3abaf1d8784de0c7d2fdae3f38dd))
+* **api:** a campaign's players and GMs come with their names (ADR 0176) ([1cc1d3e](https://github.com/ramsesoriginal/lorenzo/commit/1cc1d3e8c15e9a2de45e64a3cec2eb175ae05d96))
+* **api:** a campaign's players and GMs come with their names (ADR 0176) ([1574621](https://github.com/ramsesoriginal/lorenzo/commit/1574621d60f842e4ed6136373a4a9dc8ba7f916d))
+* **api:** a GM invite link: single use, short-lived (ADR 0177) ([0eef123](https://github.com/ramsesoriginal/lorenzo/commit/0eef123755b97c81a3254363fece0190ac03a76b))
+* **api:** a GM invite link: single use, short-lived (ADR 0177) ([b8974e2](https://github.com/ramsesoriginal/lorenzo/commit/b8974e2751af5aec0bfc66c52568ce0e156cd688))
+* **api:** a GM with no membership lists the beings in their reach ([fd61392](https://github.com/ramsesoriginal/lorenzo/commit/fd61392d1d91e53a0aea2006060d2f0dd7519e3b))
+* **api:** a GM with no membership lists the beings in their reach (ADR 0173) ([d7ed3c5](https://github.com/ramsesoriginal/lorenzo/commit/d7ed3c535595769e9049edc1e78156ef1bb8f3ba))
+* **api:** a parent added to a copy is a warning, not a breaking change ([81a65bd](https://github.com/ramsesoriginal/lorenzo/commit/81a65bdb855aa5a2ff4c76bafc358c23e1eda032))
+* **api:** a release holds a digest, and a publish says what it breaks ([cc8f901](https://github.com/ramsesoriginal/lorenzo/commit/cc8f901a0795e20eb03846eeca476a237d5704e2))
+* **api:** a repository's owner sees who copied it ([5437a86](https://github.com/ramsesoriginal/lorenzo/commit/5437a860ad2bd12b0d70f935f7de4bd7324ff3c3)), closes [#524](https://github.com/ramsesoriginal/lorenzo/issues/524)
+* **api:** a repository's owner sees who copied it ([23252a5](https://github.com/ramsesoriginal/lorenzo/commit/23252a51048124ce5558d2f5186f5ebcb2fcb9bb)), closes [#524](https://github.com/ramsesoriginal/lorenzo/issues/524)
+* **api:** a repository's owner sees who copied it (ADR 0204) ([17687ab](https://github.com/ramsesoriginal/lorenzo/commit/17687abd85a2d16b71ed85777fa4127a43924f66))
+* **api:** add the player self-service switches ([c0680be](https://github.com/ramsesoriginal/lorenzo/commit/c0680be30208ac23dbc6c1bfb91f10911425c897))
+* **api:** add the player self-service switches ([e0b81c9](https://github.com/ramsesoriginal/lorenzo/commit/e0b81c95f618cb327787cbf84c98bd5ff1e7726d))
+* **api:** add the player self-service switches ([71076cc](https://github.com/ramsesoriginal/lorenzo/commit/71076ccb3c18f53dfb556a73656c789100590782))
+* **api:** attachments - a parent a bridge adds to a copy travels with it (ADR 0172) ([e5ed406](https://github.com/ramsesoriginal/lorenzo/commit/e5ed40690967937577f66565bdca2bfe5d0ec63e))
+* **api:** attachments - a parent a bridge adds to a copy travels with it (ADR 0172) ([eb72232](https://github.com/ramsesoriginal/lorenzo/commit/eb722325f51525c3cb97e79d508de6b2180dd942))
+* **api:** creates take an id the client made, and a second send is a replay ([1a03c6d](https://github.com/ramsesoriginal/lorenzo/commit/1a03c6d531c6597cb0a10d48c21f9b807c0908e4))
+* **api:** creates take an id the client made, and a second send is a replay ([d21ad3f](https://github.com/ramsesoriginal/lorenzo/commit/d21ad3fe0ef3931bc5d0eb7cdd63b3bdf8144e66))
+* **api:** delete a tenant, owner and tenant-creator only ([b21b28d](https://github.com/ramsesoriginal/lorenzo/commit/b21b28d9c31385a398cd207a3c9b690c5f89cc7f))
+* **api:** enforce player self-service on item creation and packs ([3a55997](https://github.com/ramsesoriginal/lorenzo/commit/3a5599798e93fbe7c239632050f37d94f87f96ab))
+* **api:** enforce player self-service on item creation and packs ([464be48](https://github.com/ramsesoriginal/lorenzo/commit/464be4854205be2a7ccb4db2468ba9daf4e9fc65))
+* **api:** enforce player self-service on item creation and packs ([d771af9](https://github.com/ramsesoriginal/lorenzo/commit/d771af9169ba6076ad025cb48bcb39be13f683a4))
+* **api:** entries with kinds (RFC 0041 K2) ([8a8a6d1](https://github.com/ramsesoriginal/lorenzo/commit/8a8a6d1f7f6560bf4969e6f30f1769b4f7ba6330))
+* **api:** GET /entities filters by name, kind and parent, and says what each entry is ([5d494f1](https://github.com/ramsesoriginal/lorenzo/commit/5d494f15b7404306bacc74e809dd62a20ccda7ef)), closes [#551](https://github.com/ramsesoriginal/lorenzo/issues/551)
+* **api:** GET /entities filters by name, kind and parent, and says what each entry is (RFC 0041 K5) ([275ea2e](https://github.com/ramsesoriginal/lorenzo/commit/275ea2e78a63b2fabf00686a7105c983191b8de6))
+* **api:** GET /me says what the caller may create (ADR 0175) ([9e4cd74](https://github.com/ramsesoriginal/lorenzo/commit/9e4cd7443f6b10b1d5138e73df03097f0b29cfc9))
+* **api:** GET /me says what the caller may create (ADR 0175) ([5d7981f](https://github.com/ramsesoriginal/lorenzo/commit/5d7981fbc8452954a69eef62b52ec9cd1fd6a7f0))
+* **api:** list the attachments a repository holds (ADR 0174) ([7717a4c](https://github.com/ramsesoriginal/lorenzo/commit/7717a4cfdc7102e8b59292e2846ddad72423cf88))
+* **api:** list what a repository is built on ([c31c57a](https://github.com/ramsesoriginal/lorenzo/commit/c31c57a8461cd2dc61492366fb954d74b579b3ef))
+* **api:** list what a repository is built on (ADR 0198) ([f987c13](https://github.com/ramsesoriginal/lorenzo/commit/f987c1359ecc1e79df399af1b20ef8dfbb8cf853))
+* **api:** make an entry with kinds, change its kinds, and publish only proven combinations ([fa50b2c](https://github.com/ramsesoriginal/lorenzo/commit/fa50b2c4897330bf4f49f4547408ae96ad41734b)), closes [#553](https://github.com/ramsesoriginal/lorenzo/issues/553)
+* **api:** names in update diffs ([b8989bc](https://github.com/ramsesoriginal/lorenzo/commit/b8989bcd42bc8c8994b2fa1b76079d24ab5fcc08))
+* **api:** names in update diffs (ADR 0197) ([9fe3f45](https://github.com/ramsesoriginal/lorenzo/commit/9fe3f4521ea435d2151ac9b2f2a0f56b8a87294b))
+* **api:** one registry of copyable tables (RFC 0041 K1) ([a454135](https://github.com/ramsesoriginal/lorenzo/commit/a454135d1eb9d7559e0bf81f156a4ea88c6068bc))
+* **api:** one registry of copyable tables, with tests that hold it to the database and the planner ([fcce6f0](https://github.com/ramsesoriginal/lorenzo/commit/fcce6f0adfb53dd5f8332f98a4bf978cdc1e9ff6)), closes [#554](https://github.com/ramsesoriginal/lorenzo/issues/554)
+* **api:** parent ids in the entry list ([5691ed2](https://github.com/ramsesoriginal/lorenzo/commit/5691ed27c0070272347f7581fad9f22004cc3322))
+* **api:** parent ids in the entry list ([6d57bcb](https://github.com/ramsesoriginal/lorenzo/commit/6d57bcb2786076facf38c0d158dae8c5f1286cd7))
+* **api:** publishing makes a release with a label, notes and a breaking flag ([be855a3](https://github.com/ramsesoriginal/lorenzo/commit/be855a3b8575dcdcc5a93454dbb6e8317955d66b))
+* **api:** PUT /entities/{id}/parents sets the parents of any entry ([6710605](https://github.com/ramsesoriginal/lorenzo/commit/67106052fbef5d203575b0d42c11401016cb070c)), closes [#552](https://github.com/ramsesoriginal/lorenzo/issues/552)
+* **api:** PUT /entities/{id}/parents sets the parents of any entry (RFC 0041 K3) ([a876c6a](https://github.com/ramsesoriginal/lorenzo/commit/a876c6a2c1afd51c54cad32585a02e5ea2770226))
+* **api:** stat writes that can be checked and undone ([f135b7c](https://github.com/ramsesoriginal/lorenzo/commit/f135b7c47ed235039c547e1a4d18dc6ad7110990))
+* **api:** stat writes that can be checked and undone ([abc4ae7](https://github.com/ramsesoriginal/lorenzo/commit/abc4ae79d0e4a16e7244c99a18f2958a9be84b2a))
+* **api:** tell a library when its invitation to a repository is revoked (ADR 0199) ([dccbe3b](https://github.com/ramsesoriginal/lorenzo/commit/dccbe3b51ef29a137c3a68ee5b3a5db01183872c))
+* **api:** tell a library's members when its invitation to a repository is revoked ([91221c9](https://github.com/ramsesoriginal/lorenzo/commit/91221c9f5322ed0f48a81fc985c3e198ec5cf16c))
+* **api:** the release digest and the breaking-change detector (ADR 0208) ([0742ebb](https://github.com/ramsesoriginal/lorenzo/commit/0742ebb5e0a8ed734d43dc782e808aa1f0502ed8))
+* **api:** the release ledger, publishing makes a release (ADR 0207) ([d58f904](https://github.com/ramsesoriginal/lorenzo/commit/d58f904d5389b0628f90f1400dd2471b5478ee7f))
+* **cli:** show attachments in repo copy-plan, copy, updates, offer and contents (ADR 0174) ([361cf52](https://github.com/ramsesoriginal/lorenzo/commit/361cf52c8042579e6dc844ad6edca589530fabdb))
+* delete a tenant, API and lorenzo tenant delete (ADR 0184) ([8aded55](https://github.com/ramsesoriginal/lorenzo/commit/8aded55ea12268e5f142b5fe70bddd542f05b00e))
+* unseed a layer, delete unused stat definitions and groups, a bare seed refuses to add a layer (ADR 0166 to 0168) ([69c8c45](https://github.com/ramsesoriginal/lorenzo/commit/69c8c4570dd9414c2176ac596b12ce018a0fe7c3))
+
 ## [0.7.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.6.0...api-v0.7.0) (2026-09-23)
 
 
