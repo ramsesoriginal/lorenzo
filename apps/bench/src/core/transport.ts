@@ -72,7 +72,20 @@ export interface EntryState {
   description: TextDoc | null;
   notes: TextDoc[];
   stats: StatValue[];
+  /** The name a LorenzoScript link calls it by, if it has one (`[[Name]]` is its slug). */
+  slug: string | null;
   etag: string | null;
+}
+
+/** What the API accepts as a link name (ADR 0107): a letter or digit first, then letters, digits, `_`, `-`. */
+const LINK_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
+/** Why this cannot be a link name, in words, or null when it can. */
+export function slugProblem(text: string): string | null {
+  if (text.length > 100) return 'A link name is at most 100 characters.';
+  if (!LINK_NAME.test(text))
+    return 'Use letters, digits, - and _ only, starting with a letter or a digit.';
+  return null;
 }
 
 /** What a create of a piece of text sends: a description (one per entry) or a note. */
@@ -89,6 +102,8 @@ export interface NewEntry {
   name: string;
   kinds: string[];
   parents: string[];
+  /** The link name to give it, which is dropped if another entry already has it. */
+  slug?: string | null;
 }
 
 /** Only an item has a name that can be changed so far. */
@@ -109,6 +124,8 @@ export interface Transport {
   /** Writes, and answers with the entry as it is after (a fresh `etag` included). */
   setName(id: string, name: string, etag: string | null): Promise<EntryState>;
   setParents(id: string, parentIds: string[], etag: string | null): Promise<EntryState>;
+  /** Gives the entry a link name, or with `null` takes it away. A name another entry has is refused. */
+  setSlug(id: string, slug: string | null): Promise<EntryState>;
   /**
    * Sets the entry's own value for a stat, or with `null` removes it so the entry inherits again.
    * Answers with the entry as it is after (a fresh `etag` included).

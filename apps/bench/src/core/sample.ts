@@ -32,6 +32,8 @@ export interface SampleEntry {
   notes?: { id: string; title?: string; text: string }[];
   /** Its own stat values, by the stat's id. */
   stats?: Record<string, StatScalar>;
+  /** Its link name; the slug of its name when left out, `null` for none. */
+  slug?: string | null;
 }
 
 interface Text {
@@ -42,7 +44,7 @@ interface Text {
 }
 
 export type SampleWrite =
-  | { id: string; field: 'name' | 'parents'; value: string | string[] }
+  | { id: string; field: 'name' | 'parents' | 'slug'; value: string | string[] }
   | { id: string; field: `kind:${EditableKind}`; value: boolean }
   | { id: string; field: 'create'; value: string }
   | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
@@ -66,8 +68,9 @@ export class SampleTransport implements Transport {
   heldElsewhere = new Set<string>();
   private rows = new Map<
     string,
-    Omit<SampleEntry, 'description' | 'notes' | 'stats'> & {
+    Omit<SampleEntry, 'description' | 'notes' | 'stats' | 'slug'> & {
       version: number;
+      slug: string | null;
       stats: Map<string, StatScalar>;
       description: Text | null;
       notes: Text[];
@@ -85,6 +88,7 @@ export class SampleTransport implements Transport {
         kinds: e.kinds,
         parents: [...e.parents],
         version: 1,
+        slug: e.slug === undefined ? slugify(e.name) : e.slug,
         stats: new Map(Object.entries(e.stats ?? {})),
         description:
           e.description === undefined
@@ -133,6 +137,7 @@ export class SampleTransport implements Transport {
       description: row.description ? doc(row.description) : null,
       notes: row.notes.map(doc),
       stats: this.effective(id),
+      slug: row.slug,
       etag: `"v${row.version}"`,
     };
   }
@@ -153,15 +158,11 @@ export class SampleTransport implements Transport {
   /** The sample entries have no link names of their own: each has the slug of its name. */
   async resolveSlugs(slugs: string[]): Promise<ResolvedEntry[]> {
     this.need();
-    const byName = new Map<string, ResolvedEntry>();
+    const bySlug = new Map<string, ResolvedEntry>();
     for (const row of this.rows.values())
-      byName.set(slugify(row.name), {
-        slug: slugify(row.name),
-        id: row.id,
-        name: row.name,
-        kinds: [...row.kinds],
-      });
-    return slugs.flatMap((s) => byName.get(s) ?? []);
+      if (row.slug)
+        bySlug.set(row.slug, { slug: row.slug, id: row.id, name: row.name, kinds: [...row.kinds] });
+    return slugs.flatMap((s) => bySlug.get(s) ?? []);
   }
 
   async listStatDefinitions(): Promise<StatDef[]> {
@@ -184,6 +185,11 @@ export class SampleTransport implements Transport {
       kinds: [...entry.kinds],
       parents: [...new Set(entry.parents)],
       version: 1,
+      // A link name another entry has is not taken: the entry is made without one.
+      slug:
+        entry.slug && ![...this.rows.values()].some((r) => r.slug === entry.slug)
+          ? entry.slug
+          : null,
       stats: new Map(),
       description: null,
       notes: [],
@@ -199,6 +205,17 @@ export class SampleTransport implements Transport {
     row.name = name;
     row.version++;
     this.writes.push({ id, field: 'name', value: name });
+    return this.state(id);
+  }
+  async setSlug(id: string, slug: string | null) {
+    this.need();
+    const row = this.row(id);
+    if (slug !== null && [...this.rows.values()].some((r) => r.id !== id && r.slug === slug))
+      throw new RefusedError(`Slug '${slug}' is already in use.`);
+    if (row.slug !== slug) {
+      row.slug = slug;
+      this.writes.push({ id, field: 'slug', value: slug ?? '' });
+    }
     return this.state(id);
   }
   async setParents(id: string, parentIds: string[], etag: string | null) {
@@ -326,6 +343,11 @@ export class SampleTransport implements Transport {
     const row = this.row(id);
     row.kinds = on ? [...new Set([...row.kinds, kind])] : row.kinds.filter((k) => k !== kind);
     row.version++;
+  }
+
+  /** Someone else gives (or takes away) the entry's link name, behind the person's back. */
+  setSlugElsewhere(id: string, slug: string | null) {
+    this.row(id).slug = slug;
   }
 
   /** Someone else renames the entry, behind the person's back. */

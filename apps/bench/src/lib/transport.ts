@@ -92,6 +92,7 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
       name: entry.name,
       kinds: [...entry.kinds],
       parentIds: entry.prototypes.map((p) => p.id),
+      slug: entry.slug ?? null,
       childIds: entry.children.map((c) => c.id),
       description: docs('description')[0] ?? null,
       notes: docs('note'),
@@ -217,20 +218,48 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
     // 201 when made, 200 when the id was already this library's (ADR 0222): both are done.
     createEntry: (entry: NewEntry) =>
       guarded(async () => {
-        await unwrap(
-          await client.POST('/tenants/{tenant_id}/entities', {
-            params: { path },
-            body: {
-              id: entry.id,
-              name: entry.name,
-              kinds: entry.kinds.filter(
-                (k): k is 'item' | 'being' => k === 'item' || k === 'being',
-              ),
-              parents: entry.parents,
-            },
-          }),
-        );
+        const make = async (slug: string | null) =>
+          unwrap(
+            await client.POST('/tenants/{tenant_id}/entities', {
+              params: { path },
+              body: {
+                id: entry.id,
+                name: entry.name,
+                kinds: entry.kinds.filter(
+                  (k): k is 'item' | 'being' => k === 'item' || k === 'being',
+                ),
+                parents: entry.parents,
+                ...(slug ? { slug } : {}),
+              },
+            }),
+          );
+        try {
+          await make(entry.slug ?? null);
+        } catch (e) {
+          // A link name another entry has is a 409: the entry is made without one, since an
+          // entry without a link name is better than one that was not made. (Any other 409, such
+          // as an id that is not available, says the same again and is the answer.)
+          if (entry.slug && e instanceof LorenzoApiError && e.status === 409) await make(null);
+          else throw e;
+        }
         return read(entry.id);
+      }),
+
+    setSlug: (id, slug) =>
+      guarded(async () => {
+        const params = { path: { ...path, entity_id: id } };
+        if (slug === null)
+          await unwrap(
+            await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}/slug', { params }),
+          );
+        else
+          await unwrap(
+            await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+              params,
+              body: { slug },
+            }),
+          );
+        return read(id);
       }),
 
     setName: (id, name, etag) =>

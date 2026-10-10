@@ -718,3 +718,32 @@ dialog.confirm::backdrop {
   background: var(--text);
   border-color: var(--text);
 }
+
+.link-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+.link-name label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.link-name input {
+  width: 16em;
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 2px 6px;
+}
+.link-name .bad {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+}

@@ -18,6 +18,7 @@ export type CommandType =
   | 'entry.set-name'
   | 'entry.set-parents'
   | 'entry.set-kind'
+  | 'entry.set-slug'
   | 'stat.set'
   | 'description.set-text'
   | 'note.add'
@@ -28,6 +29,8 @@ export type CommandState = 'waiting' | 'sending' | 'synced' | 'conflict' | 'atte
 export interface CreateArgs {
   kinds: string[];
   parents: string[];
+  /** The link name it is made with (the slug of its name), or none. */
+  slug?: string | null;
 }
 
 export interface Command {
@@ -161,6 +164,13 @@ const statDef: Definition = {
     ),
 };
 
+const slugDef: Definition = {
+  label: 'link name',
+  read: (entry) => entry.slug,
+  apply: (entry, value) => ({ ...entry, slug: value as string | null }),
+  send: (t, entry, value) => t.setSlug(entry.id, value as string | null),
+};
+
 const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
 const kindDef: Definition = {
@@ -181,6 +191,7 @@ export const REGISTRY: Record<CommandType, Definition> = {
   'note.set-text': noteSetDef,
   'stat.set': statDef,
   'entry.set-kind': kindDef,
+  'entry.set-slug': slugDef,
   // A create is sent by the runner itself, which has the whole command; this is how it shows.
   'entry.create': {
     label: 'name',

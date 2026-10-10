@@ -27,10 +27,12 @@ export const SAMPLE_ENTRIES: SampleEntry[] = [
   { id: 'undead', name: 'Undead', kinds: ['item'], parents: ['monster'], stats: { undead: true } },
   { id: 'zombie', name: 'Zombie', kinds: ['item'], parents: ['undead'] },
   { id: 'ghoul', name: 'Ghoul', kinds: ['item'], parents: ['undead', 'beast'] },
-  { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [] },
+  // Called something other than its name makes, so a link to it is [Longsword](blade).
+  { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [], slug: 'blade' },
   { id: 'hollow', name: 'The Hollow', kinds: [], parents: [] },
   { id: 'ashfang', name: 'Ashfang', kinds: ['being'], parents: ['hollow'] },
-  { id: 'mill', name: 'The old mill', kinds: [], parents: ['hollow'] },
+  // No link name: nothing can link to it until it is given one.
+  { id: 'mill', name: 'The old mill', kinds: [], parents: ['hollow'], slug: null },
 ];
 
 export interface PaneDef {
