@@ -35,6 +35,7 @@ import '../styles/bench.css';
       import { apiTransport } from '../lib/transport';
       import { LiveBanner } from '../shell/liveBanner';
       import { loadSession, signOut } from '../shell/session';
+      import { guardUnsent, requestSignOut } from '../shell/signOutDialog';
       import { Shell } from '../shell/shell';
       import { SAMPLE_ENTRIES, SAMPLE_STATS } from '../shell/stub';
       import { renderTitleBar } from '../shell/titlebar';
@@ -66,7 +67,9 @@ import '../styles/bench.css';
 
         const bench = new Bench(transport);
         shell.use(bench);
-        renderTitleBar(bar, session, () => location.reload());
+        const leave = () => requestSignOut(bench, signOut);
+        guardUnsent(() => bench);
+        renderTitleBar(bar, session, () => location.reload(), leave);
 
         const extra = [];
         if (session.kind === 'signed-in') {
@@ -81,7 +84,7 @@ import '../styles/bench.css';
                 }
               },
             })),
-            { label: 'Sign out', run: () => void signOut() },
+            { label: 'Sign out', run: leave },
           );
         }
         if (sample) {
@@ -89,6 +92,14 @@ import '../styles/bench.css';
           // Exposed so the browser tests can play the server's part.
           (window as unknown as { sample: SampleTransport }).sample = s;
           extra.push(
+            {
+              label: 'Sample: sign out',
+              // There is no account on this page: a signed-out flag stands in for it.
+              run: () =>
+                requestSignOut(bench, () => {
+                  (window as unknown as { signedOut: boolean }).signedOut = true;
+                }),
+            },
             {
               label: 'Sample: publish the repository',
               run: () => live.set(true),

@@ -676,3 +676,45 @@ dd {
   background: var(--bar);
   font-weight: 600;
 }
+
+dialog.confirm {
+  max-width: 460px;
+  padding: 16px 18px;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.28);
+}
+dialog.confirm::backdrop {
+  background: rgb(0 0 0 / 0.35);
+}
+.confirm h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.confirm p {
+  margin: 0 0 8px;
+}
+.confirm-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.confirm-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.confirm .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.btn.primary {
+  color: var(--bg);
+  background: var(--text);
+  border-color: var(--text);
+}

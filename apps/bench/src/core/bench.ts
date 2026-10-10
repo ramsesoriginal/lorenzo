@@ -161,6 +161,21 @@ export class Bench {
     return [...ids];
   }
 
+  /** What has not been sent, by entry: the changes that are only here until they are. */
+  unsent(): { id: string; name: string; count: number }[] {
+    const counts = new Map<string, number>();
+    for (const c of this.outbox) counts.set(c.entryId, (counts.get(c.entryId) ?? 0) + 1);
+    return [...counts].map(([id, count]) => ({ id, name: this.displayName(id), count }));
+  }
+
+  /** Gives up every change not sent (what is being sent is let finish first). */
+  async discardUnsent(): Promise<void> {
+    this.outbox = this.outbox.filter((c) => c.state === 'sending');
+    if (this.current) await this.current;
+    this.outbox = [];
+    this.emit();
+  }
+
   commandsFor(id: string): Command[] {
     return this.outbox.filter((c) => c.entryId === id);
   }
@@ -404,6 +419,8 @@ export class Bench {
       if (c.type === 'entry.create') await this.sendCreate(c);
       else if (c.type === 'note.add') await this.sendNote(c);
       else await this.sendChange(c);
+      // The server answered, whatever it said about the change: there is a connection.
+      this.offline = false;
       return false;
     } catch (e) {
       if (e instanceof OfflineError) {
