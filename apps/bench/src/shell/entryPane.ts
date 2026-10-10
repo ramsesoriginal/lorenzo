@@ -8,6 +8,7 @@ import { entryIdOfHref, type Rendered } from '../core/links';
 import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
 
 import { attachEntryPicker } from './entryPicker';
+import { openLink } from './entryPickerText';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
@@ -345,8 +346,32 @@ function textEditor(
       excerpt: entry.description ? excerptOf(entry.description.text) : '',
     };
   });
-  wrap.append(area, shown, notes);
+  wrap.append(linkToolbar(area), area, shown, notes);
   return wrap;
+}
+
+/** Buttons that start a link or a picture at the caret, for whoever does not know to type `[[`. */
+function linkToolbar(area: HTMLTextAreaElement): HTMLElement {
+  const bar = el('div', 'text-toolbar');
+  bar.setAttribute('role', 'toolbar');
+  bar.setAttribute('aria-label', 'Insert');
+  for (const [label, image] of [
+    ['Link to an entry', false],
+    ['Show a picture', true],
+  ] as const) {
+    const b = button(label, () => {
+      const made = openLink(area.value, area.selectionStart, area.selectionEnd, image);
+      area.value = made.text;
+      area.focus();
+      area.setSelectionRange(made.caret, made.caret);
+      // The picker and the preview follow what is typed.
+      area.dispatchEvent(new Event('input'));
+    });
+    // Pressing must not take the focus from the text, or the caret and selection are lost.
+    b.addEventListener('mousedown', (ev) => ev.preventDefault());
+    bar.append(b);
+  }
+  return bar;
 }
 
 function newNote(bench: Bench, entryId: string): HTMLElement {
@@ -359,7 +384,7 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
   area.setAttribute('aria-label', 'A new note');
   const add = el('button', 'btn', 'Add note');
   add.type = 'submit';
-  form.append(area, add);
+  form.append(linkToolbar(area), area, add);
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     if (bench.addNote(entryId, area.value)) area.value = '';

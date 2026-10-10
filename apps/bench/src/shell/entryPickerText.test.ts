@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EntrySummary } from '../core/transport';
-import { applyPick, choices, imageFor, linkFor, pickerContext } from './entryPickerText';
+import { applyPick, choices, imageFor, linkFor, openLink, pickerContext } from './entryPickerText';
 
 const e = (id: string, name: string): EntrySummary => ({ id, name, kinds: [], parentIds: [] });
 
@@ -97,5 +97,23 @@ describe('pictures', () => {
       text: 'Here ![Ashfang](ashfang)',
       caret: 24,
     });
+  });
+});
+
+describe('the toolbar buttons', () => {
+  it('open a link at the caret, after what is selected, so the picker has something to offer from', () => {
+    expect(openLink('See wolf now', 4, 8, false)).toEqual({ text: 'See [[wolf now', caret: 10 });
+    expect(openLink('See ', 4, 4, false)).toEqual({ text: 'See [[', caret: 6 });
+  });
+
+  it('open a picture the same way', () => {
+    expect(openLink('Led by ', 7, 7, true)).toEqual({ text: 'Led by ![[', caret: 10 });
+  });
+
+  it('are understood by the picker, with what was selected as the search', () => {
+    const link = openLink('See wolf', 4, 8, false);
+    expect(pickerContext(link.text, link.caret)).toMatchObject({ query: 'wolf', image: false });
+    const pic = openLink('Led by ', 7, 7, true);
+    expect(pickerContext(pic.text, pic.caret)).toMatchObject({ query: '', image: true });
   });
 });
