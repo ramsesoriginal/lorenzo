@@ -288,6 +288,27 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
         return read(entry.id);
       }),
 
+    setNoteOrder: (id, noteIds) =>
+      guarded(async () => {
+        const params = { path: { ...path, entity_id: id } };
+        const entry = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/{entity_id}', { params }),
+        );
+        // The order takes every piece of information the caller can see. The notes take the places
+        // the notes held, in the order asked; the rest stays where it is.
+        const all = entry.information.map((info) => info.id);
+        const wanted = noteIds.filter((n) => all.includes(n));
+        let next = 0;
+        const ordered = all.map((a) => (noteIds.includes(a) ? (wanted[next++] as string) : a));
+        await unwrap(
+          await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/information/order', {
+            params,
+            body: { information_ids: ordered },
+          }),
+        );
+        return read(id);
+      }),
+
     setSlug: (id, slug) =>
       guarded(async () => {
         const params = { path: { ...path, entity_id: id } };

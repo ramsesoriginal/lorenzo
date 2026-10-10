@@ -136,6 +136,11 @@ export interface Transport {
   /** Writes, and answers with the entry as it is after (a fresh `etag` included). */
   setName(id: string, name: string, etag: string | null): Promise<EntryState>;
   setParents(id: string, parentIds: string[], etag: string | null): Promise<EntryState>;
+  /**
+   * Puts the entry's notes in this order. Information that is not one of them keeps its place, and
+   * a note this list does not know of stays where it was. Answers with the entry as it is after.
+   */
+  setNoteOrder(id: string, noteIds: string[]): Promise<EntryState>;
   /** Gives the entry a link name, or with `null` takes it away. A name another entry has is refused. */
   setSlug(id: string, slug: string | null): Promise<EntryState>;
   /**
