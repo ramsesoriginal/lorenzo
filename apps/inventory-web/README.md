@@ -29,6 +29,11 @@ board; a group's board and the unowned board have none
 ([ADR 0187](../../docs/adr/0187-inventory-web-adding-an-item-to-a-board.md), [ADR
 0186](../../docs/adr/0186-player-self-service-enforcement.md)).
 
+**Not in the list?** The same card takes an item the catalog doesn't have: a name, a description, a
+weight in pounds and a value. It is added as an *unsorted* item, with the description kept as notes
+for the character, and the card wears an **Unsorted** badge until the GM matches it to a catalog
+item ([ADR 0238](../../docs/adr/0238-inventory-web-not-in-the-list-and-the-unsorted-badge.md)).
+
 From that detail view, or when multiple cards are multi-selected:
 
 - **Give** an item (or part of a stack) to another being; a player finds the
