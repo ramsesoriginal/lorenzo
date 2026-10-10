@@ -805,6 +805,49 @@ test.describe('pictures in text', () => {
   });
 });
 
+test.describe('pictures', () => {
+  const picture = (page: Page) => page.locator('.pane-entry .picture-img');
+  const png = { name: 'a.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) };
+
+  test('an entry shows its main picture, and an entry without one says so', async ({ page }) => {
+    await page.locator('[data-entry="ashfang"]').click();
+    await expect(picture(page)).toHaveAttribute('src', /^blob:/);
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(page.locator('.pane-entry .picture')).toContainText('No picture.');
+  });
+
+  test('choosing a file sets it, and Remove takes it away', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Picture file').setInputFiles(png);
+    await expect(picture(page)).toHaveAttribute('src', /^blob:/);
+    await expect(page.getByRole('button', { name: 'Replace picture…' })).toBeVisible();
+    await page.getByRole('button', { name: 'Remove picture' }).click();
+    await expect(page.locator('.pane-entry .picture')).toContainText('No picture.');
+  });
+
+  test('a file the API does not take is said, not sent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page
+      .getByLabel('Picture file')
+      .setInputFiles({ name: 'a.pdf', mimeType: 'application/pdf', buffer: Buffer.from('x') });
+    await expect(page.getByRole('alert')).toContainText('PNG, JPEG, WebP or GIF');
+  });
+
+  test('typing ![[ offers the entries, and choosing one writes the picture, which the preview shows', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).pressSequentially('Led by ![[ash');
+    await expect(page.getByRole('listbox', { name: 'Entries to show' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(description(page)).toHaveValue('Led by ![Ashfang](ashfang)');
+    await expect(page.getByLabel('Description, as it reads').locator('img')).toHaveAttribute(
+      'src',
+      /^blob:/,
+    );
+  });
+});
+
 test.describe('my/ links', () => {
   const preview = (page: Page) => page.getByLabel('Description, as it reads');
 
