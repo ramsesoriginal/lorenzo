@@ -697,3 +697,67 @@ describe('what is not sent', () => {
     expect(bench.unsent()).toEqual([]);
   });
 });
+
+describe('link names', () => {
+  it('makes a new entry with the link name its name makes', async () => {
+    const { bench, server } = await setup();
+    const id = bench.create({ name: 'Old Sword', kinds: ['item'], parents: [] });
+    expect(bench.view(id)?.slug).toBe('old-sword');
+    await settle(bench);
+    expect((await server.getEntry(id)).slug).toBe('old-sword');
+    expect((await server.resolveSlugs(['old-sword']))[0]?.id).toBe(id);
+  });
+
+  it('makes an entry without one when its name makes none, or another entry has it', async () => {
+    const { bench, server } = await setup();
+    const plain = bench.create({ name: '日本', kinds: [], parents: [] });
+    const clash = bench.create({ name: 'Wolf', kinds: ['item'], parents: [] }); // c is "Wolf"
+    await settle(bench);
+    expect((await server.getEntry(plain)).slug).toBeNull();
+    expect((await server.getEntry(clash)).slug).toBeNull();
+  });
+
+  it('sets, clears and undoes a link name', async () => {
+    const { bench, server } = await setup();
+    bench.setSlug('c', 'hound');
+    expect(bench.view('c')?.slug).toBe('hound');
+    await settle(bench);
+    expect((await server.getEntry('c')).slug).toBe('hound');
+    bench.undo('c');
+    await settle(bench);
+    expect((await server.getEntry('c')).slug).toBe('wolf');
+    bench.setSlug('c', null);
+    await settle(bench);
+    expect((await server.getEntry('c')).slug).toBeNull();
+  });
+
+  it('does not write a link name the API would refuse, or the same one again', async () => {
+    const { bench } = await setup();
+    expect(bench.setSlug('c', 'two words')).toBeNull();
+    expect(bench.setSlug('c', '-lead')).toBeNull();
+    expect(bench.setSlug('c', 'wolf')).toBeNull();
+  });
+
+  it('is Needs attention when another entry has the link name', async () => {
+    const { bench } = await setup();
+    bench.setSlug('c', 'monster'); // a's
+    await settle(bench);
+    expect(bench.status('c')).toBe('attention');
+    expect(bench.outbox[0].error).toMatch(/already in use/);
+  });
+
+  it('is a conflict when it was changed elsewhere to something else', async () => {
+    const { bench, server } = await setup();
+    server.offline = true;
+    bench.setSlug('c', 'hound');
+    server.setSlugElsewhere('c', 'lupus');
+    server.offline = false;
+    await settle(bench);
+    expect(bench.outbox[0]).toMatchObject({
+      state: 'conflict',
+      theirs: 'lupus',
+      base: 'wolf',
+      mine: 'hound',
+    });
+  });
+});

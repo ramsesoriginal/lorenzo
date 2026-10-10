@@ -787,3 +787,79 @@ test.describe('signing out', () => {
     expect(await signedOut(page)).toBe(false);
   });
 });
+
+test.describe('link names', () => {
+  const linkName = (page: Page) => page.getByLabel('Link name', { exact: true });
+
+  test('shows the link name, and changing it writes it and can be undone', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(linkName(page)).toHaveValue('wolf');
+    await linkName(page).fill('hound');
+    await linkName(page).press('Enter');
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toEqual([{ id: 'wolf', field: 'slug', value: 'hound' }]);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(linkName(page)).toHaveValue('wolf');
+  });
+
+  test('a link name the API would refuse is said, not sent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await linkName(page).fill('two words');
+    await linkName(page).press('Enter');
+    await expect(page.locator('.link-name .bad')).toContainText('letters, digits');
+    expect(await writes(page)).toEqual([]);
+  });
+
+  test("another entry having it is Needs attention, with the API's words", async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await linkName(page).fill('monster');
+    await linkName(page).press('Enter');
+    await expect(page.getByRole('alert')).toContainText('already in use');
+  });
+
+  test('an entry with none can be given the one its name makes, and then be linked to', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="mill"]').click();
+    await expect(linkName(page)).toHaveValue('');
+    await page.getByRole('button', { name: 'Use “the-old-mill”' }).click();
+    await expect(linkName(page)).toHaveValue('the-old-mill');
+    await page.locator('[data-entry="zombie"]').click();
+    await page.getByLabel('Description', { exact: true }).fill('Haunts [[The old mill]].');
+    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
+      'The old mill',
+    );
+  });
+
+  test('a link to an entry with none stays text and says so', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await page.getByLabel('Description', { exact: true }).fill('Haunts [[The old mill]].');
+    await expect(page.locator('.link-notes')).toContainText('Nothing is called');
+  });
+
+  test('a new entry is made with the link name its name makes, so a link to it works at once', async ({
+    page,
+  }) => {
+    await page.getByLabel('Name of the new entry').fill('Frost drake');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await page.locator('[data-entry="zombie"]').click();
+    await page.getByLabel('Description', { exact: true }).fill('Fears the [[Frost drake]].');
+    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
+      'Frost drake',
+    );
+  });
+
+  test('the picker writes [text](link-name) for an entry called something else', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    const area = page.getByLabel('Description', { exact: true });
+    await area.focus();
+    await area.pressSequentially('See [[longs');
+    await page.keyboard.press('Enter');
+    await expect(area).toHaveValue('See [Longsword](blade)');
+    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
+      'Longsword',
+    );
+  });
+});

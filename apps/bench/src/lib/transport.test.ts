@@ -52,6 +52,7 @@ const entry = {
   id: E,
   name: 'Wolf',
   kinds: ['item'],
+  slug: 'wolf',
   stats: [
     { name: 'armor', value: 12, own: false },
     { name: 'magical', value: true, own: true },
@@ -140,6 +141,7 @@ describe('apiTransport', () => {
         { statId: S_INT, name: 'armor', value: 12, own: false },
         { statId: S_BOOL, name: 'magical', value: true, own: true },
       ],
+      slug: 'wolf',
       etag: '"abc"',
     });
     expect(calls[0].url).toBe(`/tenants/${T}/entities/${E}`);
@@ -260,6 +262,81 @@ describe('apiTransport', () => {
     });
     await expect(transport.getEntry(E)).rejects.toBeInstanceOf(OfflineError);
   });
+  describe('link names', () => {
+    const base = `/tenants/${T}/entities`;
+    const made = (answer: (r: Request, n: number) => Response) => {
+      let n = 0;
+      const { transport, calls } = setup((r) => {
+        if (r.method === 'POST') return answer(r, ++n);
+        return json(entry, { etag: '"n"' });
+      });
+      return { transport, calls };
+    };
+
+    it('creates with the link name it is given', async () => {
+      const { transport, calls } = made(() => json(entry, { status: 201 }));
+      await transport.createEntry({
+        id: E,
+        name: 'Wolf',
+        kinds: ['item'],
+        parents: [],
+        slug: 'wolf',
+      });
+      expect(calls[0]).toMatchObject({ method: 'POST', url: base, body: { id: E, slug: 'wolf' } });
+    });
+
+    it('sends none when it has none', async () => {
+      const { transport, calls } = made(() => json(entry, { status: 201 }));
+      await transport.createEntry({ id: E, name: '日本', kinds: [], parents: [], slug: null });
+      expect(calls[0].body).not.toHaveProperty('slug');
+    });
+
+    it('makes the entry without a link name when another entry has it (409), asking once more', async () => {
+      const { transport, calls } = made((_r, n) =>
+        n === 1 ? json({ detail: 'Slug in use.' }, { status: 409 }) : json(entry, { status: 201 }),
+      );
+      await transport.createEntry({ id: E, name: 'Wolf', kinds: [], parents: [], slug: 'wolf' });
+      const posts = calls.filter((c) => c.method === 'POST');
+      expect(posts).toHaveLength(2);
+      expect(posts[0].body).toMatchObject({ slug: 'wolf' });
+      expect(posts[1].body).not.toHaveProperty('slug');
+    });
+
+    it('a 409 with no link name sent is the answer, not asked again', async () => {
+      const { transport, calls } = made(() => json({ detail: 'No.' }, { status: 409 }));
+      await expect(
+        transport.createEntry({ id: E, name: 'Wolf', kinds: [], parents: [], slug: null }),
+      ).rejects.toMatchObject({ name: 'RefusedError' });
+      expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+    });
+
+    it('sets a link name with PUT and takes it away with DELETE, reading the entry after', async () => {
+      const { transport, calls } = setup((r) =>
+        r.method === 'GET' ? json(entry, { etag: '"n"' }) : json({ entity_id: E, slug: 'x' }),
+      );
+      await transport.setSlug(E, 'blade');
+      expect(calls[0]).toMatchObject({
+        method: 'PUT',
+        url: `${base}/${E}/slug`,
+        body: { slug: 'blade' },
+      });
+      await transport.setSlug(E, null);
+      expect(calls.find((c) => c.method === 'DELETE')).toMatchObject({
+        url: `${base}/${E}/slug`,
+      });
+    });
+
+    it("a link name another entry has is a refusal with the API's words", async () => {
+      const { transport } = setup(() =>
+        json({ detail: "Slug 'blade' is already in use." }, { status: 409 }),
+      );
+      await expect(transport.setSlug(E, 'blade')).rejects.toMatchObject({
+        name: 'RefusedError',
+        message: expect.stringContaining('already in use'),
+      });
+    });
+  });
+
   describe('kinds', () => {
     const base = `/tenants/${T}/entities/${E}`;
     const send = async (kind: 'item' | 'being', on: boolean) => {
