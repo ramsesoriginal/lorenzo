@@ -159,6 +159,25 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
 
     getEntry: (id) => guarded(() => read(id)),
 
+    pictureOf: (id) =>
+      guarded(async () => {
+        const entry = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+            params: { path: { ...path, entity_id: id } },
+          }),
+        );
+        const picture = entry.information
+          .filter((info) => info.type === 'main_picture')
+          .flatMap((info) => info.payloads)
+          .find((p) => p.kind === 'picture');
+        if (!picture) return null;
+        const { data } = await client.GET('/tenants/{tenant_id}/payloads/{payload_id}/content', {
+          params: { path: { ...path, payload_id: picture.id } },
+          parseAs: 'blob',
+        });
+        return data ? URL.createObjectURL(data) : null;
+      }),
+
     // 201 when the kind was given, 200 when it already was: both are done.
     setKind: (id, kind: EditableKind, on, etag) =>
       guarded(async () => {
