@@ -1,6 +1,6 @@
 # 0240 - `my/` links: a name that resolves in the context of the text
 
-Status: proposed
+Status: accepted
 
 ## Context
 

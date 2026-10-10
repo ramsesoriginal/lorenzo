@@ -14873,6 +14873,8 @@ export interface operations {
         parameters: {
             query: {
                 slug: string[];
+                /** @description The entity the text belongs to. `my/SLUG` slugs resolve against the being it belongs to (ADR 0240); without it they are absent. */
+                from?: string | null;
             };
             header?: never;
             path: {
