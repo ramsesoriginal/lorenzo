@@ -645,3 +645,80 @@ test.describe('links to entries in text', () => {
     );
   });
 });
+
+test.describe('signing out', () => {
+  const signedOut = (page: Page) =>
+    page.evaluate(() => (window as unknown as { signedOut?: boolean }).signedOut ?? false);
+  const dialog = (page: Page) => page.getByRole('dialog');
+
+  test('with nothing unsent there is nothing to ask', async ({ page }) => {
+    await palette(page, 'Sample: sign out');
+    await expect.poll(() => signedOut(page)).toBe(true);
+    await expect(dialog(page)).toHaveCount(0);
+  });
+
+  test('says what is only on this device, and Cancel keeps it', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await palette(page, 'Sample: sign out');
+    await expect(dialog(page)).toContainText('Sign out with 1 change not sent?');
+    await expect(dialog(page)).toContainText('only on this device');
+    await expect(dialog(page)).toContainText('Hound');
+    await expect(dialog(page)).toContainText('no connection');
+    await expect(dialog(page).getByRole('button', { name: /Send them/ })).toBeDisabled();
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    expect(await signedOut(page)).toBe(false);
+    await expect(status(page)).toHaveText('Saved on this device');
+  });
+
+  test('giving them up signs out and loses them', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await palette(page, 'Sample: sign out');
+    await dialog(page).getByRole('button', { name: 'Give them up and sign out' }).click();
+    await expect.poll(() => signedOut(page)).toBe(true);
+    expect(await writes(page)).toEqual([]);
+    await expect(name(page)).toHaveValue('Wolf');
+  });
+
+  test('sending them first signs out once they are sent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    // The connection is back, and Bench has not noticed yet.
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        sample: { offline: boolean };
+        bench: { bench: { offline: boolean } };
+      };
+      w.sample.offline = false;
+      w.bench.bench.offline = false;
+    });
+    await palette(page, 'Sample: sign out');
+    await dialog(page).getByRole('button', { name: 'Send them, then sign out' }).click();
+    await expect.poll(() => signedOut(page)).toBe(true);
+    expect(await writes(page)).toEqual([{ id: 'wolf', field: 'name', value: 'Hound' }]);
+  });
+
+  test('a change that needs a look stays, and the dialog says so', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await page.evaluate(() =>
+      (window as unknown as SampleWindow).sample.renameElsewhere('wolf', 'Lupus'),
+    );
+    await palette(page, 'get the connection back');
+    await expect(status(page)).toHaveText('Conflict');
+    await palette(page, 'Sample: sign out');
+    await dialog(page).getByRole('button', { name: 'Send them, then sign out' }).click();
+    await expect(dialog(page)).toContainText('could not be sent');
+    expect(await signedOut(page)).toBe(false);
+  });
+});

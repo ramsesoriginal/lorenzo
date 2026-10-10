@@ -1,6 +1,6 @@
 // The title bar: the repository picker on the left, who is signed in on the right.
 
-import { chooseRepository, type Session, signIn, signOut } from './session';
+import { chooseRepository, type Session, signIn } from './session';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
@@ -13,6 +13,7 @@ export function renderTitleBar(
   bar: HTMLElement,
   session: Session,
   onRepository: (id: string) => void,
+  onSignOut: () => void,
 ) {
   bar.replaceChildren(el('strong', undefined, 'Lorenzo Bench'));
   const right = el('div', 'who');
@@ -55,7 +56,7 @@ export function renderTitleBar(
   if (session.kind === 'signed-in' || session.kind === 'error') {
     const out = el('button', 'btn', session.kind === 'error' ? 'Sign out and retry' : 'Sign out');
     out.type = 'button';
-    out.addEventListener('click', () => void signOut());
+    out.addEventListener('click', onSignOut);
     right.append(out);
   }
   bar.append(el('span', 'hint', 'Ctrl+K for commands'), right);
