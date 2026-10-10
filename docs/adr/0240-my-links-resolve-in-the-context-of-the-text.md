@@ -92,3 +92,9 @@ Decided here, easy to turn: containment counts as belonging (an item in the bein
 - A `my/` link nothing is held under stays text and gets its own line under the editor, apart from the "nothing is called" one: "Nothing called “blade” is held by whoever this belongs to".
 - `![alt](my/slug)` shows the held instance's main picture, through the same path as any image link ([ADR 0239](0239-bench-pictures-in-text.md)).
 - The sample transport models `heldBy` (an owner or container) so the unit and browser tests run the real rule without an API.
+
+## Addendum: inventory-web (slice 3)
+
+- `Renderer` takes the entity each text belongs to, `(texts, homes?)`, and `at(renderer, home)` binds one for a whole set. The item pages pass the item for its own texts and the ancestor for an inherited one; the information lists and the description editor pass the entity they edit. A catalog item's own form passes none, since a catalog item belongs to no being.
+- Answers are kept under `(home, slug)` for 30 seconds and asked with `from`, as in Bench; plain slugs are kept for the page as before.
+- The author's notes under an editor say "Nothing called “…” is held by whoever this belongs to" for a `my/` link that resolves to nothing, and `my` is never reported as a view mismatch.
