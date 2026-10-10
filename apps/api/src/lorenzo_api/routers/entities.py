@@ -56,6 +56,7 @@ from lorenzo_api.exceptions import (
     InventoryItemParentsError,
 )
 from lorenzo_api.information_visibility import (
+    InformationVisibility,
     resolve_information_visibility,
     visible_information_clause,
 )
@@ -76,7 +77,15 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
+from lorenzo_api.my_links import (
+    MY_HINT,
+    MY_PREFIX,
+    anchors_of,
+    item_ancestor_slugs,
+    pick_for_anchor,
+)
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
+from lorenzo_api.routers.item_instances import caller_reach
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
     EntityCreate,
@@ -518,6 +527,16 @@ async def resolve_slugs(
     slug: Annotated[list[str], Query(min_length=1, max_length=100)],
     session: SessionDep,
     user: CurrentUser,
+    home: Annotated[
+        uuid.UUID | None,
+        Query(
+            alias="from",
+            description=(
+                "The entity the text belongs to. `my/SLUG` slugs resolve against the being "
+                "it belongs to (ADR 0240); without it they are absent."
+            ),
+        ),
+    ] = None,
 ) -> list[ResolvedSlugOut]:
     """Every slug a LorenzoScript text names, in one request (ADR 0107, RFC
     0027 §7). Same gate as GET /{entity_id}, so a slug resolves for exactly
@@ -525,22 +544,62 @@ async def resolve_slugs(
     simply absent: a missing entity and a hidden one look alike.
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    asked = list(dict.fromkeys(slug))
+    mine = [name for name in asked if name.startswith(MY_PREFIX)]
+    # What each asked name stands for: the entity holding the slug, or for a
+    # `my/` name, the entity it means for the being the text belongs to.
+    stands_for: dict[str, uuid.UUID] = {}
+    by_slug = {
+        name: entity_id
+        for name, entity_id in (
+            await session.execute(
+                select(EntitySlug.slug, EntitySlug.entity_id).where(
+                    EntitySlug.tenant_id == tenant_id,
+                    EntitySlug.slug.in_(
+                        [n for n in asked if n not in mine] + [n[len(MY_PREFIX) :] for n in mine]
+                    ),
+                )
+            )
+        ).tuples()
+    }
+    stands_for.update({n: by_slug[n] for n in asked if n not in mine and n in by_slug})
+    if mine and home is not None:
+        anchor = (await anchors_of(session, tenant_id=tenant_id, home_ids=[home]))[home]
+        if anchor is not None:
+            visibility = await resolve_information_visibility(
+                session, user_id=user.id, tenant_id=tenant_id
+            )
+            picks = await pick_for_anchor(
+                session,
+                tenant_id=tenant_id,
+                anchor_id=anchor,
+                targets=[
+                    by_slug[n[len(MY_PREFIX) :]] for n in mine if n[len(MY_PREFIX) :] in by_slug
+                ],
+                reach=await caller_reach(
+                    session, tenant_id=tenant_id, user=user, visibility=visibility
+                ),
+            )
+            for n in mine:
+                target = by_slug.get(n[len(MY_PREFIX) :])
+                if target is not None and target in picks:
+                    stands_for[n] = picks[target]
+    if not stands_for:
+        return []
     kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
-    stmt = (
-        select(EntitySlug.slug, Entity.id, Entity.name, *kinds)
-        .join(Entity, Entity.id == EntitySlug.entity_id)
-        .where(EntitySlug.tenant_id == tenant_id, EntitySlug.slug.in_(slug))
+    stmt = select(Entity.id, Entity.name, *kinds).where(
+        Entity.tenant_id == tenant_id, Entity.id.in_(set(stands_for.values()))
     )
-    found = {row["slug"]: row for row in (await session.execute(stmt)).mappings()}
+    found = {row["id"]: row for row in (await session.execute(stmt)).mappings()}
     return [
         ResolvedSlugOut(
             slug=name,
-            entity_id=row["id"],
-            name=row["name"],
-            kinds=[kind for kind, _ in _KINDS if row[kind]],
+            entity_id=entity_id,
+            name=found[entity_id]["name"],
+            kinds=[kind for kind, _ in _KINDS if found[entity_id][kind]],
         )
-        for name in dict.fromkeys(slug)
-        if (row := found.get(name)) is not None
+        for name in asked
+        if (entity_id := stands_for.get(name)) is not None
     ]
 
 
@@ -587,6 +646,63 @@ async def get_entity(
     return out
 
 
+async def _my_backlinks(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    slug: str | None,
+    user: CurrentUser,
+    visibility: InformationVisibility,
+) -> set[uuid.UUID]:
+    """The information whose `my/` links mean this item instance (ADR 0240):
+    a `my/SLUG` where SLUG is the instance's own slug or that of an item it
+    derives from, in a text whose being picks this instance for it. Only an
+    instance can be meant, and a catalog item is not mentioned by it.
+    """
+    if not await session.scalar(select(exists().where(ItemInstance.entity_id == entity_id))):
+        return set()
+    names = await item_ancestor_slugs(session, tenant_id=tenant_id, entity_id=entity_id)
+    by_slug = {name: item_id for item_id, name in names.items()}
+    if slug is not None:
+        by_slug[slug] = entity_id
+    rows = (
+        await session.execute(
+            select(Payload.information_id, Information.entity_id, ContentReference.target)
+            .join(ContentReference, ContentReference.payload_id == Payload.id)
+            .join(Information, Information.id == Payload.information_id)
+            .where(
+                ContentReference.tenant_id == tenant_id,
+                ContentReference.kind.in_(("entity", "image")),
+                ContentReference.hint == MY_HINT,
+                ContentReference.target.in_(list(by_slug)),
+                Information.entity_id != entity_id,
+            )
+        )
+    ).tuples()
+    texts = list(rows)
+    if not texts:
+        return set()
+    anchors = await anchors_of(
+        session, tenant_id=tenant_id, home_ids={home for _, home, _ in texts}
+    )
+    reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    picked: dict[tuple[uuid.UUID, str], uuid.UUID | None] = {}
+    for _, home, target in texts:
+        anchor = anchors[home]
+        if anchor is None or (anchor, target) in picked:
+            continue
+        picks = await pick_for_anchor(
+            session, tenant_id=tenant_id, anchor_id=anchor, targets=[by_slug[target]], reach=reach
+        )
+        picked[(anchor, target)] = picks.get(by_slug[target])
+    return {
+        information_id
+        for information_id, home, target in texts
+        if (anchor := anchors[home]) is not None and picked[(anchor, target)] == entity_id
+    }
+
+
 @router.get("/{entity_id}/backlinks")
 async def list_backlinks(
     tenant_id: uuid.UUID,
@@ -609,19 +725,34 @@ async def list_backlinks(
         )
     )
     backlinks: list[BacklinkOut] = []
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    linking: set[uuid.UUID] = set()
     if slug is not None:
-        visibility = await resolve_information_visibility(
-            session, user_id=user.id, tenant_id=tenant_id
+        linking.update(
+            (
+                await session.execute(
+                    select(Payload.information_id)
+                    .join(ContentReference, ContentReference.payload_id == Payload.id)
+                    .where(
+                        ContentReference.tenant_id == tenant_id,
+                        ContentReference.kind.in_(("entity", "image")),
+                        ContentReference.target == slug,
+                        ContentReference.hint != MY_HINT,
+                    )
+                )
+            ).scalars()
         )
-        linking = (
-            select(Payload.information_id)
-            .join(ContentReference, ContentReference.payload_id == Payload.id)
-            .where(
-                ContentReference.tenant_id == tenant_id,
-                ContentReference.kind.in_(("entity", "image")),
-                ContentReference.target == slug,
-            )
+    linking.update(
+        await _my_backlinks(
+            session,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            slug=slug,
+            user=user,
+            visibility=visibility,
         )
+    )
+    if linking:
         kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
         stmt = (
             select(Information, Entity.name, *kinds)
