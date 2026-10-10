@@ -114,6 +114,11 @@ export class LinkResolver {
     );
   }
 
+  /** A picture was set or taken away: what was fetched for it is out of date. */
+  forgetPicture(entryId: string) {
+    this.pictures.delete(entryId);
+  }
+
   /** What the slug is, once looked up. */
   get(slug: string): ResolvedEntry | undefined {
     return this.found.get(slug);
