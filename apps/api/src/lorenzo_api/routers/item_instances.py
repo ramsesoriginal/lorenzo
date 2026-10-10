@@ -190,11 +190,11 @@ async def _visible_owner_predicate(
     ORGA, would otherwise 404 on the very write they just made.
     """
     return _owner_predicate_for(
-        await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+        await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
     )
 
 
-async def _caller_reach(
+async def caller_reach(
     session: SessionDep,
     *,
     tenant_id: uuid.UUID,
@@ -220,7 +220,7 @@ async def _caller_reach(
 
 
 def _owner_predicate_for(reach: frozenset[uuid.UUID] | None) -> ColumnElement[bool]:
-    """ADR 0040's item filter for a caller's reach (see _caller_reach)."""
+    """ADR 0040's item filter for a caller's reach (see caller_reach)."""
     if reach is None:
         return true()
     return or_(
@@ -443,7 +443,7 @@ async def list_item_instances_held_by(
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await get_entity_or_404(session, entity_id, tenant_id)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    reach = await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
     if reach is not None and entity_id not in reach:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
 
@@ -590,7 +590,7 @@ async def list_item_instances_controlled_by(
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await get_entity_or_404(session, entity_id, tenant_id)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    reach = await _caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
     if reach is not None and entity_id not in reach:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
 
