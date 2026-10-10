@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EntrySummary } from '../core/transport';
-import { buildRows, counts, filterEntries } from './explorerRows';
+import { buildRows, counts, filterEntries, moveTargets } from './explorerRows';
 
 const e = (id: string, name: string, kinds: string[], parentIds: string[] = []): EntrySummary => ({
   id,
@@ -105,5 +105,26 @@ describe('the filter', () => {
     expect(filterEntries(accented, 'ecu').map((x) => x.id)).toEqual(['a']);
     expect(filterEntries(accented, 'naive').map((x) => x.id)).toEqual(['b']);
     expect(filterEntries(accented, 'Éc').map((x) => x.id)).toEqual(['a']);
+  });
+});
+
+describe('where an entry can be moved', () => {
+  it('leaves out itself and everything under it, by name', () => {
+    expect(moveTargets(entries, 'beast').map((x) => x.name)).toEqual([
+      'Mara',
+      'Monster',
+      'People',
+      'Undead',
+    ]);
+  });
+
+  it('offers everything else for an entry with nothing under it', () => {
+    expect(moveTargets(entries, 'ghoul').map((x) => x.id)).toEqual([
+      'beast',
+      'npc',
+      'root',
+      'node',
+      'undead',
+    ]);
   });
 });

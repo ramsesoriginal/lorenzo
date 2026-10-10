@@ -115,3 +115,20 @@ export function counts(rows: readonly Row[]): { entries: number; places: number 
   const entryRows = rows.filter((r) => r.type === 'entry');
   return { entries: new Set(entryRows.map((r) => r.id)).size, places: entryRows.length };
 }
+
+/**
+ * The entries `id` can be moved under: every other entry that is not under it already (a parent
+ * under its own child would be a loop), by name.
+ */
+export function moveTargets(entries: readonly EntrySummary[], id: string): EntrySummary[] {
+  const under = new Set([id]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const e of entries)
+      if (!under.has(e.id) && e.parentIds.some((p) => under.has(p))) {
+        under.add(e.id);
+        grew = true;
+      }
+  }
+  return entries.filter((e) => !under.has(e.id)).sort(byName);
+}

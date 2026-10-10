@@ -22,7 +22,8 @@ export type CommandType =
   | 'stat.set'
   | 'description.set-text'
   | 'note.add'
-  | 'note.set-text';
+  | 'note.set-text'
+  | 'notes.set-order';
 export type CommandState = 'waiting' | 'sending' | 'synced' | 'conflict' | 'attention';
 
 /** What a create makes besides its name. */
@@ -171,6 +172,24 @@ const slugDef: Definition = {
   send: (t, entry, value) => t.setSlug(entry.id, value as string | null),
 };
 
+/**
+ * The order of the entry's notes, as their ids joined by commas: one value, so that the order
+ * itself is what is compared (a list is compared without regard to order).
+ */
+export const noteOrderOf = (entry: EntryState): string => entry.notes.map((n) => n.id).join(',');
+
+const noteOrderDef: Definition = {
+  label: 'note order',
+  read: (entry) => noteOrderOf(entry),
+  apply: (entry, value) => {
+    const ids = String(value).split(',');
+    const rank = (id: string) => (ids.includes(id) ? ids.indexOf(id) : ids.length);
+    // A note this order does not name (one added elsewhere) goes last, in the order it had.
+    return { ...entry, notes: [...entry.notes].sort((a, b) => rank(a.id) - rank(b.id)) };
+  },
+  send: (t, entry, value) => t.setNoteOrder(entry.id, String(value).split(',')),
+};
+
 const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
 const kindDef: Definition = {
@@ -192,6 +211,7 @@ export const REGISTRY: Record<CommandType, Definition> = {
   'stat.set': statDef,
   'entry.set-kind': kindDef,
   'entry.set-slug': slugDef,
+  'notes.set-order': noteOrderDef,
   // A create is sent by the runner itself, which has the whole command; this is how it shows.
   'entry.create': {
     label: 'name',
@@ -249,5 +269,6 @@ export function makesId(c: Command): string | undefined {
 export function usedIds(c: Command): string[] {
   const ids = [c.entryId, ...(Array.isArray(c.mine) ? c.mine : []), ...(c.args?.parents ?? [])];
   if (c.type === 'note.set-text' && c.textId) ids.push(c.textId);
+  if (c.type === 'notes.set-order') ids.push(...String(c.mine).split(','));
   return ids;
 }
