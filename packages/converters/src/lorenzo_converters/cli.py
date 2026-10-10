@@ -1,4 +1,4 @@
-"""`lorenzo-convert`: one subcommand per source (ADR 0243)."""
+"""`lorenzo-convert`: one subcommand per source (ADR 0246)."""
 
 from __future__ import annotations
 

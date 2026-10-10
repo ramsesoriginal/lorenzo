@@ -1,4 +1,4 @@
-"""A spreadsheet inventory into a ledger (ADR 0243).
+"""A spreadsheet inventory into a ledger (ADR 0246).
 
 The sheet is an Items table (name, count, weight of one, value, container, kind, description) and
 optionally a Container table (name, where it is kept), as an `.xlsx`, or the Items table alone as a

@@ -3,7 +3,7 @@
 Simple converters from files players already have into a
 [LorenzoLedger](../../docs/guides/inventory-file-format.md), for `lorenzo inventory import`
 ([RFC 0035](../../docs/rfcs/0035-inventory-files-and-placeholder-items.md),
-[ADR 0243](../../docs/adr/0243-lorenzo-converters-the-spreadsheet-converter.md)). A converter reads a
+[ADR 0246](../../docs/adr/0246-lorenzo-converters-the-spreadsheet-converter.md)). A converter reads a
 file and writes a ledger; it never talks to the API.
 
 ```bash

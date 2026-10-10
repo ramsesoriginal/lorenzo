@@ -1,4 +1,4 @@
-"""The ledgers `lorenzo-convert` is tested to write (packages/converters/tests/golden, ADR 0243)
+"""The ledgers `lorenzo-convert` is tested to write (packages/converters/tests/golden, ADR 0246)
 are read by the importer's own parser, so a converter cannot write what it reads differently."""
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 [project]
 name = "lorenzo-converters"
 version = "0.0.0"
-description = "Simple converters from files players already have into a LorenzoLedger (RFC 0035, ADR 0243)"
+description = "Simple converters from files players already have into a LorenzoLedger (RFC 0035, ADR 0246)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
