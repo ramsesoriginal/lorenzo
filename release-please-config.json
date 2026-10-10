@@ -33,6 +33,10 @@
       "release-type": "node",
       "component": "api-client"
     },
+    "packages/converters": {
+      "release-type": "python",
+      "component": "converters"
+    },
     "packages/inventory-names": {
       "release-type": "node",
       "component": "inventory-names"
