@@ -768,3 +768,14 @@ dialog.confirm::backdrop {
   gap: 0.5rem;
   align-items: center;
 }
+
+.text-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.explorer-move {
+  width: 100%;
+  margin: 0.35rem 0;
+}
