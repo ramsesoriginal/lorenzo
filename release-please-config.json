@@ -33,6 +33,10 @@
       "release-type": "node",
       "component": "api-client"
     },
+    "packages/inventory-names": {
+      "release-type": "node",
+      "component": "inventory-names"
+    },
     "packages/brand": {
       "release-type": "node",
       "component": "brand-package"

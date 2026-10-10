@@ -57,16 +57,25 @@ export function score(name: string, title: string): number {
   return Math.max(inside, 0.6 * dice + 0.4 * jaccard);
 }
 
-/** The `count` best of `titles` for `name`, best first, leaving out those with little in common. */
+/**
+ * The `count` best of `candidates` for `name`, best first, leaving out those with little in common.
+ * `alsoNamed` are other ways to write it (the table of spellings, ADR 0242): a title that is one of
+ * them scores as well as it would for the name itself.
+ */
 export function suggest<T>(
   name: string,
   candidates: readonly T[],
   titleOf: (candidate: T) => string,
   count: number,
-  least = 0.4,
+  { least = 0.4, alsoNamed = [] }: { least?: number; alsoNamed?: readonly string[] } = {},
 ): T[] {
+  const names = [name, ...alsoNamed];
+
   return candidates
-    .map((candidate) => ({ candidate, points: score(name, titleOf(candidate)) }))
+    .map((candidate) => ({
+      candidate,
+      points: Math.max(...names.map((each) => score(each, titleOf(candidate)))),
+    }))
     .filter(({ points }) => points >= least)
     .sort((x, y) => y.points - x.points)
     .slice(0, count)

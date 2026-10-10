@@ -37,7 +37,8 @@ item ([ADR 0238](../../docs/adr/0238-inventory-web-not-in-the-list-and-the-unsor
 **Unsorted** (a GM's page) lists every unsorted item grouped by the name the player wrote. Open a
 group to see who holds each and their notes, then give the ticked ones to a catalog item (suggested
 by how alike the names are, or searched), make a new catalog item from the group, or keep it for
-now. The names and notes stay on what is sorted, and its holders are told by the API
+now. The suggestions also know the other ways a name is written ("Seil" for "Rope, hempen"), from the
+same table `lorenzo inventory import` uses ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-shared.md)). The names and notes stay on what is sorted, and its holders are told by the API
 ([ADR 0241](../../docs/adr/0241-inventory-web-the-unsorted-view.md)).
 
 From that detail view, or when multiple cards are multi-selected:

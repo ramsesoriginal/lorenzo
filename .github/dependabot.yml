@@ -94,6 +94,7 @@ updates:
       - "/apps/loot-bot"
       - "/packages/api-client"
       - "/packages/brand"
+      - "/packages/inventory-names"
       - "/packages/lorenzoscript"
       - "/packages/lorenzoscript-editor"
     schedule:

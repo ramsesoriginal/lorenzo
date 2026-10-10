@@ -34,6 +34,15 @@ describe('suggest', () => {
     expect(suggest('torches', catalog, (t) => t, 2)).toEqual(['Torch', 'Torch, Hooded']);
   });
 
+  it('ranks a title that is another way to write the name as an exact match', () => {
+    const titles = ['Torch', 'Rope, hempen (50 feet)', 'Rope, silk (50 feet)'];
+
+    expect(suggest('Seil', titles, (t) => t, 1)).toEqual([]);
+    expect(
+      suggest('Seil', titles, (t) => t, 1, { alsoNamed: ['rope, hempen (50 feet)', 'rope'] }),
+    ).toEqual(['Rope, hempen (50 feet)']);
+  });
+
   it('gives nothing when nothing is alike', () => {
     expect(suggest('zzzz', catalog, (t) => t, 3)).toEqual([]);
   });
