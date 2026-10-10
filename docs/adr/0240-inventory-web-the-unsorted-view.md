@@ -16,11 +16,11 @@ Unsorted items now arrive from two sides, an import and a player's *Not in the l
 
 ### Grouped by the name the player wrote
 
-Instances are grouped by their name, compared without case, accents, punctuation or surrounding space, so "Torch" and "torch." are one group. A group shows the name as most often written, **how many**, and **who holds them**. Opening it lists each instance with its holder and the player's two notes (*Note*, *Details*: weight and value), read when the group is opened and not before.
+Instances are grouped by their name, compared without case, accents, punctuation or surrounding space, so "Torch" and "torch." are one group. A group shows the name as most often written (the first in code-point order if two are equally common, so it never varies), **how many**, and **who holds them**. Opening it lists each instance with a tick box, its holder and the player's notes (*Note*, *Details*: weight and value), read when the group is opened and not before.
 
 ### What a GM does with a group
 
-- **Assign**: pick a catalog item and every instance in the group takes it as its prototype (`PATCH .../item-instances/{id}` with `prototype_id`, [ADR 0192](0192-the-placeholder-item-the-api-and-the-seed.md)). The names and notes stay; the holders are told by the API. One instance can be assigned alone, from its row, for the one that was not like the rest.
+- **Assign**: pick a catalog item and every ticked instance in the group (all of them to start with) takes it as its prototype (`PATCH .../item-instances/{id}` with `prototype_id`, [ADR 0192](0192-the-placeholder-item-the-api-and-the-seed.md)). The names and notes stay; the holders are told by the API. Unticking one leaves it unsorted, for the one that was not like the rest.
 - **Create**: a catalog item named from the group (the name can be changed first, and *In the public catalog* ticked), its description taken from the first note that has one, then assigned as above. A failed description leaves the item made and says so.
 - **Keep**: takes the group out of this page until it is reloaded. Nothing is written; an instance that stays unsorted shows up next time.
 
