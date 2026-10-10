@@ -6,6 +6,7 @@ import type { Command } from '../core/commands';
 import { entryIdOfHref } from '../core/links';
 import { canRename, canSetParents, type EditableKind } from '../core/transport';
 
+import { attachEntryPicker } from './entryPicker';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
@@ -202,6 +203,7 @@ function textEditor(
       draw(full);
   };
   void paint();
+  attachEntryPicker(area, bench);
   area.addEventListener('input', () => void paint());
   area.addEventListener('change', () => {
     if (redraw.active) return;
@@ -248,6 +250,7 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
   const area = el('textarea', 'text-edit');
   area.rows = 2;
   area.placeholder = 'A new note';
+  attachEntryPicker(area, bench);
   area.dataset.key = `new-note:${entryId}`;
   area.setAttribute('aria-label', 'A new note');
   const add = el('button', 'btn', 'Add note');
