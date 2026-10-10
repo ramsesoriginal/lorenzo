@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.1.0...inventory-web-v1.2.0) (2026-10-10)
+
+
+### Features
+
+* **inventory-web:** add an item from the board ([d410e52](https://github.com/ramsesoriginal/lorenzo/commit/d410e529695b61a0beea0269c584dd91fd9dce52))
+* **inventory-web:** add an item from the board ([ca18043](https://github.com/ramsesoriginal/lorenzo/commit/ca18043c9055f5bbffe95db79000f4f2fcd6ed3a))
+* **inventory-web:** leave per-item prototypes out of the catalog filter ([c15d217](https://github.com/ramsesoriginal/lorenzo/commit/c15d217b85e2d0cee7339a583a0e62f63147f0a5))
+* **inventory-web:** leave per-item prototypes out of the catalog filter ([68c4aee](https://github.com/ramsesoriginal/lorenzo/commit/68c4aeeba9d3fd64edfad82c0b0d1826257586f7))
+* **inventory-web:** unpack a pack from its dialog ([8837dd8](https://github.com/ramsesoriginal/lorenzo/commit/8837dd85b9c428b76aaa94a57d33fe0061db4596))
+* **inventory-web:** unpack a pack from its dialog ([a656854](https://github.com/ramsesoriginal/lorenzo/commit/a65685445bf9066f6e2b9c40ab2e6af467dfbe11))
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.0.0...inventory-web-v1.1.0) (2026-09-23)
 
 

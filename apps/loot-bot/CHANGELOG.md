@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v0.5.0) (2026-10-10)
+
+
+### Features
+
+* **api:** enforce player self-service on item creation and packs ([3a55997](https://github.com/ramsesoriginal/lorenzo/commit/3a5599798e93fbe7c239632050f37d94f87f96ab))
+* **api:** enforce player self-service on item creation and packs ([464be48](https://github.com/ramsesoriginal/lorenzo/commit/464be4854205be2a7ccb4db2468ba9daf4e9fc65))
+* **api:** enforce player self-service on item creation and packs ([d771af9](https://github.com/ramsesoriginal/lorenzo/commit/d771af9169ba6076ad025cb48bcb39be13f683a4))
+
 ## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.3.0...loot-bot-v0.4.0) (2026-09-23)
 
 
