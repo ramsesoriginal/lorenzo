@@ -34,6 +34,8 @@ export interface SampleEntry {
   stats?: Record<string, StatScalar>;
   /** Its link name; the slug of its name when left out, `null` for none. */
   slug?: string | null;
+  /** A main picture (a plain coloured square, as an SVG), by its colour; none when left out. */
+  picture?: string;
 }
 
 interface Text {
@@ -68,7 +70,8 @@ export class SampleTransport implements Transport {
   heldElsewhere = new Set<string>();
   private rows = new Map<
     string,
-    Omit<SampleEntry, 'description' | 'notes' | 'stats' | 'slug'> & {
+    Omit<SampleEntry, 'description' | 'notes' | 'stats' | 'slug' | 'picture'> & {
+      picture: string | null;
       version: number;
       slug: string | null;
       stats: Map<string, StatScalar>;
@@ -89,6 +92,7 @@ export class SampleTransport implements Transport {
         parents: [...e.parents],
         version: 1,
         slug: e.slug === undefined ? slugify(e.name) : e.slug,
+        picture: e.picture ?? null,
         stats: new Map(Object.entries(e.stats ?? {})),
         description:
           e.description === undefined
@@ -173,6 +177,16 @@ export class SampleTransport implements Transport {
     this.need();
     return this.state(id);
   }
+  /** Asked for pictures, for tests to look at. */
+  pictureReads: string[] = [];
+  async pictureOf(id: string): Promise<string | null> {
+    this.need();
+    this.pictureReads.push(id);
+    const colour = this.row(id).picture;
+    if (!colour) return null;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="${colour}"/></svg>`;
+    return URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  }
   async createEntry(entry: NewEntry) {
     this.need();
     if (this.rows.has(entry.id)) return this.state(entry.id); // a replay
@@ -190,6 +204,7 @@ export class SampleTransport implements Transport {
         entry.slug && ![...this.rows.values()].some((r) => r.slug === entry.slug)
           ? entry.slug
           : null,
+      picture: null,
       stats: new Map(),
       description: null,
       notes: [],

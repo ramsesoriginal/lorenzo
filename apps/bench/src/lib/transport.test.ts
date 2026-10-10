@@ -262,6 +262,43 @@ describe('apiTransport', () => {
     });
     await expect(transport.getEntry(E)).rejects.toBeInstanceOf(OfflineError);
   });
+  describe('pictures', () => {
+    const picture = (kind: string) => ({
+      ...entry,
+      information: [
+        { id: 'i', type: 'main_picture', payloads: [{ id: P, kind, file_type: 'image/png' }] },
+      ],
+    });
+    const URLS = globalThis.URL as unknown as { createObjectURL: (b: Blob) => string };
+
+    it('reads the main picture with the sign-in and gives a blob URL', async () => {
+      const made: Blob[] = [];
+      const real = URLS.createObjectURL;
+      URLS.createObjectURL = (b) => (made.push(b), 'blob:x');
+      try {
+        const { transport, calls } = setup((r) =>
+          r.url.includes('/content')
+            ? new Response(new Uint8Array([1, 2]), { headers: { 'content-type': 'image/png' } })
+            : json(picture('picture')),
+        );
+        expect(await transport.pictureOf(E)).toBe('blob:x');
+        expect(calls.map((c) => c.url)).toEqual([
+          `/tenants/${T}/entities/${E}`,
+          `/tenants/${T}/payloads/${P}/content`,
+        ]);
+        expect(made).toHaveLength(1);
+      } finally {
+        URLS.createObjectURL = real;
+      }
+    });
+
+    it('answers null for an entry without one', async () => {
+      const { transport, calls } = setup(() => json({ ...entry, information: [] }));
+      expect(await transport.pictureOf(E)).toBeNull();
+      expect(calls).toHaveLength(1);
+    });
+  });
+
   describe('link names', () => {
     const base = `/tenants/${T}/entities`;
     const made = (answer: (r: Request, n: number) => Response) => {
