@@ -1,6 +1,6 @@
-# 0240 - inventory-web: the Unsorted view
+# 0241 - inventory-web: the Unsorted view
 
-Status: accepted, decided with the maintainer on 2026-10-10.
+Status: accepted, decided with the maintainer on 2026-10-10. Numbered 0240 when claimed; renumbered to 0241 when another branch merged 0240 first.
 
 Slice 5 of [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md) (§5 and §6). Builds on [ADR 0192](0192-the-placeholder-item-the-api-and-the-seed.md) (the placeholder, the prototype change and the `?prototype_id=` filter), [ADR 0193](0193-lorenzo-inventory-import-and-export.md) and [ADR 0238](0238-inventory-web-not-in-the-list-and-the-unsorted-badge.md) (what makes an unsorted item). No API change.
 
