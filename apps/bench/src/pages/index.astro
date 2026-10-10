@@ -70,6 +70,7 @@ import '../styles/bench.css';
         const leave = () => requestSignOut(bench, signOut);
         guardUnsent(() => bench);
         renderTitleBar(bar, session, () => location.reload(), leave);
+        bar.insertBefore(shell.layoutEl, bar.querySelector('.hint'));
 
         const extra = [];
         if (session.kind === 'signed-in') {

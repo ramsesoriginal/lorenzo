@@ -31,6 +31,13 @@ import {
   treeGroups,
   type Workspace,
 } from '../workspace/model';
+import {
+  activePreset,
+  applyPreset,
+  PRESET_LABEL,
+  PRESETS,
+  type Preset,
+} from '../workspace/presets';
 import { renderAncestry } from './ancestryPane';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
@@ -103,6 +110,8 @@ export class Shell {
     label: string;
   } = null;
   private palette: HTMLElement | null = null;
+  /** The Write / Inspect / Compare switch; the page puts it in the title bar. */
+  readonly layoutEl = el('div', 'layouts');
   /** What the Table and the Compare grid keep while the page is drawn again. */
   private grids: Record<'table' | 'grid', GridState> = {
     table: newGridState(),
@@ -197,6 +206,26 @@ export class Shell {
     this.set(showPane(this.ws, pane));
   }
 
+  /** Arranges the panes as a preset (Write, Inspect, Compare). */
+  layout(name: Preset) {
+    this.set(applyPreset(this.ws, name));
+  }
+
+  private drawLayouts() {
+    const now = activePreset(this.ws);
+    this.layoutEl.setAttribute('role', 'group');
+    this.layoutEl.setAttribute('aria-label', 'Layout');
+    this.layoutEl.replaceChildren(
+      ...PRESETS.map((p) => {
+        const b = el('button', 'btn', PRESET_LABEL[p]);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', String(p === now));
+        b.addEventListener('click', () => this.layout(p));
+        return b;
+      }),
+    );
+  }
+
   reset() {
     this.home = {};
     this.set(defaultWorkspace());
@@ -218,6 +247,7 @@ export class Shell {
             at: typing ? active.selectionStart : null,
           }
         : null;
+    this.drawLayouts();
     redraw.active = true;
     s.replaceChildren();
     redraw.active = false;
@@ -820,6 +850,8 @@ export class Shell {
     for (const f of this.ws.floats)
       c.push({ label: `Dock window with ${titleOf(f.active)}`, run: () => this.dock(f.id) });
     c.push({ label: 'Reset layout', run: () => this.reset() });
+    for (const p of PRESETS)
+      c.push({ label: `Layout: ${PRESET_LABEL[p]}`, run: () => this.layout(p) });
     for (const t of ['system', 'light', 'dark'])
       c.push({ label: `Appearance: ${t}`, run: () => this.setTheme(t) });
     return c.concat(this.extra);

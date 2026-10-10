@@ -959,3 +959,14 @@ table.grid td.cur {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.layouts {
+  display: inline-flex;
+  gap: 0;
+  margin-left: auto;
+}
+
+.layouts .btn[aria-pressed="true"] {
+  background: var(--surface-selected, #dce8fb);
+  font-weight: 600;
+}

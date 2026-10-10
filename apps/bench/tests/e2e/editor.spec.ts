@@ -878,9 +878,37 @@ test.describe('moving an entry', () => {
   });
 });
 
+test.describe('layout presets', () => {
+  const layout = (page: Page, name: string) =>
+    page.getByRole('group', { name: 'Layout' }).getByRole('button', { name });
+
+  test('the layout starts as Inspect, and Write leaves the entry alone', async ({ page }) => {
+    await expect(layout(page, 'Inspect')).toHaveAttribute('aria-pressed', 'true');
+    await layout(page, 'Write').click();
+    await expect(layout(page, 'Write')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.pane-explorer')).toHaveCount(0);
+    await expect(page.locator('.pane-entry')).toBeVisible();
+  });
+
+  test('Compare puts the table and the ancestry graph under the entry', async ({ page }) => {
+    await layout(page, 'Compare').click();
+    await expect(page.locator('.pane-table')).toBeVisible();
+    await expect(page.locator('.pane-ancestry')).toBeVisible();
+    await expect(page.locator('.pane-explorer')).toBeVisible();
+  });
+
+  test('moving a pane by hand leaves no preset pressed, and the palette brings one back', async ({
+    page,
+  }) => {
+    await palette(page, 'Open Table');
+    for (const name of ['Write', 'Inspect', 'Compare'])
+      await expect(layout(page, name)).toHaveAttribute('aria-pressed', 'false');
+    await palette(page, 'Layout: Inspect');
+    await expect(layout(page, 'Inspect')).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
 test.describe('the compare grid and the table', () => {
-  const cell = (page: Page, row: number, col: number) =>
-    page.locator(`[data-cell="${row},${col}"]`);
   // Floated, so it has room: opened as a tab it shares the narrow explorer.
   const openGrid = async (page: Page) => {
     await palette(page, 'Open Compare');
