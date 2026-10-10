@@ -828,3 +828,38 @@ dialog.confirm::backdrop {
   font-size: 11px;
   text-align: center;
 }
+
+.pane-ancestry {
+  overflow: auto;
+}
+
+.ancestry-node rect {
+  fill: var(--surface, #fff);
+  stroke: var(--border-strong, #888);
+}
+
+.ancestry-node.on rect {
+  fill: var(--surface-selected, #dce8fb);
+}
+
+.ancestry-node {
+  cursor: pointer;
+}
+
+.ancestry-node:focus-visible rect {
+  stroke-width: 2px;
+}
+
+.ancestry-node text {
+  font-size: 12px;
+  fill: currentColor;
+  pointer-events: none;
+}
+
+.ancestry-edge {
+  stroke: var(--border-strong, #888);
+}
+
+.ancestry-arrowhead {
+  fill: var(--border-strong, #888);
+}

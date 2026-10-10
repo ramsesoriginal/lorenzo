@@ -31,6 +31,7 @@ import {
   treeGroups,
   type Workspace,
 } from '../workspace/model';
+import { renderAncestry } from './ancestryPane';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
 import { renderStats } from './statsPane';
@@ -484,6 +485,7 @@ export class Shell {
     if (id === 'entry') return renderEntry(bench, this.selected, (x) => this.select(x));
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
+    if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
     const c = el('div', `pane pane-${id}`);
     if (id === 'explorer') {
       if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));

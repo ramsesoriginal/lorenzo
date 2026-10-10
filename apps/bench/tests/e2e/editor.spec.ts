@@ -878,6 +878,32 @@ test.describe('moving an entry', () => {
   });
 });
 
+test.describe('the ancestry graph', () => {
+  const node = (page: Page, id: string) => page.locator(`[data-ancestry="${id}"]`);
+
+  test('shows the entry among what it inherits from and what inherits from it', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await palette(page, 'Open Ancestry');
+    for (const id of ['monster', 'undead', 'zombie', 'ghoul', 'beast'])
+      await expect(node(page, id)).toBeVisible();
+    await expect(node(page, 'undead')).toHaveAttribute('aria-label', 'Undead (this entry)');
+  });
+
+  test('opens an entry when it is clicked, or reached with the keyboard and Enter', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await palette(page, 'Open Ancestry');
+    await node(page, 'monster').click();
+    await expect(name(page)).toHaveValue('Monster');
+    await node(page, 'beast').focus();
+    await page.keyboard.press('Enter');
+    await expect(name(page)).toHaveValue('Beast');
+  });
+});
+
 test.describe('entry editor polish', () => {
   test('an entry shows what it inherits from over its name, and a crumb opens it', async ({
     page,

@@ -58,6 +58,7 @@ export const PANES: PaneDef[] = [
   { id: 'entry', title: 'Entry', float: [720, 520] },
   { id: 'props', title: 'Stats', float: [324, 500] },
   { id: 'links', title: 'Parents and children', float: [304, 380] },
+  { id: 'ancestry', title: 'Ancestry', float: [420, 320] },
 ];
 
 export const PANE_IDS = PANES.map((p) => p.id);
