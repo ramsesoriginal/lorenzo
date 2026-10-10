@@ -124,7 +124,8 @@ A file holds at most **1024 item lines** (the list lines, each starting with a d
 Two things to know:
 
 - **What you may use is what you may see.** A player matches against the public catalog; a GM matches against everything. A line that finds nothing visible to you becomes an unsorted item, not an error.
-- **Import only creates.** It refuses a character that already has things, unless you pass `--add`. With `--add`, a line whose `ref` is the id of one of the character's own existing items does not make a copy: it moves that item to where the file puts it. This is how an export, edited and read back in, works.
+- **Import creates, and only moves or replaces when asked.** It refuses a character that already has things, unless you pass `--add` or `--replace`. With `--add`, a line whose `ref` is the id of one of the character's own existing items does not make a copy: it moves that item to where the file puts it. This is how an export, edited and read back in, works. With `--replace`, what the character owns is deleted first (after the whole file has been checked), except what is tied up with someone else's things (a container that holds another's thing, or a thing of the character's in another's container), and the file's things are made, so no line moves anything; `--backup FILE` writes what was there as a ledger beforehand ([ADR 0232](../adr/0232-inventory-import-any-being-replace-and-progress.md)).
+- **A GM can import for any being they may list.** `--owner` (or the file's `owner:`) is the character's name or id; a GM or a library's administrator can also name an NPC or another player's character by its exact name.
 
 A line's `note` is kept as a note titled “Note”, its description as one titled “Description”, and its weight, value, kind and place as one titled “Details”, so a GM sorting the item later has them in front of them. The player can read all three; export reads them back.
 

@@ -1,7 +1,9 @@
-"""Making what a plan says (ADR 0193, 0226): each line as an instance, notes written and told to the
-owner's character, what the file puts in the hands picked up, and what it names by id moved.
+"""Making what a plan says (ADR 0193, 0226, 0232): with `--replace`, what the being owns deleted
+first; then each line as an instance, notes written and told to the owner's character, what the
+file puts in the hands picked up, and what it names by id moved.
 
 A line that fails does not stop the rest: it is reported, and what was to go inside it is skipped.
+A delete that fails does stop what comes after it: nothing is made onto a being left half-emptied.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from lorenzo_cli.client.ops import (
     CLEAR_ITEM_INSTANCE_CONTAINER,
     CREATE_INFORMATION,
     CREATE_ITEM_INSTANCE,
+    DELETE_ITEM_INSTANCE,
     SET_ITEM_INSTANCE_CONTAINER,
 )
 from lorenzo_cli.client.transport import LorenzoClient
@@ -32,6 +35,8 @@ from lorenzo_cli.inventory.plan import Plan, Step
 class Applied:
     made: int = 0
     moved: int = 0
+    deleted: int = 0
+    stopped: bool = False  # a delete failed, so nothing was made
     placeholders: int = 0
     failed: list[Remark] = field(default_factory=list)
     ids: dict[int, UUID] = field(default_factory=dict)  # file line -> the instance
@@ -83,28 +88,75 @@ def _place(
     )
 
 
+def _nothing(*_: object) -> None:
+    return None
+
+
+def total(plan: Plan) -> int:
+    """How many units of work `apply` does: one for each delete and each line."""
+    return len(plan.deleting) + len(plan.steps)
+
+
+def _delete_all(
+    client: LorenzoClient,
+    plan: Plan,
+    done: Applied,
+    before: Callable[[str], None],
+    after: Callable[[], None],
+) -> None:
+    """What `--replace` removes, deepest first. A thing already gone counts as deleted, so running
+    the command again after a failure only deletes what is left."""
+    for doomed in plan.deleting:
+        before(f"Deleting {doomed.name}")
+        try:
+            client.call(
+                DELETE_ITEM_INSTANCE,
+                path={"tenant_id": plan.tenant.id, "entity_id": doomed.entity_id},
+            )
+        except LorenzoApiError as exc:
+            if exc.status == 404:
+                done.deleted += 1
+            else:
+                done.failed.append(Remark(0, f"{doomed.name}: not deleted: {exc}"))
+        else:
+            done.deleted += 1
+        after()
+    done.stopped = bool(done.failed)
+
+
 def apply(
-    client: LorenzoClient, plan: Plan, *, progress: Callable[[Step], None] | None = None
+    client: LorenzoClient,
+    plan: Plan,
+    *,
+    before: Callable[[str], None] = _nothing,
+    after: Callable[[], None] = _nothing,
 ) -> Applied:
+    """Do what the plan says. `before(label)` is called as each unit of work starts and `after()`
+    as it ends (`total(plan)` of each), for a progress display."""
     done = Applied()
     made: dict[int, UUID | None] = {}  # id(step) -> its instance, or None where it failed
 
+    _delete_all(client, plan, done, before, after)
+    if done.stopped:
+        return done
+
     for step in plan.steps:
         line = step.line
-        if progress is not None:
-            progress(step)
+        before(f"{line.quantity} x {line.name}" if line.quantity > 1 else line.name)
         parent = made.get(id(step.parent)) if step.parent is not None else None
         if step.parent is not None and parent is None:
             made[id(step)] = None
             done.failed.append(
                 Remark(line.number, f"{line.name}: not made, since what it goes in was not")
             )
+            after()
             continue
         try:
             instance_id = _do(client, plan, step, parent)
         except LorenzoApiError as exc:
             made[id(step)] = None
             done.failed.append(Remark(line.number, f"{line.name}: {exc}"))
+            after()
             continue
         made[id(step)] = instance_id
         done.ids[line.number] = instance_id
@@ -128,6 +180,7 @@ def apply(
                 done.failed.append(
                     Remark(line.number, f"{line.name}: the {title.lower()} was not saved: {exc}")
                 )
+        after()
     return done
 
 
