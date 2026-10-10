@@ -162,7 +162,7 @@ An item has `name` (required), `quantity` (default 1), `ref`, `item`, `weight` (
 
 ### From a spreadsheet
 
-A sheet with the columns *Name, Count, Weight, Value, Container, Type, Description* (one row per stack, containers on their own sheet, "holding" for what is in the hand) becomes:
+`lorenzo-convert sheet` ([ADR 0246](../adr/0246-lorenzo-converters-the-spreadsheet-converter.md), `packages/converters`) does this for an Excel or CSV file. By hand: a sheet with the columns *Name, Count, Weight, Value, Container, Type, Description* (one row per stack, containers on their own sheet, "holding" for what is in the hand) becomes:
 
 ```markdown
 format: lorenzo-ledger/1
