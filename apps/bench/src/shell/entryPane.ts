@@ -8,6 +8,7 @@ import { entryIdOfHref, type Rendered } from '../core/links';
 import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
 
 import { attachEntryPicker } from './entryPicker';
+import { openLink } from './entryPickerText';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
@@ -117,16 +118,30 @@ export function renderEntry(
   );
 
   c.append(el('h2', undefined, 'Notes'));
-  for (const note of item.notes)
-    c.append(
-      textEditor(bench, go, {
-        key: `note:${note.id}`,
-        home: id,
-        label: `Note: ${note.title}`,
-        text: note.text,
-        onChange: (text) => bench.setNoteText(id, note.id, text),
-      }),
-    );
+  item.notes.forEach((note, i) => {
+    const row = el('div', 'note-row');
+    const editor = textEditor(bench, go, {
+      key: `note:${note.id}`,
+      home: id,
+      label: `Note: ${note.title}`,
+      text: note.text,
+      onChange: (text) => bench.setNoteText(id, note.id, text),
+    });
+    const order = el('div', 'note-order');
+    for (const [label, by, disabled] of [
+      ['Move note up', -1, i === 0],
+      ['Move note down', 1, i === item.notes.length - 1],
+    ] as const) {
+      const b = button(by < 0 ? '↑' : '↓', () => bench.moveNote(id, note.id, by));
+      b.title = label;
+      b.setAttribute('aria-label', `${label}: ${note.title}`);
+      b.disabled = disabled;
+      b.dataset.key = `note-${by < 0 ? 'up' : 'down'}:${note.id}`;
+      order.append(b);
+    }
+    row.append(order, editor);
+    c.append(row);
+  });
   c.append(newNote(bench, id));
   return c;
 }
@@ -345,8 +360,32 @@ function textEditor(
       excerpt: entry.description ? excerptOf(entry.description.text) : '',
     };
   });
-  wrap.append(area, shown, notes);
+  wrap.append(linkToolbar(area), area, shown, notes);
   return wrap;
+}
+
+/** Buttons that start a link or a picture at the caret, for whoever does not know to type `[[`. */
+function linkToolbar(area: HTMLTextAreaElement): HTMLElement {
+  const bar = el('div', 'text-toolbar');
+  bar.setAttribute('role', 'toolbar');
+  bar.setAttribute('aria-label', 'Insert');
+  for (const [label, image] of [
+    ['Link to an entry', false],
+    ['Show a picture', true],
+  ] as const) {
+    const b = button(label, () => {
+      const made = openLink(area.value, area.selectionStart, area.selectionEnd, image);
+      area.value = made.text;
+      area.focus();
+      area.setSelectionRange(made.caret, made.caret);
+      // The picker and the preview follow what is typed.
+      area.dispatchEvent(new Event('input'));
+    });
+    // Pressing must not take the focus from the text, or the caret and selection are lost.
+    b.addEventListener('mousedown', (ev) => ev.preventDefault());
+    bar.append(b);
+  }
+  return bar;
 }
 
 function newNote(bench: Bench, entryId: string): HTMLElement {
@@ -359,7 +398,7 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
   area.setAttribute('aria-label', 'A new note');
   const add = el('button', 'btn', 'Add note');
   add.type = 'submit';
-  form.append(area, add);
+  form.append(linkToolbar(area), area, add);
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     if (bench.addNote(entryId, area.value)) area.value = '';
@@ -372,6 +411,7 @@ export const kindsText = (kinds: readonly string[]): string =>
   kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
 const show = (v: unknown, bench: Bench, cmd?: Command): string => {
+  if (cmd?.type === 'notes.set-order') return 'another order';
   if (cmd?.type === 'entry.set-slug' && v === null) return 'no link name';
   if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
   if (v === null) return 'nothing of its own (inherited)';
@@ -383,6 +423,7 @@ function conflictRow(bench: Bench, cmd: Command): HTMLElement {
   const label =
     cmd.stat?.name ??
     (cmd.type === 'entry.set-slug' ? 'link name' : undefined) ??
+    (cmd.type === 'notes.set-order' ? 'order of the notes' : undefined) ??
     (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents');
   const box = el('div', 'problem problem-conflict');
   box.setAttribute('role', 'alert');

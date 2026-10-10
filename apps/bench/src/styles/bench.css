@@ -748,6 +748,23 @@ dialog.confirm::backdrop {
   font-size: 12px;
 }
 
+.note-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+.note-row .text-editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-order {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .picture {
   display: flex;
   flex-direction: column;
@@ -767,4 +784,15 @@ dialog.confirm::backdrop {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.text-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.explorer-move {
+  width: 100%;
+  margin: 0.35rem 0;
 }

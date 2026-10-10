@@ -762,6 +762,94 @@ describe('link names', () => {
   });
 });
 
+describe('the order of the notes', () => {
+  const make = () => {
+    const server = new SampleTransport([
+      {
+        id: 'a',
+        name: 'Wolf',
+        kinds: ['item'],
+        parents: [],
+        notes: [
+          { id: 'n1', title: 'One', text: 'first' },
+          { id: 'n2', title: 'Two', text: 'second' },
+          { id: 'n3', title: 'Three', text: 'third' },
+        ],
+      },
+    ]);
+    return { server, bench: new Bench(server) };
+  };
+  const titles = (bench: Bench) => bench.view('a')?.notes.map((n) => n.id);
+
+  it('moves a note down, shows it at once, and sends the whole order', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    bench.moveNote('a', 'n1', 1);
+    expect(titles(bench)).toEqual(['n2', 'n1', 'n3']);
+    await bench.run();
+    expect(server.writes).toEqual([{ id: 'a', field: 'note.order', value: ['n2', 'n1', 'n3'] }]);
+    expect(bench.status('a')).toBe('synced');
+  });
+
+  it('does not move the first note up or the last down', async () => {
+    const { bench } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    expect(bench.moveNote('a', 'n1', -1)).toBeNull();
+    expect(bench.moveNote('a', 'n3', 1)).toBeNull();
+    expect(bench.outbox).toHaveLength(0);
+  });
+
+  it('can be undone, which puts the old order back', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    bench.moveNote('a', 'n3', -1);
+    await bench.run();
+    bench.undo('a');
+    await bench.run();
+    expect(server.writes.map((w) => w.value)).toEqual([
+      ['n1', 'n3', 'n2'],
+      ['n1', 'n2', 'n3'],
+    ]);
+  });
+
+  it('is waiting while there is no connection, and sent when it is back', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    server.offline = true;
+    bench.moveNote('a', 'n2', -1);
+    await bench.run();
+    expect(bench.status('a')).toBe('offline');
+    server.offline = false;
+    await bench.run();
+    expect(bench.status('a')).toBe('synced');
+    expect(titles(bench)).toEqual(['n2', 'n1', 'n3']);
+  });
+
+  it('is a conflict when the notes were put in another order elsewhere', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    await server.setNoteOrder('a', ['n3', 'n2', 'n1']);
+    bench.moveNote('a', 'n1', 1);
+    await bench.run();
+    expect(bench.status('a')).toBe('conflict');
+  });
+
+  it('waits for a note made here and not sent yet', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    const noteId = bench.addNote('a', 'a new one') as string;
+    bench.moveNote('a', noteId, -1);
+    await bench.run();
+    expect(server.writes.map((w) => w.field)).toEqual(['note.add', 'note.order']);
+  });
+});
+
 describe('pictures', () => {
   const file = (type = 'image/png', size = 4) =>
     new File([new Uint8Array(size)], 'a.png', { type });

@@ -81,3 +81,21 @@ export function choices(entries: readonly EntrySummary[], query: string): EntryS
     )
     .slice(0, MAX_CHOICES);
 }
+
+/**
+ * What a toolbar button makes of the text: it opens a link (`[[`) or a picture (`![[`) at the
+ * caret, in front of what is selected, so the picker has something to offer from, and leaves the
+ * caret after what it wrote. The picker takes it from there.
+ */
+export function openLink(
+  text: string,
+  from: number,
+  to: number,
+  image: boolean,
+): { text: string; caret: number } {
+  const open = image ? '![[' : '[[';
+  return {
+    text: text.slice(0, from) + open + text.slice(from, to) + text.slice(to),
+    caret: to + open.length,
+  };
+}

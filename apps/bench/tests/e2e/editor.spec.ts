@@ -805,6 +805,84 @@ test.describe('pictures in text', () => {
   });
 });
 
+test.describe('the order of the notes', () => {
+  const noteLabels = (page: Page) =>
+    page
+      .locator('.pane-entry .note-row textarea.text-edit')
+      .evaluateAll((areas) => areas.map((a) => a.getAttribute('aria-label')));
+
+  test('a note moves down, the order is sent whole, and Undo puts it back', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    expect(await noteLabels(page)).toEqual(['Note: Note', 'Note: Pack tactics']);
+    await page.getByRole('button', { name: 'Move note down: Note' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    expect(await noteLabels(page)).toEqual(['Note: Pack tactics', 'Note: Note']);
+    expect(await writes(page)).toEqual([
+      { id: 'wolf', field: 'note.order', value: ['wolf-tactics', 'wolf-note'] },
+    ]);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    expect(await noteLabels(page)).toEqual(['Note: Note', 'Note: Pack tactics']);
+  });
+
+  test('the first note cannot go up and the last cannot go down', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(page.getByRole('button', { name: 'Move note up: Note' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Move note down: Pack tactics' })).toBeDisabled();
+  });
+});
+
+test.describe('the link buttons', () => {
+  test('Link to an entry opens the picker at the caret, searching what was selected', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).fill('Fears dire');
+    await description(page).evaluate((a: HTMLTextAreaElement) => a.setSelectionRange(6, 10));
+    await page.getByRole('button', { name: 'Link to an entry' }).first().click();
+    await expect(description(page)).toHaveValue('Fears [[dire');
+    await expect(page.getByRole('listbox', { name: 'Entries to link' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(description(page)).toHaveValue('Fears [[Dire wolf]]');
+  });
+
+  test('Show a picture opens the picture picker', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).focus();
+    await page.getByRole('button', { name: 'Show a picture' }).first().click();
+    await expect(description(page)).toHaveValue('![[');
+    await expect(page.getByRole('listbox', { name: 'Entries to show' })).toBeVisible();
+  });
+});
+
+test.describe('moving an entry', () => {
+  const move = (page: Page) => page.getByLabel('Move to…');
+
+  test('Move to… makes the chosen entry its only parent, in one change that can be undone', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await move(page).selectOption({ label: 'Beast' });
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toEqual([{ id: 'zombie', field: 'parents', value: ['beast'] }]);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(status(page)).toHaveText('Synced');
+  });
+
+  test('is not offered under itself or what is under it, and Top level takes the parents away', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="undead"]').click();
+    const options = await move(page).locator('option').allTextContents();
+    expect(options).not.toContain('Zombie');
+    expect(options).not.toContain('Undead');
+    expect(options).toContain('Top level (no parent)');
+    await move(page).selectOption({ label: 'Top level (no parent)' });
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toEqual([{ id: 'undead', field: 'parents', value: [] }]);
+  });
+});
+
 test.describe('pictures', () => {
   const picture = (page: Page) => page.locator('.pane-entry .picture-img');
   const png = { name: 'a.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) };
