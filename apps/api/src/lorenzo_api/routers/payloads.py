@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
     CurrentUser,
     SessionDep,
@@ -20,6 +21,7 @@ from lorenzo_api.exceptions import (
     PayloadContentNotFoundError,
     PayloadKindNotEditableError,
     PayloadNotFoundError,
+    PayloadNotRemovableError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Information, Payload
@@ -126,6 +128,53 @@ async def _get_payload_for_edit_or_404(
     if payload is None:
         raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
     return payload
+
+
+@router.delete("/{payload_id}", status_code=204)
+async def delete_payload(
+    tenant_id: uuid.UUID,
+    payload_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Removes a picture from its information (ADR 0237, K8 of RFC 0041). Same gate as editing
+    the information (sight of the row 404, standing over its entry 403). Only a picture can be
+    removed (409): a description is edited, and numbers and documents are not authored through
+    the API yet. The entry's `main_picture` goes with its one picture, since it is nothing
+    without it. Logged, with the payload's id only (ADR 0084).
+    """
+    stmt = (
+        select(Payload)
+        .where(Payload.id == payload_id, Payload.tenant_id == tenant_id)
+        .options(
+            selectinload(Payload.picture),
+            selectinload(Payload.information).selectinload(Information.knowledge_links),
+        )
+    )
+    payload = (await session.execute(stmt)).scalar_one_or_none()
+    if payload is None:
+        raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
+    information = payload.information
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    if payload.picture is None:
+        raise PayloadNotRemovableError(detail=f"Payload {payload_id} is not a picture")
+
+    if information.type == "main_picture":
+        await session.delete(information)
+    else:
+        await session.delete(payload)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="payload.deleted",
+        target_type="payload",
+        target_id=payload_id,
+        detail=f"information={information.id}",
+    )
+    await session.commit()
 
 
 @router.patch("/{payload_id}")

@@ -240,6 +240,40 @@ class InvalidProfilePictureError(UnprocessableProblem):
     title = "Invalid profile picture"
 
 
+class InvalidPictureError(UnprocessableProblem):
+    """POST .../information/{id}/payloads and PUT .../entities/{id}/picture - the uploaded
+    content-type isn't in the allow-list (image/png, image/jpeg, image/webp, image/gif), or the
+    body exceeds `Settings.picture_max_bytes`. See ADR 0237.
+    """
+
+    title = "Invalid picture"
+
+
+class PayloadNotRemovableError(ConflictProblem):
+    """DELETE .../payloads/{id} on a payload that isn't a picture (ADR 0237): a description is
+    edited, not removed, and numbers and documents are not authored through the API yet.
+    """
+
+    title = "Only picture payloads can be removed"
+
+
+class MainPictureThroughEntityError(ConflictProblem):
+    """POST .../information/{id}/payloads to the entry's `main_picture` (ADR 0237): that
+    information holds exactly one picture, written by PUT .../entities/{id}/picture.
+    """
+
+    title = "The main picture is set through the entry"
+
+
+class InformationOrderListError(ConflictProblem):
+    """PUT .../entities/{id}/information/order whose list is not exactly the information the
+    caller can see on the entry: one missing, one unknown, or one named twice (ADR 0237).
+    The client refetches and tries again.
+    """
+
+    title = "The list is not the entry's information"
+
+
 class InvalidItemPrototypeError(UnprocessableProblem):
     """POST /item-instances - prototype_id doesn't resolve to an entity with
     a matching Item row. See ADR 0032/RFC 0005 and ADR 0019's own

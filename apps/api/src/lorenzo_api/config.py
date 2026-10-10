@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     # both the request body size and the row size, not a bucket quota.
     profile_picture_max_bytes: int = 2_000_000
 
+    # Pictures on an entry's information (K8, ADR 0237): the same cap to start with, a setting of
+    # its own because a cover or a map may want more than an avatar. Bytes in Postgres here too.
+    picture_max_bytes: int = 2_000_000
+
     @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:
