@@ -127,6 +127,10 @@ export interface Transport {
    * or `null` when it has none or it cannot be seen.
    */
   pictureOf(id: string): Promise<string | null>;
+  /** Sets the entry's main picture, or replaces it. The server refuses a file it does not take. */
+  setPicture(id: string, file: File): Promise<void>;
+  /** Takes the entry's main picture away; nothing to take away is fine. */
+  clearPicture(id: string): Promise<void>;
   /** Makes the entry (or, if it is already there under this id, returns it) and answers with it. */
   createEntry(entry: NewEntry): Promise<EntryState>;
   /** Writes, and answers with the entry as it is after (a fresh `etag` included). */

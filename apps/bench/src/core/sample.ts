@@ -228,6 +228,21 @@ export class SampleTransport implements Transport {
   }
   /** Asked for pictures, for tests to look at. */
   pictureReads: string[] = [];
+  /** The files given and taken away, for tests to look at. */
+  pictureWrites: string[] = [];
+  async setPicture(id: string, file: File): Promise<void> {
+    this.need();
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))
+      throw new RefusedError(`Unsupported content type '${file.type}'.`);
+    if (file.size > 2_000_000) throw new RefusedError('The picture is over the size limit.');
+    this.row(id).picture = '#36c';
+    this.pictureWrites.push(`set:${id}`);
+  }
+  async clearPicture(id: string): Promise<void> {
+    this.need();
+    this.row(id).picture = null;
+    this.pictureWrites.push(`clear:${id}`);
+  }
   async pictureOf(id: string): Promise<string | null> {
     this.need();
     this.pictureReads.push(id);

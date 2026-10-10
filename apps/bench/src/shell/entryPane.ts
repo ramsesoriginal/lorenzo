@@ -92,6 +92,7 @@ export function renderEntry(
     el('p', 'kind', kindsText(item.kinds)),
     kindsEditor(bench, id, item.kinds),
     linkNameField(bench, id, item.name, item.slug),
+    pictureSection(bench, id),
   );
 
   for (const cmd of bench.commandsFor(id)) {
@@ -199,6 +200,52 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
  * as links (looked up as they appear); the change is written down, as a command, when the field
  * loses focus (so a half-typed sentence is never sent).
  */
+/** The entry's main picture, with a way to choose another and to take it away. Online only. */
+function pictureSection(bench: Bench, id: string): HTMLElement {
+  const box = el('div', 'picture');
+  const pictures = bench.pictures;
+  if (!bench.onServer(id)) {
+    box.append(el('p', 'muted', 'A picture can be added once this entry has been sent.'));
+    return box;
+  }
+  const url = pictures.get(id);
+  if (url === undefined) void pictures.load(id);
+  const busy = pictures.busy(id);
+  if (url) {
+    const img = el('img', 'picture-img');
+    img.src = url;
+    img.alt = 'Main picture';
+    box.append(img);
+  } else {
+    box.append(el('p', 'muted', url === null ? 'No picture.' : 'Loading the picture…'));
+  }
+  const file = el('input');
+  file.type = 'file';
+  file.accept = 'image/png,image/jpeg,image/webp,image/gif';
+  file.hidden = true;
+  file.setAttribute('aria-label', 'Picture file');
+  file.addEventListener('change', () => {
+    const chosen = file.files?.[0];
+    if (chosen) void pictures.set(id, chosen);
+  });
+  const choose = button(url ? 'Replace picture…' : 'Choose picture…', () => file.click());
+  choose.disabled = busy;
+  const remove = button('Remove picture', () => void pictures.clear(id));
+  remove.hidden = !url;
+  remove.disabled = busy;
+  const actions = el('div', 'picture-actions');
+  actions.append(choose, remove, file);
+  if (busy) actions.append(el('span', 'muted', 'Saving…'));
+  box.append(actions);
+  const problem = pictures.problem(id);
+  if (problem) {
+    const p = el('p', 'bad', problem);
+    p.setAttribute('role', 'alert');
+    box.append(p);
+  }
+  return box;
+}
+
 const quoted = (slugs: string[]): string => slugs.map((s) => `“${s}”`).join(', ');
 
 function textEditor(
