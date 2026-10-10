@@ -27,6 +27,8 @@ export interface Rendered {
 export class LinkResolver {
   private found = new Map<string, ResolvedEntry>();
   private missed = new Map<string, number>();
+  /** Main pictures by entry id, as URLs; `null` for an entry that has none. Kept for the visit. */
+  private pictures = new Map<string, string | null>();
 
   constructor(
     private readonly transport: Transport,
@@ -53,6 +55,24 @@ export class LinkResolver {
     }
   }
 
+  /** Fetches the main pictures of the entries the image links name. A failed fetch is tried again. */
+  private async loadPictures(slugs: Iterable<string>): Promise<void> {
+    const ids = new Set<string>();
+    for (const slug of slugs) {
+      const id = this.found.get(slug)?.id;
+      if (id && !this.pictures.has(id)) ids.add(id);
+    }
+    await Promise.all(
+      [...ids].map(async (id) => {
+        try {
+          this.pictures.set(id, await this.transport.pictureOf(id));
+        } catch {
+          // left unknown: asked again the next time
+        }
+      }),
+    );
+  }
+
   /** What the slug is, once looked up. */
   get(slug: string): ResolvedEntry | undefined {
     return this.found.get(slug);
@@ -67,6 +87,11 @@ export class LinkResolver {
     return {
       html: render(doc, {
         resolve: {
+          image: ({ slug }) => {
+            const entry = this.found.get(slug);
+            const src = entry && this.pictures.get(entry.id);
+            return src ? { src, title: entry.name } : null;
+          },
           entity: ({ slug }) => {
             const entry = this.found.get(slug);
             return entry ? { href: entryHref(entry.id), title: entry.name } : null;
@@ -79,10 +104,9 @@ export class LinkResolver {
 
   /** The text as the reader sees it, its entry links resolved. Without a connection, as plain text. */
   async render(text: string): Promise<Rendered> {
-    const slugs = references(parse(text))
-      .filter(isEntityRef)
-      .map((r) => r.slug);
-    await this.lookUp(slugs).catch(() => {});
+    const refs = references(parse(text)).filter(isEntityRef);
+    await this.lookUp(refs.map((r) => r.slug)).catch(() => {});
+    await this.loadPictures(refs.filter((r) => r.kind === 'image').map((r) => r.slug));
     return this.renderNow(text);
   }
 }

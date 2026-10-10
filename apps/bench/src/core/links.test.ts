@@ -4,7 +4,7 @@ import { SampleTransport } from './sample';
 
 const entries = [
   { id: 'a', name: 'Old Sword', kinds: ['item'], parents: [] },
-  { id: 'b', name: 'Ashfang', kinds: ['being'], parents: [] },
+  { id: 'b', name: 'Ashfang', kinds: ['being'], parents: [], picture: '#a33' },
 ];
 
 function setup() {
@@ -82,5 +82,49 @@ describe('entry links', () => {
     expect(entryIdOfHref(entryHref('abc-1'))).toBe('abc-1');
     expect(entryIdOfHref('https://example.com')).toBeNull();
     expect(entryIdOfHref(null)).toBeNull();
+  });
+});
+
+describe('pictures in text', () => {
+  it('shows ![alt](slug) as the main picture of the entry', async () => {
+    const { links } = setup();
+    const { html } = await links.render('Here: ![the dog](ashfang)');
+    expect(html).toMatch(/<img src="blob:[^"]+" alt="the dog" title="Ashfang"/);
+  });
+
+  it('shows the alt text when the entry has no picture, or nothing holds the name', async () => {
+    const { links } = setup();
+    const out = await links.render('![a sword](old-sword) and ![nothing](lost)');
+    expect(out.html).not.toContain('<img');
+    expect(out.html).toContain('a sword');
+  });
+
+  it('shows nothing yet in the instant render, then the picture once fetched', async () => {
+    const { links } = setup();
+    expect(links.renderNow('![dog](ashfang)').html).not.toContain('<img');
+    await links.render('![dog](ashfang)');
+    expect(links.renderNow('![dog](ashfang)').html).toContain('<img');
+  });
+
+  it('fetches each picture once, and only for images (not for links)', async () => {
+    const { links, server } = setup();
+    await links.render('[[Ashfang]]');
+    expect(server.pictureReads).toEqual([]);
+    await links.render('![a](ashfang) ![b](ashfang)');
+    await links.render('![c](ashfang)');
+    expect(server.pictureReads).toEqual(['b']);
+  });
+
+  it('keeps the text when a picture cannot be fetched, and tries again next time', async () => {
+    const { links, server } = setup();
+    const real = server.pictureOf.bind(server);
+    let fail = true;
+    server.pictureOf = async (id) => {
+      if (fail) throw new Error('down');
+      return real(id);
+    };
+    expect((await links.render('![dog](ashfang)')).html).not.toContain('<img');
+    fail = false;
+    expect((await links.render('![dog](ashfang)')).html).toContain('<img');
   });
 });

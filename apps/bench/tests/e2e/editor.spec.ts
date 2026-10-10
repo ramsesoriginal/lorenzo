@@ -788,6 +788,20 @@ test.describe('signing out', () => {
   });
 });
 
+test.describe('pictures in text', () => {
+  test("![alt](slug) in a description shows the entry's picture, and the alt text when it has none", async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).fill('The pack ![its leader](ashfang) and ![a sword](blade).');
+    const shown = page.getByLabel('Description, as it reads');
+    await expect(shown.locator('img')).toHaveCount(1);
+    await expect(shown.locator('img')).toHaveAttribute('alt', 'its leader');
+    await expect(shown.locator('img')).toHaveAttribute('src', /^blob:/);
+    await expect(shown).toContainText('a sword');
+  });
+});
+
 test.describe('link names', () => {
   const linkName = (page: Page) => page.getByLabel('Link name', { exact: true });
 

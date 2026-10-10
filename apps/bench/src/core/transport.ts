@@ -119,6 +119,11 @@ export interface Transport {
   /** The entries these link names stand for; a name nothing holds is left out. */
   resolveSlugs(slugs: string[]): Promise<ResolvedEntry[]>;
   getEntry(id: string): Promise<EntryState>;
+  /**
+   * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
+   * or `null` when it has none or it cannot be seen.
+   */
+  pictureOf(id: string): Promise<string | null>;
   /** Makes the entry (or, if it is already there under this id, returns it) and answers with it. */
   createEntry(entry: NewEntry): Promise<EntryState>;
   /** Writes, and answers with the entry as it is after (a fresh `etag` included). */

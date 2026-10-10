@@ -30,7 +30,7 @@ export const SAMPLE_ENTRIES: SampleEntry[] = [
   // Called something other than its name makes, so a link to it is [Longsword](blade).
   { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [], slug: 'blade' },
   { id: 'hollow', name: 'The Hollow', kinds: [], parents: [] },
-  { id: 'ashfang', name: 'Ashfang', kinds: ['being'], parents: ['hollow'] },
+  { id: 'ashfang', name: 'Ashfang', kinds: ['being'], parents: ['hollow'], picture: '#a33' },
   // No link name: nothing can link to it until it is given one.
   { id: 'mill', name: 'The old mill', kinds: [], parents: ['hollow'], slug: null },
 ];
