@@ -21,7 +21,10 @@ export const SAMPLE_ENTRIES: SampleEntry[] = [
     kinds: ['item'],
     parents: ['beast'],
     description: 'Hunts in **packs**.',
-    notes: [{ id: 'wolf-note', text: 'Pairs well with a ranger.' }],
+    notes: [
+      { id: 'wolf-note', text: 'Pairs well with a ranger.' },
+      { id: 'wolf-tactics', title: 'Pack tactics', text: 'Flanks, then rushes.' },
+    ],
   },
   { id: 'dire-wolf', name: 'Dire wolf', kinds: ['item'], parents: ['wolf'] },
   { id: 'undead', name: 'Undead', kinds: ['item'], parents: ['monster'], stats: { undead: true } },

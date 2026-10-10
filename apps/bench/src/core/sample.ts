@@ -52,7 +52,8 @@ export type SampleWrite =
   | { id: string; field: `kind:${EditableKind}`; value: boolean }
   | { id: string; field: 'create'; value: string }
   | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
-  | { id: string; field: `stat:${string}`; value: StatScalar | null };
+  | { id: string; field: `stat:${string}`; value: StatScalar | null }
+  | { id: string; field: 'note.order'; value: string[] };
 
 const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
@@ -269,6 +270,21 @@ export class SampleTransport implements Transport {
     row.name = name;
     row.version++;
     this.writes.push({ id, field: 'name', value: name });
+    return this.state(id);
+  }
+  async setNoteOrder(id: string, noteIds: string[]) {
+    this.need();
+    const row = this.row(id);
+    const known = noteIds.filter((n) => row.notes.some((x) => x.id === n));
+    const ordered = [
+      ...known.flatMap((n) => row.notes.filter((x) => x.id === n)),
+      ...row.notes.filter((x) => !known.includes(x.id)),
+    ];
+    if (ordered.some((n, i) => n !== row.notes[i])) {
+      row.notes = ordered;
+      row.version++;
+      this.writes.push({ id, field: 'note.order', value: ordered.map((n) => n.id) });
+    }
     return this.state(id);
   }
   async setSlug(id: string, slug: string | null) {

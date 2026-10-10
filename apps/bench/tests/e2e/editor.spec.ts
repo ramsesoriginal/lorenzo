@@ -805,6 +805,33 @@ test.describe('pictures in text', () => {
   });
 });
 
+test.describe('the order of the notes', () => {
+  const noteLabels = (page: Page) =>
+    page
+      .locator('.pane-entry .note-row textarea.text-edit')
+      .evaluateAll((areas) => areas.map((a) => a.getAttribute('aria-label')));
+
+  test('a note moves down, the order is sent whole, and Undo puts it back', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    expect(await noteLabels(page)).toEqual(['Note: Note', 'Note: Pack tactics']);
+    await page.getByRole('button', { name: 'Move note down: Note' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    expect(await noteLabels(page)).toEqual(['Note: Pack tactics', 'Note: Note']);
+    expect(await writes(page)).toEqual([
+      { id: 'wolf', field: 'note.order', value: ['wolf-tactics', 'wolf-note'] },
+    ]);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    expect(await noteLabels(page)).toEqual(['Note: Note', 'Note: Pack tactics']);
+  });
+
+  test('the first note cannot go up and the last cannot go down', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(page.getByRole('button', { name: 'Move note up: Note' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Move note down: Pack tactics' })).toBeDisabled();
+  });
+});
+
 test.describe('my/ links', () => {
   const preview = (page: Page) => page.getByLabel('Description, as it reads');
 

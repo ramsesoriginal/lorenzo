@@ -116,16 +116,30 @@ export function renderEntry(
   );
 
   c.append(el('h2', undefined, 'Notes'));
-  for (const note of item.notes)
-    c.append(
-      textEditor(bench, go, {
-        key: `note:${note.id}`,
-        home: id,
-        label: `Note: ${note.title}`,
-        text: note.text,
-        onChange: (text) => bench.setNoteText(id, note.id, text),
-      }),
-    );
+  item.notes.forEach((note, i) => {
+    const row = el('div', 'note-row');
+    const editor = textEditor(bench, go, {
+      key: `note:${note.id}`,
+      home: id,
+      label: `Note: ${note.title}`,
+      text: note.text,
+      onChange: (text) => bench.setNoteText(id, note.id, text),
+    });
+    const order = el('div', 'note-order');
+    for (const [label, by, disabled] of [
+      ['Move note up', -1, i === 0],
+      ['Move note down', 1, i === item.notes.length - 1],
+    ] as const) {
+      const b = button(by < 0 ? '↑' : '↓', () => bench.moveNote(id, note.id, by));
+      b.title = label;
+      b.setAttribute('aria-label', `${label}: ${note.title}`);
+      b.disabled = disabled;
+      b.dataset.key = `note-${by < 0 ? 'up' : 'down'}:${note.id}`;
+      order.append(b);
+    }
+    row.append(order, editor);
+    c.append(row);
+  });
   c.append(newNote(bench, id));
   return c;
 }
@@ -325,6 +339,7 @@ export const kindsText = (kinds: readonly string[]): string =>
   kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
 const show = (v: unknown, bench: Bench, cmd?: Command): string => {
+  if (cmd?.type === 'notes.set-order') return 'another order';
   if (cmd?.type === 'entry.set-slug' && v === null) return 'no link name';
   if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
   if (v === null) return 'nothing of its own (inherited)';
@@ -336,6 +351,7 @@ function conflictRow(bench: Bench, cmd: Command): HTMLElement {
   const label =
     cmd.stat?.name ??
     (cmd.type === 'entry.set-slug' ? 'link name' : undefined) ??
+    (cmd.type === 'notes.set-order' ? 'order of the notes' : undefined) ??
     (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents');
   const box = el('div', 'problem problem-conflict');
   box.setAttribute('role', 'alert');

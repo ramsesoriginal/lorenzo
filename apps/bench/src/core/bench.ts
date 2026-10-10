@@ -269,6 +269,16 @@ export class Bench {
     return this.change('note.set-text', entryId, text, noteId);
   }
 
+  /** Moves one of the entry's notes up (-1) or down (+1) among its notes. */
+  moveNote(entryId: string, noteId: string, by: -1 | 1): Command | null {
+    const notes = this.view(entryId)?.notes.map((n) => n.id) ?? [];
+    const from = notes.indexOf(noteId);
+    const to = from + by;
+    if (from < 0 || to < 0 || to >= notes.length) return null;
+    [notes[from], notes[to]] = [notes[to] as string, notes[from] as string];
+    return this.change('notes.set-order', entryId, notes.join(','));
+  }
+
   /** Gives the entry a link name, or with `null` takes it away. */
   setSlug(entryId: string, slug: string | null): Command | null {
     if (slug !== null && slugProblem(slug)) return null;

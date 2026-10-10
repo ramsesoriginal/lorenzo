@@ -316,6 +316,48 @@ describe('apiTransport', () => {
     });
   });
 
+  describe('the order of the notes', () => {
+    const detail = (ids: string[]) => ({
+      ...entry,
+      information: ids.map((id) => ({
+        id,
+        type: id.startsWith('n') ? 'note' : 'description',
+        payloads: [],
+      })),
+    });
+
+    it('puts the notes in the places the notes held, in the order asked, others where they were', async () => {
+      const { transport, calls } = setup((r) =>
+        r.method === 'PUT' ? json([]) : json(detail(['d', 'n1', 'p', 'n2', 'n3'])),
+      );
+      await transport.setNoteOrder(E, ['n3', 'n1', 'n2']);
+      const put = calls.find((c) => c.method === 'PUT');
+      expect(put).toMatchObject({
+        url: `/tenants/${T}/entities/${E}/information/order`,
+        body: { information_ids: ['d', 'n3', 'p', 'n1', 'n2'] },
+      });
+    });
+
+    it('leaves a note it was not told of where it is', async () => {
+      const { transport, calls } = setup((r) =>
+        r.method === 'PUT' ? json([]) : json(detail(['n1', 'n2', 'n9'])),
+      );
+      await transport.setNoteOrder(E, ['n2', 'n1']);
+      expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({
+        information_ids: ['n2', 'n1', 'n9'],
+      });
+    });
+
+    it('says what the API said when the list no longer fits (409)', async () => {
+      const { transport } = setup((r) =>
+        r.method === 'PUT'
+          ? json({ detail: 'List mismatch' }, { status: 409 })
+          : json(detail(['n1'])),
+      );
+      await expect(transport.setNoteOrder(E, ['n1'])).rejects.toThrow(/List mismatch/);
+    });
+  });
+
   describe('link names', () => {
     const base = `/tenants/${T}/entities`;
     const made = (answer: (r: Request, n: number) => Response) => {
