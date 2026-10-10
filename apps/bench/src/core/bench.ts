@@ -126,6 +126,44 @@ export class Bench {
     return this.entries.some((e) => e.id === id) && !this.pendingCreate(id);
   }
 
+  /**
+   * Reads every entry's detail, a few at a time, quietly, so a view of many entries (the compare
+   * grid) has their stats. There is no bulk read yet (RFC 0041 K7): this is one read an entry,
+   * which is fine for hundreds and slow for thousands. The screen is told now and then, and at the end.
+   */
+  async loadAll(concurrency = 6): Promise<void> {
+    // One run at a time: the grid asks again each time the page is drawn.
+    this.reading ??= this.readAll(concurrency).finally(() => {
+      this.reading = null;
+    });
+    return this.reading;
+  }
+  private reading: Promise<void> | null = null;
+  private async readAll(concurrency: number): Promise<void> {
+    const ids = this.entries
+      .map((e) => e.id)
+      .filter((id) => !this.mirror.has(id) && !this.pendingCreate(id));
+    let next = 0;
+    let done = 0;
+    const worker = async () => {
+      while (next < ids.length) {
+        await this.open(ids[next++] as string, true);
+        if (++done % 12 === 0) this.emit();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
+    if (ids.length) this.emit();
+  }
+
+  /** How many entries have their detail read, of how many there are. */
+  loaded(): { read: number; of: number } {
+    const of = this.entries.length;
+    return {
+      read: this.entries.filter((e) => this.mirror.has(e.id) || this.pendingCreate(e.id)).length,
+      of,
+    };
+  }
+
   /** The entry as the person sees it: the mirror with its pending commands applied. */
   view(id: string): EntryState | null {
     let base = this.mirror.get(id) ?? null;

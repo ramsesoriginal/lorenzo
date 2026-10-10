@@ -34,6 +34,7 @@ import {
 import { renderAncestry } from './ancestryPane';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
+import { type GridState, newGridState, renderGrid } from './gridPane';
 import { renderStats } from './statsPane';
 import { PANE_IDS, PANES } from './stub';
 
@@ -102,6 +103,11 @@ export class Shell {
     label: string;
   } = null;
   private palette: HTMLElement | null = null;
+  /** What the Table and the Compare grid keep while the page is drawn again. */
+  private grids: Record<'table' | 'grid', GridState> = {
+    table: newGridState(),
+    grid: newGridState(),
+  };
   /** How the explorer lists entries, and which entries in the tree are folded shut. */
   private order: Order = Shell.savedOrder();
   private collapsed = new Set<string>();
@@ -486,6 +492,13 @@ export class Shell {
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
+    if (id === 'table' || id === 'grid')
+      return renderGrid(bench, this.grids[id], {
+        compact: id === 'table',
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+        openGrid: () => this.open('grid'),
+      });
     const c = el('div', `pane pane-${id}`);
     if (id === 'explorer') {
       if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));
@@ -736,7 +749,9 @@ export class Shell {
     const loc = locate(this.ws, pane);
     if (!loc || loc.kind === 'float') return;
     const n = this.ws.floats.length;
-    this.floatTab([pane], pane, Math.max(8, this.rect().width - 460 - n * 28), 48 + n * 28);
+    // Placed so the window fits inside the page, whatever its width.
+    const w = PANES.find((p) => p.id === pane)?.float[0] ?? 460;
+    this.floatTab([pane], pane, Math.max(8, this.rect().width - w - 16 - n * 28), 48 + n * 28);
   }
 
   dock(gid: string) {

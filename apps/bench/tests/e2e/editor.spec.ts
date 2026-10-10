@@ -878,6 +878,77 @@ test.describe('moving an entry', () => {
   });
 });
 
+test.describe('the compare grid and the table', () => {
+  const cell = (page: Page, row: number, col: number) =>
+    page.locator(`[data-cell="${row},${col}"]`);
+  // Floated, so it has room: opened as a tab it shares the narrow explorer.
+  const openGrid = async (page: Page) => {
+    await palette(page, 'Open Compare');
+    await palette(page, 'Float Compare');
+  };
+  const rowOf = (page: Page, text: string) =>
+    page
+      .locator('table.grid tbody tr')
+      .filter({ has: page.getByRole('button', { name: text, exact: true }) });
+
+  test('the grid lists the entries as a tree with their stats, inherited values told from own', async ({
+    page,
+  }) => {
+    await openGrid(page);
+    const grid = page.locator('.pane-grid');
+    await expect(grid).toContainText('entries');
+    await expect(rowOf(page, 'Monster').locator('td').first()).toHaveText('10');
+    await expect(rowOf(page, 'Beast').locator('td').first()).toContainText('Monster');
+    // Armor class is not a default column (numeric stats are): Weight is a decimal and is.
+    await expect(grid.locator('thead')).toContainText('Weight');
+    await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('1.5');
+  });
+
+  test('a cell is edited by typing, which replaces it, and a typo is said and not sent', async ({
+    page,
+  }) => {
+    await openGrid(page);
+    const target = rowOf(page, 'Wolf').locator('td').nth(1);
+    await target.click();
+    await page.keyboard.type('2,5');
+    await page.keyboard.press('Enter');
+    await expect(rowOf(page, 'Wolf').locator('td').nth(1)).toHaveText('2.5');
+    expect(await writes(page)).toContainEqual({ id: 'wolf', field: 'stat:weight', value: 2.5 });
+    await rowOf(page, 'Wolf').locator('td').nth(1).click();
+    await page.keyboard.type('heavy');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert')).toContainText('not a float value');
+  });
+
+  test('Delete makes a cell inherit again', async ({ page }) => {
+    await openGrid(page);
+    await rowOf(page, 'Longsword').locator('td').nth(1).click();
+    await page.keyboard.press('Delete');
+    await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('—');
+  });
+
+  test('the arrow keys move the selection, and the bar steps a whole selection by 0.1', async ({
+    page,
+  }) => {
+    await openGrid(page);
+    await rowOf(page, 'Longsword').locator('td').nth(1).click();
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('1.6');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('td.cur')).toHaveCount(1);
+  });
+
+  test('the Table pane lists the same, and opens the whole grid', async ({ page }) => {
+    await palette(page, 'Open Table');
+    await palette(page, 'Float Table');
+    const table = page.locator('.pane-table');
+    await expect(table).toContainText('Edit any cell; every view follows.');
+    await expect(table.locator('thead')).toContainText('Inherits from');
+    await table.getByRole('button', { name: 'Open as grid' }).click();
+    await expect(page.locator('.pane-grid')).toBeVisible();
+  });
+});
+
 test.describe('the ancestry graph', () => {
   const node = (page: Page, id: string) => page.locator(`[data-ancestry="${id}"]`);
 
