@@ -1,0 +1,75 @@
+---
+import Base from '../../layouts/Base.astro';
+import Unsorted from '../../components/Unsorted/Unsorted.astro';
+---
+
+<Base title="Unsorted items — Lorenzo">
+  <p id="status">
+    Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
+  </p>
+
+  <div id="page" hidden>
+    <h1 class="display" id="tenant-name"></h1>
+
+    <Unsorted />
+  </div>
+
+  <script>
+    import { errorMessage } from '../../lib/errorMessage';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
+    import { renderUnsorted } from '../../components/Unsorted/renderer';
+
+    import { addressedTenant } from '../../lib/addresses';
+    import { isAuthenticated } from '../../lib/auth';
+    import { isCampaignGm } from '../../lib/me';
+    import { getTenant } from '../../lib/tenants';
+    import { findUnsortedItem } from '../../lib/unsorted';
+
+    const required = requiredIn('Unsorted page');
+
+    const status = required<HTMLElement>(document, '#status');
+    const page = required<HTMLElement>(document, '#page');
+    const tenantName = required<HTMLElement>(document, '#tenant-name');
+
+    const addressed = await addressedTenant(
+      new URLSearchParams(window.location.search).get('tenant'),
+    );
+    const tenantId = addressed.id;
+
+    if (!(await isAuthenticated())) {
+      say(status, "You're not logged in. Log in to continue.");
+    } else if (!tenantId) {
+      say(status, addressed.problem ?? 'No library selected. Pick one to continue.');
+    } else {
+      try {
+        const [tenant, viewerIsGm, unsortedId] = await Promise.all([
+          getTenant(tenantId),
+          isCampaignGm(tenantId),
+          findUnsortedItem(tenantId),
+        ]);
+
+        tenantName.textContent = tenant.name;
+
+        if (!viewerIsGm) {
+          say(status, 'Sorting unsorted items is for a GM.');
+        } else if (!unsortedId) {
+          say(
+            status,
+            'This library has no unsorted item. Run `lorenzo seed --layer core` to add it.',
+          );
+        } else {
+          await renderUnsorted({
+            root: required<HTMLElement>(document, '[data-unsorted-view]'),
+            tenantId,
+            unsortedId,
+          });
+          page.hidden = false;
+          say(status, '');
+        }
+      } catch (error) {
+        say(status, errorMessage(error), true);
+      }
+    }
+  </script>
+</Base>
