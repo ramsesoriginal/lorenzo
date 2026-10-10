@@ -747,3 +747,24 @@ dialog.confirm::backdrop {
   margin: 0;
   font-size: 12px;
 }
+
+.picture {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+}
+
+.picture-img {
+  max-width: 100%;
+  max-height: 12rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, #ccc);
+}
+
+.picture-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

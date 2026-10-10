@@ -1,6 +1,6 @@
-# 0243 - `lorenzo-converters`: a package of simple converters, and the spreadsheet one
+# 0246 - `lorenzo-converters`: a package of simple converters, and the spreadsheet one
 
-Status: accepted, decided with the maintainer on 2026-10-10.
+Status: accepted, decided with the maintainer on 2026-10-10. Numbered 0243 when claimed; renumbered to 0246 when the Bench ADRs took 0243 to 0245.
 
 Slice 6 of [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md) ("Converters: where they live is decided when the first one is"). The first converter, [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond), is a tool of its own for a source with a live API. This ADR is for the other kind: small, mostly one-off conversions of files players already have. Builds on [ADR 0191](0191-inventory-file-format-v1.md) and [ADR 0226](0226-lorenzoledger.md) (the format is the contract).
 
