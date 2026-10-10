@@ -129,6 +129,7 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
         item.descriptions.map((description) => ({
           text: description.content,
           label: sourceLabel(description.from_entity),
+          home: description.from_entity?.id ?? item.entity_id,
         })),
       );
     },

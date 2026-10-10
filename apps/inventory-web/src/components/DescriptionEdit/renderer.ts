@@ -1,7 +1,7 @@
 // The description of an item with its display title, the item's shown name (ADR 0019, 0112),
 // written in an InfoForm under the button that opens it.
 
-import type { Renderer } from '../../lib/descriptions';
+import { at, type Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
 import { descriptionDraft, getDescription, saveDescription } from '../../lib/information';
 import { requiredIn } from '../../lib/template';
@@ -47,7 +47,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
       mount.replaceChildren(
         renderInfoForm(root, {
           initial: descriptionDraft(info, title),
-          renderer: options.renderer,
+          renderer: at(options.renderer, entityId),
           titleLabel: 'Display title',
           textLabel: 'Description',
           showVisibility: info === null,

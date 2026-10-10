@@ -83,3 +83,9 @@ Candidates come from the existing index on `(tenant_id, target)`; the anchor and
 ## Open for review
 
 Decided here, easy to turn: containment counts as belonging (an item in the being's pack); no fallback to the catalog item. (`my/` mentions do not count for the catalog item, as the maintainer decided.)
+
+## Addendum: inventory-web (slice 3)
+
+- `Renderer` takes the entity each text belongs to, `(texts, homes?)`, and `at(renderer, home)` binds one for a whole set. The item pages pass the item for its own texts and the ancestor for an inherited one; the information lists and the description editor pass the entity they edit. A catalog item's own form passes none, since a catalog item belongs to no being.
+- Answers are kept under `(home, slug)` for 30 seconds and asked with `from`, as in Bench; plain slugs are kept for the page as before.
+- The author's notes under an editor say "Nothing called “…” is held by whoever this belongs to" for a `my/` link that resolves to nothing, and `my` is never reported as a view mismatch.
