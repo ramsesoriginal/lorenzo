@@ -2,11 +2,11 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Form, Header, Query, Request, Response, UploadFile
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
-from sqlalchemy import delete, exists, literal, or_, select, union_all
+from sqlalchemy import delete, exists, func, literal, or_, select, union_all
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -51,6 +51,7 @@ from lorenzo_api.exceptions import (
     InformationManagementForbiddenError,
     InformationNotFoundError,
     InformationOrderConflictError,
+    InformationOrderListError,
     InvalidKindRequestError,
     InventoryItemParentsError,
 )
@@ -75,6 +76,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
+from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
     EntityCreate,
@@ -86,6 +88,7 @@ from lorenzo_api.schemas.entities import (
     EntitySlugOut,
     EntitySlugUpdate,
     InformationCreate,
+    InformationOrderRequest,
     InformationOut,
     ResolvedSlugOut,
 )
@@ -1044,6 +1047,209 @@ async def create_information(
     return await information_out_or_404(
         tenant_id, information.id, request, session, user=user, require_visible=False
     )
+
+
+@router.put("/{entity_id}/information/order")
+async def reorder_entity_information(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: InformationOrderRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[InformationOut]:
+    """Puts the entry's information in a new order in one request (ADR 0237, K8 of RFC 0041; the
+    reorder ADR 0101 and RFC 0015 left open). The body lists every piece of information the
+    caller can see on the entry, each once, in the order wanted; anything else is a 409 (a note
+    added meanwhile, one removed, one named twice), and the caller reads the entry again. There
+    is no `If-Match`: naming every row is the check. Information the caller cannot see keeps its
+    own position, so a player reorders only their view and a GM everything.
+
+    The positions the visible rows held are handed out again in the new order, in two steps
+    under the entry's lock, since `order` is unique and each row is checked as it is written.
+    Same gate as creating information (404 for an unknown entry, 403). Not logged: order is
+    descriptive (ADR 0084).
+    """
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    stmt = (
+        select(Information)
+        .where(
+            Information.entity_id == entity_id,
+            Information.tenant_id == tenant_id,
+            visible_information_clause(visibility),
+        )
+        .options(*_INFORMATION_LOAD_OPTIONS)
+        .order_by(Information.order, Information.id)
+        .execution_options(populate_existing=True)
+    )
+    rows = list((await session.execute(stmt)).scalars())
+    wanted = body.information_ids
+    if len(set(wanted)) != len(wanted) or set(wanted) != {row.id for row in rows}:
+        raise InformationOrderListError(
+            detail=(
+                "The list must name each piece of information you can see on the entry, once: "
+                f"expected {len(rows)}, got {len(wanted)}"
+            )
+        )
+
+    slots = [row.order for row in rows]
+    if [row.id for row in rows] != wanted:
+        by_id = {row.id: row for row in rows}
+        highest = (
+            await session.scalar(
+                select(func.max(Information.order)).where(
+                    Information.entity_id == entity_id, Information.tenant_id == tenant_id
+                )
+            )
+        ) or 0
+        # Out of the way first (past every position there is), then into the slots.
+        offset = highest + len(rows) + 1
+        for row in rows:
+            row.order += offset
+        await session.flush()
+        for slot, information_id in zip(slots, wanted, strict=True):
+            by_id[information_id].order = slot
+        await session.flush()
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+        rows = list((await session.execute(stmt)).scalars())
+    return [InformationOut.from_information(row, request) for row in rows]
+
+
+@router.put("/{entity_id}/picture")
+async def set_entity_picture(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    file: UploadFile,
+    is_public: Annotated[bool | None, Form()] = None,
+) -> InformationOut:
+    """Sets the entry's one main picture (ADR 0237, K8 of RFC 0041): writes the singleton
+    `main_picture` information and its one picture payload, and answers with the information:
+    `201` the first time, `200` when it replaces the picture it had. A multipart upload (PNG,
+    JPEG, WebP or GIF, at most `picture_max_bytes`, 422 otherwise). `is_public` is a form field;
+    left out, a new picture is not public (as every new information is) and a replaced one keeps
+    what it was. Same gate as creating information (404, 403). Logged with the entry's id only
+    (ADR 0084).
+    """
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    data, file_type = await read_picture_upload(file)
+
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    information = (
+        await session.execute(
+            select(Information)
+            .where(
+                Information.entity_id == entity_id,
+                Information.tenant_id == tenant_id,
+                Information.type == "main_picture",
+            )
+            .options(selectinload(Information.payloads).selectinload(Payload.picture))
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if information is None:
+        information = Information(
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            title="Main picture",
+            type="main_picture",
+            is_public=bool(is_public),
+            created_by=user.id,
+        )
+        session.add(information)
+        await session.flush()
+        await add_picture_payload(
+            session,
+            tenant_id=tenant_id,
+            information_id=information.id,
+            data=data,
+            file_type=file_type,
+        )
+        response.status_code = 201
+    else:
+        held = next((p for p in information.payloads if p.picture is not None), None)
+        if held is None or held.picture is None:
+            await add_picture_payload(
+                session,
+                tenant_id=tenant_id,
+                information_id=information.id,
+                data=data,
+                file_type=file_type,
+            )
+        else:
+            held.picture.data, held.picture.file_type = data, file_type
+            held.updated_at = func.now()
+        if is_public is not None:
+            information.is_public = is_public
+        information.updated_at = func.now()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="information.picture_set",
+        target_type="information",
+        target_id=information.id,
+        detail=f"entity={entity_id}",
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await information_out_or_404(
+        tenant_id, information.id, request, session, user=user, require_visible=False
+    )
+
+
+@router.delete("/{entity_id}/picture", status_code=204)
+async def clear_entity_picture(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Removes the entry's main picture, with its information (ADR 0237, K8 of RFC 0041): `204`
+    whether or not it had one. Same gate as setting it. Logged when something was removed.
+    """
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    information = (
+        await session.execute(
+            select(Information).where(
+                Information.entity_id == entity_id,
+                Information.tenant_id == tenant_id,
+                Information.type == "main_picture",
+            )
+        )
+    ).scalar_one_or_none()
+    if information is None:
+        return
+    information_id = information.id
+    await session.delete(information)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="information.picture_removed",
+        target_type="information",
+        target_id=information_id,
+        detail=f"entity={entity_id}",
+    )
+    await session.commit()
 
 
 async def get_information_or_404(

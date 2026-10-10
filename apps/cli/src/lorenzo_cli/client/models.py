@@ -91,6 +91,19 @@ class BeingSummaryOut(BaseModel):
     is_pc: bool | None = Field(..., title="Is Pc")
 
 
+class BodyAddInformationPicture(BaseModel):
+    file: str = Field(
+        ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
+    )
+
+
+class BodySetEntityPicture(BaseModel):
+    file: str = Field(
+        ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
+    )
+    is_public: bool | None = Field(None, title="Is Public")
+
+
 class BodyUploadCampaignPicture(BaseModel):
     file: str = Field(
         ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
@@ -517,6 +530,10 @@ class InformationCreate(BaseModel):
     content: str = Field(..., title="Content")
     locale: str | None = Field("en-US", title="Locale")
     order: int | None = Field(None, title="Order")
+
+
+class InformationOrderRequest(BaseModel):
+    information_ids: list[UUID] = Field(..., title="Information Ids")
 
 
 class InformationUpdate(BaseModel):
