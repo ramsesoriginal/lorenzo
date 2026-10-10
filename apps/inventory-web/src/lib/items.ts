@@ -303,6 +303,21 @@ export async function deleteItemInstance(
   );
 }
 
+// PATCH /tenants/{t}/item-instances/{id} with a prototype_id (ADR 0192) - a manager changes what
+// an instance is; its name and notes stay and its holders are told. How an unsorted item is sorted.
+export async function setInstancePrototype(
+  tenantId: string,
+  entityId: string,
+  prototypeId: string,
+): Promise<ItemInstance> {
+  return unwrap(
+    await client.PATCH('/tenants/{tenant_id}/item-instances/{entity_id}', {
+      params: { path: { tenant_id: tenantId, entity_id: entityId } },
+      body: { prototype_id: prototypeId },
+    }),
+  );
+}
+
 // GET /tenants/{t}/items/{id} - a single catalog item by id, used to look
 // up a display name for an item-instance's direct prototype (the board's
 // ancestry view knows only the id, from ItemInstanceOut.prototype_ids).

@@ -141,12 +141,12 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
 
     listStatDefinitions: () => guarded(loadDefinitions),
 
-    resolveSlugs: (slugs) =>
+    resolveSlugs: (slugs, from) =>
       guarded(async (): Promise<ResolvedEntry[]> => {
         if (!slugs.length) return [];
         const rows = await unwrap(
           await client.GET('/tenants/{tenant_id}/entities/resolve', {
-            params: { path, query: { slug: slugs } },
+            params: { path, query: { slug: slugs, ...(from ? { from } : {}) } },
           }),
         );
         return rows.map((r) => ({

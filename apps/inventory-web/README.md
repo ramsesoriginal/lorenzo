@@ -34,6 +34,12 @@ weight in pounds and a value. It is added as an *unsorted* item, with the descri
 for the character, and the card wears an **Unsorted** badge until the GM matches it to a catalog
 item ([ADR 0238](../../docs/adr/0238-inventory-web-not-in-the-list-and-the-unsorted-badge.md)).
 
+**Unsorted** (a GM's page) lists every unsorted item grouped by the name the player wrote. Open a
+group to see who holds each and their notes, then give the ticked ones to a catalog item (suggested
+by how alike the names are, or searched), make a new catalog item from the group, or keep it for
+now. The names and notes stay on what is sorted, and its holders are told by the API
+([ADR 0241](../../docs/adr/0241-inventory-web-the-unsorted-view.md)).
+
 From that detail view, or when multiple cards are multi-selected:
 
 - **Give** an item (or part of a stack) to another being; a player finds the

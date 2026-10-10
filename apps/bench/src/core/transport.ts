@@ -116,8 +116,11 @@ export const canSetParents = (kinds: readonly string[]): boolean =>
 export interface Transport {
   listEntries(): Promise<EntrySummary[]>;
   listStatDefinitions(): Promise<StatDef[]>;
-  /** The entries these link names stand for; a name nothing holds is left out. */
-  resolveSlugs(slugs: string[]): Promise<ResolvedEntry[]>;
+  /**
+   * The entries these link names stand for; a name nothing holds is left out. A `my/name` stands
+   * for the item held by the being the entry `from` belongs to (ADR 0240); it comes back as asked.
+   */
+  resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]>;
   getEntry(id: string): Promise<EntryState>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),

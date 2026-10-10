@@ -33,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('lists the repository and opens an entry', async ({ page }) => {
-  await expect(page.locator('[data-entry]')).toHaveCount(11);
+  await expect(page.locator('[data-entry]')).toHaveCount(12);
   await page.locator('[data-entry="wolf"]').click();
   await expect(name(page)).toHaveValue('Wolf');
   await expect(status(page)).toHaveText('Synced');
@@ -467,7 +467,7 @@ test.describe('the explorer', () => {
   test('is a tree of what entries inherit from, one row for each place', async ({ page }) => {
     await expect(rows(page).filter({ hasText: /^Ghoul$/ })).toHaveCount(2);
     await expect(page.locator('.pane-explorer')).toContainText(
-      '11 entries · 12 places in the list',
+      '12 entries · 13 places in the list',
     );
     await expect(page.getByRole('img', { name: 'Has 2 parents' })).toHaveCount(2);
   });
@@ -497,11 +497,12 @@ test.describe('the explorer', () => {
     await expect(page.locator('.pane-explorer .group-head')).toHaveText([
       'Items',
       'Beings',
+      'Inventory items',
       'Bare entries',
     ]);
     await page.getByRole('button', { name: 'A to Z' }).click();
     await expect(rows(page).first()).toHaveText('Ashfang');
-    await expect(page.locator('.pane-explorer')).toContainText('11 entries');
+    await expect(page.locator('.pane-explorer')).toContainText('12 entries');
   });
 
   test('the order is remembered', async ({ page }) => {
@@ -517,7 +518,7 @@ test.describe('the explorer', () => {
     const filter = page.getByLabel('Filter entries');
     await filter.fill('WOL');
     await expect(rows(page)).toHaveText(['Dire wolf', 'Wolf']);
-    await expect(page.locator('.pane-explorer')).toContainText('2 of 11 entries');
+    await expect(page.locator('.pane-explorer')).toContainText('2 of 12 entries');
     // typing goes on: the field keeps the focus and the text through each redraw
     await filter.pressSequentially('f');
     await expect(filter).toBeFocused();
@@ -525,7 +526,7 @@ test.describe('the explorer', () => {
     await expect(rows(page)).toHaveText(['Dire wolf', 'Wolf']);
     await filter.press('Escape');
     await expect(filter).toHaveValue('');
-    await expect(page.locator('.pane-explorer')).toContainText('11 entries · 12 places');
+    await expect(page.locator('.pane-explorer')).toContainText('12 entries · 13 places');
   });
 
   test('says when nothing matches, and an entry found can be opened', async ({ page }) => {
@@ -629,7 +630,9 @@ test.describe('links to entries in text', () => {
     await page.getByLabel('Description', { exact: true }).fill('Haunts [[Lost Crown]].');
     await expect(page.getByLabel('Description, as it reads')).toContainText('Lost Crown');
     await expect(preview(page)).toHaveCount(0);
-    await expect(page.locator('.link-notes')).toContainText('Nothing is called “lost-crown” yet');
+    await expect(page.locator('.link-notes').first()).toContainText(
+      'Nothing is called “lost-crown” yet',
+    );
   });
 
   test('links work in notes too, and a link to an entry made here shows once it is sent', async ({
@@ -802,6 +805,28 @@ test.describe('pictures in text', () => {
   });
 });
 
+test.describe('my/ links', () => {
+  const preview = (page: Page) => page.getByLabel('Description, as it reads');
+
+  test('[text](my/slug) leads to the item the entry holds, and is plain text where nothing is held', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="ashfang"]').click();
+    await description(page).fill('Draws [her sword](my/blade).');
+    await expect(preview(page).locator('a.ls-entity')).toHaveText('her sword');
+    await preview(page).locator('a.ls-entity').click();
+    await expect(name(page)).toHaveValue('Blade of the Hollow');
+
+    await page.locator('[data-entry="wolf"]').click();
+    await description(page).fill('Draws [its sword](my/blade).');
+    await expect(preview(page)).toContainText('its sword');
+    await expect(preview(page).locator('a.ls-entity')).toHaveCount(0);
+    await expect(page.locator('.link-notes').first()).toContainText(
+      '“blade” is held by whoever this belongs to',
+    );
+  });
+});
+
 test.describe('link names', () => {
   const linkName = (page: Page) => page.getByLabel('Link name', { exact: true });
 
@@ -848,7 +873,7 @@ test.describe('link names', () => {
   test('a link to an entry with none stays text and says so', async ({ page }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Haunts [[The old mill]].');
-    await expect(page.locator('.link-notes')).toContainText('Nothing is called');
+    await expect(page.locator('.link-notes').first()).toContainText('Nothing is called');
   });
 
   test('a new entry is made with the link name its name makes, so a link to it works at once', async ({

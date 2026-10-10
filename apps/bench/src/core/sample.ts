@@ -36,6 +36,8 @@ export interface SampleEntry {
   slug?: string | null;
   /** A main picture (a plain coloured square, as an SVG), by its colour; none when left out. */
   picture?: string;
+  /** The entry that owns it, or holds it (the sample has no more to tell the two apart). */
+  heldBy?: string;
 }
 
 interface Text {
@@ -93,6 +95,7 @@ export class SampleTransport implements Transport {
         version: 1,
         slug: e.slug === undefined ? slugify(e.name) : e.slug,
         picture: e.picture ?? null,
+        heldBy: e.heldBy,
         stats: new Map(Object.entries(e.stats ?? {})),
         description:
           e.description === undefined
@@ -160,13 +163,59 @@ export class SampleTransport implements Transport {
     }));
   }
   /** The sample entries have no link names of their own: each has the slug of its name. */
-  async resolveSlugs(slugs: string[]): Promise<ResolvedEntry[]> {
+  async resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]> {
     this.need();
     const bySlug = new Map<string, ResolvedEntry>();
     for (const row of this.rows.values())
       if (row.slug)
         bySlug.set(row.slug, { slug: row.slug, id: row.id, name: row.name, kinds: [...row.kinds] });
-    return slugs.flatMap((s) => bySlug.get(s) ?? []);
+    const anchor = from ? this.anchorOf(from) : null;
+    return slugs.flatMap((s) => {
+      if (!s.startsWith('my/')) return bySlug.get(s) ?? [];
+      const target = bySlug.get(s.slice(3));
+      const held = anchor && target ? this.heldInstanceOf(anchor, target.id) : null;
+      return held ? { slug: s, id: held.id, name: held.name, kinds: [...held.kinds] } : [];
+    });
+  }
+  /** The being the entry is, or is held by, up the chain (ADR 0240). */
+  private anchorOf(id: string): string | null {
+    const seen = new Set<string>();
+    for (let at: string | undefined = id; at && !seen.has(at); at = this.rows.get(at)?.heldBy) {
+      seen.add(at);
+      if (this.rows.get(at)?.kinds.includes('being')) return at;
+    }
+    return null;
+  }
+  /** An instance of the item that the anchor holds, nearest and then first by name. */
+  private heldInstanceOf(anchor: string, item: string) {
+    const derives = (id: string, seen = new Set<string>()): boolean => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return (this.rows.get(id)?.parents ?? []).some((p) => p === item || derives(p, seen));
+    };
+    const depth = (id: string): number => {
+      let n = 0;
+      for (let at = this.rows.get(id)?.heldBy; at && at !== anchor && n < 20; n++)
+        at = this.rows.get(at)?.heldBy;
+      return n;
+    };
+    const held = (id: string): boolean => {
+      for (
+        let at = this.rows.get(id)?.heldBy, n = 0;
+        at && n < 20;
+        n++, at = this.rows.get(at)?.heldBy
+      )
+        if (at === anchor) return true;
+      return false;
+    };
+    return [...this.rows.values()]
+      .filter((r) => r.kinds.includes('item_instance') && held(r.id) && derives(r.id))
+      .sort(
+        (a, b) =>
+          Number(!a.parents.includes(item)) - Number(!b.parents.includes(item)) ||
+          depth(a.id) - depth(b.id) ||
+          a.name.localeCompare(b.name),
+      )[0];
   }
 
   async listStatDefinitions(): Promise<StatDef[]> {
