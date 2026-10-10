@@ -262,6 +262,23 @@ describe('apiTransport', () => {
     });
     await expect(transport.getEntry(E)).rejects.toBeInstanceOf(OfflineError);
   });
+  describe('my/ links', () => {
+    it('asks with the entry the text belongs to', async () => {
+      const { transport, calls } = setup(() =>
+        json([{ slug: 'my/blade', entity_id: E, name: 'Blade', kinds: ['item_instance'] }]),
+      );
+      const rows = await transport.resolveSlugs(['my/blade'], P);
+      expect(calls[0].url).toBe(`/tenants/${T}/entities/resolve?slug=my%2Fblade&from=${P}`);
+      expect(rows).toEqual([{ slug: 'my/blade', id: E, name: 'Blade', kinds: ['item_instance'] }]);
+    });
+
+    it('sends no from for plain names', async () => {
+      const { transport, calls } = setup(() => json([]));
+      await transport.resolveSlugs(['wolf']);
+      expect(calls[0].url).toBe(`/tenants/${T}/entities/resolve?slug=wolf`);
+    });
+  });
+
   describe('pictures', () => {
     const picture = (kind: string) => ({
       ...entry,

@@ -4,7 +4,7 @@
 import { slugify } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
-import { entryIdOfHref } from '../core/links';
+import { entryIdOfHref, type Rendered } from '../core/links';
 import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
 
 import { attachEntryPicker } from './entryPicker';
@@ -108,6 +108,7 @@ export function renderEntry(
     el('h2', undefined, 'Description'),
     textEditor(bench, go, {
       key: `description:${id}`,
+      home: id,
       label: 'Description',
       text: item.description?.text ?? '',
       onChange: (text) => bench.setDescription(id, text),
@@ -119,6 +120,7 @@ export function renderEntry(
     c.append(
       textEditor(bench, go, {
         key: `note:${note.id}`,
+        home: id,
         label: `Note: ${note.title}`,
         text: note.text,
         onChange: (text) => bench.setNoteText(id, note.id, text),
@@ -197,11 +199,15 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
  * as links (looked up as they appear); the change is written down, as a command, when the field
  * loses focus (so a half-typed sentence is never sent).
  */
+const quoted = (slugs: string[]): string => slugs.map((s) => `“${s}”`).join(', ');
+
 function textEditor(
   bench: Bench,
   go: (id: string) => void,
   o: {
     key: string;
+    /** The entry the text belongs to: what `my/` links are held by. */
+    home: string;
     label: string;
     text: string;
     onChange: (text: string) => void;
@@ -218,16 +224,23 @@ function textEditor(
   const notes = el('p', 'muted link-notes');
   notes.hidden = true;
 
-  const draw = (r: { html: string; missing: string[] }) => {
+  const draw = (r: Rendered) => {
     shown.innerHTML = r.html; // escaped by the renderer (ADR 0100)
     // A link keeps the focus when the page is drawn again.
     shown.querySelectorAll<HTMLElement>('a.ls-entity').forEach((a, i) => {
       a.dataset.key = `${o.key}:link:${i}`;
     });
-    notes.hidden = !r.missing.length;
-    notes.textContent = r.missing.length
-      ? `Nothing is called ${r.missing.map((s) => `“${s}”`).join(', ')} yet, so ${r.missing.length === 1 ? 'that link stays' : 'those links stay'} as text.`
-      : '';
+    const said: string[] = [];
+    if (r.missing.length)
+      said.push(
+        `Nothing is called ${quoted(r.missing)} yet, so ${r.missing.length === 1 ? 'that link stays' : 'those links stay'} as text.`,
+      );
+    if (r.notMine.length)
+      said.push(
+        `Nothing called ${quoted(r.notMine)} is held by whoever this belongs to, so ${r.notMine.length === 1 ? 'that link stays' : 'those links stay'} as text.`,
+      );
+    notes.hidden = !said.length;
+    notes.textContent = said.join(' ');
   };
   // What is already known shows at once; what is not is asked, and shown when it arrives (unless
   // the text has moved on by then).
@@ -235,10 +248,15 @@ function textEditor(
   const paint = async () => {
     const mine = ++turn;
     const text = area.value;
-    const quick = bench.links.renderNow(text);
+    const quick = bench.links.renderNow(text, o.home);
     draw(quick);
-    const full = await bench.links.render(text);
-    if (mine === turn && (full.html !== quick.html || full.missing.join() !== quick.missing.join()))
+    const full = await bench.links.render(text, o.home);
+    if (
+      mine === turn &&
+      (full.html !== quick.html ||
+        full.missing.join() !== quick.missing.join() ||
+        full.notMine.join() !== quick.notMine.join())
+    )
       draw(full);
   };
   void paint();
