@@ -4,20 +4,25 @@
 import { slugify } from '@lorenzo/lorenzoscript';
 import type { EntrySummary } from '../core/transport';
 
-/** An unfinished `[[` before the caret: where it starts, and what has been typed after it. */
+/**
+ * An unfinished `[[` before the caret: where it starts, and what has been typed after it. With a
+ * `!` in front (`![[`) it is a picture being chosen, and `start` is the place of the `!`.
+ */
 export interface PickerContext {
   start: number;
   query: string;
+  image: boolean;
 }
 
 /** Null when the caret is not inside a link being typed: none open, already closed, or on another line. */
 export function pickerContext(text: string, caret: number): PickerContext | null {
   const before = text.slice(0, caret);
-  const start = before.lastIndexOf('[[');
-  if (start < 0) return null;
-  const query = before.slice(start + 2);
+  const open = before.lastIndexOf('[[');
+  if (open < 0) return null;
+  const query = before.slice(open + 2);
   if (/[\]\n]/.test(query)) return null;
-  return { start, query };
+  const image = open > 0 && before[open - 1] === '!';
+  return { start: image ? open - 1 : open, query, image };
 }
 
 /**
@@ -28,6 +33,15 @@ export function pickerContext(text: string, caret: number): PickerContext | null
 export function linkFor(name: string, slug: string | null): string {
   if (!slug || slug === slugify(name)) return `[[${name}]]`;
   return `[${name}](${slug})`;
+}
+
+/**
+ * The picture to write for an entry: `![Name](link-name)`, always written out, since a picture has
+ * no `[[ ]]` form. An entry with no link name gets the one its name makes, which the preview says
+ * does not reach it.
+ */
+export function imageFor(name: string, slug: string | null): string {
+  return `![${name}](${slug || slugify(name)})`;
 }
 
 /** What choosing an entry makes of the text: the whole link written for it, and the caret after it. */
@@ -66,4 +80,22 @@ export function choices(entries: readonly EntrySummary[], query: string): EntryS
         rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     )
     .slice(0, MAX_CHOICES);
+}
+
+/**
+ * What a toolbar button makes of the text: it opens a link (`[[`) or a picture (`![[`) at the
+ * caret, in front of what is selected, so the picker has something to offer from, and leaves the
+ * caret after what it wrote. The picker takes it from there.
+ */
+export function openLink(
+  text: string,
+  from: number,
+  to: number,
+  image: boolean,
+): { text: string; caret: number } {
+  const open = image ? '![[' : '[[';
+  return {
+    text: text.slice(0, from) + open + text.slice(from, to) + text.slice(to),
+    caret: to + open.length,
+  };
 }

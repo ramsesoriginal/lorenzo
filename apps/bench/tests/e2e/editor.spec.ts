@@ -832,6 +832,100 @@ test.describe('the order of the notes', () => {
   });
 });
 
+test.describe('the link buttons', () => {
+  test('Link to an entry opens the picker at the caret, searching what was selected', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).fill('Fears dire');
+    await description(page).evaluate((a: HTMLTextAreaElement) => a.setSelectionRange(6, 10));
+    await page.getByRole('button', { name: 'Link to an entry' }).first().click();
+    await expect(description(page)).toHaveValue('Fears [[dire');
+    await expect(page.getByRole('listbox', { name: 'Entries to link' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(description(page)).toHaveValue('Fears [[Dire wolf]]');
+  });
+
+  test('Show a picture opens the picture picker', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).focus();
+    await page.getByRole('button', { name: 'Show a picture' }).first().click();
+    await expect(description(page)).toHaveValue('![[');
+    await expect(page.getByRole('listbox', { name: 'Entries to show' })).toBeVisible();
+  });
+});
+
+test.describe('moving an entry', () => {
+  const move = (page: Page) => page.getByLabel('Move to…');
+
+  test('Move to… makes the chosen entry its only parent, in one change that can be undone', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await move(page).selectOption({ label: 'Beast' });
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toEqual([{ id: 'zombie', field: 'parents', value: ['beast'] }]);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(status(page)).toHaveText('Synced');
+  });
+
+  test('is not offered under itself or what is under it, and Top level takes the parents away', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="undead"]').click();
+    const options = await move(page).locator('option').allTextContents();
+    expect(options).not.toContain('Zombie');
+    expect(options).not.toContain('Undead');
+    expect(options).toContain('Top level (no parent)');
+    await move(page).selectOption({ label: 'Top level (no parent)' });
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toEqual([{ id: 'undead', field: 'parents', value: [] }]);
+  });
+});
+
+test.describe('pictures', () => {
+  const picture = (page: Page) => page.locator('.pane-entry .picture-img');
+  const png = { name: 'a.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) };
+
+  test('an entry shows its main picture, and an entry without one says so', async ({ page }) => {
+    await page.locator('[data-entry="ashfang"]').click();
+    await expect(picture(page)).toHaveAttribute('src', /^blob:/);
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(page.locator('.pane-entry .picture')).toContainText('No picture.');
+  });
+
+  test('choosing a file sets it, and Remove takes it away', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Picture file').setInputFiles(png);
+    await expect(picture(page)).toHaveAttribute('src', /^blob:/);
+    await expect(page.getByRole('button', { name: 'Replace picture…' })).toBeVisible();
+    await page.getByRole('button', { name: 'Remove picture' }).click();
+    await expect(page.locator('.pane-entry .picture')).toContainText('No picture.');
+  });
+
+  test('a file the API does not take is said, not sent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page
+      .getByLabel('Picture file')
+      .setInputFiles({ name: 'a.pdf', mimeType: 'application/pdf', buffer: Buffer.from('x') });
+    await expect(page.getByRole('alert')).toContainText('PNG, JPEG, WebP or GIF');
+  });
+
+  test('typing ![[ offers the entries, and choosing one writes the picture, which the preview shows', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).pressSequentially('Led by ![[ash');
+    await expect(page.getByRole('listbox', { name: 'Entries to show' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(description(page)).toHaveValue('Led by ![Ashfang](ashfang)');
+    await expect(page.getByLabel('Description, as it reads').locator('img')).toHaveAttribute(
+      'src',
+      /^blob:/,
+    );
+  });
+});
+
 test.describe('my/ links', () => {
   const preview = (page: Page) => page.getByLabel('Description, as it reads');
 

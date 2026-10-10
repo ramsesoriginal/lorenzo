@@ -18,6 +18,7 @@ import {
   type Value,
 } from './commands';
 import { LinkResolver } from './links';
+import { Pictures } from './pictures';
 import {
   canEditStat,
   type EditableKind,
@@ -51,6 +52,8 @@ export class Bench {
   loadError: string | null = null;
   /** What the entry links in text lead to. */
   readonly links: LinkResolver;
+  /** Entries' main pictures. */
+  readonly pictures: Pictures;
   private nextId = 1;
   private listeners = new Set<() => void>();
   private current: Promise<void> | null = null;
@@ -61,6 +64,11 @@ export class Bench {
     private readonly makeId: () => string = () => crypto.randomUUID(),
   ) {
     this.links = new LinkResolver(transport);
+    this.pictures = new Pictures(
+      transport,
+      () => this.emit(),
+      (id) => this.links.forgetPicture(id),
+    );
   }
 
   subscribe(fn: () => void): () => void {
@@ -105,6 +113,11 @@ export class Bench {
       this.loadError = e instanceof Error ? e.message : 'Could not load this entry.';
     }
     if (!quiet) this.emit();
+  }
+
+  /** Whether the server has the entry (it is not one made here and not sent yet). */
+  onServer(id: string): boolean {
+    return this.entries.some((e) => e.id === id) && !this.pendingCreate(id);
   }
 
   /** The entry as the person sees it: the mirror with its pending commands applied. */

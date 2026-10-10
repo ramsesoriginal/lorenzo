@@ -764,3 +764,35 @@ dialog.confirm::backdrop {
   flex-direction: column;
   gap: 0.2rem;
 }
+
+.picture {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+}
+
+.picture-img {
+  max-width: 100%;
+  max-height: 12rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, #ccc);
+}
+
+.picture-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.text-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.explorer-move {
+  width: 100%;
+  margin: 0.35rem 0;
+}

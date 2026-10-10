@@ -2,6 +2,7 @@
 // input into changes to it. The layout rules live in the model; this file is the DOM.
 
 import type { Bench } from '../core/bench';
+import { canSetParents } from '../core/transport';
 import { type HitResult, hitTest } from '../workspace/hit';
 import {
   addTab,
@@ -31,7 +32,7 @@ import {
   type Workspace,
 } from '../workspace/model';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
-import { buildRows, counts, filterEntries, ORDERS, type Order } from './explorerRows';
+import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
 import { renderStats } from './statsPane';
 import { PANE_IDS, PANES } from './stub';
 
@@ -39,6 +40,8 @@ const BAR = 30;
 const STORE = 'bench:workspace';
 const THEME = 'bench:theme';
 const ORDER = 'bench:explorer-order';
+/** The "Move to…" choice for no parent at all. */
+const TOP = '__top';
 const ORDER_LABEL: Record<Order, string> = {
   inherits: 'Inherits',
   kind: 'Kind',
@@ -395,6 +398,8 @@ export class Shell {
       seg.append(b);
     }
     box.append(head, seg);
+    const move = this.moveControl();
+    if (move) box.append(move);
     if (filtering && !rows.length)
       box.append(el('p', 'muted pad', 'No entry matches that filter.'));
 
@@ -441,6 +446,28 @@ export class Shell {
     }
     box.append(list);
     return box;
+  }
+
+  /**
+   * "Move to…" for the selected entry: it makes the chosen entry its only parent (or none, at the
+   * top level), as one change. Which entries it can go under leaves out itself and what is under it.
+   */
+  private moveControl(): HTMLElement | null {
+    const id = this.selected;
+    const item = id ? this.bench.view(id) : null;
+    if (!id || !item || !canSetParents(item.kinds)) return null;
+    const select = el('select', 'explorer-move');
+    select.setAttribute('aria-label', 'Move to…');
+    select.append(new Option('Move to…', ''));
+    if (item.parentIds.length) select.append(new Option('Top level (no parent)', TOP));
+    for (const e of moveTargets(this.bench.listing(), id))
+      if (!(item.parentIds.length === 1 && item.parentIds[0] === e.id))
+        select.append(new Option(e.name, e.id));
+    select.addEventListener('change', () => {
+      if (!select.value) return;
+      this.bench.change('entry.set-parents', id, select.value === TOP ? [] : [select.value]);
+    });
+    return select;
   }
 
   private paneEl(id: string): HTMLElement {

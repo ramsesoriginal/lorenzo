@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { EntrySummary } from '../core/transport';
-import { applyPick, choices, linkFor, pickerContext } from './entryPickerText';
+import { applyPick, choices, imageFor, linkFor, openLink, pickerContext } from './entryPickerText';
 
 const e = (id: string, name: string): EntrySummary => ({ id, name, kinds: [], parentIds: [] });
 
 describe('where the person is in a link', () => {
   it('finds an open [[ before the caret and what follows it', () => {
-    expect(pickerContext('See [[Old Sw', 12)).toEqual({ start: 4, query: 'Old Sw' });
-    expect(pickerContext('See [[', 6)).toEqual({ start: 4, query: '' });
+    expect(pickerContext('See [[Old Sw', 12)).toEqual({ start: 4, query: 'Old Sw', image: false });
+    expect(pickerContext('See [[', 6)).toEqual({ start: 4, query: '', image: false });
   });
 
   it('is not in a link when none is open, it is closed, or it is on another line', () => {
@@ -17,7 +17,7 @@ describe('where the person is in a link', () => {
   });
 
   it('uses the last [[ before the caret', () => {
-    expect(pickerContext('[[A]] and [[Bo', 14)).toEqual({ start: 10, query: 'Bo' });
+    expect(pickerContext('[[A]] and [[Bo', 14)).toEqual({ start: 10, query: 'Bo', image: false });
   });
 });
 
@@ -75,5 +75,45 @@ describe('the link written for an entry', () => {
 
   it('is [[Name]] when it has none, which the preview says does not reach it', () => {
     expect(linkFor('Old Sword', null)).toBe('[[Old Sword]]');
+  });
+});
+
+describe('pictures', () => {
+  it('a ![[ is a picture being chosen, starting at the !', () => {
+    expect(pickerContext('Here ![[Ash', 11)).toEqual({ start: 5, query: 'Ash', image: true });
+  });
+
+  it('is written out as ![Name](link-name), with the link name its name makes when it has none', () => {
+    expect(imageFor('Ashfang', 'ashfang')).toBe('![Ashfang](ashfang)');
+    expect(imageFor('Longsword', 'blade')).toBe('![Longsword](blade)');
+    expect(imageFor('Old Sword', null)).toBe('![Old Sword](old-sword)');
+  });
+
+  it('replaces the whole ![[ and what was typed with the picture', () => {
+    const text = 'Here ![[Ash';
+    const context = pickerContext(text, text.length);
+    if (!context) throw new Error('no context');
+    expect(applyPick(text, text.length, context, '![Ashfang](ashfang)')).toEqual({
+      text: 'Here ![Ashfang](ashfang)',
+      caret: 24,
+    });
+  });
+});
+
+describe('the toolbar buttons', () => {
+  it('open a link at the caret, after what is selected, so the picker has something to offer from', () => {
+    expect(openLink('See wolf now', 4, 8, false)).toEqual({ text: 'See [[wolf now', caret: 10 });
+    expect(openLink('See ', 4, 4, false)).toEqual({ text: 'See [[', caret: 6 });
+  });
+
+  it('open a picture the same way', () => {
+    expect(openLink('Led by ', 7, 7, true)).toEqual({ text: 'Led by ![[', caret: 10 });
+  });
+
+  it('are understood by the picker, with what was selected as the search', () => {
+    const link = openLink('See wolf', 4, 8, false);
+    expect(pickerContext(link.text, link.caret)).toMatchObject({ query: 'wolf', image: false });
+    const pic = openLink('Led by ', 7, 7, true);
+    expect(pickerContext(pic.text, pic.caret)).toMatchObject({ query: '', image: true });
   });
 });

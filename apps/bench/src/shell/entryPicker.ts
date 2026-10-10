@@ -3,7 +3,14 @@
 // driven from the keyboard without leaving the text: arrows move, Enter or Tab choose, Escape closes.
 
 import type { Bench } from '../core/bench';
-import { applyPick, choices, linkFor, type PickerContext, pickerContext } from './entryPickerText';
+import {
+  applyPick,
+  choices,
+  imageFor,
+  linkFor,
+  type PickerContext,
+  pickerContext,
+} from './entryPickerText';
 
 // One list for the page, like the link card: the editors are drawn again when things change.
 let list: HTMLElement | null = null;
@@ -27,7 +34,8 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
     // What was typed may have moved on while it was read.
     const here = pickerContext(area.value, area.selectionStart);
     if (!here) return;
-    const link = linkFor(entry.name, bench.view(entry.id)?.slug ?? null);
+    const slug = bench.view(entry.id)?.slug ?? null;
+    const link = here.image ? imageFor(entry.name, slug) : linkFor(entry.name, slug);
     const made = applyPick(area.value, area.selectionStart, here, link);
     area.value = made.text;
     area.setSelectionRange(made.caret, made.caret);
@@ -45,7 +53,7 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
     list = document.createElement('ul');
     list.className = 'entry-picker';
     list.setAttribute('role', 'listbox');
-    list.setAttribute('aria-label', 'Entries to link');
+    list.setAttribute('aria-label', context?.image ? 'Entries to show' : 'Entries to link');
     offered.forEach((entry, i) => {
       const li = document.createElement('li');
       li.setAttribute('role', 'option');

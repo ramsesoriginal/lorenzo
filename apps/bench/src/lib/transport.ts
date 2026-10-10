@@ -159,6 +159,30 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
 
     getEntry: (id) => guarded(() => read(id)),
 
+    setPicture: (id, file) =>
+      guarded(async () => {
+        const res = await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/picture', {
+          params: { path: { ...path, entity_id: id } },
+          // OpenAPI types a file as a string; the serializer sends the real File as multipart, and
+          // the browser adds the boundary to the content type.
+          body: { file: file.name },
+          bodySerializer: () => {
+            const data = new FormData();
+            data.append('file', file);
+            return data;
+          },
+        });
+        await unwrap(res);
+      }),
+
+    clearPicture: (id) =>
+      guarded(async () => {
+        const res = await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}/picture', {
+          params: { path: { ...path, entity_id: id } },
+        });
+        await unwrap(res);
+      }),
+
     pictureOf: (id) =>
       guarded(async () => {
         const entry = await unwrap(

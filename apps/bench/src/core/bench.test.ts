@@ -849,3 +849,81 @@ describe('the order of the notes', () => {
     expect(server.writes.map((w) => w.field)).toEqual(['note.add', 'note.order']);
   });
 });
+
+describe('pictures', () => {
+  const file = (type = 'image/png', size = 4) =>
+    new File([new Uint8Array(size)], 'a.png', { type });
+  const setup = () => {
+    const server = new SampleTransport([
+      { id: 'a', name: 'Old Sword', kinds: ['item'], parents: [] },
+      { id: 'b', name: 'Ashfang', kinds: ['being'], parents: [], picture: '#a33' },
+    ]);
+    return { server, bench: new Bench(server) };
+  };
+
+  it('reads an entry\u2019s picture once, none for an entry without one', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.pictures.load('b');
+    await bench.pictures.load('b');
+    await bench.pictures.load('a');
+    expect(bench.pictures.get('b')).toMatch(/^blob:/);
+    expect(bench.pictures.get('a')).toBeNull();
+    expect(server.pictureReads).toEqual(['b', 'a']);
+  });
+
+  it('sets a picture, and reads it again', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.pictures.load('a');
+    await bench.pictures.set('a', file());
+    expect(server.pictureWrites).toEqual(['set:a']);
+    expect(bench.pictures.get('a')).toMatch(/^blob:/);
+    expect(bench.pictures.problem('a')).toBeNull();
+  });
+
+  it('takes a picture away', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.pictures.load('b');
+    await bench.pictures.clear('b');
+    expect(server.pictureWrites).toEqual(['clear:b']);
+    expect(bench.pictures.get('b')).toBeNull();
+  });
+
+  it('says why not, without sending, for a file the API does not take', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.pictures.set('a', file('application/pdf'));
+    expect(server.pictureWrites).toEqual([]);
+    expect(bench.pictures.problem('a')).toMatch(/PNG, JPEG, WebP or GIF/);
+  });
+
+  it('shows what the server said when it refuses', async () => {
+    const { bench } = setup();
+    await bench.loadEntries();
+    await bench.pictures.set('a', file('image/png', 3_000_000));
+    expect(bench.pictures.problem('a')).toMatch(/size limit/);
+  });
+
+  it('says it needs a connection, and keeps what it had', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.pictures.load('b');
+    server.offline = true;
+    await bench.pictures.clear('b');
+    expect(bench.pictures.problem('b')).toBe('Pictures need a connection.');
+    expect(bench.pictures.get('b')).toMatch(/^blob:/);
+  });
+
+  it('makes the links in text fetch the new picture', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.links.render('![x](old-sword)', 'b');
+    await bench.pictures.set('a', file());
+    server.pictureReads.length = 0;
+    const out = await bench.links.render('![x](old-sword)', 'b');
+    expect(server.pictureReads).toContain('a');
+    expect(out.html).toContain('<img');
+  });
+});

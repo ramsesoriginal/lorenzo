@@ -26,7 +26,8 @@ function setup(answer: (r: Request, calls: Call[]) => Response | Promise<Respons
     getAccessToken: () => 'token',
     fetch: async (request) => {
       const text = request.method === 'GET' ? '' : await request.clone().text();
-      const body = text ? JSON.parse(text) : undefined;
+      // A multipart body (a picture) is not JSON.
+      const body = text && !text.startsWith('--') ? JSON.parse(text) : undefined;
       calls.push({
         method: request.method,
         url: new URL(request.url).pathname + new URL(request.url).search,
@@ -276,6 +277,35 @@ describe('apiTransport', () => {
       const { transport, calls } = setup(() => json([]));
       await transport.resolveSlugs(['wolf']);
       expect(calls[0].url).toBe(`/tenants/${T}/entities/resolve?slug=wolf`);
+    });
+  });
+
+  describe('setting pictures', () => {
+    it('sends the file as multipart to the entry\u2019s picture', async () => {
+      const { transport, calls } = setup(() => json({ id: 'i' }, { status: 201 }));
+      await transport.setPicture(
+        E,
+        new File([new Uint8Array([1, 2])], 'a.png', { type: 'image/png' }),
+      );
+      expect(calls[0]).toMatchObject({ method: 'PUT', url: `/tenants/${T}/entities/${E}/picture` });
+    });
+
+    it('says what the API said when it refuses the file', async () => {
+      const { transport } = setup(() =>
+        json({ detail: 'Picture exceeds the limit' }, { status: 422 }),
+      );
+      await expect(
+        transport.setPicture(E, new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })),
+      ).rejects.toThrow(/exceeds the limit/);
+    });
+
+    it('takes the picture away, and has no complaint when there was none', async () => {
+      const { transport, calls } = setup(() => new Response(null, { status: 204 }));
+      await transport.clearPicture(E);
+      expect(calls[0]).toMatchObject({
+        method: 'DELETE',
+        url: `/tenants/${T}/entities/${E}/picture`,
+      });
     });
   });
 
