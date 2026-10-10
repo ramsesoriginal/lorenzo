@@ -83,3 +83,12 @@ Candidates come from the existing index on `(tenant_id, target)`; the anchor and
 ## Open for review
 
 Decided here, easy to turn: containment counts as belonging (an item in the being's pack); no fallback to the catalog item. (`my/` mentions do not count for the catalog item, as the maintainer decided.)
+
+## Addendum: Bench (slice 2)
+
+- `LinkResolver.render(text, home)` and `renderNow(text, home)` take the entry the text belongs to; a description and a note both pass their own entry.
+- Plain and `my/` references go in separate requests (`resolveSlugs(slugs)` and `resolveSlugs(['my/…'], home)`), since only the second carries `from`.
+- A `my/` answer is remembered under `(home, slug)` for 30 seconds, hit or miss, because who holds what changes.
+- A `my/` link nothing is held under stays text and gets its own line under the editor, apart from the "nothing is called" one: "Nothing called “blade” is held by whoever this belongs to".
+- `![alt](my/slug)` shows the held instance's main picture, through the same path as any image link ([ADR 0239](0239-bench-pictures-in-text.md)).
+- The sample transport models `heldBy` (an owner or container) so the unit and browser tests run the real rule without an API.

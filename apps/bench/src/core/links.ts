@@ -18,48 +18,89 @@ export const entryIdOfHref = (href: string | null): string | null =>
 const isEntityRef = (ref: Reference): ref is Reference & EntityRef =>
   ref.kind === 'entity' || ref.kind === 'image';
 
-/** One text, shown: its HTML, and the link names in it that nothing has. */
+/** The view hint that means "the one that belongs to whoever this text belongs to" (ADR 0240). */
+const MY = 'my';
+
+/** One text, shown: its HTML, the link names in it that nothing has, and the `my/` ones nothing is held under. */
 export interface Rendered {
   html: string;
   missing: string[];
+  notMine: string[];
 }
+
+type Ref = { hint: string; slug: string };
 
 export class LinkResolver {
   private found = new Map<string, ResolvedEntry>();
   private missed = new Map<string, number>();
   /** Main pictures by entry id, as URLs; `null` for an entry that has none. Kept for the visit. */
   private pictures = new Map<string, string | null>();
+  /** When a `my/` answer was got: it depends on who holds what, so it is believed only a while. */
+  private foundAt = new Map<string, number>();
 
   constructor(
     private readonly transport: Transport,
     private readonly now: () => number = Date.now,
   ) {}
 
-  private known(slug: string): boolean {
-    if (this.found.has(slug)) return true;
-    const at = this.missed.get(slug);
+  /**
+   * What a reference is remembered under: its slug, or for `my/` the slug together with the entry
+   * the text belongs to, since the same `my/longsword` means a different sword in each.
+   */
+  private keyOf(ref: Ref, home: string): string {
+    return ref.hint === MY ? `${home}\u0000${MY}/${ref.slug}` : ref.slug;
+  }
+
+  private known(key: string): boolean {
+    const at = this.foundAt.get(key) ?? this.missed.get(key);
+    if (this.found.has(key) && !this.foundAt.has(key)) return true;
     return at !== undefined && this.now() - at < MISS_MS;
   }
 
-  /** Asks about the slugs not asked about lately. A failed ask is simply tried again next time. */
-  async lookUp(slugs: Iterable<string>): Promise<void> {
-    const wanted = [...new Set(slugs)].filter((s) => !this.known(s));
-    for (let i = 0; i < wanted.length; i += MAX_SLUGS) {
-      const batch = wanted.slice(i, i + MAX_SLUGS);
-      const rows = await this.transport.resolveSlugs(batch);
-      for (const slug of batch) this.missed.set(slug, this.now());
+  /** Asks about the references not asked about lately. A failed ask is simply tried again next time. */
+  async lookUp(refs: Iterable<Ref>, home: string): Promise<void> {
+    const wanted = new Map<string, Ref>();
+    for (const ref of refs) {
+      const key = this.keyOf(ref, home);
+      if (!wanted.has(key) && !this.known(key)) wanted.set(key, ref);
+    }
+    const plain = [...wanted].filter(([, r]) => r.hint !== MY);
+    const mine = [...wanted].filter(([, r]) => r.hint === MY);
+    for (let i = 0; i < plain.length; i += MAX_SLUGS) {
+      const batch = plain.slice(i, i + MAX_SLUGS);
+      const rows = await this.transport.resolveSlugs(batch.map(([, r]) => r.slug));
+      for (const [key] of batch) this.missed.set(key, this.now());
       for (const row of rows) {
         this.found.set(row.slug, row);
         this.missed.delete(row.slug);
       }
     }
+    for (let i = 0; i < mine.length; i += MAX_SLUGS) {
+      const batch = mine.slice(i, i + MAX_SLUGS);
+      const rows = await this.transport.resolveSlugs(
+        batch.map(([, r]) => `${MY}/${r.slug}`),
+        home,
+      );
+      const answered = new Map(rows.map((row) => [row.slug, row]));
+      for (const [key, ref] of batch) {
+        const row = answered.get(`${MY}/${ref.slug}`);
+        if (row) {
+          this.found.set(key, row);
+          this.missed.delete(key);
+        } else {
+          this.found.delete(key);
+          this.missed.set(key, this.now());
+        }
+        this.foundAt.set(key, this.now());
+      }
+    }
   }
 
   /** Fetches the main pictures of the entries the image links name. A failed fetch is tried again. */
-  private async loadPictures(slugs: Iterable<string>): Promise<void> {
+  private async loadPictures(refs: Iterable<Ref>, home: string): Promise<void> {
     const ids = new Set<string>();
-    for (const slug of slugs) {
-      const id = this.found.get(slug)?.id;
+    for (const ref of refs) {
+      const id = this.found.get(this.keyOf(ref, home))?.id;
       if (id && !this.pictures.has(id)) ids.add(id);
     }
     await Promise.all(
@@ -79,34 +120,53 @@ export class LinkResolver {
   }
 
   /** The text with the links already looked up resolved: at once, for a preview that follows typing. */
-  renderNow(text: string): Rendered {
+  renderNow(text: string, home: string): Rendered {
     const doc = parse(text);
-    const slugs = references(doc)
-      .filter(isEntityRef)
-      .map((r) => r.slug);
+    const refs = references(doc).filter(isEntityRef);
+    const entryOf = (ref: Ref) => this.found.get(this.keyOf(ref, home));
     return {
       html: render(doc, {
         resolve: {
-          image: ({ slug }) => {
-            const entry = this.found.get(slug);
+          image: (ref) => {
+            const entry = entryOf(ref);
             const src = entry && this.pictures.get(entry.id);
             return src ? { src, title: entry.name } : null;
           },
-          entity: ({ slug }) => {
-            const entry = this.found.get(slug);
+          entity: (ref) => {
+            const entry = entryOf(ref);
             return entry ? { href: entryHref(entry.id), title: entry.name } : null;
           },
         },
       }),
-      missing: [...new Set(slugs)].filter((s) => this.missed.has(s) && !this.found.has(s)),
+      missing: unique(
+        refs
+          .filter((r) => r.hint !== MY && this.missed.has(r.slug) && !this.found.has(r.slug))
+          .map((r) => r.slug),
+      ),
+      notMine: unique(
+        refs
+          .filter((r) => {
+            const key = this.keyOf(r, home);
+            return r.hint === MY && this.missed.has(key) && !this.found.has(key);
+          })
+          .map((r) => r.slug),
+      ),
     };
   }
 
-  /** The text as the reader sees it, its entry links resolved. Without a connection, as plain text. */
-  async render(text: string): Promise<Rendered> {
+  /**
+   * The text as the reader sees it, its entry links resolved. `home` is the entry the text belongs
+   * to, which is what `my/` means. Without a connection, as plain text.
+   */
+  async render(text: string, home: string): Promise<Rendered> {
     const refs = references(parse(text)).filter(isEntityRef);
-    await this.lookUp(refs.map((r) => r.slug)).catch(() => {});
-    await this.loadPictures(refs.filter((r) => r.kind === 'image').map((r) => r.slug));
-    return this.renderNow(text);
+    await this.lookUp(refs, home).catch(() => {});
+    await this.loadPictures(
+      refs.filter((r) => r.kind === 'image'),
+      home,
+    );
+    return this.renderNow(text, home);
   }
 }
+
+const unique = (xs: string[]): string[] => [...new Set(xs)];
