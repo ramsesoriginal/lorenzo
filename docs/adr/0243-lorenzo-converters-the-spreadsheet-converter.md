@@ -25,6 +25,7 @@ Reads an `.xlsx` (the Items table, and the Container table if there is one) or a
 - **`holding` is Equipped** (or the name given with `--equipped`; the format's other names for it work too): what is in it is at the top of `## Equipped`. A row with no container is in `## Not carried`.
 - **Places.** A container whose place on the Container table is not **home** is kept elsewhere: it goes at the top of `## Not carried` with `place:`. Home is `--home PLACE`; without it, the most common place is taken as home, and the output says so.
 - **Formulas are not read.** A weight or total that is a formula, or a cell that is empty, is left out of the line, with no guess; the total weight column is never used, since Lorenzo works it out.
+- **A stack at the top level.** The format wants a stack inside something ([ADR 0191](0191-inventory-file-format-v1.md)), and a sheet often has `3 x Dagger` in the hand. Up to ten, it is written as that many lines, and the warning says so; more is left as it is, with a warning to put it in a container, since a container is not invented. A container with a count above one is warned about too: the importer wants it written once for each.
 - **What the importer limits** (1024 lines, six levels, a thousand of one thing, [ADR 0191](0191-inventory-file-format-v1.md)) is checked, and a file over them is warned about before it is imported rather than refused by the importer.
 - Warnings go to standard error; the exit code is 0 if a ledger was written.
 
