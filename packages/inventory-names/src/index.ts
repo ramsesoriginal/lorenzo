@@ -14,16 +14,63 @@ export type Table = Readonly<{
   words: ReadonlyMap<string, string>;
 }>;
 
-const BRACKETS = /\s*[([][^)\]]*[)\]]\s*/g;
-const LENGTH = /(?:^|\s+)\d+(?:[.,]\d+)?\s*(?:ft\.?|feet|foot|m|meters?|metres?)\b/gi;
-const MATH = /\s*\$[^$]*\$/g;
+// Names come from players, so none of these is a pattern that can backtrack: whitespace is
+// collapsed first, then each step is a linear scan or a pattern anchored on a single space.
 const SPACES = /\s+/g;
+const LENGTH = /(?:^| )\d+(?:[.,]\d+)?\s?(?:ft\.?|feet|foot|m|meters?|metres?)\b/gi;
+const MATH = / ?\$[^$]*\$/g;
 
-const clean = (name: string) => name.replace(SPACES, ' ').trim().toLowerCase();
+const collapse = (name: string) => name.replace(SPACES, ' ');
+const clean = (name: string) => collapse(name).trim().toLowerCase();
+
+/** `(like this)` and `[this]` taken out, a space left in their place; an unclosed one stays. */
+function withoutBrackets(text: string): string {
+  let out = '';
+  let at = 0;
+  let closers = true;
+
+  while (at < text.length) {
+    const char = text.charAt(at);
+
+    if (closers && (char === '(' || char === '[')) {
+      let end = at + 1;
+
+      while (end < text.length && text.charAt(end) !== ')' && text.charAt(end) !== ']') end++;
+
+      if (end < text.length) {
+        out += ' ';
+        at = end + 1;
+        continue;
+      }
+
+      // No closer after this one means none after any later opener either.
+      closers = false;
+    }
+
+    out += char;
+    at++;
+  }
+
+  return out;
+}
+
+/** The text without the spaces, commas and hyphens at either end. */
+function trimEnds(text: string): string {
+  const loose = (char: string) => char === ' ' || char === ',' || char === '-';
+  let start = 0;
+  let end = text.length;
+
+  while (start < end && loose(text.charAt(start))) start++;
+  while (end > start && loose(text.charAt(end - 1))) end--;
+
+  return text.slice(start, end);
+}
+
+const SINGULAR_ENDS = ['ches', 'shes', 'sses', 'xes', 'zes'];
 
 function singular(name: string): string | null {
   if (name.endsWith('ies') && name.length > 4) return `${name.slice(0, -3)}y`;
-  if (/(?:ches|shes|sses|xes|zes)$/.test(name)) return name.slice(0, -2);
+  if (SINGULAR_ENDS.some((end) => name.endsWith(end))) return name.slice(0, -2);
   if (name.endsWith('s') && !name.endsWith('ss') && name.length > 3) return name.slice(0, -1);
 
   return null;
@@ -33,8 +80,10 @@ function singular(name: string): string | null {
 export function alternatives(name: string, table: Table): string[] {
   const start = clean(name);
   const stems = [start];
-  const stripped = name.replace(BRACKETS, ' ').replace(LENGTH, '').replace(MATH, '');
-  const stem = clean(stripped.trim().replace(/^[ ,-]+|[ ,-]+$/g, ''));
+  const stripped = collapse(withoutBrackets(collapse(name)))
+    .replace(LENGTH, '')
+    .replace(MATH, '');
+  const stem = clean(trimEnds(stripped.trim()));
 
   if (stem && !stems.includes(stem)) stems.push(stem);
 
