@@ -29,6 +29,14 @@ export const SAMPLE_ENTRIES: SampleEntry[] = [
   { id: 'ghoul', name: 'Ghoul', kinds: ['item'], parents: ['undead', 'beast'] },
   // Called something other than its name makes, so a link to it is [Longsword](blade).
   { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [], slug: 'blade' },
+  // Held by Ashfang, so [my sword](my/blade) in a text of Ashfang's leads here.
+  {
+    id: 'ashfang-sword',
+    name: 'Blade of the Hollow',
+    kinds: ['item_instance'],
+    parents: ['sword'],
+    heldBy: 'ashfang',
+  },
   { id: 'hollow', name: 'The Hollow', kinds: [], parents: [] },
   { id: 'ashfang', name: 'Ashfang', kinds: ['being'], parents: ['hollow'], picture: '#a33' },
   // No link name: nothing can link to it until it is given one.
