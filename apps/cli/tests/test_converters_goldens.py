@@ -10,7 +10,7 @@ import pytest
 from lorenzo_cli.inventory import format as ledger
 
 GOLDEN = Path(__file__).resolve().parents[3] / "packages" / "converters" / "tests" / "golden"
-FILES = sorted(GOLDEN.glob("*.md")) if GOLDEN.is_dir() else []
+FILES = sorted(GOLDEN.glob("*.ledger")) if GOLDEN.is_dir() else []
 
 # Outside the repository (an sdist's tests, say) there are no goldens to read.
 pytestmark = pytest.mark.skipif(not FILES, reason="packages/converters goldens not found")
@@ -27,7 +27,7 @@ def test_the_importer_reads_the_golden_without_complaint(path: Path) -> None:
 
 
 def test_the_sheet_golden_keeps_its_nesting_and_places() -> None:
-    inventory = ledger.parse((GOLDEN / "sheet-de.md").read_text("utf-8"))
+    inventory = ledger.parse((GOLDEN / "sheet-de.ledger").read_text("utf-8"))
     rucksack = next(line for line in inventory.equipped if line.name == "Rucksack")
     kiste = next(line for line in inventory.not_carried if line.name == "Kiste")
 

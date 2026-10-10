@@ -32,5 +32,5 @@ Warnings go to standard error. Read the ledger before importing it.
 ## Developing
 
 `mise run //packages/converters:test` and `:lint`. The ledgers the tests expect are in
-`tests/golden/`; `apps/cli` has a test that parses every one with the importer's own parser.
+`tests/golden/*.ledger` (not `.md`, which the Markdown linter would read as prose); `apps/cli` has a test that parses every one with the importer's own parser.
 Fixtures are made-up inventories, never a real player's.

@@ -17,7 +17,7 @@ GOLDEN = Path(__file__).parent / "golden"
 def test_the_sheet_becomes_the_ledger_in_the_golden_file(make_book: Callable[..., Path]) -> None:
     result = convert(make_book(), "Mira")
 
-    assert ledger.render(result.ledger) == (GOLDEN / "sheet-de.md").read_text("utf-8")
+    assert ledger.render(result.ledger) == (GOLDEN / "sheet-de.ledger").read_text("utf-8")
 
 
 def test_holding_is_equipped_and_a_row_without_a_container_is_not_carried(
@@ -105,7 +105,7 @@ def test_english_headers_and_a_semicolon_csv(tmp_path: Path) -> None:
 
     text = ledger.render(convert(path, "Mira").ledger)
 
-    assert text == (GOLDEN / "sheet-en.md").read_text("utf-8")
+    assert text == (GOLDEN / "sheet-en.ledger").read_text("utf-8")
 
 
 def test_a_stack_at_the_top_level_is_written_as_lines_when_few_and_warned_when_many(
@@ -176,7 +176,7 @@ def test_the_command_writes_the_ledger_and_says_what_to_do_next(
     result = CliRunner().invoke(app, ["sheet", str(make_book()), "--owner", "Mira", "-O", str(out)])
 
     assert result.exit_code == 0, result.output
-    assert out.read_text("utf-8") == (GOLDEN / "sheet-de.md").read_text("utf-8")
+    assert out.read_text("utf-8") == (GOLDEN / "sheet-de.ledger").read_text("utf-8")
     assert "lorenzo inventory import" in result.output
 
 
