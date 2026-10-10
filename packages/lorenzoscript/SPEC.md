@@ -1057,6 +1057,18 @@ As a companion: <a href="/being/ashfang" title="Ashfang" class="ls-entity">the s
 ]
 ````````
 
+The hint `my` is reserved: `[[my/Longsword]]` means the longsword that belongs to whoever the text belongs to. The reference keeps the hint, and the resolver, which knows where the text lives, decides what it stands for. Here nothing does.
+
+```````` example
+She draws [[my/Longsword]], her [blade](my/longsword).
+.
+<p>She draws Longsword, her blade.</p>
+.
+[
+  {"kind": "entity", "hint": "my", "slug": "longsword"}
+]
+````````
+
 A name with no letters or digits to slug stays text, brackets included. A relative link is an entity reference too, since Lorenzo text has no relative URLs. `references()` lists each reference once, in order of first use.
 
 ```````` example
