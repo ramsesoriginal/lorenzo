@@ -1,4 +1,4 @@
-// The GM's Unsorted view (ADR 0240): placeholders by the name written, given to a catalog item,
+// The GM's Unsorted view (ADR 0241): placeholders by the name written, given to a catalog item,
 // made into a new one, or kept.
 import type { Page } from '@playwright/test';
 import { ok } from './support/api.ts';

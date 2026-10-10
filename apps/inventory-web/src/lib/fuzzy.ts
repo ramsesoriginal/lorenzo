@@ -1,4 +1,4 @@
-// Which catalog titles a name probably means (ADR 0240): a score from 0 to 1 from the words the
+// Which catalog titles a name probably means (ADR 0241): a score from 0 to 1 from the words the
 // two share and the letters they share in threes, so "Torches" finds "Torch" and "healing
 // potion" finds "Potion of Healing". Titles as typed; there is no translation here.
 

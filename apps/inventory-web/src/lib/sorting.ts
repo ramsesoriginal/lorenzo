@@ -1,4 +1,4 @@
-// Sorting unsorted items (ADR 0240): the library's placeholders gathered by the name the player
+// Sorting unsorted items (ADR 0241): the library's placeholders gathered by the name the player
 // wrote, and a group given to a catalog item one instance at a time.
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import { errorMessage } from './errorMessage';

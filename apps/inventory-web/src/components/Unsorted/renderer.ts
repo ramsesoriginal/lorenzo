@@ -1,4 +1,4 @@
-// The Unsorted view (ADR 0240): the library's placeholders by the name the player wrote, each
+// The Unsorted view (ADR 0241): the library's placeholders by the name the player wrote, each
 // group given to a catalog item, made into a new one, or kept.
 import { errorMessage } from '../../lib/errorMessage';
 import { suggest } from '../../lib/fuzzy';
