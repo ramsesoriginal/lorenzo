@@ -1,6 +1,6 @@
 # 0232 - `lorenzo inventory import`: any being for a GM, `--replace`, and a progress display
 
-Status: proposed. The three changes were asked for by the maintainer on 2026-10-09; the choices under each are the author's, for review in the pull request.
+Status: accepted, decided with the maintainer on 2026-10-10. The three changes were asked for on 2026-10-09; the details under each were reviewed in the pull requests and built in [#600](https://github.com/ramsesoriginal/lorenzo/pull/600).
 
 Amends [ADR 0190](0190-lorenzo-item-and-character-commands.md) (who `--owner` can name) and [ADR 0193](0193-lorenzo-inventory-import-and-export.md) (what an import does and shows). No API change: every route used already exists.
 
