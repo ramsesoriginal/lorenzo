@@ -1,5 +1,6 @@
 // The Unsorted view (ADR 0241): the library's placeholders by the name the player wrote, each
 // group given to a catalog item, made into a new one, or kept.
+import { alternatives, builtinTable } from '@lorenzo/inventory-names';
 import { errorMessage } from '../../lib/errorMessage';
 import { suggest } from '../../lib/fuzzy';
 import { findCatalogItems, listCatalogItems } from '../../lib/items';
@@ -136,7 +137,9 @@ export async function renderUnsorted({ root, tenantId, unsortedId }: UnsortedOpt
 
         renderRows();
 
-        for (const near of suggest(group.name, all, (c) => c.title, 3)) {
+        for (const near of suggest(group.name, all, (c) => c.title, 3, {
+          alsoNamed: alternatives(group.name, builtinTable()),
+        })) {
           const button = document.createElement('button');
 
           button.type = 'button';

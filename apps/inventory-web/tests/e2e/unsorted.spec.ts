@@ -115,6 +115,24 @@ test('gives a whole group to the catalog item it looks like, names and holders k
   expect(await world.carried(world.pia)).toEqual(['(none): Torches']);
 });
 
+test('suggests the catalog item a German name stands for, from the table of spellings', async ({
+  world,
+  as,
+}) => {
+  const unsorted = await seedUnsorted(world);
+  await world.item('Rope, hempen (50 feet)', { public: true });
+  await world.item('Rope, silk (50 feet)', { public: true });
+  await unsortedFor(world, unsorted, world.pia, 'Seil');
+  const page = await unsortedPage(as, world);
+
+  await group(page, 'Seil').getByRole('button', { name: 'Sort' }).click();
+
+  // The letters of "Seil" are in neither title; the table says which rope it is (ADR 0242).
+  const looksLike = group(page, 'Seil').getByRole('button', { name: /^Rope/ });
+  // The one the table names comes first; the other rope is only a near miss.
+  await expect(looksLike.first()).toHaveText('Rope, hempen (50 feet)');
+});
+
 test('sorts only the ones that are ticked', async ({ world, as }) => {
   const unsorted = await seedUnsorted(world);
   const rope = await world.item('Rope', { public: true });
