@@ -1,10 +1,11 @@
 // The entry pane and the parents pane: what a person sees and edits of one entry, every change
 // going through the command layer (core/bench.ts).
 
+import { slugify } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
 import { entryIdOfHref } from '../core/links';
-import { canRename, canSetParents, type EditableKind } from '../core/transport';
+import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
 
 import { attachEntryPicker } from './entryPicker';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
@@ -86,7 +87,12 @@ export function renderEntry(
       return undo;
     })(),
   );
-  c.append(head, el('p', 'kind', kindsText(item.kinds)), kindsEditor(bench, id, item.kinds));
+  c.append(
+    head,
+    el('p', 'kind', kindsText(item.kinds)),
+    kindsEditor(bench, id, item.kinds),
+    linkNameField(bench, id, item.name, item.slug),
+  );
 
   for (const cmd of bench.commandsFor(id)) {
     if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));
@@ -120,6 +126,39 @@ export function renderEntry(
     );
   c.append(newNote(bench, id));
   return c;
+}
+
+/** The link name: what `[[Name]]` and `[text](slug)` in a text call the entry by. */
+function linkNameField(bench: Bench, id: string, name: string, slug: string | null): HTMLElement {
+  const box = el('div', 'link-name');
+  const label = el('label', undefined, 'Link name');
+  const input = el('input');
+  input.type = 'text';
+  input.value = slug ?? '';
+  input.placeholder = 'none: no text can link to this entry';
+  input.spellcheck = false;
+  input.dataset.key = `slug:${id}`;
+  label.append(input);
+  const problem = el('p', 'bad');
+  problem.hidden = true;
+  input.addEventListener('change', () => {
+    if (redraw.active) return;
+    const text = input.value.trim();
+    if (text === (slug ?? '')) return;
+    const bad = text ? slugProblem(text) : null;
+    problem.hidden = !bad;
+    problem.textContent = bad ?? '';
+    if (!bad) bench.setSlug(id, text || null);
+  });
+  box.append(label, problem);
+  // An entry without one can be given the one its name makes, as a link to its name would use.
+  const suggested = slugify(name);
+  if (!slug && suggested && !slugProblem(suggested)) {
+    const use = button(`Use “${suggested}”`, () => bench.setSlug(id, suggested));
+    use.className = 'btn';
+    box.append(use);
+  }
+  return box;
 }
 
 const KIND_CHOICES: { kind: EditableKind; label: string; help: string }[] = [
@@ -267,7 +306,8 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
 export const kindsText = (kinds: readonly string[]): string =>
   kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
-const show = (v: unknown, bench: Bench): string => {
+const show = (v: unknown, bench: Bench, cmd?: Command): string => {
+  if (cmd?.type === 'entry.set-slug' && v === null) return 'no link name';
   if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
   if (v === null) return 'nothing of its own (inherited)';
   if (typeof v === 'boolean') return v ? 'on' : 'off';
@@ -277,13 +317,14 @@ const show = (v: unknown, bench: Bench): string => {
 function conflictRow(bench: Bench, cmd: Command): HTMLElement {
   const label =
     cmd.stat?.name ??
+    (cmd.type === 'entry.set-slug' ? 'link name' : undefined) ??
     (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents');
   const box = el('div', 'problem problem-conflict');
   box.setAttribute('role', 'alert');
   box.append(
     el('strong', undefined, 'Conflict. '),
     document.createTextNode(
-      `The ${label} was changed elsewhere to ${show(cmd.theirs, bench)}. Yours: ${show(cmd.mine, bench)}.`,
+      `The ${label} was changed elsewhere to ${show(cmd.theirs, bench, cmd)}. Yours: ${show(cmd.mine, bench, cmd)}.`,
     ),
   );
   const actions = el('span', 'actions');

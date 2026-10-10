@@ -20,16 +20,25 @@ export function pickerContext(text: string, caret: number): PickerContext | null
   return { start, query };
 }
 
-/** What choosing `name` makes of the text: the whole link, and the caret after it. */
+/**
+ * The link to write for an entry: `[[Name]]` when its link name is the one its name makes (which
+ * is what `[[Name]]` means), else `[Name](link-name)`. An entry with no link name gets `[[Name]]`,
+ * which the preview says does not reach it.
+ */
+export function linkFor(name: string, slug: string | null): string {
+  if (!slug || slug === slugify(name)) return `[[${name}]]`;
+  return `[${name}](${slug})`;
+}
+
+/** What choosing an entry makes of the text: the whole link written for it, and the caret after it. */
 export function applyPick(
   text: string,
   caret: number,
   context: PickerContext,
-  name: string,
+  link: string,
 ): { text: string; caret: number } {
   // A `]]` the editor or the person already typed after the caret is part of this link.
   const end = text.slice(caret, caret + 2) === ']]' ? caret + 2 : caret;
-  const link = `[[${name}]]`;
   return {
     text: text.slice(0, context.start) + link + text.slice(end),
     caret: context.start + link.length,

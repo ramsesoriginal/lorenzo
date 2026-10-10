@@ -3,7 +3,7 @@
 // driven from the keyboard without leaving the text: arrows move, Enter or Tab choose, Escape closes.
 
 import type { Bench } from '../core/bench';
-import { applyPick, choices, type PickerContext, pickerContext } from './entryPickerText';
+import { applyPick, choices, linkFor, type PickerContext, pickerContext } from './entryPickerText';
 
 // One list for the page, like the link card: the editors are drawn again when things change.
 let list: HTMLElement | null = null;
@@ -18,11 +18,17 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
   let offered: ReturnType<typeof choices> = [];
   let on = 0;
 
-  const pick = (index: number) => {
+  const pick = async (index: number) => {
     const entry = offered[index];
-    const here = context;
-    if (!entry || !here) return;
-    const made = applyPick(area.value, area.selectionStart, here, entry.name);
+    if (!entry || !context) return;
+    hidePicker();
+    // What it is called in a link is read from the entry, quietly (it is not drawn again).
+    await bench.open(entry.id, true);
+    // What was typed may have moved on while it was read.
+    const here = pickerContext(area.value, area.selectionStart);
+    if (!here) return;
+    const link = linkFor(entry.name, bench.view(entry.id)?.slug ?? null);
+    const made = applyPick(area.value, area.selectionStart, here, link);
     area.value = made.text;
     area.setSelectionRange(made.caret, made.caret);
     hidePicker();
@@ -48,7 +54,7 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
       li.textContent = entry.name;
       // Pressing must not take the focus from the text.
       li.addEventListener('mousedown', (ev) => ev.preventDefault());
-      li.addEventListener('click', () => pick(i));
+      li.addEventListener('click', () => void pick(i));
       list?.append(li);
     });
     document.body.append(list);
@@ -76,7 +82,7 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
       draw();
     } else if (ev.key === 'Enter' || ev.key === 'Tab') {
       ev.preventDefault();
-      pick(on);
+      void pick(on);
     } else if (ev.key === 'Escape') {
       ev.preventDefault();
       ev.stopPropagation();

@@ -3,6 +3,7 @@
 // still in the outbox applied in order, so a change shows at once and cancelling one is just
 // taking it out. Online-first: the outbox is in memory, it does not survive a closed tab (B4).
 
+import { slugify } from '@lorenzo/lorenzoscript';
 import {
   type Command,
   type CommandType,
@@ -26,6 +27,7 @@ import {
   RefusedError,
   type StatDef,
   type StatScalar,
+  slugProblem,
   type Transport,
 } from './transport';
 
@@ -120,6 +122,7 @@ export class Bench {
         description: null,
         notes: [],
         stats: [],
+        slug: create.args?.slug ?? null,
         etag: null,
       };
     }
@@ -193,7 +196,13 @@ export class Bench {
   /** Makes a new entry under an id of its own, and returns the id. It shows at once. */
   create(draft: { name: string; kinds: string[]; parents: string[] }): string {
     const id = this.makeId();
-    const args: CreateArgs = { kinds: [...draft.kinds], parents: [...draft.parents] };
+    // Made with the link name its name makes, so a link to it works as soon as it is sent.
+    const slug = slugify(draft.name);
+    const args: CreateArgs = {
+      kinds: [...draft.kinds],
+      parents: [...draft.parents],
+      slug: slug && !slugProblem(slug) ? slug : null,
+    };
     this.outbox.push({
       id: this.nextId++,
       type: 'entry.create',
@@ -258,6 +267,12 @@ export class Bench {
   /** Changes the text of one of the entry's notes. */
   setNoteText(entryId: string, noteId: string, text: string): Command | null {
     return this.change('note.set-text', entryId, text, noteId);
+  }
+
+  /** Gives the entry a link name, or with `null` takes it away. */
+  setSlug(entryId: string, slug: string | null): Command | null {
+    if (slug !== null && slugProblem(slug)) return null;
+    return this.change('entry.set-slug', entryId, slug);
   }
 
   /** Gives the entry a kind (an item, a being), or takes it away. */
@@ -440,6 +455,7 @@ export class Bench {
       name: c.mine as string,
       kinds: c.args?.kinds ?? [],
       parents: c.args?.parents ?? [],
+      slug: c.args?.slug ?? null,
     });
     this.mirror.set(c.entryId, made);
     // The server's list now has it, and its parents have a new child.

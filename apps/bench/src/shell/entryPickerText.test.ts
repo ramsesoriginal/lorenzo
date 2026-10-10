@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EntrySummary } from '../core/transport';
-import { applyPick, choices, pickerContext } from './entryPickerText';
+import { applyPick, choices, linkFor, pickerContext } from './entryPickerText';
 
 const e = (id: string, name: string): EntrySummary => ({ id, name, kinds: [], parentIds: [] });
 
@@ -26,7 +26,7 @@ describe('choosing an entry', () => {
     const text = 'See [[Old Sw and more';
     const ctx = pickerContext(text, 12);
     expect(ctx).not.toBeNull();
-    expect(applyPick(text, 12, ctx as never, 'Old Sword')).toEqual({
+    expect(applyPick(text, 12, ctx as never, '[[Old Sword]]')).toEqual({
       text: 'See [[Old Sword]] and more',
       caret: 17,
     });
@@ -35,7 +35,7 @@ describe('choosing an entry', () => {
   it('takes a ]] already after the caret as its own', () => {
     const text = 'See [[Old Sw]] and';
     const ctx = pickerContext(text, 12);
-    expect(applyPick(text, 12, ctx as never, 'Old Sword').text).toBe('See [[Old Sword]] and');
+    expect(applyPick(text, 12, ctx as never, '[[Old Sword]]').text).toBe('See [[Old Sword]] and');
   });
 });
 
@@ -61,5 +61,19 @@ describe('what to offer', () => {
     expect(choices(all, 'zzz')).toEqual([]);
     const many = Array.from({ length: 20 }, (_, i) => e(String(i), `Entry ${i}`));
     expect(choices(many, 'entry')).toHaveLength(8);
+  });
+});
+
+describe('the link written for an entry', () => {
+  it('is [[Name]] when its link name is the one its name makes', () => {
+    expect(linkFor('Old Sword', 'old-sword')).toBe('[[Old Sword]]');
+  });
+
+  it('is [Name](link-name) when it has another', () => {
+    expect(linkFor('Old Sword', 'blade')).toBe('[Old Sword](blade)');
+  });
+
+  it('is [[Name]] when it has none, which the preview says does not reach it', () => {
+    expect(linkFor('Old Sword', null)).toBe('[[Old Sword]]');
   });
 });
