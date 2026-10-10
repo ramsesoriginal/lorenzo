@@ -59,7 +59,21 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
       li.setAttribute('role', 'option');
       li.setAttribute('aria-selected', String(i === on));
       if (i === on) li.className = 'on';
-      li.textContent = entry.name;
+      if (context?.image) {
+        // A small picture of each, as it arrives: whose picture is the question.
+        const thumb = document.createElement('img');
+        thumb.className = 'picker-thumb';
+        thumb.alt = '';
+        const show = (url: string | null) => {
+          if (url) thumb.src = url;
+          else thumb.hidden = true;
+        };
+        const known = bench.pictures.get(entry.id);
+        if (known !== undefined) show(known);
+        else void bench.pictures.quiet(entry.id).then(show);
+        li.append(thumb);
+      }
+      li.append(document.createTextNode(entry.name));
       // Pressing must not take the focus from the text.
       li.addEventListener('mousedown', (ev) => ev.preventDefault());
       li.addEventListener('click', () => void pick(i));

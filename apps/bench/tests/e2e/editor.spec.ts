@@ -418,11 +418,6 @@ test('a tag is a checkbox, a stat can be added, and an enum is a choice', async 
   ]);
 });
 
-test('a decimal stat is shown but not editable yet', async ({ page }) => {
-  await page.locator('[data-entry="wolf"]').click();
-  await expect(stats(page).getByLabel('Add a stat')).not.toContainText('Weight');
-});
-
 test('with no connection a stat is saved here, and a change elsewhere is a conflict', async ({
   page,
 }) => {
@@ -880,6 +875,49 @@ test.describe('moving an entry', () => {
     await move(page).selectOption({ label: 'Top level (no parent)' });
     await expect(status(page)).toHaveText('Synced');
     expect(await writes(page)).toEqual([{ id: 'undead', field: 'parents', value: [] }]);
+  });
+});
+
+test.describe('entry editor polish', () => {
+  test('an entry shows what it inherits from over its name, and a crumb opens it', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    const crumbs = page.getByRole('navigation', { name: 'Inherits from' }).getByRole('button');
+    await expect(crumbs).toHaveText(['Monster', 'Undead']);
+    await crumbs.last().click();
+    await expect(name(page)).toHaveValue('Undead');
+  });
+
+  test('an entry with no parents has no crumbs', async ({ page }) => {
+    await page.locator('[data-entry="monster"]').click();
+    await expect(page.getByRole('navigation', { name: 'Inherits from' })).toHaveCount(0);
+  });
+
+  test('the Links tab counts the parents and children of the entry', async ({ page }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await expect(page.getByRole('tab', { name: /Parents and children/ })).toContainText('3');
+  });
+
+  test('a decimal stat is edited, and a typo is put back', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Add a stat').selectOption({ label: 'Weight' });
+    await expect(status(page)).toHaveText('Synced');
+    const weight = page.getByLabel('Weight', { exact: true });
+    await weight.fill('2,5');
+    await weight.press('Enter');
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toContainEqual({ id: 'wolf', field: 'stat:weight', value: 2.5 });
+    await weight.fill('heavy');
+    await weight.press('Enter');
+    await expect(weight).toHaveValue('2.5');
+  });
+
+  test('the picture picker shows a small picture of each entry', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).pressSequentially('![[ash');
+    const option = page.getByRole('listbox', { name: 'Entries to show' }).getByRole('option');
+    await expect(option.first().locator('img.picker-thumb')).toHaveAttribute('src', /^blob:/);
   });
 });
 

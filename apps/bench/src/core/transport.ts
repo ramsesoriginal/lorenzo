@@ -55,11 +55,8 @@ export interface StatValue {
   own: boolean;
 }
 
-/**
- * A float is not edited yet: the API wants `3.0` for a float stat, and JSON written by the browser
- * says `3` (ADR 0227).
- */
-export const canEditStat = (type: StatType): boolean => type !== 'float';
+/** Whether a stat of this type can be written from Bench: every type can. */
+export const canEditStat = (_type: StatType): boolean => true;
 
 /** An entry as the server last said it was. `etag` is what `If-Match` wants on a write. */
 export interface EntryState {
@@ -177,4 +174,15 @@ export class RefusedError extends Error {
     this.name = 'RefusedError';
     this.precondition = precondition;
   }
+}
+
+/** A number as the API reads a float: `3.0`, not `3`, which it reads as a whole number. */
+export function decimalText(n: number): string {
+  return Number.isInteger(n) ? `${n}.0` : String(n);
+}
+
+/** What a decimal stat accepts typed: a number with an optional point, no exponent. */
+export function parseDecimal(text: string): number | null {
+  const t = text.trim().replace(',', '.');
+  return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : null;
 }

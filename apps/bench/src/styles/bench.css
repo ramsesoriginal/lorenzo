@@ -796,3 +796,35 @@ dialog.confirm::backdrop {
   width: 100%;
   margin: 0.35rem 0;
 }
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 12px;
+  margin-bottom: 0.25rem;
+}
+
+.crumb {
+  border: 0;
+  background: none;
+  padding: 0 0.1rem;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.crumb-sep {
+  opacity: 0.5;
+}
+
+.badge {
+  display: inline-block;
+  min-width: 1.2em;
+  padding: 0 0.35em;
+  border-radius: 999px;
+  background: var(--surface-selected, #e6e6e6);
+  font-size: 11px;
+  text-align: center;
+}

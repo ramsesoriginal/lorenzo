@@ -58,6 +58,22 @@ export class Pictures {
     }
   }
 
+  /**
+   * Reads it without telling the screen, for a thumbnail drawn in a list that a redraw of the page
+   * would take away. Answers with the URL, or `null` for none or for a failed read.
+   */
+  async quiet(id: string): Promise<string | null> {
+    const known = this.urls.get(id);
+    if (known !== undefined) return known;
+    try {
+      const url = await this.transport.pictureOf(id);
+      this.urls.set(id, url);
+      return url;
+    } catch {
+      return null;
+    }
+  }
+
   /** Gives the entry this file as its picture. Says why not, rather than sending what is refused. */
   async set(id: string, file: File): Promise<void> {
     if (!PICTURE_TYPES.includes(file.type)) {

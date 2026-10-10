@@ -7,6 +7,7 @@ import type { Command } from '../core/commands';
 import { entryIdOfHref, type Rendered } from '../core/links';
 import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
 
+import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
@@ -58,6 +59,17 @@ export function renderEntry(
   if (!item) {
     c.append(el('p', 'muted', bench.loadError ?? 'Loading…'));
     return c;
+  }
+
+  const trail = ancestorPath(bench.listing(), id);
+  if (trail.length) {
+    const nav = el('nav', 'breadcrumb');
+    nav.setAttribute('aria-label', 'Inherits from');
+    for (const a of trail) {
+      const b = button(a.name, () => go(a.id), 'crumb');
+      nav.append(b, el('span', 'crumb-sep', '/'));
+    }
+    c.append(nav);
   }
 
   const head = el('div', 'entry-head');

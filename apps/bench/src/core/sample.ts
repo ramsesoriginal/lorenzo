@@ -351,9 +351,11 @@ export class SampleTransport implements Transport {
         ? typeof value === 'boolean'
         : def.type === 'int'
           ? Number.isInteger(value)
-          : def.type === 'text'
-            ? typeof value === 'string'
-            : typeof value === 'string' && def.enumValues.includes(value);
+          : def.type === 'float'
+            ? typeof value === 'number'
+            : def.type === 'text'
+              ? typeof value === 'string'
+              : typeof value === 'string' && def.enumValues.includes(value);
     if (!fits) throw new RefusedError(`That is not a ${def.type} value for ${def.name}.`);
     if (row.stats.get(stat.id) !== value) {
       row.stats.set(stat.id, value);

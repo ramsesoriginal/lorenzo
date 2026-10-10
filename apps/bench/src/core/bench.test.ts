@@ -564,9 +564,11 @@ describe('stats', () => {
     expect(bench.setStat('c', 'armor', null)).toBeNull();
   });
 
-  it('does not edit a float yet, nor a stat that is not defined', async () => {
-    const { bench } = await withStats();
-    expect(bench.setStat('c', 'weight', 3)).toBeNull();
+  it('edits a decimal, and not a stat that is not defined', async () => {
+    const { bench, server } = await withStats();
+    expect(bench.setStat('c', 'weight', 1.5)).not.toBeNull();
+    await bench.run();
+    expect(server.writes).toContainEqual({ id: 'c', field: 'stat:weight', value: 1.5 });
     expect(bench.setStat('c', 'nothing', 3)).toBeNull();
   });
 

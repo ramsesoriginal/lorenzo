@@ -115,6 +115,12 @@ export class Bench {
     if (!quiet) this.emit();
   }
 
+  /** How many entries this one has a parent link or a child link with. */
+  linkCount(id: string): number {
+    const v = this.view(id);
+    return v ? v.parentIds.length + this.childrenOf(id).length : 0;
+  }
+
   /** Whether the server has the entry (it is not one made here and not sent yet). */
   onServer(id: string): boolean {
     return this.entries.some((e) => e.id === id) && !this.pendingCreate(id);

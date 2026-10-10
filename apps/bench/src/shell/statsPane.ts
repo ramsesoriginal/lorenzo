@@ -2,7 +2,13 @@
 // edited through the command layer (core/bench.ts). A bool is a tag.
 
 import type { Bench } from '../core/bench';
-import { canEditStat, type StatDef, type StatScalar, type StatValue } from '../core/transport';
+import {
+  canEditStat,
+  parseDecimal,
+  type StatDef,
+  type StatScalar,
+  type StatValue,
+} from '../core/transport';
 import { redraw } from './entryPane';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -26,11 +32,7 @@ function control(bench: Bench, entryId: string, def: StatDef, stat: StatValue): 
   const set = (value: StatScalar) => {
     if (!redraw.active) bench.setStat(entryId, def.id, value);
   };
-  if (!canEditStat(def.type)) {
-    const shown = el('span', 'stat-value muted', String(stat.value ?? ''));
-    shown.title = 'A decimal number is not editable yet.';
-    return shown;
-  }
+  if (!canEditStat(def.type)) return el('span', 'stat-value muted', String(stat.value ?? ''));
   if (def.type === 'bool') {
     const box = el('input');
     box.type = 'checkbox';
@@ -53,14 +55,16 @@ function control(bench: Bench, entryId: string, def: StatDef, stat: StatValue): 
   const input = el('input');
   input.type = def.type === 'int' ? 'number' : 'text';
   if (def.type === 'int') input.step = '1';
+  if (def.type === 'float') input.inputMode = 'decimal';
   input.value = stat.value === null ? '' : String(stat.value);
   input.placeholder = stat.value === null ? 'inherited' : '';
   input.dataset.key = key;
   input.setAttribute('aria-label', label);
   input.addEventListener('change', () => {
     if (def.type === 'text') return set(input.value);
-    const n = Number(input.value);
-    if (input.value.trim() !== '' && Number.isInteger(n)) set(n);
+    const n = def.type === 'float' ? parseDecimal(input.value) : Number(input.value);
+    const fits = def.type === 'float' ? n !== null : Number.isInteger(n);
+    if (input.value.trim() !== '' && fits) set(n as number);
     else input.value = stat.value === null ? '' : String(stat.value);
   });
   return input;

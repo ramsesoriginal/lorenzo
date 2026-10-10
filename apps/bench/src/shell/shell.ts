@@ -290,6 +290,15 @@ export class Shell {
     const t = el('div', p === g.active ? 'tab on' : 'tab');
     t.dataset.tab = p;
     const b = el('button', 'name', titleOf(p));
+    if (p === 'links') {
+      // How many parents and children the selected entry has.
+      const n = this.selected ? this.bench.linkCount(this.selected) : 0;
+      if (n) {
+        const badge = el('span', 'badge', String(n));
+        badge.setAttribute('aria-label', `${n} links`);
+        b.append(' ', badge);
+      }
+    }
     b.type = 'button';
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(p === g.active));

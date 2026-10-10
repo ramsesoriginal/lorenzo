@@ -9,6 +9,7 @@ import {
   unwrap,
 } from '@lorenzo/api-client';
 import {
+  decimalText,
   type EditableKind,
   type EntryState,
   type EntrySummary,
@@ -246,6 +247,18 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
                 '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
                 { params },
               );
+        } else if (stat.type === 'float' && typeof value === 'number') {
+          // JSON written by the browser says `3` for `3.0`, which the API reads as a whole number
+          // and refuses for a decimal stat: the body is written by hand, point kept.
+          res = await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+            {
+              params,
+              body: { value: 0, acquire_group: true },
+              bodySerializer: () => `{"value":${decimalText(value)},"acquire_group":true}`,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          );
         } else {
           res = await client.PUT(
             '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',

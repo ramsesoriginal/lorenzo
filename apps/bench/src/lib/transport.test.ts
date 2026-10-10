@@ -463,6 +463,30 @@ describe('apiTransport', () => {
     });
   });
 
+  describe('decimal stats', () => {
+    const FLOAT = { id: S_INT, type: 'float' as const };
+
+    it('writes a whole decimal with its point, which the API needs to read a float', async () => {
+      let body = '';
+      const { transport } = setup(async (r) => {
+        if (r.method === 'PUT') body = await r.clone().text();
+        return json(entry, { etag: '"n"' });
+      });
+      await transport.setStat(E, FLOAT, 3, '"v"');
+      expect(body).toBe('{"value":3.0,"acquire_group":true}');
+    });
+
+    it('writes a decimal as it is', async () => {
+      let body = '';
+      const { transport } = setup(async (r) => {
+        if (r.method === 'PUT') body = await r.clone().text();
+        return json(entry, { etag: '"n"' });
+      });
+      await transport.setStat(E, FLOAT, 1.25, '"v"');
+      expect(body).toBe('{"value":1.25,"acquire_group":true}');
+    });
+  });
+
   describe('kinds', () => {
     const base = `/tenants/${T}/entities/${E}`;
     const send = async (kind: 'item' | 'being', on: boolean) => {
