@@ -53,7 +53,7 @@ It must not show an instance the caller cannot see: candidates pass the item-ins
 Nothing about a `my/` reference is stored beyond what is already: hint `my` and target `longsword`. The backlinks read, for an entity X:
 
 - the current rule (references whose slug is X's slug, any hint other than `my`);
-- plus the `my/` references whose target is X's slug *or the slug of a catalog item X is an instance of*, kept when the source text's anchor resolves that `my/` link to X by the rule above, using the same function. So a note that says `[[my/Longsword]]` is a mention of that one instance, and also of the catalog item "Longsword" ("what talks about longswords"), whichever instance it picks.
+- plus the `my/` references whose target is the slug of a catalog item X is an instance of (or X's own slug), kept when the source text's anchor resolves that `my/` link to X by the rule above, using the same function. So a note that says `[[my/Longsword]]` is a mention of the one instance it picks, and **not** of the catalog item "Longsword": "my longsword" says nothing about longswords in general.
 
 Candidates come from the existing index on `(tenant_id, target)`; the anchor and the pick are computed per distinct source home, then visibility filters as before. Because the resolution is computed when read, a sword given to another character moves its mentions with it, and nothing is rewritten when ownership changes.
 
@@ -82,4 +82,4 @@ Candidates come from the existing index on `(tenant_id, target)`; the anchor and
 
 ## Open for review
 
-Decided here, easy to turn: containment counts as belonging (an item in the being's pack); `my/` mentions also count for the catalog item; no fallback to the catalog item.
+Decided here, easy to turn: containment counts as belonging (an item in the being's pack); no fallback to the catalog item. (`my/` mentions do not count for the catalog item, as the maintainer decided.)
