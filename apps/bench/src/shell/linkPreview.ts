@@ -37,6 +37,8 @@ let turn = 0;
 
 /** Set while the page puts a focus back after drawing: that is not a person reaching a link. */
 export const focusing = { restoring: false };
+/** The card was put away with Escape: a focus put back after a drawing does not bring it back. */
+let dismissed = false;
 
 export function hideCard() {
   turn++;
@@ -86,7 +88,10 @@ export function attachLinkPreviews(
     if (linkOf(e)) hideCard();
   });
   root.addEventListener('focusin', (e) => {
-    const link = focusing.restoring ? null : linkOf(e);
+    // A focus put back after drawing shows the card again, unless it was put away on purpose.
+    if (focusing.restoring && dismissed) return;
+    if (!focusing.restoring) dismissed = false;
+    const link = linkOf(e);
     if (link) void show(link);
   });
   root.addEventListener('focusout', (e) => {
@@ -95,6 +100,7 @@ export function attachLinkPreviews(
   root.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && card) {
       e.stopPropagation();
+      dismissed = true;
       hideCard();
     }
   });

@@ -1271,6 +1271,19 @@ a.ls-entity.ls-unresolved,
   border-radius: 6px;
   color: var(--muted);
 }
+.pane-links .row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.pane-links .row .nm {
+  flex: 1;
+  min-width: 0;
+}
+.pane-links .row .where {
+  font-size: 12px;
+  white-space: nowrap;
+}
 .pane-links .row:hover {
   background: var(--soft);
   color: var(--text);

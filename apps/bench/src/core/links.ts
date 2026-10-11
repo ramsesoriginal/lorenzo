@@ -125,6 +125,25 @@ export class LinkResolver {
     this.pictures.delete(entryId);
   }
 
+  /**
+   * The entries a text links to or shows a picture of, each once, in the order they are named. The
+   * ones nothing is called are left out. `home` is the entry the text belongs to (what `my/` means).
+   */
+  async linkedFrom(text: string, home: string): Promise<ResolvedEntry[]> {
+    const refs = references(parse(text)).filter(isEntityRef);
+    await this.lookUp(refs, home).catch(() => {});
+    const seen = new Set<string>();
+    const out: ResolvedEntry[] = [];
+    for (const ref of refs) {
+      const entry = this.found.get(this.keyOf(ref, home));
+      if (entry && !seen.has(entry.id)) {
+        seen.add(entry.id);
+        out.push(entry);
+      }
+    }
+    return out;
+  }
+
   /** What the slug is, once looked up. */
   get(slug: string): ResolvedEntry | undefined {
     return this.found.get(slug);

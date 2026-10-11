@@ -434,7 +434,7 @@ function parentsEditor(
   return wrap;
 }
 
-/** The "Parents and children" pane: where this entry comes from, and what comes from it. */
+/** The Links pane: where this entry comes from, what comes from it, and the links in its texts. */
 export function renderLinks(
   bench: Bench,
   id: string | null,
@@ -442,24 +442,43 @@ export function renderLinks(
 ): HTMLElement {
   const c = el('div', 'pane pane-links');
   const item = id ? bench.view(id) : null;
-  const list = (ids: string[]) => {
-    const ul = el('ul', 'list');
-    if (!ids.length) ul.append(el('li', 'muted', 'none'));
-    for (const other of ids) {
-      const li = el('li');
-      const b = el('button', 'row', bench.displayName(other));
-      b.type = 'button';
-      b.addEventListener('click', () => go(other));
-      li.append(b);
-      ul.append(li);
-    }
-    return ul;
+  const row = (target: string, name: string, note?: string) => {
+    const li = el('li');
+    const b = el('button', 'row');
+    b.append(el('span', 'nm', name));
+    if (note) b.append(el('span', 'where muted', note));
+    b.type = 'button';
+    b.addEventListener('click', () => go(target));
+    li.append(b);
+    return li;
   };
-  c.append(
-    el('h2', undefined, 'Parents'),
-    list(item?.parentIds ?? []),
-    el('h2', undefined, 'Children'),
-    list(id ? bench.childrenOf(id) : []),
+  const section = (title: string, rows: HTMLElement[], empty = 'none') => {
+    const ul = el('ul', 'list');
+    if (!rows.length) ul.append(el('li', 'muted', empty));
+    ul.append(...rows);
+    c.append(el('h2', undefined, title), ul);
+  };
+  section(
+    'Parents',
+    (item?.parentIds ?? []).map((p) => row(p, bench.displayName(p))),
+  );
+  section(
+    'Children',
+    (id ? bench.childrenOf(id) : []).map((k) => row(k, bench.displayName(k))),
+  );
+  const connections = id ? bench.connections(id) : null;
+  const waiting = !!id && !connections && bench.onServer(id);
+  section(
+    'Links to',
+    (connections?.outgoing ?? []).map((o) => row(o.entry.id, o.entry.name, o.where)),
+    waiting ? 'Reading…' : 'Nothing in its texts links to another entry.',
+  );
+  section(
+    'Linked from',
+    (connections?.incoming ?? []).map((i) =>
+      row(i.entryId, i.name, i.type === 'description' ? 'Description' : `Note: ${i.title}`),
+    ),
+    waiting ? 'Reading…' : 'No text on another entry links here.',
   );
   return c;
 }
