@@ -643,6 +643,9 @@ test.describe('links to entries in text', () => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
     await reads(page);
+    // Leaving the text writes it, and the screen is drawn again when that is done: wait for it, or
+    // the redraw gives the link its focus back (and its card) after Escape.
+    await expect(status(page)).toHaveText('Synced');
     await preview(page).focus();
     await expect(page.locator('.link-card')).toContainText('Wolf');
     await page.keyboard.press('Escape');
