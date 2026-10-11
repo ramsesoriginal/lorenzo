@@ -1,5 +1,6 @@
 ---
 import DeleteAccount from '../components/DeleteAccount/DeleteAccount.astro';
+import PersonalTokens from '../components/PersonalTokens/PersonalTokens.astro';
 import Base from '../layouts/Base.astro';
 import { BRANDING_CSS_URL } from '../lib/config';
 import { PICTURE_ACCEPT } from '../lib/profilePicture';
@@ -176,11 +177,14 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     <p id="save-status" role="status"></p>
   </form>
 
+  <PersonalTokens />
+
   <DeleteAccount />
 
   <script>
     import { createEditor, type Tool } from '@lorenzo/lorenzoscript-editor';
     import { renderDeleteAccount } from '../components/DeleteAccount/renderer';
+    import { renderPersonalTokens } from '../components/PersonalTokens/renderer';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
     import { runPage } from '../lib/pageLoad';
@@ -212,6 +216,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     const previewPlaceholder = document.getElementById('preview-placeholder')!;
     const previewName = document.getElementById('preview-name')!;
     const previewPronouns = document.getElementById('preview-pronouns')!;
+    const personalTokens = requiredIn('Profile')<HTMLElement>(document, '[data-personal-tokens]');
     const deleteAccount = requiredIn('Profile')<HTMLElement>(document, '[data-delete-account]');
 
     const nicknameEl = document.getElementById('nickname') as HTMLInputElement;
@@ -422,6 +427,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
       initial = me;
       populate(me);
       form.hidden = false;
+      renderPersonalTokens(personalTokens);
       renderDeleteAccount(deleteAccount);
     });
   </script>

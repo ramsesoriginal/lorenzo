@@ -1,0 +1,62 @@
+---
+// Connecting a device (ADR 0269): a command line or another program shows a code and sends the
+// person here. They check it is theirs, name the token, say if it should ever expire, and approve
+// or deny. Rendered by renderDeviceConnect.
+---
+
+<div class="stack" data-device-connect>
+  <!-- Without a code in the address: type the one the device shows. -->
+  <form class="card card-body stack" data-code-form hidden>
+    <p>
+      A device (the <code>lorenzo</code> command line, for one) shows a code like
+      <strong>ABCD-EFGH</strong>. Type it here to connect the device to your account.
+    </p>
+    <label class="field">
+      <span class="field-label">Code from your device</span>
+      <input
+        class="text-input"
+        type="text"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        placeholder="ABCD-EFGH"
+        data-code
+      />
+    </label>
+    <div class="row">
+      <button type="submit">Continue</button>
+      <span class="status-text" role="status" data-code-status hidden></span>
+    </div>
+  </form>
+
+  <!-- With a valid code: what is asking, and the choices. -->
+  <form class="card card-body stack" data-approve-form hidden>
+    <p>
+      <strong data-client></strong> is asking to act as you on Lorenzo, with a personal access
+      token. Connect it only if you started this yourself, just now.
+    </p>
+    <p class="caption">
+      Code <strong data-shown-code></strong>. It can do what you can do, except manage personal
+      access tokens or delete your account. You can revoke it at any time under your profile.
+    </p>
+    <label class="field">
+      <span class="field-label">Name this token</span>
+      <input class="text-input" type="text" maxlength="80" required data-name />
+    </label>
+    <label class="field">
+      <span class="field-label">It stops working</span>
+      <select class="text-input" data-expiry></select>
+    </label>
+    <div class="row">
+      <button type="submit" data-approve>
+        Connect this device
+      </button>
+      <button type="button" class="btn-secondary" data-deny>
+        Deny
+      </button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </div>
+  </form>
+
+  <p class="status-text" role="status" data-result hidden></p>
+</div>
