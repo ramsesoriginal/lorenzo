@@ -382,6 +382,34 @@ class Again(StrEnum):
     purge = "purge"
 
 
+class DeviceApproval(BaseModel):
+    name: constr(min_length=1, max_length=80) = Field(..., title="Name")
+    expires_at: AwareDatetime | None = Field(None, title="Expires At")
+
+
+class DeviceCodeCreate(BaseModel):
+    client_name: constr(min_length=1, max_length=80) | None = Field(None, title="Client Name")
+
+
+class DeviceCodeOut(BaseModel):
+    device_code: str = Field(..., title="Device Code")
+    user_code: str = Field(..., title="User Code")
+    verification_uri: str = Field(..., title="Verification Uri")
+    verification_uri_complete: str = Field(..., title="Verification Uri Complete")
+    interval: int = Field(..., title="Interval")
+    expires_in: int = Field(..., title="Expires In")
+
+
+class DeviceCodePreviewOut(BaseModel):
+    user_code: str = Field(..., title="User Code")
+    client_name: str | None = Field(..., title="Client Name")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+
+
+class DeviceTokenRequest(BaseModel):
+    device_code: constr(min_length=1, max_length=200) = Field(..., title="Device Code")
+
+
 class DroppedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -842,6 +870,24 @@ class PayloadPictureOut(BaseModel):
     kind: Literal["picture"] = Field("picture", title="Kind")
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
+
+
+class PersonalTokenIssuedOut(BaseModel):
+    access_token: str = Field(..., title="Access Token")
+    token_type: str | None = Field("Bearer", title="Token Type")
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    expires_at: AwareDatetime | None = Field(..., title="Expires At")
+
+
+class PersonalTokenOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    hint: str = Field(..., title="Hint")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    last_used_at: AwareDatetime | None = Field(..., title="Last Used At")
+    expires_at: AwareDatetime | None = Field(..., title="Expires At")
+    is_expired: bool = Field(..., title="Is Expired")
 
 
 class PictureRefOut(BaseModel):

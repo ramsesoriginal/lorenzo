@@ -20,6 +20,9 @@ class StoredLogin:
     refresh_token: str | None = None
     # Epoch seconds at which the access token stops working, if the issuer said.
     expires_at: float | None = None
+    # Set for a personal access token (ADR 0269): its name, as the person gave it in the hub.
+    # Such a login has no issuer or refresh token and is sent as it is.
+    token_name: str | None = None
 
 
 def default_path(env: Mapping[str, str]) -> Path:
