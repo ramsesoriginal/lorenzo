@@ -1,0 +1,23 @@
+<div class="stack" data-stat-editor>
+  <p class="status-text" data-message hidden></p>
+  <div class="stack-tight" data-stats></div>
+  <p class="status-text" role="status" data-status hidden></p>
+
+  <template data-stat-template>
+    <form class="stack-tight" data-stat>
+      <label class="field">
+        <span class="field-label" data-label></span>
+        <span class="row" data-control></span>
+      </label>
+      <div class="row">
+        <span class="status-text" data-source></span>
+        <button type="submit" data-save>
+          Save
+        </button>
+        <button type="button" data-clear>
+          Use inherited
+        </button>
+      </div>
+    </form>
+  </template>
+</div>
