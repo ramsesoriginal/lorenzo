@@ -3,6 +3,7 @@
 // a person may do follows from their role on it: an Owner changes who works on it, an Owner or an
 // Organizer edits it and gives it a picture.
 
+import { distinctPeople } from '../../lib/deleting';
 import { displayNameFor, isTenantAdmin } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { sayError } from '../../lib/statusLine';
@@ -27,6 +28,7 @@ import type { MembershipRosterEntryOut, TenantOut, TenantSummaryOut } from '../.
 import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
 import { bindLeaveTenant } from '../Tenant/leaveTenant';
+import { renderTenantDelete } from '../TenantDelete/renderer';
 import { renderTenantEdit } from '../TenantEdit/renderer';
 import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
@@ -39,6 +41,8 @@ export type RepositoryHooks = {
   onChanged(): void;
   // The name or link name was saved.
   onRenamed(updated: TenantOut): void;
+  // It was deleted (ADR 0267): the message to show where the page goes next.
+  onDeleted(message: string, repository: TenantSummaryOut): void;
   // Whether the account may create libraries, which making (and removing) a Test library needs.
   mayCreate: boolean;
 };
@@ -69,6 +73,7 @@ export function renderRepository(
   const roles = required<HTMLElement>(root, '[data-roles]');
   const membershipsSlot = required<HTMLElement>(root, '[data-memberships-slot]');
   const peopleList = required<HTMLElement>(root, '[data-people-list]');
+  const deleteSlot = required<HTMLElement>(root, '[data-delete-slot]');
 
   // Only the newest `show` paints.
   let latest = 0;
@@ -117,6 +122,8 @@ export function renderRepository(
     membershipsSlot.hidden = true;
     peopleList.replaceChildren();
     peopleList.hidden = true;
+    deleteSlot.replaceChildren();
+    deleteSlot.hidden = true;
     overview.hidden = true;
     people.hidden = true;
     live.hidden = true;
@@ -219,6 +226,18 @@ export function renderRepository(
         }
 
         paintOverview(repository, detail);
+
+        if (isTenantAdmin(repository)) {
+          const removal = cloneRoot(root, '[data-tenant-delete-template]');
+
+          renderTenantDelete(removal, hooks.onDeleted).show(repository, {
+            accountMayDelete: hooks.mayCreate,
+            known: { campaigns: null, people: roster ? distinctPeople(roster.items) : null },
+          });
+          deleteSlot.replaceChildren(removal);
+          deleteSlot.hidden = false;
+        }
+
         paintPeople(
           repository,
           roster?.items.filter(

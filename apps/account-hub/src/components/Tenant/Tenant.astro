@@ -13,6 +13,7 @@ import InvitePlayer from '../InvitePlayer/InvitePlayer.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
 import NotificationComposer from '../NotificationComposer/NotificationComposer.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
+import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
 ---
 
@@ -93,6 +94,8 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </button>
           <span class="status-text" role="status" data-leave-status hidden></span>
         </div>
+
+        <div data-slot data-delete-slot hidden></div>
       </div>
 
       <div class="stack" role="tabpanel">
@@ -120,6 +123,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
   </template>
   <template data-notification-composer-template>
     <NotificationComposer />
+  </template>
+  <template data-tenant-delete-template>
+    <TenantDelete />
   </template>
 
   <!-- A campaign's row and its parts, which are the same components for every campaign. -->
