@@ -52,6 +52,14 @@
     "packages/lorenzoscript-editor": {
       "release-type": "node",
       "component": "lorenzoscript-editor"
+    },
+    "apps/beings": {
+      "release-type": "node",
+      "component": "beings"
+    },
+    "packages/stat-values": {
+      "release-type": "node",
+      "component": "stat-values"
     }
   }
 }

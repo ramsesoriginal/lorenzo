@@ -1,0 +1,71 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+import '../../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <!-- @lorenzo/brand's tokens.css gates its dark values behind
+       [data-theme="dark"] (identity.md's own CSS starter), rather than
+       a pure prefers-color-scheme media query - so this app has to set
+       that attribute itself. Synchronous and inline, before first
+       paint, so there's no light-mode flash for a dark-preferring
+       browser (ADR 0098 doesn't build a manual toggle here - just
+       following the system preference, same as this app's previous
+       light-dark()-based tokens.css did automatically). -->
+  <script is:inline>
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  </script>
+  <!-- Remembers the last tenant in the URL, and puts it back into a
+       subpage's URL that has none - before any page script reads
+       ?tenant=, so those keep reading only the URL. Also inline and
+       synchronous for that reason, so it can't import lib/lastTenant.ts -
+       its KEY is that file's LAST_TENANT_KEY, keep the two in step. Only
+       an id is remembered here: a slug is, as its id, once the module
+       script in SiteHeader has looked it up (ADR 0135); ID is
+       lib/addresses.ts's UUID. -->
+  <script is:inline>
+    (function () {
+      var KEY = 'lorenzo:lastTenant';
+      var ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      var url = new URL(window.location.href);
+      var tenant = url.searchParams.get('tenant');
+      try {
+        if (tenant) {
+          if (ID.test(tenant)) localStorage.setItem(KEY, tenant);
+        } else if (url.pathname !== '/' && url.pathname.indexOf('/auth/') !== 0) {
+          var stored = localStorage.getItem(KEY);
+          if (stored) {
+            url.searchParams.set('tenant', stored);
+            history.replaceState(history.state, '', url);
+          }
+        }
+      } catch (e) {
+        // Storage unavailable (private browsing, disabled) - the page
+        // just behaves as if nothing was remembered.
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/normalize.css`} />
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/tokens.css`} />
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/fonts.css`} />
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/base.css`} />
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/layout.css`} />
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/components.css`} />
+  <!-- .skeleton (loading placeholders, components.css) -->
+  <link rel="stylesheet" href={`${BRANDING_CSS_URL}/motion.css`} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <title>{title}</title>
+</head>

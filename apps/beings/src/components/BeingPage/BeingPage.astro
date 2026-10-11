@@ -1,0 +1,73 @@
+---
+import BeingNotes from '../BeingNotes/BeingNotes.astro';
+import BeingView from '../BeingView/BeingView.astro';
+import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
+import HandOver from '../HandOver/HandOver.astro';
+import InventorySummary from '../InventorySummary/InventorySummary.astro';
+import NameEdit from '../NameEdit/NameEdit.astro';
+import People from '../People/People.astro';
+import PictureEdit from '../PictureEdit/PictureEdit.astro';
+import SlugEditor from '../SlugEditor/SlugEditor.astro';
+import StatEditor from '../StatEditor/StatEditor.astro';
+import TagEditor from '../TagEditor/TagEditor.astro';
+---
+
+<div class="stack" data-being-page hidden>
+  <p>
+    <a data-back>&larr; All beings</a>
+  </p>
+
+  <div class="row">
+    <h1 class="display" data-title></h1>
+    <span class="badge" data-kind></span>
+    <code data-slug hidden></code>
+  </div>
+
+  <BeingView />
+
+  <DescriptionEdit>
+    <button type="button" class="btn btn-secondary" data-copy-link>
+      Copy link
+    </button>
+  </DescriptionEdit>
+
+  <People />
+
+  <InventorySummary />
+
+  <section class="section" aria-labelledby="being-notes-heading">
+    <h2 id="being-notes-heading">Notes</h2>
+    <BeingNotes />
+  </section>
+
+  <HandOver />
+
+  <div class="stack" data-edit-sections hidden>
+    <div
+      class="section"
+      role="region"
+      aria-labelledby="being-name-heading"
+      data-name-section
+      hidden
+    >
+      <h2 id="being-name-heading">Name</h2>
+      <NameEdit />
+    </div>
+    <div class="section" role="region" aria-labelledby="being-picture-heading">
+      <h2 id="being-picture-heading">Picture</h2>
+      <PictureEdit />
+    </div>
+    <div class="section" role="region" aria-labelledby="being-slug-heading">
+      <h2 id="being-slug-heading">Link name</h2>
+      <SlugEditor />
+    </div>
+    <div class="section" role="region" aria-labelledby="being-tags-heading">
+      <h2 id="being-tags-heading">Tags</h2>
+      <TagEditor />
+    </div>
+    <div class="section" role="region" aria-labelledby="being-stats-heading">
+      <h2 id="being-stats-heading">Stats</h2>
+      <StatEditor />
+    </div>
+  </div>
+</div>

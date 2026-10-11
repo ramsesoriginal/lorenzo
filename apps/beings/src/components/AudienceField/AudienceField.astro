@@ -1,0 +1,31 @@
+<template data-audience-template>
+  <fieldset class="stack-tight" data-audience>
+    <legend class="field-label">Who can read it</legend>
+    <div class="stack-tight" data-choices></div>
+    <p class="status-text" data-hint></p>
+    <div class="stack-tight" data-characters hidden>
+      <input
+        type="search"
+        class="text-input"
+        placeholder="Find a character…"
+        aria-label="Find a character"
+        data-find
+      />
+      <div class="stack-tight option-list" data-candidates></div>
+    </div>
+  </fieldset>
+</template>
+
+<template data-choice-template>
+  <label class="field-row">
+    <input type="radio" data-radio />
+    <span data-text></span>
+  </label>
+</template>
+
+<template data-candidate-template>
+  <label class="field-row">
+    <input type="checkbox" data-check />
+    <span data-text></span>
+  </label>
+</template>

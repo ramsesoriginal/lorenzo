@@ -64,6 +64,12 @@ node = "apps/inventory-web"
 # Playwright against the real API and a fake Authgear (ADR 0114).
 depends_on = ["apps/api"]
 
+[suites.beings-e2e]
+node = "apps/beings"
+# Playwright against the real API and a fake Authgear, with a launcher of its own on ports of its
+# own, so it can run beside inventory-web's (ADR 0270).
+depends_on = ["apps/api"]
+
 [suites.bench-e2e]
 node = "apps/bench"
 # Playwright against the built page; no API yet (ADR 0210).

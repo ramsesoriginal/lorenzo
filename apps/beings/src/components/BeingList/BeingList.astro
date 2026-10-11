@@ -1,0 +1,64 @@
+<section class="stack" data-being-list hidden>
+  <div class="stack-tight">
+    <label class="field">
+      <span class="field-label">Search</span>
+      <input
+        type="search"
+        class="text-input"
+        placeholder="Search beings by name…"
+        autocomplete="off"
+        data-search
+      />
+    </label>
+    <div class="row">
+      <label class="field">
+        <span class="field-label">Campaign</span>
+        <select class="text-input" data-campaign></select>
+      </label>
+      <label class="field">
+        <span class="field-label">Kind</span>
+        <select class="text-input" data-kind>
+          <option value="all">Characters and NPCs</option>
+          <option value="character">Characters</option>
+          <option value="npc">NPCs</option>
+        </select>
+      </label>
+      <label class="field-row">
+        <input type="checkbox" data-mine />
+        <span>Mine</span>
+      </label>
+    </div>
+  </div>
+
+  <p class="status-text" role="status" data-status hidden></p>
+  <ul class="list" data-list hidden></ul>
+
+  <form class="stack-tight section" data-create-form hidden>
+    <h2>New being</h2>
+    <label class="field">
+      <span class="field-label">Name</span>
+      <input type="text" class="text-input" required maxlength="200" data-create-name />
+    </label>
+    <p class="status-text">It starts as an NPC. Open it afterwards to hand it over to a player.</p>
+    <div class="row">
+      <button type="submit" data-create>
+        Create being
+      </button>
+    </div>
+    <p class="status-text" role="status" data-create-status hidden></p>
+  </form>
+
+  <template data-being-template>
+    <li>
+      <a data-link>
+        <div class="row">
+          <strong data-name></strong>
+          <span class="badge" data-kind-badge></span>
+          <span class="pill" data-mine-badge hidden>
+            Mine
+          </span>
+        </div>
+      </a>
+    </li>
+  </template>
+</section>

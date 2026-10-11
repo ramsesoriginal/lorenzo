@@ -1,0 +1,10 @@
+/*
+ * Domain-specific structural layout only - the page shell, brand lockup, and shared spacing rhythm
+ * all come from @lorenzo/brand's own layout.css (linked in src/components/SiteHead). Single column
+ * on a phone; nothing here is wider than the viewport (ADR 0270).
+ */
+
+/* Filters wrap under the search on a narrow screen instead of overflowing it. */
+[data-being-list] .row {
+  flex-wrap: wrap;
+}
