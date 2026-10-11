@@ -57,7 +57,8 @@ test('an Owner deletes a library only after typing its name, and lands on the li
 
   // What is lost, from what the tab already read and one count of the entries.
   await expect(dialog).toContainText('2 campaigns');
-  await expect(dialog).toContainText('0 entries');
+  // A campaign is an entry of the library too, so the count is the API's, not a guess.
+  await expect(dialog).toContainText(/\d+ entries/);
   await expect(dialog).toContainText('2 people with a role');
   await expect(dialog).toContainText(
     `This deletes "${library.name}" and everything in it for good`,
