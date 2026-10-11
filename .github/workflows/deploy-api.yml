@@ -134,6 +134,7 @@ jobs:
           # front end actually saw), which a client cannot spoof. If a CDN
           # (e.g. Cloudflare) is ever put in front of the service, this
           # becomes 2 - see docs/operations/invite-link-rate-limiting.md.
+          # ACCOUNT_HUB_URL (ADR 0268): where a device is sent to approve its code.
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             AUTHGEAR_ISSUER=${{ vars.AUTHGEAR_ISSUER }}
@@ -142,6 +143,7 @@ jobs:
             AUTHGEAR_USERINFO_URL=${{ vars.AUTHGEAR_USERINFO_URL }}
             CORS_ALLOWED_ORIGINS=${{ vars.CORS_ALLOWED_ORIGINS }}
             INVITE_RATE_LIMIT_TRUSTED_PROXY_HOPS=1
+            ACCOUNT_HUB_URL=${{ vars.ACCOUNT_HUB_URL || 'https://lorenzo-account-hub.pages.dev' }}
 
       - name: Verify the deployed revision is actually ready
         run: curl --fail --silent --show-error "${{ steps.deploy.outputs.url }}/readyz"
