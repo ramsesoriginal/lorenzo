@@ -7,9 +7,9 @@ the same rules: not itself, every id an entry of the tenant, no loop. A parent i
 from __future__ import annotations
 
 import uuid
-from collections.abc import Collection
+from collections.abc import Sequence
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,11 +22,13 @@ async def replace_parents(
     *,
     tenant_id: uuid.UUID,
     entity: Entity,
-    parent_ids: Collection[uuid.UUID],
+    parent_ids: Sequence[uuid.UUID],
     user_id: uuid.UUID,
 ) -> bool:
-    """Makes `parent_ids` the complete set of the entry's direct parents, and says whether that
-    changed anything. A set already equal is left alone: nothing is written, so the entry's
+    """Makes `parent_ids` the complete list of the entry's direct parents, in that order (a
+    repeated id counts once, at its first place), and says whether that changed anything. The
+    order matters: at equal distance and priority the earlier parent wins a stat (ADR 0266). A
+    list already equal, in the same order, is left alone: nothing is written, so the entry's
     version (its ETag) does not move. A change touches `updated_by` and `updated_at`: the parents
     are part of what the entry is, since they decide its resolved stats (ADR 0037/0039).
 
@@ -35,7 +37,8 @@ async def replace_parents(
     this tenant. The flush happens here, so the caller's commit is the only thing left to do.
     """
     entity_id = entity.id
-    wanted = set(parent_ids)
+    ordered = list(dict.fromkeys(parent_ids))
+    wanted = set(ordered)
     if entity_id in wanted:
         raise EntityPrototypeCycleError(detail=f"Entry {entity_id} cannot be its own parent")
     if wanted:
@@ -56,21 +59,23 @@ async def replace_parents(
                 )
             )
 
-    current = set(
+    current = list(
         (
             await session.execute(
-                select(EntityPrototype.prototype_id).where(
+                select(EntityPrototype.prototype_id)
+                .where(
                     EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
                 )
+                .order_by(EntityPrototype.position, EntityPrototype.prototype_id)
             )
         )
         .scalars()
         .all()
     )
-    if wanted == current:
+    if ordered == current:
         return False
 
-    if removed := current - wanted:
+    if removed := set(current) - wanted:
         await session.execute(
             delete(EntityPrototype).where(
                 EntityPrototype.entity_id == entity_id,
@@ -78,10 +83,27 @@ async def replace_parents(
                 EntityPrototype.prototype_id.in_(removed),
             )
         )
-    for parent_id in wanted - current:
-        session.add(
-            EntityPrototype(entity_id=entity_id, prototype_id=parent_id, tenant_id=tenant_id)
-        )
+    kept = set(current) & wanted
+    for position, parent_id in enumerate(ordered):
+        if parent_id in kept:
+            await session.execute(
+                update(EntityPrototype)
+                .where(
+                    EntityPrototype.entity_id == entity_id,
+                    EntityPrototype.tenant_id == tenant_id,
+                    EntityPrototype.prototype_id == parent_id,
+                )
+                .values(position=position)
+            )
+        else:
+            session.add(
+                EntityPrototype(
+                    entity_id=entity_id,
+                    prototype_id=parent_id,
+                    tenant_id=tenant_id,
+                    position=position,
+                )
+            )
     entity.updated_by = user_id
     # Also set when updated_by is already this user, so the ETag moves whoever writes.
     entity.updated_at = func.now()

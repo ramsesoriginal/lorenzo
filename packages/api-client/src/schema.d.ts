@@ -5174,8 +5174,8 @@ export interface components {
          * EntityListOut
          * @description One row of GET .../entities - an EntitySummary and what the entry is (ADR 0215):
          *     `kinds`, in the order of `EntityKind`, empty for a bare entry (a group, or a category node).
-         *     `parent_ids` (ADR 0229) are the entry's direct parents, in id order, so a client can draw the
-         *     whole tree from the list without reading every entry.
+         *     `parent_ids` (ADR 0229) are the entry's direct parents, in their order (ADR 0266), so a client
+         *     can draw the whole tree from the list without reading every entry.
          */
         EntityListOut: {
             /**

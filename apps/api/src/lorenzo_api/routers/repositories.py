@@ -938,7 +938,7 @@ async def browse_repository_entities(
                     EntityPrototype.entity_id.in_(ids),
                     EntityPrototype.tenant_id == repository_id,
                 )
-                .order_by(EntityPrototype.prototype_id)
+                .order_by(EntityPrototype.position, EntityPrototype.prototype_id)
             ):
                 prototypes[entity_id].append(prototype_id)
             return [
