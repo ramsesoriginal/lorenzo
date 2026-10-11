@@ -104,6 +104,10 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 - Edit an item's or instance's stat values on its page (a field per type, its
   own value or inherited again; [ADR
   0263](../../docs/adr/0263-inventory-web-editing-stat-values.md))
+- A notification bell in the header: unread count, the latest ten with a link to
+  the board they are about, mark one or all as read, and "See all" in the account
+  hub ([ADR 0265](../../docs/adr/0265-inventory-web-notification-bell.md)); set
+  `PUBLIC_ACCOUNT_HUB_URL` to point it elsewhere than the deployed hub
 - Browse/reassign/unassign/delete existing instances
 - Browse any being's inventory (not just their own characters) — by
   search, or an entity id or slug for a "bare" being with no Character row — and

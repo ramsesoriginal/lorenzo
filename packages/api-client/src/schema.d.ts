@@ -2144,6 +2144,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entity Preview
+         * @description The card for one entry: name, kinds, link name, main picture, a few stats chosen by the
+         *     entry's kind, and the start of the description. Only what the caller may read is in it.
+         */
+        get: operations["get_entity_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}": {
         parameters: {
             query?: never;
@@ -6124,6 +6145,46 @@ export interface components {
             offset: string;
             /** @default none */
             round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * LinkPreviewOut
+         * @description GET .../entities/{id}/preview (ADR 0264): the small card a link to an entry shows when
+         *     pointed at. `template` names the registry template that chose `stats` and the length of
+         *     `excerpt` (`character`, `being`, `item_instance`, `item` or `entry`, the fallback for a bare
+         *     entry). `excerpt` is plain words from the description the caller may read, empty when there
+         *     is none. `picture_url` is the main picture, the entry's own or an ancestor's, null when it
+         *     has none the caller may see.
+         */
+        LinkPreviewOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /** Template */
+            template: string;
+            /** Picture Url */
+            picture_url: string | null;
+            /** Stats */
+            stats: components["schemas"]["LinkPreviewStatOut"][];
+            /** Excerpt */
+            excerpt: string;
+        };
+        /**
+         * LinkPreviewStatOut
+         * @description One stat a card shows: its name as the library spells it and its effective value.
+         */
+        LinkPreviewStatOut: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | string;
         };
         /**
          * ManagedCampaignOut
@@ -15753,6 +15814,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entity_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkPreviewOut"];
+                };
             };
             /** @description Validation Error */
             422: {

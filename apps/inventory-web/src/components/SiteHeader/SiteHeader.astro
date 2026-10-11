@@ -56,6 +56,42 @@ import { BRANDING_CSS_URL } from '../../lib/config';
         </button>
       </div>
       <div class="row" data-account-signed-in hidden>
+        <div class="bell" data-bell>
+          <button
+            type="button"
+            class="btn btn-secondary bell-button"
+            aria-expanded="false"
+            aria-controls="bell-panel"
+            aria-label="Notifications"
+            data-bell-button
+          >
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-notifications`}></use>
+            </svg>
+            <span class="bell-badge" aria-hidden="true" data-bell-badge hidden></span>
+          </button>
+          <span class="visually-hidden" role="status" data-bell-announce></span>
+          <div
+            class="bell-panel"
+            id="bell-panel"
+            role="group"
+            aria-label="Notifications"
+            data-bell-panel
+            hidden
+          >
+            <div class="bell-head">
+              <strong>Notifications</strong>
+              <button type="button" class="btn btn-secondary" data-bell-mark-all hidden>
+                Mark all as read
+              </button>
+            </div>
+            <p class="bell-note" data-bell-message hidden></p>
+            <ul class="bell-list" data-bell-list></ul>
+            <a class="bell-all" href="#" data-bell-all>
+              See all
+            </a>
+          </div>
+        </div>
         <span>
           Signed in as <strong data-account-email></strong>.
         </span>
@@ -84,3 +120,111 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 
   if (header) await renderSiteHeader(header);
 </script>
+
+<style is:global>
+  /* The notification bell (ADR 0265). */
+  .bell {
+    position: relative;
+  }
+  .bell-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: var(--target-min);
+  }
+  .bell-badge {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-pill);
+    background: var(--danger);
+    color: var(--text-inverse);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 18px;
+    text-align: center;
+  }
+  .bell-panel {
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + var(--space-1));
+    z-index: 20;
+    width: min(26rem, calc(100vw - 2 * var(--space-3)));
+    max-height: min(32rem, 70vh);
+    overflow-y: auto;
+    padding: var(--space-3);
+    background: var(--surface-default);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  }
+  .bell-panel[hidden] {
+    display: none;
+  }
+  .bell-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .bell-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+  .bell-item {
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-start;
+    padding: var(--space-2);
+    border-radius: var(--radius-control);
+  }
+  .bell-item--unread {
+    background: var(--surface-selected);
+  }
+  .bell-item-main {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .bell-item-title {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .bell-item-body,
+  .bell-item-time,
+  .bell-note {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+  .bell-all {
+    display: inline-block;
+    margin-top: var(--space-2);
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  @media (max-width: 40rem) {
+    /* The header wraps on a narrow screen: the panel spans the screen under it instead. */
+    .bell {
+      position: static;
+    }
+    .site-header {
+      position: relative;
+    }
+    .bell-panel {
+      inset-inline: var(--space-3);
+      width: auto;
+    }
+  }
+</style>
