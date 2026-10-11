@@ -30,6 +30,7 @@ import { bindLeaveTenant } from '../Tenant/leaveTenant';
 import { renderTenantEdit } from '../TenantEdit/renderer';
 import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
+import { createViewAs } from './viewAs';
 
 const required = requiredIn('Repository');
 
@@ -38,6 +39,8 @@ export type RepositoryHooks = {
   onChanged(): void;
   // The name or link name was saved.
   onRenamed(updated: TenantOut): void;
+  // Whether the account may create libraries, which making (and removing) a Test library needs.
+  mayCreate: boolean;
 };
 
 export type RenderedRepository = {
@@ -86,6 +89,7 @@ export function renderRepository(
   // An invitation made or stopped changes only what the Libraries using it tab shows.
   // A publish or an unpublish changes what the page shows, so it is read again.
   const publishControls = createPublishControls(root, hooks.onChanged);
+  const viewAs = createViewAs(root, hooks.mayCreate);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
@@ -117,6 +121,7 @@ export function renderRepository(
     people.hidden = true;
     live.hidden = true;
     publishControls.clear();
+    viewAs.clear();
     releases.clear();
     using.clear();
     builtOn.clear();
@@ -133,6 +138,7 @@ export function renderRepository(
     required<HTMLElement>(live, '[data-live-text]').textContent = LIVE_NOTICE;
     live.hidden = !current.published;
     publishControls.paint(repository, current.published);
+    void viewAs.paint(repository, current.published);
     overview.hidden = false;
   }
 

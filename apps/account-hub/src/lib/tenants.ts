@@ -254,6 +254,14 @@ export async function createTenant(body: TenantCreate): Promise<TenantOut> {
   return unwrap(await client.POST('/tenants', { body: body }));
 }
 
+// Deletes a tenant and everything in it (ADR 0184): the platform tenant-creator role and the
+// tenant's Owner. Studio uses it for the Test library only (ADR 0261).
+export async function deleteTenant(tenantId: string): Promise<void> {
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}', { params: { path: { tenant_id: tenantId } } }),
+  );
+}
+
 // RFC 0017 (a)/(e)/(f) - the tenant's full roster, one row per
 // relationship (a user who is ORGA, GMs one campaign, and plays in
 // another appears three times). Unpaginated here to match how this app

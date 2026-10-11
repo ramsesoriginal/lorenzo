@@ -1,4 +1,10 @@
-import { type Browser, type BrowserContext, expect, type Page } from '@playwright/test';
+import {
+  type Browser,
+  type BrowserContext,
+  expect,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { type Api, apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
 import { AUTHGEAR_URL, SUBJECT_COOKIE } from '../../../inventory-web/tests/e2e/support/env';
 
@@ -58,11 +64,32 @@ export async function newCampaign(owner: Api, tenantId: string, name: string) {
   );
 }
 
-/** A library's card on /tenants, found by the name its heading starts with. */
-export function libraryCard(page: Page, name: string) {
+/**
+ * A library, open on /tenants: the page shows the one the address names (`?tenant=` its slug), and
+ * gives back its article.
+ */
+export async function openLibrary(page: Page, library: { slug: string; name: string }) {
+  await page.goto(`/tenants?tenant=${library.slug}`);
+  const article = page.locator('[data-tenant]');
+
+  await expect(article.locator('h2[data-name]')).toHaveText(library.name);
+  await expect(article.locator('[data-loading]')).toBeHidden();
+
+  return article;
+}
+
+/** A campaign's card in an open library, found by its name. */
+export function campaignCard(library: Locator, name: string) {
+  return library
+    .locator('[data-campaign-list] > article')
+    .filter({ has: library.page().getByRole('heading', { name, exact: true }) });
+}
+
+/** A player's seat on /campaigns ("Where you play"), found by its campaign's name. */
+export function seatFor(page: Page, campaignName: string) {
   return page
-    .locator('#tenant-list > li')
-    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${name}`) }) });
+    .locator('[data-seat]')
+    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${campaignName}`) }) });
 }
 
 /** A repository, made through the API by an account holding the tenant-creator role. */
