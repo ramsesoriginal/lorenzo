@@ -114,12 +114,17 @@ test('a player undoes a reused character; an owner link is never offered', async
   await hood.getByRole('button', { name: 'Stop using in this campaign' }).click();
   await expect(hood).toContainText("You don't have a character here yet.");
   expect(session.confirmations[0]).toContain('Stop using "Cael" in "Hood"?');
-  const after = await ok(
-    player.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
-      params: { path: { tenant_id: library.id, character_id: character.entity_id } },
-    }),
-  );
-  expect(after.players.map((p) => p.id)).toEqual([seat1.id]);
+  // The page says so as soon as it has asked; the API may take a moment longer to have done it.
+  await expect
+    .poll(async () => {
+      const after = await ok(
+        player.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
+          params: { path: { tenant_id: library.id, character_id: character.entity_id } },
+        }),
+      );
+      return after.players.map((p) => p.id);
+    })
+    .toEqual([seat1.id]);
   await session.context.close();
 });
 
