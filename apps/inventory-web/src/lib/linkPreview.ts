@@ -1,6 +1,6 @@
 // What a link to an entity shows when pointed at (ADR 0264): the card the API makes for it, kept
 // for the page, and the pure pieces of deciding when to show it. components/LinkPreview draws it.
-import { client, type components, LorenzoApiError, unwrap } from './api';
+import { type components, LorenzoApiError } from '@lorenzo/api-client';
 
 export type Card = components['schemas']['LinkPreviewOut'];
 
@@ -62,11 +62,3 @@ export function createCardCache(
     return loading;
   };
 }
-
-export const loadCard = createCardCache(async (tenant, id) =>
-  unwrap(
-    await client.GET('/tenants/{tenant_id}/entities/{entity_id}/preview', {
-      params: { path: { tenant_id: tenant, entity_id: id } },
-    }),
-  ),
-);

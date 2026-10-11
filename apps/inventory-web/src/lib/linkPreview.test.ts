@@ -1,5 +1,5 @@
+import { LorenzoApiError } from '@lorenzo/api-client';
 import { describe, expect, it, vi } from 'vitest';
-import { LorenzoApiError } from './api';
 import { type Card, createCardCache, kindLabel, previewTarget, statText } from './linkPreview';
 
 const card = (name: string) => ({ name }) as Card;

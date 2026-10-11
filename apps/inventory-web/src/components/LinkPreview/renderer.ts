@@ -3,7 +3,8 @@
 // are drawn and drawn again. The timing is previewState.ts's; the words are the API's.
 
 import { blobUrl } from '../../lib/api';
-import { type Card, kindLabel, loadCard, previewTarget, statText } from '../../lib/linkPreview';
+import { type Card, kindLabel, previewTarget, statText } from '../../lib/linkPreview';
+import { loadCard } from '../../lib/previewCards';
 import { createPreviewState } from '../../lib/previewState';
 
 const CARD_ID = 'link-preview';
