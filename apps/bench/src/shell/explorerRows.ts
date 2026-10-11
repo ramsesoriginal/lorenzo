@@ -132,3 +132,26 @@ export function moveTargets(entries: readonly EntrySummary[], id: string): Entry
   }
   return entries.filter((e) => !under.has(e.id)).sort(byName);
 }
+
+/**
+ * The parents an entry has after it is dragged from one place in the tree to another: the place it
+ * was dragged from (`from`, null at the top level) is replaced by `to` (null for the top level).
+ * Its other parents stay. Null when nothing would change.
+ */
+export function movedParents(
+  parents: readonly string[],
+  from: string | null,
+  to: string | null,
+): string[] | null {
+  if (from === to) return null;
+  if (to !== null && parents.includes(to)) return null;
+  const rest = parents.filter((p) => p !== from);
+  const next = to === null ? rest : [...rest, to];
+  return next.length === parents.length && next.every((p, i) => p === parents[i]) ? null : next;
+}
+
+/** The entry a tree row hangs under, read from its key (`root/child/grandchild`); null at the top. */
+export function parentOfKey(key: string): string | null {
+  const path = key.split('/');
+  return path.length > 1 ? path[path.length - 2] : null;
+}
