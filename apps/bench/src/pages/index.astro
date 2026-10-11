@@ -27,6 +27,7 @@ import '../styles/bench.css';
       <strong>Lorenzo Bench</strong>
     </header>
     <div class="live" id="live" role="status" hidden></div>
+    <div class="welcome" id="welcome" hidden></div>
     <main id="bench"></main>
     <footer class="statusbar" id="statusbar"></footer>
     <script>
@@ -35,10 +36,11 @@ import '../styles/bench.css';
       import type { Transport } from '../core/transport';
       import { apiTransport } from '../lib/transport';
       import { LiveBanner } from '../shell/liveBanner';
-      import { loadSession, signOut } from '../shell/session';
+      import { chooseRepository, loadSession, signOut } from '../shell/session';
       import { guardUnsent, requestSignOut } from '../shell/signOutDialog';
       import { Shell } from '../shell/shell';
       import { SAMPLE_ENTRIES, SAMPLE_STATS } from '../shell/stub';
+      import { openStartScreen, showWelcome } from '../shell/repositories';
       import { renderTitleBar } from '../shell/titlebar';
 
       const root = document.getElementById('bench');
@@ -80,13 +82,22 @@ import '../styles/bench.css';
             ...session.repositories.map((r) => ({
               label: `Open repository ${r.name}`,
               run: () => {
-                const select = bar.querySelector('select');
-                if (select) {
-                  select.value = r.id;
-                  select.dispatchEvent(new Event('change'));
-                }
+                chooseRepository(session.userId, r.id);
+                location.reload();
               },
             })),
+            {
+              label: 'Your repositories…',
+              run: () =>
+                openStartScreen(
+                  session.repositories.map((r) => ({ id: r.id, name: r.name, role: r.role as string })),
+                  session.current?.id ?? null,
+                  (id) => {
+                    chooseRepository(session.userId, id);
+                    location.reload();
+                  },
+                ),
+            },
             { label: 'Sign out', run: leave },
           );
         }
@@ -122,7 +133,15 @@ import '../styles/bench.css';
             },
           );
         }
+        extra.push({
+          label: 'Show the welcome',
+          run: () => showWelcome(document.getElementById('welcome') as HTMLElement, true),
+        });
         shell.extra = extra;
+        showWelcome(document.getElementById('welcome') as HTMLElement);
+        // Signed in with nothing to open: the start screen says what a repository is.
+        if (session.kind === 'signed-in' && !session.current)
+          openStartScreen([], null, () => {});
 
         await bench.loadEntries();
         const first = bench.entries.find((e) => e.kinds.includes('item'));
