@@ -4,14 +4,12 @@
 import { slugify } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
-import { entryIdOfHref, type Rendered } from '../core/links';
 import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
 
 import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
 import { icon } from './icons';
-import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 import { liveEditor } from './liveEditor';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
