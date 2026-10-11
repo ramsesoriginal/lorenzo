@@ -1,6 +1,7 @@
 ---
 import BeingPicker from '../components/BeingPicker/BeingPicker.astro';
 import CheckboxField from '../components/CheckboxField/CheckboxField.astro';
+import LinkPreview from '../components/LinkPreview/LinkPreview.astro';
 import SiteFooter from '../components/SiteFooter/SiteFooter.astro';
 import SiteHead from '../components/SiteHead/SiteHead.astro';
 import SiteHeader from '../components/SiteHeader/SiteHeader.astro';
@@ -26,6 +27,7 @@ const { title = 'Lorenzo — Inventory' } = Astro.props;
     <!-- What the panels that find a being and give something copy, as any page may open one. -->
     <BeingPicker />
     <CheckboxField />
+    <LinkPreview />
 
     <SiteFooter />
   </body>
