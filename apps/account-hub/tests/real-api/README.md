@@ -12,18 +12,20 @@ E2E_POSTGRES_URL=postgres://lorenzo:lorenzo@127.0.0.1:55432/postgres pnpm run te
 ## What CI runs
 
 CI runs `pnpm run test:real-api:ci` ([ADR 0196](../../../../docs/adr/0196-shelf-the-repositories-list-and-page.md)): the logged-out
-smoke tests in `tests/e2e`, `tests/real-api/shelf.spec.ts`, `tests/real-api/copy.spec.ts`, `tests/real-api/studio.spec.ts`, `tests/real-api/studio-subscriber.spec.ts` ([ADR 0261](../../../../docs/adr/0261-studio-view-as-a-subscriber.md)) and `tests/real-api/updates.spec.ts` ([ADR 0201](../../../../docs/adr/0201-shelf-the-copy-wizard.md), [ADR 0202](../../../../docs/adr/0202-studio-my-repositories.md), [ADR 0203](../../../../docs/adr/0203-shelf-the-update-inbox.md)). Those are the tests known to match the pages
-as they are today.
+smoke tests in `tests/e2e` and every spec in this folder, listed in that script. The pages were reworked
+into `data-*` hooks and shared components after the first specs were written, and the stale ones have
+since been repaired against them one file at a time (#505), so none is left out. The view-as-a-subscriber spec, `studio-subscriber.spec.ts` ([ADR 0261](../../../../docs/adr/0261-studio-view-as-a-subscriber.md)), is one of them.
 
-## What is not run in CI, and why
+A new spec goes into `test:real-api:ci` in the same change that adds it. Find things the way the pages
+are built: by their `data-*` hooks and by role and name, through the helpers in `support.ts`
+(`signIn`, `openLibrary` for a library open on `/tenants`, `campaignCard`, `seatFor`). Do not delete a
+spec to make a run green: if a behaviour has gone, say so in the spec and adapt it.
 
-The other specs in this folder were written against the pages as they were before the hub's pages were
-reworked: they look for elements that have since become `data-*` hooks (`#tenant-list`, `#repository-list`,
-`#account-signed-in`) and for headings and controls the pages no longer have. `signIn` in `support.ts` has
-been brought up to date; the specs have not. Run on their own they fail on those selectors, not on
-behaviour. They stay here, so that what each one checks is not lost, and are repaired one file at a time
-(each repaired spec is added to `test:real-api:ci`), tracked in #505. Do not delete one to make a run green.
+Notes on what the repaired specs rely on:
 
-The specs not run in CI: `admin-basics`, `being-handoff`, `campaigns`, `errors`, `exits`, `invite-links`,
-`repositories` (what is left of it, about `/beings` and the pages of playing: the rest became
-`studio.spec.ts`, ADR 0202), `self-service`, `setup` and `tenant-slug`.
+- `/tenants` opens one library at a time, the one `?tenant=<slug>` names (`openLibrary`); a campaign's
+  people and invite links are on tabs of its card, and a library's "Leave" is on the Admins tab.
+- The hub caches what it reads for the next page (`lib/cache.ts`), so a test that makes a page ask the
+  API again (an unreachable API, an expired session) empties `sessionStorage` first.
+- An account that may create and has no library gets the create form on `/tenants`, not an empty page;
+  the link to `/setup` is in the header and on `/` and `/campaigns`.
