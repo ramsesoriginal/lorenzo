@@ -1267,7 +1267,6 @@ See [[Ashfang]] at {weight}.
 ]
 ````````
 
-
 ## Deviations from CommonMark
 
 - No raw HTML, and no HTML entity references.
