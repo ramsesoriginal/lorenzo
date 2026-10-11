@@ -1,5 +1,6 @@
 // The title bar: the repository picker on the left, who is signed in on the right.
 
+import { openStartScreen, type RepoChoice, repositoryMenu } from './repositories';
 import { chooseRepository, type Session, signIn } from './session';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -8,6 +9,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   if (text !== undefined) e.textContent = text;
   return e;
 };
+
+const SAMPLE_REPO: RepoChoice = { id: 'sample', name: 'Sample repository', role: 'owner' };
 
 export function renderTitleBar(
   bar: HTMLElement,
@@ -19,7 +22,14 @@ export function renderTitleBar(
   const right = el('div', 'who');
   switch (session.kind) {
     case 'unconfigured':
-      bar.append(el('span', 'note', 'Sample data. Sign-in is not set up for this build.'));
+      // One sample repository, so the menu and the start screen can be tried.
+      bar.append(
+        repositoryMenu([SAMPLE_REPO], SAMPLE_REPO.id, {
+          choose: () => {},
+          all: () => openStartScreen([SAMPLE_REPO], SAMPLE_REPO.id, () => {}),
+        }),
+        el('span', 'note', 'Sample data. Sign-in is not set up for this build.'),
+      );
       break;
     case 'signed-out': {
       bar.append(el('span', 'note', 'Not signed in. Sample data.'));
@@ -33,22 +43,21 @@ export function renderTitleBar(
       bar.append(el('span', 'note bad', session.message));
       break;
     case 'signed-in': {
-      const label = el('label', 'picker');
-      label.append(el('span', 'sr', 'Repository'));
-      const select = el('select');
-      select.setAttribute('aria-label', 'Repository');
-      if (!session.repositories.length) {
-        select.append(new Option('No repositories yet', ''));
-        select.disabled = true;
-      }
-      for (const r of session.repositories)
-        select.append(new Option(r.name, r.id, false, r.id === session.current?.id));
-      select.addEventListener('change', () => {
-        chooseRepository(session.userId, select.value);
-        onRepository(select.value);
-      });
-      label.append(select);
-      bar.append(label);
+      const choices: RepoChoice[] = session.repositories.map((r) => ({
+        id: r.id,
+        name: r.name,
+        role: r.role as string,
+      }));
+      const choose = (id: string) => {
+        chooseRepository(session.userId, id);
+        onRepository(id);
+      };
+      bar.append(
+        repositoryMenu(choices, session.current?.id ?? null, {
+          choose,
+          all: () => openStartScreen(choices, session.current?.id ?? null, choose),
+        }),
+      );
       right.append(el('span', 'name', session.name));
       break;
     }

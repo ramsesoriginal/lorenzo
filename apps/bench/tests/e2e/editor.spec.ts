@@ -25,7 +25,11 @@ const writes = (page: Page) =>
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => {
+    localStorage.clear();
+    // The welcome strip appears late and moves the page; it has its own tests.
+    localStorage.setItem('bench:welcomed', '1');
+  });
   await page.reload();
   await expect(name(page)).toHaveValue('Monster');
   // These tests pick entries by id from a flat list; the tree has its own tests below.

@@ -10,6 +10,6 @@ mise run //apps/bench:test       # unit tests of the layout model (no DOM)
 mise run //apps/bench:test-e2e   # Playwright against the built page (set E2E_CHROMIUM to use an installed browser)
 ```
 
-Keyboard: on a focused tab, Alt+Left/Right reorders, Alt+Shift+arrows splits it to that side, Alt+F floats it.
+Keyboard: on a focused tab, Alt+Left/Right reorders, Alt+Shift+arrows splits it to that side, Alt+F floats it, Ctrl+Alt+arrows move it into the group beside, Alt+D docks it back; the palette lists them ([ADR 0257](../../docs/adr/0257-bench-keyboard-moves-for-tabs.md)).
 
 Layout rules live in `src/workspace/` as pure functions; `src/shell/` is the DOM over them.

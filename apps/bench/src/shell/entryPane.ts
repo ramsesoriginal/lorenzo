@@ -274,8 +274,6 @@ function pictureSection(bench: Bench, id: string): HTMLElement {
   return box;
 }
 
-const quoted = (slugs: string[]): string => slugs.map((s) => `“${s}”`).join(', ');
-
 function textEditor(
   bench: Bench,
   go: (id: string) => void,

@@ -5,7 +5,11 @@ const groupOf = (page: import('@playwright/test').Page, pane: string) =>
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => {
+    localStorage.clear();
+    // The welcome strip appears late and moves the page; it has its own tests.
+    localStorage.setItem('bench:welcomed', '1');
+  });
   await page.reload();
 });
 
