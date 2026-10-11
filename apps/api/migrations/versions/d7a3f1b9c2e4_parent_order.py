@@ -166,6 +166,9 @@ def upgrade() -> None:
         WHERE ep.entity_id = ranked.entity_id AND ep.prototype_id = ranked.prototype_id
         """
     )
+    # The export revision (ADR 0262) is bumped by deferred triggers on this table, and the UPDATE
+    # above queues their events: a table with pending events cannot be altered, so they run now.
+    op.execute("SET CONSTRAINTS ALL IMMEDIATE")
     op.alter_column("entity_prototype", "position", nullable=False)
     op.execute(_CREATE_POSITION_FUNCTION)
     op.execute(_CREATE_POSITION_TRIGGER)
