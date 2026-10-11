@@ -254,3 +254,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0254 - Bench: the status bar and the conflict review](0254-bench-status-bar-and-conflict-review.md) — sync state, selection and connection in a bar; a dialog that reviews every conflict (Was / Mine / Theirs) and refusal.
 - [0255 - Bench: the Pictures pane and the inherited picture](0255-bench-pictures-pane.md) — shows the nearest picture above an entry and says so; drop, paste or choose with a preview; an overview of all pictures.
 - [0256 - Bench: the pack editor](0256-bench-pack-editor.md) — the ADR 0145 contents list edited as rows (move, indent, count, make an item), written back to the description; total weight.
+- [0257 - Bench: moving tabs with the keyboard](0257-bench-keyboard-moves-for-tabs.md) — arrows between tabs, Ctrl+Alt+arrows into the group beside, Alt+D to dock, announced; listed in the palette.

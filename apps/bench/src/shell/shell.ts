@@ -31,6 +31,7 @@ import {
   treeGroups,
   type Workspace,
 } from '../workspace/model';
+import { neighbourGroup } from '../workspace/neighbour';
 import {
   activePreset,
   applyPreset,
@@ -118,6 +119,7 @@ export class Shell {
   private palette: HTMLElement | null = null;
   /** The Write / Inspect / Compare switch; the page puts it in the title bar. */
   readonly layoutEl = el('div', 'layouts');
+  private readonly announceEl = el('div', 'sr-only');
   readonly statusEl = el('footer', 'statusbar');
   /** What the Table and the Compare grid keep while the page is drawn again. */
   private packUi: PackUi = newPackUi();
@@ -154,7 +156,9 @@ export class Shell {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () =>
       this.applyTheme(this.theme()),
     );
-    root.append(this.surface, this.overlay, this.ghost, this.mark);
+    this.announceEl.setAttribute('role', 'status');
+    this.announceEl.setAttribute('aria-live', 'polite');
+    root.append(this.surface, this.overlay, this.ghost, this.mark, this.announceEl);
     this.overlay.hidden = this.ghost.hidden = this.mark.hidden = true;
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
@@ -835,7 +839,27 @@ export class Shell {
 
   /** Tabs are keyboard-reachable: Alt+arrows reorder, Alt+Shift+arrows split, Alt+F floats. */
   private onTabKey(e: KeyboardEvent, g: Group, p: string) {
-    if (!e.altKey) return;
+    if (!e.altKey) {
+      // Arrows go between the tabs of a group (and choose the one they reach); Home and End go to the ends.
+      const at = g.panes.indexOf(p);
+      const to =
+        e.key === 'ArrowLeft'
+          ? at - 1
+          : e.key === 'ArrowRight'
+            ? at + 1
+            : e.key === 'Home'
+              ? 0
+              : e.key === 'End'
+                ? g.panes.length - 1
+                : -1;
+      const next = g.panes[to];
+      if (e.ctrlKey || e.metaKey || e.shiftKey || !next) return;
+      e.preventDefault();
+      this.focus = next;
+      this.set(setActive(this.ws, g.id, next));
+      this.root.querySelector<HTMLElement>(`[data-tab="${next}"] .name`)?.focus();
+      return;
+    }
     const sides: Record<string, Side> = {
       ArrowLeft: 'left',
       ArrowRight: 'right',
@@ -845,6 +869,16 @@ export class Shell {
     if (e.key === 'f' || e.key === 'F') {
       e.preventDefault();
       this.floatPane(p);
+      this.say(`${titleOf(p)} is in its own window.`);
+    } else if (e.key === 'd' || e.key === 'D') {
+      const loc = locate(this.ws, p);
+      if (loc?.kind !== 'float') return;
+      e.preventDefault();
+      this.dock(loc.gid);
+      this.say(`${titleOf(p)} is back in the workbench.`);
+    } else if (e.ctrlKey && sides[e.key]) {
+      e.preventDefault();
+      this.moveToNeighbour(p, g, sides[e.key] as Side);
     } else if (e.shiftKey && sides[e.key]) {
       e.preventDefault();
       this.splitPane(p, sides[e.key]);
@@ -854,6 +888,54 @@ export class Shell {
       this.set(addTab(this.ws, g.id, [p], Math.max(0, Math.min(g.panes.length, i)), p));
       this.root.querySelector<HTMLElement>(`[data-tab="${p}"] .name`)?.focus();
     }
+  }
+
+  /** Puts the tab into the group next to its own on `side`. */
+  private moveToNeighbour(p: string, g: Group, side: Side) {
+    if (locate(this.ws, p)?.kind !== 'tree') return;
+    const boxes = layout(this.ws.tree).groups.map((q) => ({
+      id: q.g.id,
+      x: q.x,
+      y: q.y,
+      w: q.w,
+      h: q.h,
+    }));
+    const to = neighbourGroup(boxes, g.id, side);
+    if (!to) return this.say(`There is no group to the ${side}.`);
+    this.set(addTab(removePane(this.ws, p), to, [p], null, p));
+    this.root.querySelector<HTMLElement>(`[data-tab="${p}"] .name`)?.focus();
+    this.say(`${titleOf(p)} moved to the group on the ${side}.`);
+  }
+
+  private showKeys() {
+    const dialog = el('dialog', 'confirm');
+    dialog.setAttribute('aria-labelledby', 'keys-title');
+    const title = el('h2', undefined, 'Moving tabs with the keyboard');
+    title.id = 'keys-title';
+    const list = el('ul', 'confirm-list');
+    for (const [keys, what] of TAB_KEYS) {
+      const li = el('li');
+      li.append(el('kbd', undefined, keys), el('span', 'muted', what));
+      list.append(li);
+    }
+    const close = el('button', 'btn', 'Close');
+    close.type = 'button';
+    close.addEventListener('click', () => {
+      dialog.close();
+      dialog.remove();
+    });
+    dialog.append(title, list, close);
+    document.body.append(dialog);
+    dialog.showModal();
+    // The key that chose the command is still down: on the Close button it would close this at once.
+    dialog.tabIndex = -1;
+    dialog.focus();
+  }
+
+  /** Says something to a screen reader. */
+  private say(text: string) {
+    this.announceEl.textContent = '';
+    this.announceEl.textContent = text;
   }
 
   private onKey(e: KeyboardEvent) {
@@ -879,6 +961,7 @@ export class Shell {
       c.push({ label: `Split ${titleOf(focus)} to the ${s}`, run: () => this.splitPane(focus, s) });
     for (const f of this.ws.floats)
       c.push({ label: `Dock window with ${titleOf(f.active)}`, run: () => this.dock(f.id) });
+    c.push({ label: 'Keyboard shortcuts for tabs', run: () => this.showKeys() });
     c.push({ label: 'Reset layout', run: () => this.reset() });
     for (const p of PRESETS)
       c.push({ label: `Layout: ${PRESET_LABEL[p]}`, run: () => this.layout(p) });
@@ -960,3 +1043,13 @@ function removePaneKeepGroup(ws: Workspace, gid: string, pane: string): Workspac
         : { ...n, kids: n.kids.map((k) => walk(k) as NonNullable<Workspace['tree']>) };
   return { ...ws, tree: walk(ws.tree) };
 }
+
+/** The chords of a tab, as the shortcuts dialog lists them. */
+const TAB_KEYS: [string, string][] = [
+  ['← →  Home  End', 'Go to another tab of the group'],
+  ['Alt + ← →', 'Move the tab among its group'],
+  ['Alt + Shift + arrows', 'Split the tab out to that side'],
+  ['Ctrl + Alt + arrows', 'Move the tab into the group on that side'],
+  ['Alt + F', 'Float the tab in its own window'],
+  ['Alt + D', 'Dock a floating tab back'],
+];

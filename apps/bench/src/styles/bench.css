@@ -1285,3 +1285,15 @@ table.grid td.cur {
   display: flex;
   gap: 4px;
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.confirm-list kbd {
+  font-family: ui-monospace, monospace;
+}

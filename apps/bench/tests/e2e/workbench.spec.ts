@@ -110,3 +110,40 @@ test('tabs can be moved with the keyboard', async ({ page }) => {
   await page.keyboard.press('Alt+f');
   await expect(page.locator('.grp.float')).toHaveCount(1);
 });
+
+test('arrow keys go between the tabs of a group and choose the one they reach', async ({
+  page,
+}) => {
+  await page.locator('[data-tab="props"] .name').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-tab="links"] .name')).toBeFocused();
+  await expect(page.locator('[data-tab="links"] .name')).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Home');
+  await expect(page.locator('[data-tab="props"] .name')).toBeFocused();
+});
+
+test('Ctrl+Alt+arrow moves a tab into the group beside, and says so', async ({ page }) => {
+  await page.locator('[data-tab="props"] .name').focus();
+  await page.keyboard.press('Control+Alt+ArrowLeft');
+  await expect(groupOf(page, 'props')).toHaveCount(1);
+  expect(await groupOf(page, 'props').locator('[data-tab="entry"]').count()).toBe(1);
+  await expect(
+    page.locator('[role="status"]', { hasText: 'Stats moved to the group on the left.' }),
+  ).toBeAttached();
+});
+
+test('Alt+D docks a floating tab back', async ({ page }) => {
+  await page.locator('[data-tab="links"] .name').focus();
+  await page.keyboard.press('Alt+f');
+  await expect(page.locator('.grp.float')).toHaveCount(1);
+  await page.locator('.grp.float [data-tab="links"] .name').focus();
+  await page.keyboard.press('Alt+d');
+  await expect(page.locator('.grp.float')).toHaveCount(0);
+});
+
+test('the palette lists the keyboard shortcuts for tabs', async ({ page }) => {
+  await page.keyboard.press('Control+k');
+  await page.getByLabel('Command palette').fill('keyboard shortcuts');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog')).toContainText('Ctrl + Alt + arrows');
+});
