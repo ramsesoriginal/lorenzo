@@ -274,7 +274,6 @@ function pictureSection(bench: Bench, id: string): HTMLElement {
   return box;
 }
 
-
 function textEditor(
   bench: Bench,
   go: (id: string) => void,
