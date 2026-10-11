@@ -2,6 +2,7 @@
 
 - [GitHub repository setup](github-setup.md) — manual steps this repo's own tooling can't automate yet
 - [Deployment setup](deployment-setup.md) — one-time Google Cloud + Neon setup for apps/api's and apps/loot-bot's deploy pipelines
+- [Hosting Lorenzo Beings](beings-setup.md) — the one-time steps to host apps/beings: its Authgear client, the Cloudflare Pages project, the repository secrets, and switching its deploy workflow on
 - [Local Authgear setup](local-authgear-setup.md) — manual, one-time setup for a real login round-trip against Authgear Cloud during interactive testing
 - [Releasing](releasing.md) — how the release-please automation works
 - [Exporting your tenant](exporting-your-tenant.md) — how an owner takes their tenant's data out with the existing authenticated reads, and what such an export will not contain

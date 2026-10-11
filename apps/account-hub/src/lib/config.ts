@@ -23,3 +23,8 @@ export const AUTHGEAR_CLIENT_ID: string | undefined = import.meta.env.PUBLIC_AUT
 export const BRANDING_CSS_URL: string = (
   import.meta.env.PUBLIC_BRANDING_CSS_URL || '/branding'
 ).replace(/\/$/, '');
+
+// Where Lorenzo Beings (apps/beings) is deployed, to link a library's beings to it (ADR 0272).
+// Optional: without it the link is not shown. Trailing slash stripped like the one above.
+export const BEINGS_BASE_URL: string | undefined =
+  import.meta.env.PUBLIC_BEINGS_BASE_URL?.replace(/\/$/, '') || undefined;

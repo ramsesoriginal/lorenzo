@@ -2,6 +2,7 @@
 // specific campaign context: only campaigns the caller GMs in the library are offered.
 
 import { createCharacter, listBeings, updateCharacter } from '../../lib/characters';
+import { BEINGS_BASE_URL } from '../../lib/config';
 import { isTenantAdmin } from '../../lib/format';
 import { bindInlineRename } from '../../lib/inlineRename';
 import { say, sayError } from '../../lib/statusLine';
@@ -30,6 +31,13 @@ export async function renderBeings(root: HTMLElement, input: BeingsInput): Promi
 
   required<HTMLElement>(root, '[data-name]').textContent = tenant.name;
   required<HTMLElement>(root, '[data-repository-badge]').hidden = !readOnly;
+
+  // The same beings, in the app made for them, where this deployment knows where that is (ADR 0272).
+  if (BEINGS_BASE_URL && !readOnly) {
+    required<HTMLAnchorElement>(root, '[data-beings-anchor]').href =
+      `${BEINGS_BASE_URL}/beings/?tenant=${encodeURIComponent(tenant.id)}`;
+    required<HTMLElement>(root, '[data-beings-link]').hidden = false;
+  }
 
   function renderBeing(being: BeingSummaryOut): HTMLElement {
     if (readOnly) {
