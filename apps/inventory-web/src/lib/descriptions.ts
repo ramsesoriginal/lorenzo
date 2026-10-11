@@ -1,7 +1,15 @@
 // Descriptions as LorenzoScript (RFC 0027, ADR 0108): rendering them with
 // this tenant's entities resolved, and what links to an entity. Writing
 // them is information.ts's.
-import { parse, type Reference, type Resolver, references, render } from '@lorenzo/lorenzoscript';
+import {
+  parse,
+  type Reference,
+  type Resolver,
+  references,
+  render,
+  slugify,
+  statNames,
+} from '@lorenzo/lorenzoscript';
 import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import { type EntityReference, entityHref, linkNote, type ResolvedSlug } from './entityLinks';
 import { viewerLocales } from './me';
@@ -33,6 +41,8 @@ export const at =
 const MY = 'my';
 /** How long a `my/` answer is believed: who holds what changes while a page is open. */
 const MY_MS = 30_000;
+/** How long the stats of an entry are believed, for the `{weight}` in its texts. */
+const STAT_MS = 30_000;
 
 // GET .../entities/resolve takes at most this many slugs (ADR 0107).
 const MAX_SLUGS = 100;
@@ -81,6 +91,33 @@ export function descriptionRenderer(tenantId: string, now: () => number = Date.n
   // When a `my/` answer was got; plain slugs are kept for the page.
   const asked = new Map<string, number>();
   const pictures = new Map<string, Promise<string | null>>();
+  // The stats of the entry a text belongs to, for its `{weight}`: by the slug of each stat's name.
+  // Kept a little while, since a person edits stats and the values change under an open page.
+  const statValues = new Map<
+    string,
+    { at: number; texts: Map<string, { name: string; text: string }> }
+  >();
+
+  async function statTexts(home: string) {
+    const kept = statValues.get(home);
+    if (kept && now() - kept.at < STAT_MS) return kept.texts;
+    try {
+      const entity = await getEntity(tenantId, home);
+      const texts = new Map(
+        entity.stats.map((s) => [
+          slugify(s.name),
+          {
+            name: s.name,
+            text: typeof s.value === 'boolean' ? (s.value ? 'On' : 'Off') : String(s.value),
+          },
+        ]),
+      );
+      statValues.set(home, { at: now(), texts });
+      return texts;
+    } catch {
+      return null;
+    }
+  }
 
   /** What an answer is kept under: the slug, or for `my/` the slug with the entity it was asked for. */
   const keyOf = (ref: { hint: string; slug: string }, home: string | undefined): string =>
@@ -165,7 +202,16 @@ export function descriptionRenderer(tenantId: string, now: () => number = Date.n
     const pictureOf = (entity: ResolvedSlug | null | undefined) =>
       entity ? shown.get(entity.entity_id) : undefined;
 
+    const stats = new Map<string, Map<string, { name: string; text: string }> | null>();
+    for (const [i, doc] of docs.entries()) {
+      const home = homes[i];
+      if (home && !stats.has(home) && statNames(doc).length) stats.set(home, await statTexts(home));
+    }
     const resolverFor = (home: string | undefined): Resolver => ({
+      stat: (name) => {
+        const found = home ? stats.get(home)?.get(name.toLowerCase()) : undefined;
+        return found ? { text: found.text, title: found.name } : null;
+      },
       entity: (ref) => {
         const entity = slugs.get(keyOf(ref, home));
         const href = entity ? entityHref(tenantId, entity, ref.hint) : null;

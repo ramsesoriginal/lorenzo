@@ -39,7 +39,14 @@ beforeEach(() => {
         );
       case '/tenants/{tenant_id}/entities/{entity_id}': {
         const payloads = params.path.entity_id === 'e1' ? [{ kind: 'picture', id: 'p1' }] : [];
-        return ok({ information: [{ type: 'main_picture', payloads }] });
+        return ok({
+          information: [{ type: 'main_picture', payloads }],
+          stats: [
+            { name: 'Weight', value: 1.5, own: true },
+            { name: 'Hit points', value: 30, own: false },
+            { name: 'Magical', value: true, own: true },
+          ],
+        });
       }
       case '/tenants/{tenant_id}/payloads/{payload_id}/content':
         return ok(new Blob(['a picture']));
@@ -179,5 +186,49 @@ describe('my/ links', () => {
     const [out] = await render(['![her sword](my/ashfang)']);
     expect(out?.html).toContain('src="blob:pic"');
     vi.unstubAllGlobals();
+  });
+});
+
+describe('stats in texts', () => {
+  const entityReads = () =>
+    api.GET.mock.calls.filter(([path]) => path === '/tenants/{tenant_id}/entities/{entity_id}')
+      .length;
+
+  it('shows {weight} as the value of the entry the text belongs to', async () => {
+    const render = at(descriptionRenderer('t1'), 'e1');
+    const [out] = await render(['It weighs {weight} kg, {hit-points} hp, {magical}.']);
+    expect(out?.html).toContain('<span class="ls-stat" title="Weight">1.5</span>');
+    expect(out?.html).toContain('>30<');
+    expect(out?.html).toContain('>On<');
+  });
+
+  it('leaves a name the entry has no stat for as written, and does not ask without a home', async () => {
+    const [named] = await at(descriptionRenderer('t1'), 'e1')(['{nothing}']);
+    expect(named?.html).toContain('{nothing}');
+    api.GET.mockClear();
+    const [homeless] = await descriptionRenderer('t1')(['{weight}']);
+    expect(homeless?.html).toContain('{weight}');
+    expect(entityReads()).toBe(0);
+  });
+
+  it('reads the entry once for all its texts, and again after a while', async () => {
+    let clock = 0;
+    const render = at(
+      descriptionRenderer('t1', () => clock),
+      'e1',
+    );
+    await render(['{weight}', '{price} {weight}']);
+    expect(entityReads()).toBe(1);
+    clock = 10_000;
+    await render(['{weight}']);
+    expect(entityReads()).toBe(1);
+    clock = 40_000;
+    await render(['{weight}']);
+    expect(entityReads()).toBe(2);
+  });
+
+  it('asks nothing for texts with no stat in them', async () => {
+    await at(descriptionRenderer('t1'), 'e1')(['Plain text.']);
+    expect(entityReads()).toBe(0);
   });
 });

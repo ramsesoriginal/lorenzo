@@ -17,6 +17,11 @@ export type Resolver = {
   /** The entity's main picture: `https:`, `blob:` (fetched with the viewer's token), or relative. */
   image?: (ref: EntityRef) => { src: string; title?: string } | null;
   calendar?: (expression: string) => string | null;
+  /**
+   * `{weight}`: the value of a stat of the entry the text belongs to, as the text to show (`1.5 kg`).
+   * Null, or no lookup, renders the `{weight}` as it was written.
+   */
+  stat?: (name: string) => { text: string; title?: string; class?: string } | null;
 };
 
 export type RenderOptions = {
@@ -77,6 +82,12 @@ export function render(doc: Document, options: RenderOptions = {}): string {
         return footnoteRef(n.label);
       case 'date':
         return `<time datetime="${n.date}"${attrsHtml(n.attrs)}>${escapeHtml(formatDate(n.date))}</time>`;
+      case 'stat': {
+        const shown = options.resolve?.stat?.(n.name);
+        return shown
+          ? `<span${attrsHtml(n.attrs, 'ls-stat', ...(shown.class ?? '').split(/\s+/).filter((c) => /^[A-Za-z][\w-]*$/.test(c)))}${attr('title', shown.title ?? '')}>${escapeHtml(shown.text)}</span>`
+          : escapeHtml(`{${n.name}}`);
+      }
       case 'calendar': {
         const shown = options.resolve?.calendar?.(n.expression) ?? n.expression;
         return `<span${attrsHtml(n.attrs, 'ls-cal')}>${escapeHtml(shown)}</span>`;

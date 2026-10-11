@@ -4,18 +4,22 @@
 // connection when `offline` is set.
 
 import { slugify } from '@lorenzo/lorenzoscript';
+import { type Formula, same } from './formulas';
 import {
   canRename,
   canSetParents,
   type EditableKind,
   type EntryState,
   type EntrySummary,
+  type HeldFormula,
   type NewEntry,
   type NewText,
   OfflineError,
+  type Preview,
   RefusedError,
   type ResolvedEntry,
   type StatDef,
+  type StatGroup,
   type StatScalar,
   type StatType,
   type StatValue,
@@ -71,6 +75,8 @@ export class SampleTransport implements Transport {
   writes: SampleWrite[] = [];
   /** Ids that other tenants hold: a create with one is refused the same way the API does. */
   heldElsewhere = new Set<string>();
+  private formulas = new Map<string, { formula: Formula; version: number }>();
+  private groups: StatGroup[] = [{ id: 'group-general', name: 'General' }];
   private rows = new Map<
     string,
     Omit<SampleEntry, 'description' | 'notes' | 'stats' | 'slug' | 'picture'> & {
@@ -351,9 +357,11 @@ export class SampleTransport implements Transport {
         ? typeof value === 'boolean'
         : def.type === 'int'
           ? Number.isInteger(value)
-          : def.type === 'text'
-            ? typeof value === 'string'
-            : typeof value === 'string' && def.enumValues.includes(value);
+          : def.type === 'float'
+            ? typeof value === 'number'
+            : def.type === 'text'
+              ? typeof value === 'string'
+              : typeof value === 'string' && def.enumValues.includes(value);
     if (!fits) throw new RefusedError(`That is not a ${def.type} value for ${def.name}.`);
     if (row.stats.get(stat.id) !== value) {
       row.stats.set(stat.id, value);
@@ -450,5 +458,153 @@ export class SampleTransport implements Transport {
     const row = this.row(id);
     row.name = name;
     row.version++;
+  }
+
+  // ----- formulas and the stat vocabulary (ADR 0253) -----
+
+  private numberOf(entryId: string, statId: string): number {
+    const v = this.effective(entryId).find((x) => x.statId === statId)?.value;
+    return typeof v === 'number' ? v : 0;
+  }
+  private evaluate(entryId: string, f: Formula): { value: StatScalar | null; read: string[] } {
+    const num = (t: string) => Number(t.replace(',', '.'));
+    const round = (n: number, mode: string) =>
+      mode === 'floor'
+        ? Math.floor(n)
+        : mode === 'ceil'
+          ? Math.ceil(n)
+          : mode === 'truncate'
+            ? Math.trunc(n)
+            : mode === 'round'
+              ? Math.sign(n) * Math.round(Math.abs(n))
+              : n;
+    if (f.kind === 'sum') {
+      const n = f.terms.reduce(
+        (a, t) => a + num(t.coefficient) * this.numberOf(entryId, t.stat),
+        0,
+      );
+      return { value: round(n + num(f.offset), f.round), read: f.terms.map((t) => t.stat) };
+    }
+    if (f.kind === 'linear')
+      return {
+        value: round(this.numberOf(entryId, f.source) * num(f.multiplier) + num(f.offset), f.round),
+        read: [f.source],
+      };
+    if (f.kind === 'contents') {
+      let n = 0;
+      for (const [id, r] of this.rows) if (r.heldBy === entryId) n += this.numberOf(id, f.source);
+      return { value: n, read: [f.source] };
+    }
+    const left = this.numberOf(entryId, f.left);
+    const right = 'stat' in f.right ? this.numberOf(entryId, f.right.stat) : num(f.right.constant);
+    const holds = {
+      lt: left < right,
+      le: left <= right,
+      eq: left === right,
+      ne: left !== right,
+      ge: left >= right,
+      gt: left > right,
+    }[f.comparator];
+    const chosen = holds ? f.trueValue : f.falseValue;
+    return {
+      value: chosen === '' ? holds : Number.isNaN(Number(chosen)) ? chosen : Number(chosen),
+      read: 'stat' in f.right ? [f.left, f.right.stat] : [f.left],
+    };
+  }
+  private held(entryId: string, statId: string): HeldFormula | null {
+    const h = this.formulas.get(`${entryId}/${statId}`);
+    return h ? { entryId, statId, formula: h.formula, version: `"f${h.version}"` } : null;
+  }
+
+  async listFormulas(entryId: string): Promise<HeldFormula[]> {
+    this.need();
+    this.row(entryId);
+    return this.defs.flatMap((d) => this.held(entryId, d.id) ?? []);
+  }
+  async previewFormula(entryId: string, statId: string, formula: Formula | null): Promise<Preview> {
+    this.need();
+    this.row(entryId);
+    const f = formula ?? this.held(entryId, statId)?.formula ?? null;
+    if (!f) {
+      const own = this.effective(entryId).find((x) => x.statId === statId);
+      return { value: own?.value ?? null, source: own ? 'direct' : 'unset', inputs: [] };
+    }
+    const { value, read } = this.evaluate(entryId, f);
+    return {
+      value,
+      source: 'computed',
+      inputs: read.map((id) => ({
+        name: this.defs.find((d) => d.id === id)?.name ?? '?',
+        value: this.effective(entryId).find((x) => x.statId === id)?.value ?? null,
+      })),
+    };
+  }
+  async setFormula(
+    entryId: string,
+    statId: string,
+    formula: Formula,
+    version: string | null,
+  ): Promise<HeldFormula> {
+    this.need();
+    this.row(entryId);
+    const key = `${entryId}/${statId}`;
+    const current = this.held(entryId, statId);
+    if (current && version !== current.version)
+      throw new RefusedError('The formula changed.', true);
+    if (current && same(current.formula, formula)) return current;
+    this.formulas.set(key, { formula, version: (this.formulas.get(key)?.version ?? 0) + 1 });
+    return this.held(entryId, statId) as HeldFormula;
+  }
+  async clearFormula(entryId: string, statId: string, version: string): Promise<void> {
+    this.need();
+    const current = this.held(entryId, statId);
+    if (!current) return;
+    if (version !== current.version) throw new RefusedError('The formula changed.', true);
+    this.formulas.delete(`${entryId}/${statId}`);
+  }
+  async formulaDependents(statId: string): Promise<{ entryId: string; statId: string }[]> {
+    this.need();
+    const out: { entryId: string; statId: string }[] = [];
+    for (const [key, h] of this.formulas) {
+      const [entryId, target] = key.split('/') as [string, string];
+      if (this.evaluate(entryId, h.formula).read.includes(statId))
+        out.push({ entryId, statId: target });
+    }
+    return out;
+  }
+  async listStatGroups(): Promise<StatGroup[]> {
+    this.need();
+    return [...this.groups];
+  }
+  async createStatGroup(name: string): Promise<StatGroup> {
+    this.need();
+    if (this.groups.some((g) => g.name.toLowerCase() === name.toLowerCase()))
+      throw new RefusedError(`There is a group called ${name} already.`);
+    const g = { id: `group-${this.groups.length + 1}`, name };
+    this.groups.push(g);
+    return g;
+  }
+  async createStat(def: {
+    name: string;
+    groupId: string;
+    type: StatType;
+    enumValues: string[];
+  }): Promise<StatDef> {
+    this.need();
+    if (this.defs.some((d) => d.name.toLowerCase() === def.name.toLowerCase()))
+      throw new RefusedError(`There is a stat called ${def.name} already.`);
+    const made = {
+      id: `stat-${slugify(def.name)}`,
+      name: def.name,
+      type: def.type,
+      enumValues: def.enumValues,
+    };
+    this.defs.push(made);
+    return made;
+  }
+  async deleteStat(statId: string): Promise<void> {
+    this.need();
+    const at = this.defs.findIndex((d) => d.id === statId);
+    if (at >= 0) this.defs.splice(at, 1);
   }
 }

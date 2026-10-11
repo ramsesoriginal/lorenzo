@@ -17,13 +17,15 @@ import {
   usedIds,
   type Value,
 } from './commands';
-import { LinkResolver } from './links';
+import { FormulaStore, findFormula } from './formulaStore';
+import { LinkResolver, type StatTexts } from './links';
 import { Pictures } from './pictures';
 import {
   canEditStat,
   type EditableKind,
   type EntryState,
   type EntrySummary,
+  type HeldFormula,
   OfflineError,
   RefusedError,
   type StatDef,
@@ -54,6 +56,8 @@ export class Bench {
   readonly links: LinkResolver;
   /** Entries' main pictures. */
   readonly pictures: Pictures;
+  /** The formulas that work out stats. */
+  readonly formulas: FormulaStore;
   private nextId = 1;
   private listeners = new Set<() => void>();
   private current: Promise<void> | null = null;
@@ -64,6 +68,8 @@ export class Bench {
     private readonly makeId: () => string = () => crypto.randomUUID(),
   ) {
     this.links = new LinkResolver(transport);
+    this.links.stats = (home) => this.statChips(home);
+    this.formulas = new FormulaStore(transport, () => this.emit());
     this.pictures = new Pictures(
       transport,
       () => this.emit(),
@@ -77,6 +83,30 @@ export class Bench {
   }
   private emit() {
     for (const fn of this.listeners) fn();
+  }
+
+  /** The formula that works out the stat on the entry, held by it or above it; null when none. */
+  formulaFor(id: string, statId: string): HeldFormula | null {
+    const parents = (x: string) => this.entries.find((e) => e.id === x)?.parentIds ?? [];
+    return findFormula((e) => this.formulas.held(e), parents, id, statId);
+  }
+
+  /** Reads the formulas of the entry and of everything above it. */
+  loadFormulas(id: string): Promise<void> {
+    const seen = new Set<string>();
+    const up = (x: string) => {
+      if (seen.has(x)) return;
+      seen.add(x);
+      for (const p of this.entries.find((e) => e.id === x)?.parentIds ?? []) up(p);
+    };
+    up(id);
+    return this.formulas.load([...seen]);
+  }
+
+  /** Reads the stat vocabulary again (after a stat was made or deleted). */
+  async reloadStatDefinitions(): Promise<void> {
+    this.statDefs = await this.transport.listStatDefinitions();
+    this.emit();
   }
 
   // ---- reading ----------------------------------------------------------------------------
@@ -115,9 +145,73 @@ export class Bench {
     if (!quiet) this.emit();
   }
 
+  /**
+   * The stats the entry has, as text for `{weight}` in its texts: by the slug of each stat's name,
+   * with whether the value is its own. Null while the entry has not been read.
+   */
+  statChips(id: string): StatTexts | null {
+    const entry = this.view(id);
+    if (!entry) return null;
+    const out = new Map<string, { name: string; text: string; own: boolean }>();
+    for (const s of entry.stats) {
+      const def = this.statDefs.find((d) => d.id === s.statId);
+      if (def)
+        out.set(slugify(def.name), {
+          name: def.name,
+          text: typeof s.value === 'boolean' ? (s.value ? 'On' : 'Off') : String(s.value),
+          own: s.own,
+        });
+    }
+    return out;
+  }
+
+  /** How many entries this one has a parent link or a child link with. */
+  linkCount(id: string): number {
+    const v = this.view(id);
+    return v ? v.parentIds.length + this.childrenOf(id).length : 0;
+  }
+
   /** Whether the server has the entry (it is not one made here and not sent yet). */
   onServer(id: string): boolean {
     return this.entries.some((e) => e.id === id) && !this.pendingCreate(id);
+  }
+
+  /**
+   * Reads every entry's detail, a few at a time, quietly, so a view of many entries (the compare
+   * grid) has their stats. There is no bulk read yet (RFC 0041 K7): this is one read an entry,
+   * which is fine for hundreds and slow for thousands. The screen is told now and then, and at the end.
+   */
+  async loadAll(concurrency = 6): Promise<void> {
+    // One run at a time: the grid asks again each time the page is drawn.
+    this.reading ??= this.readAll(concurrency).finally(() => {
+      this.reading = null;
+    });
+    return this.reading;
+  }
+  private reading: Promise<void> | null = null;
+  private async readAll(concurrency: number): Promise<void> {
+    const ids = this.entries
+      .map((e) => e.id)
+      .filter((id) => !this.mirror.has(id) && !this.pendingCreate(id));
+    let next = 0;
+    let done = 0;
+    const worker = async () => {
+      while (next < ids.length) {
+        await this.open(ids[next++] as string, true);
+        if (++done % 12 === 0) this.emit();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
+    if (ids.length) this.emit();
+  }
+
+  /** How many entries have their detail read, of how many there are. */
+  loaded(): { read: number; of: number } {
+    const of = this.entries.length;
+    return {
+      read: this.entries.filter((e) => this.mirror.has(e.id) || this.pendingCreate(e.id)).length,
+      of,
+    };
   }
 
   /** The entry as the person sees it: the mirror with its pending commands applied. */

@@ -31,10 +31,26 @@ import {
   treeGroups,
   type Workspace,
 } from '../workspace/model';
+import { neighbourGroup } from '../workspace/neighbour';
+import {
+  activePreset,
+  applyPreset,
+  PRESET_LABEL,
+  PRESETS,
+  type Preset,
+} from '../workspace/presets';
+import { renderAncestry } from './ancestryPane';
+import { openConflicts } from './conflictDialog';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
+import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
+import { type GridState, newGridState, renderGrid } from './gridPane';
+import { newPackUi, type PackUi, renderPack } from './packPane';
+import { newPicturesUi, type PicturesUi, renderPictures } from './picturesPane';
 import { renderStats } from './statsPane';
+import { drawStatusBar } from './statusBar';
 import { PANE_IDS, PANES } from './stub';
+import { newVocabularyUi, renderVocabulary, type VocabularyUi } from './vocabularyPane';
 
 const BAR = 30;
 const STORE = 'bench:workspace';
@@ -101,6 +117,19 @@ export class Shell {
     label: string;
   } = null;
   private palette: HTMLElement | null = null;
+  /** The Write / Inspect / Compare switch; the page puts it in the title bar. */
+  readonly layoutEl = el('div', 'layouts');
+  private readonly announceEl = el('div', 'sr-only');
+  readonly statusEl = el('footer', 'statusbar');
+  /** What the Table and the Compare grid keep while the page is drawn again. */
+  private packUi: PackUi = newPackUi();
+  private picturesUi: PicturesUi = newPicturesUi();
+  private formulaUi: FormulaUi = newFormulaUi();
+  private vocabularyUi: VocabularyUi = newVocabularyUi();
+  private grids: Record<'table' | 'grid', GridState> = {
+    table: newGridState(),
+    grid: newGridState(),
+  };
   /** How the explorer lists entries, and which entries in the tree are folded shut. */
   private order: Order = Shell.savedOrder();
   private collapsed = new Set<string>();
@@ -127,7 +156,9 @@ export class Shell {
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () =>
       this.applyTheme(this.theme()),
     );
-    root.append(this.surface, this.overlay, this.ghost, this.mark);
+    this.announceEl.setAttribute('role', 'status');
+    this.announceEl.setAttribute('aria-live', 'polite');
+    root.append(this.surface, this.overlay, this.ghost, this.mark, this.announceEl);
     this.overlay.hidden = this.ghost.hidden = this.mark.hidden = true;
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
@@ -190,6 +221,26 @@ export class Shell {
     this.set(showPane(this.ws, pane));
   }
 
+  /** Arranges the panes as a preset (Write, Inspect, Compare). */
+  layout(name: Preset) {
+    this.set(applyPreset(this.ws, name));
+  }
+
+  private drawLayouts() {
+    const now = activePreset(this.ws);
+    this.layoutEl.setAttribute('role', 'group');
+    this.layoutEl.setAttribute('aria-label', 'Layout');
+    this.layoutEl.replaceChildren(
+      ...PRESETS.map((p) => {
+        const b = el('button', 'btn', PRESET_LABEL[p]);
+        b.type = 'button';
+        b.setAttribute('aria-pressed', String(p === now));
+        b.addEventListener('click', () => this.layout(p));
+        return b;
+      }),
+    );
+  }
+
   reset() {
     this.home = {};
     this.set(defaultWorkspace());
@@ -211,6 +262,10 @@ export class Shell {
             at: typing ? active.selectionStart : null,
           }
         : null;
+    this.drawLayouts();
+    drawStatusBar(this.statusEl, this.bench, this.selected, () =>
+      openConflicts(this.bench, (x) => this.select(x)),
+    );
     redraw.active = true;
     s.replaceChildren();
     redraw.active = false;
@@ -290,6 +345,15 @@ export class Shell {
     const t = el('div', p === g.active ? 'tab on' : 'tab');
     t.dataset.tab = p;
     const b = el('button', 'name', titleOf(p));
+    if (p === 'links') {
+      // How many parents and children the selected entry has.
+      const n = this.selected ? this.bench.linkCount(this.selected) : 0;
+      if (n) {
+        const badge = el('span', 'badge', String(n));
+        badge.setAttribute('aria-label', `${n} links`);
+        b.append(' ', badge);
+      }
+    }
     b.type = 'button';
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(p === g.active));
@@ -475,6 +539,30 @@ export class Shell {
     if (id === 'entry') return renderEntry(bench, this.selected, (x) => this.select(x));
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
+    if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
+    if (id === 'pack')
+      return renderPack(bench, this.selected, this.packUi, {
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+      });
+    if (id === 'pictures')
+      return renderPictures(bench, this.selected, this.picturesUi, {
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+      });
+    if (id === 'formula')
+      return renderFormulas(bench, this.selected, this.formulaUi, {
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+      });
+    if (id === 'vocabulary') return renderVocabulary(bench, this.vocabularyUi, () => this.render());
+    if (id === 'table' || id === 'grid')
+      return renderGrid(bench, this.grids[id], {
+        compact: id === 'table',
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+        openGrid: () => this.open('grid'),
+      });
     const c = el('div', `pane pane-${id}`);
     if (id === 'explorer') {
       if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));
@@ -725,7 +813,9 @@ export class Shell {
     const loc = locate(this.ws, pane);
     if (!loc || loc.kind === 'float') return;
     const n = this.ws.floats.length;
-    this.floatTab([pane], pane, Math.max(8, this.rect().width - 460 - n * 28), 48 + n * 28);
+    // Placed so the window fits inside the page, whatever its width.
+    const w = PANES.find((p) => p.id === pane)?.float[0] ?? 460;
+    this.floatTab([pane], pane, Math.max(8, this.rect().width - w - 16 - n * 28), 48 + n * 28);
   }
 
   dock(gid: string) {
@@ -749,7 +839,27 @@ export class Shell {
 
   /** Tabs are keyboard-reachable: Alt+arrows reorder, Alt+Shift+arrows split, Alt+F floats. */
   private onTabKey(e: KeyboardEvent, g: Group, p: string) {
-    if (!e.altKey) return;
+    if (!e.altKey) {
+      // Arrows go between the tabs of a group (and choose the one they reach); Home and End go to the ends.
+      const at = g.panes.indexOf(p);
+      const to =
+        e.key === 'ArrowLeft'
+          ? at - 1
+          : e.key === 'ArrowRight'
+            ? at + 1
+            : e.key === 'Home'
+              ? 0
+              : e.key === 'End'
+                ? g.panes.length - 1
+                : -1;
+      const next = g.panes[to];
+      if (e.ctrlKey || e.metaKey || e.shiftKey || !next) return;
+      e.preventDefault();
+      this.focus = next;
+      this.set(setActive(this.ws, g.id, next));
+      this.root.querySelector<HTMLElement>(`[data-tab="${next}"] .name`)?.focus();
+      return;
+    }
     const sides: Record<string, Side> = {
       ArrowLeft: 'left',
       ArrowRight: 'right',
@@ -759,6 +869,16 @@ export class Shell {
     if (e.key === 'f' || e.key === 'F') {
       e.preventDefault();
       this.floatPane(p);
+      this.say(`${titleOf(p)} is in its own window.`);
+    } else if (e.key === 'd' || e.key === 'D') {
+      const loc = locate(this.ws, p);
+      if (loc?.kind !== 'float') return;
+      e.preventDefault();
+      this.dock(loc.gid);
+      this.say(`${titleOf(p)} is back in the workbench.`);
+    } else if (e.ctrlKey && sides[e.key]) {
+      e.preventDefault();
+      this.moveToNeighbour(p, g, sides[e.key] as Side);
     } else if (e.shiftKey && sides[e.key]) {
       e.preventDefault();
       this.splitPane(p, sides[e.key]);
@@ -768,6 +888,54 @@ export class Shell {
       this.set(addTab(this.ws, g.id, [p], Math.max(0, Math.min(g.panes.length, i)), p));
       this.root.querySelector<HTMLElement>(`[data-tab="${p}"] .name`)?.focus();
     }
+  }
+
+  /** Puts the tab into the group next to its own on `side`. */
+  private moveToNeighbour(p: string, g: Group, side: Side) {
+    if (locate(this.ws, p)?.kind !== 'tree') return;
+    const boxes = layout(this.ws.tree).groups.map((q) => ({
+      id: q.g.id,
+      x: q.x,
+      y: q.y,
+      w: q.w,
+      h: q.h,
+    }));
+    const to = neighbourGroup(boxes, g.id, side);
+    if (!to) return this.say(`There is no group to the ${side}.`);
+    this.set(addTab(removePane(this.ws, p), to, [p], null, p));
+    this.root.querySelector<HTMLElement>(`[data-tab="${p}"] .name`)?.focus();
+    this.say(`${titleOf(p)} moved to the group on the ${side}.`);
+  }
+
+  private showKeys() {
+    const dialog = el('dialog', 'confirm');
+    dialog.setAttribute('aria-labelledby', 'keys-title');
+    const title = el('h2', undefined, 'Moving tabs with the keyboard');
+    title.id = 'keys-title';
+    const list = el('ul', 'confirm-list');
+    for (const [keys, what] of TAB_KEYS) {
+      const li = el('li');
+      li.append(el('kbd', undefined, keys), el('span', 'muted', what));
+      list.append(li);
+    }
+    const close = el('button', 'btn', 'Close');
+    close.type = 'button';
+    close.addEventListener('click', () => {
+      dialog.close();
+      dialog.remove();
+    });
+    dialog.append(title, list, close);
+    document.body.append(dialog);
+    dialog.showModal();
+    // The key that chose the command is still down: on the Close button it would close this at once.
+    dialog.tabIndex = -1;
+    dialog.focus();
+  }
+
+  /** Says something to a screen reader. */
+  private say(text: string) {
+    this.announceEl.textContent = '';
+    this.announceEl.textContent = text;
   }
 
   private onKey(e: KeyboardEvent) {
@@ -793,7 +961,10 @@ export class Shell {
       c.push({ label: `Split ${titleOf(focus)} to the ${s}`, run: () => this.splitPane(focus, s) });
     for (const f of this.ws.floats)
       c.push({ label: `Dock window with ${titleOf(f.active)}`, run: () => this.dock(f.id) });
+    c.push({ label: 'Keyboard shortcuts for tabs', run: () => this.showKeys() });
     c.push({ label: 'Reset layout', run: () => this.reset() });
+    for (const p of PRESETS)
+      c.push({ label: `Layout: ${PRESET_LABEL[p]}`, run: () => this.layout(p) });
     for (const t of ['system', 'light', 'dark'])
       c.push({ label: `Appearance: ${t}`, run: () => this.setTheme(t) });
     return c.concat(this.extra);
@@ -872,3 +1043,13 @@ function removePaneKeepGroup(ws: Workspace, gid: string, pane: string): Workspac
         : { ...n, kids: n.kids.map((k) => walk(k) as NonNullable<Workspace['tree']>) };
   return { ...ws, tree: walk(ws.tree) };
 }
+
+/** The chords of a tab, as the shortcuts dialog lists them. */
+const TAB_KEYS: [string, string][] = [
+  ['← →  Home  End', 'Go to another tab of the group'],
+  ['Alt + ← →', 'Move the tab among its group'],
+  ['Alt + Shift + arrows', 'Split the tab out to that side'],
+  ['Ctrl + Alt + arrows', 'Move the tab into the group on that side'],
+  ['Alt + F', 'Float the tab in its own window'],
+  ['Alt + D', 'Dock a floating tab back'],
+];

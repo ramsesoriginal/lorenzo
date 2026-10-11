@@ -564,9 +564,11 @@ describe('stats', () => {
     expect(bench.setStat('c', 'armor', null)).toBeNull();
   });
 
-  it('does not edit a float yet, nor a stat that is not defined', async () => {
-    const { bench } = await withStats();
-    expect(bench.setStat('c', 'weight', 3)).toBeNull();
+  it('edits a decimal, and not a stat that is not defined', async () => {
+    const { bench, server } = await withStats();
+    expect(bench.setStat('c', 'weight', 1.5)).not.toBeNull();
+    await bench.run();
+    expect(server.writes).toContainEqual({ id: 'c', field: 'stat:weight', value: 1.5 });
     expect(bench.setStat('c', 'nothing', 3)).toBeNull();
   });
 
@@ -925,5 +927,57 @@ describe('pictures', () => {
     const out = await bench.links.render('![x](old-sword)', 'b');
     expect(server.pictureReads).toContain('a');
     expect(out.html).toContain('<img');
+  });
+});
+
+describe('stats in texts', () => {
+  const make = async () => {
+    const server = new SampleTransport(
+      [
+        { id: 'a', name: 'Sword', kinds: ['item'], parents: [], stats: { armor: 12 } },
+        {
+          id: 'b',
+          name: 'Longsword',
+          kinds: ['item'],
+          parents: ['a'],
+          stats: { weight: 1.5, undead: true },
+        },
+      ],
+      [
+        { id: 'armor', name: 'Armor class', type: 'int', enumValues: [] },
+        { id: 'weight', name: 'Weight', type: 'float', enumValues: [] },
+        { id: 'undead', name: 'Undead', type: 'bool', enumValues: [] },
+      ],
+    );
+    const bench = new Bench(server);
+    await bench.loadEntries();
+    await bench.open('b');
+    return { bench, server };
+  };
+
+  it('has the stats of the entry as text, by the slug of the stat\u2019s name', async () => {
+    const { bench } = await make();
+    const chips = bench.statChips('b');
+    expect(chips?.get('weight')).toEqual({ name: 'Weight', text: '1.5', own: true });
+    expect(chips?.get('undead')?.text).toBe('On');
+  });
+
+  it('has nothing for an entry that is not read', async () => {
+    const { bench } = await make();
+    expect(bench.statChips('a')).toBeNull();
+  });
+
+  it('draws {weight} with the entry\u2019s value, and as written when there is none', async () => {
+    const { bench } = await make();
+    const out = bench.links.renderNow('It weighs {weight} and {price}.', 'b');
+    expect(out.html).toContain('<span class="ls-stat" title="Weight">1.5</span>');
+    expect(out.html).toContain('{price}');
+  });
+
+  it('follows a change that is waiting to be sent', async () => {
+    const { bench, server } = await make();
+    server.offline = true;
+    bench.setStat('b', 'weight', 1.6);
+    expect(bench.links.renderNow('{weight}', 'b').html).toContain('>1.6<');
   });
 });

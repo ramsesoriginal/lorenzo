@@ -10,6 +10,7 @@ Every example renders with `locale: 'en-GB'` and a fixture resolver:
 - A reference `hint/slug` links to `/hint/slug`, or to `/entity/slug` without a hint. The link is titled with the entity's name.
 - A picture is `/pictures/slug.png`.
 - It reads the calendar date `harptos 1492-mirtul-12` as "12 Mirtul 1492 DR".
+- It knows one stat, `weight`, which reads "1.5 kg".
 
 The sections cover three stages:
 
@@ -1239,6 +1240,32 @@ A link inside a link's text wins, so the outer one stays text; a wikilink is a l
 ## Nesting limit
 
 Blockquotes and lists nest at most 32 levels deep, and so do inline elements (emphasis, links, images). Anything deeper renders as text. A link's destination holds at most 32 levels of nested parentheses, as CommonMark allows an implementation to limit; with more, it isn't a link. Real text never gets near this. It exists because text is written by one person and rendered in someone else's browser, and read by the server, so no input may exhaust either: every scan must stay linear however the text is shaped ([ADR 0110](../../docs/adr/0110-lorenzoscript-content-references-and-backlinks.md)). The tests for it live next to the example runner, since 33 levels of nesting don't make a readable example.
+
+## Stats in text
+
+`{weight}` names a stat of the entry the text belongs to, written with the stat's name lowercased and hyphenated (`{hit-points}`). The resolver says what to show, a value and its unit; a name it does not know, or a stat the entry has no value for, renders as written. A stat is not a reference: nothing about it is stored, and `references()` never returns one. A name starts with a letter, so `{#id}`, `{.class}` and `a{3}` stay what they were.
+
+```````` example
+A sword weighs {weight} kg, or {price} gp; {weight}{.big} and **{weight}**.
+.
+<p>A sword weighs <span class="ls-stat" title="Weight">1.5 kg</span> kg, or {price} gp; <span class="ls-stat big" title="Weight">1.5 kg</span> and <strong><span class="ls-stat" title="Weight">1.5 kg</span></strong>.</p>
+````````
+
+```````` example
+It takes {#id} and {.class} as before, and a{3} is text: {3} and { weight }.
+.
+<p>It takes {#id} and {.class} as before, and a{3} is text: {3} and { weight }.</p>
+````````
+
+```````` example
+See [[Ashfang]] at {weight}.
+.
+<p>See <a href="/entity/ashfang" title="Ashfang" class="ls-entity">Ashfang</a> at <span class="ls-stat" title="Weight">1.5 kg</span>.</p>
+.
+[
+  {"kind": "entity", "hint": "", "slug": "ashfang"}
+]
+````````
 
 ## Deviations from CommonMark
 

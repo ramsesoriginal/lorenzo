@@ -8,7 +8,9 @@ import {
   type Schema,
   unwrap,
 } from '@lorenzo/api-client';
+import { fromBody, toBody } from '../core/formulas';
 import {
+  decimalText,
   type EditableKind,
   type EntryState,
   type EntrySummary,
@@ -141,6 +143,151 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
 
     listStatDefinitions: () => guarded(loadDefinitions),
 
+    listFormulas: (entryId) =>
+      guarded(async () => {
+        const rows = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/{entity_id}/computed-stats', {
+            params: { path: { ...path, entity_id: entryId } },
+          }),
+        );
+        return rows.map((r) => ({
+          entryId: r.entity_id,
+          statId: r.stat_definition_id,
+          formula: fromBody(r.formula as never),
+          version: `W/"${r.updated_at}"`,
+        }));
+      }),
+
+    previewFormula: (entryId, statId, formula) =>
+      guarded(async () => {
+        const out = await unwrap(
+          await client.POST(
+            '/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}/preview',
+            {
+              params: { path: { ...path, entity_id: entryId, stat_definition_id: statId } },
+              body: { formula: formula ? (toBody(formula) as never) : null },
+            },
+          ),
+        );
+        const defs = await loadDefinitions();
+        return {
+          value: out.value,
+          source: out.source,
+          inputs: out.inputs.map((i) => {
+            const row = i as unknown as { stat_definition_id: string; value: never };
+            return {
+              name: defs.find((d) => d.id === row.stat_definition_id)?.name ?? '?',
+              value: row.value,
+            };
+          }),
+        };
+      }),
+
+    setFormula: (entryId, statId, formula, version) =>
+      guarded(async () => {
+        const r = await unwrap(
+          await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}',
+            {
+              params: {
+                path: { ...path, entity_id: entryId, stat_definition_id: statId },
+                header: ifMatch(version),
+              },
+              body: toBody(formula) as never,
+            },
+          ),
+        );
+        return {
+          entryId,
+          statId,
+          formula: fromBody(r.formula as never),
+          version: `W/"${r.updated_at}"`,
+        };
+      }),
+
+    clearFormula: (entryId, statId, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.DELETE(
+            '/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}',
+            {
+              params: {
+                path: { ...path, entity_id: entryId, stat_definition_id: statId },
+                header: ifMatch(version),
+              },
+            },
+          ),
+        );
+      }),
+
+    formulaDependents: (statId) =>
+      guarded(async () => {
+        const rows = await unwrap(
+          await client.GET(
+            '/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents',
+            {
+              params: { path: { ...path, stat_definition_id: statId } },
+            },
+          ),
+        );
+        return rows.map((r) => ({ entryId: r.entity_id, statId: r.stat_definition_id }));
+      }),
+
+    listStatGroups: () =>
+      guarded(async () => {
+        const rows = await fetchAllPages(async (page) =>
+          unwrap(
+            await client.GET('/tenants/{tenant_id}/stat-groups', {
+              params: { path, query: { page, size: MAX_PAGE_SIZE } },
+            }),
+          ),
+        );
+        return rows.map((g) => ({ id: g.id, name: g.name }));
+      }),
+
+    createStatGroup: (name) =>
+      guarded(async () => {
+        const g = await unwrap(
+          await client.POST('/tenants/{tenant_id}/stat-groups', {
+            params: { path },
+            body: { name, priority: 0, mandatory: false },
+          }),
+        );
+        return { id: g.id, name: g.name };
+      }),
+
+    createStat: (def) =>
+      guarded(async () => {
+        const d = await unwrap(
+          await client.POST('/tenants/{tenant_id}/stat-definitions', {
+            params: { path },
+            body: {
+              name: def.name,
+              stat_group_id: def.groupId,
+              value_type: def.type,
+              enum_values: def.type === 'enum' ? def.enumValues : null,
+            },
+          }),
+        );
+        definitions = null;
+        return {
+          id: d.id,
+          name: d.name,
+          type: d.value_type as StatType,
+          enumValues: [...d.enum_values],
+        };
+      }),
+
+    deleteStat: (statId) =>
+      guarded(async () => {
+        await unwrap(
+          await client.DELETE('/tenants/{tenant_id}/stat-definitions/{stat_definition_id}', {
+            params: { path: { ...path, stat_definition_id: statId } },
+          }),
+        );
+        definitions = null;
+      }),
+
     resolveSlugs: (slugs, from) =>
       guarded(async (): Promise<ResolvedEntry[]> => {
         if (!slugs.length) return [];
@@ -246,6 +393,18 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
                 '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
                 { params },
               );
+        } else if (stat.type === 'float' && typeof value === 'number') {
+          // JSON written by the browser says `3` for `3.0`, which the API reads as a whole number
+          // and refuses for a decimal stat: the body is written by hand, point kept.
+          res = await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+            {
+              params,
+              body: { value: 0, acquire_group: true },
+              bodySerializer: () => `{"value":${decimalText(value)},"acquire_group":true}`,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          );
         } else {
           res = await client.PUT(
             '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',

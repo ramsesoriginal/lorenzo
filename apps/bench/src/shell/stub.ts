@@ -31,7 +31,14 @@ export const SAMPLE_ENTRIES: SampleEntry[] = [
   { id: 'zombie', name: 'Zombie', kinds: ['item'], parents: ['undead'] },
   { id: 'ghoul', name: 'Ghoul', kinds: ['item'], parents: ['undead', 'beast'] },
   // Called something other than its name makes, so a link to it is [Longsword](blade).
-  { id: 'sword', name: 'Longsword', kinds: ['item'], parents: [], slug: 'blade' },
+  {
+    id: 'sword',
+    name: 'Longsword',
+    kinds: ['item'],
+    parents: [],
+    slug: 'blade',
+    stats: { weight: 1.5 },
+  },
   // Held by Ashfang, so [my sword](my/blade) in a text of Ashfang's leads here.
   {
     id: 'ashfang-sword',
@@ -58,6 +65,13 @@ export const PANES: PaneDef[] = [
   { id: 'entry', title: 'Entry', float: [720, 520] },
   { id: 'props', title: 'Stats', float: [324, 500] },
   { id: 'links', title: 'Parents and children', float: [304, 380] },
+  { id: 'ancestry', title: 'Ancestry', float: [420, 320] },
+  { id: 'table', title: 'Table', float: [560, 320] },
+  { id: 'grid', title: 'Compare', float: [760, 480] },
+  { id: 'formula', title: 'Formulas', float: [420, 420] },
+  { id: 'pictures', title: 'Pictures', float: [480, 460] },
+  { id: 'pack', title: 'Pack', float: [460, 460] },
+  { id: 'vocabulary', title: 'Vocabulary', float: [420, 400] },
 ];
 
 export const PANE_IDS = PANES.map((p) => p.id);

@@ -255,20 +255,42 @@ test('a new entry that was sent cannot be undone here', async ({ page }) => {
 // --- description and notes -------------------------------------------------------------------
 
 const description = (page: Page) => page.getByLabel('Description', { exact: true });
+/**
+ * A drawn text turns into its source where it is clicked, so its field is there only once it has
+ * been: opens the `n`th text of that label (by clicking its last block) unless it is already open.
+ */
+const openText = async (page: Page, label: string, n = 0) => {
+  const field = page.getByLabel(label, { exact: true });
+  if ((await field.count()) === 0)
+    await page.getByLabel(`${label}, as it reads`).nth(n).locator('.live-block').last().click();
+  return field;
+};
+/**
+ * The drawn text of a label, once what is being written has been left (Escape): the block with
+ * the caret is source, and only the blocks left are drawn as they read.
+ */
+const reads = async (page: Page, label = 'Description') => {
+  const field = page.getByLabel(label, { exact: true });
+  if ((await field.count()) > 0) await field.first().press('Escape');
+  return page.getByLabel(`${label}, as it reads`);
+};
 const blur = async (page: Page) => page.locator('.pane-entry h2', { hasText: 'Notes' }).click();
 
 test('the description is shown as it reads, and edited with a preview that follows the typing', async ({
   page,
 }) => {
   await page.locator('[data-entry="wolf"]').click();
+  await expect((await reads(page)).locator('strong')).toHaveText('packs');
+  // Drawn as it reads until it is clicked, which shows its source.
+  await expect(description(page)).toHaveCount(0);
+  await openText(page, 'Description');
   await expect(description(page)).toHaveValue('Hunts in **packs**.');
-  await expect(page.getByLabel('Description, as it reads').locator('strong')).toHaveText('packs');
   await description(page).fill('Hunts in *pairs*.');
   // before it is written down, the preview already shows it
-  await expect(page.getByLabel('Description, as it reads').locator('em')).toHaveText('pairs');
-  expect(await writes(page)).toEqual([]);
+  // (leaving the field to read it commits the text, so nothing is said here about writes yet)
+  await expect((await reads(page)).locator('em')).toHaveText('pairs');
   await blur(page);
-  // written down once the focus has moved on, so the write is waited for, not the status
+  // written down once the text has been left, so the write is waited for, not the status
   await expect
     .poll(() => writes(page))
     .toEqual([{ id: 'wolf-description', field: 'description', value: 'Hunts in *pairs*.' }]);
@@ -283,7 +305,7 @@ test('an entry with no description gets one when text is written', async ({ page
   await expect(status(page)).toHaveText('Synced');
   await page.locator('[data-entry="wolf"]').click();
   await page.locator('[data-entry="beast"]').click();
-  await expect(description(page)).toHaveValue('Natural creatures.');
+  await expect(page.getByLabel('Description, as it reads')).toHaveText('Natural creatures.');
 });
 
 test('with no connection a description is saved here, and sent when it is back', async ({
@@ -291,6 +313,7 @@ test('with no connection a description is saved here, and sent when it is back',
 }) => {
   await page.locator('[data-entry="wolf"]').click();
   await palette(page, 'lose the connection');
+  await openText(page, 'Description');
   await description(page).fill('Offline text.');
   await blur(page);
   await expect(status(page)).toHaveText('Saved on this device');
@@ -302,6 +325,7 @@ test('with no connection a description is saved here, and sent when it is back',
 test('a description changed elsewhere is a conflict', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
   await palette(page, 'lose the connection');
+  await openText(page, 'Description');
   await description(page).fill('Mine.');
   await blur(page);
   await page.evaluate(() =>
@@ -312,19 +336,19 @@ test('a description changed elsewhere is a conflict', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('Theirs.');
   await page.getByRole('button', { name: 'Keep mine' }).click();
   await expect(status(page)).toHaveText('Synced');
+  await openText(page, 'Description');
   await expect(description(page)).toHaveValue('Mine.');
 });
 
 test('notes are listed, added, and edited', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
-  await expect(page.getByLabel('Note: Note', { exact: true })).toHaveValue(
-    'Pairs well with a ranger.',
-  );
+  await expect(page.getByLabel('Note: Note, as it reads')).toHaveText('Pairs well with a ranger.');
   await page.getByLabel('A new note').fill('Check the den.');
   await page.getByRole('button', { name: 'Add note' }).click();
-  await expect(page.getByLabel('Note: Note', { exact: true })).toHaveCount(2);
+  await expect(page.getByLabel('Note: Note, as it reads')).toHaveCount(2);
   await expect(status(page)).toHaveText('Synced');
-  await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Check the east den.');
+  await openText(page, 'Note: Note', 1);
+  await page.getByLabel('Note: Note', { exact: true }).fill('Check the east den.');
   await blur(page);
   await expect
     .poll(async () => (await writes(page)).map((w) => [w.field, w.value]))
@@ -342,7 +366,8 @@ test('a note added with no connection can be edited, then both are sent in order
   await palette(page, 'lose the connection');
   await page.getByLabel('A new note').fill('Draft.');
   await page.getByRole('button', { name: 'Add note' }).click();
-  await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Final.');
+  await openText(page, 'Note: Note', 1);
+  await page.getByLabel('Note: Note', { exact: true }).fill('Final.');
   await blur(page);
   await palette(page, 'get the connection back');
   await expect(status(page)).toHaveText('Synced');
@@ -354,7 +379,7 @@ test('a note added with no connection can be edited, then both are sent in order
 
 test('what is typed in a description survives another change arriving', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
-  await description(page).focus();
+  await openText(page, 'Description');
   await description(page).fill('Half a sentence');
   await page.evaluate(() => {
     const b = (
@@ -416,11 +441,6 @@ test('a tag is a checkbox, a stat can be added, and an enum is a choice', async 
     { id: 'zombie', field: 'stat:size', value: 'tiny' },
     { id: 'zombie', field: 'stat:size', value: 'large' },
   ]);
-});
-
-test('a decimal stat is shown but not editable yet', async ({ page }) => {
-  await page.locator('[data-entry="wolf"]').click();
-  await expect(stats(page).getByLabel('Add a stat')).not.toContainText('Weight');
 });
 
 test('with no connection a stat is saved here, and a change elsewhere is a conflict', async ({
@@ -595,7 +615,9 @@ test.describe('links to entries in text', () => {
     await page
       .getByLabel('Description', { exact: true })
       .fill('Fears the [[Wolf]] and [[Dire wolf]].');
+    await reads(page);
     await expect(preview(page)).toHaveText(['Wolf', 'Dire wolf']);
+    await reads(page);
     await preview(page).first().click();
     await expect(name(page)).toHaveValue('Wolf');
   });
@@ -605,6 +627,7 @@ test.describe('links to entries in text', () => {
   }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
+    await reads(page);
     await preview(page).hover();
     const card = page.locator('.link-card');
     await expect(card).toContainText('Wolf');
@@ -619,6 +642,10 @@ test.describe('links to entries in text', () => {
   }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
+    await reads(page);
+    // Leaving the text writes it, and the screen is drawn again when that is done: wait for it, or
+    // the redraw gives the link its focus back (and its card) after Escape.
+    await expect(status(page)).toHaveText('Synced');
     await preview(page).focus();
     await expect(page.locator('.link-card')).toContainText('Wolf');
     await page.keyboard.press('Escape');
@@ -628,7 +655,7 @@ test.describe('links to entries in text', () => {
   test('a name nothing holds stays text, and the author is told', async ({ page }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Haunts [[Lost Crown]].');
-    await expect(page.getByLabel('Description, as it reads')).toContainText('Lost Crown');
+    await expect(await reads(page)).toContainText('Lost Crown');
     await expect(preview(page)).toHaveCount(0);
     await expect(page.locator('.link-notes').first()).toContainText(
       'Nothing is called “lost-crown” yet',
@@ -642,8 +669,9 @@ test.describe('links to entries in text', () => {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.locator('[data-entry]', { hasText: 'Winter wolf' })).toBeVisible();
     await page.locator('[data-entry="wolf"]').click();
+    await openText(page, 'Note: Note');
     await page.getByLabel('Note: Note', { exact: true }).fill('Cousin of [[Winter wolf]].');
-    await expect(page.getByLabel('Note: Note, as it reads').locator('a.ls-entity')).toHaveText(
+    await expect((await reads(page, 'Note: Note')).locator('a.ls-entity')).toHaveText(
       'Winter wolf',
     );
   });
@@ -668,9 +696,7 @@ test.describe('the entry picker', () => {
     await page.keyboard.press('Enter');
     await expect(area(page)).toHaveValue('See [[Wolf]]');
     await expect(picker(page)).toHaveCount(0);
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'Wolf',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Wolf');
   });
 
   test('the arrows choose another, and Tab chooses too', async ({ page }) => {
@@ -797,7 +823,7 @@ test.describe('pictures in text', () => {
   }) => {
     await page.locator('[data-entry="zombie"]').click();
     await description(page).fill('The pack ![its leader](ashfang) and ![a sword](blade).');
-    const shown = page.getByLabel('Description, as it reads');
+    const shown = await reads(page);
     await expect(shown.locator('img')).toHaveCount(1);
     await expect(shown.locator('img')).toHaveAttribute('alt', 'its leader');
     await expect(shown.locator('img')).toHaveAttribute('src', /^blob:/);
@@ -808,8 +834,10 @@ test.describe('pictures in text', () => {
 test.describe('the order of the notes', () => {
   const noteLabels = (page: Page) =>
     page
-      .locator('.pane-entry .note-row textarea.text-edit')
-      .evaluateAll((areas) => areas.map((a) => a.getAttribute('aria-label')));
+      .locator('.pane-entry .note-row .live-doc')
+      .evaluateAll((docs) =>
+        docs.map((d) => (d.getAttribute('aria-label') ?? '').replace(', as it reads', '')),
+      );
 
   test('a note moves down, the order is sent whole, and Undo puts it back', async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
@@ -883,6 +911,313 @@ test.describe('moving an entry', () => {
   });
 });
 
+test.describe('stat chips', () => {
+  const chip = (page: Page) => page.locator('.live-doc .ls-stat');
+
+  test.beforeEach(async ({ page }) => {
+    await page.locator('[data-entry="sword"]').click();
+    await description(page).focus();
+    await page.keyboard.type('It weighs {weight} kg and {nothing}.');
+    await page.keyboard.press('Escape');
+  });
+
+  test('{weight} shows the value of the entry, and a name nothing has stays as written', async ({
+    page,
+  }) => {
+    await expect(chip(page)).toHaveText(/^1\.5/);
+    await expect(page.locator('.live-doc')).toContainText('{nothing}');
+  });
+
+  test('+ and \u2212 on the chip change the entry\u2019s own value by a tenth', async ({
+    page,
+  }) => {
+    await chip(page).hover();
+    await page.getByRole('button', { name: 'Increase Weight' }).click();
+    await expect(chip(page)).toHaveText(/^1\.6/);
+    expect(await writes(page)).toContainEqual({ id: 'sword', field: 'stat:weight', value: 1.6 });
+    await chip(page).hover();
+    await page.getByRole('button', { name: 'Decrease Weight' }).click();
+    await expect(chip(page)).toHaveText(/^1\.5/);
+  });
+
+  test('a value only inherited is drawn dashed, and a step makes it the entry\u2019s own', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).focus();
+    await page.keyboard.type('Armor {armor-class}.');
+    await page.keyboard.press('Escape');
+    await expect(chip(page)).toHaveClass(/inherited/);
+    await expect(chip(page)).toHaveText(/^10/);
+    await chip(page).hover();
+    await page.getByRole('button', { name: 'Increase Armor class' }).click();
+    await expect(chip(page)).not.toHaveClass(/inherited/);
+    await expect(chip(page)).toHaveText(/^11/);
+  });
+
+  test('the chip is reachable with the keyboard, and shows its buttons there', async ({ page }) => {
+    await chip(page).focus();
+    await expect(page.getByRole('button', { name: 'Increase Weight' })).toBeVisible();
+  });
+});
+
+test.describe('editing a text where it is drawn', () => {
+  const blocks = (page: Page) => page.getByLabel('Description, as it reads').locator('.live-block');
+
+  test.beforeEach(async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).focus();
+    await page.keyboard.type('First **one**.');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second.');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Third.');
+  });
+
+  test('Enter starts a new paragraph, and Escape draws the text again, all but nothing as source', async ({
+    page,
+  }) => {
+    // The block being written is source, so two are drawn.
+    await expect(blocks(page)).toHaveCount(2);
+    await page.keyboard.press('Escape');
+    await expect(description(page)).toHaveCount(0);
+    await expect(blocks(page)).toHaveCount(3);
+    await expect(blocks(page)).toHaveText(['First one.', 'Second.', 'Third.']);
+    await expect(blocks(page).first().locator('strong')).toHaveText('one');
+  });
+
+  test('clicking a block shows its source, and only that block', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await blocks(page).first().click();
+    await expect(description(page)).toHaveValue('First **one**.');
+    await expect(description(page)).toHaveCount(1);
+    await expect(blocks(page)).toHaveText(['Second.', 'Third.']);
+  });
+
+  test('the arrow keys move into the next block, which turns into source', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await blocks(page).first().click();
+    await page.keyboard.press('ArrowDown');
+    await expect(description(page)).toHaveValue('Second.');
+    await page.keyboard.press('ArrowDown');
+    await expect(description(page)).toHaveValue('Third.');
+    await page.keyboard.press('ArrowUp');
+    await expect(description(page)).toHaveValue('Second.');
+    await expect(blocks(page).first()).toHaveText('First one.');
+  });
+
+  test('Backspace at the start of a block joins it to the one before', async ({ page }) => {
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    await expect(description(page)).toHaveValue('Second.Third.');
+    // One is source, one is drawn.
+    await expect(blocks(page)).toHaveCount(1);
+  });
+
+  test('Enter in a list goes on with the list, and on an empty item ends it', async ({ page }) => {
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('- one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await expect(description(page)).toHaveValue('- one\n- two');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await expect(blocks(page)).toHaveCount(4);
+    await page.keyboard.press('Escape');
+    await expect(blocks(page).nth(3).locator('li')).toHaveText(['one', 'two']);
+  });
+
+  test('leaving the text writes it down once, as it reads in its source', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await expect
+      .poll(() => writes(page))
+      .toEqual([
+        {
+          id: 'zombie',
+          field: 'description',
+          value: 'First **one**.\n\nSecond.\n\nThird.',
+        },
+      ]);
+  });
+
+  test('a text that was only looked at is not written again', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await expect.poll(() => writes(page)).toHaveLength(1);
+    await blocks(page).first().click();
+    await page.keyboard.press('Escape');
+    await page.locator('[data-entry="wolf"]').click();
+    expect(await writes(page)).toHaveLength(1);
+  });
+});
+
+test.describe('layout presets', () => {
+  const layout = (page: Page, name: string) =>
+    page.getByRole('group', { name: 'Layout' }).getByRole('button', { name });
+
+  test('the layout starts as Inspect, and Write leaves the entry alone', async ({ page }) => {
+    await expect(layout(page, 'Inspect')).toHaveAttribute('aria-pressed', 'true');
+    await layout(page, 'Write').click();
+    await expect(layout(page, 'Write')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.pane-explorer')).toHaveCount(0);
+    await expect(page.locator('.pane-entry')).toBeVisible();
+  });
+
+  test('Compare puts the table and the ancestry graph under the entry', async ({ page }) => {
+    await layout(page, 'Compare').click();
+    await expect(page.locator('.pane-table')).toBeVisible();
+    await expect(page.locator('.pane-ancestry')).toBeVisible();
+    await expect(page.locator('.pane-explorer')).toBeVisible();
+  });
+
+  test('moving a pane by hand leaves no preset pressed, and the palette brings one back', async ({
+    page,
+  }) => {
+    await palette(page, 'Open Table');
+    for (const name of ['Write', 'Inspect', 'Compare'])
+      await expect(layout(page, name)).toHaveAttribute('aria-pressed', 'false');
+    await palette(page, 'Layout: Inspect');
+    await expect(layout(page, 'Inspect')).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+test.describe('the compare grid and the table', () => {
+  // Floated, so it has room: opened as a tab it shares the narrow explorer.
+  const openGrid = async (page: Page) => {
+    await palette(page, 'Open Compare');
+    await palette(page, 'Float Compare');
+  };
+  const rowOf = (page: Page, text: string) =>
+    page
+      .locator('table.grid tbody tr')
+      .filter({ has: page.getByRole('button', { name: text, exact: true }) });
+
+  test('the grid lists the entries as a tree with their stats, inherited values told from own', async ({
+    page,
+  }) => {
+    await openGrid(page);
+    const grid = page.locator('.pane-grid');
+    await expect(grid).toContainText('entries');
+    await expect(rowOf(page, 'Monster').locator('td').first()).toHaveText('10');
+    await expect(rowOf(page, 'Beast').locator('td').first()).toContainText('Monster');
+    // Armor class is not a default column (numeric stats are): Weight is a decimal and is.
+    await expect(grid.locator('thead')).toContainText('Weight');
+    await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('1.5');
+  });
+
+  test('a cell is edited by typing, which replaces it, and a typo is said and not sent', async ({
+    page,
+  }) => {
+    await openGrid(page);
+    const target = rowOf(page, 'Wolf').locator('td').nth(1);
+    await target.click();
+    await page.keyboard.type('2,5');
+    await page.keyboard.press('Enter');
+    await expect(rowOf(page, 'Wolf').locator('td').nth(1)).toHaveText('2.5');
+    expect(await writes(page)).toContainEqual({ id: 'wolf', field: 'stat:weight', value: 2.5 });
+    await rowOf(page, 'Wolf').locator('td').nth(1).click();
+    await page.keyboard.type('heavy');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert')).toContainText('not a float value');
+  });
+
+  test('Delete makes a cell inherit again', async ({ page }) => {
+    await openGrid(page);
+    await rowOf(page, 'Longsword').locator('td').nth(1).click();
+    await page.keyboard.press('Delete');
+    await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('—');
+  });
+
+  test('the arrow keys move the selection, and the bar steps a whole selection by 0.1', async ({
+    page,
+  }) => {
+    await openGrid(page);
+    await rowOf(page, 'Longsword').locator('td').nth(1).click();
+    await page.getByRole('button', { name: '+', exact: true }).click();
+    await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('1.6');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('td.cur')).toHaveCount(1);
+  });
+
+  test('the Table pane lists the same, and opens the whole grid', async ({ page }) => {
+    await palette(page, 'Open Table');
+    await palette(page, 'Float Table');
+    const table = page.locator('.pane-table');
+    await expect(table).toContainText('Edit any cell; every view follows.');
+    await expect(table.locator('thead')).toContainText('Inherits from');
+    await table.getByRole('button', { name: 'Open as grid' }).click();
+    await expect(page.locator('.pane-grid')).toBeVisible();
+  });
+});
+
+test.describe('the ancestry graph', () => {
+  const node = (page: Page, id: string) => page.locator(`[data-ancestry="${id}"]`);
+
+  test('shows the entry among what it inherits from and what inherits from it', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await palette(page, 'Open Ancestry');
+    for (const id of ['monster', 'undead', 'zombie', 'ghoul', 'beast'])
+      await expect(node(page, id)).toBeVisible();
+    await expect(node(page, 'undead')).toHaveAttribute('aria-label', 'Undead (this entry)');
+  });
+
+  test('opens an entry when it is clicked, or reached with the keyboard and Enter', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await palette(page, 'Open Ancestry');
+    await node(page, 'monster').click();
+    await expect(name(page)).toHaveValue('Monster');
+    await node(page, 'beast').focus();
+    await page.keyboard.press('Enter');
+    await expect(name(page)).toHaveValue('Beast');
+  });
+});
+
+test.describe('entry editor polish', () => {
+  test('an entry shows what it inherits from over its name, and a crumb opens it', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    const crumbs = page.getByRole('navigation', { name: 'Inherits from' }).getByRole('button');
+    await expect(crumbs).toHaveText(['Monster', 'Undead']);
+    await crumbs.last().click();
+    await expect(name(page)).toHaveValue('Undead');
+  });
+
+  test('an entry with no parents has no crumbs', async ({ page }) => {
+    await page.locator('[data-entry="monster"]').click();
+    await expect(page.getByRole('navigation', { name: 'Inherits from' })).toHaveCount(0);
+  });
+
+  test('the Links tab counts the parents and children of the entry', async ({ page }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await expect(page.getByRole('tab', { name: /Parents and children/ })).toContainText('3');
+  });
+
+  test('a decimal stat is edited, and a typo is put back', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Add a stat').selectOption({ label: 'Weight' });
+    await expect(status(page)).toHaveText('Synced');
+    const weight = page.getByLabel('Weight', { exact: true });
+    await weight.fill('2,5');
+    await weight.press('Enter');
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toContainEqual({ id: 'wolf', field: 'stat:weight', value: 2.5 });
+    await weight.fill('heavy');
+    await weight.press('Enter');
+    await expect(weight).toHaveValue('2.5');
+  });
+
+  test('the picture picker shows a small picture of each entry', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).pressSequentially('![[ash');
+    const option = page.getByRole('listbox', { name: 'Entries to show' }).getByRole('option');
+    await expect(option.first().locator('img.picker-thumb')).toHaveAttribute('src', /^blob:/);
+  });
+});
+
 test.describe('pictures', () => {
   const picture = (page: Page) => page.locator('.pane-entry .picture-img');
   const png = { name: 'a.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) };
@@ -919,10 +1254,7 @@ test.describe('pictures', () => {
     await expect(page.getByRole('listbox', { name: 'Entries to show' })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(description(page)).toHaveValue('Led by ![Ashfang](ashfang)');
-    await expect(page.getByLabel('Description, as it reads').locator('img')).toHaveAttribute(
-      'src',
-      /^blob:/,
-    );
+    await expect((await reads(page)).locator('img')).toHaveAttribute('src', /^blob:/);
   });
 });
 
@@ -934,13 +1266,18 @@ test.describe('my/ links', () => {
   }) => {
     await page.locator('[data-entry="ashfang"]').click();
     await description(page).fill('Draws [her sword](my/blade).');
+    await reads(page);
     await expect(preview(page).locator('a.ls-entity')).toHaveText('her sword');
+    await reads(page);
     await preview(page).locator('a.ls-entity').click();
     await expect(name(page)).toHaveValue('Blade of the Hollow');
 
     await page.locator('[data-entry="wolf"]').click();
+    await openText(page, 'Description');
     await description(page).fill('Draws [its sword](my/blade).');
+    await reads(page);
     await expect(preview(page)).toContainText('its sword');
+    await reads(page);
     await expect(preview(page).locator('a.ls-entity')).toHaveCount(0);
     await expect(page.locator('.link-notes').first()).toContainText(
       '“blade” is held by whoever this belongs to',
@@ -986,9 +1323,7 @@ test.describe('link names', () => {
     await expect(linkName(page)).toHaveValue('the-old-mill');
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Haunts [[The old mill]].');
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'The old mill',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('The old mill');
   });
 
   test('a link to an entry with none stays text and says so', async ({ page }) => {
@@ -1004,9 +1339,7 @@ test.describe('link names', () => {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Frost drake]].');
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'Frost drake',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Frost drake');
   });
 
   test('the picker writes [text](link-name) for an entry called something else', async ({
@@ -1018,8 +1351,184 @@ test.describe('link names', () => {
     await area.pressSequentially('See [[longs');
     await page.keyboard.press('Enter');
     await expect(area).toHaveValue('See [Longsword](blade)');
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'Longsword',
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Longsword');
+  });
+});
+
+test.describe('formulas and the stat vocabulary', () => {
+  const formula = (page: Page) => page.locator('.pane-formula');
+
+  test('a stat is worked out by a formula, with the result tried before it is saved', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Formulas');
+    await formula(page).getByLabel('Work out a stat').selectOption({ label: 'Armor class' });
+    const editor = page.getByRole('region', { name: 'Formula for Armor class' });
+    await editor.getByLabel('Stat in row 1').selectOption({ label: 'Weight' });
+    await editor.getByLabel('Number in row 1').fill('2');
+    await expect(editor.locator('.formula-preview')).toContainText('This entry would have');
+    await editor.getByLabel('Number in row 1').fill('x');
+    await expect(editor.locator('.formula-problems')).toContainText('must be a number');
+    await expect(editor.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await editor.getByLabel('Number in row 1').fill('2');
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(formula(page).locator('[data-formula="armor"]')).toContainText('2 × Weight');
+  });
+
+  test('a formula reaches the entries below, which can change it for themselves', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Formulas');
+    await formula(page).getByLabel('Work out a stat').selectOption({ label: 'Armor class' });
+    const editor = page.getByRole('region', { name: 'Formula for Armor class' });
+    await editor.getByLabel('Stat in row 1').selectOption({ label: 'Weight' });
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('tab', { name: 'Explorer' }).click();
+    await page.locator('[data-entry="dire-wolf"]').click();
+    await page.getByRole('tab', { name: 'Formulas' }).click();
+    const row = formula(page).locator('[data-formula="armor"]');
+    await expect(row).toContainText('from Wolf');
+    await expect(row.getByRole('button', { name: 'Change here Armor class' })).toBeVisible();
+    await row.getByRole('button', { name: /from Wolf/ }).click();
+    await expect(name(page)).toHaveValue('Wolf');
+  });
+
+  test('a stat is made, and deleted after asking twice', async ({ page }) => {
+    await palette(page, 'Open Vocabulary');
+    const pane = page.locator('.pane-vocabulary');
+    await pane.getByLabel('Name of the new stat').fill('Rarity');
+    await pane.getByLabel('Kind of value').selectOption('enum');
+    await pane.getByLabel('Values', { exact: true }).fill('common, rare');
+    await pane.getByRole('button', { name: 'Make the stat' }).click();
+    await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toContainText('common · rare');
+    await pane.getByRole('button', { name: 'Delete Rarity' }).click();
+    await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(1);
+    await pane.getByRole('button', { name: 'Delete Rarity' }).click();
+    await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(0);
+  });
+});
+
+test.describe('the status bar and the conflict review', () => {
+  const bar = (page: Page) => page.locator('.statusbar');
+  const conflict = async (page: Page) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await page.evaluate(() =>
+      (window as unknown as SampleWindow).sample.renameElsewhere('wolf', 'Coyote'),
     );
+  };
+
+  test('says what is selected, how the changes are doing, and the connection', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(bar(page)).toContainText('Wolf · item · 2 links');
+    await expect(bar(page)).toContainText('Synced');
+    await expect(bar(page)).toContainText('Online');
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await expect(bar(page)).toContainText('Waiting to sync (1)');
+    await expect(bar(page)).toContainText('Offline');
+  });
+
+  test('a conflict is reviewed from the bar, with what it was, mine and theirs', async ({
+    page,
+  }) => {
+    await conflict(page);
+    await palette(page, 'get the connection back');
+    await expect(bar(page)).toContainText('Conflict (1)');
+    await bar(page)
+      .getByRole('button', { name: /Conflict/ })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Was');
+    await expect(dialog).toContainText('“Hound”');
+    await expect(dialog).toContainText('“Coyote”');
+    await expect(dialog).toContainText('Other entries keep syncing while these wait.');
+    await dialog.getByRole('button', { name: 'Keep mine' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar(page)).toContainText('Synced');
+  });
+});
+
+test.describe('the pictures pane', () => {
+  const pane = (page: Page) => page.locator('.pane-pictures');
+  const png = { name: 'a.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) };
+
+  test('an entry without a picture shows the one it inherits, and says so', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Move to…').selectOption({ label: 'Ashfang' });
+    await palette(page, 'Open Pictures');
+    await expect(pane(page).locator('.pic-caption')).toContainText("Shows Ashfang's picture");
+    await expect(pane(page).getByRole('img', { name: "Ashfang's picture" })).toBeVisible();
+    await expect(pane(page).getByRole('button', { name: 'Use its own picture…' })).toBeVisible();
+  });
+
+  test('a chosen file is seen first, and only sent when it is used', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Pictures');
+    await pane(page).getByLabel('Picture file').setInputFiles(png);
+    await expect(pane(page).getByRole('img', { name: 'Preview of the new picture' })).toBeVisible();
+    await expect(pane(page).locator('.pic-caption')).toContainText('No picture');
+    await pane(page).getByRole('button', { name: 'Use this picture' }).click();
+    await expect(pane(page).locator('.pic-caption')).toContainText('Its own picture.');
+  });
+
+  test('the overview lists the entries, or only those without a picture of their own', async ({
+    page,
+  }) => {
+    await palette(page, 'Open Pictures');
+    await expect(pane(page).locator('[data-pic="ashfang"] img')).toBeVisible();
+    await pane(page).getByRole('button', { name: 'Entries without their own' }).click();
+    await expect(pane(page).locator('[data-pic="ashfang"]')).toHaveCount(0);
+    await expect(pane(page).locator('[data-pic="wolf"]')).toBeVisible();
+  });
+});
+
+test.describe('the pack editor', () => {
+  const pane = (page: Page) => page.locator('.pane-pack');
+  const rows = (page: Page) => pane(page).locator('.pack-row .pack-name');
+
+  test('a list of contents is edited as rows, and written back into the description', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Pack');
+    await expect(pane(page)).toContainText('no list of contents');
+    await pane(page).getByLabel('Plain text row').fill('Alms box');
+    await pane(page).getByRole('button', { name: 'Add text' }).click();
+    await pane(page).getByLabel('Plain text row').fill('Candle');
+    await pane(page).getByRole('button', { name: 'Add text' }).click();
+    await expect(rows(page)).toHaveText(['Alms box', 'Candle']);
+    await pane(page).getByLabel('Count of Candle').fill('4');
+    await pane(page).getByLabel('Count of Candle').press('Tab');
+    await pane(page).getByRole('button', { name: 'Move up' }).nth(1).click();
+    await expect(rows(page)).toHaveText(['Candle', 'Alms box']);
+    await pane(page).getByRole('button', { name: 'Into the row above' }).nth(1).click();
+    await expect(pane(page).locator('.pack-row.depth-1')).toHaveCount(1);
+    await pane(page).getByRole('button', { name: 'Show as text' }).click();
+    await expect(pane(page).getByLabel('Pack as text')).toHaveValue(
+      /- 4 x Candle\n {2}- 1 x Alms box/,
+    );
+  });
+
+  test('a plain row becomes an item, and Alt+arrows move the row the cursor is on', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Pack');
+    for (const t of ['One', 'Two']) {
+      await pane(page).getByLabel('Plain text row').fill(t);
+      await pane(page).getByRole('button', { name: 'Add text' }).click();
+    }
+    await pane(page).locator('[data-row="1"]').focus();
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect(rows(page)).toHaveText(['Two', 'One']);
+    await expect(pane(page).locator('[data-row="0"]')).toBeFocused();
+    await pane(page).getByLabel('Make this an item').first().selectOption({ label: 'Ashfang' });
+    await expect(rows(page).first()).toHaveText('Ashfang');
   });
 });
