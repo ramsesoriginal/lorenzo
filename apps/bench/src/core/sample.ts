@@ -3,9 +3,10 @@
 // `If-Match` is stale, an id the client chose that is a replay when it is already there, and no
 // connection when `offline` is set.
 
-import { slugify } from '@lorenzo/lorenzoscript';
+import { parse, references, slugify } from '@lorenzo/lorenzoscript';
 import { type Formula, same } from './formulas';
 import {
+  type Backlink,
   canRename,
   canSetParents,
   type EditableKind,
@@ -516,6 +517,30 @@ export class SampleTransport implements Transport {
     return h ? { entryId, statId, formula: h.formula, version: `"f${h.version}"` } : null;
   }
 
+  async backlinks(entryId: string): Promise<Backlink[]> {
+    this.need();
+    const slug = this.row(entryId).slug;
+    if (!slug) return [];
+    const out: Backlink[] = [];
+    for (const [id, r] of this.rows) {
+      if (id === entryId) continue;
+      const texts = [
+        ...(r.description ? [{ t: r.description, type: 'description' }] : []),
+        ...r.notes.map((n) => ({ t: n, type: 'note' })),
+      ];
+      for (const { t, type } of texts)
+        if (references(parse(t.text)).some((x) => 'slug' in x && x.slug === slug))
+          out.push({
+            entryId: id,
+            name: r.name,
+            kinds: r.kinds,
+            informationId: t.id,
+            title: t.title,
+            type,
+          });
+    }
+    return out;
+  }
   async listFormulas(entryId: string): Promise<HeldFormula[]> {
     this.need();
     this.row(entryId);

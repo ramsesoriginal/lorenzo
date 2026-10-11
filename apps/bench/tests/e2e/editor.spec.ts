@@ -1617,3 +1617,63 @@ test.describe('the quiet interface', () => {
     await expect(page.locator('[data-ancestry="ghoul"]')).toHaveCount(0);
   });
 });
+
+test.describe('the explorer keeps its place, and the Links pane shows the connections', () => {
+  test('a redraw leaves the scrolled explorer where it is, and choosing an entry scrolls to it', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1200, height: 380 });
+    const list = page.locator('.explorer .list');
+    await list.evaluate((e) => {
+      e.scrollTop = e.scrollHeight;
+    });
+    const before = await list.evaluate((e) => e.scrollTop);
+    expect(before).toBeGreaterThan(0);
+    // something unrelated changes, which draws the page again
+    await page.evaluate(() => {
+      const b = (
+        window as unknown as {
+          bench: {
+            bench: {
+              change(t: string, id: string, v: unknown): void;
+              open(id: string): Promise<void>;
+            };
+          };
+        }
+      ).bench.bench;
+      return b.open('wolf').then(() => b.change('entry.set-name', 'wolf', 'Wolfhound'));
+    });
+    await expect(page.locator('[data-entry="wolf"]')).toHaveText('Wolfhound');
+    expect(await list.evaluate((e) => e.scrollTop)).toBe(before);
+    // choosing an entry shows where it is
+    await list.evaluate((e) => {
+      e.scrollTop = 0;
+    });
+    await palette(page, 'Go to Zombie');
+    await expect(page.locator('.explorer [data-entry="zombie"]').first()).toBeInViewport();
+  });
+
+  test('the children of an entry are listed', async ({ page }) => {
+    await page.locator('[data-entry="undead"]').click();
+    await page.getByRole('tab', { name: 'Links' }).click();
+    const pane = page.locator('.pane-links');
+    await expect(pane).toContainText('Zombie');
+    await expect(pane).toContainText('Ghoul');
+  });
+
+  test('what its texts link to, and what links to it, are listed', async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await openText(page, 'Description');
+    await description(page).fill('Fears the [[Wolf]].');
+    await blur(page);
+    await expect(status(page)).toHaveText('Synced');
+    await page.getByRole('tab', { name: 'Links' }).click();
+    const pane = page.locator('.pane-links');
+    await expect(pane.locator('h2', { hasText: 'Links to' })).toBeVisible();
+    await expect(pane).toContainText('WolfDescription');
+    await page.getByRole('tab', { name: 'Entries' }).click();
+    await page.locator('[data-entry="wolf"]').first().click();
+    await page.getByRole('tab', { name: 'Links' }).click();
+    await expect(page.locator('.pane-links')).toContainText('ZombieDescription');
+  });
+});

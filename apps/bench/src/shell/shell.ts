@@ -176,7 +176,16 @@ export class Shell {
     this.watchPending();
     this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
     this.unsubscribePictures = bench.subscribePictures(() => this.pictureChanged());
+    this.unsubscribeConnections = bench.subscribeConnections(() => this.refreshPane('links'));
     this.render();
+  }
+
+  private unsubscribeConnections: (() => void) | null = null;
+
+  /** Makes one pane again on its own, where it is showing (what is written elsewhere is left alone). */
+  private refreshPane(id: string) {
+    const now = this.root.querySelector(`.pane-${id}`);
+    if (now) now.replaceWith(this.paneEl(id));
   }
 
   private unsubscribePictures: (() => void) | null = null;
@@ -197,10 +206,12 @@ export class Shell {
   use(bench: Bench) {
     this.unsubscribe?.();
     this.unsubscribePictures?.();
+    this.unsubscribeConnections?.();
     this.bench = bench;
     this.selected = null;
     this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
     this.unsubscribePictures = bench.subscribePictures(() => this.pictureChanged());
+    this.unsubscribeConnections = bench.subscribeConnections(() => this.refreshPane('links'));
     this.render();
   }
 
@@ -240,8 +251,29 @@ export class Shell {
 
   select(id: string) {
     this.selected = id;
+    // The explorer shows where the entry is, once: the first place it is listed.
+    this.reveal = { id, until: Date.now() + 3000 };
+    for (const a of this.ancestorsOf(id)) this.collapsed.delete(a);
     void this.bench.open(id);
     this.set(showPane(this.ws, 'entry'));
+  }
+
+  /** The entry just chosen, which the explorer scrolls to once its own controls are in place. */
+  private reveal: { id: string; until: number } | null = null;
+
+  /** What the entry inherits from, all the way up (so the explorer can open the way to it). */
+  private ancestorsOf(id: string): string[] {
+    const parents = new Map(this.bench.listing().map((e) => [e.id, e.parentIds]));
+    const out: string[] = [];
+    const walk = (x: string) => {
+      for (const p of parents.get(x) ?? [])
+        if (!out.includes(p)) {
+          out.push(p);
+          walk(p);
+        }
+    };
+    walk(id);
+    return out;
   }
 
   open(pane: string) {
@@ -335,6 +367,10 @@ export class Shell {
     drawStatusBar(this.statusEl, this.bench, this.selected, () =>
       openConflicts(this.bench, (x) => this.select(x)),
     );
+    // What was scrolled stays where it was: the page is made again, the reader's place is not lost.
+    const scrolls = new Map<string, number>();
+    for (const e of s.querySelectorAll<HTMLElement>(SCROLLERS))
+      if (e.scrollTop) scrolls.set(scrollKey(e), e.scrollTop);
     redraw.active = true;
     s.replaceChildren();
     redraw.active = false;
@@ -347,6 +383,19 @@ export class Shell {
       const empty = el('div', 'empty', 'Nothing open. Press Ctrl+K to open something.');
       s.append(empty);
     }
+    for (const e of s.querySelectorAll<HTMLElement>(SCROLLERS)) {
+      const at = scrolls.get(scrollKey(e));
+      if (at !== undefined) e.scrollTop = at;
+    }
+    // Only a choice moves the explorer: to where the entry is first listed (and not at all if it
+    // is in view).
+    if (this.reveal && (this.bench.view(this.reveal.id) || Date.now() > this.reveal.until)) {
+      // (After the entry has been read: what shows for it moves the list a little.)
+      s.querySelector(`.pane-explorer [data-entry="${this.reveal.id}"]`)?.scrollIntoView({
+        block: 'nearest',
+      });
+      this.reveal = null;
+    }
     if (kept) {
       focusing.restoring = true;
       const found = s.querySelector<HTMLElement>(`[data-key="${kept.key}"]`);
@@ -357,9 +406,9 @@ export class Shell {
           found.value = kept.value;
         }
         found.dispatchEvent(new Event('input')); // the preview follows what is typed
-        found.focus();
+        found.focus({ preventScroll: true });
         if (kept.at !== null) found.setSelectionRange(kept.at, kept.to ?? kept.at);
-      } else found?.focus();
+      } else found?.focus({ preventScroll: true });
       focusing.restoring = false;
     }
   }
@@ -1158,3 +1207,8 @@ const TAB_KEYS: [string, string][] = [
   ['Alt + F', 'Float the tab in its own window'],
   ['Alt + D', 'Dock a floating tab back'],
 ];
+
+/** What can be scrolled, and what names it from one drawing to the next. */
+const SCROLLERS = '.grp > .body, .explorer .list, .grid-scroll';
+const scrollKey = (e: HTMLElement): string =>
+  `${e.closest('.grp')?.getAttribute('data-grp') ?? ''}|${e.className}`;

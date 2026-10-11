@@ -21,6 +21,7 @@ import { FormulaStore, findFormula } from './formulaStore';
 import { LinkResolver, type StatTexts } from './links';
 import { Pictures } from './pictures';
 import {
+  type Backlink,
   canEditStat,
   type EditableKind,
   type EntryState,
@@ -28,6 +29,7 @@ import {
   type HeldFormula,
   OfflineError,
   RefusedError,
+  type ResolvedEntry,
   type StatDef,
   type StatScalar,
   slugProblem,
@@ -37,6 +39,14 @@ import {
 export type EntryStatus = 'synced' | 'waiting' | 'offline' | 'conflict' | 'attention';
 
 const HISTORY_LIMIT = 50;
+
+/** What an entry links to (and where), and what links to it. */
+export interface Connections {
+  outgoing: { entry: ResolvedEntry; where: string }[];
+  incoming: Backlink[];
+  /** The texts these were made from. */
+  stamp: string;
+}
 
 export class Bench {
   /** The server's list of entries, as last read. */
@@ -89,6 +99,58 @@ export class Bench {
   subscribePictures(fn: () => void): () => void {
     this.pictureListeners.add(fn);
     return () => this.pictureListeners.delete(fn);
+  }
+
+  // ---- what an entry links to, and what links to it ---------------------------------------------
+
+  private connected = new Map<string, Connections & { at: number }>();
+  private connecting = new Set<string>();
+  private connectionListeners = new Set<() => void>();
+  /** `fn` is told when the connections of an entry have been read. */
+  subscribeConnections(fn: () => void): () => void {
+    this.connectionListeners.add(fn);
+    return () => this.connectionListeners.delete(fn);
+  }
+
+  /** What the entry's texts say, which is what its links are made from. */
+  private textsOf(id: string): { where: string; text: string }[] {
+    const v = this.view(id);
+    if (!v) return [];
+    return [
+      ...(v.description ? [{ where: 'Description', text: v.description.text }] : []),
+      ...v.notes.map((n) => ({ where: `Note: ${n.title}`, text: n.text })),
+    ];
+  }
+
+  /**
+   * What the entry's description and notes link to, and which texts, on other entries, link to it.
+   * What was read last is answered at once (null before the first answer); a read is started when
+   * the entry's texts changed since or it is a while old, and the listeners hear when it is done.
+   */
+  connections(id: string): Connections | null {
+    const stamp = JSON.stringify(this.textsOf(id));
+    const had = this.connected.get(id);
+    const stale = !had || had.stamp !== stamp || Date.now() - had.at > 20_000;
+    if (stale && !this.connecting.has(id) && this.onServer(id))
+      void this.readConnections(id, stamp);
+    return had ?? null;
+  }
+
+  private async readConnections(id: string, stamp: string): Promise<void> {
+    this.connecting.add(id);
+    try {
+      const outgoing: Connections['outgoing'] = [];
+      for (const { where, text } of this.textsOf(id))
+        for (const entry of await this.links.linkedFrom(text, id))
+          if (entry.id !== id) outgoing.push({ entry, where });
+      const incoming = await this.transport.backlinks(id).catch(() => []);
+      this.connected.set(id, { outgoing, incoming, stamp, at: Date.now() });
+      for (const fn of this.connectionListeners) fn();
+    } catch {
+      // left as it was; tried again when asked again
+    } finally {
+      this.connecting.delete(id);
+    }
   }
 
   /** `fn` is told of every change; `background` says it was not asked for by the person. */
@@ -306,13 +368,23 @@ export class Bench {
   }
 
   /** The entries under this one: what the server lists, and those made here not yet sent. */
+  /** The entries that have this one as a parent, by name. Worked out once between changes. */
   childrenOf(id: string): string[] {
-    const ids = new Set(this.mirror.get(id)?.childIds ?? []);
-    for (const c of this.outbox)
-      if (c.type === 'entry.create' && this.view(c.entryId)?.parentIds.includes(id))
-        ids.add(c.entryId);
-    return [...ids];
+    if (this.childIndexFor !== this.listing()) {
+      const index = new Map<string, string[]>();
+      for (const e of this.listing())
+        for (const p of e.parentIds) {
+          const list = index.get(p);
+          if (list) list.push(e.id);
+          else index.set(p, [e.id]);
+        }
+      this.childIndex = index;
+      this.childIndexFor = this.listing();
+    }
+    return this.childIndex.get(id) ?? [];
   }
+  private childIndex = new Map<string, string[]>();
+  private childIndexFor: EntrySummary[] | null = null;
 
   /** What has not been sent, by entry: the changes that are only here until they are. */
   unsent(): { id: string; name: string; count: number }[] {

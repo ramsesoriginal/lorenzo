@@ -35,6 +35,18 @@ export interface ResolvedEntry {
   kinds: string[];
 }
 
+/** A piece of information, on another entry, whose text links to an entry or shows its picture. */
+export interface Backlink {
+  /** The entry the information is about. */
+  entryId: string;
+  name: string;
+  kinds: string[];
+  informationId: string;
+  title: string;
+  /** `description`, `note`, … */
+  type: string;
+}
+
 /** A formula an entry holds itself, with the version to send back when replacing or removing it. */
 export interface HeldFormula {
   entryId: string;
@@ -145,6 +157,8 @@ export interface Transport {
    */
   resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]>;
   getEntry(id: string): Promise<EntryState>;
+  /** What links to the entry: the texts, on other entries, that name its link name. */
+  backlinks(entryId: string): Promise<Backlink[]>;
   /** The formulas the entry holds itself. */
   listFormulas(entryId: string): Promise<HeldFormula[]>;
   /** What the stat works out to on the entry with this formula, or (`null`) with what it has. */

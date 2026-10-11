@@ -143,6 +143,28 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
 
     listStatDefinitions: () => guarded(loadDefinitions),
 
+    backlinks: (entryId) =>
+      guarded(async () => {
+        const rows = await fetchAllPages(async (page) =>
+          unwrap(
+            await client.GET('/tenants/{tenant_id}/entities/{entity_id}/backlinks', {
+              params: {
+                path: { ...path, entity_id: entryId },
+                query: { page, size: MAX_PAGE_SIZE },
+              },
+            }),
+          ),
+        );
+        return rows.map((r) => ({
+          entryId: r.entity_id,
+          name: r.name,
+          kinds: [...r.kinds],
+          informationId: r.information_id,
+          title: r.title,
+          type: r.type,
+        }));
+      }),
+
     listFormulas: (entryId) =>
       guarded(async () => {
         const rows = await unwrap(
