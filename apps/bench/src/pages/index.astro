@@ -90,7 +90,11 @@ import '../styles/bench.css';
               label: 'Your repositories…',
               run: () =>
                 openStartScreen(
-                  session.repositories.map((r) => ({ id: r.id, name: r.name, role: r.role as string })),
+                  session.repositories.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    role: r.role as string,
+                  })),
                   session.current?.id ?? null,
                   (id) => {
                     chooseRepository(session.userId, id);
@@ -140,8 +144,7 @@ import '../styles/bench.css';
         shell.extra = extra;
         showWelcome(document.getElementById('welcome') as HTMLElement);
         // Signed in with nothing to open: the start screen says what a repository is.
-        if (session.kind === 'signed-in' && !session.current)
-          openStartScreen([], null, () => {});
+        if (session.kind === 'signed-in' && !session.current) openStartScreen([], null, () => {});
 
         await bench.loadEntries();
         const first = bench.entries.find((e) => e.kinds.includes('item'));
