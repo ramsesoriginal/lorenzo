@@ -1449,3 +1449,37 @@ test.describe('the status bar and the conflict review', () => {
     await expect(bar(page)).toContainText('Synced');
   });
 });
+
+test.describe('the pictures pane', () => {
+  const pane = (page: Page) => page.locator('.pane-pictures');
+  const png = { name: 'a.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) };
+
+  test('an entry without a picture shows the one it inherits, and says so', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('Move to…').selectOption({ label: 'Ashfang' });
+    await palette(page, 'Open Pictures');
+    await expect(pane(page).locator('.pic-caption')).toContainText("Shows Ashfang's picture");
+    await expect(pane(page).getByRole('img', { name: "Ashfang's picture" })).toBeVisible();
+    await expect(pane(page).getByRole('button', { name: 'Use its own picture…' })).toBeVisible();
+  });
+
+  test('a chosen file is seen first, and only sent when it is used', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Pictures');
+    await pane(page).getByLabel('Picture file').setInputFiles(png);
+    await expect(pane(page).getByRole('img', { name: 'Preview of the new picture' })).toBeVisible();
+    await expect(pane(page).locator('.pic-caption')).toContainText('No picture');
+    await pane(page).getByRole('button', { name: 'Use this picture' }).click();
+    await expect(pane(page).locator('.pic-caption')).toContainText('Its own picture.');
+  });
+
+  test('the overview lists the entries, or only those without a picture of their own', async ({
+    page,
+  }) => {
+    await palette(page, 'Open Pictures');
+    await expect(pane(page).locator('[data-pic="ashfang"] img')).toBeVisible();
+    await pane(page).getByRole('button', { name: 'Entries without their own' }).click();
+    await expect(pane(page).locator('[data-pic="ashfang"]')).toHaveCount(0);
+    await expect(pane(page).locator('[data-pic="wolf"]')).toBeVisible();
+  });
+});

@@ -112,3 +112,41 @@ export class Pictures {
     await this.load(id);
   }
 }
+
+/** Where the picture an entry shows comes from (ADR 0255). */
+export type PictureSource =
+  | { kind: 'own' }
+  | { kind: 'inherited'; from: string }
+  | { kind: 'none' }
+  /** Something above it has not been read yet. */
+  | { kind: 'unknown' };
+
+/**
+ * The entry's own picture, else the nearest one above it (first parent first). `urlOf` answers as
+ * `Pictures.get` does: a URL, `null` for none, `undefined` for not read yet.
+ */
+export function pictureSource(
+  parentsOf: (id: string) => string[],
+  urlOf: (id: string) => string | null | undefined,
+  id: string,
+): PictureSource {
+  const own = urlOf(id);
+  if (own) return { kind: 'own' };
+  let unknown = own === undefined;
+  const seen = new Set([id]);
+  const walk = (x: string): string | null => {
+    for (const p of parentsOf(x)) {
+      if (seen.has(p)) continue;
+      seen.add(p);
+      const url = urlOf(p);
+      if (url) return p;
+      if (url === undefined) unknown = true;
+      const deeper = walk(p);
+      if (deeper) return deeper;
+    }
+    return null;
+  };
+  const from = walk(id);
+  if (from) return { kind: 'inherited', from };
+  return unknown ? { kind: 'unknown' } : { kind: 'none' };
+}

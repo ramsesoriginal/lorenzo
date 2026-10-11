@@ -44,6 +44,7 @@ import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entry
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
 import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
+import { newPicturesUi, type PicturesUi, renderPictures } from './picturesPane';
 import { renderStats } from './statsPane';
 import { drawStatusBar } from './statusBar';
 import { PANE_IDS, PANES } from './stub';
@@ -118,6 +119,7 @@ export class Shell {
   readonly layoutEl = el('div', 'layouts');
   readonly statusEl = el('footer', 'statusbar');
   /** What the Table and the Compare grid keep while the page is drawn again. */
+  private picturesUi: PicturesUi = newPicturesUi();
   private formulaUi: FormulaUi = newFormulaUi();
   private vocabularyUi: VocabularyUi = newVocabularyUi();
   private grids: Record<'table' | 'grid', GridState> = {
@@ -532,6 +534,11 @@ export class Shell {
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
+    if (id === 'pictures')
+      return renderPictures(bench, this.selected, this.picturesUi, {
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+      });
     if (id === 'formula')
       return renderFormulas(bench, this.selected, this.formulaUi, {
         redraw: () => this.render(),

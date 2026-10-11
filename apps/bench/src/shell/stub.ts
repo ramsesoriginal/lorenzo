@@ -69,6 +69,7 @@ export const PANES: PaneDef[] = [
   { id: 'table', title: 'Table', float: [560, 320] },
   { id: 'grid', title: 'Compare', float: [760, 480] },
   { id: 'formula', title: 'Formulas', float: [420, 420] },
+  { id: 'pictures', title: 'Pictures', float: [480, 460] },
   { id: 'vocabulary', title: 'Vocabulary', float: [420, 400] },
 ];
 
