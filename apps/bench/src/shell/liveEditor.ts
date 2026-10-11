@@ -134,6 +134,9 @@ export function liveEditor(o: LiveOptions): HTMLElement {
         b.querySelectorAll<HTMLElement>('a.ls-entity').forEach((a, n) => {
           a.dataset.key = `${o.key}:link:${i}:${n}`;
         });
+        b.querySelectorAll<HTMLElement>('.ls-stat').forEach((c, n) => {
+          c.dataset.key = `${o.key}:stat:${i}:${n}`;
+        });
         b.addEventListener('mousedown', (ev) => {
           if (linkId(ev) || (ev.target as Element).closest?.('.stat-step'))
             return ev.preventDefault();
@@ -389,6 +392,9 @@ export function liveEditor(o: LiveOptions): HTMLElement {
   void paint();
   // A redraw of the page while a block is source puts it back as source.
   if (state.active !== null && state.focused && document.activeElement === document.body)
-    queueMicrotask(focusSource);
+    queueMicrotask(() => {
+      // The page may have put the focus and the selection back itself by now.
+      if (document.activeElement === document.body) focusSource();
+    });
   return wrap;
 }

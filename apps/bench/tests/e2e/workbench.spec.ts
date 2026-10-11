@@ -3,6 +3,12 @@ import { expect, test } from '@playwright/test';
 const groupOf = (page: import('@playwright/test').Page, pane: string) =>
   page.locator('.grp', { has: page.locator(`[data-tab="${pane}"]`) });
 
+/** The box of an element, once it has one (the page may be drawing it again). */
+const boxOf = async (loc: import('@playwright/test').Locator) => {
+  await expect.poll(async () => (await loc.boundingBox()) !== null).toBe(true);
+  return (await loc.boundingBox()) as NonNullable<Awaited<ReturnType<typeof loc.boundingBox>>>;
+};
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => {
@@ -40,15 +46,15 @@ test('dragging a tab to the bottom edge of another group splits it', async ({ pa
   const target = groupOf(page, 'entry');
   await expect(target).toBeVisible();
   await expect(tab).toBeVisible();
-  const box = (await target.boundingBox())!;
-  const from = (await tab.boundingBox())!;
+  const box = await boxOf(target);
+  const from = await boxOf(tab);
   await page.mouse.move(from.x + 10, from.y + 10);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height - 10, { steps: 8 });
   await expect(page.locator('.drop')).toBeVisible();
   await page.mouse.up();
-  const entry = (await groupOf(page, 'entry').boundingBox())!;
-  const links = (await groupOf(page, 'links').boundingBox())!;
+  const entry = await boxOf(groupOf(page, 'entry'));
+  const links = await boxOf(groupOf(page, 'links'));
   expect(links.y).toBeGreaterThan(entry.y + entry.height - 2);
   // the stats tab it left is still in its old group, now alone
   await expect(groupOf(page, 'props').locator('.bar')).toHaveClass(/solo/);
@@ -57,7 +63,7 @@ test('dragging a tab to the bottom edge of another group splits it', async ({ pa
 test('dragging a tab into empty space floats it, and Dock puts it back', async ({ page }) => {
   const tab = page.locator('[data-tab="props"] .name');
   await expect(tab).toBeVisible();
-  const from = (await tab.boundingBox())!;
+  const from = await boxOf(tab);
   // dropping on the title bar's own group would re-tab it; drag over the top bar instead
   await page.mouse.move(from.x + 10, from.y + 10);
   await page.mouse.down();
@@ -70,13 +76,15 @@ test('dragging a tab into empty space floats it, and Dock puts it back', async (
 });
 
 test('a divider can be dragged', async ({ page }) => {
-  const before = (await groupOf(page, 'explorer').boundingBox())!;
-  const d = (await page.locator('.divider').first().boundingBox())!;
+  await expect(page.locator('[data-tab="explorer"]')).toBeVisible();
+  await expect(page.locator('.divider').first()).toBeVisible();
+  const before = await boxOf(groupOf(page, 'explorer'));
+  const d = await boxOf(page.locator('.divider').first());
   await page.mouse.move(d.x + d.width / 2, d.y + 200);
   await page.mouse.down();
   await page.mouse.move(d.x + d.width / 2 + 120, d.y + 200, { steps: 5 });
   await page.mouse.up();
-  const after = (await groupOf(page, 'explorer').boundingBox())!;
+  const after = await boxOf(groupOf(page, 'explorer'));
   expect(after.width).toBeGreaterThan(before.width + 100);
 });
 
@@ -110,8 +118,8 @@ test('tabs can be moved with the keyboard', async ({ page }) => {
   const tab = page.locator('[data-tab="props"] .name');
   await tab.focus();
   await page.keyboard.press('Alt+Shift+ArrowLeft');
-  const a = (await groupOf(page, 'props').boundingBox())!;
-  const b = (await groupOf(page, 'links').boundingBox())!;
+  const a = await boxOf(groupOf(page, 'props'));
+  const b = await boxOf(groupOf(page, 'links'));
   expect(a.x).toBeLessThan(b.x);
   await page.locator('[data-tab="links"] .name').focus();
   await page.keyboard.press('Alt+f');

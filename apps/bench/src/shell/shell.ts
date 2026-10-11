@@ -165,7 +165,8 @@ export class Shell {
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('keydown', (e) => this.onKey(e));
-    this.unsubscribe = bench.subscribe(() => this.later());
+    this.watchPending();
+    this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
     this.render();
   }
 
@@ -174,7 +175,7 @@ export class Shell {
     this.unsubscribe?.();
     this.bench = bench;
     this.selected = null;
-    this.unsubscribe = bench.subscribe(() => this.later());
+    this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
     this.render();
   }
 
@@ -251,23 +252,46 @@ export class Shell {
   // ---- drawing --------------------------------------------------------------------------------
 
   /**
-   * Draws the page once, soon, however many changes come before then: reading many entries or many
-   * pictures tells the screen again and again, and each drawing is the whole page.
+   * Draws the page once, after what is running now, however many changes come before then. It is a
+   * microtask, not a frame: the page is as it should be before anything else (a click, a test)
+   * looks at it, and a burst of changes in one go is still one drawing.
    */
   private later() {
     if (this.pending) return;
-    this.pending = requestAnimationFrame(() => {
-      this.pending = 0;
+    this.pending = true;
+    queueMicrotask(() => {
+      if (!this.pending) return;
       this.render();
     });
   }
-  private pending = 0;
+  private pending = false;
+
+  /**
+   * A field that was typed in when the page was drawn again keeps its text but starts over as to
+   * what counts as changed: Enter or leaving it would make no change. So a field put back with
+   * something typed in it says "change" itself when it is left or Enter is pressed.
+   */
+  private watchPending() {
+    const settle = (e: Event) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.dataset.pending !== '1') return;
+      delete t.dataset.pending;
+      t.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    window.addEventListener('keydown', (e) => e.key === 'Enter' && settle(e), true);
+    window.addEventListener('focusout', settle, true);
+    // The field's own change says it is settled.
+    window.addEventListener(
+      'change',
+      (e) => {
+        if (e.isTrusted && e.target instanceof HTMLElement) delete e.target.dataset.pending;
+      },
+      true,
+    );
+  }
 
   private render() {
-    if (this.pending) {
-      cancelAnimationFrame(this.pending);
-      this.pending = 0;
-    }
+    this.pending = false;
     const s = this.surface;
     // Keep what a person is typing when something else changes the page.
     const active = document.activeElement;
@@ -279,6 +303,7 @@ export class Shell {
             // Only a field has what is typed in it; a link is only found again.
             value: typing ? active.value : null,
             at: typing ? active.selectionStart : null,
+            to: typing ? active.selectionEnd : null,
           }
         : null;
     this.drawLayouts();
@@ -300,10 +325,14 @@ export class Shell {
     if (kept) {
       const found = s.querySelector<HTMLElement>(`[data-key="${kept.key}"]`);
       if (found instanceof HTMLInputElement || found instanceof HTMLTextAreaElement) {
-        if (kept.value !== null) found.value = kept.value;
+        if (kept.value !== null) {
+          if (found instanceof HTMLInputElement && found.value !== kept.value)
+            found.dataset.pending = '1';
+          found.value = kept.value;
+        }
         found.dispatchEvent(new Event('input')); // the preview follows what is typed
         found.focus();
-        if (kept.at !== null) found.setSelectionRange(kept.at, kept.at);
+        if (kept.at !== null) found.setSelectionRange(kept.at, kept.to ?? kept.at);
       } else found?.focus();
     }
   }
@@ -384,6 +413,8 @@ export class Shell {
       }
     }
     b.type = 'button';
+    // Found again when the page is drawn again, so the focus is put back on it.
+    b.dataset.key = `tab:${p}`;
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(p === g.active));
     b.addEventListener('click', () => {

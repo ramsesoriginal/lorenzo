@@ -61,7 +61,7 @@ export class Bench {
   /** The formulas that work out stats. */
   readonly formulas: FormulaStore;
   private nextId = 1;
-  private listeners = new Set<() => void>();
+  private listeners = new Set<(background: boolean) => void>();
   private current: Promise<void> | null = null;
   private again = false;
 
@@ -71,22 +71,36 @@ export class Bench {
   ) {
     this.links = new LinkResolver(transport);
     this.links.stats = (home) => this.statChips(home);
-    this.formulas = new FormulaStore(transport, () => this.emit());
+    this.formulas = new FormulaStore(transport, () => this.emitLater());
     this.pictures = new Pictures(
       transport,
-      () => this.emit(),
+      () => this.emitLater(),
       (id) => this.links.forgetPicture(id),
     );
   }
 
-  subscribe(fn: () => void): () => void {
+  /** `fn` is told of every change; `background` says it was not asked for by the person. */
+  subscribe(fn: (background: boolean) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }
-  private emit() {
+  private emit(background = false) {
     this.listed = null;
-    for (const fn of this.listeners) fn();
+    for (const fn of this.listeners) fn(background);
   }
+
+  /**
+   * Tells the screen soon, once, for what arrives in the background (entries and pictures being
+   * read): a drawing for each would be the whole page again and again.
+   */
+  private emitLater() {
+    if (this.soon) return;
+    this.soon = setTimeout(() => {
+      this.soon = null;
+      this.emit(true);
+    }, 60);
+  }
+  private soon: ReturnType<typeof setTimeout> | null = null;
 
   /** The server's entries by id (rebuilt when the list is replaced). */
   private entry(id: string): EntrySummary | undefined {
@@ -209,11 +223,11 @@ export class Bench {
     const worker = async () => {
       while (next < ids.length) {
         await this.open(ids[next++] as string, true);
-        if (++done % 60 === 0) this.emit();
+        if (++done % 60 === 0) this.emitLater();
       }
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
-    if (ids.length) this.emit();
+    if (ids.length) this.emitLater();
   }
 
   /** How many entries have their detail read, of how many there are. */

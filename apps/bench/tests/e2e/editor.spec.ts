@@ -150,6 +150,31 @@ test('a refused change says why, and Discard puts the old value back', async ({ 
   await expect(page.locator('.pane-entry .parent')).toHaveText(['Undead', 'Beast']);
 });
 
+test('what was typed when the page was drawn again is still a change when Enter is pressed', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await name(page).focus();
+  await name(page).fill('Fenrir');
+  await page.evaluate(() => {
+    const b = (
+      window as unknown as {
+        bench: {
+          bench: {
+            change(t: string, id: string, v: unknown): void;
+            open(id: string): Promise<void>;
+          };
+        };
+      }
+    ).bench.bench;
+    return b.open('zombie').then(() => b.change('entry.set-name', 'zombie', 'Walker'));
+  });
+  await expect(page.locator('[data-entry="zombie"]')).toHaveText('Walker');
+  await name(page).press('Enter');
+  await expect(page.locator('[data-entry="wolf"]')).toHaveText('Fenrir');
+  expect((await writes(page)).map((w) => w.value)).toContain('Fenrir');
+});
+
 test('what is being typed survives another change arriving', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
   await name(page).focus();
@@ -877,6 +902,8 @@ test.describe('the link buttons', () => {
     page,
   }) => {
     await page.locator('[data-entry="zombie"]').click();
+    // The entry's picture draws the page again when it arrives, which would take the selection.
+    await expect(page.locator('.pane-entry .picture')).not.toContainText('Loading');
     await description(page).fill('Fears dire');
     await description(page).evaluate((a: HTMLTextAreaElement) => a.setSelectionRange(6, 10));
     await page.getByRole('button', { name: 'Link to an entry' }).first().click();
@@ -1315,6 +1342,8 @@ test.describe('link names', () => {
 
   test('a link name the API would refuse is said, not sent', async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
+    // What the entry is waiting for (its picture) draws the page again when it comes.
+    await expect(page.locator('.pane-entry .picture')).not.toContainText('Loading');
     await linkName(page).fill('two words');
     await linkName(page).press('Enter');
     await expect(page.locator('.link-name .bad')).toContainText('letters, digits');
@@ -1323,6 +1352,8 @@ test.describe('link names', () => {
 
   test("another entry having it is Needs attention, with the API's words", async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
+    // What the entry is waiting for (its picture) draws the page again when it comes.
+    await expect(page.locator('.pane-entry .picture')).not.toContainText('Loading');
     await linkName(page).fill('monster');
     await linkName(page).press('Enter');
     await expect(page.getByRole('alert')).toContainText('already in use');
