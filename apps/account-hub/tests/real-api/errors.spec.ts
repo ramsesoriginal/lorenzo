@@ -32,7 +32,8 @@ test('Lorenzo being unreachable is said plainly', async ({ page, context }) => {
   await ok(api.GET('/me'));
   await signIn(page, context, subject);
   // What signing in read is held for the next page (lib/cache.ts); this page is to ask again.
-  await page.evaluate(() => sessionStorage.clear());
+  // Emptied before every page script runs, so a read still landing from the last page cannot refill it.
+  await page.addInitScript(() => sessionStorage.clear());
   await page.route('**/me', (route) => route.abort('connectionrefused'));
   await page.goto('/profile');
   await expect(page.locator('#load-error')).toHaveText(
