@@ -44,7 +44,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const back = required<HTMLAnchorElement>(root, '[data-back]');
   const title = required<HTMLElement>(root, '[data-title]');
   const kind = required<HTMLElement>(root, '[data-kind]');
-  const slug = required<HTMLElement>(root, '[data-slug]');
+  const slug = required<HTMLElement>(root, '[data-link-name]');
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
   const editSections = required<HTMLElement>(root, '[data-edit-sections]');
   const nameSection = required<HTMLElement>(root, '[data-name-section]');

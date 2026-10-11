@@ -58,7 +58,7 @@ export function renderInventorySummary(root: HTMLElement): RenderedInventorySumm
 
             required<HTMLElement>(row, '[data-name]').textContent = item.name;
             quantity.hidden = item.quantity <= 1;
-            quantity.textContent = `×${item.quantity}`;
+            quantity.textContent = item.quantity > 1 ? `×${item.quantity}` : '';
 
             return row;
           }),
