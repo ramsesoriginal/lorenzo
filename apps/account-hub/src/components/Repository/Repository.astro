@@ -92,6 +92,24 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           <p class="caption" data-owner-only hidden></p>
           <p class="status-text" role="status" data-publish-status hidden></p>
         </div>
+        <div class="stack-tight" data-subscriber>
+          <h3 data-subscriber-heading></h3>
+          <p class="caption" data-subscriber-explanation></p>
+          <p data-subscriber-line hidden></p>
+          <div class="row" data-subscriber-buttons hidden>
+            <button type="button" class="btn btn-secondary" data-view-as>
+              View as a subscriber
+            </button>
+            <button type="button" class="btn btn-secondary" data-reset-test hidden>
+              Reset the Test library
+            </button>
+            <button type="button" class="btn-danger" data-remove-test hidden>
+              Remove the Test library
+            </button>
+          </div>
+          <p class="caption" data-subscriber-unavailable hidden></p>
+          <p class="status-text" role="status" data-subscriber-status hidden></p>
+        </div>
       </section>
     </div>
 

@@ -5,7 +5,14 @@ import {
   SITE_URL,
   SUBJECT_COOKIE,
 } from '../../../inventory-web/tests/e2e/support/env';
-import { libraryCard, newCampaign, newLibrary, newUser, signedInPage } from './support';
+import {
+  campaignCard,
+  newCampaign,
+  newLibrary,
+  newUser,
+  openLibrary,
+  signedInPage,
+} from './support';
 
 const TOKEN_URL = new RegExp(`^${SITE_URL}/join/#[A-Za-z0-9_-]{43}$`);
 
@@ -59,7 +66,7 @@ async function joinThrough(
   await page.goto(url);
   await page.getByRole('button', { name: 'Log in to join' }).click();
   await expect(page).toHaveURL(`${SITE_URL}/join/`);
-  await page.getByRole('button', { name: button }).click();
+  await page.getByRole('button', { name: button, exact: true }).click();
   return { page, close: () => context.close() };
 }
 
@@ -72,14 +79,14 @@ test('"I do": a library, a campaign, the creator as GM, and a link that works', 
   await page.goto('/setup');
   await expect(page.getByRole('heading', { name: 'Set up a table' })).toBeVisible();
   await fillBasics(page, n);
-  await page.getByRole('button', { name: 'Set up' }).click();
+  await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
-  await expect(page.locator('#setup-container')).toContainText(`${n.campaign} is in ${n.library}.`);
-  await expect(page.locator('#setup-container')).toContainText("You're its GM.");
-  const link = page.getByLabel('Link for your players');
+  await expect(page.locator('[data-setup]')).toContainText(`${n.campaign} is in ${n.library}.`);
+  await expect(page.locator('[data-setup]')).toContainText("You're its GM.");
+  const link = page.getByLabel('Link for your players', { exact: true });
   await expect(link).toHaveValue(TOKEN_URL);
-  await expect(page.locator('.setup-link')).toContainText("won't be shown again");
+  await expect(page.locator('[data-player-link]')).toContainText("won't be shown again");
   // No GM link when the creator runs it.
   await expect(page.getByLabel('GM invite link')).toHaveCount(0);
 
@@ -100,17 +107,17 @@ test('"I do": a library, a campaign, the creator as GM, and a link that works', 
   const url = await link.inputValue();
   const visitor = await newUser('visitor');
   const joined = await joinThrough(browser, url, visitor.subject, 'Join');
-  await expect(joined.page.locator('#invite-status')).toHaveText(
+  await expect(joined.page.locator('[data-join] [data-status]')).toHaveText(
     `You're in. ${n.campaign} lists you as a player.`,
   );
   await joined.close();
 
   // "Done" takes the link off the page.
-  await page.locator('.setup-link').getByRole('button', { name: 'Done' }).click();
-  await expect(page.getByLabel('Link for your players')).toHaveCount(0);
+  await page.locator('[data-player-link]').getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByLabel('Link for your players', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Your campaigns' })).toHaveAttribute(
     'href',
-    '/campaigns',
+    '/campaigns/',
   );
   await context.close();
 });
@@ -129,18 +136,18 @@ test('"someone I can find": the person found is made GM now, and the creator is 
   await page.getByLabel('Someone I can find').check();
 
   // Not looked up yet: said, and nothing is made.
-  await page.getByRole('button', { name: 'Set up' }).click();
-  await expect(page.locator('#setup-container')).toContainText('Look the person up first');
+  await page.getByRole('button', { name: 'Set up', exact: true }).click();
+  await expect(page.locator('[data-setup]')).toContainText('Look the person up first');
   expect((await ok(creator.api.GET('/tenants'))).items.map((t) => t.name)).not.toContain(n.library);
 
   await page.getByLabel('Nickname', { exact: true }).check();
   await page.getByPlaceholder('Email or nickname').fill(nickname);
   await page.getByRole('button', { name: 'Look up' }).click();
-  await expect(page.locator('#setup-container')).toContainText(`Found: ${nickname}`);
-  await page.getByRole('button', { name: 'Set up' }).click();
+  await expect(page.locator('[data-setup]')).toContainText(`Found: ${nickname}`);
+  await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
-  await expect(page.locator('#setup-container')).toContainText(`${nickname} is its GM.`);
+  await expect(page.locator('[data-setup]')).toContainText(`${nickname} is its GM.`);
   const made = await whatWasMade(creator, n.library);
   const campaignId = made.campaigns[0]?.id as string;
   expect((await made.gms(campaignId)).map((g) => g.user_id)).toEqual([friend.me.id]);
@@ -157,16 +164,16 @@ test('"someone I\'ll send a link to": a single-use GM link that makes a GM and n
   await fillBasics(page, n);
   await page.getByLabel("Someone I'll send a link to").check();
   await expect(page.getByLabel('GM link works for')).toBeVisible();
-  await page.getByRole('button', { name: 'Set up' }).click();
+  await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
-  await expect(page.locator('#setup-container')).toContainText(
+  await expect(page.locator('[data-setup]')).toContainText(
     'Send the GM link to the person who should run it.',
   );
   const gmLink = page.getByLabel('GM invite link');
   await expect(gmLink).toHaveValue(TOKEN_URL);
-  await expect(page.getByLabel('Link for your players')).toHaveValue(TOKEN_URL);
-  await expect(page.locator('.setup-link').first()).toContainText('works once');
+  await expect(page.getByLabel('Link for your players', { exact: true })).toHaveValue(TOKEN_URL);
+  await expect(page.locator('[data-gm-link]')).toContainText('works once');
 
   const made = await whatWasMade(creator, n.library);
   const campaignId = made.campaigns[0]?.id as string;
@@ -185,14 +192,14 @@ test('"someone I\'ll send a link to": a single-use GM link that makes a GM and n
   const context2 = await browser.newContext();
   const joinPage = await context2.newPage();
   await joinPage.goto(gmUrl);
-  await expect(joinPage.locator('#invite-offer')).toHaveText(
+  await expect(joinPage.locator('[data-offer]')).toHaveText(
     "You've been invited to run this campaign as a GM.",
   );
   await context2.addCookies([{ name: SUBJECT_COOKIE, value: newcomer.subject, url: AUTHGEAR_URL }]);
   await joinPage.getByRole('button', { name: 'Log in to join' }).click();
   await expect(joinPage).toHaveURL(`${SITE_URL}/join/`);
   await joinPage.getByRole('button', { name: 'Join as a GM' }).click();
-  await expect(joinPage.locator('#invite-status')).toHaveText(
+  await expect(joinPage.locator('[data-join] [data-status]')).toHaveText(
     `You're in. ${n.campaign} lists you as a GM.`,
   );
   expect((await made.gms(campaignId)).map((g) => g.user_id)).toEqual([newcomer.me.id]);
@@ -207,7 +214,7 @@ test('"someone I\'ll send a link to": a single-use GM link that makes a GM and n
   const page3 = await context3.newPage();
   await context3.addCookies([{ name: SUBJECT_COOKIE, value: second.subject, url: AUTHGEAR_URL }]);
   await page3.goto(gmUrl);
-  await expect(page3.locator('#dead-link')).toHaveText(
+  await expect(page3.locator('[data-dead]')).toHaveText(
     "This link doesn't work any more. Ask whoever sent it for a new one.",
   );
   expect((await made.gms(campaignId)).map((g) => g.user_id)).toEqual([newcomer.me.id]);
@@ -243,7 +250,7 @@ test('a step that fails stops there, says why, and goes on from it without makin
   });
   await page.goto('/setup');
   await fillBasics(page, n);
-  await page.getByRole('button', { name: 'Set up' }).click();
+  await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
   // The library is made and said so; the campaign is where it stopped, and why.
   await expect(page.locator('.setup-steps')).toContainText('✓ Library made');
@@ -278,27 +285,42 @@ test('only an account the API says may create is offered setup, and the links to
   await expect(refused.page.locator('#setup-unavailable')).toContainText(
     "isn't open to your account yet",
   );
-  await expect(refused.page.locator('#setup form')).toHaveCount(0);
+  // The form is in the page but its section stays hidden.
+  await expect(refused.page.locator('#setup')).toBeHidden();
   await refused.page.goto('/');
-  await expect(refused.page.locator('#account-signed-in')).toBeVisible();
-  await expect(refused.page.locator('#setup-link')).toBeHidden();
+  await expect(refused.page.locator('[data-account-signed-in]')).toBeVisible();
+  // Neither the page's own offer nor the header's link to setup.
+  await expect(
+    refused.page.locator('main').getByRole('link', { name: 'Set up a table' }),
+  ).toHaveCount(0);
+  await expect(
+    refused.page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
+  ).toBeHidden();
   await refused.page.goto('/campaigns');
-  await expect(refused.page.locator('#empty-state')).toBeVisible();
-  await expect(refused.page.locator('#setup-link')).toBeHidden();
+  await expect(refused.page.locator('[data-empty]')).toBeVisible();
+  await expect(refused.page.locator('[data-empty] [data-setup]')).toBeHidden();
   await refused.context.close();
 
   const maker = await newUser('maker', ['tenant_creator']);
   const { page, context } = await signedInPage(browser, maker.subject);
   await page.goto('/');
-  await expect(page.getByRole('link', { name: 'Set up a table' })).toBeVisible();
-  // Nothing yet, on either page: both point at it.
-  for (const path of ['/campaigns', '/tenants']) {
-    await page.goto(path);
-    await expect(page.locator('#empty-state')).toBeVisible();
-    await expect(
-      page.locator('#empty-state').getByRole('link', { name: 'Set up a table' }),
-    ).toHaveAttribute('href', '/setup');
-  }
+  await expect(page.locator('main').getByRole('link', { name: 'Set up a table' })).toBeVisible();
+  await expect(
+    page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
+  ).toHaveAttribute('href', '/setup/');
+  // Nothing yet on /campaigns: it points at it.
+  await page.goto('/campaigns');
+  await expect(page.locator('[data-empty]')).toBeVisible();
+  await expect(
+    page.locator('[data-empty]').getByRole('link', { name: 'Set up a table' }),
+  ).toHaveAttribute('href', '/setup/');
+  // /tenants no longer has an empty page for an account that may create: with no library it opens
+  // the form to make one (TenantsPanel's defaultView), and the header's link is the way to /setup.
+  await page.goto('/tenants');
+  await expect(page.locator('[data-create-tenant]')).toBeVisible();
+  await expect(
+    page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
+  ).toBeVisible();
   await context.close();
 });
 
@@ -309,17 +331,18 @@ test('a campaign manager hands over a GM seat from the invite panel, one use, la
   const library = await newLibrary(owner.api);
   const campaign = await newCampaign(owner.api, library.id, 'Zorro');
   const { page, context } = await signedInPage(browser, owner.subject);
-  await page.goto('/tenants');
-  const panel = libraryCard(page, library.name)
-    .locator('.panel')
-    .filter({ hasText: 'Invite links:' });
+  const campaignPanel = campaignCard(await openLibrary(page, library), 'Zorro');
+  await campaignPanel.getByRole('tab', { name: 'Invite links' }).click();
+  const panel = campaignPanel.locator('[data-invite-links]');
 
   await panel.getByRole('button', { name: 'Invite a GM' }).click();
   const link = panel.getByLabel('GM invite link');
   await expect(link).toHaveValue(TOKEN_URL);
   await expect(panel).toContainText('works once');
   await expect(panel).toContainText('becomes a GM');
-  await expect(panel.locator('li').filter({ hasText: 'GM link' })).toContainText('Used 0 of 1');
+  await expect(panel.locator('[data-list] > li').filter({ hasText: 'GM link' })).toContainText(
+    'Used 0 of 1',
+  );
 
   const [made] = (
     await ok(

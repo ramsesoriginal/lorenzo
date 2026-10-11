@@ -427,6 +427,12 @@ class Kind8(StrEnum):
     character = "character"
 
 
+class EntityExportStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
 class EntityKindPut(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
 
@@ -586,13 +592,13 @@ class KindCountsOut(BaseModel):
     removed: int = Field(..., title="Removed")
 
 
-class Kind11(StrEnum):
+class Kind12(StrEnum):
     entity = "entity"
     player = "player"
 
 
 class KnowerOut(BaseModel):
-    kind: Kind11 = Field(..., title="Kind")
+    kind: Kind12 = Field(..., title="Kind")
     knower_entity_id: UUID | None = Field(None, title="Knower Entity Id")
     player_id: UUID | None = Field(None, title="Player Id")
     name: str | None = Field(..., title="Name")
@@ -996,7 +1002,7 @@ class RepositoryDependencyOut(BaseModel):
     published: bool = Field(..., title="Published")
 
 
-class Kind12(StrEnum):
+class Kind13(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1006,7 +1012,7 @@ class Kind12(StrEnum):
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind12] = Field(..., title="Kinds")
+    kinds: list[Kind13] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
@@ -1018,7 +1024,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind13(StrEnum):
+class Kind14(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -1031,13 +1037,13 @@ class Action(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind13 = Field(..., title="Kind")
+    kind: Kind14 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind14(StrEnum):
+class Kind15(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1048,7 +1054,7 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind14] = Field(..., title="Kinds")
+    kinds: list[Kind15] = Field(..., title="Kinds")
 
 
 class RoundMode(StrEnum):
@@ -1059,7 +1065,7 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind15(StrEnum):
+class Kind16(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1070,7 +1076,7 @@ class State4(StrEnum):
     edited = "edited"
 
 
-class Kind16(StrEnum):
+class Kind17(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1078,14 +1084,14 @@ class Kind16(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind16 = Field(..., title="Kind")
+    kind: Kind17 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind17(StrEnum):
+class Kind18(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1734,7 +1740,7 @@ class RepositoryStatGroupOut(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind15 = Field(..., title="Kind")
+    kind: Kind16 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -1744,7 +1750,7 @@ class RowChangeOut(BaseModel):
 
 
 class RowRefOut(BaseModel):
-    kind: Kind17 = Field(..., title="Kind")
+    kind: Kind18 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -1799,7 +1805,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind17 = Field(..., title="Kind")
+    kind: Kind18 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -1962,6 +1968,25 @@ class EntityDetailOut(BaseModel):
     parent: EntitySummary | None
     quantity: int | None = Field(..., title="Quantity")
     children: list[EntitySummary] = Field(..., title="Children")
+
+
+class EntityExportOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(..., title="Slug")
+    kinds: list[Kind8] = Field(..., title="Kinds")
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
+    stat_group_ids: list[UUID] = Field(..., title="Stat Group Ids")
+    stats: list[EntityExportStatOut] = Field(..., title="Stats")
+    information: list[InformationOut] = Field(..., title="Information")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class EntityExportPage(BaseModel):
+    revision: str = Field(..., title="Revision")
+    items: list[EntityExportOut] = Field(..., title="Items")
+    next_cursor: str | None = Field(..., title="Next Cursor")
 
 
 class EntityStatWriteOut(BaseModel):

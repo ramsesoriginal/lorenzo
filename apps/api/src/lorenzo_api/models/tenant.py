@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, text
+from sqlalchemy import BigInteger, Enum, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, UuidPk
@@ -73,6 +73,9 @@ class Tenant(Base):
     # GMs who share a campaign with its author. Meaningless for a repository,
     # which holds no campaigns and so has no GMs.
     npcs_shared_with_gms: Mapped[bool] = mapped_column(server_default=text("true"))
+    # ADR 0262: bumped once per transaction that writes anything the entity export shows, by
+    # deferred triggers on those tables (migration c4e7a19b5d28). The export's ETag.
+    export_revision: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
     # ADR 0029's attribution pair, landing here alongside created_at/
     # updated_at themselves (ADR 0033/RFC 0012) - unlike every other table
     # ADR 0018 covers, `tenant`'s original bootstrap (ADR 0013) predates

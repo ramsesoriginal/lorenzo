@@ -8,6 +8,7 @@ from fastapi_pagination import add_pagination
 from fastapi_pagination.utils import disable_installed_extensions_check
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from lorenzo_api.compression import GzipForPathsMiddleware
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import engine
 from lorenzo_api.errors import register_error_handlers
@@ -22,6 +23,7 @@ from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.computed_stats import router as computed_stats_router
 from lorenzo_api.routers.entities import router as entities_router
+from lorenzo_api.routers.entity_export import router as entity_export_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
@@ -76,6 +78,9 @@ def create_app() -> FastAPI:
         expose_headers=["ETag", "Location"],
     )
 
+    # ADR 0262: gzip, for the one response big enough to need it.
+    app.add_middleware(GzipForPathsMiddleware, path_suffixes=("/entities/export",))
+
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(admin_router)
@@ -91,6 +96,8 @@ def create_app() -> FastAPI:
     app.include_router(beings_router)
     app.include_router(payloads_router)
     app.include_router(pictures_router)
+    # Before entities_router: its /{entity_id} would take "export" (ADR 0262).
+    app.include_router(entity_export_router)
     app.include_router(entities_router)
     app.include_router(entity_stats_router)
     app.include_router(computed_stats_router)

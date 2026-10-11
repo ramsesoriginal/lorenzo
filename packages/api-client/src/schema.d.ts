@@ -1792,6 +1792,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Entities
+         * @description Every entry of the tenant, `limit` at a time in id order, each with what a mirror is
+         *     written back from (ADR 0262): kinds, link name, parents, stat groups, the values it holds
+         *     itself by definition id, and the information the caller may read.
+         *
+         *     The `ETag` is the tenant's revision joined to a digest of what the caller may read. On the
+         *     first page `If-None-Match` with that token answers `304`: nothing the mirror holds has
+         *     changed. A cursor remembers the token its export began with; if the token has moved by the
+         *     time it is used the answer is `409` and the export starts again. Responses are gzipped when
+         *     the client asks for it.
+         */
+        get: operations["export_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities": {
         parameters: {
             query?: never;
@@ -5058,6 +5086,80 @@ export interface components {
             quantity: number | null;
             /** Children */
             children: components["schemas"]["EntitySummary"][];
+        };
+        /**
+         * EntityExportOut
+         * @description One entry of GET .../entities/export, as much of it as a mirror needs to be written back
+         *     from (ADR 0262): not `EntityDetailOut`, which has effective values by name and the
+         *     containment tree, and no definition ids. `updated_at` is the entry's version (its `ETag` and
+         *     `If-Match`). `information` is what the caller may read of the entry's information, the rows
+         *     and payloads `GET .../entities/{id}` shows it, picture payloads as `url`s, never as bytes.
+         */
+        EntityExportOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /** Parent Ids */
+            parent_ids: string[];
+            /** Stat Group Ids */
+            stat_group_ids: string[];
+            /** Stats */
+            stats: components["schemas"]["EntityExportStatOut"][];
+            /** Information */
+            information: components["schemas"]["InformationOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * EntityExportPage
+         * @description A page of GET .../entities/export, entries in id order. `revision` is the token inside
+         *     the `ETag` of the response: the same on every page of one export. `next_cursor` is null on the
+         *     last page, otherwise what to send as `cursor` for the next.
+         */
+        EntityExportPage: {
+            /** Revision */
+            revision: string;
+            /** Items */
+            items: components["schemas"]["EntityExportOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * EntityExportStatOut
+         * @description One value an entry holds itself (ADR 0262), by the id of its definition: what
+         *     `PUT .../stats/{stat_definition_id}` writes, and nothing inherited or computed. A tag is a
+         *     stat whose value is a bool. `updated_at` is the stat's own version, the source of its
+         *     `If-Match` (ADR 0225).
+         */
+        EntityExportStatOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * EntityKindPut
@@ -14403,6 +14505,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_entities: {
+        parameters: {
+            query?: {
+                /** @description The `next_cursor` of the previous page; leave out for the first. */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityExportPage"];
                 };
             };
             /** @description Validation Error */
