@@ -1483,3 +1483,48 @@ test.describe('the pictures pane', () => {
     await expect(pane(page).locator('[data-pic="wolf"]')).toBeVisible();
   });
 });
+
+test.describe('the pack editor', () => {
+  const pane = (page: Page) => page.locator('.pane-pack');
+  const rows = (page: Page) => pane(page).locator('.pack-row .pack-name');
+
+  test('a list of contents is edited as rows, and written back into the description', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Pack');
+    await expect(pane(page)).toContainText('no list of contents');
+    await pane(page).getByLabel('Plain text row').fill('Alms box');
+    await pane(page).getByRole('button', { name: 'Add text' }).click();
+    await pane(page).getByLabel('Plain text row').fill('Candle');
+    await pane(page).getByRole('button', { name: 'Add text' }).click();
+    await expect(rows(page)).toHaveText(['Alms box', 'Candle']);
+    await pane(page).getByLabel('Count of Candle').fill('4');
+    await pane(page).getByLabel('Count of Candle').press('Tab');
+    await pane(page).getByRole('button', { name: 'Move up' }).nth(1).click();
+    await expect(rows(page)).toHaveText(['Candle', 'Alms box']);
+    await pane(page).getByRole('button', { name: 'Into the row above' }).nth(1).click();
+    await expect(pane(page).locator('.pack-row.depth-1')).toHaveCount(1);
+    await pane(page).getByRole('button', { name: 'Show as text' }).click();
+    await expect(pane(page).getByLabel('Pack as text')).toHaveValue(
+      /- 4 x Candle\n {2}- 1 x Alms box/,
+    );
+  });
+
+  test('a plain row becomes an item, and Alt+arrows move the row the cursor is on', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Pack');
+    for (const t of ['One', 'Two']) {
+      await pane(page).getByLabel('Plain text row').fill(t);
+      await pane(page).getByRole('button', { name: 'Add text' }).click();
+    }
+    await pane(page).locator('[data-row="1"]').focus();
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect(rows(page)).toHaveText(['Two', 'One']);
+    await expect(pane(page).locator('[data-row="0"]')).toBeFocused();
+    await pane(page).getByLabel('Make this an item').first().selectOption({ label: 'Ashfang' });
+    await expect(rows(page).first()).toHaveText('Ashfang');
+  });
+});
