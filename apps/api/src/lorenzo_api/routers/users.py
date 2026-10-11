@@ -14,6 +14,7 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.change_feed import RETENTION_DAYS
 from lorenzo_api.dependencies import (
     CurrentUser,
+    InteractiveUser,
     ParamsDep,
     SessionDep,
     can_create_tenant,
@@ -501,8 +502,9 @@ async def _record_account_departure(session: SessionDep, *, user_id: uuid.UUID) 
 
 
 @router.delete("/me", status_code=204)
-async def delete_me(user: CurrentUser, session: SessionDep) -> None:
-    """ADR 0036/RFC 0007 - removes the caller's own app_user row. Guarded:
+async def delete_me(user: InteractiveUser, session: SessionDep) -> None:
+    """ADR 0036/RFC 0007 - removes the caller's own app_user row. Needs a signed-in session,
+    not a personal access token (ADR 0268). Guarded:
     409 LastOwnerError if the caller is the sole OWNER Membership of any
     tenant they belong to - deleting themselves would leave that tenant
     with no one able to administer it at all (the same lockout PATCH/

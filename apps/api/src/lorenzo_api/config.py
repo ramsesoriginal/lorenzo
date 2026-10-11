@@ -80,6 +80,14 @@ class Settings(BaseSettings):
     # whereas anything to its left is client-supplied and spoofable.
     invite_rate_limit_trusted_proxy_hops: int = 0
 
+    # Personal access tokens (ADR 0268): where the account hub's "Connect a device" page lives
+    # (a device is told to send its user there), and the in-process backstop on the device-code
+    # routes - per client address for the two unauthenticated ones, per signed-in user for the
+    # ones that look up or approve a code. 0 disables a limit.
+    account_hub_url: str = "http://localhost:4322"
+    device_rate_limit_per_minute: int = 60
+    device_lookup_rate_limit_per_minute: int = 20
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: object) -> object:

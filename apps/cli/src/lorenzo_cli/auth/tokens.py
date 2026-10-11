@@ -103,6 +103,8 @@ def resolve_token_source(
         return StaticToken(from_env.strip())
     login = store.load()
     if login is not None:
+        if login.token_name is not None:
+            return StaticToken(login.access_token)
         return StoredToken(login, store, http)
     raise NotLoggedInError(
         "Not logged in. Run `lorenzo login`, set LORENZO_TOKEN, or pipe a token in with "

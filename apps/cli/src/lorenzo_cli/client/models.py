@@ -382,6 +382,34 @@ class Again(StrEnum):
     purge = "purge"
 
 
+class DeviceApproval(BaseModel):
+    name: constr(min_length=1, max_length=80) = Field(..., title="Name")
+    expires_at: AwareDatetime | None = Field(None, title="Expires At")
+
+
+class DeviceCodeCreate(BaseModel):
+    client_name: constr(min_length=1, max_length=80) | None = Field(None, title="Client Name")
+
+
+class DeviceCodeOut(BaseModel):
+    device_code: str = Field(..., title="Device Code")
+    user_code: str = Field(..., title="User Code")
+    verification_uri: str = Field(..., title="Verification Uri")
+    verification_uri_complete: str = Field(..., title="Verification Uri Complete")
+    interval: int = Field(..., title="Interval")
+    expires_in: int = Field(..., title="Expires In")
+
+
+class DeviceCodePreviewOut(BaseModel):
+    user_code: str = Field(..., title="User Code")
+    client_name: str | None = Field(..., title="Client Name")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+
+
+class DeviceTokenRequest(BaseModel):
+    device_code: constr(min_length=1, max_length=200) = Field(..., title="Device Code")
+
+
 class DroppedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -614,6 +642,18 @@ class KnowledgeEntryOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class Kind13(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+
+
+class LinkPreviewStatOut(BaseModel):
+    name: str = Field(..., title="Name")
+    value: int | str | float = Field(..., title="Value")
+
+
 class ManagedCampaignOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
     name: str = Field(..., title="Name")
@@ -844,6 +884,24 @@ class PayloadPictureOut(BaseModel):
     file_type: str = Field(..., title="File Type")
 
 
+class PersonalTokenIssuedOut(BaseModel):
+    access_token: str = Field(..., title="Access Token")
+    token_type: str | None = Field("Bearer", title="Token Type")
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    expires_at: AwareDatetime | None = Field(..., title="Expires At")
+
+
+class PersonalTokenOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    hint: str = Field(..., title="Hint")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    last_used_at: AwareDatetime | None = Field(..., title="Last Used At")
+    expires_at: AwareDatetime | None = Field(..., title="Expires At")
+    is_expired: bool = Field(..., title="Is Expired")
+
+
 class PictureRefOut(BaseModel):
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
@@ -1002,13 +1060,6 @@ class RepositoryDependencyOut(BaseModel):
     published: bool = Field(..., title="Published")
 
 
-class Kind13(StrEnum):
-    item = "item"
-    item_instance = "item_instance"
-    being = "being"
-    character = "character"
-
-
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -1024,7 +1075,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind14(StrEnum):
+class Kind15(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -1037,13 +1088,13 @@ class Action(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind14 = Field(..., title="Kind")
+    kind: Kind15 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind15(StrEnum):
+class Kind16(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1054,7 +1105,7 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind15] = Field(..., title="Kinds")
+    kinds: list[Kind16] = Field(..., title="Kinds")
 
 
 class RoundMode(StrEnum):
@@ -1065,7 +1116,7 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind16(StrEnum):
+class Kind17(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1076,7 +1127,7 @@ class State4(StrEnum):
     edited = "edited"
 
 
-class Kind17(StrEnum):
+class Kind18(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1084,14 +1135,14 @@ class Kind17(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind17 = Field(..., title="Kind")
+    kind: Kind18 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind18(StrEnum):
+class Kind19(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1545,6 +1596,17 @@ class LinearFormulaBodyOutput(BaseModel):
     round_mode: RoundMode | None = "none"
 
 
+class LinkPreviewOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(..., title="Slug")
+    kinds: list[Kind13] = Field(..., title="Kinds")
+    template: str = Field(..., title="Template")
+    picture_url: str | None = Field(..., title="Picture Url")
+    stats: list[LinkPreviewStatOut] = Field(..., title="Stats")
+    excerpt: str = Field(..., title="Excerpt")
+
+
 class ManagedTenantOut(BaseModel):
     tenant_id: UUID = Field(..., title="Tenant Id")
     name: str = Field(..., title="Name")
@@ -1740,7 +1802,7 @@ class RepositoryStatGroupOut(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind16 = Field(..., title="Kind")
+    kind: Kind17 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -1750,7 +1812,7 @@ class RowChangeOut(BaseModel):
 
 
 class RowRefOut(BaseModel):
-    kind: Kind18 = Field(..., title="Kind")
+    kind: Kind19 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -1805,7 +1867,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind18 = Field(..., title="Kind")
+    kind: Kind19 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")

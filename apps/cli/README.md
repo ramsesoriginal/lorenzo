@@ -32,6 +32,7 @@ Python 3.14 is installed for you by `uv`. Linux and macOS (WSL included) are sup
 ```bash
 lorenzo login           # opens your browser; --no-browser prints the address instead (WSL, SSH)
 lorenzo whoami          # the API says who it thinks you are: the check that it all works
+lorenzo login --token   # no browser here: approve a code in the account hub; see Personal access tokens
 lorenzo tenant list     # the tenants you belong to
 ```
 
@@ -73,6 +74,10 @@ uv run lorenzo tenant show <tenant-id-or-slug>
 
 Or pipe a token in with `--token-stdin`. A token from the stored login is used last.
 
+### Personal access tokens
+
+`lorenzo login --token` needs no browser on the machine and no Authgear settings, only the API URL: it prints a code and an address, you open the address anywhere you are signed in to the account hub, check the code is the one shown, name the token, and approve. The token has no expiry unless you choose one there, acts as you (except that it cannot manage tokens or delete your account), and is listed under your profile with when it was last used, where you can revoke it. The stored file is `credentials.json`, readable only by you; anyone who can read it can act as you until the token is revoked.
+
 ## Commands
 
 | Command | What it does |
@@ -83,6 +88,7 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo tenant create <name> [--slug S] [--kind KIND]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo tenant delete <tenant> [--yes] [--json]` | Deletes a tenant and everything in it. **It can't be undone.** Needs the tenant-creator role and being one of the tenant's owners; asks you to type the slug (`--yes` skips that, `--json` needs it). A repository other tenants still hold a grant on is refused, with how to go on ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)) |
+| `lorenzo login --token` | Connects with a personal access token ([ADR 0269](../../docs/adr/0269-personal-access-tokens-hub-and-cli.md)): prints a code and the address of the account hub's *Connect a device* page, waits until you approve it there (naming the token and, if you like, an expiry), and stores it like any login. `whoami` then names it; `logout` forgets it here, and it works until you revoke it under your profile in the hub |
 | `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
 | `lorenzo inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
 | `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. The seed has four layers, `core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer` ([ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md)). A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |

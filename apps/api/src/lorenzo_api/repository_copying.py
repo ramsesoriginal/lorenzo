@@ -566,6 +566,7 @@ class _Planner:
             )
             step.entities += 1
 
+        placed: dict[uuid.UUID, int] = defaultdict(int)
         for e, p in c.prototypes:
             if copies("entity", e):
                 target = self._local(c, "entity", p)
@@ -578,8 +579,11 @@ class _Planner:
                         "entity_id": self.local["entity"][e],
                         "prototype_id": target,
                         "tenant_id": tenant_id,
+                        # c.prototypes is in each entry's order; the copy keeps it (ADR 0266).
+                        "position": placed[e],
                     }
                 )
+                placed[e] += 1
         for e, g in c.entity_groups:
             if not copies("entity", e):
                 continue

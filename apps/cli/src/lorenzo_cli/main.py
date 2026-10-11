@@ -6,8 +6,9 @@ import importlib.metadata
 import json
 import os
 import sys
+import time
 import tomllib
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -32,6 +33,7 @@ from rich.tree import Tree
 
 from lorenzo_cli import rawapi, repo_report, repos
 from lorenzo_cli.auth import store as credentials
+from lorenzo_cli.auth.device import DeviceLoginError, run_device_login
 from lorenzo_cli.auth.login import LoginError, run_login
 from lorenzo_cli.auth.store import CredentialsFile
 from lorenzo_cli.auth.tokens import NotLoggedInError, resolve_token_source
@@ -187,6 +189,8 @@ class Runtime:
     token_stdin: bool = False
     # What `login` remembered (ADR 0157); None means there is no file to read, as in most tests.
     config: SettingsFile | None = None
+    # Waits between polls of `login --token`; tests hand in one that approves instead of waiting.
+    sleep: Callable[[float], None] = time.sleep
 
     @property
     def interactive(self) -> bool:
@@ -272,6 +276,7 @@ def _reporting_errors() -> Iterator[None]:
         ConfigError,
         NotLoggedInError,
         LoginError,
+        DeviceLoginError,
         EvalError,
         MappingError,
         PackError,
@@ -524,6 +529,14 @@ def login(
             "--client-id", help="The Authgear client's id (or LORENZO_AUTHGEAR_CLIENT_ID)."
         ),
     ] = None,
+    personal_token: Annotated[
+        bool,
+        typer.Option(
+            "--token",
+            help="Connect with a personal access token you approve in the account hub: no "
+            "browser sign-in here, and no expiry unless you set one.",
+        ),
+    ] = False,
 ) -> None:
     """Sign in and store the login, and remember the API URL, issuer and client id it used."""
     runtime: Runtime = ctx.obj
@@ -531,6 +544,20 @@ def login(
         _reporting_errors(),
         httpx.Client(transport=runtime.transport, timeout=30.0) as http_client,
     ):
+        if personal_token:
+            settings = runtime.resolve_settings()
+            api_url = settings.require_api_url()
+            _require_address("The API URL", api_url)
+            run_device_login(
+                api_url,
+                http_client=http_client,
+                store=runtime.store,
+                echo=_out.print,
+                sleep=runtime.sleep,
+            )
+            _remember(runtime, settings)
+            _out.print("Connected with a personal access token.")
+            return
         settings = runtime.resolve_settings(issuer=issuer, client_id=client_id)
         _require_address("The API URL", settings.api_url)
         _require_address("The issuer", settings.issuer)
@@ -591,7 +618,11 @@ def whoami(
         table.add_row("email", me.email)
     settings = runtime.settings
     table.add_row("api", f"{settings.api_url}{' (the default)' if settings.defaulted else ''}")
-    table.add_row("token", origin)
+    stored = runtime.store.load() if origin == "the stored login" else None
+    if stored is not None and stored.token_name is not None:
+        table.add_row("token", f"{origin}: personal access token “{stored.token_name}”")
+    else:
+        table.add_row("token", origin)
     table.add_row("tenants", str(len(me.memberships)))
     _out.print(table)
 
@@ -600,8 +631,14 @@ def whoami(
 def logout(ctx: typer.Context) -> None:
     """Forget the stored login (the API URL, issuer and client id it remembered stay)."""
     runtime: Runtime = ctx.obj
+    stored = runtime.store.load()
     removed = runtime.store.delete()
     _out.print("Signed out." if removed else "There was no stored login.")
+    if stored is not None and stored.token_name is not None:
+        _out.print(
+            f"The personal access token “{stored.token_name}” still works until you revoke it "
+            "in the account hub (Profile, Personal access tokens)."
+        )
 
 
 @app.command("inspect")

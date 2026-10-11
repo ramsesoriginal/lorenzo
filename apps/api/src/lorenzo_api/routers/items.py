@@ -390,9 +390,14 @@ async def create_item(
     session.add(
         Item(entity_id=entity.id, tenant_id=tenant_id, in_public_catalog=body.in_public_catalog)
     )
-    for prototype_id in body.prototype_ids:
+    for position, prototype_id in enumerate(dict.fromkeys(body.prototype_ids)):
         session.add(
-            EntityPrototype(entity_id=entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
+            EntityPrototype(
+                entity_id=entity.id,
+                prototype_id=prototype_id,
+                tenant_id=tenant_id,
+                position=position,
+            )
         )
     await record_activity(
         session,

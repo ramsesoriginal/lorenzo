@@ -241,13 +241,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         EntitySlug.entity_id, EntitySlug.slug, where=EntitySlug.tenant_id == t
     ):
         c.slugs[entity_id] = slug
+    # In each entry's own order (ADR 0266): a copy gives the parents the same places.
     c.prototypes = [
         (e, p)
-        for e, p in await rows(
-            EntityPrototype.entity_id,
-            EntityPrototype.prototype_id,
-            where=EntityPrototype.tenant_id == t,
-        )
+        for e, p in (
+            await session.execute(
+                select(EntityPrototype.entity_id, EntityPrototype.prototype_id)
+                .where(EntityPrototype.tenant_id == t)
+                .order_by(
+                    EntityPrototype.entity_id,
+                    EntityPrototype.position,
+                    EntityPrototype.prototype_id,
+                )
+            )
+        ).all()
     ]
     for group_id, name, priority, mandatory in await rows(
         StatGroup.id,
