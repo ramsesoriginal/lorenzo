@@ -4,7 +4,7 @@ Status: accepted
 
 ## Context
 
-A pack's contents are a strict list in its description ([ADR 0145](0145-pack-contents-in-the-description-and-handing-a-pack-out.md)): `- N x [Label](slug)`, two spaces per level, at most three levels, a line without a link being plain text. Editing it by hand in Markdown works but is easy to get wrong. The prototype edits it as rows.
+A pack's contents are a strict list in its description ([ADR 0145](0145-pack-contents-in-the-description.md)): `- N x [Label](slug)`, two spaces per level, at most three levels, a line without a link being plain text. Editing it by hand in Markdown works but is easy to get wrong. The prototype edits it as rows.
 
 ## Decision
 
