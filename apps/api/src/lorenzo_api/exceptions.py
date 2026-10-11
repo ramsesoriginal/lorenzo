@@ -34,6 +34,8 @@ __all__ = [
     "EntitySlugManagementForbiddenError",
     "EntitySlugNotFoundError",
     "EntityStatManagementForbiddenError",
+    "ExportChangedError",
+    "InvalidExportCursorError",
     "InvalidCharacterError",
     "InvalidGroupMemberError",
     "InvalidItemPrototypeError",
@@ -1059,3 +1061,18 @@ class InvalidKindRequestError(UnprocessableProblem):
     """PUT /entities/{id}/kinds/{kind} - a column the kind does not have (ADR 0217)."""
 
     title = "That column does not belong to this kind"
+
+
+class ExportChangedError(ConflictProblem):
+    """GET .../entities/export with a cursor from an export that has since changed: the
+    repository was written to, or what the caller may read moved, between two pages. The pages
+    already read no longer fit together; the caller starts again from the first (ADR 0262).
+    """
+
+    title = "The export changed while it was being read"
+
+
+class InvalidExportCursorError(UnprocessableProblem):
+    """GET .../entities/export with a cursor that this API did not give out (ADR 0262)."""
+
+    title = "Invalid export cursor"
