@@ -1546,3 +1546,43 @@ test.describe('the pack editor', () => {
     await expect(rows(page).first()).toHaveText('Ashfang');
   });
 });
+
+test.describe('the quiet interface', () => {
+  test('an empty description says what to write, and is written in once it is clicked', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="beast"]').click();
+    const prompt = page.getByPlaceholder('Write a description…');
+    await expect(prompt).toBeVisible();
+    // Showing it does not take the focus from wherever the person is.
+    await expect(prompt).not.toBeFocused();
+    await prompt.click();
+    await page.keyboard.type('Natural creatures.');
+    await blur(page);
+    await expect
+      .poll(() => writes(page))
+      .toEqual([{ id: 'beast', field: 'description', value: 'Natural creatures.' }]);
+  });
+
+  test('a long paragraph is shown whole when it is clicked, wrapped lines and all', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="beast"]').click();
+    await page.getByPlaceholder('Write a description…').click();
+    const words = Array.from({ length: 120 }, (_, i) => `word${i}`).join(' ');
+    await page.keyboard.insertText(words);
+    const field = description(page);
+    await expect(field).toHaveValue(words);
+    const cut = await field.evaluate((a) => a.scrollHeight - a.clientHeight);
+    expect(cut).toBeLessThanOrEqual(1);
+  });
+
+  test('the ancestry shows the line of the entry only, as names', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Ancestry');
+    await expect(page.locator('[data-ancestry]')).toHaveCount(4);
+    for (const id of ['monster', 'beast', 'wolf', 'dire-wolf'])
+      await expect(page.locator(`[data-ancestry="${id}"]`)).toBeVisible();
+    await expect(page.locator('[data-ancestry="ghoul"]')).toHaveCount(0);
+  });
+});

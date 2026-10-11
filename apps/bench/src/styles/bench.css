@@ -237,6 +237,7 @@ input.invalid {
 .seg .btn,
 .seg button {
   flex: 1;
+  white-space: nowrap;
   justify-content: center;
   padding: 4px 11px;
   border-radius: 0;
@@ -1045,6 +1046,9 @@ button.fold:hover {
   resize: none;
   overflow: hidden;
   field-sizing: content;
+}
+textarea.text-edit.live-source {
+  border: 0;
 }
 textarea.live-source:placeholder-shown:not(:focus) {
   background: transparent;
