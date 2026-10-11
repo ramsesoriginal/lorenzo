@@ -287,6 +287,7 @@ test('the description is shown as it reads, and edited with a preview that follo
   await expect(description(page)).toHaveValue('Hunts in **packs**.');
   await description(page).fill('Hunts in *pairs*.');
   // before it is written down, the preview already shows it
+  // (leaving the field to read it commits the text, so nothing is said here about writes yet)
   await expect((await reads(page)).locator('em')).toHaveText('pairs');
   await blur(page);
   // written down once the text has been left, so the write is waited for, not the status
