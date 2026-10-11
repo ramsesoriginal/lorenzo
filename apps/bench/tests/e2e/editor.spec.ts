@@ -255,17 +255,39 @@ test('a new entry that was sent cannot be undone here', async ({ page }) => {
 // --- description and notes -------------------------------------------------------------------
 
 const description = (page: Page) => page.getByLabel('Description', { exact: true });
+/**
+ * A drawn text turns into its source where it is clicked, so its field is there only once it has
+ * been: opens the `n`th text of that label (by clicking its last block) unless it is already open.
+ */
+const openText = async (page: Page, label: string, n = 0) => {
+  const field = page.getByLabel(label, { exact: true });
+  if ((await field.count()) === 0)
+    await page.getByLabel(`${label}, as it reads`).nth(n).locator('.live-block').last().click();
+  return field;
+};
+/**
+ * The drawn text of a label, once what is being written has been left (Escape): the block with
+ * the caret is source, and only the blocks left are drawn as they read.
+ */
+const reads = async (page: Page, label = 'Description') => {
+  const field = page.getByLabel(label, { exact: true });
+  if ((await field.count()) > 0) await field.first().press('Escape');
+  return page.getByLabel(`${label}, as it reads`);
+};
 const blur = async (page: Page) => page.locator('.pane-entry h2', { hasText: 'Notes' }).click();
 
 test('the description is shown as it reads, and edited with a preview that follows the typing', async ({
   page,
 }) => {
   await page.locator('[data-entry="wolf"]').click();
+  await expect((await reads(page)).locator('strong')).toHaveText('packs');
+  // Drawn as it reads until it is clicked, which shows its source.
+  await expect(description(page)).toHaveCount(0);
+  await openText(page, 'Description');
   await expect(description(page)).toHaveValue('Hunts in **packs**.');
-  await expect(page.getByLabel('Description, as it reads').locator('strong')).toHaveText('packs');
   await description(page).fill('Hunts in *pairs*.');
   // before it is written down, the preview already shows it
-  await expect(page.getByLabel('Description, as it reads').locator('em')).toHaveText('pairs');
+  await expect((await reads(page)).locator('em')).toHaveText('pairs');
   expect(await writes(page)).toEqual([]);
   await blur(page);
   // written down once the focus has moved on, so the write is waited for, not the status
@@ -283,7 +305,7 @@ test('an entry with no description gets one when text is written', async ({ page
   await expect(status(page)).toHaveText('Synced');
   await page.locator('[data-entry="wolf"]').click();
   await page.locator('[data-entry="beast"]').click();
-  await expect(description(page)).toHaveValue('Natural creatures.');
+  await expect(page.getByLabel('Description, as it reads')).toHaveText('Natural creatures.');
 });
 
 test('with no connection a description is saved here, and sent when it is back', async ({
@@ -291,6 +313,7 @@ test('with no connection a description is saved here, and sent when it is back',
 }) => {
   await page.locator('[data-entry="wolf"]').click();
   await palette(page, 'lose the connection');
+  await openText(page, 'Description');
   await description(page).fill('Offline text.');
   await blur(page);
   await expect(status(page)).toHaveText('Saved on this device');
@@ -302,6 +325,7 @@ test('with no connection a description is saved here, and sent when it is back',
 test('a description changed elsewhere is a conflict', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
   await palette(page, 'lose the connection');
+  await openText(page, 'Description');
   await description(page).fill('Mine.');
   await blur(page);
   await page.evaluate(() =>
@@ -312,19 +336,19 @@ test('a description changed elsewhere is a conflict', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('Theirs.');
   await page.getByRole('button', { name: 'Keep mine' }).click();
   await expect(status(page)).toHaveText('Synced');
+  await openText(page, 'Description');
   await expect(description(page)).toHaveValue('Mine.');
 });
 
 test('notes are listed, added, and edited', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
-  await expect(page.getByLabel('Note: Note', { exact: true })).toHaveValue(
-    'Pairs well with a ranger.',
-  );
+  await expect(page.getByLabel('Note: Note, as it reads')).toHaveText('Pairs well with a ranger.');
   await page.getByLabel('A new note').fill('Check the den.');
   await page.getByRole('button', { name: 'Add note' }).click();
-  await expect(page.getByLabel('Note: Note', { exact: true })).toHaveCount(2);
+  await expect(page.getByLabel('Note: Note, as it reads')).toHaveCount(2);
   await expect(status(page)).toHaveText('Synced');
-  await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Check the east den.');
+  await openText(page, 'Note: Note', 1);
+  await page.getByLabel('Note: Note', { exact: true }).fill('Check the east den.');
   await blur(page);
   await expect
     .poll(async () => (await writes(page)).map((w) => [w.field, w.value]))
@@ -342,7 +366,8 @@ test('a note added with no connection can be edited, then both are sent in order
   await palette(page, 'lose the connection');
   await page.getByLabel('A new note').fill('Draft.');
   await page.getByRole('button', { name: 'Add note' }).click();
-  await page.getByLabel('Note: Note', { exact: true }).nth(1).fill('Final.');
+  await openText(page, 'Note: Note', 1);
+  await page.getByLabel('Note: Note', { exact: true }).fill('Final.');
   await blur(page);
   await palette(page, 'get the connection back');
   await expect(status(page)).toHaveText('Synced');
@@ -354,7 +379,7 @@ test('a note added with no connection can be edited, then both are sent in order
 
 test('what is typed in a description survives another change arriving', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
-  await description(page).focus();
+  await openText(page, 'Description');
   await description(page).fill('Half a sentence');
   await page.evaluate(() => {
     const b = (
@@ -590,7 +615,9 @@ test.describe('links to entries in text', () => {
     await page
       .getByLabel('Description', { exact: true })
       .fill('Fears the [[Wolf]] and [[Dire wolf]].');
+    await reads(page);
     await expect(preview(page)).toHaveText(['Wolf', 'Dire wolf']);
+    await reads(page);
     await preview(page).first().click();
     await expect(name(page)).toHaveValue('Wolf');
   });
@@ -600,6 +627,7 @@ test.describe('links to entries in text', () => {
   }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
+    await reads(page);
     await preview(page).hover();
     const card = page.locator('.link-card');
     await expect(card).toContainText('Wolf');
@@ -614,6 +642,7 @@ test.describe('links to entries in text', () => {
   }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Wolf]].');
+    await reads(page);
     await preview(page).focus();
     await expect(page.locator('.link-card')).toContainText('Wolf');
     await page.keyboard.press('Escape');
@@ -623,7 +652,7 @@ test.describe('links to entries in text', () => {
   test('a name nothing holds stays text, and the author is told', async ({ page }) => {
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Haunts [[Lost Crown]].');
-    await expect(page.getByLabel('Description, as it reads')).toContainText('Lost Crown');
+    await expect(await reads(page)).toContainText('Lost Crown');
     await expect(preview(page)).toHaveCount(0);
     await expect(page.locator('.link-notes').first()).toContainText(
       'Nothing is called “lost-crown” yet',
@@ -637,8 +666,9 @@ test.describe('links to entries in text', () => {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.locator('[data-entry]', { hasText: 'Winter wolf' })).toBeVisible();
     await page.locator('[data-entry="wolf"]').click();
+    await openText(page, 'Note: Note');
     await page.getByLabel('Note: Note', { exact: true }).fill('Cousin of [[Winter wolf]].');
-    await expect(page.getByLabel('Note: Note, as it reads').locator('a.ls-entity')).toHaveText(
+    await expect((await reads(page, 'Note: Note')).locator('a.ls-entity')).toHaveText(
       'Winter wolf',
     );
   });
@@ -663,9 +693,7 @@ test.describe('the entry picker', () => {
     await page.keyboard.press('Enter');
     await expect(area(page)).toHaveValue('See [[Wolf]]');
     await expect(picker(page)).toHaveCount(0);
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'Wolf',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Wolf');
   });
 
   test('the arrows choose another, and Tab chooses too', async ({ page }) => {
@@ -792,7 +820,7 @@ test.describe('pictures in text', () => {
   }) => {
     await page.locator('[data-entry="zombie"]').click();
     await description(page).fill('The pack ![its leader](ashfang) and ![a sword](blade).');
-    const shown = page.getByLabel('Description, as it reads');
+    const shown = await reads(page);
     await expect(shown.locator('img')).toHaveCount(1);
     await expect(shown.locator('img')).toHaveAttribute('alt', 'its leader');
     await expect(shown.locator('img')).toHaveAttribute('src', /^blob:/);
@@ -803,8 +831,10 @@ test.describe('pictures in text', () => {
 test.describe('the order of the notes', () => {
   const noteLabels = (page: Page) =>
     page
-      .locator('.pane-entry .note-row textarea.text-edit')
-      .evaluateAll((areas) => areas.map((a) => a.getAttribute('aria-label')));
+      .locator('.pane-entry .note-row .live-doc')
+      .evaluateAll((docs) =>
+        docs.map((d) => (d.getAttribute('aria-label') ?? '').replace(', as it reads', '')),
+      );
 
   test('a note moves down, the order is sent whole, and Undo puts it back', async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
@@ -875,6 +905,95 @@ test.describe('moving an entry', () => {
     await move(page).selectOption({ label: 'Top level (no parent)' });
     await expect(status(page)).toHaveText('Synced');
     expect(await writes(page)).toEqual([{ id: 'undead', field: 'parents', value: [] }]);
+  });
+});
+
+test.describe('editing a text where it is drawn', () => {
+  const blocks = (page: Page) => page.getByLabel('Description, as it reads').locator('.live-block');
+
+  test.beforeEach(async ({ page }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).focus();
+    await page.keyboard.type('First **one**.');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Second.');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Third.');
+  });
+
+  test('Enter starts a new paragraph, and Escape draws the text again, all but nothing as source', async ({
+    page,
+  }) => {
+    // The block being written is source, so two are drawn.
+    await expect(blocks(page)).toHaveCount(2);
+    await page.keyboard.press('Escape');
+    await expect(description(page)).toHaveCount(0);
+    await expect(blocks(page)).toHaveCount(3);
+    await expect(blocks(page)).toHaveText(['First one.', 'Second.', 'Third.']);
+    await expect(blocks(page).first().locator('strong')).toHaveText('one');
+  });
+
+  test('clicking a block shows its source, and only that block', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await blocks(page).first().click();
+    await expect(description(page)).toHaveValue('First **one**.');
+    await expect(description(page)).toHaveCount(1);
+    await expect(blocks(page)).toHaveText(['Second.', 'Third.']);
+  });
+
+  test('the arrow keys move into the next block, which turns into source', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await blocks(page).first().click();
+    await page.keyboard.press('ArrowDown');
+    await expect(description(page)).toHaveValue('Second.');
+    await page.keyboard.press('ArrowDown');
+    await expect(description(page)).toHaveValue('Third.');
+    await page.keyboard.press('ArrowUp');
+    await expect(description(page)).toHaveValue('Second.');
+    await expect(blocks(page).first()).toHaveText('First one.');
+  });
+
+  test('Backspace at the start of a block joins it to the one before', async ({ page }) => {
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    await expect(description(page)).toHaveValue('Second.Third.');
+    // One is source, one is drawn.
+    await expect(blocks(page)).toHaveCount(1);
+  });
+
+  test('Enter in a list goes on with the list, and on an empty item ends it', async ({ page }) => {
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('- one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await expect(description(page)).toHaveValue('- one\n- two');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await expect(blocks(page)).toHaveCount(4);
+    await page.keyboard.press('Escape');
+    await expect(blocks(page).nth(3).locator('li')).toHaveText(['one', 'two']);
+  });
+
+  test('leaving the text writes it down once, as it reads in its source', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await expect
+      .poll(() => writes(page))
+      .toEqual([
+        {
+          id: 'zombie',
+          field: 'description',
+          value: 'First **one**.\n\nSecond.\n\nThird.',
+        },
+      ]);
+  });
+
+  test('a text that was only looked at is not written again', async ({ page }) => {
+    await page.keyboard.press('Escape');
+    await expect.poll(() => writes(page)).toHaveLength(1);
+    await blocks(page).first().click();
+    await page.keyboard.press('Escape');
+    await page.locator('[data-entry="wolf"]').click();
+    expect(await writes(page)).toHaveLength(1);
   });
 });
 
@@ -1082,10 +1201,7 @@ test.describe('pictures', () => {
     await expect(page.getByRole('listbox', { name: 'Entries to show' })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(description(page)).toHaveValue('Led by ![Ashfang](ashfang)');
-    await expect(page.getByLabel('Description, as it reads').locator('img')).toHaveAttribute(
-      'src',
-      /^blob:/,
-    );
+    await expect((await reads(page)).locator('img')).toHaveAttribute('src', /^blob:/);
   });
 });
 
@@ -1097,13 +1213,18 @@ test.describe('my/ links', () => {
   }) => {
     await page.locator('[data-entry="ashfang"]').click();
     await description(page).fill('Draws [her sword](my/blade).');
+    await reads(page);
     await expect(preview(page).locator('a.ls-entity')).toHaveText('her sword');
+    await reads(page);
     await preview(page).locator('a.ls-entity').click();
     await expect(name(page)).toHaveValue('Blade of the Hollow');
 
     await page.locator('[data-entry="wolf"]').click();
+    await openText(page, 'Description');
     await description(page).fill('Draws [its sword](my/blade).');
+    await reads(page);
     await expect(preview(page)).toContainText('its sword');
+    await reads(page);
     await expect(preview(page).locator('a.ls-entity')).toHaveCount(0);
     await expect(page.locator('.link-notes').first()).toContainText(
       '“blade” is held by whoever this belongs to',
@@ -1149,9 +1270,7 @@ test.describe('link names', () => {
     await expect(linkName(page)).toHaveValue('the-old-mill');
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Haunts [[The old mill]].');
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'The old mill',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('The old mill');
   });
 
   test('a link to an entry with none stays text and says so', async ({ page }) => {
@@ -1167,9 +1286,7 @@ test.describe('link names', () => {
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Frost drake]].');
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'Frost drake',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Frost drake');
   });
 
   test('the picker writes [text](link-name) for an entry called something else', async ({
@@ -1181,8 +1298,6 @@ test.describe('link names', () => {
     await area.pressSequentially('See [[longs');
     await page.keyboard.press('Enter');
     await expect(area).toHaveValue('See [Longsword](blade)');
-    await expect(page.getByLabel('Description, as it reads').locator('a.ls-entity')).toHaveText(
-      'Longsword',
-    );
+    await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Longsword');
   });
 });

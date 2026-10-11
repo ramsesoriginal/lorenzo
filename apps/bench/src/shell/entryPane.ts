@@ -11,6 +11,7 @@ import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
+import { liveEditor } from './liveEditor';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
 export const redraw = { active: false };
@@ -287,93 +288,7 @@ function textEditor(
     onChange: (text: string) => void;
   },
 ): HTMLElement {
-  const wrap = el('div', 'text-editor');
-  const area = el('textarea', 'text-edit');
-  area.value = o.text;
-  area.rows = 4;
-  area.dataset.key = o.key;
-  area.setAttribute('aria-label', o.label);
-  const shown = el('div', 'ls-content text-preview');
-  shown.setAttribute('aria-label', `${o.label}, as it reads`);
-  const notes = el('p', 'muted link-notes');
-  notes.hidden = true;
-
-  const draw = (r: Rendered) => {
-    shown.innerHTML = r.html; // escaped by the renderer (ADR 0100)
-    // A link keeps the focus when the page is drawn again.
-    shown.querySelectorAll<HTMLElement>('a.ls-entity').forEach((a, i) => {
-      a.dataset.key = `${o.key}:link:${i}`;
-    });
-    const said: string[] = [];
-    if (r.missing.length)
-      said.push(
-        `Nothing is called ${quoted(r.missing)} yet, so ${r.missing.length === 1 ? 'that link stays' : 'those links stay'} as text.`,
-      );
-    if (r.notMine.length)
-      said.push(
-        `Nothing called ${quoted(r.notMine)} is held by whoever this belongs to, so ${r.notMine.length === 1 ? 'that link stays' : 'those links stay'} as text.`,
-      );
-    notes.hidden = !said.length;
-    notes.textContent = said.join(' ');
-  };
-  // What is already known shows at once; what is not is asked, and shown when it arrives (unless
-  // the text has moved on by then).
-  let turn = 0;
-  const paint = async () => {
-    const mine = ++turn;
-    const text = area.value;
-    const quick = bench.links.renderNow(text, o.home);
-    draw(quick);
-    const full = await bench.links.render(text, o.home);
-    if (
-      mine === turn &&
-      (full.html !== quick.html ||
-        full.missing.join() !== quick.missing.join() ||
-        full.notMine.join() !== quick.notMine.join())
-    )
-      draw(full);
-  };
-  void paint();
-  attachEntryPicker(area, bench);
-  area.addEventListener('input', () => void paint());
-  area.addEventListener('change', () => {
-    if (redraw.active) return;
-    // After the focus has moved on: writing it down draws the page again, which puts the focus
-    // back where it was a moment ago, and that is not where the person went (a link, say).
-    setTimeout(() => o.onChange(area.value), 0);
-  });
-
-  // A link opens the entry in this workbench; pointing at one shows what it is.
-  const linkId = (ev: Event) => {
-    const link = ev.target instanceof Element ? ev.target.closest('a.ls-entity') : null;
-    return entryIdOfHref(link?.getAttribute('href') ?? null);
-  };
-  // Pressing a link must not take the focus from the text: that would write the text down and
-  // draw the page again between the press and the release, and the click would be lost.
-  shown.addEventListener('mousedown', (ev) => {
-    if (linkId(ev)) ev.preventDefault();
-  });
-  shown.addEventListener('click', (ev) => {
-    const id = linkId(ev);
-    if (!id) return;
-    ev.preventDefault();
-    hideCard();
-    // What was typed is kept before going elsewhere.
-    if (area.value !== o.text) o.onChange(area.value);
-    go(id);
-  });
-  attachLinkPreviews(shown, async (id) => {
-    await bench.open(id, true);
-    const entry = bench.view(id);
-    if (!entry) return null;
-    return {
-      name: entry.name,
-      what: kindsText(entry.kinds),
-      excerpt: entry.description ? excerptOf(entry.description.text) : '',
-    };
-  });
-  wrap.append(linkToolbar(area), area, shown, notes);
-  return wrap;
+  return liveEditor({ bench, go, ...o });
 }
 
 /** Buttons that start a link or a picture at the caret, for whoever does not know to type `[[`. */

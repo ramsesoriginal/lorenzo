@@ -970,3 +970,34 @@ table.grid td.cur {
   background: var(--surface-selected, #dce8fb);
   font-weight: 600;
 }
+
+.text-editor.live {
+  grid-template-columns: 1fr;
+}
+
+.live-doc {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.15rem 0.25rem;
+  min-height: 2.2em;
+}
+
+.live-doc:focus-within,
+.live-doc:hover {
+  border-color: var(--border-subtle, #ddd);
+}
+
+.live-block {
+  cursor: text;
+  padding: 0.1rem 0;
+}
+
+.live-block.live-empty {
+  min-height: 1.2em;
+}
+
+.live-source {
+  resize: none;
+  overflow: hidden;
+  min-height: 0;
+}
