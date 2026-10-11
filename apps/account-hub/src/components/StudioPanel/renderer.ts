@@ -42,6 +42,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
   const repositoryView = renderRepository(repositoryRoot, me.id, {
     onChanged: () => void reload(),
     onRenamed,
+    mayCreate,
   });
 
   function urlFor(view: View): string {
