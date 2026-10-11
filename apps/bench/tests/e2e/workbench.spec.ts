@@ -22,7 +22,7 @@ test('opens with the explorer, an entry, and stats and parents', async ({ page }
 test('picking an entry in the explorer shows it', async ({ page }) => {
   // Ghoul has two parents, so the tree has a row for it in each place.
   await page.getByRole('button', { name: 'Ghoul' }).first().click();
-  await page.getByRole('tab', { name: 'Parents and children' }).click();
+  await page.getByRole('tab', { name: 'Links' }).click();
   await expect(page.locator('.entry-name')).toHaveValue('Ghoul');
   await expect(page.locator('.pane-links')).toContainText('Undead');
   await expect(page.locator('.pane-links')).toContainText('Beast');
@@ -30,7 +30,7 @@ test('picking an entry in the explorer shows it', async ({ page }) => {
 
 test('a one-tab group has a title line, and clicking a tab switches it', async ({ page }) => {
   await expect(groupOf(page, 'explorer').locator('.bar')).toHaveClass(/solo/);
-  await page.getByRole('tab', { name: 'Parents and children' }).click();
+  await page.getByRole('tab', { name: 'Links' }).click();
   await expect(page.locator('.pane-links')).toBeVisible();
   await expect(page.locator('.pane-props')).toHaveCount(0);
 });
@@ -38,6 +38,8 @@ test('a one-tab group has a title line, and clicking a tab switches it', async (
 test('dragging a tab to the bottom edge of another group splits it', async ({ page }) => {
   const tab = page.locator('[data-tab="links"] .name');
   const target = groupOf(page, 'entry');
+  await expect(target).toBeVisible();
+  await expect(tab).toBeVisible();
   const box = (await target.boundingBox())!;
   const from = (await tab.boundingBox())!;
   await page.mouse.move(from.x + 10, from.y + 10);
@@ -54,6 +56,7 @@ test('dragging a tab to the bottom edge of another group splits it', async ({ pa
 
 test('dragging a tab into empty space floats it, and Dock puts it back', async ({ page }) => {
   const tab = page.locator('[data-tab="props"] .name');
+  await expect(tab).toBeVisible();
   const from = (await tab.boundingBox())!;
   // dropping on the title bar's own group would re-tab it; drag over the top bar instead
   await page.mouse.move(from.x + 10, from.y + 10);
@@ -81,16 +84,16 @@ test('the layout is remembered across a reload', async ({ page }) => {
   await page.keyboard.press('Control+k');
   await page.getByLabel('Command palette').fill('split entry to the bottom');
   await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: 'Close Stats' }).click();
+  await page.getByRole('button', { name: 'Close Properties' }).click();
   await page.reload();
   await expect(page.locator('[data-tab="props"]')).toHaveCount(0);
   await expect(page.locator('[data-tab="entry"]')).toBeVisible();
 });
 
 test('the palette opens panes and entries, and Reset layout restores', async ({ page }) => {
-  await page.getByRole('button', { name: 'Close Stats' }).click();
+  await page.getByRole('button', { name: 'Close Properties' }).click();
   await page.keyboard.press('Control+k');
-  await page.getByLabel('Command palette').fill('open stats');
+  await page.getByLabel('Command palette').fill('open properties');
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-tab="props"]')).toBeVisible();
   await page.keyboard.press('Control+k');
@@ -132,7 +135,7 @@ test('Ctrl+Alt+arrow moves a tab into the group beside, and says so', async ({ p
   await expect(groupOf(page, 'props')).toHaveCount(1);
   expect(await groupOf(page, 'props').locator('[data-tab="entry"]').count()).toBe(1);
   await expect(
-    page.locator('[role="status"]', { hasText: 'Stats moved to the group on the left.' }),
+    page.locator('[role="status"]', { hasText: 'Properties moved to the group on the left.' }),
   ).toBeAttached();
 });
 

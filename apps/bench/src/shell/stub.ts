@@ -61,10 +61,10 @@ export interface PaneDef {
 }
 
 export const PANES: PaneDef[] = [
-  { id: 'explorer', title: 'Explorer', float: [264, 480] },
+  { id: 'explorer', title: 'Entries', float: [264, 480] },
   { id: 'entry', title: 'Entry', float: [720, 520] },
-  { id: 'props', title: 'Stats', float: [324, 500] },
-  { id: 'links', title: 'Parents and children', float: [304, 380] },
+  { id: 'props', title: 'Properties', float: [324, 500] },
+  { id: 'links', title: 'Links', float: [304, 380] },
   { id: 'ancestry', title: 'Ancestry', float: [420, 320] },
   { id: 'table', title: 'Table', float: [560, 320] },
   { id: 'grid', title: 'Compare', float: [760, 480] },

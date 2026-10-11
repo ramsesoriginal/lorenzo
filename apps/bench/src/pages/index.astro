@@ -24,7 +24,7 @@ import '../styles/bench.css';
   </head>
   <body>
     <header class="top" id="titlebar">
-      <strong>Lorenzo Bench</strong>
+      <span class="brand"><b>Bench</b></span>
     </header>
     <div class="live" id="live" role="status" hidden></div>
     <div class="welcome" id="welcome" hidden></div>
@@ -41,6 +41,7 @@ import '../styles/bench.css';
       import { Shell } from '../shell/shell';
       import { SAMPLE_ENTRIES, SAMPLE_STATS } from '../shell/stub';
       import { openStartScreen, showWelcome } from '../shell/repositories';
+      import { decorateTopBar } from '../shell/topbar';
       import { renderTitleBar } from '../shell/titlebar';
 
       const root = document.getElementById('bench');
@@ -73,7 +74,7 @@ import '../styles/bench.css';
         const leave = () => requestSignOut(bench, signOut);
         guardUnsent(() => bench);
         renderTitleBar(bar, session, () => location.reload(), leave);
-        bar.insertBefore(shell.layoutEl, bar.querySelector('.hint'));
+        decorateTopBar(bar, shell);
         document.getElementById('statusbar')?.replaceWith(shell.statusEl);
 
         const extra = [];

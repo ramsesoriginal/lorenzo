@@ -10,6 +10,7 @@ import { canRename, canSetParents, type EditableKind, slugProblem } from '../cor
 import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
+import { icon } from './icons';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 import { liveEditor } from './liveEditor';
 
@@ -73,7 +74,6 @@ export function renderEntry(
     c.append(nav);
   }
 
-  const head = el('div', 'entry-head');
   const name = el('input', 'entry-name');
   name.type = 'text';
   name.value = item.name;
@@ -89,48 +89,46 @@ export function renderEntry(
     if (next) bench.change('entry.set-name', id, next);
     else name.value = item.name;
   });
+  c.append(name);
+
+  // What it is, its link name, and how its changes are doing: one quiet line.
+  const meta = el('div', 'meta');
+  const kinds = kindsEditor(bench, id, item.kinds);
+  meta.append(kinds, linkNameField(bench, id, item.name, item.slug));
   const status = bench.status(id);
   const chip = el('span', `status status-${status}`, statusText(bench, id));
   chip.setAttribute('role', 'status');
-  head.append(
-    name,
-    chip,
-    (() => {
-      const undo = button('Undo', () => bench.undo(id));
-      undo.disabled = !bench.canUndo(id);
-      return undo;
-    })(),
-  );
-  c.append(
-    head,
-    el('p', 'kind', kindsText(item.kinds)),
-    kindsEditor(bench, id, item.kinds),
-    linkNameField(bench, id, item.name, item.slug),
-    pictureSection(bench, id),
-  );
+  const undo = button('Undo', () => bench.undo(id), 'btn quiet');
+  undo.disabled = !bench.canUndo(id);
+  meta.append(el('span', 'grow'), chip, undo);
+  c.append(meta, el('p', 'kind sr-only', kindsText(item.kinds)));
 
   for (const cmd of bench.commandsFor(id)) {
     if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));
     else if (cmd.state === 'attention') c.append(attentionRow(bench, cmd));
   }
 
-  c.append(
-    el('h2', undefined, 'Parents'),
-    parentsEditor(bench, id, item.parentIds, canSetParents(item.kinds), go),
-  );
-
-  c.append(
-    el('h2', undefined, 'Description'),
+  // The description, with the picture beside it.
+  const main = el('div', 'entry-main');
+  main.append(
     textEditor(bench, go, {
       key: `description:${id}`,
       home: id,
       label: 'Description',
+      placeholder: 'Write a description…',
       text: item.description?.text ?? '',
       onChange: (text) => bench.setDescription(id, text),
     }),
+    pictureSection(bench, id),
+  );
+  c.append(main);
+
+  c.append(
+    el('h2', 'section', 'Inherits from'),
+    parentsEditor(bench, id, item.parentIds, canSetParents(item.kinds), go),
   );
 
-  c.append(el('h2', undefined, 'Notes'));
+  c.append(el('h2', 'section', 'Notes'));
   item.notes.forEach((note, i) => {
     const row = el('div', 'note-row');
     const editor = textEditor(bench, go, {
@@ -162,11 +160,13 @@ export function renderEntry(
 /** The link name: what `[[Name]]` and `[text](slug)` in a text call the entry by. */
 function linkNameField(bench: Bench, id: string, name: string, slug: string | null): HTMLElement {
   const box = el('div', 'link-name');
-  const label = el('label', undefined, 'Link name');
-  const input = el('input');
+  const label = el('label', 'link-label');
+  label.append(el('span', undefined, 'Link name'));
+  const input = el('input', 'mono');
   input.type = 'text';
   input.value = slug ?? '';
-  input.placeholder = 'none: no text can link to this entry';
+  input.placeholder = 'none';
+  input.size = Math.max(6, (slug ?? '').length + 1);
   input.spellcheck = false;
   input.dataset.key = `slug:${id}`;
   label.append(input);
@@ -199,11 +199,13 @@ const KIND_CHOICES: { kind: EditableKind; label: string; help: string }[] = [
 
 /** What an entry is: item, being, both or neither (a bare entry, which is what a group is). */
 function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLElement {
-  const box = el('fieldset', 'kinds');
-  box.append(el('legend', undefined, 'What is this entry?'));
+  const box = el('div', 'kinds');
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', 'What is this entry?');
   for (const choice of KIND_CHOICES) {
-    const label = el('label', 'kind-choice');
-    const input = el('input');
+    const label = el('label', 'chip kind-choice');
+    label.title = choice.help;
+    const input = el('input', 'sr-only');
     input.type = 'checkbox';
     input.checked = kinds.includes(choice.kind);
     input.dataset.key = `kind:${id}:${choice.kind}`;
@@ -215,9 +217,7 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
     input.addEventListener('change', () => {
       if (!redraw.active) bench.setKind(id, choice.kind, input.checked);
     });
-    const text = el('span');
-    text.append(el('strong', undefined, choice.label), document.createTextNode(` ${choice.help}`));
-    label.append(input, text);
+    label.append(input, icon(choice.kind, 14), el('span', undefined, choice.label));
     box.append(label);
   }
   return box;
@@ -256,9 +256,9 @@ function pictureSection(bench: Bench, id: string): HTMLElement {
     const chosen = file.files?.[0];
     if (chosen) void pictures.set(id, chosen);
   });
-  const choose = button(url ? 'Replace picture…' : 'Choose picture…', () => file.click());
+  const choose = button(url ? 'Replace picture…' : 'Choose picture…', () => file.click(), 'lnk');
   choose.disabled = busy;
-  const remove = button('Remove picture', () => void pictures.clear(id));
+  const remove = button('Remove picture', () => void pictures.clear(id), 'lnk');
   remove.hidden = !url;
   remove.disabled = busy;
   const actions = el('div', 'picture-actions');
@@ -283,6 +283,7 @@ function textEditor(
     home: string;
     label: string;
     text: string;
+    placeholder?: string;
     onChange: (text: string) => void;
   },
 ): HTMLElement {
@@ -397,14 +398,15 @@ function parentsEditor(
   go: (id: string) => void,
 ): HTMLElement {
   const wrap = el('div', 'parents');
-  const list = el('ul', 'list');
+  const list = el('ul', 'list chips');
   if (!parentIds.length) list.append(el('li', 'muted', 'No parents.'));
   for (const p of parentIds) {
     const li = el('li', 'parent');
     const open = el('button', 'row', bench.displayName(p));
     open.type = 'button';
     open.addEventListener('click', () => go(p));
-    const remove = el('button', 'x', '×');
+    const remove = el('button', 'x');
+    remove.append(icon('x', 12));
     remove.type = 'button';
     remove.title = `Remove parent ${bench.displayName(p)}`;
     remove.setAttribute('aria-label', `Remove parent ${bench.displayName(p)}`);

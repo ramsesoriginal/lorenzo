@@ -27,20 +27,20 @@ export interface Layout {
   hidden: number;
 }
 
-const NODE_H = 28;
-const GAP_X = 14;
-const GAP_Y = 42;
+const NODE_H = 24;
+const GAP_X = 16;
+const GAP_Y = 36;
 const PAD = 12;
 const CHAR_W = 7;
 const MAX_ROW = 6;
 const MAX_LEVELS = 4;
 
-const widthOf = (name: string) => Math.max(64, Math.min(180, name.length * CHAR_W + 22));
+const widthOf = (name: string) => Math.max(48, Math.min(180, name.length * CHAR_W + 16));
 
 /**
- * The entry, everything it inherits from (up to four rows above), the other entries under those
- * (the entry's siblings and its relatives' children, so it is seen among its kind) and the
- * entries under it. A row holds at most six; the entry's own children that do not fit are counted.
+ * The entry, everything it inherits from (up to four rows above) and the entries directly under
+ * it: its line, and nothing else. Its siblings and its relatives are not shown (they are in the
+ * explorer). A row holds at most six; the entry's children that do not fit are counted.
  */
 export function ancestryLayout(entries: readonly EntrySummary[], id: string): Layout {
   const byId = new Map(entries.map((e) => [e.id, e]));
@@ -63,18 +63,9 @@ export function ancestryLayout(entries: readonly EntrySummary[], id: string): La
 
   const byName = (a: EntrySummary, b: EntrySummary) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-  // The entry's own children, then the other children of what it inherits from.
   const own = entries.filter((e) => e.parentIds.includes(id) && e.id !== id).sort(byName);
   for (const c of own.slice(0, MAX_ROW)) if (!rowOf.has(c.id)) rowOf.set(c.id, top + 1);
   const hidden = Math.max(0, own.length - MAX_ROW);
-  for (const [a] of [...up]) {
-    const row = (rowOf.get(a) ?? 0) + 1;
-    const more = entries
-      .filter((e) => e.parentIds.includes(a) && !rowOf.has(e.id))
-      .sort(byName)
-      .slice(0, MAX_ROW);
-    for (const e of more) if (!rowOf.has(e.id)) rowOf.set(e.id, row);
-  }
 
   const rows = new Map<number, EntrySummary[]>();
   for (const [eid, row] of rowOf) {

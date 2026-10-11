@@ -70,15 +70,28 @@ export function renderAncestry(
       'aria-label': n.selected ? `${n.name} (this entry)` : `Open ${n.name}`,
       'data-ancestry': n.id,
     });
-    node.append(
-      svg('rect', {
-        x: String(n.x),
-        y: String(n.y),
-        width: String(n.w),
-        height: String(n.h),
-        rx: '6',
-      }),
-    );
+    // A pale pill behind the entry itself; the others are only their names.
+    if (n.selected)
+      node.append(
+        svg('rect', {
+          x: String(n.x),
+          y: String(n.y),
+          width: String(n.w),
+          height: String(n.h),
+          rx: '6',
+        }),
+      );
+    else
+      node.append(
+        svg('rect', {
+          x: String(n.x),
+          y: String(n.y),
+          width: String(n.w),
+          height: String(n.h),
+          rx: '6',
+          class: 'hit',
+        }),
+      );
     const label = svg('text', {
       x: String(n.x + n.w / 2),
       y: String(n.y + n.h / 2 + 4),

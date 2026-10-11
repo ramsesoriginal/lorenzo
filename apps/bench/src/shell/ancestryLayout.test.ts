@@ -27,13 +27,9 @@ describe('ancestryLayout', () => {
     expect(y(l, 'flame')).toBeLessThan(y(l, 'ash'));
   });
 
-  it('shows the entry among its relatives: siblings and the others under what it inherits from', () => {
+  it('shows its line and nothing else: no siblings, no relatives', () => {
     const l = ancestryLayout(family, 'flame');
-    expect(l.nodes.map((n) => n.id).sort()).toEqual(
-      ['ash', 'dagger', 'flame', 'long', 'sword', 'weapon'].sort(),
-    );
-    expect(y(l, 'long')).toBe(y(l, 'flame'));
-    expect(y(l, 'dagger')).toBe(y(l, 'sword'));
+    expect(l.nodes.map((n) => n.id).sort()).toEqual(['ash', 'flame', 'sword', 'weapon'].sort());
   });
 
   it('marks the entry, and draws an edge from each that inherits to what it inherits from', () => {
@@ -51,12 +47,18 @@ describe('ancestryLayout', () => {
 
   it('keeps nodes in a row from overlapping, inside the width', () => {
     const l = ancestryLayout(family, 'flame');
-    const row = l.nodes.filter((n) => n.y === y(l, 'sword')).sort((a, b) => a.x - b.x);
+    const row = ancestryLayout(
+      [e('p', 'P'), e('a', 'Alpha', ['p']), e('b', 'Beta', ['p']), e('c', 'Gamma', ['p'])],
+      'p',
+    )
+      .nodes.filter((n) => n.id !== 'p')
+      .sort((a, b) => a.x - b.x);
     for (let i = 1; i < row.length; i++) {
       const before = row[i - 1];
       expect(row[i]?.x ?? 0).toBeGreaterThanOrEqual((before?.x ?? 0) + (before?.w ?? 0));
     }
     for (const n of l.nodes) expect(n.x + n.w).toBeLessThanOrEqual(l.width);
+    expect(row.length).toBe(3);
   });
 
   it('counts the children that do not fit in a row', () => {

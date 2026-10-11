@@ -1,5 +1,6 @@
 // The title bar: the repository picker on the left, who is signed in on the right.
 
+import { icon } from './icons';
 import { openStartScreen, type RepoChoice, repositoryMenu } from './repositories';
 import { chooseRepository, type Session, signIn } from './session';
 
@@ -18,7 +19,9 @@ export function renderTitleBar(
   onRepository: (id: string) => void,
   onSignOut: () => void,
 ) {
-  bar.replaceChildren(el('strong', undefined, 'Lorenzo Bench'));
+  const brand = el('span', 'brand');
+  brand.append(icon('star', 15), el('b', undefined, 'Bench'));
+  bar.replaceChildren(brand, el('span', 'sep'));
   const right = el('div', 'who');
   switch (session.kind) {
     case 'unconfigured':
@@ -68,5 +71,5 @@ export function renderTitleBar(
     out.addEventListener('click', onSignOut);
     right.append(out);
   }
-  bar.append(el('span', 'hint', 'Ctrl+K for commands'), right);
+  bar.append(right);
 }
