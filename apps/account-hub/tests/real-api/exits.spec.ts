@@ -1,12 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
-import {
-  campaignCard,
-  newLibrary,
-  newUser,
-  openLibrary,
-  signedInPage,
-} from './support';
+import { campaignCard, newLibrary, newUser, openLibrary, signedInPage } from './support';
 
 test('an organizer leaves a library; the only owner is told to hand it over first', async ({
   browser,

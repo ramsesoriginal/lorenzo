@@ -148,7 +148,9 @@ test('a visitor follows a link, logs in, joins, and every dead link reads the sa
   // Opening it again is not a second seat, and uses nothing.
   await page.goto(`/join/#${created.token}`);
   await page.getByRole('button', { name: 'Join', exact: true }).click();
-  await expect(page.locator('[data-join] [data-status]')).toHaveText("You're already a player in Zorro.");
+  await expect(page.locator('[data-join] [data-status]')).toHaveText(
+    "You're already a player in Zorro.",
+  );
   expect((await inviteIn(owner, library.id, campaign.id)).items[0]?.use_count).toBe(1);
 
   // Nothing the page asked of the API carried a Referer.

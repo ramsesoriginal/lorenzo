@@ -1,4 +1,10 @@
-import { type Browser, type BrowserContext, expect, type Locator, type Page } from '@playwright/test';
+import {
+  type Browser,
+  type BrowserContext,
+  expect,
+  type Locator,
+  type Page,
+} from '@playwright/test';
 import { type Api, apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
 import { AUTHGEAR_URL, SUBJECT_COOKIE } from '../../../inventory-web/tests/e2e/support/env';
 
