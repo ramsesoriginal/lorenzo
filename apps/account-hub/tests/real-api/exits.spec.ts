@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
-import { libraryCard as card, newLibrary, newUser, signedInPage } from './support';
+import {
+  campaignCard,
+  newLibrary,
+  newUser,
+  openLibrary,
+  signedInPage,
+} from './support';
 
 test('an organizer leaves a library; the only owner is told to hand it over first', async ({
   browser,
@@ -19,11 +25,14 @@ test('an organizer leaves a library; the only owner is told to hand it over firs
 
   // The organizer has no owner-only controls, and can still leave.
   const leaver = await signedInPage(browser, orga.subject);
-  await leaver.page.goto('/tenants');
-  await expect(card(leaver.page, library.name)).toBeVisible();
+  const orgaView = await openLibrary(leaver.page, library);
   await expect(leaver.page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
-  await card(leaver.page, library.name).getByRole('button', { name: 'Leave this library' }).click();
-  await expect(card(leaver.page, library.name)).toHaveCount(0);
+  // Leaving is on the administrators' tab.
+  await orgaView.getByRole('tab', { name: 'Admins' }).click();
+  await orgaView.getByRole('button', { name: 'Leave this library' }).click();
+  // With no library left, the page has nothing open.
+  await expect(leaver.page.getByText("You don't belong to any library yet.")).toBeVisible();
+  await expect(orgaView).toBeHidden();
   expect(leaver.confirmations[0]).toContain(`Leave "${library.name}"?`);
   const remaining = await ok(orga.api.GET('/tenants'));
   expect(remaining.items.map((t) => t.id)).not.toContain(library.id);
@@ -31,12 +40,13 @@ test('an organizer leaves a library; the only owner is told to hand it over firs
 
   // The owner is now the only one: leaving is refused, in words, naming the library.
   const stayer = await signedInPage(browser, ownerSubject);
-  await stayer.page.goto('/tenants');
-  const row = card(stayer.page, library.name);
+  const row = await openLibrary(stayer.page, library);
+  await row.getByRole('tab', { name: 'Admins' }).click();
   await row.getByRole('button', { name: 'Leave this library' }).click();
-  await expect(row).toContainText(`You're the only owner of "${library.name}"`);
-  await expect(row).toContainText('Make someone else an owner first');
-  await expect(row).not.toContainText('{');
+  const leave = row.locator('[data-leave]');
+  await expect(leave).toContainText(`You're the only owner of "${library.name}"`);
+  await expect(leave).toContainText('Make someone else an owner first');
+  await expect(leave).not.toContainText('{');
   const still = await ok(owner.GET('/tenants'));
   expect(still.items.map((t) => t.id)).toContain(library.id);
   await stayer.context.close();
@@ -60,12 +70,12 @@ test('a campaign GM with no library membership steps down', async ({ browser }) 
   );
 
   const session = await signedInPage(browser, gm.subject);
-  await session.page.goto('/tenants');
-  const row = card(session.page, library.name);
+  const row = await openLibrary(session.page, library);
   // A GM with no membership has nothing to leave, only the GM seat to give up.
   await expect(row.getByRole('button', { name: 'Leave this library' })).toHaveCount(0);
-  await row.getByRole('button', { name: 'Step down as GM' }).click();
-  await expect(card(session.page, library.name)).toHaveCount(0);
+  await campaignCard(row, 'Zorro').getByRole('button', { name: 'Step down as GM' }).click();
+  await expect(session.page.getByText("You don't belong to any library yet.")).toBeVisible();
+  await expect(row).toBeHidden();
   expect(session.confirmations[0]).toContain('Step down as GM of "Zorro"?');
   const gms = await ok(
     owner.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/gms', {
@@ -92,10 +102,12 @@ test('deleting an account removes it everywhere, and a new login is a fresh one'
 
   const session = await signedInPage(browser, leaver.subject);
   await session.page.goto('/profile');
-  const zone = session.page.locator('#danger-zone');
+  const zone = session.page.locator('[data-delete-account]');
   await expect(zone).toBeVisible();
   await zone.getByRole('button', { name: 'Delete my account' }).click();
-  await expect(session.page.locator('#login-button')).toBeVisible();
+  await expect(
+    session.page.getByRole('banner').getByRole('button', { name: 'Log in' }),
+  ).toBeVisible();
   const text = session.confirmations[0] ?? '';
   expect(text).toContain('does not delete your Authgear login');
   expect(text).toContain('fresh, empty Lorenzo account');
@@ -124,10 +136,10 @@ test('the only owner of a library cannot delete their account, and is told which
   const session = await signedInPage(browser, subject);
   await session.page.goto('/profile');
   await session.page
-    .locator('#danger-zone')
+    .locator('[data-delete-account]')
     .getByRole('button', { name: 'Delete my account' })
     .click();
-  await expect(session.page.locator('#danger-zone')).toContainText(
+  await expect(session.page.locator('[data-delete-account]')).toContainText(
     `You're the only owner of "${library.name}", so your account can't be deleted yet.`,
   );
   expect((await ok(owner.GET('/me'))).id).toBe(me.id);
