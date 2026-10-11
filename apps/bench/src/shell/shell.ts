@@ -2,7 +2,7 @@
 // input into changes to it. The layout rules live in the model; this file is the DOM.
 
 import type { Bench } from '../core/bench';
-import { canSetParents } from '../core/transport';
+import { canSetParents, type EntrySummary } from '../core/transport';
 import { type HitResult, hitTest } from '../workspace/hit';
 import {
   addTab,
@@ -49,7 +49,16 @@ import {
   renderLinks,
   statusText,
 } from './entryPane';
-import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
+import {
+  buildRows,
+  counts,
+  filterEntries,
+  movedParents,
+  moveTargets,
+  ORDERS,
+  type Order,
+  parentOfKey,
+} from './explorerRows';
 import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
 import { icon, kindIcon } from './icons';
@@ -620,6 +629,7 @@ export class Shell {
 
     const list = el('ul', 'list');
     const byId = new Map(all.map((x) => [x.id, x]));
+    if (this.order === 'inherits' && !filtering) this.dropOnList(list, byId);
     for (const row of rows) {
       const li = el('li', row.type === 'header' ? 'group-head' : 'place');
       if (row.type === 'header') {
@@ -653,6 +663,7 @@ export class Shell {
       b.title = bench.status(row.id) === 'synced' ? kindsText(e.kinds) : statusText(bench, row.id);
       b.addEventListener('click', () => this.select(row.id));
       li.append(b);
+      if (this.order === 'inherits' && !filtering) this.dragRow(li, b, row.id, row.key, byId);
       if (row.parentCount) {
         const multi = el('span', 'multi');
         multi.append(icon('branch', 13));
@@ -665,6 +676,86 @@ export class Shell {
     }
     box.append(list);
     return box;
+  }
+
+  /** What is being dragged in the tree: the entry, and the entry it hangs under in that row. */
+  private dragging: { id: string; from: string | null } | null = null;
+
+  /** Can the dragged entry be dropped under `target` (null: the top level)? Its new parents, if so. */
+  private dropParents(
+    byId: ReadonlyMap<string, EntrySummary>,
+    target: string | null,
+  ): string[] | null {
+    const d = this.dragging;
+    const item = d ? byId.get(d.id) : null;
+    if (!d || !item) return null;
+    if (target !== null && !moveTargets(this.bench.listing(), d.id).some((e) => e.id === target))
+      return null;
+    return movedParents(item.parentIds, d.from, target);
+  }
+
+  private drop(byId: ReadonlyMap<string, EntrySummary>, target: string | null) {
+    const parents = this.dropParents(byId, target);
+    const d = this.dragging;
+    this.dragging = null;
+    // The entry may not have been opened yet: a command needs its loaded form.
+    if (parents && d)
+      void this.bench.open(d.id).then(() => this.bench.change('entry.set-parents', d.id, parents));
+  }
+
+  /** A row is dragged by its name and dropped on another row, which it then hangs under. */
+  private dragRow(
+    li: HTMLElement,
+    b: HTMLElement,
+    id: string,
+    key: string,
+    byId: ReadonlyMap<string, EntrySummary>,
+  ) {
+    const item = byId.get(id);
+    if (item && canSetParents(item.kinds)) {
+      b.draggable = true;
+      b.addEventListener('dragstart', (e) => {
+        this.dragging = { id, from: parentOfKey(key) };
+        e.dataTransfer?.setData('text/plain', id);
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+        li.closest('.list')?.classList.add('dragging');
+      });
+      b.addEventListener('dragend', () => {
+        this.dragging = null;
+        li.closest('.list')?.classList.remove('dragging');
+        for (const x of document.querySelectorAll('.drop-on')) x.classList.remove('drop-on');
+      });
+    }
+    li.addEventListener('dragover', (e) => {
+      if (!this.dropParents(byId, id)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      li.classList.add('drop-on');
+    });
+    li.addEventListener('dragleave', () => li.classList.remove('drop-on'));
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      li.classList.remove('drop-on');
+      this.drop(byId, id);
+    });
+  }
+
+  /** Dropping on the list outside any row takes the entry out of the place it was dragged from. */
+  private dropOnList(list: HTMLElement, byId: ReadonlyMap<string, EntrySummary>) {
+    list.addEventListener('dragover', (e) => {
+      if (!this.dropParents(byId, null)) return;
+      e.preventDefault();
+      list.classList.add('drop-top');
+    });
+    list.addEventListener('dragleave', (e) => {
+      if (e.target === list) list.classList.remove('drop-top');
+    });
+    list.addEventListener('drop', (e) => {
+      e.preventDefault();
+      list.classList.remove('drop-top');
+      this.drop(byId, null);
+    });
   }
 
   /**

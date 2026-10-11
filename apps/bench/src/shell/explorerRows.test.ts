@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { EntrySummary } from '../core/transport';
-import { buildRows, counts, filterEntries, moveTargets } from './explorerRows';
+import {
+  buildRows,
+  counts,
+  filterEntries,
+  movedParents,
+  moveTargets,
+  parentOfKey,
+} from './explorerRows';
 
 const e = (id: string, name: string, kinds: string[], parentIds: string[] = []): EntrySummary => ({
   id,
@@ -126,5 +133,22 @@ describe('where an entry can be moved', () => {
       'node',
       'undead',
     ]);
+  });
+});
+
+describe('dragging in the tree', () => {
+  it('replaces the place it came from and keeps the other parents', () => {
+    expect(movedParents(['a', 'b'], 'a', 'c')).toEqual(['b', 'c']);
+    expect(movedParents(['a'], 'a', null)).toEqual([]);
+    expect(movedParents([], null, 'c')).toEqual(['c']);
+  });
+  it('does nothing when the target already is a parent, or is the place it came from', () => {
+    expect(movedParents(['a', 'b'], 'a', 'b')).toBeNull();
+    expect(movedParents(['a'], 'a', 'a')).toBeNull();
+    expect(movedParents([], null, null)).toBeNull();
+  });
+  it('reads the parent from the key of a row', () => {
+    expect(parentOfKey('x')).toBeNull();
+    expect(parentOfKey('x/y/z')).toBe('y');
   });
 });

@@ -950,6 +950,39 @@ test.describe('moving an entry', () => {
   });
 });
 
+test.describe('dragging in the tree', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.getByRole('button', { name: 'Inherits' }).click();
+  });
+
+  test('dropping a row on another row hangs it under that entry, in one change', async ({
+    page,
+  }) => {
+    await page
+      .locator('.explorer [data-entry="zombie"]')
+      .dragTo(page.locator('.explorer [data-entry="beast"]'));
+    await expect
+      .poll(() => writes(page))
+      .toEqual([{ id: 'zombie', field: 'parents', value: ['beast'] }]);
+  });
+
+  test('an entry cannot be dropped under what is under it', async ({ page }) => {
+    await page
+      .locator('.explorer [data-entry="undead"]')
+      .dragTo(page.locator('.explorer [data-entry="zombie"]'));
+    expect(await writes(page)).toEqual([]);
+  });
+
+  test('dropping in the empty part of the list takes it to the top level', async ({ page }) => {
+    const list = page.locator('.explorer .list');
+    const box = await list.boundingBox();
+    await page.locator('.explorer [data-entry="zombie"]').dragTo(list, {
+      targetPosition: { x: 20, y: (box?.height ?? 100) - 4 },
+    });
+    await expect.poll(() => writes(page)).toEqual([{ id: 'zombie', field: 'parents', value: [] }]);
+  });
+});
+
 test.describe('stat chips', () => {
   const chip = (page: Page) => page.locator('.live-doc .ls-stat');
 
