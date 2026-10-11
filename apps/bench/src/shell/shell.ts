@@ -41,9 +41,11 @@ import {
 import { renderAncestry } from './ancestryPane';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
+import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
 import { renderStats } from './statsPane';
 import { PANE_IDS, PANES } from './stub';
+import { newVocabularyUi, renderVocabulary, type VocabularyUi } from './vocabularyPane';
 
 const BAR = 30;
 const STORE = 'bench:workspace';
@@ -113,6 +115,8 @@ export class Shell {
   /** The Write / Inspect / Compare switch; the page puts it in the title bar. */
   readonly layoutEl = el('div', 'layouts');
   /** What the Table and the Compare grid keep while the page is drawn again. */
+  private formulaUi: FormulaUi = newFormulaUi();
+  private vocabularyUi: VocabularyUi = newVocabularyUi();
   private grids: Record<'table' | 'grid', GridState> = {
     table: newGridState(),
     grid: newGridState(),
@@ -522,6 +526,12 @@ export class Shell {
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
+    if (id === 'formula')
+      return renderFormulas(bench, this.selected, this.formulaUi, {
+        redraw: () => this.render(),
+        go: (x) => this.select(x),
+      });
+    if (id === 'vocabulary') return renderVocabulary(bench, this.vocabularyUi, () => this.render());
     if (id === 'table' || id === 'grid')
       return renderGrid(bench, this.grids[id], {
         compact: id === 'table',

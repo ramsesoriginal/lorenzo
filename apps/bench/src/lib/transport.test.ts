@@ -581,3 +581,71 @@ describe('apiTransport', () => {
     });
   });
 });
+
+describe('formulas', () => {
+  const route = `/tenants/${T}/entities/${E}/computed-stats/${S_INT}`;
+  const formula = { kind: 'contents' as const, source: S_BOOL };
+
+  it('writes a formula with its If-Match and the numbers as text', async () => {
+    const { transport, calls } = setup(() =>
+      json({
+        entity_id: E,
+        stat_definition_id: S_INT,
+        formula: { kind: 'contents', source_stat_definition_id: S_BOOL },
+        updated_at: '2026-01-01T00:00:00Z',
+      }),
+    );
+    const held = await transport.setFormula(
+      E,
+      S_INT,
+      { kind: 'linear', source: S_BOOL, multiplier: '1,5', offset: '0', round: 'floor' },
+      'W/"old"',
+    );
+    expect(calls[0]).toMatchObject({
+      method: 'PUT',
+      url: route,
+      ifMatch: 'W/"old"',
+      body: {
+        kind: 'linear',
+        source_stat_definition_id: S_BOOL,
+        multiplier: '1.5',
+        offset: '0',
+        round_mode: 'floor',
+      },
+    });
+    expect(held).toMatchObject({ formula, version: 'W/"2026-01-01T00:00:00Z"' });
+  });
+
+  it('reads the held formulas and tries one that is not saved', async () => {
+    const { transport, calls } = setup((r) =>
+      r.url.endsWith('/preview')
+        ? json({
+            stat_definition_id: S_INT,
+            value: 3,
+            source: 'computed',
+            inputs: [{ stat_definition_id: S_BOOL, value: 1 }],
+          })
+        : json([
+            {
+              entity_id: E,
+              stat_definition_id: S_INT,
+              formula: { kind: 'contents', source_stat_definition_id: S_BOOL },
+              updated_at: 'u',
+            },
+          ]),
+    );
+    expect(await transport.listFormulas(E)).toMatchObject([{ statId: S_INT, formula }]);
+    const p = await transport.previewFormula(E, S_INT, formula);
+    expect(p).toEqual({ value: 3, source: 'computed', inputs: [{ name: 'magical', value: 1 }] });
+    expect(calls[1]).toMatchObject({
+      method: 'POST',
+      url: `${route}/preview`,
+      body: { formula: { kind: 'contents', source_stat_definition_id: S_BOOL } },
+    });
+  });
+
+  it('a stale formula is a precondition failure', async () => {
+    const { transport } = setup(() => json({ detail: 'Stale.' }, { status: 412 }));
+    await expect(transport.clearFormula(E, S_INT, 'W/"x"')).rejects.toBeInstanceOf(RefusedError);
+  });
+});

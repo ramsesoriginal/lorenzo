@@ -1350,3 +1350,58 @@ test.describe('link names', () => {
     await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Longsword');
   });
 });
+
+test.describe('formulas and the stat vocabulary', () => {
+  const formula = (page: Page) => page.locator('.pane-formula');
+
+  test('a stat is worked out by a formula, with the result tried before it is saved', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Formulas');
+    await formula(page).getByLabel('Work out a stat').selectOption({ label: 'Armor class' });
+    const editor = page.getByRole('region', { name: 'Formula for Armor class' });
+    await editor.getByLabel('Stat in row 1').selectOption({ label: 'Weight' });
+    await editor.getByLabel('Number in row 1').fill('2');
+    await expect(editor.locator('.formula-preview')).toContainText('This entry would have');
+    await editor.getByLabel('Number in row 1').fill('x');
+    await expect(editor.locator('.formula-problems')).toContainText('must be a number');
+    await expect(editor.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await editor.getByLabel('Number in row 1').fill('2');
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await expect(formula(page).locator('[data-formula="armor"]')).toContainText('2 × Weight');
+  });
+
+  test('a formula reaches the entries below, which can change it for themselves', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Formulas');
+    await formula(page).getByLabel('Work out a stat').selectOption({ label: 'Armor class' });
+    const editor = page.getByRole('region', { name: 'Formula for Armor class' });
+    await editor.getByLabel('Stat in row 1').selectOption({ label: 'Weight' });
+    await editor.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('tab', { name: 'Explorer' }).click();
+    await page.locator('[data-entry="dire-wolf"]').click();
+    await page.getByRole('tab', { name: 'Formulas' }).click();
+    const row = formula(page).locator('[data-formula="armor"]');
+    await expect(row).toContainText('from Wolf');
+    await expect(row.getByRole('button', { name: 'Change here Armor class' })).toBeVisible();
+    await row.getByRole('button', { name: /from Wolf/ }).click();
+    await expect(name(page)).toHaveValue('Wolf');
+  });
+
+  test('a stat is made, and deleted after asking twice', async ({ page }) => {
+    await palette(page, 'Open Vocabulary');
+    const pane = page.locator('.pane-vocabulary');
+    await pane.getByLabel('Name of the new stat').fill('Rarity');
+    await pane.getByLabel('Kind of value').selectOption('enum');
+    await pane.getByLabel('Values', { exact: true }).fill('common, rare');
+    await pane.getByRole('button', { name: 'Make the stat' }).click();
+    await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toContainText('common · rare');
+    await pane.getByRole('button', { name: 'Delete Rarity' }).click();
+    await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(1);
+    await pane.getByRole('button', { name: 'Delete Rarity' }).click();
+    await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(0);
+  });
+});

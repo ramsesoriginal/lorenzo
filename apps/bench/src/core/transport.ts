@@ -25,12 +25,38 @@ export interface TextDoc {
   version: string | null;
 }
 
+import type { Formula } from './formulas';
+
 /** An entry a link name stands for (`GET .../entities/resolve`). */
 export interface ResolvedEntry {
   slug: string;
   id: string;
   name: string;
   kinds: string[];
+}
+
+/** A formula an entry holds itself, with the version to send back when replacing or removing it. */
+export interface HeldFormula {
+  entryId: string;
+  statId: string;
+  formula: Formula;
+  /** The `If-Match` of a write to it (a weak ETag of its `updated_at`). */
+  version: string;
+}
+
+/** What a stat works out to on an entry, tried with a formula that is not saved. */
+export interface Preview {
+  value: StatScalar | null;
+  /** `computed`: by the formula; `direct`: a value of its own wins; `unset`: nothing to read. */
+  source: 'computed' | 'direct' | 'unset';
+  /** What the formula read. */
+  inputs: { name: string; value: StatScalar | null }[];
+}
+
+/** A group of stats in the repository's vocabulary. */
+export interface StatGroup {
+  id: string;
+  name: string;
 }
 
 /** How a stat's value is typed (the API's `value_type`). */
@@ -119,6 +145,30 @@ export interface Transport {
    */
   resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]>;
   getEntry(id: string): Promise<EntryState>;
+  /** The formulas the entry holds itself. */
+  listFormulas(entryId: string): Promise<HeldFormula[]>;
+  /** What the stat works out to on the entry with this formula, or (`null`) with what it has. */
+  previewFormula(entryId: string, statId: string, formula: Formula | null): Promise<Preview>;
+  /** Gives the entry the formula for the stat, replacing its own (`version` is its `If-Match`). */
+  setFormula(
+    entryId: string,
+    statId: string,
+    formula: Formula,
+    version: string | null,
+  ): Promise<HeldFormula>;
+  /** Takes the entry's own formula for the stat away. */
+  clearFormula(entryId: string, statId: string, version: string): Promise<void>;
+  /** The entries that hold a formula that reads the stat. */
+  formulaDependents(statId: string): Promise<{ entryId: string; statId: string }[]>;
+  listStatGroups(): Promise<StatGroup[]>;
+  createStatGroup(name: string): Promise<StatGroup>;
+  createStat(def: {
+    name: string;
+    groupId: string;
+    type: StatType;
+    enumValues: string[];
+  }): Promise<StatDef>;
+  deleteStat(statId: string): Promise<void>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
    * or `null` when it has none or it cannot be seen.

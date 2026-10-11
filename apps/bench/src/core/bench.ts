@@ -17,6 +17,7 @@ import {
   usedIds,
   type Value,
 } from './commands';
+import { FormulaStore, findFormula } from './formulaStore';
 import { LinkResolver, type StatTexts } from './links';
 import { Pictures } from './pictures';
 import {
@@ -24,6 +25,7 @@ import {
   type EditableKind,
   type EntryState,
   type EntrySummary,
+  type HeldFormula,
   OfflineError,
   RefusedError,
   type StatDef,
@@ -54,6 +56,8 @@ export class Bench {
   readonly links: LinkResolver;
   /** Entries' main pictures. */
   readonly pictures: Pictures;
+  /** The formulas that work out stats. */
+  readonly formulas: FormulaStore;
   private nextId = 1;
   private listeners = new Set<() => void>();
   private current: Promise<void> | null = null;
@@ -65,6 +69,7 @@ export class Bench {
   ) {
     this.links = new LinkResolver(transport);
     this.links.stats = (home) => this.statChips(home);
+    this.formulas = new FormulaStore(transport, () => this.emit());
     this.pictures = new Pictures(
       transport,
       () => this.emit(),
@@ -78,6 +83,30 @@ export class Bench {
   }
   private emit() {
     for (const fn of this.listeners) fn();
+  }
+
+  /** The formula that works out the stat on the entry, held by it or above it; null when none. */
+  formulaFor(id: string, statId: string): HeldFormula | null {
+    const parents = (x: string) => this.entries.find((e) => e.id === x)?.parentIds ?? [];
+    return findFormula((e) => this.formulas.held(e), parents, id, statId);
+  }
+
+  /** Reads the formulas of the entry and of everything above it. */
+  loadFormulas(id: string): Promise<void> {
+    const seen = new Set<string>();
+    const up = (x: string) => {
+      if (seen.has(x)) return;
+      seen.add(x);
+      for (const p of this.entries.find((e) => e.id === x)?.parentIds ?? []) up(p);
+    };
+    up(id);
+    return this.formulas.load([...seen]);
+  }
+
+  /** Reads the stat vocabulary again (after a stat was made or deleted). */
+  async reloadStatDefinitions(): Promise<void> {
+    this.statDefs = await this.transport.listStatDefinitions();
+    this.emit();
   }
 
   // ---- reading ----------------------------------------------------------------------------

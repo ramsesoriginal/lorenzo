@@ -77,6 +77,7 @@ export function renderStats(bench: Bench, id: string | null): HTMLElement {
     c.append(el('p', 'muted', 'Choose an entry in the explorer.'));
     return c;
   }
+  void bench.loadFormulas(id);
   const byId = new Map(bench.statDefs.map((d) => [d.id, d]));
   const rows = el('ul', 'stats');
   if (!item.stats.length) rows.append(el('li', 'muted', 'No stats.'));
@@ -85,7 +86,14 @@ export function renderStats(bench: Bench, id: string | null): HTMLElement {
     if (!def) continue;
     const li = el('li', stat.own ? 'stat own' : 'stat inherited');
     li.dataset.stat = def.id;
-    li.append(el('span', 'stat-name', def.name), control(bench, id, def, stat));
+    li.append(el('span', 'stat-name', def.name));
+    const worked = bench.formulaFor(id, def.id);
+    if (worked) {
+      const mark = el('span', 'stat-formula', 'ƒ');
+      mark.title = 'Worked out by a formula (see the Formulas pane)';
+      li.append(mark);
+    }
+    li.append(control(bench, id, def, stat));
     if (stat.own && canEditStat(def.type)) {
       const clear = el('button', 'x', '×');
       clear.type = 'button';

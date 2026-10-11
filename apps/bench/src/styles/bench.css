@@ -1030,3 +1030,65 @@ table.grid td.cur {
 .ls-stat:focus .stat-step {
   display: inline;
 }
+
+.pane-formula,
+.pane-vocabulary {
+  padding: 8px 10px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.formulas,
+.vocabulary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.formula,
+.vocab-stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.formula.inherited .formula-text {
+  font-style: italic;
+}
+.stat-formula {
+  color: var(--accent, #2a5db0);
+  font-style: italic;
+  font-weight: 600;
+}
+.formula-editor {
+  border: 1px solid var(--line, #c9cdd4);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+.formula-editor h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.formula-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.formula-row input.invalid {
+  border-color: var(--danger, #b3261e);
+}
+.formula-problems {
+  margin: 0;
+  padding-left: 16px;
+}
+.formula-note {
+  margin: 0;
+}
+.new-stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
