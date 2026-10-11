@@ -44,10 +44,10 @@ test('the pages about playing leave repositories out, and /beings keeps them for
   // /beings lists both: the library's with what a GM does, the repository's for reading.
   await page.goto('/beings');
   await expect(page.locator('#loading')).toBeHidden();
-  const libSection = page.locator('section', {
+  const libSection = page.locator('[data-beings]', {
     has: page.getByRole('heading', { name: library.name }),
   });
-  const repoSection = page.locator('section', {
+  const repoSection = page.locator('[data-beings]', {
     has: page.getByRole('heading', { name: new RegExp(`^${repository.name}`) }),
   });
   await expect(libSection).toContainText('Libra the Innkeeper');

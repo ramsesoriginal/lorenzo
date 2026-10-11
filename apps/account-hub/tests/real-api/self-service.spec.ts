@@ -1,7 +1,15 @@
 // A GM's two switches for players making their own items (ADR 0185, 0188).
 import { expect, test } from '@playwright/test';
 import { ok } from '../../../inventory-web/tests/e2e/support/api';
-import { addPlayer, libraryCard, newCampaign, newLibrary, newUser, signedInPage } from './support';
+import {
+  addPlayer,
+  campaignCard,
+  newCampaign,
+  newLibrary,
+  newUser,
+  openLibrary,
+  signedInPage,
+} from './support';
 
 test("an organizer switches a campaign's players off, and one player back on", async ({
   browser,
@@ -26,8 +34,7 @@ test("an organizer switches a campaign's players off, and one player back on", a
   expect((await read()).campaign.player_self_service).toBe(true);
 
   const session = await signedInPage(browser, owner.subject);
-  await session.page.goto('/tenants');
-  const card = libraryCard(session.page, library.name);
+  const card = campaignCard(await openLibrary(session.page, library), 'Zorro');
 
   await card.getByRole('button', { name: 'Edit', exact: true }).click();
   await card.getByLabel('Players can make their own items').uncheck();
@@ -35,7 +42,7 @@ test("an organizer switches a campaign's players off, and one player back on", a
   await expect(card.getByLabel('Players can make their own items')).toBeHidden();
   expect((await read()).campaign.player_self_service).toBe(false);
 
-  const row = card.locator('li').filter({ hasText: 'Pia Player' });
+  const row = card.locator('[data-list] > li').filter({ hasText: 'Pia Player' });
   const select = row.getByLabel('Making their own items: Pia Player');
   await expect(select).toHaveValue('');
   await select.selectOption({ label: 'Can make their own items' });
