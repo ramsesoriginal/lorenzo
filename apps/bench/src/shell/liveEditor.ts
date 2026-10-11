@@ -19,6 +19,7 @@ import { redraw } from './entryPane';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
+import { decorateStats } from './statChips';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
@@ -104,12 +105,18 @@ export function liveEditor(o: LiveOptions): HTMLElement {
         const b = el('div', 'live-block');
         b.dataset.block = String(i);
         if (block.trim() === '') b.classList.add('live-empty');
-        else b.innerHTML = html(block); // escaped by the renderer (ADR 0100)
+        else {
+          const drawn = html(block);
+          b.innerHTML = drawn; // escaped by the renderer (ADR 0100)
+          b.dataset.raw = drawn;
+          decorateStats(b, o.bench, o.home);
+        }
         b.querySelectorAll<HTMLElement>('a.ls-entity').forEach((a, n) => {
           a.dataset.key = `${o.key}:link:${i}:${n}`;
         });
         b.addEventListener('mousedown', (ev) => {
-          if (linkId(ev)) return ev.preventDefault();
+          if (linkId(ev) || (ev.target as Element).closest?.('.stat-step'))
+            return ev.preventDefault();
           ev.preventDefault();
           activate(i, 'end');
         });
@@ -148,7 +155,12 @@ export function liveEditor(o: LiveOptions): HTMLElement {
       const block = state.blocks[Number(b.dataset.block)] ?? '';
       if (block.trim() !== '') {
         const now = html(block);
-        if (b.innerHTML !== now) b.innerHTML = now;
+        // Compared with what was drawn, not with the page (the chips have buttons added).
+        if (b.dataset.raw !== now) {
+          b.innerHTML = now;
+          b.dataset.raw = now;
+          decorateStats(b, o.bench, o.home);
+        }
       }
     });
   };

@@ -37,6 +37,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `#id` and `.class` tokens, the one attribute syntax every `{…}` and `{{…}}` shares. */
 export const ATTR_LIST = String.raw`[.#][A-Za-z][\w-]*(?:[ \t]+[.#][A-Za-z][\w-]*)*`;
+/** `{weight}`: a stat name, which starts with a letter so `{#id}`, `{.class}` and `a{3}` are never one. */
+const STAT = /^\{([A-Za-z][A-Za-z0-9_-]*)\}/;
 const ATTRS = new RegExp(String.raw`^\{[ \t]*(${ATTR_LIST})[ \t]*\}`);
 const SPAN_OPEN = new RegExp(String.raw`^\{\{(${ATTR_LIST})(?:[ \t]+|(?=\}\}))`);
 
@@ -78,6 +80,8 @@ function plainOf(n: Inline): string {
       return n.date;
     case 'calendar':
       return n.expression;
+    case 'stat':
+      return n.name;
     case 'break':
       return ' ';
     default:
@@ -217,7 +221,7 @@ export function parseInline(src: string): Inline[] {
           : c === '$'
             ? math(src, i)
             : c === '{'
-              ? pending(src.slice(i))
+              ? (stat(src.slice(i)) ?? pending(src.slice(i)))
               : null;
       if (token) push(token.node);
       else text += c;
@@ -312,6 +316,11 @@ function math(src: string, i: number): Token {
   if (k >= src.length || !tex.trim()) return null;
   if (!display && (/^\s|\s$/.test(tex) || /\d/.test(src[k + 1] ?? ''))) return null;
   return { node: { type: 'math', display, tex: tex.trim() }, length: k + fence.length - i };
+}
+
+function stat(s: string): Token {
+  const m = STAT.exec(s);
+  return m && { node: { type: 'stat', name: m[1] as string }, length: m[0].length };
 }
 
 function pending(s: string): Token {

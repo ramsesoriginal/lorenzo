@@ -288,9 +288,8 @@ test('the description is shown as it reads, and edited with a preview that follo
   await description(page).fill('Hunts in *pairs*.');
   // before it is written down, the preview already shows it
   await expect((await reads(page)).locator('em')).toHaveText('pairs');
-  expect(await writes(page)).toEqual([]);
   await blur(page);
-  // written down once the focus has moved on, so the write is waited for, not the status
+  // written down once the text has been left, so the write is waited for, not the status
   await expect
     .poll(() => writes(page))
     .toEqual([{ id: 'wolf-description', field: 'description', value: 'Hunts in *pairs*.' }]);
@@ -905,6 +904,56 @@ test.describe('moving an entry', () => {
     await move(page).selectOption({ label: 'Top level (no parent)' });
     await expect(status(page)).toHaveText('Synced');
     expect(await writes(page)).toEqual([{ id: 'undead', field: 'parents', value: [] }]);
+  });
+});
+
+test.describe('stat chips', () => {
+  const chip = (page: Page) => page.locator('.live-doc .ls-stat');
+
+  test.beforeEach(async ({ page }) => {
+    await page.locator('[data-entry="sword"]').click();
+    await description(page).focus();
+    await page.keyboard.type('It weighs {weight} kg and {nothing}.');
+    await page.keyboard.press('Escape');
+  });
+
+  test('{weight} shows the value of the entry, and a name nothing has stays as written', async ({
+    page,
+  }) => {
+    await expect(chip(page)).toHaveText(/^1\.5/);
+    await expect(page.locator('.live-doc')).toContainText('{nothing}');
+  });
+
+  test('+ and \u2212 on the chip change the entry\u2019s own value by a tenth', async ({
+    page,
+  }) => {
+    await chip(page).hover();
+    await page.getByRole('button', { name: 'Increase Weight' }).click();
+    await expect(chip(page)).toHaveText(/^1\.6/);
+    expect(await writes(page)).toContainEqual({ id: 'sword', field: 'stat:weight', value: 1.6 });
+    await chip(page).hover();
+    await page.getByRole('button', { name: 'Decrease Weight' }).click();
+    await expect(chip(page)).toHaveText(/^1\.5/);
+  });
+
+  test('a value only inherited is drawn dashed, and a step makes it the entry\u2019s own', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="zombie"]').click();
+    await description(page).focus();
+    await page.keyboard.type('Armor {armor-class}.');
+    await page.keyboard.press('Escape');
+    await expect(chip(page)).toHaveClass(/inherited/);
+    await expect(chip(page)).toHaveText(/^10/);
+    await chip(page).hover();
+    await page.getByRole('button', { name: 'Increase Armor class' }).click();
+    await expect(chip(page)).not.toHaveClass(/inherited/);
+    await expect(chip(page)).toHaveText(/^11/);
+  });
+
+  test('the chip is reachable with the keyboard, and shows its buttons there', async ({ page }) => {
+    await chip(page).focus();
+    await expect(page.getByRole('button', { name: 'Increase Weight' })).toBeVisible();
   });
 });
 

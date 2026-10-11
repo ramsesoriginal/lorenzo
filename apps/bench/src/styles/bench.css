@@ -1001,3 +1001,32 @@ table.grid td.cur {
   overflow: hidden;
   min-height: 0;
 }
+
+.ls-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0 0.4em;
+  border: 1px solid var(--border-strong, #888);
+  border-radius: 999px;
+  background: var(--surface-selected, #eef3fb);
+}
+
+.ls-stat.inherited {
+  border-style: dashed;
+}
+
+.ls-stat .stat-step {
+  display: none;
+  border: 0;
+  background: none;
+  padding: 0 0.15em;
+  cursor: pointer;
+  color: inherit;
+}
+
+.ls-stat:hover .stat-step,
+.ls-stat:focus-within .stat-step,
+.ls-stat:focus .stat-step {
+  display: inline;
+}

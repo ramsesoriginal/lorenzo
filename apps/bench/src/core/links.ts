@@ -30,7 +30,13 @@ export interface Rendered {
 
 type Ref = { hint: string; slug: string };
 
+/** What `{weight}` shows for the stats of one entry, by the slug of each stat's name. */
+export type StatTexts = ReadonlyMap<string, { name: string; text: string; own: boolean }>;
+
 export class LinkResolver {
+  /** The stats of an entry as text, for the `{weight}` in its texts; null while it is not read. */
+  stats: (home: string) => StatTexts | null = () => null;
+
   private found = new Map<string, ResolvedEntry>();
   private missed = new Map<string, number>();
   /** Main pictures by entry id, as URLs; `null` for an entry that has none. Kept for the visit. */
@@ -136,6 +142,10 @@ export class LinkResolver {
             const entry = entryOf(ref);
             const src = entry && this.pictures.get(entry.id);
             return src ? { src, title: entry.name } : null;
+          },
+          stat: (name) => {
+            const s = this.stats(home)?.get(name.toLowerCase());
+            return s ? { text: s.text, title: s.name, class: s.own ? '' : 'inherited' } : null;
           },
           entity: (ref) => {
             const entry = entryOf(ref);

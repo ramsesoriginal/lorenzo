@@ -17,7 +17,7 @@ import {
   usedIds,
   type Value,
 } from './commands';
-import { LinkResolver } from './links';
+import { LinkResolver, type StatTexts } from './links';
 import { Pictures } from './pictures';
 import {
   canEditStat,
@@ -64,6 +64,7 @@ export class Bench {
     private readonly makeId: () => string = () => crypto.randomUUID(),
   ) {
     this.links = new LinkResolver(transport);
+    this.links.stats = (home) => this.statChips(home);
     this.pictures = new Pictures(
       transport,
       () => this.emit(),
@@ -113,6 +114,26 @@ export class Bench {
       this.loadError = e instanceof Error ? e.message : 'Could not load this entry.';
     }
     if (!quiet) this.emit();
+  }
+
+  /**
+   * The stats the entry has, as text for `{weight}` in its texts: by the slug of each stat's name,
+   * with whether the value is its own. Null while the entry has not been read.
+   */
+  statChips(id: string): StatTexts | null {
+    const entry = this.view(id);
+    if (!entry) return null;
+    const out = new Map<string, { name: string; text: string; own: boolean }>();
+    for (const s of entry.stats) {
+      const def = this.statDefs.find((d) => d.id === s.statId);
+      if (def)
+        out.set(slugify(def.name), {
+          name: def.name,
+          text: typeof s.value === 'boolean' ? (s.value ? 'On' : 'Off') : String(s.value),
+          own: s.own,
+        });
+    }
+    return out;
   }
 
   /** How many entries this one has a parent link or a child link with. */
